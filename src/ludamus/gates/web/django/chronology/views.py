@@ -160,9 +160,13 @@ def _render_category(
     categories = service.get_categories(event.pk)
     wizard = request.session.get(_session_key(event_slug), {})
     selected_id = wizard.get("category_id")
+    proposal_settings = request.di.uow.event_proposal_settings.read_or_create_by_event(
+        event.pk
+    )
 
     context: dict[str, object] = {
         "event": event,
+        "proposal_settings": proposal_settings,
         "categories": categories,
         "selected_category_id": selected_id,
         "current_step": "category",
@@ -443,11 +447,15 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         categories = service.get_categories(event.pk)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
 
         request.session.pop(_session_key(event_slug), None)
 
         context: dict[str, object] = {
             "event": event,
+            "proposal_settings": proposal_settings,
             "categories": categories,
             "step": "category",
             "current_step": "category",
@@ -474,8 +482,12 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
 
         if not (category_id := request.POST.get("category_id")):
             categories = service.get_categories(event.pk)
+            proposal_settings = (
+                request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+            )
             ctx: dict[str, object] = {
                 "event": event,
+                "proposal_settings": proposal_settings,
                 "categories": categories,
                 "error": _("Please select a category."),
                 "current_step": "category",

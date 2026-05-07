@@ -20,7 +20,7 @@ from ludamus.adapters.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import EventDTO, ProposalCategoryDTO
+from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
 from tests.integration.conftest import ProposalCategoryFactory, TimeSlotFactory
 from tests.integration.utils import assert_response
 
@@ -118,6 +118,9 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "categories": [
                     ProposalCategoryDTO.model_validate(cat1),
                     ProposalCategoryDTO.model_validate(cat2),
@@ -149,6 +152,9 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
                 "selected_category_id": str(proposal_category.pk),
                 "step": "category",

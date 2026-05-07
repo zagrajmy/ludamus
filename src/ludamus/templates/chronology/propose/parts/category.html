@@ -13,8 +13,8 @@
             </div>
         </div>
     {% endif %}
-    {% if event.proposal_description %}
-        <div class="prose prose-sm dark:prose-invert mb-6">{{ event.proposal_description|render_markdown }}</div>
+    {% if proposal_settings.description %}
+        <div class="prose prose-sm dark:prose-invert mb-6">{{ proposal_settings.description|render_markdown }}</div>
     {% endif %}
     <h2 class="text-lg font-semibold mb-1">{% translate "What would you like to propose?" %}</h2>
     <p class="text-sm text-foreground-muted mb-5">{% translate "Choose the type of session you want to run." %}</p>

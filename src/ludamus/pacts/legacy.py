@@ -427,7 +427,6 @@ class EventDTO(BaseModel):
     end_time: datetime
     name: str
     pk: int
-    proposal_description: str = ""
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
@@ -950,8 +949,6 @@ class EventRepositoryProtocol(Protocol):
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None: ...
 
 
 class VenueRepositoryProtocol(Protocol):
@@ -1176,6 +1173,8 @@ class TimeSlotRepositoryProtocol(Protocol):
 class EventProposalSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None: ...
 
 
 class EventSettingsRepositoryProtocol(Protocol):

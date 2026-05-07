@@ -164,9 +164,14 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "proposals"
         context["tab_urls"] = settings_tab_urls(slug)
+        proposal_settings = (
+            self.request.di.uow.event_proposal_settings.read_or_create_by_event(
+                current_event.pk
+            )
+        )
         context["form"] = ProposalSettingsForm(
             initial={
-                "proposal_description": current_event.proposal_description,
+                "proposal_description": proposal_settings.description,
                 "proposal_start_time": (
                     localtime(current_event.proposal_start_time)
                     if current_event.proposal_start_time
@@ -200,7 +205,7 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         with self.request.di.uow.atomic():
             # Save proposal description
-            self.request.di.uow.events.update_proposal_description(
+            self.request.di.uow.event_proposal_settings.update_description(
                 current_event.pk, cd.get("proposal_description") or ""
             )
 
