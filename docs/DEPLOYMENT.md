@@ -14,7 +14,7 @@ mise install
 
 # 3. Install Python dependencies
 #    Re-run after pulling to sync lockfile changes
-mise run p install
+mise run install
 
 # 4. Run database migrations (if any new ones)
 mise run dj migrate

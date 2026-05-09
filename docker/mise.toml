@@ -5,7 +5,6 @@ jobs = 1
 [tools]
 python = "3.14"
 node = "v25.6.1"
-poetry = { version = "2.3.2", pyproject = "/app/pyproject.toml" }
 
 [env]
 # Mise creates and activates this virtualenv automatically

@@ -1,6 +1,6 @@
-[p]
-description = "Run any Poetry subcommand"
-run = "poetry"
+[install]
+description = "Install poetry and dependencies"
+run = ["pip install poetry", "poetry install" ]
 
 [dj]
 description = "Run any django-admin subcommand"
@@ -9,29 +9,34 @@ run = "django-admin"
 [start]
 description = "Start Django dev server with frontend watch"
 run = "./scripts/dev"
+alias = "dev"
 
-[dev]
-description = "Start Django dev server with frontend watch"
-run = "./scripts/dev"
+[fnpm]
+description = "Run npm in the frontend client directory"
+run = "npm"
+dir = "src/ludamus/client"
 
 [build-frontend]
 description = "Build frontend assets (CSS + JS)"
-run = """
-cd src/ludamus/client && npm install && npm run build
-"""
+run = [
+    { task = "fnpm", args = ["install"] },
+    { task = "fnpm", args = ["run", "build"] },
+]
 
 [bootstrap]
 description = "Set up the dev environment from scratch — idempotent"
-run = """
+run = [
+    """
 if [ ! -f .env ]; then
-  cp .env.local.example .env
-  echo "Created .env from .env.local.example"
-fi
-set -a && . ./.env && set +a
-poetry install
-(cd src/ludamus/client && npm install)
-django-admin migrate --noinput
-django-admin createcachetable
-django-admin downloadvendor
-python scripts/bootstrap_dev.py
-"""
+cp .env.local.example .env
+echo "Created .env from .env.local.example"
+fi""",
+    "set -a && . ./.env && set +a",
+    { task = "install" },
+    "pre-commit install",
+    { task = "fnpm", args = ["install"] },
+    { task = "dj", args = ["migrate", "--noinput"] },
+    { task = "dj", args = ["createcachetable"] },
+    { task = "dj", args = ["downloadvendor"] },
+    "python scripts/bootstrap_dev.py",
+]

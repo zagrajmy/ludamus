@@ -44,7 +44,7 @@ COPY docker/Procfile.dev /app/
 USER appuser
 
 # Install toolchain and Python dependencies (cached independently of src changes)
-RUN mise trust && mise install && mise run p install
+RUN mise trust && mise install && mise run install
 
 # Copy application code
 COPY --chown=appuser:appuser src ./src
@@ -66,7 +66,7 @@ FROM base AS prod
 USER appuser
 
 # Install toolchain and production Python dependencies (cached independently of src changes)
-RUN mise trust && mise install && mise run p install --only main
+RUN mise trust && mise install && mise run install --only main
 
 # Copy application code
 COPY --chown=appuser:appuser src ./src

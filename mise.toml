@@ -1,11 +1,10 @@
 [settings]
-# Sequential execution to avoid race conditions in parallel tests
-jobs = 1
+# dependent tasks will run in parallel.
+jobs = 8
 
 [tools]
 python = "3.14"
 node = "v25.6.1"
-poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 "ast-grep" = "0.42.1"
 
 [env]
@@ -18,15 +17,15 @@ includes = ["tasks.toml"]
 
 [tasks.update]
 description = "Update all dependencies: pre-commit hooks, pip, Poetry packages"
-run = """
-pre-commit autoupdate
-pip install -U pip
-pip install -U poetry
-poetry update
-deptry .
-pip-audit .
-poetry show -o
-"""
+run = [
+    "pip install -U pip",
+    "pip install -U poetry",
+    "poetry update",
+    "pre-commit autoupdate",
+    { task = "deptry" },
+    "pip-audit .",
+    "poetry show -o",
+]
 
 # LINT
 
@@ -41,47 +40,56 @@ env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 
 [tasks.black]
 description = "Format Python code with Black"
-run = "mise run _lint -- black src tests"
+run = { task = "_lint", args = ["black", "src", "tests"] }
 
 [tasks.black-check]
 description = "Check Python formatting without modifying files"
-run = "mise run _lint -- black --check src tests"
+run = { task = "black", args = ["--check"] }
+
+[tasks.taplo]
+description = "Format TOML files"
+run = "taplo format --config=.taplo.toml"
 
 [tasks.codespell]
 description = "Find typos in source and test files"
-run = "mise run _lint -- codespell src tests/unit tests/integration"
+run = [
+    { task = "_lint", args = ["codespell", "src", "tests/unit", "tests/integration"] },
+]
 
 [tasks.deptry]
 description = "Detect missing, unused, or transitive dependency imports"
-run = "mise run _lint -- deptry src tests"
+run = { task = "_lint", args = ["deptry", "src", "tests"] }
 
 [tasks.djlint]
 description = "Lint Django templates"
-run = "mise run _lint -- djlint src --profile=django"
+run = { task = "_lint", args = ["djlint", "src", "--profile=django"] }
 
 [tasks.djlint-format]
 description = "Reformat Django templates, CSS, and JS"
-run = "mise run _lint -- djlint src --reformat --format-css --format-js --profile=django"
+run = { task = "djlint", args = ["--reformat", "--format-css", "--format-js"] }
 
 [tasks.il]
 description = "Enforce GLIMPSE layer import rules"
-run = "mise run _lint -- lint-imports --config=pyproject.toml"
+run = { task = "_lint", args = ["lint-imports", "--config=pyproject.toml"] }
 
 [tasks.mypy]
 description = "Type-check Python source with mypy"
-run = "mise run _lint -- mypy src"
+run = { task = "_lint", args = ["mypy", "src"] }
 
 [tasks.pylint]
 description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
-run = "mise run _lint -- pylint src && mise run _lint -- pylint --disable=duplicate-code tests"
+run = [
+    { task = "_lint", args = ["pylint", "src"] },
+    { task = "_lint", args = ["pylint", "--disable=duplicate-code", "tests"] },
+]
 
 [tasks.ruff]
 description = "Lint Python with Ruff (report only)"
-run = "mise run _lint -- ruff check src tests"
+run = { task = "_lint", args = ["ruff", "check", "src", "tests"] }
 
 [tasks.ruff-fix]
 description = "Lint Python with Ruff and auto-fix violations"
-run = "mise run _lint -- ruff check --fix src tests"
+run = { task = "ruff", args = ["--fix"] }
 
 [tasks.ast-grep]
 description = "Run structural code pattern checks via ast-grep"
@@ -96,31 +104,25 @@ run = "python scripts/impeccable_lint.py"
 
 [tasks.check]
 description = "Format, lint, and fix — run all code quality tools"
-depends = [
-  "black",
-  "ruff-fix",
-  "codespell",
-  "mypy",
-  "il",
-  "djlint",
-  "djlint-format",
-  "pylint",
-  "vulture",
-  "ast-grep",
-  "impeccable",
+run = [
+    { task = "black" },
+    { task = "ruff-fix" },
+    { task = "taplo" },
+    { task = "djlint-format" },
+    { tasks = ["codespell", "mypy", "il", "djlint", "pylint", "vulture", "ast-grep", "impeccable"] },
 ]
 
 [tasks.prcheck]
 description = "CI-style lint pass: report violations without fixing"
-depends = [
-  "black-check",
-  "ruff",
-  "codespell",
-  "mypy",
-  "djlint",
-  "pylint",
-  "vulture",
-  "ast-grep",
+run = [
+    { task="black-check" },
+    { task="ruff" },
+    { task="codespell" },
+    { task="mypy" },
+    { task="djlint" },
+    { task="pylint" },
+    { task="vulture" },
+    { task="ast-grep" },
 ]
 
 # PYTEST
@@ -144,33 +146,33 @@ env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 
 [tasks.unittest]
 description = "Run unit tests"
-run = "mise run _pytest -- tests/unit --cov=tests.unit --cov=ludamus"
+run = { task = "_pytest", args = ["tests/unit", "--cov=tests.unit", "--cov=ludamus"] }
 
 [tasks.test]
 description = "Run all tests"
-run = "mise run _pytest -- tests tests/integration tests/unit"
+run = { task = "_pytest", args = ["tests", "tests/integration", "tests/unit"] }
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
-run = "mise run _pytest -- --gremlins tests"
+run = { task = "_pytest", args = ["--gremlins", "tests"] }
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 
 [tasks.diff-cover]
 description = "Show test coverage for lines changed since main"
-depends = ["coverage"]
-run = """
-coverage xml --data-file=.coverage
-diff-cover coverage.xml --compare-branch=main
-"""
+wait_for = ["coverage"]
+run = [
+    "coverage xml --data-file=.coverage",
+    "diff-cover coverage.xml --compare-branch=main",
+]
 
 [tasks."coverage:combine"]
 description = "Combine integration + e2e coverage and export XML"
-run = """
-coverage combine .coverage.unit .coverage.e2e
-coverage xml -o coverage.xml
-coverage report --fail-under=97
-"""
+run = [
+    "coverage combine .coverage.unit .coverage.e2e",
+    "coverage xml -o coverage.xml",
+    "coverage report --fail-under=97",
+]
 env.PYTHONPATH = "src"
 
 # E2E
@@ -195,33 +197,30 @@ env.SESSION_COOKIE_DOMAIN = ".localhost"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 
 [tasks."install:playwright"]
-run = """
-npm install
-npx playwright install --with-deps
-"""
+run = ["npm install", "npx playwright install --with-deps"]
 description = "Install Playwright"
 dir = "tests/e2e"
 
 [tasks.e2e]
 description = "Run end-to-end Playwright tests"
-run = """
-npx playwright test --workers=1
-mise run _e2e -- coverage report
-"""
+run = [
+    "npx playwright test --workers=1",
+    { "task" = "_e2e", args = ["coverage", "report"] },
+]
 dir = "tests/e2e"
 
 [tasks."boot-e2e"]
 description = "Bootstrap and start dev server for e2e tests"
-run = """
-mise run _e2e -- django-admin migrate --noinput
-mise run _e2e -- django-admin createcachetable
-mise run _e2e -- django-admin downloadvendor
-mise run _e2e -- python tests/e2e/scripts/bootstrap_data.py
-mise run _e2e -- python tests/e2e/scripts/bootstrap_facilitators.py
-mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
-cd src/ludamus/client && npm install && npm run build && cd -
-exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload
-"""
+run = [
+    { task = "_e2e", args = ["django-admin", "migrate", "--noinput"] },
+    { task = "_e2e", args = ["django-admin", "createcachetable"] },
+    { task = "_e2e", args = ["django-admin", "downloadvendor"] },
+    { task = "_e2e", args = ["python", "tests/e2e/scripts/bootstrap_data.py"] },
+    { task = "_e2e", args = ["python", "tests/e2e/scripts/bootstrap_facilitators.py"] },
+    { task = "_e2e", args = ["python", "tests/e2e/scripts/bootstrap_timetable.py"] },
+    { task = "build-frontend" },
+    { task = "_e2e", args = ["coverage", "run", "--source=src", "-m", "django", "runserver", "--insecure", "--noreload"] },
+]
 
 # DEPLOYMENT
 
@@ -233,10 +232,10 @@ arg "<environment>" help="Target environment" {
 }
 arg "[dc_args]" var=#true double_dash="optional"
 '''
-run = '''
-GIT_COMMIT_SHA=${GIT_COMMIT_SHA:-$(git rev-parse --short HEAD)}
-docker compose -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
-'''
+run = [
+    "GIT_COMMIT_SHA=${GIT_COMMIT_SHA:-$(git rev-parse --short HEAD)}",
+    "docker compose -f docker/compose/{{ usage.environment }}.yaml {{arg(name'dc_args')}}",
+]
 
 [tasks.kill]
 description = "Kill dev servers (Django on :8000, Vite on :5173)"
@@ -246,13 +245,8 @@ run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -
 
 [tasks.ts-check]
 description = "Type-check frontend TypeScript"
-run = "cd src/ludamus/client && npm run typecheck"
+run = { task = "fnpm", args = ["run", "typecheck"] }
 
-
-[tasks.npm]
-description = "Run npm in the frontend client directory"
-run = "npm"
-dir = "src/ludamus/client"
 
 # OTHER
 
@@ -262,4 +256,8 @@ run = "git diff main '*.py'|grep -E '^\\+.*(noqa|type: ignore|Any|ANY|pylint|pra
 
 [tasks.coverage]
 description = "Run all tests, collect coverage, enforce 97% threshold"
-depends = ["test --cov", "e2e", "coverage:combine"]
+run = [
+    { task = "test", args = ["--cov"] },
+    { task = "e2e" },
+    { task = "coverage:combine" },
+]
