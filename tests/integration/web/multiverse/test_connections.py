@@ -242,6 +242,33 @@ class TestConnectionCreatePageView:
         assert b"abc" not in stored
         assert connection.last_check_status == "ok"
 
+    def test_post_create_rejects_duplicate_display_name(
+        self, authenticated_client, active_user, sphere, monkeypatch
+    ):
+        sphere.managers.add(active_user)
+        _patch_google_refresh(monkeypatch)
+        Connection.objects.create(
+            sphere=sphere, service="google", display_name="Existing"
+        )
+
+        response = authenticated_client.post(
+            self.url,
+            data={
+                "service": "google",
+                "display_name": "Existing",
+                "credentials": '{"client": "abc"}',
+            },
+        )
+
+        assert response.context["form"].errors.get("display_name")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/connections/create.html",
+            context_data={**CONNECTIONS_PANEL_CONTEXT, "form": ANY},
+        )
+        assert Connection.objects.filter(sphere=sphere).count() == 1
+
     def test_post_create_with_bad_credentials_leaves_no_row(
         self, authenticated_client, active_user, sphere, monkeypatch
     ):
@@ -359,6 +386,38 @@ class TestConnectionEditPageView:
         )
         connection.refresh_from_db()
         assert connection.display_name == "New Name"
+
+    def test_post_rejects_duplicate_display_name(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        connection = Connection.objects.create(
+            sphere=sphere, service="google", display_name="Original"
+        )
+        other_connection = Connection.objects.create(
+            sphere=sphere, service="google", display_name="Existing"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(connection),
+            data={"service": "google", "display_name": "Existing"},
+        )
+
+        assert response.context["form"].errors.get("display_name")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/connections/edit.html",
+            context_data={
+                **CONNECTIONS_PANEL_CONTEXT,
+                "form": ANY,
+                "connection": ConnectionDTO.model_validate(connection),
+            },
+        )
+        connection.refresh_from_db()
+        other_connection.refresh_from_db()
+        assert connection.display_name == "Original"
+        assert other_connection.display_name == "Existing"
 
     def test_post_rerenders_form_on_invalid_data(
         self, authenticated_client, active_user, sphere

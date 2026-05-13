@@ -24,11 +24,14 @@ from ludamus.pacts.multiverse import (
     ConnectionProvider,
     ConnectionWriteDict,
     CredentialAuthError,
+    DuplicateConnectionDisplayNameError,
 )
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
+
+    from ludamus.pacts.multiverse import ConnectionDTO
 
 
 _CREDENTIAL_ERROR_TEMPLATES: dict[ConnectionCheckStatus, _StrPromise] = {
@@ -49,6 +52,38 @@ def _credential_error_message(exc: CredentialAuthError) -> str:
 def _connection_not_found() -> RedirectError:
     return RedirectError(
         reverse("multiverse:panel:connections"), error=_("Connection not found.")
+    )
+
+
+def _add_duplicate_display_name_error(form: ConnectionForm) -> None:
+    form.add_error(
+        "display_name",
+        _("A connection with this display name already exists."),
+    )
+
+
+def _create_response(request: MultiverseRequest, form: ConnectionForm) -> TemplateResponse:
+    return TemplateResponse(
+        request,
+        "multiverse/panel/connections/create.html",
+        {
+            **sphere_panel_context(request, active_tab="connections"),
+            "form": form,
+        },
+    )
+
+
+def _edit_response(
+    request: MultiverseRequest, form: ConnectionForm, connection: ConnectionDTO
+) -> TemplateResponse:
+    return TemplateResponse(
+        request,
+        "multiverse/panel/connections/edit.html",
+        {
+            **sphere_panel_context(request, active_tab="connections"),
+            "form": form,
+            "connection": connection,
+        },
     )
 
 
@@ -88,14 +123,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
     def post(self, _request: MultiverseRequest) -> HttpResponse:
         form = ConnectionForm(self.request.POST, is_create=True)
         if not form.is_valid():
-            return TemplateResponse(
-                self.request,
-                "multiverse/panel/connections/create.html",
-                {
-                    **sphere_panel_context(self.request, active_tab="connections"),
-                    "form": form,
-                },
-            )
+            return _create_response(self.request, form)
 
         sphere_id = self.request.context.current_sphere_id
         data: ConnectionWriteDict = {
@@ -107,14 +135,10 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
             self.request.services.connections.create(sphere_id, data, plaintext)
         except CredentialAuthError as exc:
             form.add_error(None, _credential_error_message(exc))
-            return TemplateResponse(
-                self.request,
-                "multiverse/panel/connections/create.html",
-                {
-                    **sphere_panel_context(self.request, active_tab="connections"),
-                    "form": form,
-                },
-            )
+            return _create_response(self.request, form)
+        except DuplicateConnectionDisplayNameError:
+            _add_duplicate_display_name_error(form)
+            return _create_response(self.request, form)
         messages.success(self.request, _("Connection created successfully."))
         return redirect("multiverse:panel:connections")
 
@@ -156,15 +180,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
 
         form = ConnectionForm(self.request.POST)
         if not form.is_valid():
-            return TemplateResponse(
-                self.request,
-                "multiverse/panel/connections/edit.html",
-                {
-                    **sphere_panel_context(self.request, active_tab="connections"),
-                    "form": form,
-                    "connection": connection,
-                },
-            )
+            return _edit_response(self.request, form, connection)
 
         data: ConnectionWriteDict = {
             "service": ConnectionProvider(form.cleaned_data["service"]),
@@ -176,17 +192,16 @@ class ConnectionEditPageView(SphereAccessMixin, View):
                 self.request.services.connections.update(sphere_id, pk, data, plaintext)
             except CredentialAuthError as exc:
                 form.add_error(None, _credential_error_message(exc))
-                return TemplateResponse(
-                    self.request,
-                    "multiverse/panel/connections/edit.html",
-                    {
-                        **sphere_panel_context(self.request, active_tab="connections"),
-                        "form": form,
-                        "connection": connection,
-                    },
-                )
+                return _edit_response(self.request, form, connection)
+            except DuplicateConnectionDisplayNameError:
+                _add_duplicate_display_name_error(form)
+                return _edit_response(self.request, form, connection)
         else:
-            self.request.services.connections.update(sphere_id, pk, data)
+            try:
+                self.request.services.connections.update(sphere_id, pk, data)
+            except DuplicateConnectionDisplayNameError:
+                _add_duplicate_display_name_error(form)
+                return _edit_response(self.request, form, connection)
         messages.success(self.request, _("Connection updated successfully."))
         return redirect("multiverse:panel:connections")
 

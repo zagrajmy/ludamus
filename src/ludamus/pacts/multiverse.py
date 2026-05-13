@@ -42,6 +42,10 @@ class CredentialAuthError(Exception):
         super().__init__(f"{status.value}: {detail}")
 
 
+class DuplicateConnectionDisplayNameError(Exception):
+    pass
+
+
 class ConnectionDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
