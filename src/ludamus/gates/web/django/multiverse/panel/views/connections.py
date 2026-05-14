@@ -24,6 +24,7 @@ from ludamus.pacts.multiverse import (
     ConnectionProvider,
     ConnectionWriteDict,
     CredentialAuthError,
+    DuplicateConnectionDisplayNameError,
 )
 
 if TYPE_CHECKING:
@@ -44,6 +45,12 @@ _CREDENTIAL_ERROR_TEMPLATES: dict[ConnectionCheckStatus, _StrPromise] = {
 def _credential_error_message(exc: CredentialAuthError) -> str:
     template = _CREDENTIAL_ERROR_TEMPLATES[exc.status]
     return str(template % {"detail": exc.detail})
+
+
+def _add_duplicate_display_name_error(form: ConnectionForm) -> None:
+    form.add_error(
+        "display_name", _("A connection with this display name already exists.")
+    )
 
 
 def _connection_not_found() -> RedirectError:
@@ -107,6 +114,16 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
             self.request.services.connections.create(sphere_id, data, plaintext)
         except CredentialAuthError as exc:
             form.add_error(None, _credential_error_message(exc))
+            return TemplateResponse(
+                self.request,
+                "multiverse/panel/connections/create.html",
+                {
+                    **sphere_panel_context(self.request, active_tab="connections"),
+                    "form": form,
+                },
+            )
+        except DuplicateConnectionDisplayNameError:
+            _add_duplicate_display_name_error(form)
             return TemplateResponse(
                 self.request,
                 "multiverse/panel/connections/create.html",
@@ -185,8 +202,31 @@ class ConnectionEditPageView(SphereAccessMixin, View):
                         "connection": connection,
                     },
                 )
+            except DuplicateConnectionDisplayNameError:
+                _add_duplicate_display_name_error(form)
+                return TemplateResponse(
+                    self.request,
+                    "multiverse/panel/connections/edit.html",
+                    {
+                        **sphere_panel_context(self.request, active_tab="connections"),
+                        "form": form,
+                        "connection": connection,
+                    },
+                )
         else:
-            self.request.services.connections.update(sphere_id, pk, data)
+            try:
+                self.request.services.connections.update(sphere_id, pk, data)
+            except DuplicateConnectionDisplayNameError:
+                _add_duplicate_display_name_error(form)
+                return TemplateResponse(
+                    self.request,
+                    "multiverse/panel/connections/edit.html",
+                    {
+                        **sphere_panel_context(self.request, active_tab="connections"),
+                        "form": form,
+                        "connection": connection,
+                    },
+                )
         messages.success(self.request, _("Connection updated successfully."))
         return redirect("multiverse:panel:connections")
 

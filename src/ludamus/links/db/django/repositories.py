@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q
 from django.utils import timezone
 from django.utils.text import slugify
@@ -125,6 +125,7 @@ from ludamus.pacts.multiverse import (
     ConnectionDTO,
     ConnectionsRepositoryProtocol,
     ConnectionWriteDict,
+    DuplicateConnectionDisplayNameError,
 )
 
 if TYPE_CHECKING:
@@ -2619,6 +2620,28 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
 
+_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
+    "connection_unique_display_name_per_sphere"
+)
+_SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
+    "UNIQUE constraint failed: connection.sphere_id, connection.display_name"
+)
+
+
+def _is_connection_display_name_conflict(exc: IntegrityError) -> bool:
+    diag = getattr(exc.__cause__, "diag", None)
+    if (
+        getattr(diag, "constraint_name", None)
+        == _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT
+    ):
+        return True
+    message = str(exc)
+    return (
+        _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
+        or _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
+    )
+
+
 class ConnectionsRepository(ConnectionsRepositoryProtocol):
     @staticmethod
     def list_for_sphere(sphere_id: int) -> list[ConnectionDTO]:
@@ -2639,11 +2662,16 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
 
     @staticmethod
     def create(sphere_id: int, data: ConnectionWriteDict) -> ConnectionDTO:
-        connection = Connection.objects.create(
-            sphere_id=sphere_id,
-            service=data["service"],
-            display_name=data["display_name"],
-        )
+        try:
+            connection = Connection.objects.create(
+                sphere_id=sphere_id,
+                service=data["service"],
+                display_name=data["display_name"],
+            )
+        except IntegrityError as exc:
+            if _is_connection_display_name_conflict(exc):
+                raise DuplicateConnectionDisplayNameError from exc
+            raise
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
@@ -2654,7 +2682,12 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
             raise NotFoundError from exc
         connection.service = data["service"]
         connection.display_name = data["display_name"]
-        connection.save()
+        try:
+            connection.save()
+        except IntegrityError as exc:
+            if _is_connection_display_name_conflict(exc):
+                raise DuplicateConnectionDisplayNameError from exc
+            raise
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
