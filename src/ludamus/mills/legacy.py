@@ -2,10 +2,12 @@ import re
 import string
 import unicodedata
 from datetime import UTC, datetime, timedelta
+from html import escape as _escape
+from html.parser import HTMLParser
 from secrets import choice as _secret_choice
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import markdown as _md
 
@@ -56,17 +58,110 @@ from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
 _BASE62_CHARS = string.ascii_letters + string.digits
+_ALLOWED_MARKDOWN_TAGS = frozenset(
+    {
+        "a",
+        "blockquote",
+        "br",
+        "code",
+        "em",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "hr",
+        "li",
+        "ol",
+        "p",
+        "pre",
+        "strong",
+        "ul",
+    }
+)
+_VOID_MARKDOWN_TAGS = frozenset({"br", "hr"})
+_ALLOWED_LINK_SCHEMES = frozenset({"", "http", "https", "mailto"})
 
 
 def generate_share_code(length: int = 6) -> str:
     return "".join(_secret_choice(_BASE62_CHARS) for _ in range(length))
 
 
+def _is_safe_markdown_url(url: str) -> bool:
+    trimmed_url = "".join(char for char in url.strip() if char > " ")
+    return urlsplit(trimmed_url).scheme.lower() in _ALLOWED_LINK_SCHEMES
+
+
+def _sanitize_markdown_attrs(tag: str, attrs: list[tuple[str, str | None]]) -> str:
+    if tag != "a":
+        return ""
+
+    rendered_attrs = []
+    for name, value in attrs:
+        normalized_name = name.lower()
+        if value is None or normalized_name not in {"href", "title"}:
+            continue
+        if normalized_name == "href" and not _is_safe_markdown_url(value):
+            continue
+        rendered_attrs.append(f'{normalized_name}="{_escape(value, quote=True)}"')
+
+    if not rendered_attrs:
+        return ""
+    return f" {' '.join(rendered_attrs)}"
+
+
+class _MarkdownSanitizer(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag not in _ALLOWED_MARKDOWN_TAGS:
+            return
+        if normalized_tag in _VOID_MARKDOWN_TAGS:
+            self._parts.append(f"<{normalized_tag}>")
+            return
+
+        rendered_attrs = _sanitize_markdown_attrs(normalized_tag, attrs)
+        self._parts.append(f"<{normalized_tag}{rendered_attrs}>")
+
+    def handle_endtag(self, tag: str) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag in _ALLOWED_MARKDOWN_TAGS - _VOID_MARKDOWN_TAGS:
+            self._parts.append(f"</{normalized_tag}>")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag not in _ALLOWED_MARKDOWN_TAGS:
+            return
+        if normalized_tag in _VOID_MARKDOWN_TAGS:
+            self._parts.append(f"<{normalized_tag}>")
+            return
+
+        rendered_attrs = _sanitize_markdown_attrs(normalized_tag, attrs)
+        self._parts.append(f"<{normalized_tag}{rendered_attrs}></{normalized_tag}>")
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(_escape(data, quote=False))
+
+    def html(self) -> str:
+        return "".join(self._parts)
+
+
+def _sanitize_markdown_html(value: str) -> str:
+    sanitizer = _MarkdownSanitizer()
+    sanitizer.feed(value)
+    sanitizer.close()
+    return sanitizer.html()
+
+
 def render_markdown(text: str) -> str:
     result: str = _md.markdown(  # type: ignore [misc]
         text, extensions=["nl2br", "fenced_code"]
     )
-    return result
+    return _sanitize_markdown_html(result)
 
 
 def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
