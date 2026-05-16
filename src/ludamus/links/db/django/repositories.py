@@ -2654,7 +2654,7 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
             raise NotFoundError from exc
         connection.service = data["service"]
         connection.display_name = data["display_name"]
-        connection.save()
+        connection.save(update_fields=["service", "display_name"])
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod

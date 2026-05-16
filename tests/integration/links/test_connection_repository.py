@@ -5,12 +5,55 @@ repo / DTO surface — decrypt is a forward dep owned by the
 import-execution slice.
 """
 
+from datetime import UTC, datetime
+
 import pytest
 
 from ludamus.adapters.db.django.models import Connection
 from ludamus.links.db.django.repositories import ConnectionsRepository
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import ConnectionDTO
+
+
+class TestConnectionsRepositoryUpdate:
+    def test_updates_metadata_without_overwriting_concurrent_credential_write(
+        self, sphere, monkeypatch
+    ):
+        connection = Connection.objects.create(
+            sphere=sphere,
+            service="google",
+            display_name="Konto",
+            credentials=b"old",
+            last_check_status="auth_failed",
+            last_check_detail="old",
+            last_check_at=datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
+        )
+        fresh_check_at = datetime(2026, 5, 2, 12, 0, tzinfo=UTC)
+        original_save = Connection.save
+
+        def save_after_concurrent_credential_write(instance, *args, **kwargs):
+            Connection.objects.filter(pk=instance.pk).update(
+                credentials=b"fresh",
+                last_check_status="ok",
+                last_check_detail="fresh",
+                last_check_at=fresh_check_at,
+            )
+            return original_save(instance, *args, **kwargs)
+
+        monkeypatch.setattr(Connection, "save", save_after_concurrent_credential_write)
+
+        ConnectionsRepository.update(
+            sphere_id=sphere.pk,
+            pk=connection.pk,
+            data={"service": "google", "display_name": "New Account"},
+        )
+
+        connection.refresh_from_db()
+        assert connection.display_name == "New Account"
+        assert bytes(connection.credentials) == b"fresh"
+        assert connection.last_check_status == "ok"
+        assert connection.last_check_detail == "fresh"
+        assert connection.last_check_at == fresh_check_at
 
 
 class TestConnectionsRepositoryUpdateCredentials:
