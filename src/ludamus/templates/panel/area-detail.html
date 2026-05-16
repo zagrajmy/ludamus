@@ -86,6 +86,8 @@
                         </tr>
                     </thead>
                     <tbody id="spaces-list" class="bg-bg-secondary divide-y divide-border">
+                        {% translate "Are you sure you want to delete this space? This cannot be undone." as t_delete_space_confirm %}
+                        {% translate "Delete" as t_delete %}
                         {% for space in spaces %}
                             <tr class="space-row hover:bg-bg-tertiary cursor-move"
                                 draggable="true"
@@ -109,7 +111,8 @@
                                         <div class="action-dropdown-menu hidden absolute right-0 mt-2 w-40 bg-bg-secondary rounded-lg shadow-lg border border-border z-10">
                                             <form method="post"
                                                   action="{% url 'panel:space-delete' slug=current_event.slug venue_slug=venue.slug area_slug=area.slug space_slug=space.slug %}"
-                                                  onsubmit="return confirm('{% translate "Are you sure you want to delete this space?" %}');">
+                                                  data-confirm="{{ t_delete_space_confirm }}"
+                                                  data-confirm-action="{{ t_delete }}">
                                                 {% csrf_token %}
                                                 <button type="submit"
                                                         class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">

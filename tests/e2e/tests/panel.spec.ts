@@ -525,8 +525,6 @@ test.describe('Backoffice Panel', () => {
       '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
     );
 
-    page.on('dialog', (dialog) => dialog.accept());
-
     const row = page.locator('tr', {
       hasText: 'Temp Space To Delete',
     });
@@ -534,6 +532,12 @@ test.describe('Backoffice Panel', () => {
     await row
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
+      .click();
+
+    // Confirm in the styled dialog that replaced the native confirm()
+    await page
+      .locator('#confirm-dialog')
+      .getByRole('button', { name: 'Delete' })
       .click();
 
     await expect(
@@ -1803,16 +1807,23 @@ test.describe('Backoffice Panel', () => {
     expect(newIds).toEqual(reversed);
 
     // Clean up: delete "Reorder Test Space"
-    page.on('dialog', (dialog) => dialog.accept());
-    await page
-      .locator('tr', { hasText: 'Reorder Test Space' })
+    const reorderRow = page.locator('tr', {
+      hasText: 'Reorder Test Space',
+    });
+    await reorderRow
       .locator('.action-dropdown-toggle')
       .click();
-    await page
-      .locator('tr', { hasText: 'Reorder Test Space' })
+    await reorderRow
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
       .click();
+
+    // Confirm in the styled dialog that replaced the native confirm()
+    await page
+      .locator('#confirm-dialog')
+      .getByRole('button', { name: 'Delete' })
+      .click();
+
     await expect(
       page.getByText('Space deleted successfully.'),
     ).toBeVisible();

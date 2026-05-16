@@ -46,6 +46,7 @@ export default defineConfig({
         djangoHmr: resolve(__dirname, "src/django-hmr.ts"),
         index: resolve(__dirname, "src/index.css"),
         "encounter-form": resolve(__dirname, "src/encounter-form.ts"),
+        confirm: resolve(__dirname, "src/confirm.ts"),
         modal: resolve(__dirname, "src/modal.ts"),
         tabs: resolve(__dirname, "src/tabs.ts"),
         timetable: resolve(__dirname, "src/timetable.ts"),

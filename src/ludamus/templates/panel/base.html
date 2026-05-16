@@ -311,7 +311,9 @@
                 </div>
             </main>
         </div>
+        {% include "components/confirm-dialog.html" %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
+        {% vite_asset 'src/confirm.ts' %}
     </body>
 </html>
