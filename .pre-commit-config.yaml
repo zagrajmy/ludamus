@@ -62,3 +62,11 @@ repos:
       - id: dclint
         files: ^docker/compose/.*\.ya?ml$
         args: [--fix]
+  - repo: local
+    hooks:
+      - id: varlock-scan
+        name: varlock scan (sensitive value leaks)
+        entry: ./scripts/varlock scan --staged
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

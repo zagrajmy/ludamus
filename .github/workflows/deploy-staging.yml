@@ -14,7 +14,94 @@ jobs:
       name: staging
       url: https://test.zagrajmy.net
     steps:
-      - name: executing remote ssh commands using password
+      - name: Materialize .env.local from environment variables and secrets
+        env:
+          # Not configured in the GitHub Environment — hardcoded here.
+          ENV: production
+          DJANGO_SETTINGS_MODULE: ludamus.edges.settings
+          DEBUG: 'false'
+          # Non-sensitive config — GitHub Environment variables.
+          USE_POSTGRES: ${{ vars.USE_POSTGRES }}
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
+          SESSION_COOKIE_DOMAIN: ${{ vars.SESSION_COOKIE_DOMAIN }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_PORT: ${{ vars.DB_PORT }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          AUTH0_CLIENT_ID: ${{ vars.AUTH0_CLIENT_ID }}
+          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          MEMBERSHIP_API_BASE_URL: ${{ vars.MEMBERSHIP_API_BASE_URL }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          STATIC_ROOT: ${{ vars.STATIC_ROOT }}
+          MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
+          POSTGRES_DATA_PATH: ${{ vars.POSTGRES_DATA_PATH }}
+          STATIC_DATA_PATH: ${{ vars.STATIC_DATA_PATH }}
+          MEDIA_DATA_PATH: ${{ vars.MEDIA_DATA_PATH }}
+          WEB_PORT: ${{ vars.WEB_PORT }}
+          # Sensitive config — GitHub Environment secrets.
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          MEMBERSHIP_API_TOKEN: ${{ secrets.MEMBERSHIP_API_TOKEN }}
+        run: |
+          set -eu
+          : > .env.local
+          for k in ENV DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
+                   ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
+                   DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
+                   SECRET_KEY CREDENTIALS_ENCRYPTION_KEY \
+                   AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
+                   MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
+                   SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
+                   POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
+                   WEB_PORT; do
+            v="$(printenv "$k" || true)"
+            [ -n "$v" ] && printf "%s='%s'\n" "$k" "$v" >> .env.local
+
+          done
+          for r in SECRET_KEY CREDENTIALS_ENCRYPTION_KEY DB_PASSWORD \
+                   AUTH0_CLIENT_SECRET MEMBERSHIP_API_TOKEN \
+                   ALLOWED_HOSTS ROOT_DOMAIN DB_NAME DB_USER \
+                   AUTH0_CLIENT_ID AUTH0_DOMAIN MEMBERSHIP_API_BASE_URL \
+                   POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
+                   USE_POSTGRES DB_HOST DB_PORT; do
+            grep -q "^${r}=" .env.local || { echo "Missing environment variable or secret: $r" >&2; exit 1; }
+          done
+
+      - name: Stash legacy untracked .env on host (one-time)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_DEPLOY_KEY }}
+          # Pre-PR-256 hosts had a hand-edited untracked .env. After merge
+          # .env is tracked and `git checkout` refuses to overwrite the
+          # untracked copy. Rename it to .env.staging.local so the
+          # working tree is clean for checkout while preserving the old
+          # values for inspection. The scp step then drops the
+          # GH-secrets-built .env.local on top.
+          # TODO: once each host's .env.staging.local has been
+          # reviewed against the GH Environment secrets and deleted by
+          # hand, drop this step.
+          script: |
+            set -e
+            cd ludamus/
+            if [ -f .env ] && ! git ls-files --error-unmatch .env >/dev/null 2>&1; then
+              mv .env .env.staging.local
+            fi
+
+      - name: Upload .env.local to host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_DEPLOY_KEY }}
+          source: .env.local
+          target: ludamus/
+
+      - name: Deploy
         uses: appleboy/ssh-action@v1
         env:
           GITHUB_COMMIT_SHA: ${{ github.sha }}
@@ -26,8 +113,9 @@ jobs:
           script: |
             set -ex
             cd ludamus/
+            chmod 600 .env.local
             git fetch
             git checkout $GITHUB_COMMIT_SHA
             export GIT_COMMIT_SHA=$(git rev-parse --short HEAD)
-            docker compose --env-file .env -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
+            docker compose --env-file .env.local -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
             docker image prune -f

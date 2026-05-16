@@ -26,6 +26,15 @@ jobs:
       - run: mise run p install
       - run: mise run prcheck --jobs 4
 
+  varlock-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - run: npm ci --prefix src/ludamus/client
+      - run: ./scripts/varlock scan
+
   impeccable:
     runs-on: ubuntu-latest
     steps:

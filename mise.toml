@@ -11,7 +11,9 @@ poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 [env]
 # Mise creates and activates this virtualenv automatically
 _.python.venv = { path = ".venv", create = true }
-_.file = ".env"
+# .env loading is owned by varlock (see Procfile.dev / scripts/dev) so the
+# resolved env is identical regardless of whether the process is launched
+# via mise shim, honcho, or directly.
 
 [task_config]
 includes = ["tasks.toml"]
@@ -247,12 +249,14 @@ arg "[dc_args]" var=#true double_dash="optional"
 '''
 run = '''
 GIT_COMMIT_SHA=${GIT_COMMIT_SHA:-$(git rev-parse --short HEAD)}
-docker compose -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
+./scripts/varlock run -- \
+  docker compose --env-file /dev/null \
+    -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
 '''
 
 [tasks.kill]
-description = "Kill dev servers (Django on :8000, Vite on :5173)"
-run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
+description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
+run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
 # FRONTEND
 

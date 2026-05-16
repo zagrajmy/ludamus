@@ -25,7 +25,7 @@ ENV DB_NAME=:memory:
 WORKDIR /app
 
 # Copy dependency files first for layer caching
-COPY tasks.toml pyproject.toml poetry.lock docker/mise.toml /app/
+COPY pyproject.toml poetry.lock docker/mise.toml /app/
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser

@@ -5,8 +5,9 @@
 **Prerequisites:** [mise](https://mise.jdx.dev/) installed.
 
 ```bash
-# 1. Copy the example env file and fill in values (first time only)
-cp .env.local.example .env
+# 1. Optional: drop personal overrides into .env.local (gitignored).
+#    The committed .env carries dev defaults that work out of the box.
+cp .env.docker .env.local  # only if you want to start from the docker baseline
 
 # 2. Install toolchain (Python 3.14, Node v25.6.1, Poetry)
 #    Re-run after Python/Node version bumps in mise.toml
@@ -31,9 +32,9 @@ Uses SQLite by default (`USE_POSTGRES=false`). Set `DB_NAME` to a file path
 **Prerequisites:** Docker, mise (for the `dc` task wrapper).
 
 ```bash
-# 1. Copy the Docker-specific env file and fill in values
+# 1. Copy the Docker baseline into .env and fill in values
 #    Important: set DB_HOST=db (the compose service name)
-cp .env.docker.example .env
+cp .env.docker .env.local
 
 # 2. Build and start all services
 mise run dc local up --build
@@ -64,23 +65,23 @@ sudo su - ludamus
 # 2. Clone the repository
 git clone <repo-url> && cd ludamus
 
-# 3. Create .env with production values
-#    Use .env.docker.example as a starting point, then set:
+# 3. Override the committed .env baseline with production values
+#    Use .env.docker as a starting point, then set:
 #    ENV=production, DEBUG=false, a real SECRET_KEY,
 #    ALLOWED_HOSTS, Auth0 credentials, DB credentials, etc.
-cp .env.docker.example .env
-# Edit .env with production values
+cp .env.docker .env.local
+# Edit .env.local with production values (gitignored, layered on top of .env)
 
 # 4. Create host directories for bind mounts
 mkdir -p ~/ludamus/{postgres_data,static,media}
 
-# 5. Set bind mount paths in .env
+# 5. Set bind mount paths in .env.local
 #    POSTGRES_DATA_PATH=/home/ludamus/ludamus/postgres_data
 #    STATIC_DATA_PATH=/home/ludamus/ludamus/static
 #    MEDIA_DATA_PATH=/home/ludamus/ludamus/media
 
 # 6. Build and start production services
-docker compose -f docker/compose/prod.yaml up -d --build
+docker compose --env-file .env.local -f docker/compose/prod.yaml up -d --build
 ```
 
 **Startup order** (enforced by `depends_on` with health checks):
@@ -111,7 +112,7 @@ should be set to the dedicated user's home directory as shown above.
 git pull
 
 # Rebuild and restart — migrations and collectstatic run automatically
-docker compose -f docker/compose/prod.yaml up -d --build
+docker compose --env-file .env.local -f docker/compose/prod.yaml up -d --build
 ```
 
 Migrations run automatically via the `migrations` service. Static files are
@@ -120,7 +121,7 @@ re-collected via the `collectstatic` service.
 If only env vars changed (no code changes):
 
 ```bash
-docker compose -f docker/compose/prod.yaml up -d
+docker compose --env-file .env.local -f docker/compose/prod.yaml up -d
 ```
 
 ## 5. Environment Variables Reference

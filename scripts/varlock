@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Wrapper that ensures the local varlock binary exists, then forwards
+# all arguments to it. If node_modules hasn't been installed yet
+# (fresh checkout) the wrapper runs `npm install` once and proceeds.
+# Idempotent.
+
+set -euo pipefail
+
+VARLOCK="src/ludamus/client/node_modules/.bin/varlock"
+
+if [ ! -x "$VARLOCK" ]; then
+  echo "[varlock] $VARLOCK missing; running npm install" >&2
+  (cd src/ludamus/client && npm install --silent) >&2
+fi
+
+exec "$VARLOCK" "$@"

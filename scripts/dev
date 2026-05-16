@@ -7,6 +7,51 @@ use_portless="1"
 use_lan="0"
 do_trust="0"
 
+ensure_simulacrum_certs() {
+  local dest="$HOME/.simulacrum/certs"
+  if [ -f "$dest/localhost.pem" ] && [ -f "$dest/localhost-key.pem" ]; then
+    return 0
+  fi
+  local src_pem="$HOME/.portless/server.pem"
+  local src_key="$HOME/.portless/server-key.pem"
+  if [ ! -f "$src_pem" ] || [ ! -f "$src_key" ]; then
+    echo "[dev] no portless certs at ~/.portless; auth0-simulator disabled" >&2
+    return 1
+  fi
+  mkdir -p "$dest"
+  ln -sf "$src_pem" "$dest/localhost.pem"
+  ln -sf "$src_key" "$dest/localhost-key.pem"
+  echo "[dev] linked portless certs -> ~/.simulacrum/certs" >&2
+}
+
+ensure_combined_ca_bundle() {
+  local dest="$HOME/.simulacrum/certs/ca-bundle.pem"
+  local portless_ca="$HOME/.portless/ca.pem"
+  [ -f "$portless_ca" ] || return 1
+  if ! openssl x509 -in "$portless_ca" -noout 2>/dev/null; then
+    echo "[dev] $portless_ca is not a valid X.509 cert; skipping bundle" >&2
+    return 1
+  fi
+  if [ ! -f "$dest" ] || [ "$portless_ca" -nt "$dest" ]; then
+    local certifi_path
+    certifi_path="$(mise x -- python -c 'import certifi; print(certifi.where())' 2>/dev/null)" || return 1
+    { cat "$certifi_path"; printf '\n'; cat "$portless_ca"; } > "$dest"
+  fi
+  export REQUESTS_CA_BUNDLE="$dest"
+  export SSL_CERT_FILE="$dest"
+}
+
+# Local Auth0 simulator gating: explicit allowlist of host shapes that the
+# simulator can plausibly serve. Avoid substring matching "local" to keep
+# real tenants like acme-local.eu.auth0.com from triggering dev-only side
+# effects (cert symlinking, port killing, Site.domain rewrites).
+case "${AUTH0_DOMAIN:-}" in
+  localhost|localhost:*|*.localhost|*.localhost:*|*.local|*.local:*|auth0.local|auth0.localhost*)
+    ensure_simulacrum_certs || true
+    ensure_combined_ca_bundle || true
+    ;;
+esac
+
 while [ $# -gt 0 ]; do
   case "$1" in
     -p|--port)
@@ -54,50 +99,24 @@ if [ "${VITE_PORT:-}" = "" ]; then
 fi
 
 if [ "$use_portless" = "1" ]; then
+  PORTLESS=(npx --prefix src/ludamus/client portless)
+
   if [ "$use_lan" = "1" ]; then
     export PORTLESS_LAN=1
     if [ "$do_trust" = "1" ]; then
-      sudo -E npx --prefix src/ludamus/client portless trust
+      sudo -E "${PORTLESS[@]}" trust
     fi
-
-    exec sudo -E npx --prefix src/ludamus/client portless run --force --name "$(basename "$PWD")" -- bash -lc '
-    if [ "${PORTLESS_URL:-}" = "" ]; then
-      echo "PORTLESS_URL missing" >&2
-      exit 1
-    fi
-
-    root_domain="${PORTLESS_URL#http://}"
-    root_domain="${root_domain#https://}"
-    root_domain="${root_domain%/}"
-
-    export ROOT_DOMAIN="$root_domain"
-    export ALLOWED_HOSTS=".localhost,127.0.0.1,localhost,.local"
-
-    mise x -- python -c "import os; os.environ.setdefault(\"DJANGO_SETTINGS_MODULE\",\"ludamus.edges.settings\"); import django; django.setup(); from django.contrib.sites.models import Site; root_domain=os.environ[\"ROOT_DOMAIN\"]; Site.objects.update_or_create(id=1, defaults={\"domain\": root_domain, \"name\": root_domain})" >/dev/null
-
-    exec honcho start -f Procfile.dev
-  '
+    PORTLESS=(sudo -E "${PORTLESS[@]}")
+  else
+    export PORTLESS_PORT=1355
+    export PORTLESS_TLD=localhost
+    export PORTLESS_LAN=0
+    export PORTLESS_HTTPS=0
   fi
 
-  export PORTLESS_PORT=1355
-  export PORTLESS_TLD=localhost
-  export PORTLESS_LAN=0
-  export PORTLESS_HTTPS=0
-  exec npx --prefix src/ludamus/client portless run --force --name "$(basename "$PWD")" -- bash -lc '
-    if [ "${PORTLESS_URL:-}" = "" ]; then
-      echo "PORTLESS_URL missing" >&2
-      exit 1
-    fi
-
-    root_domain="${PORTLESS_URL#http://}"
-    root_domain="${root_domain#https://}"
-    root_domain="${root_domain%/}"
-
-    export ROOT_DOMAIN="$root_domain"
-    export ALLOWED_HOSTS=".localhost,127.0.0.1,localhost,.local"
-
-    exec honcho start -f Procfile.dev
-  '
+  exec "${PORTLESS[@]}" run --force --name "$(basename "$PWD")" \
+    -- ./scripts/dev-portless-child
 fi
 
-exec honcho start -f Procfile.dev
+export PORT="${PORT:-8000}"
+exec honcho start -e /dev/null -f Procfile.dev

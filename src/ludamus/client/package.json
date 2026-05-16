@@ -14,6 +14,7 @@
   "license": "MIT",
   "devDependencies": {
     "@hasparus/tailwind": "1.1.8",
+    "@simulacrum/auth0-simulator": "0.11.4",
     "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.2.4",
     "portless": "0.13.0",
@@ -22,6 +23,7 @@
     "prettier-plugin-tailwindcss": "0.8.0",
     "tailwindcss": "4.1.16",
     "typescript": "5.9.3",
+    "varlock": "1.1.0",
     "vite": "8.0.10"
   },
   "dependencies": {

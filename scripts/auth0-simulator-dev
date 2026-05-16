@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+case "${AUTH0_DOMAIN:-}" in
+  localhost|localhost:*|*.localhost|*.localhost:*|*.local|*.local:*|auth0.local|auth0.localhost*) ;;
+  *)
+    echo "[auth0] AUTH0_DOMAIN=${AUTH0_DOMAIN:-<unset>} is not local; simulator idle" >&2
+    exec tail -f /dev/null
+    ;;
+esac
+
+cert_dir="$HOME/.simulacrum/certs"
+if [ ! -f "$cert_dir/localhost.pem" ] || [ ! -f "$cert_dir/localhost-key.pem" ]; then
+  echo "[auth0] missing $cert_dir/localhost{.pem,-key.pem}; not starting simulator" >&2
+  exec tail -f /dev/null
+fi
+
+# If something is on :4400, give it a chance to exit cleanly before SIGKILL.
+# Surfaces *which* PID we're killing so a developer can spot a wrong-target hit.
+stale_pids="$(lsof -ti :4400 2>/dev/null || true)"
+if [ -n "$stale_pids" ]; then
+  echo "[auth0] :4400 held by pid(s) $stale_pids; sending SIGTERM" >&2
+  echo "$stale_pids" | xargs kill 2>/dev/null || true
+  for _ in 1 2 3 4 5; do
+    sleep 0.5
+    [ -z "$(lsof -ti :4400 2>/dev/null || true)" ] && break
+  done
+  remaining="$(lsof -ti :4400 2>/dev/null || true)"
+  if [ -n "$remaining" ]; then
+    echo "[auth0] still held by $remaining; sending SIGKILL" >&2
+    echo "$remaining" | xargs kill -9 2>/dev/null || true
+    sleep 0.5
+  fi
+fi
+
+src/ludamus/client/node_modules/.bin/portless alias auth0 4400 >/dev/null 2>&1 || true
+exec src/ludamus/client/node_modules/.bin/auth0-simulator

@@ -11,8 +11,22 @@ poetry = { version = "2.3.2", pyproject = "/app/pyproject.toml" }
 # Mise creates and activates this virtualenv automatically
 _.python.venv = { path = ".venv", create = true }
 
-[task_config]
-includes = ["/app/tasks.toml"]
+# Tasks are defined explicitly here, not included from /app/tasks.toml.
+# The host tasks wrap `dj` / `start` with `./scripts/varlock run --` to load
+# .env layers; inside the container, env is already supplied by docker
+# compose's environment passthrough, and scripts/varlock is not present.
+
+[tasks.p]
+run = "poetry"
+
+[tasks.dj]
+run = "django-admin"
+
+[tasks.start]
+run = "honcho start -e /dev/null -f Procfile.dev"
+
+[tasks.build-frontend]
+run = "cd src/ludamus/client && npm install && npm run build"
 
 [tasks.gunicorn]
 run = """

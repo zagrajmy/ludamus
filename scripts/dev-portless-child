@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Inner half of `mise dev` once portless has wrapped the process.
+# Reads PORTLESS_URL, normalizes ROOT_DOMAIN/ALLOWED_HOSTS, syncs Site(id=1),
+# and exec's honcho. Pulled out of scripts/dev so the LAN and non-LAN
+# branches can share it without each carrying a 14-line `bash -lc` heredoc.
+
+set -euo pipefail
+
+if [ -z "${PORTLESS_URL:-}" ]; then
+  echo "[dev] PORTLESS_URL missing" >&2
+  exit 1
+fi
+
+root_domain="${PORTLESS_URL#http://}"
+root_domain="${root_domain#https://}"
+root_domain="${root_domain%/}"
+
+export ROOT_DOMAIN="$root_domain"
+export ALLOWED_HOSTS=".localhost,127.0.0.1,localhost,.local"
+
+python - <<'PY'
+import os, sys
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ludamus.edges.settings")
+import django
+
+django.setup()
+from django.contrib.sites.models import Site
+
+root_domain = os.environ["ROOT_DOMAIN"]
+existing = Site.objects.filter(id=1).values_list("domain", flat=True).first()
+if existing != root_domain:
+    print(f"[dev] Site(id=1).domain: {existing!r} -> {root_domain!r}", file=sys.stderr)
+Site.objects.update_or_create(id=1, defaults={"domain": root_domain, "name": root_domain})
+PY
+
+exec honcho start -e /dev/null -f Procfile.dev
