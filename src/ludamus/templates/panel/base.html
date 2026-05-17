@@ -16,6 +16,18 @@
               content="{{ current_sphere.name }} backoffice panel for event management">
         <meta name="keywords" content="ludamus, backoffice, events, management">
         <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+        <script>
+            (function() {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'light') {
+                    document.documentElement.classList.add('light');
+                } else if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                }
+            })();
+        </script>
         {% vite_hmr_client %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
         <script src="{% static 'vendor/htmx.min.js' %}?v={{ STATIC_VERSION }}"></script>
@@ -104,7 +116,7 @@
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
-    <body class="bg-background min-h-screen">
+    <body class="panel-shell bg-background text-foreground min-h-screen">
         <div class="flex min-h-screen">
             <!-- Mobile Sidebar Overlay -->
             <div id="sidebarOverlay"

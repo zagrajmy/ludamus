@@ -110,7 +110,7 @@
   --color-secondary-hover: #0d947e;
   --color-secondary-light: #f0fdfa;
 
-  --color-success: #2CB65B;
+  --color-success: #2cb65b;
   --color-success-light: #dcfce7;
   --color-success-bg: #f0fdf4;
   --color-success-text: #166534;
@@ -163,7 +163,7 @@ button {
   --theme-secondary: #14b89b;
   --theme-secondary-hover: #0d947e;
   --theme-secondary-light: #f0fdfa;
-  --theme-success: #2CB65B;
+  --theme-success: #2cb65b;
   --theme-success-light: #dcfce7;
   --theme-success-bg: #f0fdf4;
   --theme-success-text: #166534;
@@ -308,6 +308,42 @@ button {
   --color-info-bg: #0c1e36;
   --theme-info-text: #93c5fd;
   --color-info-text: #93c5fd;
+}
+
+.dark
+  .panel-shell
+  :is(.text-neutral-950, .text-neutral-900, .text-neutral-800) {
+  color: var(--color-foreground);
+}
+
+.dark
+  .panel-shell
+  :is(
+    .text-neutral-700,
+    .text-neutral-600,
+    .text-neutral-500,
+    .text-neutral-400
+  ) {
+  color: var(--color-foreground-secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light)
+    .panel-shell
+    :is(.text-neutral-950, .text-neutral-900, .text-neutral-800) {
+    color: var(--color-foreground);
+  }
+
+  :root:not(.light)
+    .panel-shell
+    :is(
+      .text-neutral-700,
+      .text-neutral-600,
+      .text-neutral-500,
+      .text-neutral-400
+    ) {
+    color: var(--color-foreground-secondary);
+  }
 }
 
 :focus-visible {
