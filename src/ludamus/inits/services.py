@@ -2,7 +2,6 @@ from functools import cached_property
 
 from django.conf import settings
 
-from ludamus.inits.clients import Clients
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetEncryptor
@@ -18,7 +17,6 @@ class Services:
 
     def __init__(self) -> None:
         self._repos = Repositories()
-        self._clients = Clients()
         self._transaction = DjangoTransaction()
 
     @cached_property
@@ -33,10 +31,7 @@ class Services:
     def connections(self) -> ConnectionsService:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return ConnectionsService(
-            self._transaction,
-            self._repos.connections,
-            FernetEncryptor(key),
-            self._clients.docs_api,
+            self._transaction, self._repos.connections, FernetEncryptor(key)
         )
 
     @cached_property

@@ -54,13 +54,6 @@ class TestConnection:
 
         assert str(Connection(display_name=display_name)) == display_name
 
-    def test_last_check_label_defaults_to_unknown_display(self):
-        assert Connection().last_check_label == "Not checked yet"
-
-    def test_last_check_label_uses_choice_display(self):
-        # Mirrors the model's choices definition; "ok" → "OK".
-        assert Connection(last_check_status="ok").last_check_label == "OK"
-
 
 class TestEnrollmentConfig:
     def test_str(self, faker):

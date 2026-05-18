@@ -6,19 +6,6 @@
 {% endif %}
 <div class="space-y-1">
     <label class="block text-sm font-medium text-neutral-700"
-           for="{{ form.service.id_for_label }}">{{ form.service.label }}</label>
-    <select name="{{ form.service.html_name }}"
-            id="{{ form.service.id_for_label }}"
-            class="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-        {% for value, label in form.service.field.choices %}
-            <option value="{{ value }}"
-                    {% if form.service.value == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-    </select>
-    {% for error in form.service.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
-</div>
-<div class="space-y-1">
-    <label class="block text-sm font-medium text-neutral-700"
            for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>
     <input type="text"
            name="{{ form.display_name.html_name }}"

@@ -7,8 +7,6 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.multiverse import ConnectionCheckStatus, CredentialAuthError
-
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EventDTO,
@@ -18,27 +16,23 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import (
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
-        ConnectionWriteDict,
-        DocsApiProtocol,
         EncryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
 
 
 class ConnectionsService:
-    """CRUD + encrypted-credential lifecycle for sphere-scoped connections."""
+    """CRUD + encrypted-secret lifecycle for sphere-scoped connections."""
 
     def __init__(
         self,
         transaction: TransactionProtocol,
         connections: ConnectionsRepositoryProtocol,
         encryptor: EncryptorProtocol,
-        docs_api: DocsApiProtocol,
     ) -> None:
         self._transaction = transaction
         self._connections = connections
         self._encryptor = encryptor
-        self._docs_api = docs_api
 
     def list_for_sphere(self, sphere_id: int) -> list[ConnectionDTO]:
         return self._connections.list_for_sphere(sphere_id)
@@ -47,49 +41,27 @@ class ConnectionsService:
         return self._connections.get(sphere_id, pk)
 
     def create(
-        self,
-        sphere_id: int,
-        data: ConnectionWriteDict,
-        credentials_plaintext: bytes | None = None,
+        self, sphere_id: int, display_name: str, secret_plaintext: bytes | None = None
     ) -> ConnectionDTO:
-        if credentials_plaintext is None:
-            with self._transaction.atomic():
-                return self._connections.create(sphere_id, data)
-
-        # Probe before any write so an invalid credential leaves no row.
-        result = self._docs_api.check_credentials(credentials_plaintext)
-        if result.status is not ConnectionCheckStatus.OK:
-            raise CredentialAuthError(result.status, result.detail)
-
         with self._transaction.atomic():
-            connection = self._connections.create(sphere_id, data)
-            self._connections.update_last_check(sphere_id, connection.pk, result)
-            blob = self._encryptor.encrypt(credentials_plaintext)
-            self._connections.update_credentials(sphere_id, connection.pk, blob)
+            connection = self._connections.create(sphere_id, display_name)
+            if secret_plaintext is not None:
+                blob = self._encryptor.encrypt(secret_plaintext)
+                self._connections.update_secret(sphere_id, connection.pk, blob)
             return connection
 
     def update(
         self,
         sphere_id: int,
         pk: int,
-        data: ConnectionWriteDict,
-        credentials_plaintext: bytes | None = None,
+        display_name: str,
+        secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO:
-        if credentials_plaintext is None:
-            with self._transaction.atomic():
-                return self._connections.update(sphere_id, pk, data)
-
-        # Probe before any write so a rejected credential leaves the
-        # stored credential and its last-check status untouched.
-        result = self._docs_api.check_credentials(credentials_plaintext)
-        if result.status is not ConnectionCheckStatus.OK:
-            raise CredentialAuthError(result.status, result.detail)
-
         with self._transaction.atomic():
-            connection = self._connections.update(sphere_id, pk, data)
-            self._connections.update_last_check(sphere_id, pk, result)
-            blob = self._encryptor.encrypt(credentials_plaintext)
-            self._connections.update_credentials(sphere_id, pk, blob)
+            connection = self._connections.update(sphere_id, pk, display_name)
+            if secret_plaintext is not None:
+                blob = self._encryptor.encrypt(secret_plaintext)
+                self._connections.update_secret(sphere_id, pk, blob)
             return connection
 
     def delete(self, sphere_id: int, pk: int) -> None:

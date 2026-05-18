@@ -26,16 +26,8 @@
                     <thead class="bg-bg-tertiary">
                         <tr>
                             <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+class="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
                                 {% translate "Display name" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Source service" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Health" %}
                             </th>
                             <th scope="col"
                                 class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
@@ -47,21 +39,6 @@
                         {% for connection in connections %}
                             <tr class="hover:bg-bg-tertiary">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{{ connection.display_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ connection.service }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if connection.last_check_status == "ok" %}
-                                        <span class="inline-flex items-center rounded-full bg-success-bg px-2.5 py-0.5 text-xs font-medium text-success-text">{{ connection.last_check_label }}</span>
-                                    {% elif connection.last_check_status == "unknown" %}
-                                        <span class="text-foreground-muted">—</span>
-                                    {% else %}
-                                        <div class="flex flex-col gap-0.5">
-                                            <span class="inline-flex w-fit items-center rounded-full bg-danger-bg px-2.5 py-0.5 text-xs font-medium text-danger-text">{{ connection.last_check_label }}</span>
-                                            {% if connection.last_check_detail %}
-                                                <span class="text-xs text-foreground-muted">{{ connection.last_check_detail }}</span>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <a href="{% url 'multiverse:panel:connection-edit' pk=connection.pk %}"
                                        class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">

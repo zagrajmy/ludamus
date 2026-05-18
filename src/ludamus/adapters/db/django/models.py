@@ -22,7 +22,6 @@ from ludamus.pacts import (
     UserType,
     VirtualEnrollmentConfig,
 )
-from ludamus.pacts.multiverse import ConnectionCheckStatus, ConnectionProvider
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -1364,26 +1363,10 @@ class Connection(models.Model):
     sphere = models.ForeignKey(
         Sphere, on_delete=models.CASCADE, related_name="connections"
     )
-    service = models.CharField(
-        max_length=32,
-        choices=[(ConnectionProvider.GOOGLE.value, _("Google Forms + Sheets"))],
-    )
     display_name = models.CharField(max_length=255)
-    # Encrypted credentials. Write-only at the repo surface — the
-    # decrypt path is owned by the import-execution slice.
-    credentials = models.BinaryField(default=b"")
-    last_check_status = models.CharField(
-        max_length=32,
-        choices=[
-            (ConnectionCheckStatus.UNKNOWN.value, _("Not checked yet")),
-            (ConnectionCheckStatus.OK.value, _("OK")),
-            (ConnectionCheckStatus.AUTH_FAILED.value, _("Authentication failed")),
-            (ConnectionCheckStatus.NETWORK_ERROR.value, _("Network error")),
-        ],
-        default=ConnectionCheckStatus.UNKNOWN.value,
-    )
-    last_check_detail = models.TextField(default="", blank=True)
-    last_check_at = models.DateTimeField(null=True, blank=True)
+    # Encrypted secret. Write-only at the repo surface — the decrypt
+    # path is owned by the import-execution slice.
+    secret = models.BinaryField(default=b"")
 
     class Meta:
         db_table = "connection"
@@ -1399,9 +1382,5 @@ class Connection(models.Model):
         return self.display_name
 
     @property
-    def has_credentials(self) -> bool:
-        return bool(self.credentials)
-
-    @property
-    def last_check_label(self) -> str:
-        return str(self.get_last_check_status_display())
+    def has_secret(self) -> bool:
+        return bool(self.secret)

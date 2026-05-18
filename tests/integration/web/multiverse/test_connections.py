@@ -1,40 +1,12 @@
-from datetime import UTC, datetime
 from http import HTTPStatus
-from unittest.mock import ANY, MagicMock
+from unittest.mock import ANY
 
-import google.auth.exceptions
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Connection
-from ludamus.links.docs_api import google as google_docs_api
 from ludamus.pacts.multiverse import ConnectionDTO
 from tests.integration.utils import assert_response
-
-PRIOR_CHECK_AT = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
-
-
-def _patch_google_refresh(monkeypatch, side_effect=None):
-    """Patch the Google adapter at the SDK boundary.
-
-    Lets the real `GoogleDocsApi.check_credentials` body run (so the
-    adapter stays covered) without hitting the network. Pass a
-    `RefreshError` to simulate auth failure or a `TransportError` to
-    simulate network failure; default is a successful refresh.
-    """
-    creds = MagicMock()
-    creds.refresh.side_effect = side_effect
-    monkeypatch.setattr(google_docs_api, "_make_credentials", lambda *_a, **_kw: creds)
-
-
-def _patch_google_factory_raises(monkeypatch, error):
-    """Patch the Google adapter so the credential factory raises."""
-
-    def _raise(*_args, **_kwargs):
-        raise error
-
-    monkeypatch.setattr(google_docs_api, "_make_credentials", _raise)
-
 
 PERMISSION_ERROR = "You don't have permission to access the sphere panel."
 
@@ -92,11 +64,9 @@ class TestConnectionsPageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Konto Główne"
+            sphere=sphere, display_name="Konto Główne"
         )
-        Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other Sphere"
-        )
+        Connection.objects.create(sphere=non_root_sphere, display_name="Other Sphere")
 
         response = authenticated_client.get(self.url)
 
@@ -114,9 +84,9 @@ class TestConnectionsPageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        Connection.objects.create(sphere=sphere, service="google", display_name="Zeta")
-        Connection.objects.create(sphere=sphere, service="google", display_name="Alpha")
-        Connection.objects.create(sphere=sphere, service="google", display_name="Mu")
+        Connection.objects.create(sphere=sphere, display_name="Zeta")
+        Connection.objects.create(sphere=sphere, display_name="Alpha")
+        Connection.objects.create(sphere=sphere, display_name="Mu")
 
         response = authenticated_client.get(self.url)
 
@@ -159,18 +129,14 @@ class TestConnectionCreatePageView:
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client):
-        response = client.post(
-            self.url, data={"service": "google", "display_name": "X"}
-        )
+        response = client.post(self.url, data={"display_name": "X"})
 
         assert_response(
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.url}"
         )
 
     def test_post_redirects_non_manager_user(self, authenticated_client):
-        response = authenticated_client.post(
-            self.url, data={"service": "google", "display_name": "X"}
-        )
+        response = authenticated_client.post(self.url, data={"display_name": "X"})
 
         assert_response(
             response,
@@ -184,9 +150,7 @@ class TestConnectionCreatePageView:
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.post(
-            self.url, data={"service": "google", "display_name": ""}
-        )
+        response = authenticated_client.post(self.url, data={"display_name": ""})
 
         assert response.context["form"].errors
         assert_response(
@@ -197,16 +161,14 @@ class TestConnectionCreatePageView:
         )
         assert not Connection.objects.filter(sphere=sphere).exists()
 
-    def test_post_rejects_when_credentials_missing(
+    def test_post_rejects_when_secret_missing(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.post(
-            self.url, data={"service": "google", "display_name": "Konto"}
-        )
+        response = authenticated_client.post(self.url, data={"display_name": "Konto"})
 
-        assert response.context["form"].errors.get("credentials")
+        assert response.context["form"].errors.get("secret")
         assert_response(
             response,
             HTTPStatus.OK,
@@ -215,19 +177,14 @@ class TestConnectionCreatePageView:
         )
         assert not Connection.objects.filter(sphere=sphere).exists()
 
-    def test_post_create_with_credentials_persists_blob_and_records_ok(
-        self, authenticated_client, active_user, sphere, monkeypatch
+    def test_post_create_with_secret_persists_blob(
+        self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        _patch_google_refresh(monkeypatch)
 
         response = authenticated_client.post(
             self.url,
-            data={
-                "service": "google",
-                "display_name": "Konto z kluczem",
-                "credentials": '{"client": "abc"}',
-            },
+            data={"display_name": "Konto z kluczem", "secret": '{"client": "abc"}'},
         )
 
         assert_response(
@@ -237,38 +194,9 @@ class TestConnectionCreatePageView:
             url="/multiverse/panel/connections/",
         )
         connection = Connection.objects.get(sphere=sphere)
-        stored = bytes(connection.credentials)
+        stored = bytes(connection.secret)
         assert stored
         assert b"abc" not in stored
-        assert connection.last_check_status == "ok"
-
-    def test_post_create_with_bad_credentials_leaves_no_row(
-        self, authenticated_client, active_user, sphere, monkeypatch
-    ):
-        sphere.managers.add(active_user)
-        _patch_google_refresh(
-            monkeypatch, side_effect=google.auth.exceptions.RefreshError("bad key")
-        )
-
-        response = authenticated_client.post(
-            self.url,
-            data={
-                "service": "google",
-                "display_name": "Failing",
-                "credentials": '{"client": "abc"}',
-            },
-        )
-
-        # Form is re-rendered with the credential error (covers the
-        # `except CredentialAuthError` arm in the create view).
-        assert response.context["form"].non_field_errors()
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="multiverse/panel/connections/create.html",
-            context_data={**CONNECTIONS_PANEL_CONTEXT, "form": ANY},
-        )
-        assert not Connection.objects.filter(sphere=sphere).exists()
 
 
 class TestConnectionEditPageView:
@@ -279,9 +207,7 @@ class TestConnectionEditPageView:
         return reverse("multiverse:panel:connection-edit", kwargs={"pk": connection.pk})
 
     def test_get_redirects_anonymous_user_to_login(self, client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
         url = self.get_url(connection)
 
         response = client.get(url)
@@ -291,9 +217,7 @@ class TestConnectionEditPageView:
         )
 
     def test_get_redirects_non_manager_user(self, authenticated_client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -306,9 +230,7 @@ class TestConnectionEditPageView:
 
     def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Konto"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Konto")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -328,7 +250,7 @@ class TestConnectionEditPageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.get(self.get_url(connection))
@@ -342,13 +264,10 @@ class TestConnectionEditPageView:
 
     def test_post_updates_connection(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Old Name"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Old Name")
 
         response = authenticated_client.post(
-            self.get_url(connection),
-            data={"service": "google", "display_name": "New Name"},
+            self.get_url(connection), data={"display_name": "New Name"}
         )
 
         assert_response(
@@ -364,12 +283,10 @@ class TestConnectionEditPageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Original"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Original")
 
         response = authenticated_client.post(
-            self.get_url(connection), data={"service": "google", "display_name": ""}
+            self.get_url(connection), data={"display_name": ""}
         )
 
         assert response.context["form"].errors
@@ -391,12 +308,11 @@ class TestConnectionEditPageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.post(
-            self.get_url(connection),
-            data={"service": "google", "display_name": "Hacked"},
+            self.get_url(connection), data={"display_name": "Hacked"}
         )
 
         assert_response(
@@ -408,24 +324,17 @@ class TestConnectionEditPageView:
         connection.refresh_from_db()
         assert connection.display_name == "Other"
 
-    def test_post_replace_credentials_off_skips_credentials(
+    def test_post_replace_secret_off_skips_secret(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Original",
-            credentials=b"old-blob",
+            sphere=sphere, display_name="Original", secret=b"old-blob"
         )
 
         response = authenticated_client.post(
             self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Renamed",
-                "credentials": "ignored",
-            },
+            data={"display_name": "Renamed", "secret": "ignored"},
         )
 
         assert_response(
@@ -437,24 +346,20 @@ class TestConnectionEditPageView:
         connection.refresh_from_db()
         assert connection.display_name == "Renamed"
         # Stored blob is left untouched when the toggle is off.
-        assert bytes(connection.credentials) == b"old-blob"
+        assert bytes(connection.secret) == b"old-blob"
 
-    def test_post_replace_credentials_on_encrypts_and_persists(
-        self, authenticated_client, active_user, sphere, monkeypatch
+    def test_post_replace_secret_on_encrypts_and_persists(
+        self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Konto"
-        )
-        _patch_google_refresh(monkeypatch)
+        connection = Connection.objects.create(sphere=sphere, display_name="Konto")
 
         response = authenticated_client.post(
             self.get_url(connection),
             data={
-                "service": "google",
                 "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": '{"client": "abc"}',
+                "replace_secret": "on",
+                "secret": '{"client": "abc"}',
             },
         )
 
@@ -465,180 +370,22 @@ class TestConnectionEditPageView:
             url="/multiverse/panel/connections/",
         )
         connection.refresh_from_db()
-        stored = bytes(connection.credentials)
+        stored = bytes(connection.secret)
         # Persisted blob must be non-empty and not contain the plaintext.
         assert stored
         assert b"abc" not in stored
-        assert connection.last_check_status == "ok"
 
-    def test_post_replace_credentials_keeps_prior_check_on_auth_failure(
-        self, authenticated_client, active_user, sphere, monkeypatch
-    ):
-        sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Original",
-            credentials=b"old-blob",
-            last_check_status="ok",
-            last_check_detail="prior pass",
-            last_check_at=PRIOR_CHECK_AT,
-        )
-        # The view fetches the connection before attempting the update,
-        # so the rendered DTO reflects the pre-update row.
-        rendered_dto = ConnectionDTO.model_validate(connection)
-        _patch_google_refresh(
-            monkeypatch, side_effect=google.auth.exceptions.RefreshError("bad key")
-        )
-
-        response = authenticated_client.post(
-            self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Renamed",
-                "replace_credentials": "on",
-                "credentials": '{"client": "abc"}',
-            },
-        )
-
-        # Form is re-rendered with the credential error.
-        assert response.context["form"].non_field_errors()
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="multiverse/panel/connections/edit.html",
-            context_data={
-                **CONNECTIONS_PANEL_CONTEXT,
-                "form": ANY,
-                "connection": rendered_dto,
-            },
-        )
-        connection.refresh_from_db()
-        # Rejected credential never persisted, so the prior good check
-        # (and the existing credential / display name) survive intact.
-        assert connection.last_check_status == "ok"
-        assert connection.last_check_detail == "prior pass"
-        assert connection.last_check_at == PRIOR_CHECK_AT
-        assert connection.display_name == "Original"
-        assert bytes(connection.credentials) == b"old-blob"
-
-    def test_post_replace_credentials_keeps_prior_check_on_invalid_json(
-        self, authenticated_client, active_user, sphere, monkeypatch
-    ):
-        sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Konto",
-            last_check_status="ok",
-            last_check_detail="prior pass",
-            last_check_at=PRIOR_CHECK_AT,
-        )
-        # No SDK patching — JSON decoding inside the adapter fails first.
-        # Patch _make_credentials anyway so a stray call would surface as
-        # an obvious test error rather than a network attempt.
-        _patch_google_factory_raises(monkeypatch, RuntimeError("should not run"))
-
-        response = authenticated_client.post(
-            self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": "not json",
-            },
-        )
-
-        assert response.context["form"].non_field_errors()
-        assert response.status_code == HTTPStatus.OK
-        connection.refresh_from_db()
-        assert connection.last_check_status == "ok"
-        assert connection.last_check_detail == "prior pass"
-        assert connection.last_check_at == PRIOR_CHECK_AT
-
-    def test_post_replace_credentials_keeps_prior_check_on_factory_rejection(
-        self, authenticated_client, active_user, sphere, monkeypatch
-    ):
-        sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Konto",
-            last_check_status="ok",
-            last_check_detail="prior pass",
-            last_check_at=PRIOR_CHECK_AT,
-        )
-        _patch_google_factory_raises(monkeypatch, ValueError("missing key"))
-
-        response = authenticated_client.post(
-            self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": '{"client": "abc"}',
-            },
-        )
-
-        assert response.context["form"].non_field_errors()
-        assert response.status_code == HTTPStatus.OK
-        connection.refresh_from_db()
-        assert connection.last_check_status == "ok"
-        assert connection.last_check_detail == "prior pass"
-        assert connection.last_check_at == PRIOR_CHECK_AT
-
-    def test_post_replace_credentials_keeps_prior_check_on_transport_error(
-        self, authenticated_client, active_user, sphere, monkeypatch
-    ):
-        sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Konto",
-            last_check_status="ok",
-            last_check_detail="prior pass",
-            last_check_at=PRIOR_CHECK_AT,
-        )
-        _patch_google_refresh(
-            monkeypatch, side_effect=google.auth.exceptions.TransportError("timeout")
-        )
-
-        response = authenticated_client.post(
-            self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": '{"client": "abc"}',
-            },
-        )
-
-        assert response.context["form"].non_field_errors()
-        assert response.status_code == HTTPStatus.OK
-        connection.refresh_from_db()
-        assert connection.last_check_status == "ok"
-        assert connection.last_check_detail == "prior pass"
-        assert connection.last_check_at == PRIOR_CHECK_AT
-
-    def test_post_replace_credentials_on_requires_credentials(
+    def test_post_replace_secret_on_requires_secret(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Konto",
-            credentials=b"unchanged",
+            sphere=sphere, display_name="Konto", secret=b"unchanged"
         )
 
         response = authenticated_client.post(
             self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": "",
-            },
+            data={"display_name": "Konto", "replace_secret": "on", "secret": ""},
         )
 
         assert response.context["form"].errors
@@ -653,7 +400,7 @@ class TestConnectionEditPageView:
             },
         )
         connection.refresh_from_db()
-        assert bytes(connection.credentials) == b"unchanged"
+        assert bytes(connection.secret) == b"unchanged"
 
 
 class TestConnectionDeletePageView:
@@ -666,9 +413,7 @@ class TestConnectionDeletePageView:
         )
 
     def test_get_redirects_anonymous_user_to_login(self, client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
         url = self.get_url(connection)
 
         response = client.get(url)
@@ -678,9 +423,7 @@ class TestConnectionDeletePageView:
         )
 
     def test_get_redirects_non_manager_user(self, authenticated_client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -695,9 +438,7 @@ class TestConnectionDeletePageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="To delete"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="To delete")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -716,7 +457,7 @@ class TestConnectionDeletePageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.get(self.get_url(connection))
@@ -730,9 +471,7 @@ class TestConnectionDeletePageView:
 
     def test_post_deletes_connection(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Goner"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Goner")
 
         response = authenticated_client.post(self.get_url(connection))
 
@@ -749,7 +488,7 @@ class TestConnectionDeletePageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.post(self.get_url(connection))

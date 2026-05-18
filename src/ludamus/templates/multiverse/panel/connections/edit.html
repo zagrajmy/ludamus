@@ -18,31 +18,31 @@
             {% include "multiverse/panel/connections/_form.html" %}
             <div class="space-y-2 pt-2 border-t border-neutral-200">
                 <p class="text-sm text-neutral-700">
-                    {% if connection.has_credentials %}
-                        {% translate "Credentials configured ✓" %}
+                    {% if connection.has_secret %}
+                        {% translate "Secret configured ✓" %}
                     {% else %}
-                        {% translate "No credentials configured yet." %}
+                        {% translate "No secret configured yet." %}
                     {% endif %}
                 </p>
                 <label class="peer flex items-center gap-2">
                     <input type="checkbox"
-                           name="{{ form.replace_credentials.html_name }}"
-                           id="{{ form.replace_credentials.id_for_label }}"
+                           name="{{ form.replace_secret.html_name }}"
+                           id="{{ form.replace_secret.id_for_label }}"
                            class="rounded border-neutral-300 text-primary focus:ring-primary"
-                           {% if form.replace_credentials.value %}checked{% endif %}>
-                    <span class="text-sm text-neutral-700">{{ form.replace_credentials.label }}</span>
+                           {% if form.replace_secret.value %}checked{% endif %}>
+                    <span class="text-sm text-neutral-700">{{ form.replace_secret.label }}</span>
                 </label>
                 <div class="hidden peer-has-[:checked]:block space-y-1">
                     <label class="block text-sm font-medium text-neutral-700"
-                           for="{{ form.credentials.id_for_label }}">{{ form.credentials.label }}</label>
-                    {# Never echo plaintext credentials back into the DOM on re-render — user re-pastes on validation error. #}
-                    <textarea name="{{ form.credentials.html_name }}"
-                              id="{{ form.credentials.id_for_label }}"
+                           for="{{ form.secret.id_for_label }}">{{ form.secret.label }}</label>
+                    {# Never echo plaintext secret back into the DOM on re-render — user re-pastes on validation error. #}
+                    <textarea name="{{ form.secret.html_name }}"
+                              id="{{ form.secret.id_for_label }}"
                               rows="8"
                               autocomplete="off"
                               class="w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
-                    <p class="text-xs text-neutral-500">{{ form.credentials.help_text }}</p>
-                    {% for error in form.credentials.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+                    <p class="text-xs text-neutral-500">{{ form.secret.help_text }}</p>
+                    {% for error in form.secret.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
                 </div>
             </div>
             <div class="flex justify-end gap-2 pt-4 border-t border-neutral-200">

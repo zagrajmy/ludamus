@@ -5,44 +5,32 @@ from typing import Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.pacts.multiverse import ConnectionProvider
-
 
 class ConnectionForm(forms.Form):
     """Form for creating/editing import connections."""
 
-    service = forms.ChoiceField(
-        label=_("Source service"),
-        choices=[(ConnectionProvider.GOOGLE.value, _("Google Forms + Sheets"))],
-        error_messages={
-            "required": _("Please select a service."),
-            "invalid_choice": _("Invalid service selection."),
-        },
-    )
     display_name = forms.CharField(label=_("Display name"), max_length=255, strip=True)
-    replace_credentials = forms.BooleanField(
-        label=_("Replace credentials"), required=False
-    )
-    credentials = forms.CharField(
-        label=_("Credentials"),
+    replace_secret = forms.BooleanField(label=_("Replace secret"), required=False)
+    secret = forms.CharField(
+        label=_("Secret"),
         widget=forms.Textarea(attrs={"rows": 8, "autocomplete": "off"}),
         required=False,
-        help_text=_("Paste the service-account JSON or OAuth credentials."),
+        help_text=_("Paste the API connection secret."),
     )
 
     def __init__(self, *args: Any, is_create: bool = False, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.is_create = is_create
         if is_create:
-            # On create there's nothing to "replace" — credentials are mandatory.
-            self.fields["credentials"].required = True
+            # On create there's nothing to "replace" — the secret is mandatory.
+            self.fields["secret"].required = True
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean() or {}
         if (
             not self.is_create
-            and cleaned.get("replace_credentials")
-            and not (cleaned.get("credentials") or "").strip()
+            and cleaned.get("replace_secret")
+            and not (cleaned.get("secret") or "").strip()
         ):
-            self.add_error("credentials", _("Credentials are required when replacing."))
+            self.add_error("secret", _("Secret is required when replacing."))
         return cleaned
