@@ -3,23 +3,23 @@
 <div id="left-pane" class="card w-full lg:w-72 flex-none p-3">
     <div class="flex items-center justify-between mb-3">
         <button type="button"
-                class="text-sm text-neutral-500 hover:text-neutral-800"
+                class="text-sm text-foreground-muted hover:text-foreground"
                 hx-get="{{ back_url }}"
                 hx-target="#left-pane"
                 hx-swap="outerHTML">← {% translate "Back" %}</button>
-        <h3 class="font-semibold text-neutral-900 text-sm">{% translate "Session details" %}</h3>
+        <h3 class="font-semibold text-foreground text-sm">{% translate "Session details" %}</h3>
     </div>
     <!-- Session title and host -->
     <div class="mb-3">
-        <div class="font-medium text-neutral-900">{{ session.title }}</div>
+        <div class="font-medium text-foreground">{{ session.title }}</div>
         {% for facilitator in facilitators %}
-            <div class="text-sm text-neutral-600">{{ facilitator.display_name }}</div>
+            <div class="text-sm text-foreground-secondary">{{ facilitator.display_name }}</div>
         {% empty %}
-            <div class="text-sm text-neutral-500">{% translate "No facilitator" %}</div>
+            <div class="text-sm text-foreground-muted">{% translate "No facilitator" %}</div>
         {% endfor %}
     </div>
     <!-- Meta: duration, capacity, age -->
-    <div class="flex flex-wrap gap-3 text-xs text-neutral-500 mb-3">
+    <div class="flex flex-wrap gap-3 text-xs text-foreground-muted mb-3">
         {% if duration_minutes %}
             <span>{% icon "clock" class="w-3.5 h-3.5 inline" %} {{ duration_minutes }} min</span>
         {% endif %}
@@ -32,18 +32,18 @@
     </div>
     <!-- Description -->
     {% if session.description %}
-        <div class="text-sm text-neutral-700 mb-3 line-clamp-4">{{ session.description }}</div>
+        <div class="text-sm text-foreground-secondary mb-3 line-clamp-4">{{ session.description }}</div>
     {% endif %}
     <!-- Needs -->
     {% if session.needs %}
         <div class="mb-3">
-            <div class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">{% translate "Needs" %}</div>
-            <div class="text-sm text-neutral-700">{{ session.needs }}</div>
+            <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Needs" %}</div>
+            <div class="text-sm text-foreground-secondary">{{ session.needs }}</div>
         </div>
     {% endif %}
     <!-- Current assignment -->
     <div class="mb-3">
-        <div class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">{% translate "Assignment" %}</div>
+        <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Assignment" %}</div>
         {% if agenda_item %}
             <div class="bg-info-bg border border-info-light rounded p-2 text-sm mb-2">
                 <div class="text-info-text font-medium">
@@ -80,7 +80,7 @@
     <!-- Preferred time slots -->
     {% if time_slots %}
         <div class="mb-3">
-            <div class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">{% translate "Preferred slots" %}</div>
+            <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Preferred slots" %}</div>
             <div class="space-y-1">
                 {% for slot in time_slots %}
                     <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">

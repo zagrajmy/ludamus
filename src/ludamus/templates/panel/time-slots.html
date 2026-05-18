@@ -56,7 +56,7 @@
                             </a>
                         {% endif %}
                     </div>
-                    <span class="text-sm text-neutral-500">
+                    <span class="text-sm text-foreground-muted">
                         {% blocktranslate with current=page|add:"1" total=total_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}
                     </span>
                     <div class="flex items-center gap-2">
@@ -74,7 +74,7 @@
                 {% for day in event_days %}
                     <div class="card overflow-hidden flex flex-col">
                         <div class="px-4 py-3 bg-bg-tertiary border-b border-border">
-                            <h3 class="text-sm font-semibold text-neutral-700">{{ day|date:"D, M d" }}</h3>
+                            <h3 class="text-sm font-semibold text-foreground-secondary">{{ day|date:"D, M d" }}</h3>
                         </div>
                         <div class="p-4 space-y-2 flex-1">
                             {% if day|date:"Y-m-d" == current_event.start_time|date:"Y-m-d" %}
@@ -88,7 +88,7 @@
                                         <div class="flex items-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-1 h-8 bg-neutral-300 rounded-full"></div>
-                                                <span class="text-sm text-neutral-500">
+                                                <span class="text-sm text-foreground-muted">
                                                     → {{ slot.end_time|time:"H:i" }}
                                                     <span class="text-neutral-400 ml-1">({% translate "continues from" %} {{ slot.start_time|date:"D, M d" }})</span>
                                                 </span>
@@ -98,7 +98,7 @@
                                         <div class="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:border-neutral-200 transition">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-1 h-8 bg-primary rounded-full"></div>
-                                                <span class="text-sm font-medium text-neutral-900">
+                                                <span class="text-sm font-medium text-foreground">
                                                     {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                                 </span>
                                             </div>
@@ -151,7 +151,7 @@
                             <div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-bg-secondary">
                                 <div class="flex items-center gap-3">
                                     <div class="w-1 h-8 bg-amber-400 rounded-full"></div>
-                                    <span class="text-sm font-medium text-neutral-900">
+                                    <span class="text-sm font-medium text-foreground">
                                         {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                     </span>
                                 </div>
@@ -173,7 +173,7 @@
             {% endif %}
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-neutral-500">
+                <p class="text-foreground-muted">
                     {% translate "No time slots defined. Add time slots to configure the event schedule." %}
                 </p>
             </div>

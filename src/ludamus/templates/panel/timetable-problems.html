@@ -24,7 +24,7 @@
         {% if conflicts_grouped %}
             {% for conflict_type, conflicts in conflicts_grouped.items %}
                 <div class="mb-4 border-l-4 border-danger bg-bg-secondary rounded-lg p-4">
-                    <div class="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-2">
+                    <div class="flex items-center gap-2 text-sm font-medium text-foreground-secondary mb-2">
                         {% icon "exclamation-triangle" class="w-4 h-4 text-danger" %}
                         {% if conflict_type == "space_overlap" %}
                             {% translate "Room overlaps" %}
@@ -39,7 +39,7 @@
                     </div>
                     <div class="space-y-2 pl-6">
                         {% for conflict in conflicts %}
-                            <div class="text-sm text-neutral-600">
+                            <div class="text-sm text-foreground-secondary">
                                 {{ conflict.session_title }} —
                                 {% if conflict.type == "space_overlap" %}
                                     {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}

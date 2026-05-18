@@ -21,7 +21,7 @@
     <!-- Filters -->
     <form method="get" class="mb-4 flex flex-wrap gap-3 items-end">
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">{% translate "Room" %}</label>
+            <label class="block text-xs text-foreground-muted mb-1">{% translate "Room" %}</label>
             <select name="space"
                     class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     onchange="this.form.submit()">
@@ -34,7 +34,7 @@
         </div>
         {% if space_pk %}
             <a href="{% url 'panel:timetable-log' slug=slug %}"
-               class="text-xs text-neutral-500 hover:underline">{% translate "Clear filters" %}</a>
+               class="text-xs text-foreground-muted hover:underline">{% translate "Clear filters" %}</a>
         {% endif %}
     </form>
     <!-- Log table -->
@@ -43,18 +43,18 @@
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b border-neutral-200 text-left">
-                        <th class="py-2 pr-4 font-medium text-neutral-600">{% translate "Time" %}</th>
-                        <th class="py-2 pr-4 font-medium text-neutral-600">{% translate "User" %}</th>
-                        <th class="py-2 pr-4 font-medium text-neutral-600">{% translate "Action" %}</th>
-                        <th class="py-2 pr-4 font-medium text-neutral-600">{% translate "Session" context "table column" %}</th>
-                        <th class="py-2 pr-4 font-medium text-neutral-600">{% translate "Change" %}</th>
-                        <th class="py-2 font-medium text-neutral-600"></th>
+                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Time" %}</th>
+                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "User" %}</th>
+                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Action" %}</th>
+                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Session" context "table column" %}</th>
+                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Change" %}</th>
+                        <th class="py-2 font-medium text-foreground-secondary"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-neutral-100">
                     {% for log in logs %}
                         <tr class="hover:bg-neutral-50">
-                            <td class="py-2 pr-4 text-neutral-500 whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
+                            <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
                             <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
                             <td class="py-2 pr-4">
                                 {% if log.action == "assign" %}
@@ -68,7 +68,7 @@
                                 {% endif %}
                             </td>
                             <td class="py-2 pr-4">{{ log.session_title }}</td>
-                            <td class="py-2 pr-4 text-neutral-600">
+                            <td class="py-2 pr-4 text-foreground-secondary">
                                 {% if log.old_space_name and log.new_space_name %}
                                     {{ log.old_space_name }} → {{ log.new_space_name }}
                                 {% elif log.new_space_name %}
@@ -88,7 +88,7 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="log_pk" value="{{ log.pk }}">
                                         <button type="submit"
-                                                class="text-xs text-neutral-500 hover:text-danger-text underline">
+                                                class="text-xs text-foreground-muted hover:text-danger-text underline">
                                             {% translate "Revert" %}
                                         </button>
                                     </form>
@@ -100,7 +100,7 @@
             </table>
         </div>
     {% else %}
-        <div class="text-sm text-neutral-500">{% translate "No entries in the log." %}</div>
+        <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
     {% endif %}
 </div>
 {% endblock content %}

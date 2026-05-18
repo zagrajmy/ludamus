@@ -15,7 +15,7 @@
 {% block header_actions %}
     {% if current_event %}
         <a href="{% url 'panel:venues' slug=current_event.slug %}"
-           class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition flex items-center mr-2">
+           class="px-4 py-2 bg-neutral-100 text-foreground-secondary rounded-lg hover:bg-neutral-200 transition flex items-center mr-2">
             {% icon "list-bullet" class="w-4 h-4 mr-2" %}
             {% translate "List View" %}
         </a>
@@ -32,10 +32,10 @@
             <ol class="flex items-center space-x-2">
                 <li>
                     <a href="{% url 'panel:venues' slug=current_event.slug %}"
-                       class="text-neutral-500 hover:text-primary">{% translate "Venues" %}</a>
+                       class="text-foreground-muted hover:text-primary">{% translate "Venues" %}</a>
                 </li>
                 <li class="text-neutral-400">/</li>
-                <li class="text-neutral-900 font-medium">{% translate "Structure Overview" %}</li>
+                <li class="text-foreground font-medium">{% translate "Structure Overview" %}</li>
             </ol>
         </nav>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -43,8 +43,8 @@
                 <div class="flex items-center">
                     {% icon "building-office-2" class="w-8 h-8 text-primary mr-3" %}
                     <div>
-                        <p class="text-2xl font-bold text-neutral-900">{{ total_venues }}</p>
-                        <p class="text-sm text-neutral-500">{% translate "Venues" %}</p>
+                        <p class="text-2xl font-bold text-foreground">{{ total_venues }}</p>
+                        <p class="text-sm text-foreground-muted">{% translate "Venues" %}</p>
                     </div>
                 </div>
             </div>
@@ -52,8 +52,8 @@
                 <div class="flex items-center">
                     {% icon "rectangle-group" class="w-8 h-8 text-blue-500 mr-3" %}
                     <div>
-                        <p class="text-2xl font-bold text-neutral-900">{{ total_areas }}</p>
-                        <p class="text-sm text-neutral-500">{% translate "Areas" %}</p>
+                        <p class="text-2xl font-bold text-foreground">{{ total_areas }}</p>
+                        <p class="text-sm text-foreground-muted">{% translate "Areas" %}</p>
                     </div>
                 </div>
             </div>
@@ -61,8 +61,8 @@
                 <div class="flex items-center">
                     {% icon "square-3-stack-3d" class="w-8 h-8 text-green-500 mr-3" %}
                     <div>
-                        <p class="text-2xl font-bold text-neutral-900">{{ total_spaces }}</p>
-                        <p class="text-sm text-neutral-500">{% translate "Spaces" %}</p>
+                        <p class="text-2xl font-bold text-foreground">{{ total_spaces }}</p>
+                        <p class="text-sm text-foreground-muted">{% translate "Spaces" %}</p>
                     </div>
                 </div>
             </div>
@@ -77,10 +77,10 @@
                                     {% icon "building-office-2" class="w-5 h-5 text-primary mr-3" %}
                                     <div>
                                         <a href="{% url 'panel:venue-detail' slug=current_event.slug venue_slug=venue_item.venue.slug %}"
-                                           class="text-lg font-semibold text-neutral-900 hover:text-primary">
+                                           class="text-lg font-semibold text-foreground hover:text-primary">
                                             {{ venue_item.venue.name }}
                                         </a>
-                                        {% if venue_item.venue.address %}<p class="text-sm text-neutral-500">{{ venue_item.venue.address }}</p>{% endif %}
+                                        {% if venue_item.venue.address %}<p class="text-sm text-foreground-muted">{{ venue_item.venue.address }}</p>{% endif %}
                                     </div>
                                 </div>
                                 <div class="flex items-center space-x-2">
@@ -103,7 +103,7 @@
                                                 <div class="flex items-center">
                                                     {% icon "rectangle-group" class="w-4 h-4 text-blue-500 mr-2" %}
                                                     <a href="{% url 'panel:area-detail' slug=current_event.slug venue_slug=venue_item.venue.slug area_slug=area_item.area.slug %}"
-                                                       class="font-medium text-neutral-900 hover:text-primary">
+                                                       class="font-medium text-foreground hover:text-primary">
                                                         {{ area_item.area.name }}
                                                     </a>
                                                 </div>
@@ -118,12 +118,12 @@
                                                 </div>
                                             </div>
                                             {% if area_item.area.description %}
-                                                <p class="text-sm text-neutral-500 mb-3">{{ area_item.area.description|truncatewords:15 }}</p>
+                                                <p class="text-sm text-foreground-muted mb-3">{{ area_item.area.description|truncatewords:15 }}</p>
                                             {% endif %}
                                             {% if area_item.spaces %}
                                                 <div class="flex flex-wrap gap-2">
                                                     {% for space in area_item.spaces %}
-                                                        <span class="inline-flex items-center px-3 py-1 bg-neutral-100 text-neutral-700 text-sm rounded-full">
+                                                        <span class="inline-flex items-center px-3 py-1 bg-neutral-100 text-foreground-secondary text-sm rounded-full">
                                                             {% icon "square-3-stack-3d" class="w-3 h-3 mr-1 text-green-500" %}
                                                             {{ space.name }}
                                                             <span class="ml-1 text-neutral-400">(
@@ -152,7 +152,7 @@
         {% else %}
             <div class="card p-8 text-center">
                 <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-neutral-300 mx-auto" %}</div>
-                <p class="text-neutral-500 mb-4">
+                <p class="text-foreground-muted mb-4">
                     {% translate "No venues yet. Create a venue to start building your event structure." %}
                 </p>
                 <a href="{% url 'panel:venue-create' slug=current_event.slug %}"
@@ -164,7 +164,7 @@
         {% endif %}
     {% else %}
         <div class="card p-8 text-center">
-            <p class="text-neutral-500">{% translate "No events available. Create an event to get started." %}</p>
+            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
         </div>
     {% endif %}
 {% endblock content %}

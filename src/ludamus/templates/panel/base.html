@@ -133,7 +133,7 @@
                     <!-- Event Selector -->
                     {% if events %}
                         <div class="sidebar-fold-hide px-4 mb-6">
-                            <label class="text-xs text-neutral-500 uppercase tracking-wider">{% translate "Event" %}</label>
+                            <label class="text-xs text-foreground-muted uppercase tracking-wider">{% translate "Event" %}</label>
                             <div class="relative mt-1">
                                 <select id="eventSelector"
                                         class="w-full appearance-none bg-neutral-800 border border-neutral-700 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -214,7 +214,7 @@
                                 </a>
                             {% endif %}
                             <div class="{% if current_event %}pt-4 mt-4 border-t border-neutral-800{% endif %}">
-                                <p class="sidebar-fold-hide px-4 text-xs text-neutral-500 uppercase tracking-wider mb-2">{% translate "Sphere" %}</p>
+                                <p class="sidebar-fold-hide px-4 text-xs text-foreground-muted uppercase tracking-wider mb-2">{% translate "Sphere" %}</p>
                                 {% translate "Sphere settings" as t_sphere_settings %}
                                 <a href="{% url 'multiverse:panel:sphere-settings' %}"
                                    title="{{ t_sphere_settings }}"
@@ -259,12 +259,12 @@
                             {% icon "bars-3" class="w-6 h-6" %}
                         </button>
                         <div class="flex-1 min-w-0">
-                            <h2 class="text-xl lg:text-2xl font-bold text-neutral-900 truncate">
+                            <h2 class="text-xl lg:text-2xl font-bold text-foreground truncate">
                                 {% block page_title %}
                                     {% translate "Dashboard" %}
                                 {% endblock page_title %}
                             </h2>
-                            <p class="text-neutral-500 text-sm lg:text-base truncate">
+                            <p class="text-foreground-muted text-sm lg:text-base truncate">
                                 {% block page_subtitle %}
                                     {% if current_event %}{{ current_event.name }}{% endif %}
                                 {% endblock page_subtitle %}
@@ -273,7 +273,7 @@
                         {% block header_actions %}
                             <div class="hidden sm:flex items-center space-x-4 flex-shrink-0">
                                 {% if current_event %}
-                                    <span class="text-sm text-neutral-500 hidden md:inline">
+                                    <span class="text-sm text-foreground-muted hidden md:inline">
                                         {% translate "Event:" %} <strong>{{ current_event.start_time|date:"d M" }} - {{ current_event.end_time|date:"d M Y" }}</strong>
                                     </span>
                                     {% if is_proposal_active %}

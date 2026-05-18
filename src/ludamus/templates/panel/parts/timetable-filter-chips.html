@@ -1,7 +1,7 @@
 {% load i18n %}
 {% if categories %}
     <div class="flex flex-wrap items-center gap-1">
-        <span class="text-xs text-neutral-500 mr-1">{% translate "Category:" %}</span>
+        <span class="text-xs text-foreground-muted mr-1">{% translate "Category:" %}</span>
         <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}"
            hx-target="#session-list"
            hx-swap="innerHTML"
@@ -19,7 +19,7 @@
     </div>
 {% endif %}
 <div class="flex flex-wrap items-center gap-1">
-    <span class="text-xs text-neutral-500 mr-1">{% translate "Duration:" %}</span>
+    <span class="text-xs text-foreground-muted mr-1">{% translate "Duration:" %}</span>
     <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}"
        hx-target="#session-list"
        hx-swap="innerHTML"

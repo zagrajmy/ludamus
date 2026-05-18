@@ -15,7 +15,7 @@
 {% block header_actions %}
     {% if current_event %}
         <a href="{% url 'panel:venues-structure' slug=current_event.slug %}"
-           class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition flex items-center mr-2">
+           class="px-4 py-2 bg-neutral-100 text-foreground-secondary rounded-lg hover:bg-neutral-200 transition flex items-center mr-2">
             {% icon "rectangle-group" class="w-4 h-4 mr-2" %}
             {% translate "Structure Overview" %}
         </a>
@@ -46,19 +46,19 @@
                         <tr>
                             <th scope="col" class="w-10 px-3 py-3"></th>
                             <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                                 {% translate "Name" context "place" %}
                             </th>
                             <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                                 {% translate "Address" %}
                             </th>
                             <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                                 {% translate "Areas" %}
                             </th>
                             <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
                                 {% translate "Actions" %}
                             </th>
                         </tr>
@@ -69,9 +69,9 @@
                                 draggable="true"
                                 data-venue-id="{{ venue.pk }}">
                                 <td class="px-3 py-4 text-neutral-400">{% icon "bars-3" class="w-4 h-4" %}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">{{ venue.name }}</td>
-                                <td class="px-6 py-4 text-sm text-neutral-500">{{ venue.address|default:"—" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">{{ venue.areas_count }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{{ venue.name }}</td>
+                                <td class="px-6 py-4 text-sm text-foreground-muted">{{ venue.address|default:"—" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ venue.areas_count }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <a href="{% url 'panel:venue-detail' slug=current_event.slug venue_slug=venue.slug %}"
                                        class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
@@ -85,7 +85,7 @@
                                     </a>
                                     <div class="relative inline-block">
                                         <button type="button"
-                                                class="action-dropdown-toggle p-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-600 inline-flex items-center"
+                                                class="action-dropdown-toggle p-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-foreground-secondary inline-flex items-center"
                                                 aria-haspopup="true">
                                             {% icon "ellipsis-horizontal" class="w-4 h-4" %}
                                         </button>
@@ -193,12 +193,12 @@
             </script>
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-neutral-500">{% translate "No venues yet. Venues will be managed here once available." %}</p>
+                <p class="text-foreground-muted">{% translate "No venues yet. Venues will be managed here once available." %}</p>
             </div>
         {% endif %}
     {% else %}
         <div class="card p-8 text-center">
-            <p class="text-neutral-500">{% translate "No events available. Create an event to get started." %}</p>
+            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
         </div>
     {% endif %}
 {% endblock content %}
