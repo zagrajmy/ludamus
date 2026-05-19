@@ -316,7 +316,9 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
         if uow.agenda_items.read_by_session(session_pk) is not None:
             try:
                 timetable_service.unassign_session(
-                    session_pk, user_pk=self.request.user.pk
+                    event_pk=current_event.pk,
+                    session_pk=session_pk,
+                    user_pk=self.request.user.pk,
                 )
             except NotFoundError:
                 return HttpResponse(status=422)
@@ -330,10 +332,10 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             timetable_service.assign_session(
+                event_pk=current_event.pk,
                 session_pk=session_pk,
                 space_pk=space_pk,
-                start_time=start_time,
-                end_time=end_time,
+                time_range=(start_time, end_time),
                 user_pk=self.request.user.pk,
             )
         except ValueError, NotFoundError:
@@ -366,7 +368,9 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             TimetableService(self.request.di.uow).unassign_session(
-                session_pk, user_pk=self.request.user.pk
+                event_pk=current_event.pk,
+                session_pk=session_pk,
+                user_pk=self.request.user.pk,
             )
         except NotFoundError:
             return HttpResponse(status=422)
@@ -476,7 +480,7 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             TimetableService(self.request.di.uow).revert_change(
-                log_pk, user_pk=self.request.user.pk
+                event_pk=current_event.pk, log_pk=log_pk, user_pk=self.request.user.pk
             )
         except ValueError, NotFoundError:
             return HttpResponse(status=422)

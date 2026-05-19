@@ -272,12 +272,21 @@ class TimetableService:
 
     def assign_session(
         self,
+        *,
+        event_pk: int,
         session_pk: int,
         space_pk: int,
-        start_time: datetime,
-        end_time: datetime,
+        time_range: tuple[datetime, datetime],
         user_pk: int | None = None,
     ) -> None:
+        start_time, end_time = time_range
+        event = self._uow.sessions.read_event(session_pk)
+        if event.pk != event_pk:
+            raise NotFoundError
+        if not any(
+            space.pk == space_pk for space in self._uow.spaces.list_by_event(event_pk)
+        ):
+            raise NotFoundError
         session = self._uow.sessions.read(session_pk)
         if session.status != SessionStatus.PENDING:
             msg = f"Session {session_pk} is not in PENDING status"
@@ -292,7 +301,6 @@ class TimetableService:
             }
         )
         self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        event = self._uow.sessions.read_event(session_pk)
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
@@ -304,10 +312,14 @@ class TimetableService:
         }
         self._uow.schedule_change_logs.create(log_data)
 
-    def unassign_session(self, session_pk: int, user_pk: int | None = None) -> None:
+    def unassign_session(
+        self, event_pk: int, session_pk: int, user_pk: int | None = None
+    ) -> None:
+        event = self._uow.sessions.read_event(session_pk)
+        if event.pk != event_pk:
+            raise NotFoundError
         if (agenda_item := self._uow.agenda_items.read_by_session(session_pk)) is None:
             raise NotFoundError
-        event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.delete(agenda_item.pk)
         self._uow.sessions.update(session_pk, {"status": SessionStatus.PENDING})
         log_data: ScheduleChangeLogData = {
@@ -321,8 +333,12 @@ class TimetableService:
         }
         self._uow.schedule_change_logs.create(log_data)
 
-    def revert_change(self, log_pk: int, user_pk: int | None = None) -> None:
+    def revert_change(
+        self, event_pk: int, log_pk: int, user_pk: int | None = None
+    ) -> None:
         log = self._uow.schedule_change_logs.read(log_pk)
+        if log.event_id != event_pk:
+            raise NotFoundError
         if log.action == ScheduleChangeAction.ASSIGN:
             agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
             if agenda_item is None:
@@ -356,9 +372,8 @@ class TimetableService:
         else:
             msg = f"Cannot revert action: {log.action}"
             raise ValueError(msg)
-        event = self._uow.sessions.read_event(log.session_id)
         revert_log: ScheduleChangeLogData = {
-            "event_id": event.pk,
+            "event_id": event_pk,
             "session_id": log.session_id,
             "user_id": user_pk,
             "action": ScheduleChangeAction.REVERT,

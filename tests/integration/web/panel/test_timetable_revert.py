@@ -4,7 +4,17 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
+from ludamus.adapters.db.django.models import AgendaItem, ScheduleChangeLog
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    AreaFactory,
+    EventFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    SpaceFactory,
+    SphereFactory,
+    VenueFactory,
+)
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -82,6 +92,141 @@ class TestTimetableRevertView:
         )
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_assign_rejects_session_from_another_sphere(
+        self, authenticated_client, active_user, sphere, event, area
+    ):
+        sphere.managers.add(active_user)
+        other_sphere = SphereFactory()
+        other_event = EventFactory(sphere=other_sphere)
+        other_category = ProposalCategoryFactory(event=other_event)
+        other_session = SessionFactory(
+            category=other_category,
+            sphere=other_sphere,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        space = SpaceFactory(area=area)
+        start = event.start_time
+        end = start + timedelta(hours=1)
+
+        response = authenticated_client.post(
+            self.get_assign_url(event),
+            data={
+                "session_pk": other_session.pk,
+                "space_pk": space.pk,
+                "start_time": start.isoformat(),
+                "end_time": end.isoformat(),
+            },
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        other_session.refresh_from_db()
+        assert other_session.status == "pending"
+        assert not AgendaItem.objects.filter(session=other_session).exists()
+
+    def test_assign_rejects_space_from_another_sphere(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        other_sphere = SphereFactory()
+        other_event = EventFactory(sphere=other_sphere)
+        other_venue = VenueFactory(event=other_event)
+        other_area = AreaFactory(venue=other_venue)
+        other_space = SpaceFactory(area=other_area)
+        session = SessionFactory(
+            category=proposal_category,
+            sphere=sphere,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = event.start_time
+        end = start + timedelta(hours=1)
+
+        response = authenticated_client.post(
+            self.get_assign_url(event),
+            data={
+                "session_pk": session.pk,
+                "space_pk": other_space.pk,
+                "start_time": start.isoformat(),
+                "end_time": end.isoformat(),
+            },
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        session.refresh_from_db()
+        assert session.status == "pending"
+        assert not AgendaItem.objects.filter(session=session).exists()
+
+    def test_unassign_rejects_session_from_another_sphere(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_sphere = SphereFactory()
+        other_event = EventFactory(sphere=other_sphere)
+        other_category = ProposalCategoryFactory(event=other_event)
+        other_venue = VenueFactory(event=other_event)
+        other_area = AreaFactory(venue=other_venue)
+        other_space = SpaceFactory(area=other_area)
+        other_session = SessionFactory(
+            category=other_category,
+            sphere=other_sphere,
+            status="scheduled",
+            participants_limit=5,
+            min_age=0,
+        )
+        agenda_item = AgendaItemFactory(session=other_session, space=other_space)
+
+        response = authenticated_client.post(
+            self.get_unassign_url(event), data={"session_pk": other_session.pk}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        other_session.refresh_from_db()
+        assert other_session.status == "scheduled"
+        assert AgendaItem.objects.filter(pk=agenda_item.pk).exists()
+
+    def test_revert_rejects_log_from_another_sphere(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_sphere = SphereFactory()
+        other_event = EventFactory(sphere=other_sphere)
+        other_category = ProposalCategoryFactory(event=other_event)
+        other_venue = VenueFactory(event=other_event)
+        other_area = AreaFactory(venue=other_venue)
+        other_space = SpaceFactory(area=other_area)
+        other_session = SessionFactory(
+            category=other_category,
+            sphere=other_sphere,
+            status="scheduled",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = other_event.start_time
+        end = start + timedelta(hours=1)
+        agenda_item = AgendaItemFactory(
+            session=other_session, space=other_space, start_time=start, end_time=end
+        )
+        log = ScheduleChangeLog.objects.create(
+            event=other_event,
+            session=other_session,
+            action="assign",
+            new_space=other_space,
+            new_start_time=start,
+            new_end_time=end,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"log_pk": log.pk}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        other_session.refresh_from_db()
+        assert other_session.status == "scheduled"
+        assert AgendaItem.objects.filter(pk=agenda_item.pk).exists()
 
     def test_revert_assign_unschedules_session(
         self, authenticated_client, active_user, sphere, event, proposal_category, area

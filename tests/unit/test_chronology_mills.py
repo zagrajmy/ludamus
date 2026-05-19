@@ -129,12 +129,13 @@ class TestRevertChange:
         """Line 210: agenda_item is None when reverting ASSIGN."""
         log = MagicMock()
         log.action = ScheduleChangeAction.ASSIGN
+        log.event_id = 1
         log.session_id = 1
         mock_uow.schedule_change_logs.read.return_value = log
         mock_uow.agenda_items.read_by_session.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.revert_change(log_pk=1)
+            service.revert_change(event_pk=1, log_pk=1)
 
     def test_revert_unassign_raises_when_missing_placement_data(
         self, service, mock_uow
@@ -142,6 +143,7 @@ class TestRevertChange:
         """Lines 221-222: missing original placement data."""
         log = MagicMock()
         log.action = ScheduleChangeAction.UNASSIGN
+        log.event_id = 1
         log.session_id = 1
         log.old_space_id = None
         log.old_start_time = None
@@ -149,12 +151,13 @@ class TestRevertChange:
         mock_uow.schedule_change_logs.read.return_value = log
 
         with pytest.raises(ValueError, match="missing original placement data"):
-            service.revert_change(log_pk=1)
+            service.revert_change(event_pk=1, log_pk=1)
 
     def test_revert_unassign_raises_when_session_not_pending(self, service, mock_uow):
         """Session must be in PENDING status to revert an unassign."""
         log = MagicMock()
         log.action = ScheduleChangeAction.UNASSIGN
+        log.event_id = 1
         log.session_id = 1
         log.old_space_id = 5
         log.old_start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -166,17 +169,26 @@ class TestRevertChange:
         mock_uow.sessions.read.return_value = session
 
         with pytest.raises(ValueError, match="is not in PENDING status"):
-            service.revert_change(log_pk=1)
+            service.revert_change(event_pk=1, log_pk=1)
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
         """Lines 240-241: unknown action type."""
         log = MagicMock()
         log.action = "UNKNOWN_ACTION"
+        log.event_id = 1
         log.session_id = 1
         mock_uow.schedule_change_logs.read.return_value = log
 
         with pytest.raises(ValueError, match="Cannot revert action"):
-            service.revert_change(log_pk=1)
+            service.revert_change(event_pk=1, log_pk=1)
+
+    def test_revert_rejects_log_from_another_event(self, service, mock_uow):
+        log = MagicMock()
+        log.event_id = 2
+        mock_uow.schedule_change_logs.read.return_value = log
+
+        with pytest.raises(NotFoundError):
+            service.revert_change(event_pk=1, log_pk=1)
 
 
 class TestListAllForTrackAttribution:
