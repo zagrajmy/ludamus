@@ -13,7 +13,6 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
-    CFPPersonalDataFieldService,
     EventIntegrationsService,
     SessionContentEditService,
     SessionSelfEditService,
@@ -25,6 +24,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.submissions import CFPPersonalDataFieldService
 from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 

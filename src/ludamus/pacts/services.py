@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from ludamus.pacts.chronology import (
-        CFPPersonalDataFieldServiceProtocol,
         EventIntegrationsServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionSelfEditServiceProtocol,
@@ -26,6 +25,7 @@ if TYPE_CHECKING:
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
+    from ludamus.pacts.submissions import CFPPersonalDataFieldServiceProtocol
     from ludamus.pacts.venues import VenuesServiceProtocol
 
 

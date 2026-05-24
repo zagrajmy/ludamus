@@ -14,8 +14,8 @@ from ludamus.mills import (
     outlook_calendar_url,
     render_markdown,
 )
-from ludamus.mills.chronology import CFPPersonalDataFieldService
 from ludamus.mills.multiverse import ConnectionsService
+from ludamus.mills.submissions import CFPPersonalDataFieldService
 from ludamus.pacts import (
     EncounterDTO,
     EventDTO,
@@ -27,11 +27,11 @@ from ludamus.pacts import (
     ProposalCategoryDTO,
     RequestContext,
 )
-from ludamus.pacts.chronology import (
+from ludamus.pacts.multiverse import ConnectionDTO
+from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
-from ludamus.pacts.multiverse import ConnectionDTO
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
