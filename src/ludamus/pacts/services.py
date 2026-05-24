@@ -25,7 +25,10 @@ if TYPE_CHECKING:
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
-    from ludamus.pacts.submissions import CFPPersonalDataFieldServiceProtocol
+    from ludamus.pacts.submissions import (
+        CFPPersonalDataFieldServiceProtocol,
+        ProposalImportServiceProtocol,
+    )
     from ludamus.pacts.venues import VenuesServiceProtocol
 
 
@@ -57,3 +60,5 @@ class ServicesProtocol(Protocol):
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
     def venues(self) -> VenuesServiceProtocol: ...
+    @property
+    def proposals_import(self) -> ProposalImportServiceProtocol: ...

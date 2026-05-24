@@ -381,4 +381,9 @@ urlpatterns = [
         import_run.EventImportPageView.as_view(),
         name="integration-import",
     ),
+    path(
+        "event/<slug:slug>/settings/integrations/<int:pk>/import/run/",
+        import_run.EventImportRunActionView.as_view(),
+        name="integration-import-run",
+    ),
 ]

@@ -1,26 +1,48 @@
 """Submissions subdomain business logic.
 
-Owns proposal intake: CFP personal-data field management today, with the
-Session lifecycle and proposal import to follow.
+Owns proposal intake: CFP personal-data field management and proposal import
+(creating Session rows from an integration's source responses).
 """
 
+import re
+import unicodedata
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import FieldUsageSummary
+from ludamus.pacts import FieldUsageSummary, SessionData, SessionStatus
 from ludamus.pacts.submissions import (
+    ImportSettings,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
+    ProposalImportResult,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ludamus.pacts import (
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
+        SessionRepositoryProtocol,
     )
+    from ludamus.pacts.chronology import EventIntegrationsRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.submissions import ProposalSourceProtocol
+
+
+def generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
+    value = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
+    base_slug = re.sub(r"[^\w\s-]", "", value.lower())
+    base_slug = re.sub(r"[-\s]+", "-", base_slug).strip("-") or "proposal"
+    slug = base_slug
+    for _ in range(4):
+        if not exists(slug):
+            break
+        slug = f"{base_slug}-{token_urlsafe(3)}"
+    return slug
 
 
 class CFPPersonalDataFieldService:
@@ -107,3 +129,56 @@ class CFPPersonalDataFieldService:
             return False
         self._fields.delete(field.pk)
         return True
+
+
+class ProposalImportService:
+    """Turn an integration's source responses into proposal Sessions."""
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        source: ProposalSourceProtocol,
+        integrations: EventIntegrationsRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._source = source
+        self._integrations = integrations
+        self._sessions = sessions
+
+    def run(
+        self, sphere_id: int, event_id: int, integration_pk: int
+    ) -> ProposalImportResult:
+        integration = self._integrations.get(event_id, integration_pk)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        rows = self._source.fetch_responses(sphere_id, event_id, integration_pk)
+        created = 0
+        with self._transaction.atomic():
+            for row in rows:
+                self._create_proposal(sphere_id, settings, row)
+                created += 1
+        return ProposalImportResult(created=created, fields_created=0)
+
+    def _create_proposal(
+        self, sphere_id: int, settings: ImportSettings, row: dict[str, str]
+    ) -> None:
+        title = ""
+        description = ""
+        for header, target in settings.questions.items():
+            if target.to == "session.title":
+                title = row.get(header, "")
+            elif target.to == "session.description":
+                description = row.get(header, "")
+        slug = generate_unique_slug(
+            title, lambda s: self._sessions.slug_exists(sphere_id, s)
+        )
+        session_data: SessionData = {
+            "sphere_id": sphere_id,
+            "status": SessionStatus.PENDING,
+            "title": title,
+            "description": description,
+            "display_name": "",
+            "participants_limit": 0,
+            "slug": slug,
+        }
+        self._sessions.create(session_data, tag_ids=[])

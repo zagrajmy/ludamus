@@ -24,7 +24,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
-from ludamus.mills.submissions import CFPPersonalDataFieldService
+from ludamus.mills.submissions import CFPPersonalDataFieldService, ProposalImportService
 from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 
@@ -133,4 +133,15 @@ class Services:
             self._repos.connections,
             FernetDecryptor(key),
             registry,
+        )
+
+    @cached_property
+    def proposals_import(self) -> ProposalImportService:
+        # The Chronology integrations service fetches raw rows from the
+        # source; Submissions interprets them into proposals.
+        return ProposalImportService(
+            self._transaction,
+            self.event_integrations,
+            self._repos.event_integrations,
+            self._repos.sessions,
         )

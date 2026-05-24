@@ -1031,6 +1031,17 @@ class EventIntegrationsService:
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.fetch_questions(plaintext, config)
 
+    def fetch_responses(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[dict[str, str]]:
+        integration = self._integrations.get(event_id, pk)
+        if (impl := self._registry.get(integration.implementation)) is None:
+            return []
+        config = impl.config_model.model_validate_json(integration.config_json)
+        blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        plaintext = self._decryptor.decrypt(blob) if blob else b""
+        return impl.fetch_responses(plaintext, config)
+
     def save_settings(self, event_id: int, pk: int, settings_json: str) -> None:
         with self._transaction.atomic():
             self._integrations.update_settings(event_id, pk, settings_json)

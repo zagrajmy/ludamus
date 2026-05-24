@@ -34,6 +34,27 @@ class ImportSettings(BaseModel):
     questions: dict[str, QuestionTarget] = {}
 
 
+class ProposalSourceProtocol(Protocol):
+    # Raw rows from the integration's source: one dict per response,
+    # keyed by source question (header). Decrypt + dispatch lives in
+    # Chronology; Submissions only interprets the strings.
+    def fetch_responses(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[dict[str, str]]: ...
+
+
+@dataclass
+class ProposalImportResult:
+    created: int
+    fields_created: int
+
+
+class ProposalImportServiceProtocol(Protocol):
+    def run(
+        self, sphere_id: int, event_id: int, integration_pk: int
+    ) -> ProposalImportResult: ...
+
+
 # --- CFP (personal-data field management) ---
 
 

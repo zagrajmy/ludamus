@@ -10,7 +10,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EventIntegration
+from ludamus.adapters.db.django.models import EventIntegration, Session
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.chronology.panel.views.base import settings_tab_urls
 from ludamus.pacts import EventDTO
@@ -62,6 +62,13 @@ def _check_url(event) -> str:
 def _import_url(event, integration) -> str:
     return reverse(
         "panel:integration-import", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
+def _import_run_url(event, integration) -> str:
+    return reverse(
+        "panel:integration-import-run",
+        kwargs={"slug": event.slug, "pk": integration.pk},
     )
 
 
@@ -989,3 +996,51 @@ class TestEventImportPageView:
                 "System": {"to": "field.System", "ignore": False},
             }
         }
+
+
+@pytest.mark.django_db
+class TestEventImportRunActionView:
+    def test_post_redirects_non_manager(self, authenticated_client, event, connection):
+        integration = _make_integration(event, connection, display_name="Puller")
+
+        response = authenticated_client.post(_import_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_post_creates_one_proposal_per_response(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title", "ignore": False}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        # Mock only google.auth; the real importer + service + repo run.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True, json=lambda: {"values": [["Title"], ["My Talk"], ["Another"]]}
+            )
+            response = authenticated_client.post(_import_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_import_url(event, integration),
+            messages=[(messages.SUCCESS, "Created 2 proposals.")],
+        )
+        titles = set(
+            Session.objects.filter(sphere=sphere).values_list("title", flat=True)
+        )
+        assert titles == {"My Talk", "Another"}

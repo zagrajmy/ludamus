@@ -22,6 +22,9 @@ GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/forms.body.readonly",
 )
 SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A1:Z1"
+SHEETS_RESPONSES_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A:Z"
+)
 FORMS_API_URL = "https://forms.googleapis.com/v1/forms/{form_id}"
 ERROR_HINT_LIMIT = 200
 HTTP_UNAUTHORIZED = 401
@@ -31,6 +34,13 @@ HTTP_NOT_FOUND = 404
 
 class _CredentialsError(Exception):
     """Raised internally when a service-account secret can't build a session."""
+
+
+def _row_to_dict(headers: list[str], row: list[object]) -> dict[str, str]:
+    # Sheets omits trailing empty cells, so a row may be shorter than headers.
+    return {
+        header: str(row[i]) if i < len(row) else "" for i, header in enumerate(headers)
+    }
 
 
 class GoogleDocsProposalConfig(BaseModel):
@@ -84,6 +94,25 @@ class GoogleDocsProposalImporter:
         values = response.json().get("values") or []
         header_row = values[0] if values else []
         return [str(cell) for cell in header_row]
+
+    def fetch_responses(self, secret: bytes, config: BaseModel) -> list[dict[str, str]]:
+        if not isinstance(config, GoogleDocsProposalConfig):
+            return []
+        try:
+            session = self._session(secret)
+        except _CredentialsError:
+            return []
+        response: requests.Response | None = None
+        with suppress(requests.RequestException, GoogleAuthError):
+            response = session.get(
+                SHEETS_RESPONSES_URL.format(sheet_id=config.sheet_id), timeout=30
+            )
+        if response is None or not response.ok:
+            return []
+        if not (values := response.json().get("values") or []):
+            return []
+        headers = [str(cell) for cell in values[0]]
+        return [_row_to_dict(headers, row) for row in values[1:]]
 
     def _session(self, secret: bytes) -> AuthorizedSession:
         if not secret:

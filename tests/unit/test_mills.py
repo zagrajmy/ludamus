@@ -15,7 +15,7 @@ from ludamus.mills import (
     render_markdown,
 )
 from ludamus.mills.multiverse import ConnectionsService
-from ludamus.mills.submissions import CFPPersonalDataFieldService
+from ludamus.mills.submissions import CFPPersonalDataFieldService, ProposalImportService
 from ludamus.pacts import (
     EncounterDTO,
     EventDTO,
@@ -26,6 +26,7 @@ from ludamus.pacts import (
     PersonalDataFieldDTO,
     ProposalCategoryDTO,
     RequestContext,
+    SessionStatus,
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.submissions import (
@@ -909,3 +910,92 @@ class TestRenderMarkdown:
         result = render_markdown("![alt](https://example.com/x.png)")
 
         assert "<img" not in result
+
+
+class TestProposalImportService:
+    @pytest.fixture
+    def transaction(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def source(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def integrations(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def sessions(self):
+        mock = MagicMock()
+        mock.slug_exists.return_value = False
+        return mock
+
+    @pytest.fixture
+    def service(self, transaction, source, integrations, sessions):
+        return ProposalImportService(transaction, source, integrations, sessions)
+
+    def test_run_creates_one_proposal_per_response(
+        self, service, source, integrations, sessions
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        responses = [{"Title": "My Talk"}, {"Title": "Another"}]
+        source.fetch_responses.return_value = responses
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == len(responses)
+        assert result.fields_created == 0
+        source.fetch_responses.assert_called_once_with(1, 2, 3)
+        sessions.create.assert_any_call(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "My Talk",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 0,
+                "slug": "my-talk",
+            },
+            tag_ids=[],
+        )
+
+    def test_run_maps_description_target_and_defaults_empty_cells(
+        self, service, source, integrations, sessions
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Q1": {"to": "session.title"},'
+                ' "Q2": {"to": "session.description"}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Q1": "Talk"}]
+
+        result = service.run(sphere_id=5, event_id=6, integration_pk=7)
+
+        assert result.created == 1
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 5,
+                "status": SessionStatus.PENDING,
+                "title": "Talk",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 0,
+                "slug": "talk",
+            },
+            tag_ids=[],
+        )
+
+    def test_run_with_no_responses_creates_nothing(
+        self, service, source, integrations, sessions
+    ):
+        integrations.get.return_value = MagicMock(settings_json="{}")
+        source.fetch_responses.return_value = []
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        sessions.create.assert_not_called()

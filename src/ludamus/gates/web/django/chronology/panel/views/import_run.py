@@ -53,8 +53,7 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     if choice.startswith("session."):
         return QuestionTarget(to=choice)
     if choice == "field":
-        name = (post.get(f"newname_{index}") or "").strip()
-        if name:
+        if (name := (post.get(f"newname_{index}") or "").strip()):
             return QuestionTarget(to=f"field.{name}")
     return QuestionTarget(ignore=True)
 
@@ -116,4 +115,30 @@ class EventImportPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, pk, settings.model_dump_json()
         )
         messages.success(self.request, _("Import recipe saved."))
+        return redirect("panel:integration-import", slug=slug, pk=pk)
+
+
+class EventImportRunActionView(PanelAccessMixin, EventContextMixin, View):
+    """Run the saved import recipe: create a proposal per source response."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        loaded = load_integration(self, slug, pk)
+        if loaded[1] is None:
+            return loaded[2]
+        _context, current_event, integration = loaded
+        if integration.kind != IntegrationKind.IMPORT:
+            messages.error(
+                self.request, _("This integration does not import proposals.")
+            )
+            return redirect("panel:event-integration-settings", slug=slug)
+
+        sphere_id = self.request.context.current_sphere_id
+        result = self.request.services.proposals_import.run(
+            sphere_id, current_event.pk, pk
+        )
+        messages.success(
+            self.request, _("Created %(count)d proposals.") % {"count": result.created}
+        )
         return redirect("panel:integration-import", slug=slug, pk=pk)
