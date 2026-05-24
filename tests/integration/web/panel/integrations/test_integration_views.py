@@ -59,6 +59,12 @@ def _check_url(event) -> str:
     return reverse("panel:integration-check", kwargs={"slug": event.slug})
 
 
+def _import_url(event, integration) -> str:
+    return reverse(
+        "panel:integration-import", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
 def _missing_url(name: str, **kwargs) -> str:
     return reverse(name, kwargs={"slug": "missing", **kwargs})
 
@@ -94,6 +100,7 @@ def _dto(integration: EventIntegration) -> EventIntegrationDTO:
         connection_display_name=integration.connection.display_name,
         display_name=integration.display_name,
         config_json=integration.config_json,
+        settings_json=integration.settings_json,
     )
 
 
@@ -877,3 +884,108 @@ class TestIntegrationCheckActionView:
                 "signature": "",
             },
         )
+
+
+@pytest.mark.django_db
+class TestEventImportPageView:
+    def test_get_redirects_anonymous(self, client, event, connection):
+        integration = _make_integration(event, connection, display_name="Puller")
+
+        response = client.get(_import_url(event, integration))
+
+        assert response.status_code == HTTPStatus.FOUND
+
+    def test_get_redirects_on_unknown_integration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(
+            reverse(
+                "panel:integration-import", kwargs={"slug": event.slug, "pk": 99999}
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_settings_url(event),
+            messages=[(messages.ERROR, "Integration not found.")],
+        )
+
+    def test_get_lists_fetched_questions_as_recipe_rows(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        # Mock only google.auth; the real importer parses the (mocked) header row.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True, json=lambda: {"values": [["Title", "System"]]}
+            )
+            response = authenticated_client.get(_import_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/import.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "settings",
+                "integration": _dto(integration),
+                "session_columns": ("title", "description"),
+                "rows": [
+                    {
+                        "index": 0,
+                        "question": "Title",
+                        "selected": "ignore",
+                        "field_name": "",
+                    },
+                    {
+                        "index": 1,
+                        "question": "System",
+                        "selected": "ignore",
+                        "field_name": "",
+                    },
+                ],
+            },
+        )
+
+    def test_post_saves_recipe_to_settings(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _import_url(event, integration),
+            data={
+                "question_0": "Title",
+                "target_0": "session.title",
+                "question_1": "System",
+                "target_1": "field",
+                "newname_1": "System",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_import_url(event, integration),
+            messages=[(messages.SUCCESS, "Import recipe saved.")],
+        )
+        integration.refresh_from_db()
+        assert json.loads(integration.settings_json) == {
+            "questions": {
+                "Title": {"to": "session.title", "ignore": False},
+                "System": {"to": "field.System", "ignore": False},
+            }
+        }

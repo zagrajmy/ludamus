@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 import requests
@@ -28,6 +29,10 @@ HTTP_FORBIDDEN = 403
 HTTP_NOT_FOUND = 404
 
 
+class _CredentialsError(Exception):
+    """Raised internally when a service-account secret can't build a session."""
+
+
 class GoogleDocsProposalConfig(BaseModel):
     sheet_id: str
     form_id: str
@@ -48,39 +53,11 @@ class GoogleDocsProposalImporter:
                 outcome=CheckOutcome.AUTH_FAILED,
                 hint="Configuration is not a Google Docs proposal config.",
             )
-        if not secret:
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint="Connection has no service-account credentials.",
-            )
         try:
-            info = json.loads(secret)
-        except json.JSONDecodeError as exc:
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint=f"Connection secret is not valid JSON: {exc}",
-            )
-        if not isinstance(info, dict):
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint="Connection secret must be a JSON object (service-account key).",
-            )
+            session = self._session(secret)
+        except _CredentialsError as exc:
+            return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
 
-        try:
-            credentials: Credentials = (
-                Credentials.from_service_account_info(  # type: ignore[no-untyped-call]
-                    info, scopes=list(self._scopes)
-                )
-            )
-        except (ValueError, GoogleAuthError) as exc:
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint=f"Invalid service-account credentials: {exc}",
-            )
-
-        session: AuthorizedSession = AuthorizedSession(
-            credentials
-        )  # type: ignore[no-untyped-call]
         sheet_outcome = self._probe(
             session, SHEETS_API_URL.format(sheet_id=config.sheet_id), "spreadsheet"
         )
@@ -89,6 +66,47 @@ class GoogleDocsProposalImporter:
         return self._probe(
             session, FORMS_API_URL.format(form_id=config.form_id), "form"
         )
+
+    def fetch_questions(self, secret: bytes, config: BaseModel) -> list[str]:
+        if not isinstance(config, GoogleDocsProposalConfig):
+            return []
+        try:
+            session = self._session(secret)
+        except _CredentialsError:
+            return []
+        response: requests.Response | None = None
+        with suppress(requests.RequestException, GoogleAuthError):
+            response = session.get(
+                SHEETS_API_URL.format(sheet_id=config.sheet_id), timeout=10
+            )
+        if response is None or not response.ok:
+            return []
+        values = response.json().get("values") or []
+        header_row = values[0] if values else []
+        return [str(cell) for cell in header_row]
+
+    def _session(self, secret: bytes) -> AuthorizedSession:
+        if not secret:
+            msg = "Connection has no service-account credentials."
+            raise _CredentialsError(msg)
+        try:
+            info = json.loads(secret)
+        except json.JSONDecodeError as exc:
+            msg = f"Connection secret is not valid JSON: {exc}"
+            raise _CredentialsError(msg) from exc
+        if not isinstance(info, dict):
+            msg = "Connection secret must be a JSON object (service-account key)."
+            raise _CredentialsError(msg)
+        try:
+            credentials: Credentials = (
+                Credentials.from_service_account_info(  # type: ignore[no-untyped-call]
+                    info, scopes=list(self._scopes)
+                )
+            )
+        except (ValueError, GoogleAuthError) as exc:
+            msg = f"Invalid service-account credentials: {exc}"
+            raise _CredentialsError(msg) from exc
+        return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
     @staticmethod
     def _probe(session: AuthorizedSession, url: str, what: str) -> CheckResult:

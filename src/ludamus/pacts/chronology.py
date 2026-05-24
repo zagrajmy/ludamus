@@ -49,6 +49,7 @@ class IntegrationImplementation(Protocol):
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+    def fetch_questions(self, secret: bytes, config: BaseModel) -> list[str]: ...
 
 
 class EventIntegrationDTO(BaseModel):
@@ -62,6 +63,7 @@ class EventIntegrationDTO(BaseModel):
     connection_display_name: str
     display_name: str
     config_json: str
+    settings_json: str
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -102,6 +104,10 @@ class EventIntegrationsRepositoryProtocol(Protocol):
         event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     @staticmethod
+    def update_settings(
+        event_id: int, pk: int, settings_json: str
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
 
@@ -117,6 +123,8 @@ class EventIntegrationsServiceProtocol(Protocol):
         self, sphere_id: int, event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     def delete(self, event_id: int, pk: int) -> None: ...
+    def fetch_questions(self, sphere_id: int, event_id: int, pk: int) -> list[str]: ...
+    def save_settings(self, event_id: int, pk: int, settings_json: str) -> None: ...
     def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
     def list_implementations(
         self, kind: IntegrationKind

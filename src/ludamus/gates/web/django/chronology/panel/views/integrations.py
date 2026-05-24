@@ -82,7 +82,7 @@ def _form_kwargs(
     }
 
 
-def _load_integration(
+def load_integration(
     view: _PanelViewLike, slug: str, pk: int
 ) -> (
     tuple[dict[str, Any], EventDTO, EventIntegrationDTO]
@@ -161,7 +161,7 @@ class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
+        loaded = load_integration(self, slug, pk)
         if loaded[1] is None:
             return loaded[2]
         context, current_event, integration = loaded
@@ -185,7 +185,7 @@ class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
+        loaded = load_integration(self, slug, pk)
         if loaded[1] is None:
             return loaded[2]
         context, current_event, integration = loaded
@@ -225,7 +225,7 @@ class IntegrationDeletePageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
+        loaded = load_integration(self, slug, pk)
         if loaded[1] is None:
             return loaded[2]
         context, _current_event, integration = loaded
@@ -236,7 +236,7 @@ class IntegrationDeletePageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
+        loaded = load_integration(self, slug, pk)
         if loaded[1] is None:
             return loaded[2]
         _ctx, current_event, _integration = loaded

@@ -6,6 +6,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     cfp,
     event_settings,
     facilitators,
+    import_run,
     index,
     integrations,
     personal_data_fields,
@@ -374,5 +375,10 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/<int:pk>/delete/",
         integrations.IntegrationDeletePageView.as_view(),
         name="integration-delete",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/<int:pk>/import/",
+        import_run.EventImportPageView.as_view(),
+        name="integration-import",
     ),
 ]

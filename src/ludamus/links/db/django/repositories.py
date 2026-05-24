@@ -2777,6 +2777,7 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         connection_display_name=integration.connection.display_name,
         display_name=integration.display_name,
         config_json=integration.config_json or "{}",
+        settings_json=integration.settings_json or "{}",
     )
 
 
@@ -2829,6 +2830,21 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
         integration.connection_id = data["connection_id"]
         integration.config_json = data["config_json"]
         integration.save(update_fields=("display_name", "connection_id", "config_json"))
+        integration = EventIntegration.objects.select_related("connection").get(
+            pk=integration.pk
+        )
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def update_settings(
+        event_id: int, pk: int, settings_json: str
+    ) -> EventIntegrationDTO:
+        try:
+            integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        integration.settings_json = settings_json
+        integration.save(update_fields=("settings_json",))
         integration = EventIntegration.objects.select_related("connection").get(
             pk=integration.pk
         )

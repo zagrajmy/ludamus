@@ -7,6 +7,8 @@ context today, with the Session lifecycle and proposal import to follow.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
+from pydantic import BaseModel
+
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         FieldUsageSummary,
@@ -15,6 +17,22 @@ if TYPE_CHECKING:
         PersonalDataFieldUpdateData,
         ProposalCategoryDTO,
     )
+
+
+# --- Proposal import (mapping recipe stored as the integration's settings) ---
+
+
+class QuestionTarget(BaseModel):
+    # `to` is "session.<col>" (a built-in proposal field) or "field.<Name>"
+    # (a session field provisioned by name); `ignore` marks a question as
+    # deliberately unmapped.
+    to: str | None = None
+    ignore: bool = False
+
+
+class ImportSettings(BaseModel):
+    questions: dict[str, QuestionTarget] = {}
+
 
 # --- CFP (personal-data field management) ---
 
