@@ -1,6 +1,4 @@
-import re
 import string
-import unicodedata
 from datetime import UTC, datetime, timedelta
 from secrets import choice as _secret_choice
 from secrets import token_urlsafe
@@ -10,6 +8,7 @@ from urllib.parse import urlencode
 import markdown as _md
 import nh3
 
+from ludamus.mills.submissions import generate_unique_slug
 from ludamus.pacts import (
     AgendaItemData,
     AuthenticatedRequestContext,
@@ -286,15 +285,7 @@ class ProposeSessionService:
 
     @staticmethod
     def _generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
-        value = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
-        base_slug = re.sub(r"[^\w\s-]", "", value.lower())
-        base_slug = re.sub(r"[-\s]+", "-", base_slug).strip("-")
-        slug = base_slug
-        for _ in range(4):
-            if not exists(slug):
-                break
-            slug = f"{base_slug}-{token_urlsafe(3)}"
-        return slug
+        return generate_unique_slug(title, exists)
 
     def get_event(self, slug: str) -> EventDTO:
         return self._uow.events.read_by_slug(slug, self._context.current_sphere_id)

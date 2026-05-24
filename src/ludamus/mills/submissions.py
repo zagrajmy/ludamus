@@ -49,8 +49,10 @@ def slugify(value: str) -> str:
     return re.sub(r"[-\s]+", "-", slug).strip("-")
 
 
-def generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
-    base_slug = slugify(title) or "proposal"
+def generate_unique_slug(
+    title: str, exists: Callable[[str], bool], *, fallback: str = ""
+) -> str:
+    base_slug = slugify(title) or fallback
     slug = base_slug
     for _ in range(4):
         if not exists(slug):
@@ -227,7 +229,9 @@ class ProposalImportService:
             elif target.to == "session.description":
                 description = row.get(header, "")
         slug = generate_unique_slug(
-            title, lambda s: self._sessions.slug_exists(sphere_id, s)
+            title,
+            lambda s: self._sessions.slug_exists(sphere_id, s),
+            fallback="proposal",
         )
         session_data: SessionData = {
             "sphere_id": sphere_id,

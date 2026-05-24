@@ -6,7 +6,8 @@ integration's opaque settings blob; running it is a separate action.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import re
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -20,6 +21,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.gates.web.django.chronology.panel.views.integrations import (
+    PanelViewLike,
     load_integration,
 )
 from ludamus.pacts.chronology import IntegrationKind
@@ -28,10 +30,35 @@ from ludamus.pacts.submissions import ImportSettings, QuestionTarget
 if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
 
+    from ludamus.pacts import EventDTO
+    from ludamus.pacts.chronology import EventIntegrationDTO
+
 SESSION_COLUMNS = ("title", "description")
 
 
-def _row(index: int, question: str, target: QuestionTarget | None) -> dict[str, Any]:
+class RecipeRow(TypedDict):
+    index: int
+    question: str
+    selected: str
+    field_name: str
+
+
+def _load_import_integration(
+    view: PanelViewLike, slug: str, pk: int
+) -> tuple[dict[str, Any], EventDTO, EventIntegrationDTO] | HttpResponse:
+    # Load the integration and enforce that it can import; on any miss return
+    # the redirect for the caller to hand back, otherwise the unpacked triple.
+    loaded = load_integration(view, slug, pk)
+    if loaded[1] is None:
+        return loaded[2]
+    context, current_event, integration = loaded
+    if integration.kind != IntegrationKind.IMPORT:
+        messages.error(view.request, _("This integration does not import proposals."))
+        return redirect("panel:event-integration-settings", slug=slug)
+    return context, current_event, integration
+
+
+def _row(index: int, question: str, target: QuestionTarget | None) -> RecipeRow:
     selected = "ignore"
     field_name = ""
     if target is not None and target.to:
@@ -59,10 +86,12 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
 
 def _settings_from_post(post: QueryDict) -> ImportSettings:
     questions: dict[str, QuestionTarget] = {}
-    index = 0
-    while (question := post.get(f"question_{index}")) is not None:
-        questions[question] = _target_from_post(post, index)
-        index += 1
+    for key in post:
+        match = re.fullmatch(r"question_(\d+)", key)
+        question = post.get(key)
+        if match is None or question is None:
+            continue
+        questions[question] = _target_from_post(post, int(match.group(1)))
     return ImportSettings(questions=questions)
 
 
@@ -72,15 +101,10 @@ class EventImportPageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        context, current_event, integration = loaded
-        if integration.kind != IntegrationKind.IMPORT:
-            messages.error(
-                self.request, _("This integration does not import proposals.")
-            )
-            return redirect("panel:event-integration-settings", slug=slug)
+        result = _load_import_integration(self, slug, pk)
+        if not isinstance(result, tuple):
+            return result
+        context, current_event, integration = result
 
         sphere_id = self.request.context.current_sphere_id
         questions = self.request.services.event_integrations.fetch_questions(
@@ -99,15 +123,10 @@ class EventImportPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        _context, current_event, integration = loaded
-        if integration.kind != IntegrationKind.IMPORT:
-            messages.error(
-                self.request, _("This integration does not import proposals.")
-            )
-            return redirect("panel:event-integration-settings", slug=slug)
+        result = _load_import_integration(self, slug, pk)
+        if not isinstance(result, tuple):
+            return result
+        _context, current_event, _integration = result
 
         settings = _settings_from_post(self.request.POST)
         self.request.services.event_integrations.save_settings(
@@ -123,15 +142,10 @@ class EventImportRunActionView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        _context, current_event, integration = loaded
-        if integration.kind != IntegrationKind.IMPORT:
-            messages.error(
-                self.request, _("This integration does not import proposals.")
-            )
-            return redirect("panel:event-integration-settings", slug=slug)
+        loaded = _load_import_integration(self, slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        _context, current_event, _integration = loaded
 
         sphere_id = self.request.context.current_sphere_id
         result = self.request.services.proposals_import.run(

@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import EventIntegrationDTO
 
 
-class _PanelViewLike(Protocol):
+class PanelViewLike(Protocol):
     request: PanelRequest
 
     def get_event_context(
@@ -83,7 +83,7 @@ def _form_kwargs(
 
 
 def load_integration(
-    view: _PanelViewLike, slug: str, pk: int
+    view: PanelViewLike, slug: str, pk: int
 ) -> (
     tuple[dict[str, Any], EventDTO, EventIntegrationDTO]
     | tuple[None, None, HttpResponse]

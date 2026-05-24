@@ -36,11 +36,9 @@ class _CredentialsError(Exception):
     """Raised internally when a service-account secret can't build a session."""
 
 
-def _row_to_dict(headers: list[str], row: list[object]) -> dict[str, str]:
+def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
     # Sheets omits trailing empty cells, so a row may be shorter than headers.
-    return {
-        header: str(row[i]) if i < len(row) else "" for i, header in enumerate(headers)
-    }
+    return {header: row[i] if i < len(row) else "" for i, header in enumerate(headers)}
 
 
 class GoogleDocsProposalConfig(BaseModel):
