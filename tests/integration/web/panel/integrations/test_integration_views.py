@@ -10,7 +10,12 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EventIntegration, Session
+from ludamus.adapters.db.django.models import (
+    EventIntegration,
+    Session,
+    SessionField,
+    SessionFieldValue,
+)
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.chronology.panel.views.base import settings_tab_urls
 from ludamus.pacts import EventDTO
@@ -1044,3 +1049,45 @@ class TestEventImportRunActionView:
             Session.objects.filter(sphere=sphere).values_list("title", flat=True)
         )
         assert titles == {"My Talk", "Another"}
+
+    def test_post_provisions_a_new_field_and_fills_it(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "RPG system": {"to": "field.System", "ignore": False},
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {"values": [["Title", "RPG system"], ["My Talk", "D&D"]]},
+            )
+            response = authenticated_client.post(_import_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_import_url(event, integration),
+            messages=[(messages.SUCCESS, "Created 1 proposals.")],
+        )
+        # The field is provisioned from the short target name (slug "system"),
+        # carrying the source question as its prompt.
+        field = SessionField.objects.get(event=event, slug="system")
+        assert field.name == "System"
+        assert field.question == "RPG system"
+        session = Session.objects.get(sphere=sphere, title="My Talk")
+        value = SessionFieldValue.objects.get(session=session, field=field)
+        assert value.value == "D&D"

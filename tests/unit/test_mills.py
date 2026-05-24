@@ -932,8 +932,14 @@ class TestProposalImportService:
         return mock
 
     @pytest.fixture
-    def service(self, transaction, source, integrations, sessions):
-        return ProposalImportService(transaction, source, integrations, sessions)
+    def session_fields(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, transaction, source, integrations, sessions, session_fields):
+        return ProposalImportService(
+            transaction, source, integrations, sessions, session_fields
+        )
 
     def test_run_creates_one_proposal_per_response(
         self, service, source, integrations, sessions
@@ -999,3 +1005,64 @@ class TestProposalImportService:
 
         assert result.created == 0
         sessions.create.assert_not_called()
+
+    def test_run_provisions_new_field_and_saves_value(
+        self, service, source, integrations, sessions, session_fields
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "RPG system": {"to": "field.System"}}}'
+            )
+        )
+        source.fetch_responses.return_value = [
+            {"Title": "My Talk", "RPG system": "D&D"}
+        ]
+        session_fields.read_by_slug.side_effect = NotFoundError
+        session_fields.create.return_value = MagicMock(pk=55)
+        session_id = 7
+        sessions.create.return_value = session_id
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.fields_created == session_fields.create.call_count
+        # Slug derives from the short field name, not the source question.
+        session_fields.read_by_slug.assert_called_once_with(2, "system")
+        session_fields.create.assert_called_once_with(
+            2,
+            {
+                "name": "System",
+                "question": "RPG system",
+                "field_type": "text",
+                "options": None,
+                "is_multiple": False,
+                "allow_custom": False,
+                "max_length": 255,
+                "help_text": "",
+                "icon": "",
+                "is_public": False,
+            },
+        )
+        sessions.save_field_values.assert_called_once_with(
+            session_id, [{"session_id": session_id, "field_id": 55, "value": "D&D"}]
+        )
+
+    def test_run_reuses_existing_field_by_slug(
+        self, service, source, integrations, sessions, session_fields
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json='{"questions": {"RPG system": {"to": "field.System"}}}'
+        )
+        source.fetch_responses.return_value = [{"RPG system": "D&D"}]
+        session_fields.read_by_slug.return_value = MagicMock(pk=55)
+        session_id = 7
+        sessions.create.return_value = session_id
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.fields_created == 0
+        session_fields.create.assert_not_called()
+        session_fields.read_by_slug.assert_called_once_with(2, "system")
+        sessions.save_field_values.assert_called_once_with(
+            session_id, [{"session_id": session_id, "field_id": 55, "value": "D&D"}]
+        )

@@ -9,7 +9,14 @@ import unicodedata
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import FieldUsageSummary, SessionData, SessionStatus
+from ludamus.pacts import (
+    FieldUsageSummary,
+    NotFoundError,
+    SessionData,
+    SessionFieldCreateData,
+    SessionFieldValueData,
+    SessionStatus,
+)
 from ludamus.pacts.submissions import (
     ImportSettings,
     PersonalDataFieldEditContextDTO,
@@ -26,6 +33,7 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
         SessionRepositoryProtocol,
     )
     from ludamus.pacts.chronology import EventIntegrationsRepositoryProtocol
@@ -33,10 +41,16 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import ProposalSourceProtocol
 
 
+def slugify(value: str) -> str:
+    # Pure ASCII slug, matching the links-layer Django slugify for the names
+    # the importer provisions (mills must stay Django-free).
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^\w\s-]", "", normalized.lower())
+    return re.sub(r"[-\s]+", "-", slug).strip("-")
+
+
 def generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
-    value = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
-    base_slug = re.sub(r"[^\w\s-]", "", value.lower())
-    base_slug = re.sub(r"[-\s]+", "-", base_slug).strip("-") or "proposal"
+    base_slug = slugify(title) or "proposal"
     slug = base_slug
     for _ in range(4):
         if not exists(slug):
@@ -140,11 +154,13 @@ class ProposalImportService:
         source: ProposalSourceProtocol,
         integrations: EventIntegrationsRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._source = source
         self._integrations = integrations
         self._sessions = sessions
+        self._session_fields = session_fields
 
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
@@ -154,13 +170,54 @@ class ProposalImportService:
         rows = self._source.fetch_responses(sphere_id, event_id, integration_pk)
         created = 0
         with self._transaction.atomic():
+            field_ids_by_header, fields_created = self._provision_fields(
+                event_id, settings
+            )
             for row in rows:
-                self._create_proposal(sphere_id, settings, row)
+                self._create_proposal(sphere_id, settings, row, field_ids_by_header)
                 created += 1
-        return ProposalImportResult(created=created, fields_created=0)
+        return ProposalImportResult(created=created, fields_created=fields_created)
+
+    def _provision_fields(
+        self, event_id: int, settings: ImportSettings
+    ) -> tuple[dict[str, int], int]:
+        # Resolve each `field.<Name>` target to a session field, creating any
+        # missing ones. Match by slug-of-name so re-runs reuse the same field
+        # instead of spawning suffixed duplicates.
+        field_ids_by_header: dict[str, int] = {}
+        created = 0
+        for header, target in settings.questions.items():
+            if not (target.to and target.to.startswith("field.")):
+                continue
+            name = target.to.removeprefix("field.")
+            try:
+                field = self._session_fields.read_by_slug(event_id, slugify(name))
+            except NotFoundError:
+                field = self._session_fields.create(
+                    event_id,
+                    SessionFieldCreateData(
+                        name=name,
+                        question=header,
+                        field_type="text",
+                        options=None,
+                        is_multiple=False,
+                        allow_custom=False,
+                        max_length=255,
+                        help_text="",
+                        icon="",
+                        is_public=False,
+                    ),
+                )
+                created += 1
+            field_ids_by_header[header] = field.pk
+        return field_ids_by_header, created
 
     def _create_proposal(
-        self, sphere_id: int, settings: ImportSettings, row: dict[str, str]
+        self,
+        sphere_id: int,
+        settings: ImportSettings,
+        row: dict[str, str],
+        field_ids_by_header: dict[str, int],
     ) -> None:
         title = ""
         description = ""
@@ -181,4 +238,12 @@ class ProposalImportService:
             "participants_limit": 0,
             "slug": slug,
         }
-        self._sessions.create(session_data, tag_ids=[])
+        session_id = self._sessions.create(session_data, tag_ids=[])
+        values = [
+            SessionFieldValueData(
+                session_id=session_id, field_id=field_id, value=row.get(header, "")
+            )
+            for header, field_id in field_ids_by_header.items()
+        ]
+        if values:
+            self._sessions.save_field_values(session_id, values)

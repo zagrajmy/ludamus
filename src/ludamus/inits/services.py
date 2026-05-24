@@ -144,4 +144,5 @@ class Services:
             self.event_integrations,
             self._repos.event_integrations,
             self._repos.sessions,
+            self._repos.session_fields,
         )

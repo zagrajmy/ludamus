@@ -52,9 +52,8 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
     if choice.startswith("session."):
         return QuestionTarget(to=choice)
-    if choice == "field":
-        if (name := (post.get(f"newname_{index}") or "").strip()):
-            return QuestionTarget(to=f"field.{name}")
+    if choice == "field" and (name := (post.get(f"newname_{index}") or "").strip()):
+        return QuestionTarget(to=f"field.{name}")
     return QuestionTarget(ignore=True)
 
 
