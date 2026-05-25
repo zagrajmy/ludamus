@@ -8,7 +8,7 @@ this section is where the (hardcoded) Google Docs import is configured
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -22,14 +22,20 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.submissions import ImportSettings, QuestionTarget
+from ludamus.pacts.submissions import (
+    FieldDefinition,
+    FieldDefinitions,
+    ImportSettings,
+    QuestionTarget,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
 
-    from ludamus.pacts.chronology import EventIntegrationDTO
+    from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
 
 SESSION_COLUMNS = ("title", "description")
+FieldType = Literal["text", "select", "checkbox"]
 
 
 class RecipeRow(TypedDict):
@@ -37,6 +43,10 @@ class RecipeRow(TypedDict):
     question: str
     selected: str
     field_name: str
+    field_type: str
+    is_multiple: bool
+    allow_custom: bool
+    options: str
 
 
 def _active_integration(
@@ -47,41 +57,105 @@ def _active_integration(
     return next((i for i in integrations if i.pk == pk), None)
 
 
-def _row(index: int, question: str, target: QuestionTarget | None) -> RecipeRow:
+def _row(
+    index: int,
+    question: SourceQuestion,
+    target: QuestionTarget | None,
+    definitions: FieldDefinitions,
+) -> RecipeRow:
     selected = "ignore"
     field_name = ""
+    # Pre-fill the new-field setup from the source question; a saved definition
+    # (the operator's edits) overrides it.
+    setup: FieldDefinition | SourceQuestion = question
     if target is not None and target.to:
         if target.to.startswith("session."):
             selected = target.to
+        elif target.to.startswith("personal."):
+            selected = "personal-field"
+            field_name = target.to.removeprefix("personal.")
+            setup = definitions.personal_fields.get(field_name, question)
         elif target.to.startswith("field."):
-            selected = "field"
+            selected = "session-field"
             field_name = target.to.removeprefix("field.")
+            setup = definitions.session_fields.get(field_name, question)
+    field_type, multiple = _setup_type(setup)
     return {
         "index": index,
-        "question": question,
+        "question": question.title,
         "selected": selected,
         "field_name": field_name,
+        "field_type": field_type,
+        "is_multiple": multiple,
+        "allow_custom": setup.allow_custom,
+        "options": "\n".join(setup.options),
     }
+
+
+def _setup_type(setup: FieldDefinition | SourceQuestion) -> tuple[str, bool]:
+    # FieldDefinition exposes `type`; SourceQuestion exposes `field_type`.
+    if isinstance(setup, FieldDefinition):
+        return setup.type, setup.multiple
+    return setup.field_type, setup.is_multiple
+
+
+def _field_type_from_post(post: QueryDict, index: int) -> FieldType:
+    match (post.get(f"fieldtype_{index}") or "text").strip():
+        case "select":
+            return "select"
+        case "checkbox":
+            return "checkbox"
+        case _:
+            return "text"
+
+
+def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
+    return FieldDefinition(
+        type=_field_type_from_post(post, index),
+        multiple=bool(post.get(f"multiple_{index}")),
+        allow_custom=bool(post.get(f"allowcustom_{index}")),
+        options=[
+            line.strip()
+            for line in (post.get(f"options_{index}") or "").splitlines()
+            if line.strip()
+        ],
+    )
 
 
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
     if choice.startswith("session."):
         return QuestionTarget(to=choice)
-    if choice == "field" and (name := (post.get(f"newname_{index}") or "").strip()):
+    name = (post.get(f"newname_{index}") or "").strip()
+    if choice == "personal-field" and name:
+        return QuestionTarget(to=f"personal.{name}")
+    if choice == "session-field" and name:
         return QuestionTarget(to=f"field.{name}")
     return QuestionTarget(ignore=True)
 
 
 def _settings_from_post(post: QueryDict) -> ImportSettings:
     questions: dict[str, QuestionTarget] = {}
+    definitions = FieldDefinitions()
     for key in post:
         match = re.fullmatch(r"question_(\d+)", key)
         question = post.get(key)
         if match is None or question is None:
             continue
-        questions[question] = _target_from_post(post, int(match.group(1)))
-    return ImportSettings(questions=questions)
+        index = int(match.group(1))
+        target = _target_from_post(post, index)
+        questions[question] = target
+        if not target.to:
+            continue
+        if target.to.startswith("personal."):
+            definitions.personal_fields[target.to.removeprefix("personal.")] = (
+                _definition_from_post(post, index)
+            )
+        elif target.to.startswith("field."):
+            definitions.session_fields[target.to.removeprefix("field.")] = (
+                _definition_from_post(post, index)
+            )
+    return ImportSettings(questions=questions, definitions=definitions)
 
 
 class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
@@ -120,7 +194,7 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["session_columns"] = SESSION_COLUMNS
             context["rows"] = [
-                _row(index, q.title, settings.questions.get(q.title))
+                _row(index, q, settings.questions.get(q.title), settings.definitions)
                 for index, q in enumerate(questions)
             ]
         return TemplateResponse(self.request, "panel/import.html", context)

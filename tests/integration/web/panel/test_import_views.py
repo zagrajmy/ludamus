@@ -166,16 +166,74 @@ class TestEventImportSectionView:
                         "question": "Title",
                         "selected": "ignore",
                         "field_name": "",
+                        "field_type": "text",
+                        "is_multiple": False,
+                        "allow_custom": False,
+                        "options": "",
                     },
                     {
                         "index": 1,
                         "question": "System",
                         "selected": "ignore",
                         "field_name": "",
+                        "field_type": "text",
+                        "is_multiple": False,
+                        "allow_custom": False,
+                        "options": "",
                     },
                 ],
             },
         )
+
+    def test_get_prefills_new_field_setup_from_a_choice_question(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {
+                            "title": "Wiek",
+                            "questionItem": {
+                                "question": {
+                                    "choiceQuestion": {
+                                        "type": "RADIO",
+                                        "options": [
+                                            {"value": "do 16"},
+                                            {"value": "18+"},
+                                            {"isOther": True},
+                                        ],
+                                    }
+                                }
+                            },
+                        }
+                    ]
+                },
+            )
+            response = authenticated_client.get(_tab_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["rows"] == [
+            {
+                "index": 0,
+                "question": "Wiek",
+                "selected": "ignore",
+                "field_name": "",
+                "field_type": "select",
+                "is_multiple": False,
+                "allow_custom": True,
+                "options": "do 16\n18+",
+            }
+        ]
 
     def test_get_without_pk_defaults_to_first_integration(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -233,8 +291,12 @@ class TestEventImportSectionView:
                 "question_0": "Title",
                 "target_0": "session.title",
                 "question_1": "System",
-                "target_1": "field",
+                "target_1": "session-field",
                 "newname_1": "System",
+                "fieldtype_1": "select",
+                "options_1": "D&D\nWarhammer",
+                "multiple_1": "on",
+                "allowcustom_1": "on",
             },
         )
 
@@ -250,7 +312,57 @@ class TestEventImportSectionView:
                 "Title": {"to": "session.title", "ignore": False},
                 "System": {"to": "field.System", "ignore": False},
             },
-            "definitions": {"personal_fields": {}, "session_fields": {}},
+            "definitions": {
+                "personal_fields": {},
+                "session_fields": {
+                    "System": {
+                        "type": "select",
+                        "multiple": True,
+                        "allow_custom": True,
+                        "options": ["D&D", "Warhammer"],
+                    }
+                },
+            },
+        }
+
+    def test_post_saves_a_new_personal_field_definition(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _tab_url(event, integration),
+            data={
+                "question_0": "Phone number",
+                "target_0": "personal-field",
+                "newname_0": "Telefon",
+                "fieldtype_0": "text",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Import recipe saved.")],
+        )
+        integration.refresh_from_db()
+        assert json.loads(integration.settings_json) == {
+            "questions": {"Phone number": {"to": "personal.Telefon", "ignore": False}},
+            "definitions": {
+                "personal_fields": {
+                    "Telefon": {
+                        "type": "text",
+                        "multiple": False,
+                        "allow_custom": False,
+                        "options": [],
+                    }
+                },
+                "session_fields": {},
+            },
         }
 
 

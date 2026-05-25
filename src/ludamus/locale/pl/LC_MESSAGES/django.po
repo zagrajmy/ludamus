@@ -1423,6 +1423,7 @@ msgid "Minimum participants limit cannot exceed maximum."
 msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -1433,6 +1434,7 @@ msgid "Text"
 msgstr "Tekst"
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -1443,6 +1445,7 @@ msgid "Select"
 msgstr "Wybór z listy"
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -4359,12 +4362,36 @@ msgid "Don't import"
 msgstr "Nie importuj"
 
 #: src/ludamus/templates/panel/import.html
-msgid "New field…"
-msgstr "Nowe pole…"
+msgid "New personal field…"
+msgstr "Nowe pole danych osobowych…"
 
 #: src/ludamus/templates/panel/import.html
-msgid "New field name"
-msgstr "Nazwa nowego pola"
+msgid "New session field…"
+msgstr "Nowe pole punktu programu…"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Field name"
+msgstr "Nazwa pola"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "One option per line"
+msgstr "Jedna opcja na linię"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+msgid "Allow multiple selections"
+msgstr "Zezwól na wielokrotny wybór"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+msgid "Allow custom values"
+msgstr "Zezwól na własne wartości"
 
 #: src/ludamus/templates/panel/import.html
 msgid ""
@@ -4644,26 +4671,9 @@ msgid "Options"
 msgstr "Opcje"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "One option per line"
-msgstr "Jedna opcja na linię"
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/session-field-create.html
 msgid "Enter one option per line (for Select fields only)."
 msgstr "Wprowadź jedną opcję na linię (tylko dla pól typu Wybór)."
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-msgid "Allow multiple selections"
-msgstr "Zezwól na wielokrotny wybór"
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-msgid "Allow custom values"
-msgstr "Zezwól na własne wartości"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
