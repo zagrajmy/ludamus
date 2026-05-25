@@ -1,11 +1,32 @@
 """Fixtures shared across panel integration tests."""
 
+import json
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 
-from ludamus.adapters.db.django.models import AgendaItem
+from ludamus.adapters.db.django.models import AgendaItem, Connection
+from ludamus.links.encryption import FernetEncryptor
 from tests.integration.conftest import SessionFactory, SpaceFactory
+
+
+@pytest.fixture(name="connection")
+def connection_fixture(sphere):
+    return Connection.objects.create(sphere=sphere, display_name="API Key A")
+
+
+@pytest.fixture(name="connection_with_secret")
+def connection_with_secret_fixture(sphere):
+    # The check / fetch paths decrypt this blob and hand the plaintext to the
+    # real GoogleDocsProposalImporter. Tests mock google.auth, so the content
+    # only needs to be valid JSON — the importer json.loads() it.
+    blob = FernetEncryptor(settings.CREDENTIALS_ENCRYPTION_KEY).encrypt(
+        json.dumps({"type": "service_account"}).encode()
+    )
+    return Connection.objects.create(
+        sphere=sphere, display_name="API Key A", secret=blob
+    )
 
 
 @pytest.fixture(name="timetable_scale_data")

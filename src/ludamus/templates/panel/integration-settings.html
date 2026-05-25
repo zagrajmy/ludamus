@@ -71,10 +71,6 @@
                                     {{ integration.connection_display_name }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    {% if integration.kind == "import" %}
-                                        <a href="{% url 'panel:integration-import' slug=current_event.slug pk=integration.pk %}"
-                                           class="text-primary hover:text-primary/80 mr-4">{% translate "Import" %}</a>
-                                    {% endif %}
                                     <a href="{% url 'panel:integration-edit' slug=current_event.slug pk=integration.pk %}"
                                        class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
                                     <a href="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}"

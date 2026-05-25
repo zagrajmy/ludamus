@@ -6,7 +6,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     cfp,
     event_settings,
     facilitators,
-    import_run,
+    import_export,
     index,
     integrations,
     personal_data_fields,
@@ -377,13 +377,18 @@ urlpatterns = [
         name="integration-delete",
     ),
     path(
-        "event/<slug:slug>/settings/integrations/<int:pk>/import/",
-        import_run.EventImportPageView.as_view(),
-        name="integration-import",
+        "event/<slug:slug>/import/",
+        import_export.EventImportSectionView.as_view(),
+        name="import",
     ),
     path(
-        "event/<slug:slug>/settings/integrations/<int:pk>/import/run/",
-        import_run.EventImportRunActionView.as_view(),
-        name="integration-import-run",
+        "event/<slug:slug>/import/<int:pk>/",
+        import_export.EventImportSectionView.as_view(),
+        name="import-integration",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/run/",
+        import_export.EventImportRunActionView.as_view(),
+        name="import-run",
     ),
 ]
