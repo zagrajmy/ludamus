@@ -156,3 +156,40 @@ class TestGoogleDocsProposalImporterProbe:
 
         assert result.outcome == CheckOutcome.AUTH_FAILED
         assert "Spreadsheet request failed: timeout" in result.hint
+
+
+class TestGoogleDocsProposalImporterFetchQuestions:
+    def test_returns_question_titles_in_form_order(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {"title": "Imię", "questionItem": {"question": {}}},
+                    {"title": "Ogólne informacje"},  # section header, no question
+                    {"title": "", "questionItem": {"question": {}}},  # empty title
+                    {"title": "Ile masz lat?", "questionItem": {"question": {}}},
+                ]
+            },
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+
+        assert result == ["Imię", "Ile masz lat?"]
+        google.session.get.assert_called_once_with(
+            FORMS_API_URL.format(form_id="form-1"), timeout=10
+        )
+
+    def test_wrong_config_type_returns_empty(self):
+        assert (
+            GoogleDocsProposalImporter().fetch_questions(SECRET, _OtherConfig()) == []
+        )
+
+    def test_non_ok_response_returns_empty(self, google):
+        google.session.get.return_value = MagicMock(ok=False)
+
+        assert GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG) == []
+
+    def test_request_exception_returns_empty(self, google):
+        google.session.get.side_effect = requests.RequestException("timeout")
+
+        assert GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG) == []

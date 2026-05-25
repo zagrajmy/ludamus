@@ -76,6 +76,9 @@ class GoogleDocsProposalImporter:
         )
 
     def fetch_questions(self, secret: bytes, config: BaseModel) -> list[str]:
+        # Questions come from the form schema (authoritative prompts, in form
+        # order, free of the sheet's timestamp/email metadata columns); the
+        # response rows are read from the sheet separately by fetch_responses.
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
         try:
@@ -85,13 +88,16 @@ class GoogleDocsProposalImporter:
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
             response = session.get(
-                SHEETS_API_URL.format(sheet_id=config.sheet_id), timeout=10
+                FORMS_API_URL.format(form_id=config.form_id), timeout=10
             )
         if response is None or not response.ok:
             return []
-        values = response.json().get("values") or []
-        header_row = values[0] if values else []
-        return [str(cell) for cell in header_row]
+        items = response.json().get("items") or []
+        return [
+            title
+            for item in items
+            if "questionItem" in item and (title := str(item.get("title") or ""))
+        ]
 
     def fetch_responses(self, secret: bytes, config: BaseModel) -> list[dict[str, str]]:
         if not isinstance(config, GoogleDocsProposalConfig):

@@ -140,7 +140,14 @@ class TestEventImportSectionView:
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
-                ok=True, json=lambda: {"values": [["Title", "System"]]}
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Title", "questionItem": {"question": {}}},
+                        {"title": "Section header"},
+                        {"title": "System", "questionItem": {"question": {}}},
+                    ]
+                },
             )
             response = authenticated_client.get(_tab_url(event, integration))
 
@@ -183,7 +190,10 @@ class TestEventImportSectionView:
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(
-                ok=True, json=lambda: {"values": [["Title"]]}
+                ok=True,
+                json=lambda: {
+                    "items": [{"title": "Title", "questionItem": {"question": {}}}]
+                },
             )
             response = authenticated_client.get(_import_url(event))
 
