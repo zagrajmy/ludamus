@@ -12,9 +12,13 @@ A feature file. If ambiguous, ask.
 
 1. Read the feature file. It may live under `docs/features/drafts/...`
    (draft) or directly under `docs/features/...` (in-progress).
-2. If `.tbd/shape.md` exists, read it. It covers the same feature in
-   non-code language. Refine it into file, class, and function names;
-   don't replace the shape.
+2. If `.tbd/shape.md` exists, read it — it is the signed contract.
+   Refine it into file, class, and function names; never diverge from
+   it. You may slice, sequence, and defer features the shape frames as
+   optional, but must not move a boundary it fixed (where a feature
+   lives, which surface or section owns it, what is kept separate). If
+   the shape is unclear on such a boundary, stop and resolve it with the
+   user before planning — don't decide it inside the plan.
 3. Read the codebase enough to know what this change touches.
 4. Write `.tbd/plan.md` with one `## <story title>` section per
    story. Each section has:
@@ -23,7 +27,9 @@ A feature file. If ambiguous, ask.
    - **Touchpoints** — integration points with existing code, only
      when there's real risk. Skip if self-contained.
    - **Deferred** — what's punted from this story, named so
-     `/tbd-refine` can find it.
+     `/tbd-refine` can find it. Only drop features the shape frames as
+     optional/later; never relocate or collapse a boundary the shape
+     fixed.
 5. If `.tbd/` doesn't exist, create it. If `.tbd/` is not in `.gitignore`,
    add it.
 
@@ -50,3 +56,7 @@ user to split it before planning.
 - No project background. No architecture recap. No glossary.
 - No "approach" or "rationale" sections. The plan describes what changes, not why.
 - No checklists of standard concerns. Those live in `CHECKLIST.md`.
+- No divergence from the shape. A **Deferred** item may only drop a
+  shape-optional feature — never move placement, nav, URL, or ownership
+  the shape fixed. If a boundary is unclear, stop and ask; don't decide
+  it here.

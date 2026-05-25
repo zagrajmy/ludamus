@@ -6,6 +6,15 @@ processes — without naming files, classes, or functions. One shape
 per feature file; `/tbd-plan` later picks a single story from it.
 Output: `.tbd/shape.md`.
 
+## The shape is the contract
+
+The shape is the one artifact the user reads and signs off. `/tbd-plan`
+and `/tbd-fire` must not diverge from it. So every boundary it
+states — where a feature lives, which section or surface owns it, what
+is kept separate from what — is binding and must be unambiguous. If you
+can't pin a boundary down, decide it with the user now; never leave it
+for the plan to guess.
+
 ## Input
 
 A feature file. If ambiguous, ask.
@@ -125,3 +134,6 @@ split it before shaping.
 - No literal UI copy ("+ Add", "Confirm verification"). Describe the
   intent.
 - No checklists of standard concerns. Those live in `CHECKLIST.md`.
+- No unresolved boundaries. If where a feature lives or what owns it is
+  unclear, settle it with the user before sign-off — the plan is not
+  allowed to decide it.
