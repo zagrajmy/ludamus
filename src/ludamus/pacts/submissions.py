@@ -5,9 +5,9 @@ context today, with the Session lifecycle and proposal import to follow.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
@@ -23,15 +23,32 @@ if TYPE_CHECKING:
 
 
 class QuestionTarget(BaseModel):
-    # `to` is "session.<col>" (a built-in proposal field) or "field.<Name>"
-    # (a session field provisioned by name); `ignore` marks a question as
-    # deliberately unmapped.
+    # `to` is "session.<col>" (a built-in proposal field), "field.<Name>" (a new
+    # session field) or "personal.<Name>" (a new personal-data field), each
+    # provisioned by name from `ImportSettings.definitions`; `ignore` marks a
+    # question as deliberately unmapped.
     to: str | None = None
     ignore: bool = False
 
 
+class FieldDefinition(BaseModel):
+    # Setup for a brand-new target field, keyed by its name under
+    # `FieldDefinitions`. Multi-choice is `select` + `multiple` (the domain has
+    # no multi `checkbox`); `options` is the explicit, operator-editable list.
+    type: Literal["text", "select", "checkbox"] = "text"
+    multiple: bool = False
+    allow_custom: bool = False
+    options: list[str] = []
+
+
+class FieldDefinitions(BaseModel):
+    personal_fields: dict[str, FieldDefinition] = {}
+    session_fields: dict[str, FieldDefinition] = {}
+
+
 class ImportSettings(BaseModel):
     questions: dict[str, QuestionTarget] = {}
+    definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
 
 
 class ProposalSourceProtocol(Protocol):

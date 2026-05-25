@@ -249,7 +249,8 @@ class TestEventImportSectionView:
             "questions": {
                 "Title": {"to": "session.title", "ignore": False},
                 "System": {"to": "field.System", "ignore": False},
-            }
+            },
+            "definitions": {"personal_fields": {}, "session_fields": {}},
         }
 
 
