@@ -30,6 +30,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.submissions import (
+    FieldRepos,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
@@ -936,9 +937,25 @@ class TestProposalImportService:
         return MagicMock()
 
     @pytest.fixture
-    def service(self, transaction, source, integrations, sessions, session_fields):
+    def personal_fields(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(
+        self,
+        transaction,
+        source,
+        integrations,
+        sessions,
+        session_fields,
+        personal_fields,
+    ):
         return ProposalImportService(
-            transaction, source, integrations, sessions, session_fields
+            transaction,
+            source,
+            integrations,
+            sessions,
+            FieldRepos(session_fields, personal_fields),
         )
 
     def test_run_creates_one_proposal_per_response(
@@ -1066,3 +1083,73 @@ class TestProposalImportService:
         sessions.save_field_values.assert_called_once_with(
             session_id, [{"session_id": session_id, "field_id": 55, "value": "D&D"}]
         )
+
+    def test_run_provisions_session_field_from_its_definition(
+        self, service, source, integrations, sessions, session_fields
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"System": {"to": "field.System"}},'
+                ' "definitions": {"session_fields": {"System":'
+                ' {"type": "select", "multiple": true, "allow_custom": true,'
+                ' "options": ["D&D", "Warhammer"]}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"System": "D&D"}]
+        session_fields.read_by_slug.side_effect = NotFoundError
+        session_fields.create.return_value = MagicMock(pk=55)
+        sessions.create.return_value = 7
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        session_fields.create.assert_called_once_with(
+            2,
+            {
+                "name": "System",
+                "question": "System",
+                "field_type": "select",
+                "options": ["D&D", "Warhammer"],
+                "is_multiple": True,
+                "allow_custom": True,
+                "max_length": 255,
+                "help_text": "",
+                "icon": "",
+                "is_public": False,
+            },
+        )
+
+    def test_run_provisions_a_personal_field_without_filling_values(
+        self, service, source, integrations, sessions, session_fields, personal_fields
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Phone": {"to": "personal.Telefon"}},'
+                ' "definitions": {"personal_fields": {"Telefon": {"type": "text"}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Title": "My Talk", "Phone": "555"}]
+        personal_fields.read_by_slug.side_effect = NotFoundError
+        personal_fields.create.return_value = MagicMock(pk=99)
+        sessions.create.return_value = 7
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.fields_created == 1
+        personal_fields.read_by_slug.assert_called_once_with(2, "telefon")
+        personal_fields.create.assert_called_once_with(
+            2,
+            {
+                "name": "Telefon",
+                "question": "Phone",
+                "field_type": "text",
+                "options": None,
+                "is_multiple": False,
+                "allow_custom": False,
+                "max_length": 255,
+                "help_text": "",
+                "is_public": False,
+            },
+        )
+        session_fields.create.assert_not_called()
+        sessions.save_field_values.assert_not_called()

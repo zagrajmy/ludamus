@@ -14,8 +14,10 @@ if TYPE_CHECKING:
         FieldUsageSummary,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
+        PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryDTO,
+        SessionFieldRepositoryProtocol,
     )
 
 
@@ -64,6 +66,14 @@ class ProposalSourceProtocol(Protocol):
 class ProposalImportResult:
     created: int
     fields_created: int
+
+
+@dataclass(frozen=True)
+class FieldRepos:
+    """The field repos the proposal importer provisions new fields into."""
+
+    session: SessionFieldRepositoryProtocol
+    personal: PersonalDataFieldRepositoryProtocol
 
 
 class ProposalImportServiceProtocol(Protocol):

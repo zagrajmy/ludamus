@@ -27,6 +27,7 @@ from ludamus.mills.printing import PrintMaterialsService
 from ludamus.mills.submissions import CFPPersonalDataFieldService, ProposalImportService
 from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.submissions import FieldRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -144,5 +145,5 @@ class Services:
             self.event_integrations,
             self._repos.event_integrations,
             self._repos.sessions,
-            self._repos.session_fields,
+            FieldRepos(self._repos.session_fields, self._repos.personal_data_fields),
         )

@@ -7,17 +7,20 @@ Owns proposal intake: CFP personal-data field management and proposal import
 import re
 import unicodedata
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from ludamus.pacts import (
     FieldUsageSummary,
     NotFoundError,
+    PersonalDataFieldCreateData,
     SessionData,
     SessionFieldCreateData,
     SessionFieldValueData,
     SessionStatus,
 )
 from ludamus.pacts.submissions import (
+    FieldDefinition,
+    FieldRepos,
     ImportSettings,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -28,17 +31,30 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts import (
-        PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
-        SessionFieldRepositoryProtocol,
         SessionRepositoryProtocol,
     )
     from ludamus.pacts.chronology import EventIntegrationsRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import ProposalSourceProtocol
+
+
+def _field_setup(
+    definition: FieldDefinition | None,
+) -> tuple[Literal["text", "select", "checkbox"], list[str] | None, bool, bool]:
+    # Map a new-field definition to the (field_type, options, is_multiple,
+    # allow_custom) a repo `create` expects; default to a plain text field.
+    if definition is None:
+        return "text", None, False, False
+    return (
+        definition.type,
+        definition.options or None,
+        definition.multiple,
+        definition.allow_custom,
+    )
 
 
 def slugify(value: str) -> str:
@@ -156,13 +172,14 @@ class ProposalImportService:
         source: ProposalSourceProtocol,
         integrations: EventIntegrationsRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
-        session_fields: SessionFieldRepositoryProtocol,
+        fields: FieldRepos,
     ) -> None:
         self._transaction = transaction
         self._source = source
         self._integrations = integrations
         self._sessions = sessions
-        self._session_fields = session_fields
+        self._session_fields = fields.session
+        self._personal_fields = fields.personal
 
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
@@ -183,36 +200,87 @@ class ProposalImportService:
     def _provision_fields(
         self, event_id: int, settings: ImportSettings
     ) -> tuple[dict[str, int], int]:
-        # Resolve each `field.<Name>` target to a session field, creating any
-        # missing ones. Match by slug-of-name so re-runs reuse the same field
-        # instead of spawning suffixed duplicates.
+        # Materialise each new-field target, honouring its definition's setup.
+        # Match by slug-of-name so re-runs reuse the same field instead of
+        # spawning suffixed duplicates. Session fields keep a header->pk map for
+        # value filling; personal fields are provisioned only (no host yet).
         field_ids_by_header: dict[str, int] = {}
         created = 0
         for header, target in settings.questions.items():
-            if not (target.to and target.to.startswith("field.")):
+            if not target.to:
                 continue
-            name = target.to.removeprefix("field.")
-            try:
-                field = self._session_fields.read_by_slug(event_id, slugify(name))
-            except NotFoundError:
-                field = self._session_fields.create(
-                    event_id,
-                    SessionFieldCreateData(
-                        name=name,
-                        question=header,
-                        field_type="text",
-                        options=None,
-                        is_multiple=False,
-                        allow_custom=False,
-                        max_length=255,
-                        help_text="",
-                        icon="",
-                        is_public=False,
-                    ),
+            if target.to.startswith("field."):
+                name = target.to.removeprefix("field.")
+                definition = settings.definitions.session_fields.get(name)
+                field_id, new = self._provision_session_field(
+                    event_id, name, header, definition
                 )
-                created += 1
-            field_ids_by_header[header] = field.pk
+                field_ids_by_header[header] = field_id
+                created += new
+            elif target.to.startswith("personal."):
+                name = target.to.removeprefix("personal.")
+                definition = settings.definitions.personal_fields.get(name)
+                created += self._provision_personal_field(
+                    event_id, name, header, definition
+                )
         return field_ids_by_header, created
+
+    def _provision_session_field(
+        self,
+        event_id: int,
+        name: str,
+        question: str,
+        definition: FieldDefinition | None,
+    ) -> tuple[int, int]:
+        try:
+            field = self._session_fields.read_by_slug(event_id, slugify(name))
+        except NotFoundError:
+            field_type, options, is_multiple, allow_custom = _field_setup(definition)
+            field = self._session_fields.create(
+                event_id,
+                SessionFieldCreateData(
+                    name=name,
+                    question=question,
+                    field_type=field_type,
+                    options=options,
+                    is_multiple=is_multiple,
+                    allow_custom=allow_custom,
+                    max_length=255,
+                    help_text="",
+                    icon="",
+                    is_public=False,
+                ),
+            )
+            return field.pk, 1
+        return field.pk, 0
+
+    def _provision_personal_field(
+        self,
+        event_id: int,
+        name: str,
+        question: str,
+        definition: FieldDefinition | None,
+    ) -> int:
+        try:
+            self._personal_fields.read_by_slug(event_id, slugify(name))
+        except NotFoundError:
+            field_type, options, is_multiple, allow_custom = _field_setup(definition)
+            self._personal_fields.create(
+                event_id,
+                PersonalDataFieldCreateData(
+                    name=name,
+                    question=question,
+                    field_type=field_type,
+                    options=options,
+                    is_multiple=is_multiple,
+                    allow_custom=allow_custom,
+                    max_length=255,
+                    help_text="",
+                    is_public=False,
+                ),
+            )
+            return 1
+        return 0
 
     def _create_proposal(
         self,

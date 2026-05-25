@@ -16,8 +16,11 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     EventIntegration,
+    HostPersonalData,
+    PersonalDataField,
     Session,
     SessionField,
+    SessionFieldOption,
     SessionFieldValue,
 )
 from ludamus.pacts import EventDTO
@@ -451,3 +454,102 @@ class TestEventImportRunActionView:
         session = Session.objects.get(sphere=sphere, title="My Talk")
         value = SessionFieldValue.objects.get(session=session, field=field)
         assert value.value == "D&D"
+
+    def test_post_provisions_a_session_field_with_its_definition(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "System": {"to": "field.System", "ignore": False},
+                },
+                "definitions": {
+                    "personal_fields": {},
+                    "session_fields": {
+                        "System": {
+                            "type": "select",
+                            "multiple": True,
+                            "allow_custom": True,
+                            "options": ["D&D", "Warhammer"],
+                        }
+                    },
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {"values": [["Title", "System"], ["My Talk", "D&D"]]},
+            )
+            response = authenticated_client.post(_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Created 1 proposals.")],
+        )
+        field = SessionField.objects.get(event=event, slug="system")
+        assert field.field_type == "select"
+        assert field.is_multiple is True
+        assert field.allow_custom is True
+        assert list(
+            SessionFieldOption.objects.filter(field=field)
+            .order_by("order")
+            .values_list("value", flat=True)
+        ) == ["D&D", "Warhammer"]
+
+    def test_post_provisions_a_personal_field_without_values(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "Phone": {"to": "personal.Telefon", "ignore": False},
+                },
+                "definitions": {
+                    "personal_fields": {
+                        "Telefon": {
+                            "type": "text",
+                            "multiple": False,
+                            "allow_custom": False,
+                            "options": [],
+                        }
+                    },
+                    "session_fields": {},
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {"values": [["Title", "Phone"], ["My Talk", "555-1234"]]},
+            )
+            authenticated_client.post(_run_url(event, integration))
+            # Re-run: the field is matched by slug, not duplicated.
+            authenticated_client.post(_run_url(event, integration))
+
+        fields = PersonalDataField.objects.filter(event=event, slug="telefon")
+        assert fields.count() == 1
+        assert fields.get().field_type == "text"
+        assert not HostPersonalData.objects.filter(field=fields.get()).exists()
