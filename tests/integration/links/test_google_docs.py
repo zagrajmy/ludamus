@@ -20,7 +20,7 @@ from ludamus.links.google_docs import (
     GoogleDocsProposalConfig,
     GoogleDocsProposalImporter,
 )
-from ludamus.pacts.chronology import CheckOutcome
+from ludamus.pacts.chronology import CheckOutcome, SourceQuestion
 
 SECRET = b'{"type": "service_account"}'
 CONFIG = GoogleDocsProposalConfig(sheet_id="sheet-1", form_id="form-1")
@@ -159,22 +159,66 @@ class TestGoogleDocsProposalImporterProbe:
 
 
 class TestGoogleDocsProposalImporterFetchQuestions:
-    def test_returns_question_titles_in_form_order(self, google):
+    def test_returns_questions_with_setup_in_form_order(self, google):
         google.session.get.return_value = MagicMock(
             ok=True,
             json=lambda: {
                 "items": [
-                    {"title": "Imię", "questionItem": {"question": {}}},
+                    {
+                        "title": "Imię",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    },
                     {"title": "Ogólne informacje"},  # section header, no question
                     {"title": "", "questionItem": {"question": {}}},  # empty title
-                    {"title": "Ile masz lat?", "questionItem": {"question": {}}},
+                    {
+                        "title": "Ile masz lat?",
+                        "questionItem": {
+                            "question": {
+                                "choiceQuestion": {
+                                    "type": "RADIO",
+                                    "options": [
+                                        {"value": "do 16"},
+                                        {"value": "18+"},
+                                        {"isOther": True},
+                                    ],
+                                }
+                            }
+                        },
+                    },
+                    {
+                        "title": "Dostępność",
+                        "questionItem": {
+                            "question": {
+                                "choiceQuestion": {
+                                    "type": "CHECKBOX",
+                                    "options": [{"value": "18+"}, {"value": "dzieci"}],
+                                }
+                            }
+                        },
+                    },
                 ]
             },
         )
 
         result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
 
-        assert result == ["Imię", "Ile masz lat?"]
+        assert result == [
+            SourceQuestion(title="Imię", field_type="text"),
+            SourceQuestion(
+                title="Ile masz lat?",
+                field_type="select",
+                is_multiple=False,
+                allow_custom=True,
+                options=["do 16", "18+"],
+            ),
+            SourceQuestion(
+                title="Dostępność",
+                field_type="select",
+                is_multiple=True,
+                allow_custom=False,
+                options=["18+", "dzieci"],
+            ),
+        ]
         google.session.get.assert_called_once_with(
             FORMS_API_URL.format(form_id="form-1"), timeout=10
         )

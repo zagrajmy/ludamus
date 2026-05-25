@@ -49,6 +49,7 @@ from ludamus.pacts.chronology import (
     PreferredSlotViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
+    SourceQuestion,
     SpaceColumnDTO,
     TimeLabelDTO,
     TimetableGridDTO,
@@ -1022,7 +1023,9 @@ class EventIntegrationsService:
         with self._transaction.atomic():
             self._integrations.delete(event_id, pk)
 
-    def fetch_questions(self, sphere_id: int, event_id: int, pk: int) -> list[str]:
+    def fetch_questions(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
         if (impl := self._registry.get(integration.implementation)) is None:
             return []

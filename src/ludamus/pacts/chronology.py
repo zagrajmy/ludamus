@@ -8,7 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import Protocol, TypedDict
+from typing import Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -44,12 +44,26 @@ class CheckResult:
     hint: str = ""
 
 
+class SourceQuestion(BaseModel):
+    # A source-form question described in the importer's own vocabulary: the
+    # prompt plus the field setup a new target field would inherit. Multi-choice
+    # maps to `select` + `is_multiple` (the domain has no multi `checkbox`); an
+    # "other"/free-text option sets `allow_custom` and is dropped from `options`.
+    title: str
+    field_type: Literal["text", "select", "checkbox"] = "text"
+    is_multiple: bool = False
+    allow_custom: bool = False
+    options: list[str] = []
+
+
 class IntegrationImplementation(Protocol):
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
-    def fetch_questions(self, secret: bytes, config: BaseModel) -> list[str]: ...
+    def fetch_questions(
+        self, secret: bytes, config: BaseModel
+    ) -> list[SourceQuestion]: ...
     def fetch_responses(
         self, secret: bytes, config: BaseModel
     ) -> list[dict[str, str]]: ...
@@ -126,7 +140,9 @@ class EventIntegrationsServiceProtocol(Protocol):
         self, sphere_id: int, event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     def delete(self, event_id: int, pk: int) -> None: ...
-    def fetch_questions(self, sphere_id: int, event_id: int, pk: int) -> list[str]: ...
+    def fetch_questions(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
     def fetch_responses(
         self, sphere_id: int, event_id: int, pk: int
     ) -> list[dict[str, str]]: ...

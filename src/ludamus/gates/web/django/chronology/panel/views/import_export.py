@@ -120,8 +120,8 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["session_columns"] = SESSION_COLUMNS
             context["rows"] = [
-                _row(index, question, settings.questions.get(question))
-                for index, question in enumerate(questions)
+                _row(index, q.title, settings.questions.get(q.title))
+                for index, q in enumerate(questions)
             ]
         return TemplateResponse(self.request, "panel/import.html", context)
 

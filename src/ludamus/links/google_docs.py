@@ -10,9 +10,14 @@ import requests
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.chronology import CheckOutcome, CheckResult, IntegrationKind
+from ludamus.pacts.chronology import (
+    CheckOutcome,
+    CheckResult,
+    IntegrationKind,
+    SourceQuestion,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -39,6 +44,57 @@ class _CredentialsError(Exception):
 def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
     # Sheets omits trailing empty cells, so a row may be shorter than headers.
     return {header: row[i] if i < len(row) else "" for i, header in enumerate(headers)}
+
+
+class _FormOption(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    value: str = ""
+    is_other: bool = Field(default=False, alias="isOther")
+
+
+class _ChoiceQuestion(BaseModel):
+    type: str = ""
+    options: list[_FormOption] = []
+
+
+class _Question(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    choice_question: _ChoiceQuestion | None = Field(
+        default=None, alias="choiceQuestion"
+    )
+
+
+class _QuestionItem(BaseModel):
+    question: _Question = Field(default_factory=_Question)
+
+
+class _FormItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str = ""
+    question_item: _QuestionItem | None = Field(default=None, alias="questionItem")
+
+
+class _FormSchema(BaseModel):
+    items: list[_FormItem] = []
+
+
+def _source_question(item: _FormItem) -> SourceQuestion | None:
+    # Map a Forms API item to the importer's question vocabulary; non-questions
+    # (page breaks, section headers) and untitled questions return None.
+    if item.question_item is None or not item.title:
+        return None
+    if (choice := item.question_item.question.choice_question) is None:
+        return SourceQuestion(title=item.title)
+    return SourceQuestion(
+        title=item.title,
+        field_type="select",
+        is_multiple=choice.type == "CHECKBOX",
+        allow_custom=any(option.is_other for option in choice.options),
+        options=[opt.value for opt in choice.options if not opt.is_other and opt.value],
+    )
 
 
 class GoogleDocsProposalConfig(BaseModel):
@@ -75,10 +131,11 @@ class GoogleDocsProposalImporter:
             session, FORMS_API_URL.format(form_id=config.form_id), "form"
         )
 
-    def fetch_questions(self, secret: bytes, config: BaseModel) -> list[str]:
-        # Questions come from the form schema (authoritative prompts, in form
-        # order, free of the sheet's timestamp/email metadata columns); the
-        # response rows are read from the sheet separately by fetch_responses.
+    def fetch_questions(self, secret: bytes, config: BaseModel) -> list[SourceQuestion]:
+        # Questions come from the form schema (authoritative prompts and answer
+        # setup, in form order, free of the sheet's timestamp/email metadata
+        # columns); the response rows are read from the sheet separately by
+        # fetch_responses.
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
         try:
@@ -92,11 +149,11 @@ class GoogleDocsProposalImporter:
             )
         if response is None or not response.ok:
             return []
-        items = response.json().get("items") or []
+        schema = _FormSchema.model_validate(response.json())
         return [
-            title
-            for item in items
-            if "questionItem" in item and (title := str(item.get("title") or ""))
+            question
+            for item in schema.items
+            if (question := _source_question(item)) is not None
         ]
 
     def fetch_responses(self, secret: bytes, config: BaseModel) -> list[dict[str, str]]:
