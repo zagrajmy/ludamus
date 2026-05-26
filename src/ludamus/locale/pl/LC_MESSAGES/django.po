@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:40+0200\n"
+"POT-Creation-Date: 2026-06-09 22:41+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3885,9 +3885,17 @@ msgstr "Przełącz pasek boczny"
 msgid "Event"
 msgstr "Wydarzenie"
 
+#: src/ludamus/templates/panel/base.html
+msgid "Toggle category"
+msgstr "Przełącz kategorię"
+
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
 msgstr "Pulpit"
+
+#: src/ludamus/templates/panel/base.html
+msgid "Program"
+msgstr "Program"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/cfp-create.html
@@ -3921,6 +3929,15 @@ msgid "Facilitators"
 msgstr "Twórcy programu"
 
 #: src/ludamus/templates/panel/base.html
+msgid "Import / Export"
+msgstr "Import / Eksport"
+
+#: src/ludamus/templates/panel/base.html
+msgctxt "Sidebar category"
+msgid "Schedule"
+msgstr "Plan"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Harmonogram"
 msgstr "Harmonogram"
 
@@ -3930,16 +3947,16 @@ msgid "Print Materials"
 msgstr "Materiały do druku"
 
 #: src/ludamus/templates/panel/base.html
+msgid "Settings"
+msgstr "Ustawienia"
+
+#: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/proposal-settings.html
 #: src/ludamus/templates/panel/settings.html
 msgid "Event Settings"
 msgstr "Ustawienia wydarzenia"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Import / Export"
-msgstr "Import / Eksport"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
