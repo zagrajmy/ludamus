@@ -75,65 +75,81 @@
                                                    name="question_{{ row.index }}"
                                                    value="{{ row.question }}">
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-foreground-secondary align-top">
-                                            <select name="target_{{ row.index }}"
-                                                    class="form-select recipe-target"
-                                                    data-row="{{ row.index }}">
-                                                <option value="ignore" {% if row.selected == "ignore" %}selected{% endif %}>{% translate "Don't import" %}</option>
-                                                {% for col in session_columns %}
-                                                    <option value="session.{{ col }}"
-                                                            {% if row.selected == "session."|add:col %}selected{% endif %}>
-                                                        {% translate "Proposal" %} — {{ col|capfirst }}
+                                        <td class="px-6 py-4 align-top">
+                                            <div class="max-w-sm">
+                                                <select name="target_{{ row.index }}"
+                                                        class="recipe-target w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                        data-row="{{ row.index }}">
+                                                    <option value="ignore" {% if row.selected == "ignore" %}selected{% endif %}>{% translate "Don't import" %}</option>
+                                                    {% for col in session_columns %}
+                                                        <option value="session.{{ col }}"
+                                                                {% if row.selected == "session."|add:col %}selected{% endif %}>
+                                                            {% translate "Proposal" %} — {{ col|capfirst }}
+                                                        </option>
+                                                    {% endfor %}
+                                                    <option value="personal-field"
+                                                            {% if row.selected == "personal-field" %}selected{% endif %}>
+                                                        {% translate "New personal field…" %}
                                                     </option>
-                                                {% endfor %}
-                                                <option value="personal-field"
-                                                        {% if row.selected == "personal-field" %}selected{% endif %}>
-                                                    {% translate "New personal field…" %}
-                                                </option>
-                                                <option value="session-field"
-                                                        {% if row.selected == "session-field" %}selected{% endif %}>
-                                                    {% translate "New session field…" %}
-                                                </option>
-                                            </select>
-                                            <div class="recipe-setup {% if row.selected == "personal-field" or row.selected == "session-field" %}is-open{% endif %}"
-                                                 data-row="{{ row.index }}">
-                                                <div class="recipe-setup-inner">
-                                                    <div class="space-y-3 pt-3">
-                                                        <input type="text"
-                                                               name="newname_{{ row.index }}"
-                                                               value="{{ row.field_name }}"
-                                                               placeholder="{% translate "Field name" %}"
-                                                               class="form-input">
-                                                        <select name="fieldtype_{{ row.index }}"
-                                                                class="form-select recipe-fieldtype"
-                                                                data-row="{{ row.index }}">
-                                                            <option value="text" {% if row.field_type == "text" %}selected{% endif %}>{% translate "Text" %}</option>
-                                                            <option value="select" {% if row.field_type == "select" %}selected{% endif %}>{% translate "Select" %}</option>
-                                                            <option value="checkbox"
-                                                                    {% if row.field_type == "checkbox" %}selected{% endif %}>
-                                                                {% translate "Checkbox" %}
-                                                            </option>
-                                                        </select>
-                                                        <div class="recipe-options {% if row.field_type == "text" %}hidden{% endif %}"
-                                                             data-row="{{ row.index }}">
-                                                            <textarea name="options_{{ row.index }}"
-                                                                      rows="4"
-                                                                      placeholder="{% translate "One option per line" %}"
-                                                                      class="form-input">{{ row.options }}</textarea>
-                                                            <label class="flex items-center mt-2">
-                                                                <input type="checkbox"
-                                                                       name="multiple_{{ row.index }}"
-                                                                       {% if row.is_multiple %}checked{% endif %}
-                                                                       class="rounded border-border text-primary focus:ring-primary">
-                                                                <span class="ml-2 text-sm text-foreground-secondary">{% translate "Allow multiple selections" %}</span>
-                                                            </label>
-                                                            <label class="flex items-center mt-2">
-                                                                <input type="checkbox"
-                                                                       name="allowcustom_{{ row.index }}"
-                                                                       {% if row.allow_custom %}checked{% endif %}
-                                                                       class="rounded border-border text-primary focus:ring-primary">
-                                                                <span class="ml-2 text-sm text-foreground-secondary">{% translate "Allow custom values" %}</span>
-                                                            </label>
+                                                    <option value="session-field"
+                                                            {% if row.selected == "session-field" %}selected{% endif %}>
+                                                        {% translate "New session field…" %}
+                                                    </option>
+                                                </select>
+                                                <div class="recipe-setup {% if row.selected == "personal-field" or row.selected == "session-field" %}is-open{% endif %}"
+                                                     data-row="{{ row.index }}">
+                                                    <div class="recipe-setup-inner">
+                                                        <div class="mt-3 space-y-3 rounded-lg border border-border bg-bg-tertiary p-4">
+                                                            <div>
+                                                                <label class="mb-1 block text-xs font-medium text-foreground-secondary"
+                                                                       for="newname_{{ row.index }}">
+                                                                    {% translate "Field name" %}
+                                                                </label>
+                                                                <input type="text"
+                                                                       id="newname_{{ row.index }}"
+                                                                       name="newname_{{ row.index }}"
+                                                                       value="{{ row.field_name }}"
+                                                                       placeholder="{% translate "Field name" %}"
+                                                                       class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                            </div>
+                                                            <div>
+                                                                <label class="mb-1 block text-xs font-medium text-foreground-secondary"
+                                                                       for="fieldtype_{{ row.index }}">
+                                                                    {% translate "Field type" %}
+                                                                </label>
+                                                                <select id="fieldtype_{{ row.index }}"
+                                                                        name="fieldtype_{{ row.index }}"
+                                                                        class="recipe-fieldtype w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                                        data-row="{{ row.index }}">
+                                                                    <option value="text" {% if row.field_type == "text" %}selected{% endif %}>{% translate "Text" %}</option>
+                                                                    <option value="select" {% if row.field_type == "select" %}selected{% endif %}>{% translate "Select" %}</option>
+                                                                    <option value="checkbox"
+                                                                            {% if row.field_type == "checkbox" %}selected{% endif %}>
+                                                                        {% translate "Checkbox" %}
+                                                                    </option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="recipe-options {% if row.field_type == "text" %}hidden{% endif %} space-y-3"
+                                                                 data-row="{{ row.index }}">
+                                                                <textarea name="options_{{ row.index }}"
+                                                                          rows="3"
+                                                                          placeholder="{% translate "One option per line" %}"
+                                                                          class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ row.options }}</textarea>
+                                                                <label class="flex items-center">
+                                                                    <input type="checkbox"
+                                                                           name="multiple_{{ row.index }}"
+                                                                           {% if row.is_multiple %}checked{% endif %}
+                                                                           class="rounded border-border text-primary focus:ring-primary">
+                                                                    <span class="ml-2 text-sm text-foreground-secondary">{% translate "Allow multiple selections" %}</span>
+                                                                </label>
+                                                                <label class="flex items-center">
+                                                                    <input type="checkbox"
+                                                                           name="allowcustom_{{ row.index }}"
+                                                                           {% if row.allow_custom %}checked{% endif %}
+                                                                           class="rounded border-border text-primary focus:ring-primary">
+                                                                    <span class="ml-2 text-sm text-foreground-secondary">{% translate "Allow custom values" %}</span>
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
