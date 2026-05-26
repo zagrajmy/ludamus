@@ -94,6 +94,16 @@ def _dto(integration) -> EventIntegrationDTO:
     )
 
 
+def _sheets_get(values, *, title="Form Responses 1"):
+    # fetch_responses reads spreadsheet metadata (tab title) then the tab's
+    # values; route each Google call by URL so call order/count is irrelevant.
+    meta = MagicMock(
+        ok=True, json=lambda: {"sheets": [{"properties": {"title": title}}]}
+    )
+    vals = MagicMock(ok=True, json=lambda: {"values": values})
+    return lambda url, **_: vals if "/values/" in url else meta
+
+
 @pytest.mark.django_db
 class TestEventImportSectionView:
     def test_get_redirects_anonymous(self, client, event):
@@ -401,8 +411,8 @@ class TestEventImportRunActionView:
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
-            session_cls.return_value.get.return_value = MagicMock(
-                ok=True, json=lambda: {"values": [["Title"], ["My Talk"], ["Another"]]}
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["My Talk"], ["Another"]]
             )
             response = authenticated_client.post(_run_url(event, integration))
 
@@ -438,9 +448,8 @@ class TestEventImportRunActionView:
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
-            session_cls.return_value.get.return_value = MagicMock(
-                ok=True,
-                json=lambda: {"values": [["Title", "RPG system"], ["My Talk", "D&D"]]},
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "RPG system"], ["My Talk", "D&D"]]
             )
             response = authenticated_client.post(_run_url(event, integration))
 
@@ -489,9 +498,8 @@ class TestEventImportRunActionView:
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
-            session_cls.return_value.get.return_value = MagicMock(
-                ok=True,
-                json=lambda: {"values": [["Title", "System"], ["My Talk", "D&D"]]},
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "System"], ["My Talk", "D&D"]]
             )
             response = authenticated_client.post(_run_url(event, integration))
 
@@ -543,9 +551,8 @@ class TestEventImportRunActionView:
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
-            session_cls.return_value.get.return_value = MagicMock(
-                ok=True,
-                json=lambda: {"values": [["Title", "Phone"], ["My Talk", "555-1234"]]},
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Phone"], ["My Talk", "555-1234"]]
             )
             authenticated_client.post(_run_url(event, integration))
             # Re-run: the field is matched by slug, not duplicated.

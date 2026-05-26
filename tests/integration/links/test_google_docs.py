@@ -17,6 +17,8 @@ from pydantic import BaseModel
 from ludamus.links.google_docs import (
     FORMS_API_URL,
     SHEETS_API_URL,
+    SHEETS_META_URL,
+    SHEETS_VALUES_URL,
     GoogleDocsProposalConfig,
     GoogleDocsProposalImporter,
 )
@@ -237,3 +239,86 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         google.session.get.side_effect = requests.RequestException("timeout")
 
         assert GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG) == []
+
+
+def _route_get(*, values: list[list[str]], title: str = "Form Responses 1"):
+    # The importer first reads spreadsheet metadata (for the tab title), then
+    # the tab's values; route each call by URL so call order/count is irrelevant.
+    meta = MagicMock(
+        ok=True, json=lambda: {"sheets": [{"properties": {"title": title}}]}
+    )
+    vals = MagicMock(ok=True, json=lambda: {"values": values})
+
+    def get(url: str, **_kwargs: object) -> MagicMock:
+        return vals if "/values/" in url else meta
+
+    return get
+
+
+class TestGoogleDocsProposalImporterFetchResponses:
+    def test_reads_the_whole_named_tab(self, google):
+        google.session.get.side_effect = _route_get(
+            values=[["Timestamp", "Title"], ["t1", "My Talk"]]
+        )
+
+        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+
+        assert result == [{"Timestamp": "t1", "Title": "My Talk"}]
+        google.session.get.assert_any_call(
+            SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
+        )
+        # The values request names the tab (URL-encoded) instead of a fixed A:Z
+        # window, so every column is read no matter how wide the form is.
+        google.session.get.assert_any_call(
+            SHEETS_VALUES_URL.format(sheet_id="sheet-1", range="Form%20Responses%201"),
+            timeout=30,
+        )
+
+    def test_reads_columns_past_z(self, google):
+        headers = [f"Q{i}" for i in range(30)]
+        google.session.get.side_effect = _route_get(
+            values=[headers, [str(i) for i in range(30)]]
+        )
+
+        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+
+        assert result == [{f"Q{i}": str(i) for i in range(30)}]
+
+    def test_uses_the_first_tab_when_several_exist(self, google):
+        meta = MagicMock(
+            ok=True,
+            json=lambda: {
+                "sheets": [
+                    {"properties": {"title": "First"}},
+                    {"properties": {"title": "Second"}},
+                ]
+            },
+        )
+        vals = MagicMock(ok=True, json=lambda: {"values": [["Title"], ["My Talk"]]})
+        google.session.get.side_effect = lambda url, **_: (
+            vals if "/values/" in url else meta
+        )
+
+        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+
+        assert result == [{"Title": "My Talk"}]
+        google.session.get.assert_any_call(
+            SHEETS_VALUES_URL.format(sheet_id="sheet-1", range="First"), timeout=30
+        )
+
+    def test_wrong_config_returns_empty(self):
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(SECRET, _OtherConfig()) == []
+        )
+
+    def test_no_sheets_returns_empty(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True, json=lambda: {"sheets": []}
+        )
+
+        assert GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG) == []
+
+    def test_empty_values_returns_empty(self, google):
+        google.session.get.side_effect = _route_get(values=[])
+
+        assert GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG) == []

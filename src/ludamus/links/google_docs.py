@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from contextlib import suppress
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import requests
 from google.auth.exceptions import GoogleAuthError
@@ -27,8 +28,12 @@ GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/forms.body.readonly",
 )
 SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A1:Z1"
-SHEETS_RESPONSES_URL = (
-    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A:Z"
+SHEETS_META_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}"
+    "?fields=sheets.properties.title"
+)
+SHEETS_VALUES_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
 )
 FORMS_API_URL = "https://forms.googleapis.com/v1/forms/{form_id}"
 ERROR_HINT_LIMIT = 200
@@ -44,6 +49,18 @@ class _CredentialsError(Exception):
 def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
     # Sheets omits trailing empty cells, so a row may be shorter than headers.
     return {header: row[i] if i < len(row) else "" for i, header in enumerate(headers)}
+
+
+class _SheetProperties(BaseModel):
+    title: str = ""
+
+
+class _Sheet(BaseModel):
+    properties: _SheetProperties = Field(default_factory=_SheetProperties)
+
+
+class _SpreadsheetMeta(BaseModel):
+    sheets: list[_Sheet] = []
 
 
 class _FormOption(BaseModel):
@@ -163,10 +180,15 @@ class GoogleDocsProposalImporter:
             session = self._session(secret)
         except _CredentialsError:
             return []
+        if not (title := self._responses_tab_title(session, config.sheet_id)):
+            return []
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
+            # A bare tab name (no A1 column bounds) returns the tab's whole data
+            # region — every column and row — so a wide form is not capped at Z.
             response = session.get(
-                SHEETS_RESPONSES_URL.format(sheet_id=config.sheet_id), timeout=30
+                SHEETS_VALUES_URL.format(sheet_id=config.sheet_id, range=quote(title)),
+                timeout=30,
             )
         if response is None or not response.ok:
             return []
@@ -174,6 +196,20 @@ class GoogleDocsProposalImporter:
             return []
         headers = [str(cell) for cell in values[0]]
         return [_row_to_dict(headers, row) for row in values[1:]]
+
+    @staticmethod
+    def _responses_tab_title(session: AuthorizedSession, sheet_id: str) -> str:
+        # Responses live on the spreadsheet's first tab (a form-linked sheet has
+        # only that one); read its title so the values request can name it.
+        response: requests.Response | None = None
+        with suppress(requests.RequestException, GoogleAuthError):
+            response = session.get(
+                SHEETS_META_URL.format(sheet_id=sheet_id), timeout=10
+            )
+        if response is None or not response.ok:
+            return ""
+        meta = _SpreadsheetMeta.model_validate(response.json())
+        return meta.sheets[0].properties.title if meta.sheets else ""
 
     def _session(self, secret: bytes) -> AuthorizedSession:
         if not secret:
