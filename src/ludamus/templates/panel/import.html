@@ -156,7 +156,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="recipe-timeslots mt-3 max-w-md space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
+                                <div class="recipe-timeslots mt-3 max-w-xl space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
                                      data-row="{{ row.index }}">
                                     {% for ow in row.option_windows %}
                                         <div class="ts-option rounded-lg border border-border bg-bg-tertiary p-4">
@@ -169,15 +169,15 @@
                                                                name="tsstart_{{ row.index }}"
                                                                value="{{ w.start }}"
                                                                aria-label="{% translate "Start" %}"
-                                                               class="rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                                        <span class="text-foreground-muted">–</span>
+                                                               class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                        <span class="shrink-0 text-foreground-muted">–</span>
                                                         <input type="datetime-local"
                                                                name="tsend_{{ row.index }}"
                                                                value="{{ w.end }}"
                                                                aria-label="{% translate "End" %}"
-                                                               class="rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                               class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                                                         <button type="button"
-                                                                class="ts-remove text-foreground-muted hover:text-foreground"
+                                                                class="ts-remove shrink-0 text-foreground-muted hover:text-foreground"
                                                                 aria-label="{% translate "Remove window" %}">
                                                             {% icon "x-mark" class="w-4 h-4" %}
                                                         </button>
