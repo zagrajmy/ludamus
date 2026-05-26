@@ -1125,6 +1125,14 @@ msgid "Import recipe saved."
 msgstr "Zapisano przepis importu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Invalid import settings JSON."
+msgstr "Nieprawidłowy JSON ustawień importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Import settings saved."
+msgstr "Zapisano ustawienia importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
 msgid "Created %(count)d proposals."
 msgstr "Utworzono zgłoszenia: %(count)d."
@@ -2610,6 +2618,7 @@ msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Proposal"
 msgstr "Zgłoszenie"
 
@@ -3823,6 +3832,8 @@ msgstr ""
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -3927,7 +3938,6 @@ msgid "Event Settings"
 msgstr "Ustawienia wydarzenia"
 
 #: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/import.html
 msgid "Import / Export"
 msgstr "Import / Eksport"
 
@@ -4343,22 +4353,29 @@ msgstr "Scal zaznaczonych twórców"
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
-#: src/ludamus/templates/panel/import.html
-msgid "Test import (one row)"
-msgstr "Import próbny (jeden wiersz)"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Run import"
-msgstr "Uruchom import"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Save recipe"
-msgstr "Zapisz przepis"
-
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 msgid "Google Docs Import"
 msgstr "Import z Google Docs"
 
+#: src/ludamus/templates/panel/import-json.html
+msgid "Save settings"
+msgstr "Zapisz ustawienia"
+
+#: src/ludamus/templates/panel/import-json.html
+msgid "Import settings (JSON)"
+msgstr "Ustawienia importu (JSON)"
+
+#: src/ludamus/templates/panel/import-json.html
+msgid ""
+"Edit the raw mapping the Proposal tab produces. Invalid JSON is rejected."
+msgstr ""
+"Edytuj surowe mapowanie generowane przez zakładkę Zgłoszenie. Nieprawidłowy "
+"JSON jest odrzucany."
+
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 msgid ""
 "No import integrations yet. Add one in Settings → Integrations to import "
@@ -4366,6 +4383,30 @@ msgid ""
 msgstr ""
 "Nie ma jeszcze żadnych integracji importu. Dodaj jedną w sekcji Ustawienia → "
 "Integracje, aby importować zgłoszenia z zewnętrznego formularza."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Test import (one row)"
+msgstr "Import próbny (jeden wiersz)"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Import one random response so you can eyeball the recipe. Delete it before "
+"the full run."
+msgstr ""
+"Zaimportuj jedną losową odpowiedź, aby ocenić przepis. Usuń ją przed pełnym "
+"importem."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Run import"
+msgstr "Uruchom import"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Create a proposal from every response using the saved recipe."
+msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Save recipe"
+msgstr "Zapisz przepis"
 
 #: src/ludamus/templates/panel/import.html
 msgid "Maps to"
@@ -4494,6 +4535,14 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
 msgid "Venue / area…"
 msgstr "Lokalizacja / strefa…"
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "JSON"
+msgstr ""
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "Import run"
+msgstr "Uruchomienie importu"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print timetable for a venue or area"

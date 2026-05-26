@@ -378,22 +378,32 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/import/",
-        import_export.EventImportSectionView.as_view(),
+        import_export.EventImportProposalView.as_view(),
         name="import",
     ),
     path(
         "event/<slug:slug>/import/<int:pk>/",
-        import_export.EventImportSectionView.as_view(),
+        import_export.EventImportProposalView.as_view(),
         name="import-integration",
     ),
     path(
+        "event/<slug:slug>/import/<int:pk>/json/",
+        import_export.EventImportJsonView.as_view(),
+        name="import-json",
+    ),
+    path(
         "event/<slug:slug>/import/<int:pk>/run/",
-        import_export.EventImportRunActionView.as_view(),
+        import_export.EventImportRunPageView.as_view(),
         name="import-run",
     ),
     path(
-        "event/<slug:slug>/import/<int:pk>/test/",
+        "event/<slug:slug>/import/<int:pk>/do/run/",
+        import_export.EventImportRunActionView.as_view(),
+        name="import-run-do",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/test/",
         import_export.EventImportTestRowActionView.as_view(),
-        name="import-test",
+        name="import-test-do",
     ),
 ]

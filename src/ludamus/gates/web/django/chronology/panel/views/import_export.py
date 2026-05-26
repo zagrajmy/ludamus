@@ -7,9 +7,10 @@ this section is where the (hardcoded) Google Docs import is configured
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -17,11 +18,13 @@ from django.template.response import TemplateResponse
 from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
+from pydantic import ValidationError
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    import_tab_urls,
 )
 from ludamus.mills.submissions import slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
@@ -38,6 +41,7 @@ from ludamus.pacts.submissions import (
 if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
 
+    from ludamus.pacts import EventDTO
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
 
 SESSION_COLUMNS = ("title", "description")
@@ -343,26 +347,51 @@ def _settings_from_post(post: QueryDict) -> ImportSettings:
     return ImportSettings(questions=questions, definitions=definitions)
 
 
-class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
-    """Import/Export section: the hardcoded Google Docs import recipe editor."""
+def _pretty_json(raw: str | None) -> str:
+    text = raw or "{}"
+    try:
+        return json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+    except ValueError:
+        return text
+
+
+class _ImportTabView(PanelAccessMixin, EventContextMixin, View):
+    """Shared loading for the Google Docs import tabs (proposal / json / run)."""
 
     request: PanelRequest
+    active_tab = ""
 
-    def get(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
-    ) -> HttpResponse:
+    def _load(
+        self, slug: str, pk: int | None
+    ) -> tuple[dict[str, Any], EventDTO, EventIntegrationDTO | None] | HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
         context["active_nav"] = "import"
-
         integrations = _import_integrations(self.request, current_event.pk)
         active = _active_integration(integrations, pk)
         if integrations and active is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
-
         context["active_integration"] = active
+        if active is not None:
+            context["active_tab"] = self.active_tab
+            context["tab_urls"] = import_tab_urls(slug, active.pk)
+        return context, current_event, active
+
+
+class EventImportProposalView(_ImportTabView):
+    """Proposal tab: the per-question recipe editor."""
+
+    active_tab = "proposal"
+
+    def get(
+        self, _request: PanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
         if active is not None:
             sphere_id = self.request.context.current_sphere_id
             questions = self.request.services.event_integrations.fetch_questions(
@@ -379,11 +408,11 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
     def post(
         self, _request: PanelRequest, slug: str, pk: int | None = None
     ) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        integrations = _import_integrations(self.request, current_event.pk)
-        if (active := _active_integration(integrations, pk)) is None:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        _context, current_event, active = loaded
+        if active is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
         settings = _settings_from_post(self.request.POST)
@@ -392,6 +421,61 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
         )
         messages.success(self.request, _("Import recipe saved."))
         return redirect("panel:import-integration", slug=slug, pk=active.pk)
+
+
+class EventImportJsonView(_ImportTabView):
+    """JSON tab: edit the raw import settings blob directly."""
+
+    active_tab = "json"
+
+    def get(
+        self, _request: PanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, _current_event, active = loaded
+        if active is not None:
+            context["settings_json"] = _pretty_json(active.settings_json)
+        return TemplateResponse(self.request, "panel/import-json.html", context)
+
+    def post(
+        self, _request: PanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        raw = (self.request.POST.get("settings_json") or "").strip() or "{}"
+        try:
+            ImportSettings.model_validate_json(raw)
+        except ValidationError:
+            messages.error(self.request, _("Invalid import settings JSON."))
+            context["settings_json"] = raw
+            return TemplateResponse(self.request, "panel/import-json.html", context)
+        self.request.services.event_integrations.save_settings(
+            current_event.pk, active.pk, raw
+        )
+        messages.success(self.request, _("Import settings saved."))
+        return redirect("panel:import-json", slug=slug, pk=active.pk)
+
+
+class EventImportRunPageView(_ImportTabView):
+    """Import run tab: trigger a full run or a one-row test."""
+
+    active_tab = "run"
+
+    def get(
+        self, _request: PanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, _current_event, _active = loaded
+        return TemplateResponse(self.request, "panel/import-run.html", context)
 
 
 class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
@@ -409,7 +493,7 @@ class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import", slug=slug)
         sphere_id = self.request.context.current_sphere_id
         self._act(sphere_id, current_event.pk, active.pk)
-        return redirect("panel:import-integration", slug=slug, pk=active.pk)
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
 
     def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
         raise NotImplementedError

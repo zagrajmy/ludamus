@@ -27,6 +27,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     Track,
 )
+from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
@@ -61,13 +62,25 @@ def _tab_url(event, integration) -> str:
 
 def _run_url(event, integration) -> str:
     return reverse(
-        "panel:import-run", kwargs={"slug": event.slug, "pk": integration.pk}
+        "panel:import-run-do", kwargs={"slug": event.slug, "pk": integration.pk}
     )
 
 
 def _test_url(event, integration) -> str:
     return reverse(
-        "panel:import-test", kwargs={"slug": event.slug, "pk": integration.pk}
+        "panel:import-test-do", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
+def _run_page_url(event, integration) -> str:
+    return reverse(
+        "panel:import-run", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
+def _json_url(event, integration) -> str:
+    return reverse(
+        "panel:import-json", kwargs={"slug": event.slug, "pk": integration.pk}
     )
 
 
@@ -116,7 +129,7 @@ def _sheets_get(values, *, title="Form Responses 1"):
 
 
 @pytest.mark.django_db
-class TestEventImportSectionView:
+class TestEventImportProposalView:
     def test_get_redirects_anonymous(self, client, event):
         url = _import_url(event)
 
@@ -183,6 +196,8 @@ class TestEventImportSectionView:
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
+                "active_tab": "proposal",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "session_columns": ("title", "description"),
                 "rows": [
                     {
@@ -767,7 +782,7 @@ class TestEventImportRunActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
+            url=_run_page_url(event, integration),
             messages=[(messages.SUCCESS, "Created 2 proposals.")],
         )
         titles = set(
@@ -807,7 +822,7 @@ class TestEventImportRunActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
+            url=_run_page_url(event, integration),
             messages=[(messages.SUCCESS, "Created 1 proposals.")],
         )
         field = SessionField.objects.get(event=event, slug="system")
@@ -858,7 +873,7 @@ class TestEventImportRunActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
+            url=_run_page_url(event, integration),
             messages=[(messages.SUCCESS, "Created 1 proposals.")],
         )
         field = SessionField.objects.get(event=event, slug="system")
@@ -1078,7 +1093,7 @@ class TestEventImportTestRowActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
+            url=_run_page_url(event, integration),
             messages=[
                 (
                     messages.SUCCESS,
@@ -1111,7 +1126,143 @@ class TestEventImportTestRowActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
+            url=_run_page_url(event, integration),
             messages=[(messages.INFO, "No responses found to test.")],
         )
         assert not Session.objects.filter(sphere=sphere).exists()
+
+
+@pytest.mark.django_db
+class TestEventImportJsonView:
+    def test_get_redirects_non_manager(self, authenticated_client, event, connection):
+        integration = _make_import_integration(event, connection, display_name="Puller")
+
+        response = authenticated_client.get(_json_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_get_prettifies_the_stored_settings(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        stored = json.dumps(
+            {"questions": {"Title": {"to": "session.title", "ignore": False}}}
+        )
+        integration.settings_json = stored
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.get(_json_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-json.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "json",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "settings_json": json.dumps(
+                    json.loads(stored), indent=2, ensure_ascii=False
+                ),
+            },
+        )
+
+    def test_post_saves_valid_json(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        blob = '{"questions": {"Title": {"to": "session.title"}}}'
+
+        response = authenticated_client.post(
+            _json_url(event, integration), data={"settings_json": blob}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_json_url(event, integration),
+            messages=[(messages.SUCCESS, "Import settings saved.")],
+        )
+        integration.refresh_from_db()
+        assert integration.settings_json == blob
+
+    def test_post_rejects_invalid_json(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        before = integration.settings_json
+
+        response = authenticated_client.post(
+            _json_url(event, integration), data={"settings_json": "{not json"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-json.html",
+            messages=[(messages.ERROR, "Invalid import settings JSON.")],
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "json",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "settings_json": "{not json",
+            },
+        )
+        integration.refresh_from_db()
+        assert integration.settings_json == before
+
+
+@pytest.mark.django_db
+class TestEventImportRunPageView:
+    def test_get_redirects_non_manager(self, authenticated_client, event, connection):
+        integration = _make_import_integration(event, connection, display_name="Puller")
+
+        response = authenticated_client.get(_run_page_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_get_renders_the_run_actions(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.get(_run_page_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-run.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "run",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+            },
+        )

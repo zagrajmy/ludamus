@@ -1,0 +1,71 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Google Docs Import" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Google Docs Import" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    {% if current_event %}
+        {% if active_integration %}
+            {% include "panel/parts/import-tabs.html" %}
+            <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
+                <div class="card max-w-3xl divide-y divide-border">
+                    <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                        <div>
+                            <p class="text-sm font-medium text-foreground">{% translate "Test import (one row)" %}</p>
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "Import one random response so you can eyeball the recipe. Delete it before the full run." %}
+                            </p>
+                        </div>
+                        <form method="post"
+                              action="{% url 'panel:import-test-do' slug=current_event.slug pk=active_integration.pk %}"
+                              class="shrink-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary flex items-center">
+                                {% icon "beaker" class="w-4 h-4 mr-2" %}
+                                {% translate "Test import (one row)" %}
+                            </button>
+                        </form>
+                    </div>
+                    <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                        <div>
+                            <p class="text-sm font-medium text-foreground">{% translate "Run import" %}</p>
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "Create a proposal from every response using the saved recipe." %}
+                            </p>
+                        </div>
+                        <form method="post"
+                              action="{% url 'panel:import-run-do' slug=current_event.slug pk=active_integration.pk %}"
+                              class="shrink-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary flex items-center">
+                                {% icon "arrow-down-tray" class="w-4 h-4 mr-2" %}
+                                {% translate "Run import" %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="px-3 sm:px-4 lg:px-8 py-6">
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted">
+                        {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="px-3 sm:px-4 lg:px-8 py-6">
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        </div>
+    {% endif %}
+{% endblock content %}
