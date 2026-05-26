@@ -8,11 +8,13 @@ this section is where the (hardcoded) Google Docs import is configured
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -27,6 +29,7 @@ from ludamus.pacts.submissions import (
     FieldDefinitions,
     ImportSettings,
     QuestionTarget,
+    TimeSlotSpec,
 )
 
 if TYPE_CHECKING:
@@ -35,7 +38,19 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
 
 SESSION_COLUMNS = ("title", "description")
+TIME_SLOTS_TARGET = "session.time_slots"
 FieldType = Literal["text", "select", "checkbox"]
+LOCAL_DT_FORMAT = "%Y-%m-%dT%H:%M"
+
+
+class Window(TypedDict):
+    start: str
+    end: str
+
+
+class OptionWindows(TypedDict):
+    option: str
+    windows: list[Window]
 
 
 class RecipeRow(TypedDict):
@@ -47,6 +62,7 @@ class RecipeRow(TypedDict):
     is_multiple: bool
     allow_custom: bool
     options: str
+    option_windows: list[OptionWindows]
 
 
 def _active_integration(
@@ -110,6 +126,9 @@ def _row(
         "is_multiple": multiple,
         "allow_custom": setup.allow_custom,
         "options": "\n".join(setup.options),
+        "option_windows": (
+            _option_windows(question, target) if selected == TIME_SLOTS_TARGET else []
+        ),
     }
 
 
@@ -118,6 +137,27 @@ def _setup_type(setup: FieldDefinition | SourceQuestion) -> tuple[str, bool]:
     if isinstance(setup, FieldDefinition):
         return setup.type, setup.multiple
     return setup.field_type, setup.is_multiple
+
+
+def _option_windows(
+    question: SourceQuestion, target: QuestionTarget | None
+) -> list[OptionWindows]:
+    # One editable group per source option, pre-filled with its configured
+    # windows (local datetime-local strings) or a single blank window to fill.
+    configured = target.values if target else {}
+    rows: list[OptionWindows] = []
+    for option in question.options:
+        spec = configured.get(option)
+        specs = spec if isinstance(spec, list) else [spec] if spec else []
+        windows: list[Window] = [
+            {
+                "start": localtime(s.start_time).strftime(LOCAL_DT_FORMAT),
+                "end": localtime(s.end_time).strftime(LOCAL_DT_FORMAT),
+            }
+            for s in specs
+        ] or [{"start": "", "end": ""}]
+        rows.append({"option": option, "windows": windows})
+    return rows
 
 
 def _field_type_from_post(post: QueryDict, index: int) -> FieldType:
@@ -143,8 +183,40 @@ def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
     )
 
 
+def _time_slot_values_from_post(
+    post: QueryDict, index: int
+) -> dict[str, TimeSlotSpec | list[TimeSlotSpec]]:
+    # The window rows submit parallel arrays (one entry per row); regroup them
+    # by option, dropping rows missing a start or end.
+    grouped: dict[str, list[TimeSlotSpec]] = {}
+    rows = zip(
+        post.getlist(f"tsoption_{index}"),
+        post.getlist(f"tsstart_{index}"),
+        post.getlist(f"tsend_{index}"),
+        strict=False,
+    )
+    tz = get_current_timezone()
+    for option, start, end in rows:
+        if not (option and start and end):
+            continue
+        grouped.setdefault(option, []).append(
+            TimeSlotSpec(
+                start_time=make_aware(datetime.fromisoformat(start), tz),
+                end_time=make_aware(datetime.fromisoformat(end), tz),
+            )
+        )
+    return {
+        option: windows[0] if len(windows) == 1 else windows
+        for option, windows in grouped.items()
+    }
+
+
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
+    if choice == TIME_SLOTS_TARGET:
+        return QuestionTarget(
+            to=choice, values=_time_slot_values_from_post(post, index)
+        )
     if choice.startswith("session.") or choice == "facilitator.display_name":
         return QuestionTarget(to=choice)
     name = (post.get(f"newname_{index}") or "").strip()

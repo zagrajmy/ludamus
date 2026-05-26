@@ -7,12 +7,14 @@ integration is just the connection it pulls through.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.adapters.db.django.models import (
     EventIntegration,
@@ -29,6 +31,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
+from ludamus.pacts.submissions import ImportSettings, TimeSlotSpec
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -189,6 +192,7 @@ class TestEventImportSectionView:
                         "is_multiple": False,
                         "allow_custom": False,
                         "options": "",
+                        "option_windows": [],
                     },
                     {
                         "index": 1,
@@ -199,6 +203,7 @@ class TestEventImportSectionView:
                         "is_multiple": False,
                         "allow_custom": False,
                         "options": "",
+                        "option_windows": [],
                     },
                 ],
             },
@@ -251,10 +256,126 @@ class TestEventImportSectionView:
                 "is_multiple": False,
                 "allow_custom": True,
                 "options": "do 16\n18+",
+                "option_windows": [],
             }
         ]
         # The source options reach the rendered setup textarea (not just context).
         assert "do 16\n18+" in response.content.decode()
+
+    def test_get_renders_time_slot_windows_for_a_checkbox_question(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "When": {
+                        "to": "session.time_slots",
+                        "values": {
+                            "Fri": {
+                                "to": "time_slot",
+                                "start_time": "2025-09-19T16:00:00+02:00",
+                                "end_time": "2025-09-19T22:00:00+02:00",
+                            }
+                        },
+                    }
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {
+                            "title": "When",
+                            "questionItem": {
+                                "question": {
+                                    "choiceQuestion": {
+                                        "type": "CHECKBOX",
+                                        "options": [{"value": "Fri"}, {"value": "Sat"}],
+                                    }
+                                }
+                            },
+                        }
+                    ]
+                },
+            )
+            response = authenticated_client.get(_tab_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        fri_start = localtime(
+            datetime.fromisoformat("2025-09-19T16:00:00+02:00")
+        ).strftime("%Y-%m-%dT%H:%M")
+        fri_end = localtime(
+            datetime.fromisoformat("2025-09-19T22:00:00+02:00")
+        ).strftime("%Y-%m-%dT%H:%M")
+        row = response.context_data["rows"][0]
+        assert row["selected"] == "session.time_slots"
+        assert row["option_windows"] == [
+            {"option": "Fri", "windows": [{"start": fri_start, "end": fri_end}]},
+            {"option": "Sat", "windows": [{"start": "", "end": ""}]},
+        ]
+
+    def test_post_saves_time_slot_windows_including_multiple(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _tab_url(event, integration),
+            data={
+                "question_0": "When",
+                "target_0": "session.time_slots",
+                "tsoption_0": ["Fri", "All", "All"],
+                "tsstart_0": [
+                    "2025-09-19T16:00",
+                    "2025-09-19T16:00",
+                    "2025-09-20T10:00",
+                ],
+                "tsend_0": ["2025-09-19T22:00", "2025-09-19T22:00", "2025-09-20T14:00"],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Import recipe saved.")],
+        )
+        tz = get_current_timezone()
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["When"]
+        assert target.to == "session.time_slots"
+        assert target.values == {
+            "Fri": TimeSlotSpec(
+                start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
+                end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
+            ),
+            "All": [
+                TimeSlotSpec(
+                    start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
+                    end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
+                ),
+                TimeSlotSpec(
+                    start_time=datetime(2025, 9, 20, 10, 0, tzinfo=tz),
+                    end_time=datetime(2025, 9, 20, 14, 0, tzinfo=tz),
+                ),
+            ],
+        }
 
     def test_get_without_pk_defaults_to_first_integration(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -608,6 +729,49 @@ class TestEventImportRunActionView:
         assert fields.count() == 1
         assert fields.get().field_type == "text"
         assert not HostPersonalData.objects.filter(field=fields.get()).exists()
+
+    def test_post_provisions_and_attaches_time_slots(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "When": {
+                        "to": "session.time_slots",
+                        "values": {
+                            "Fri": {
+                                "to": "time_slot",
+                                "start_time": "2025-09-19T16:00:00+02:00",
+                                "end_time": "2025-09-19T22:00:00+02:00",
+                            }
+                        },
+                    },
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "When"], ["My Talk", "Fri"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        session = Session.objects.get(sphere=sphere, title="My Talk")
+        slots = list(session.time_slots.all())
+        assert len(slots) == 1
+        assert slots[0].start_time == datetime.fromisoformat(
+            "2025-09-19T16:00:00+02:00"
+        )
+        assert slots[0].end_time == datetime.fromisoformat("2025-09-19T22:00:00+02:00")
 
 
 @pytest.mark.django_db

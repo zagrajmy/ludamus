@@ -85,6 +85,10 @@
                                                 {% if row.selected == "facilitator.display_name" %}selected{% endif %}>
                                             {% translate "Facilitator — Display name" %}
                                         </option>
+                                        <option value="session.time_slots"
+                                                {% if row.selected == "session.time_slots" %}selected{% endif %}>
+                                            {% translate "Time slots" %}
+                                        </option>
                                         <option value="personal-field"
                                                 {% if row.selected == "personal-field" %}selected{% endif %}>
                                             {% translate "New personal field…" %}
@@ -151,6 +155,42 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                                <div class="recipe-timeslots mt-3 max-w-md space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
+                                     data-row="{{ row.index }}">
+                                    {% for ow in row.option_windows %}
+                                        <div class="ts-option rounded-lg border border-border bg-bg-tertiary p-4">
+                                            <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ow.option }}</p>
+                                            <div class="ts-windows space-y-2">
+                                                {% for w in ow.windows %}
+                                                    <div class="ts-window flex items-center gap-2">
+                                                        <input type="hidden" name="tsoption_{{ row.index }}" value="{{ ow.option }}">
+                                                        <input type="datetime-local"
+                                                               name="tsstart_{{ row.index }}"
+                                                               value="{{ w.start }}"
+                                                               aria-label="{% translate "Start" %}"
+                                                               class="rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                        <span class="text-foreground-muted">–</span>
+                                                        <input type="datetime-local"
+                                                               name="tsend_{{ row.index }}"
+                                                               value="{{ w.end }}"
+                                                               aria-label="{% translate "End" %}"
+                                                               class="rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                        <button type="button"
+                                                                class="ts-remove text-foreground-muted hover:text-foreground"
+                                                                aria-label="{% translate "Remove window" %}">
+                                                            {% icon "x-mark" class="w-4 h-4" %}
+                                                        </button>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                            <button type="button"
+                                                    class="ts-add mt-2 inline-flex items-center text-sm text-primary hover:underline">
+                                                {% icon "plus" class="w-4 h-4 mr-1" %}
+                                                {% translate "Add window" %}
+                                            </button>
+                                        </div>
+                                    {% endfor %}
                                 </div>
                             </div>
                         {% endfor %}

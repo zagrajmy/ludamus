@@ -2910,6 +2910,7 @@ msgid "Your info"
 msgstr "Twoje dane"
 
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/panel/import.html
 msgid "Time slots"
 msgstr "Przedziały czasowe"
 
@@ -4412,6 +4413,22 @@ msgstr "Zezwól na wielokrotny wybór"
 #: src/ludamus/templates/panel/session-field-create.html
 msgid "Allow custom values"
 msgstr "Zezwól na własne wartości"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Start"
+msgstr "Początek"
+
+#: src/ludamus/templates/panel/import.html
+msgid "End"
+msgstr "Koniec"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Remove window"
+msgstr "Usuń przedział"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Add window"
+msgstr "Dodaj przedział"
 
 #: src/ludamus/templates/panel/import.html
 msgid ""
