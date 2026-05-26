@@ -237,6 +237,8 @@ class TestEventImportSectionView:
                 "options": "do 16\n18+",
             }
         ]
+        # The source options reach the rendered setup textarea (not just context).
+        assert "do 16\n18+" in response.content.decode()
 
     def test_get_without_pk_defaults_to_first_integration(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
