@@ -5,6 +5,7 @@ context today, with the Session lifecycle and proposal import to follow.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Literal, Protocol
 
 from pydantic import BaseModel, Field
@@ -18,19 +19,31 @@ if TYPE_CHECKING:
         PersonalDataFieldUpdateData,
         ProposalCategoryDTO,
         SessionFieldRepositoryProtocol,
+        SessionRepositoryProtocol,
+        TimeSlotRepositoryProtocol,
     )
 
 
 # --- Proposal import (mapping recipe stored as the integration's settings) ---
 
 
+class TimeSlotSpec(BaseModel):
+    # A provisioned time-slot window; the importer dedupes by (start, end).
+    to: Literal["time_slot"] = "time_slot"
+    start_time: datetime
+    end_time: datetime
+
+
 class QuestionTarget(BaseModel):
     # `to` is "session.<col>" (a built-in proposal field), "field.<Name>" (a new
-    # session field) or "personal.<Name>" (a new personal-data field), each
-    # provisioned by name from `ImportSettings.definitions`; `ignore` marks a
-    # question as deliberately unmapped.
+    # session field), "personal.<Name>" (a new personal-data field) or
+    # "session.time_slots" (provisioned windows), each provisioned by name from
+    # `ImportSettings.definitions`; `ignore` marks a question as deliberately
+    # unmapped. `values` maps a choice option's text to its target value — for
+    # `session.time_slots`, one window or several.
     to: str | None = None
     ignore: bool = False
+    values: dict[str, TimeSlotSpec | list[TimeSlotSpec]] = {}
 
 
 class FieldDefinition(BaseModel):
@@ -69,11 +82,13 @@ class ProposalImportResult:
 
 
 @dataclass(frozen=True)
-class FieldRepos:
-    """The field repos the proposal importer provisions new fields into."""
+class ImportRepos:
+    """The repos the proposal importer creates proposals and provisions into."""
 
-    session: SessionFieldRepositoryProtocol
-    personal: PersonalDataFieldRepositoryProtocol
+    sessions: SessionRepositoryProtocol
+    session_fields: SessionFieldRepositoryProtocol
+    personal_fields: PersonalDataFieldRepositoryProtocol
+    time_slots: TimeSlotRepositoryProtocol
 
 
 class ProposalImportServiceProtocol(Protocol):

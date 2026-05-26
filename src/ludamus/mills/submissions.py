@@ -20,7 +20,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.submissions import (
     FieldDefinition,
-    FieldRepos,
+    ImportRepos,
     ImportSettings,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
-        SessionRepositoryProtocol,
     )
     from ludamus.pacts.chronology import EventIntegrationsRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
@@ -171,15 +170,15 @@ class ProposalImportService:
         transaction: TransactionProtocol,
         source: ProposalSourceProtocol,
         integrations: EventIntegrationsRepositoryProtocol,
-        sessions: SessionRepositoryProtocol,
-        fields: FieldRepos,
+        repos: ImportRepos,
     ) -> None:
         self._transaction = transaction
         self._source = source
         self._integrations = integrations
-        self._sessions = sessions
-        self._session_fields = fields.session
-        self._personal_fields = fields.personal
+        self._sessions = repos.sessions
+        self._session_fields = repos.session_fields
+        self._personal_fields = repos.personal_fields
+        self._time_slots = repos.time_slots
 
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
@@ -215,7 +214,9 @@ class ProposalImportService:
                 event_id, settings
             )
             for row in rows:
-                self._create_proposal(sphere_id, settings, row, field_ids_by_header)
+                self._create_proposal(
+                    sphere_id, event_id, settings, row, field_ids_by_header
+                )
                 created += 1
         return ProposalImportResult(created=created, fields_created=fields_created)
 
@@ -307,6 +308,7 @@ class ProposalImportService:
     def _create_proposal(
         self,
         sphere_id: int,
+        event_id: int,
         settings: ImportSettings,
         row: dict[str, str],
         field_ids_by_header: dict[str, int],
@@ -335,7 +337,11 @@ class ProposalImportService:
             "participants_limit": 0,
             "slug": slug,
         }
-        session_id = self._sessions.create(session_data, tag_ids=[])
+        session_id = self._sessions.create(
+            session_data,
+            tag_ids=[],
+            time_slot_ids=self._time_slot_ids(event_id, settings, row),
+        )
         values = [
             SessionFieldValueData(
                 session_id=session_id, field_id=field_id, value=row.get(header, "")
@@ -344,3 +350,27 @@ class ProposalImportService:
         ]
         if values:
             self._sessions.save_field_values(session_id, values)
+
+    def _time_slot_ids(
+        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+    ) -> list[int]:
+        # For each `session.time_slots` question, the chosen options' windows
+        # are provisioned (deduped by start+end) and their ids collected. The
+        # response cell joins multi-select answers with ", "; options here are
+        # comma-free, so a comma split + exact match resolves them.
+        ids: list[int] = []
+        for header, target in settings.questions.items():
+            if target.to != "session.time_slots":
+                continue
+            chosen = {part.strip() for part in row.get(header, "").split(",")}
+            for option, spec in target.values.items():
+                if option not in chosen:
+                    continue
+                windows = spec if isinstance(spec, list) else [spec]
+                for window in windows:
+                    slot_id = self._time_slots.get_or_create(
+                        event_id, window.start_time, window.end_time
+                    )
+                    if slot_id not in ids:
+                        ids.append(slot_id)
+        return ids

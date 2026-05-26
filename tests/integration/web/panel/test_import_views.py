@@ -330,8 +330,8 @@ class TestEventImportSectionView:
         integration.refresh_from_db()
         assert json.loads(integration.settings_json) == {
             "questions": {
-                "Title": {"to": "session.title", "ignore": False},
-                "System": {"to": "field.System", "ignore": False},
+                "Title": {"to": "session.title", "ignore": False, "values": {}},
+                "System": {"to": "field.System", "ignore": False, "values": {}},
             },
             "definitions": {
                 "personal_fields": {},
@@ -374,6 +374,7 @@ class TestEventImportSectionView:
                 "How should we credit you?": {
                     "to": "facilitator.display_name",
                     "ignore": False,
+                    "values": {},
                 }
             },
             "definitions": {"personal_fields": {}, "session_fields": {}},
@@ -405,7 +406,13 @@ class TestEventImportSectionView:
         )
         integration.refresh_from_db()
         assert json.loads(integration.settings_json) == {
-            "questions": {"Phone number": {"to": "personal.Telefon", "ignore": False}},
+            "questions": {
+                "Phone number": {
+                    "to": "personal.Telefon",
+                    "ignore": False,
+                    "values": {},
+                }
+            },
             "definitions": {
                 "personal_fields": {
                     "Telefon": {

@@ -78,3 +78,5 @@ class Repositories:
     @cached_property
     def areas(self) -> repositories.AreaRepository:
         return repositories.AreaRepository()
+    def time_slots(self) -> repositories.TimeSlotRepository:
+        return repositories.TimeSlotRepository()

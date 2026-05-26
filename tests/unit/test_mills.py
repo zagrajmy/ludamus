@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -30,7 +30,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.submissions import (
-    FieldRepos,
+    ImportRepos,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
@@ -941,6 +941,10 @@ class TestProposalImportService:
         return MagicMock()
 
     @pytest.fixture
+    def time_slots(self):
+        return MagicMock()
+
+    @pytest.fixture
     def service(
         self,
         transaction,
@@ -949,13 +953,13 @@ class TestProposalImportService:
         sessions,
         session_fields,
         personal_fields,
+        time_slots,
     ):
         return ProposalImportService(
             transaction,
             source,
             integrations,
-            sessions,
-            FieldRepos(session_fields, personal_fields),
+            ImportRepos(sessions, session_fields, personal_fields, time_slots),
         )
 
     def test_run_creates_one_proposal_per_response(
@@ -983,6 +987,7 @@ class TestProposalImportService:
                 "slug": "my-talk",
             },
             tag_ids=[],
+            time_slot_ids=[],
         )
 
     def test_run_maps_description_target_and_defaults_empty_cells(
@@ -1010,6 +1015,7 @@ class TestProposalImportService:
                 "slug": "talk",
             },
             tag_ids=[],
+            time_slot_ids=[],
         )
 
     def test_run_maps_facilitator_display_name(
@@ -1037,6 +1043,7 @@ class TestProposalImportService:
                 "slug": "my-talk",
             },
             tag_ids=[],
+            time_slot_ids=[],
         )
 
     def test_run_with_no_responses_creates_nothing(
@@ -1077,6 +1084,73 @@ class TestProposalImportService:
 
         assert result.created == 0
         sessions.create.assert_not_called()
+
+    def test_run_attaches_time_slots_for_chosen_options(
+        self, service, source, integrations, sessions, time_slots
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"When": {"to": "session.time_slots", "values": {'
+                '"Fri": {"to": "time_slot",'
+                ' "start_time": "2025-09-19T16:00:00+02:00",'
+                ' "end_time": "2025-09-19T22:00:00+02:00"},'
+                '"Sat": {"to": "time_slot",'
+                ' "start_time": "2025-09-20T10:00:00+02:00",'
+                ' "end_time": "2025-09-20T14:00:00+02:00"}}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"When": "Fri, Sat"}]
+        time_slots.get_or_create.side_effect = [101, 102]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert time_slots.get_or_create.call_args_list == [
+            call(
+                2,
+                datetime.fromisoformat("2025-09-19T16:00:00+02:00"),
+                datetime.fromisoformat("2025-09-19T22:00:00+02:00"),
+            ),
+            call(
+                2,
+                datetime.fromisoformat("2025-09-20T10:00:00+02:00"),
+                datetime.fromisoformat("2025-09-20T14:00:00+02:00"),
+            ),
+        ]
+        assert sessions.create.call_args.kwargs["time_slot_ids"] == [101, 102]
+
+    def test_run_attaches_every_window_of_a_multi_window_option(
+        self, service, source, integrations, sessions, time_slots
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"When": {"to": "session.time_slots", "values": {'
+                '"All": [{"to": "time_slot",'
+                ' "start_time": "2025-09-19T16:00:00+02:00",'
+                ' "end_time": "2025-09-19T22:00:00+02:00"},'
+                '{"to": "time_slot",'
+                ' "start_time": "2025-09-20T10:00:00+02:00",'
+                ' "end_time": "2025-09-20T14:00:00+02:00"}]}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"When": "All"}]
+        time_slots.get_or_create.side_effect = [201, 202]
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert time_slots.get_or_create.call_args_list == [
+            call(
+                2,
+                datetime.fromisoformat("2025-09-19T16:00:00+02:00"),
+                datetime.fromisoformat("2025-09-19T22:00:00+02:00"),
+            ),
+            call(
+                2,
+                datetime.fromisoformat("2025-09-20T10:00:00+02:00"),
+                datetime.fromisoformat("2025-09-20T14:00:00+02:00"),
+            ),
+        ]
+        assert sessions.create.call_args.kwargs["time_slot_ids"] == [201, 202]
 
     def test_run_provisions_new_field_and_saves_value(
         self, service, source, integrations, sessions, session_fields

@@ -2396,6 +2396,15 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
         return TimeSlotDTO.model_validate(time_slot)
 
     @staticmethod
+    def get_or_create(event_id: int, start_time: datetime, end_time: datetime) -> int:
+        # Reuse a window the event already has (deduped by exact start+end) so
+        # the importer can attach it without spawning duplicates on re-runs.
+        time_slot, _ = TimeSlot.objects.get_or_create(
+            event_id=event_id, start_time=start_time, end_time=end_time
+        )
+        return time_slot.pk
+
+    @staticmethod
     def delete(pk: int) -> None:
         try:
             time_slot = TimeSlot.objects.get(pk=pk)
