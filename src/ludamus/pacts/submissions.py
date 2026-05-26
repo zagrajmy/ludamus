@@ -35,9 +35,9 @@ class TimeSlotSpec(BaseModel):
 
 
 class QuestionTarget(BaseModel):
-    # `to` is "session.<col>" (a built-in proposal field), "field.<Name>" (a new
-    # session field), "personal.<Name>" (a new personal-data field) or
-    # "session.time_slots" (provisioned windows), each provisioned by name from
+    # `to` is "session.<col>" (a built-in proposal field), "field.<slug>" (a new
+    # session field), "personal.<slug>" (a new personal-data field) or
+    # "session.time_slots" (provisioned windows), each provisioned by slug from
     # `ImportSettings.definitions`; `ignore` marks a question as deliberately
     # unmapped. `values` maps a choice option's text to its target value — for
     # `session.time_slots`, one window or several.
@@ -47,9 +47,11 @@ class QuestionTarget(BaseModel):
 
 
 class FieldDefinition(BaseModel):
-    # Setup for a brand-new target field, keyed by its name under
-    # `FieldDefinitions`. Multi-choice is `select` + `multiple` (the domain has
+    # Setup for a brand-new target field, keyed by its slug under
+    # `FieldDefinitions`; `name` is the operator-supplied display name (the slug
+    # is the match key). Multi-choice is `select` + `multiple` (the domain has
     # no multi `checkbox`); `options` is the explicit, operator-editable list.
+    name: str = ""
     type: Literal["text", "select", "checkbox"] = "text"
     multiple: bool = False
     allow_custom: bool = False

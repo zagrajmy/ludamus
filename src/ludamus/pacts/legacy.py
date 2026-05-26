@@ -1,7 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NotRequired,
+    Protocol,
+    TypedDict,
+    runtime_checkable,
+)
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -1175,6 +1183,7 @@ class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split p
 
 class PersonalDataFieldCreateData(TypedDict):
     name: str
+    slug: NotRequired[str]
     question: str
     field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
@@ -1196,6 +1205,7 @@ class PersonalDataFieldUpdateData(TypedDict):
 
 class SessionFieldCreateData(TypedDict):
     name: str
+    slug: NotRequired[str]
     question: str
     field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None

@@ -1972,7 +1972,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     ) -> PersonalDataFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
-        base_slug = slugify(data["name"])
+        base_slug = data.get("slug") or slugify(data["name"])
         slug = self.generate_unique_slug(event_id, base_slug)
 
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
@@ -2115,7 +2115,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
     def create(self, event_id: int, data: SessionFieldCreateData) -> SessionFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
-        base_slug = slugify(data["name"])
+        base_slug = data.get("slug") or slugify(data["name"])
         slug = self.generate_unique_slug(event_id, base_slug)
 
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False

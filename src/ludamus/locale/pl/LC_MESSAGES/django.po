@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:38+0200\n"
+"POT-Creation-Date: 2026-06-09 22:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4389,6 +4389,10 @@ msgstr "Nowe pole punktu programu…"
 #: src/ludamus/templates/panel/import.html
 msgid "Field name"
 msgstr "Nazwa pola"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Slug"
+msgstr "Slug"
 
 #: src/ludamus/templates/panel/import.html
 msgid "Field type"

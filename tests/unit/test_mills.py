@@ -1158,7 +1158,9 @@ class TestProposalImportService:
         integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
-                ' "RPG system": {"to": "field.System"}}}'
+                ' "RPG system": {"to": "field.system"}},'
+                ' "definitions": {"session_fields":'
+                ' {"system": {"name": "System", "type": "text"}}}}'
             )
         )
         source.fetch_responses.return_value = [
@@ -1172,12 +1174,13 @@ class TestProposalImportService:
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.fields_created == session_fields.create.call_count
-        # Slug derives from the short field name, not the source question.
+        # The target carries the slug; the definition carries the display name.
         session_fields.read_by_slug.assert_called_once_with(2, "system")
         session_fields.create.assert_called_once_with(
             2,
             {
                 "name": "System",
+                "slug": "system",
                 "question": "RPG system",
                 "field_type": "text",
                 "options": None,
@@ -1197,7 +1200,7 @@ class TestProposalImportService:
         self, service, source, integrations, sessions, session_fields
     ):
         integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"RPG system": {"to": "field.System"}}}'
+            settings_json='{"questions": {"RPG system": {"to": "field.system"}}}'
         )
         source.fetch_responses.return_value = [{"RPG system": "D&D"}]
         session_fields.read_by_slug.return_value = MagicMock(pk=55)
@@ -1218,10 +1221,10 @@ class TestProposalImportService:
     ):
         integrations.get.return_value = MagicMock(
             settings_json=(
-                '{"questions": {"System": {"to": "field.System"}},'
-                ' "definitions": {"session_fields": {"System":'
-                ' {"type": "select", "multiple": true, "allow_custom": true,'
-                ' "options": ["D&D", "Warhammer"]}}}}'
+                '{"questions": {"System": {"to": "field.system"}},'
+                ' "definitions": {"session_fields": {"system":'
+                ' {"name": "System", "type": "select", "multiple": true,'
+                ' "allow_custom": true, "options": ["D&D", "Warhammer"]}}}}'
             )
         )
         source.fetch_responses.return_value = [{"System": "D&D"}]
@@ -1235,6 +1238,7 @@ class TestProposalImportService:
             2,
             {
                 "name": "System",
+                "slug": "system",
                 "question": "System",
                 "field_type": "select",
                 "options": ["D&D", "Warhammer"],
@@ -1253,8 +1257,9 @@ class TestProposalImportService:
         integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
-                ' "Phone": {"to": "personal.Telefon"}},'
-                ' "definitions": {"personal_fields": {"Telefon": {"type": "text"}}}}'
+                ' "Phone": {"to": "personal.telefon"}},'
+                ' "definitions": {"personal_fields":'
+                ' {"telefon": {"name": "Telefon", "type": "text"}}}}'
             )
         )
         source.fetch_responses.return_value = [{"Title": "My Talk", "Phone": "555"}]
@@ -1270,6 +1275,7 @@ class TestProposalImportService:
             2,
             {
                 "name": "Telefon",
+                "slug": "telefon",
                 "question": "Phone",
                 "field_type": "text",
                 "options": None,

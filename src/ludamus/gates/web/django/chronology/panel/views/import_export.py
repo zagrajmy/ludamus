@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
+from ludamus.mills.submissions import slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
     FieldDefinition,
@@ -58,6 +59,7 @@ class RecipeRow(TypedDict):
     question: str
     selected: str
     field_name: str
+    field_slug: str
     field_type: str
     is_multiple: bool
     allow_custom: bool
@@ -92,6 +94,7 @@ def _row(
     definitions: FieldDefinitions,
 ) -> RecipeRow:
     field_name = ""
+    field_slug = ""
     # Pre-fill the new-field setup from the source question; a saved definition
     # (the operator's edits) overrides it.
     setup: FieldDefinition | SourceQuestion = question
@@ -102,18 +105,23 @@ def _row(
         # deliberately unmapped.
         selected = "session-field"
         field_name = question.title
+        field_slug = slugify(question.title)
     elif target.to and (
         target.to.startswith("session.") or target.to == "facilitator.display_name"
     ):
         selected = target.to
     elif target.to and target.to.startswith("personal."):
         selected = "personal-field"
-        field_name = target.to.removeprefix("personal.")
-        setup = definitions.personal_fields.get(field_name, question)
+        field_slug = target.to.removeprefix("personal.")
+        setup, field_name = _field_row_setup(
+            definitions.personal_fields.get(field_slug), field_slug, question
+        )
     elif target.to and target.to.startswith("field."):
         selected = "session-field"
-        field_name = target.to.removeprefix("field.")
-        setup = definitions.session_fields.get(field_name, question)
+        field_slug = target.to.removeprefix("field.")
+        setup, field_name = _field_row_setup(
+            definitions.session_fields.get(field_slug), field_slug, question
+        )
     else:
         selected = "ignore"
     field_type, multiple = _setup_type(setup)
@@ -122,6 +130,7 @@ def _row(
         "question": question.title,
         "selected": selected,
         "field_name": field_name,
+        "field_slug": field_slug,
         "field_type": field_type,
         "is_multiple": multiple,
         "allow_custom": setup.allow_custom,
@@ -130,6 +139,16 @@ def _row(
         # the moment the operator switches this row to "Time slots".
         "option_windows": _option_windows(question, target),
     }
+
+
+def _field_row_setup(
+    definition: FieldDefinition | None, slug: str, question: SourceQuestion
+) -> tuple[FieldDefinition | SourceQuestion, str]:
+    # A saved definition supplies both the form setup and the display name; with
+    # none, mirror the source question and fall back to the slug for the name.
+    if definition is None:
+        return question, slug
+    return definition, definition.name or slug
 
 
 def _setup_type(setup: FieldDefinition | SourceQuestion) -> tuple[str, bool]:
@@ -172,6 +191,7 @@ def _field_type_from_post(post: QueryDict, index: int) -> FieldType:
 
 def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
     return FieldDefinition(
+        name=(post.get(f"newname_{index}") or "").strip(),
         type=_field_type_from_post(post, index),
         multiple=bool(post.get(f"multiple_{index}")),
         allow_custom=bool(post.get(f"allowcustom_{index}")),
@@ -220,10 +240,11 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     if choice.startswith("session.") or choice == "facilitator.display_name":
         return QuestionTarget(to=choice)
     name = (post.get(f"newname_{index}") or "").strip()
-    if choice == "personal-field" and name:
-        return QuestionTarget(to=f"personal.{name}")
-    if choice == "session-field" and name:
-        return QuestionTarget(to=f"field.{name}")
+    slug = (post.get(f"newslug_{index}") or "").strip() or slugify(name)
+    if choice == "personal-field" and slug:
+        return QuestionTarget(to=f"personal.{slug}")
+    if choice == "session-field" and slug:
+        return QuestionTarget(to=f"field.{slug}")
     return QuestionTarget(ignore=True)
 
 

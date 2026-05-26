@@ -188,6 +188,7 @@ class TestEventImportSectionView:
                         "question": "Title",
                         "selected": "session-field",
                         "field_name": "Title",
+                        "field_slug": "title",
                         "field_type": "text",
                         "is_multiple": False,
                         "allow_custom": False,
@@ -199,6 +200,7 @@ class TestEventImportSectionView:
                         "question": "System",
                         "selected": "session-field",
                         "field_name": "System",
+                        "field_slug": "system",
                         "field_type": "text",
                         "is_multiple": False,
                         "allow_custom": False,
@@ -252,6 +254,7 @@ class TestEventImportSectionView:
                 "question": "Wiek",
                 "selected": "session-field",
                 "field_name": "Wiek",
+                "field_slug": "wiek",
                 "field_type": "select",
                 "is_multiple": False,
                 "allow_custom": True,
@@ -455,16 +458,61 @@ class TestEventImportSectionView:
         assert json.loads(integration.settings_json) == {
             "questions": {
                 "Title": {"to": "session.title", "ignore": False, "values": {}},
-                "System": {"to": "field.System", "ignore": False, "values": {}},
+                "System": {"to": "field.system", "ignore": False, "values": {}},
             },
             "definitions": {
                 "personal_fields": {},
                 "session_fields": {
-                    "System": {
+                    "system": {
+                        "name": "System",
                         "type": "select",
                         "multiple": True,
                         "allow_custom": True,
                         "options": ["D&D", "Warhammer"],
+                    }
+                },
+            },
+        }
+
+    def test_post_honors_an_explicit_field_slug(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _tab_url(event, integration),
+            data={
+                "question_0": "RPG system",
+                "target_0": "session-field",
+                "newname_0": "System",
+                "newslug_0": "rpg-system",
+                "fieldtype_0": "text",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Import recipe saved.")],
+        )
+        integration.refresh_from_db()
+        assert json.loads(integration.settings_json) == {
+            "questions": {
+                "RPG system": {"to": "field.rpg-system", "ignore": False, "values": {}}
+            },
+            "definitions": {
+                "personal_fields": {},
+                "session_fields": {
+                    "rpg-system": {
+                        "name": "System",
+                        "type": "text",
+                        "multiple": False,
+                        "allow_custom": False,
+                        "options": [],
                     }
                 },
             },
@@ -532,14 +580,15 @@ class TestEventImportSectionView:
         assert json.loads(integration.settings_json) == {
             "questions": {
                 "Phone number": {
-                    "to": "personal.Telefon",
+                    "to": "personal.telefon",
                     "ignore": False,
                     "values": {},
                 }
             },
             "definitions": {
                 "personal_fields": {
-                    "Telefon": {
+                    "telefon": {
+                        "name": "Telefon",
                         "type": "text",
                         "multiple": False,
                         "allow_custom": False,
@@ -608,8 +657,11 @@ class TestEventImportRunActionView:
             {
                 "questions": {
                     "Title": {"to": "session.title", "ignore": False},
-                    "RPG system": {"to": "field.System", "ignore": False},
-                }
+                    "RPG system": {"to": "field.system", "ignore": False},
+                },
+                "definitions": {
+                    "session_fields": {"system": {"name": "System", "type": "text"}}
+                },
             }
         )
         integration.save(update_fields=["settings_json"])
@@ -647,12 +699,13 @@ class TestEventImportRunActionView:
             {
                 "questions": {
                     "Title": {"to": "session.title", "ignore": False},
-                    "System": {"to": "field.System", "ignore": False},
+                    "System": {"to": "field.system", "ignore": False},
                 },
                 "definitions": {
                     "personal_fields": {},
                     "session_fields": {
-                        "System": {
+                        "system": {
+                            "name": "System",
                             "type": "select",
                             "multiple": True,
                             "allow_custom": True,
@@ -700,11 +753,12 @@ class TestEventImportRunActionView:
             {
                 "questions": {
                     "Title": {"to": "session.title", "ignore": False},
-                    "Phone": {"to": "personal.Telefon", "ignore": False},
+                    "Phone": {"to": "personal.telefon", "ignore": False},
                 },
                 "definitions": {
                     "personal_fields": {
-                        "Telefon": {
+                        "telefon": {
+                            "name": "Telefon",
                             "type": "text",
                             "multiple": False,
                             "allow_custom": False,

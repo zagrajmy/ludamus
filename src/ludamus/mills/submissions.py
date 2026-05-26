@@ -56,6 +56,12 @@ def _field_setup(
     )
 
 
+def _field_name(definition: FieldDefinition | None, slug: str) -> str:
+    # The display name comes from the definition; fall back to the slug when a
+    # hand-written target carries no definition.
+    return definition.name if definition and definition.name else slug
+
+
 def slugify(value: str) -> str:
     # Pure ASCII slug, matching the links-layer Django slugify for the names
     # the importer provisions (mills must stay Django-free).
@@ -233,36 +239,37 @@ class ProposalImportService:
             if not target.to:
                 continue
             if target.to.startswith("field."):
-                name = target.to.removeprefix("field.")
-                definition = settings.definitions.session_fields.get(name)
+                slug = target.to.removeprefix("field.")
+                definition = settings.definitions.session_fields.get(slug)
                 field_id, new = self._provision_session_field(
-                    event_id, name, header, definition
+                    event_id, slug, header, definition
                 )
                 field_ids_by_header[header] = field_id
                 created += new
             elif target.to.startswith("personal."):
-                name = target.to.removeprefix("personal.")
-                definition = settings.definitions.personal_fields.get(name)
+                slug = target.to.removeprefix("personal.")
+                definition = settings.definitions.personal_fields.get(slug)
                 created += self._provision_personal_field(
-                    event_id, name, header, definition
+                    event_id, slug, header, definition
                 )
         return field_ids_by_header, created
 
     def _provision_session_field(
         self,
         event_id: int,
-        name: str,
+        slug: str,
         question: str,
         definition: FieldDefinition | None,
     ) -> tuple[int, int]:
         try:
-            field = self._session_fields.read_by_slug(event_id, slugify(name))
+            field = self._session_fields.read_by_slug(event_id, slug)
         except NotFoundError:
             field_type, options, is_multiple, allow_custom = _field_setup(definition)
             field = self._session_fields.create(
                 event_id,
                 SessionFieldCreateData(
-                    name=name,
+                    name=_field_name(definition, slug),
+                    slug=slug,
                     question=question,
                     field_type=field_type,
                     options=options,
@@ -280,18 +287,19 @@ class ProposalImportService:
     def _provision_personal_field(
         self,
         event_id: int,
-        name: str,
+        slug: str,
         question: str,
         definition: FieldDefinition | None,
     ) -> int:
         try:
-            self._personal_fields.read_by_slug(event_id, slugify(name))
+            self._personal_fields.read_by_slug(event_id, slug)
         except NotFoundError:
             field_type, options, is_multiple, allow_custom = _field_setup(definition)
             self._personal_fields.create(
                 event_id,
                 PersonalDataFieldCreateData(
-                    name=name,
+                    name=_field_name(definition, slug),
+                    slug=slug,
                     question=question,
                     field_type=field_type,
                     options=options,

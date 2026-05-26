@@ -3,12 +3,15 @@
  *   - reveal the new-field setup when the target is a "New personal/session
  *     field…" option;
  *   - reveal the options block when the field type takes options;
+ *   - auto-fill the new field's slug from its name until the slug is edited;
  *   - reveal the time-slot editor when the target is "Time slots", and let each
  *     option gain/drop window rows.
  *
  * Markup (one per recipe row, keyed by a shared data-row):
  *   <select class="recipe-target" data-row="0">…</select>
  *   <div class="recipe-setup" data-row="0">
+ *     <input class="recipe-name" data-row="0">
+ *     <input class="recipe-slug" data-row="0">
  *     <select class="recipe-fieldtype" data-row="0">…</select>
  *     <div class="recipe-options" data-row="0">…</div>
  *   </div>
@@ -24,6 +27,27 @@ const TIME_SLOTS_TARGET = "session.time_slots";
 
 function rowElement(selector: string, row: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`${selector}[data-row="${row}"]`);
+}
+
+// ASCII slug mirroring the server's slugify, for the live name→slug preview.
+function slugify(value: string): string {
+  return value
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/[\s-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function slugInput(row: string): HTMLInputElement | null {
+  const slug = rowElement(".recipe-slug", row);
+  return slug instanceof HTMLInputElement ? slug : null;
+}
+
+function syncSlug(name: HTMLInputElement): void {
+  const slug = slugInput(name.dataset.row ?? "");
+  if (slug && !slug.dataset.edited) slug.value = slugify(name.value);
 }
 
 function syncTarget(select: HTMLSelectElement): void {
@@ -78,6 +102,14 @@ document.addEventListener("change", (e) => {
   else if (select.classList.contains("recipe-fieldtype")) syncFieldType(select);
 });
 
+document.addEventListener("input", (e) => {
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  if (input.classList.contains("recipe-name")) syncSlug(input);
+  else if (input.classList.contains("recipe-slug"))
+    input.dataset.edited = input.value ? "true" : "";
+});
+
 document.addEventListener("click", (e) => {
   if (!(e.target instanceof HTMLElement)) return;
   const add = e.target.closest<HTMLElement>(".ts-add");
@@ -98,6 +130,14 @@ function initRecipe(): void {
   document
     .querySelectorAll<HTMLSelectElement>(".recipe-fieldtype")
     .forEach(syncFieldType);
+  // Preserve a hand-customised slug (one that differs from its name's slug); a
+  // blank or name-matching slug stays auto-synced as the operator types.
+  document.querySelectorAll<HTMLInputElement>(".recipe-name").forEach((name) => {
+    const slug = slugInput(name.dataset.row ?? "");
+    if (slug && slug.value && slug.value !== slugify(name.value)) {
+      slug.dataset.edited = "true";
+    }
+  });
 }
 
 if (document.readyState === "loading") {

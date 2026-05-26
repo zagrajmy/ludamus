@@ -113,7 +113,19 @@
                                                        name="newname_{{ row.index }}"
                                                        value="{{ row.field_name }}"
                                                        placeholder="{% translate "Field name" %}"
-                                                       class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                       class="recipe-name w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                       data-row="{{ row.index }}">
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-foreground-secondary"
+                                                       for="newslug_{{ row.index }}">{% translate "Slug" %}</label>
+                                                <input type="text"
+                                                       id="newslug_{{ row.index }}"
+                                                       name="newslug_{{ row.index }}"
+                                                       value="{{ row.field_slug }}"
+                                                       placeholder="{% translate "Slug" %}"
+                                                       class="recipe-slug w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                                       data-row="{{ row.index }}">
                                             </div>
                                             <div>
                                                 <label class="mb-1 block text-xs font-medium text-foreground-secondary"
