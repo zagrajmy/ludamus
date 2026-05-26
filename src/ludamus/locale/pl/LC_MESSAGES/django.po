@@ -4350,16 +4350,16 @@ msgstr ""
 "Integracje, aby importować zgłoszenia z zewnętrznego formularza."
 
 #: src/ludamus/templates/panel/import.html
-msgid "Source question"
-msgstr "Pytanie źródłowe"
-
-#: src/ludamus/templates/panel/import.html
 msgid "Maps to"
 msgstr "Mapuje na"
 
 #: src/ludamus/templates/panel/import.html
 msgid "Don't import"
 msgstr "Nie importuj"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Facilitator — Display name"
+msgstr "Twórca programu — nazwa wyświetlana"
 
 #: src/ludamus/templates/panel/import.html
 msgid "New personal field…"

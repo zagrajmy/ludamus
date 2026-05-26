@@ -1012,6 +1012,33 @@ class TestProposalImportService:
             tag_ids=[],
         )
 
+    def test_run_maps_facilitator_display_name(
+        self, service, source, integrations, sessions
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Title": "My Talk", "Nick": "GM Bob"}]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "My Talk",
+                "description": "",
+                "display_name": "GM Bob",
+                "participants_limit": 0,
+                "slug": "my-talk",
+            },
+            tag_ids=[],
+        )
+
     def test_run_with_no_responses_creates_nothing(
         self, service, source, integrations, sessions
     ):

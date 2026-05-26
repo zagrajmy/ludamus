@@ -73,6 +73,10 @@
                                                 {% translate "Proposal" %} — {{ col|capfirst }}
                                             </option>
                                         {% endfor %}
+                                        <option value="facilitator.display_name"
+                                                {% if row.selected == "facilitator.display_name" %}selected{% endif %}>
+                                            {% translate "Facilitator — Display name" %}
+                                        </option>
                                         <option value="personal-field"
                                                 {% if row.selected == "personal-field" %}selected{% endif %}>
                                             {% translate "New personal field…" %}

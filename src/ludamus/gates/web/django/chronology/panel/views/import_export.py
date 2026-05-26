@@ -74,7 +74,9 @@ def _row(
         # deliberately unmapped.
         selected = "session-field"
         field_name = question.title
-    elif target.to and target.to.startswith("session."):
+    elif target.to and (
+        target.to.startswith("session.") or target.to == "facilitator.display_name"
+    ):
         selected = target.to
     elif target.to and target.to.startswith("personal."):
         selected = "personal-field"
@@ -131,7 +133,7 @@ def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
 
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
-    if choice.startswith("session."):
+    if choice.startswith("session.") or choice == "facilitator.display_name":
         return QuestionTarget(to=choice)
     name = (post.get(f"newname_{index}") or "").strip()
     if choice == "personal-field" and name:

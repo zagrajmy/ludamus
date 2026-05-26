@@ -340,6 +340,39 @@ class TestEventImportSectionView:
             },
         }
 
+    def test_post_saves_a_facilitator_display_name_target(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _tab_url(event, integration),
+            data={
+                "question_0": "How should we credit you?",
+                "target_0": "facilitator.display_name",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Import recipe saved.")],
+        )
+        integration.refresh_from_db()
+        assert json.loads(integration.settings_json) == {
+            "questions": {
+                "How should we credit you?": {
+                    "to": "facilitator.display_name",
+                    "ignore": False,
+                }
+            },
+            "definitions": {"personal_fields": {}, "session_fields": {}},
+        }
+
     def test_post_saves_a_new_personal_field_definition(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):

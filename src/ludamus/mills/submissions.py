@@ -291,11 +291,14 @@ class ProposalImportService:
     ) -> None:
         title = ""
         description = ""
+        display_name = ""
         for header, target in settings.questions.items():
             if target.to == "session.title":
                 title = row.get(header, "")
             elif target.to == "session.description":
                 description = row.get(header, "")
+            elif target.to == "facilitator.display_name":
+                display_name = row.get(header, "")
         slug = generate_unique_slug(
             title,
             lambda s: self._sessions.slug_exists(sphere_id, s),
@@ -306,7 +309,7 @@ class ProposalImportService:
             "status": SessionStatus.PENDING,
             "title": title,
             "description": description,
-            "display_name": "",
+            "display_name": display_name,
             "participants_limit": 0,
             "slug": slug,
         }
