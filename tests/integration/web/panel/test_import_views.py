@@ -167,8 +167,8 @@ class TestEventImportSectionView:
                     {
                         "index": 0,
                         "question": "Title",
-                        "selected": "ignore",
-                        "field_name": "",
+                        "selected": "session-field",
+                        "field_name": "Title",
                         "field_type": "text",
                         "is_multiple": False,
                         "allow_custom": False,
@@ -177,8 +177,8 @@ class TestEventImportSectionView:
                     {
                         "index": 1,
                         "question": "System",
-                        "selected": "ignore",
-                        "field_name": "",
+                        "selected": "session-field",
+                        "field_name": "System",
                         "field_type": "text",
                         "is_multiple": False,
                         "allow_custom": False,
@@ -229,8 +229,8 @@ class TestEventImportSectionView:
             {
                 "index": 0,
                 "question": "Wiek",
-                "selected": "ignore",
-                "field_name": "",
+                "selected": "session-field",
+                "field_name": "Wiek",
                 "field_type": "select",
                 "is_multiple": False,
                 "allow_custom": True,

@@ -63,22 +63,29 @@ def _row(
     target: QuestionTarget | None,
     definitions: FieldDefinitions,
 ) -> RecipeRow:
-    selected = "ignore"
     field_name = ""
     # Pre-fill the new-field setup from the source question; a saved definition
     # (the operator's edits) overrides it.
     setup: FieldDefinition | SourceQuestion = question
-    if target is not None and target.to:
-        if target.to.startswith("session."):
-            selected = target.to
-        elif target.to.startswith("personal."):
-            selected = "personal-field"
-            field_name = target.to.removeprefix("personal.")
-            setup = definitions.personal_fields.get(field_name, question)
-        elif target.to.startswith("field."):
-            selected = "session-field"
-            field_name = target.to.removeprefix("field.")
-            setup = definitions.session_fields.get(field_name, question)
+    if target is None:
+        # Never decided: default to a new session field that mirrors the source
+        # question, so its form setup is visible and ready to save. The operator
+        # re-points anything that should be a built-in field, personal field, or
+        # deliberately unmapped.
+        selected = "session-field"
+        field_name = question.title
+    elif target.to and target.to.startswith("session."):
+        selected = target.to
+    elif target.to and target.to.startswith("personal."):
+        selected = "personal-field"
+        field_name = target.to.removeprefix("personal.")
+        setup = definitions.personal_fields.get(field_name, question)
+    elif target.to and target.to.startswith("field."):
+        selected = "session-field"
+        field_name = target.to.removeprefix("field.")
+        setup = definitions.session_fields.get(field_name, question)
+    else:
+        selected = "ignore"
     field_type, multiple = _setup_type(setup)
     return {
         "index": index,
