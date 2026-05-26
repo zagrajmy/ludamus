@@ -57,6 +57,18 @@ def _active_integration(
     return next((i for i in integrations if i.pk == pk), None)
 
 
+def _import_integrations(
+    request: PanelRequest, event_pk: int
+) -> list[EventIntegrationDTO]:
+    return [
+        i
+        for i in request.services.event_integrations.list_for_event(
+            event_pk, IntegrationKind.IMPORT
+        )
+        if i.implementation == IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+    ]
+
+
 def _row(
     index: int,
     question: SourceQuestion,
@@ -180,15 +192,7 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
         context["active_nav"] = "import"
 
-        integrations_service = self.request.services.event_integrations
-        all_integrations = integrations_service.list_for_event(
-            current_event.pk, IntegrationKind.IMPORT
-        )
-        integrations = [
-            i
-            for i in all_integrations
-            if i.implementation == IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
-        ]
+        integrations = _import_integrations(self.request, current_event.pk)
         active = _active_integration(integrations, pk)
         if integrations and active is None:
             messages.error(self.request, _("Import integration not found."))
@@ -197,7 +201,7 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
         context["active_integration"] = active
         if active is not None:
             sphere_id = self.request.context.current_sphere_id
-            questions = integrations_service.fetch_questions(
+            questions = self.request.services.event_integrations.fetch_questions(
                 sphere_id, current_event.pk, active.pk
             )
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
@@ -214,14 +218,7 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
-        all_integrations = self.request.services.event_integrations.list_for_event(
-            current_event.pk, IntegrationKind.IMPORT
-        )
-        integrations = [
-            i
-            for i in all_integrations
-            if i.implementation == IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
-        ]
+        integrations = _import_integrations(self.request, current_event.pk)
         if (active := _active_integration(integrations, pk)) is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
@@ -233,8 +230,8 @@ class EventImportSectionView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:import-integration", slug=slug, pk=active.pk)
 
 
-class EventImportRunActionView(PanelAccessMixin, EventContextMixin, View):
-    """Run the saved import recipe: create a proposal per source response."""
+class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
+    """Shared lookup for the import action buttons (run / test a row)."""
 
     request: PanelRequest
 
@@ -242,22 +239,44 @@ class EventImportRunActionView(PanelAccessMixin, EventContextMixin, View):
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
-        all_integrations = self.request.services.event_integrations.list_for_event(
-            current_event.pk, IntegrationKind.IMPORT
-        )
-        integrations = [
-            i
-            for i in all_integrations
-            if i.implementation == IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
-        ]
+        integrations = _import_integrations(self.request, current_event.pk)
         if (active := _active_integration(integrations, pk)) is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
         sphere_id = self.request.context.current_sphere_id
+        self._act(sphere_id, current_event.pk, active.pk)
+        return redirect("panel:import-integration", slug=slug, pk=active.pk)
+
+    def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+        raise NotImplementedError
+
+
+class EventImportRunActionView(_ImportActionView):
+    """Run the saved import recipe: create a proposal per source response."""
+
+    def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
         result = self.request.services.proposals_import.run(
-            sphere_id, current_event.pk, active.pk
+            sphere_id, event_pk, integration_pk
         )
         messages.success(
             self.request, _("Created %(count)d proposals.") % {"count": result.created}
         )
-        return redirect("panel:import-integration", slug=slug, pk=active.pk)
+
+
+class EventImportTestRowActionView(_ImportActionView):
+    """Import one random response so the recipe can be eyeballed before a run."""
+
+    def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+        result = self.request.services.proposals_import.run_sample(
+            sphere_id, event_pk, integration_pk
+        )
+        if result.created:
+            messages.success(
+                self.request,
+                _(
+                    "Test import created one proposal from a random row. Review "
+                    "it, then delete it before running the full import."
+                ),
+            )
+        else:
+            messages.info(self.request, _("No responses found to test."))

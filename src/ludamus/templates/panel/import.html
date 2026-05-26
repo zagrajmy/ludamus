@@ -15,6 +15,14 @@
     {% if active_integration %}
         <div class="flex items-center gap-3">
             <form method="post"
+                  action="{% url 'panel:import-test' slug=current_event.slug pk=active_integration.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary flex items-center">
+                    {% icon "beaker" class="w-4 h-4 mr-2" %}
+                    {% translate "Test import (one row)" %}
+                </button>
+            </form>
+            <form method="post"
                   action="{% url 'panel:import-run' slug=current_event.slug pk=active_integration.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-secondary flex items-center">

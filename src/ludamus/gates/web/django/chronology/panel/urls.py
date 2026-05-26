@@ -391,4 +391,9 @@ urlpatterns = [
         import_export.EventImportRunActionView.as_view(),
         name="import-run",
     ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/test/",
+        import_export.EventImportTestRowActionView.as_view(),
+        name="import-test",
+    ),
 ]

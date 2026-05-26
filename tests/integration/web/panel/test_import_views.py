@@ -60,6 +60,12 @@ def _run_url(event, integration) -> str:
     )
 
 
+def _test_url(event, integration) -> str:
+    return reverse(
+        "panel:import-test", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
 def _event_context(event) -> dict[str, object]:
     return {
         "current_event": EventDTO.model_validate(event),
@@ -595,3 +601,80 @@ class TestEventImportRunActionView:
         assert fields.count() == 1
         assert fields.get().field_type == "text"
         assert not HostPersonalData.objects.filter(field=fields.get()).exists()
+
+
+@pytest.mark.django_db
+class TestEventImportTestRowActionView:
+    def test_post_redirects_non_manager(self, authenticated_client, event, connection):
+        integration = _make_import_integration(event, connection, display_name="Puller")
+
+        response = authenticated_client.post(_test_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_post_imports_exactly_one_random_row(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title", "ignore": False}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["One"], ["Two"], ["Three"]]
+            )
+            response = authenticated_client.post(_test_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Test import created one proposal from a random row. Review "
+                        "it, then delete it before running the full import."
+                    ),
+                )
+            ],
+        )
+        sessions = Session.objects.filter(sphere=sphere)
+        assert sessions.count() == 1
+        assert sessions.get().title in {"One", "Two", "Three"}
+
+    def test_post_with_no_responses_reports_nothing_to_test(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get([])
+            response = authenticated_client.post(_test_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.INFO, "No responses found to test.")],
+        )
+        assert not Session.objects.filter(sphere=sphere).exists()

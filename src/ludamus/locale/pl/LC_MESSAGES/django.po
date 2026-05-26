@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:37+0200\n"
+"POT-Creation-Date: 2026-06-09 22:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1128,6 +1128,18 @@ msgstr "Zapisano przepis importu."
 #, python-format
 msgid "Created %(count)d proposals."
 msgstr "Utworzono zgłoszenia: %(count)d."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid ""
+"Test import created one proposal from a random row. Review it, then delete "
+"it before running the full import."
+msgstr ""
+"Import próbny utworzył jedno zgłoszenie z losowego wiersza. Sprawdź je, a "
+"następnie usuń przed uruchomieniem pełnego importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "No responses found to test."
+msgstr "Nie znaleziono odpowiedzi do przetestowania."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/index.py
 msgid "No events available for this sphere."
@@ -4328,6 +4340,10 @@ msgstr "Scal zaznaczonych twórców"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Test import (one row)"
+msgstr "Import próbny (jeden wiersz)"
 
 #: src/ludamus/templates/panel/import.html
 msgid "Run import"

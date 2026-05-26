@@ -80,6 +80,9 @@ class ProposalImportServiceProtocol(Protocol):
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult: ...
+    def run_sample(
+        self, sphere_id: int, event_id: int, integration_pk: int
+    ) -> ProposalImportResult: ...
 
 
 # --- CFP (personal-data field management) ---

@@ -6,7 +6,7 @@ Owns proposal intake: CFP personal-data field management and proposal import
 
 import re
 import unicodedata
-from secrets import token_urlsafe
+from secrets import choice, token_urlsafe
 from typing import TYPE_CHECKING, Literal
 
 from ludamus.pacts import (
@@ -184,9 +184,31 @@ class ProposalImportService:
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult:
-        integration = self._integrations.get(event_id, integration_pk)
-        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        settings = self._settings(event_id, integration_pk)
         rows = self._source.fetch_responses(sphere_id, event_id, integration_pk)
+        return self._import_rows(sphere_id, event_id, settings, rows)
+
+    def run_sample(
+        self, sphere_id: int, event_id: int, integration_pk: int
+    ) -> ProposalImportResult:
+        # Import a single random response so the operator can eyeball one real
+        # proposal before a full run floods the event with mismapped sessions.
+        settings = self._settings(event_id, integration_pk)
+        rows = self._source.fetch_responses(sphere_id, event_id, integration_pk)
+        sample = [choice(rows)] if rows else []
+        return self._import_rows(sphere_id, event_id, settings, sample)
+
+    def _settings(self, event_id: int, integration_pk: int) -> ImportSettings:
+        integration = self._integrations.get(event_id, integration_pk)
+        return ImportSettings.model_validate_json(integration.settings_json or "{}")
+
+    def _import_rows(
+        self,
+        sphere_id: int,
+        event_id: int,
+        settings: ImportSettings,
+        rows: list[dict[str, str]],
+    ) -> ProposalImportResult:
         created = 0
         with self._transaction.atomic():
             field_ids_by_header, fields_created = self._provision_fields(

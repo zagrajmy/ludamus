@@ -1050,6 +1050,34 @@ class TestProposalImportService:
         assert result.created == 0
         sessions.create.assert_not_called()
 
+    def test_run_sample_imports_exactly_one_row(
+        self, service, source, integrations, sessions
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        source.fetch_responses.return_value = [
+            {"Title": "One"},
+            {"Title": "Two"},
+            {"Title": "Three"},
+        ]
+
+        result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert sessions.create.call_count == 1
+
+    def test_run_sample_with_no_responses_creates_nothing(
+        self, service, source, integrations, sessions
+    ):
+        integrations.get.return_value = MagicMock(settings_json="{}")
+        source.fetch_responses.return_value = []
+
+        result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        sessions.create.assert_not_called()
+
     def test_run_provisions_new_field_and_saves_value(
         self, service, source, integrations, sessions, session_fields
     ):
