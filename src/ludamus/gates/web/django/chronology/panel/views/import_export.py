@@ -126,9 +126,9 @@ def _row(
         "is_multiple": multiple,
         "allow_custom": setup.allow_custom,
         "options": "\n".join(setup.options),
-        "option_windows": (
-            _option_windows(question, target) if selected == TIME_SLOTS_TARGET else []
-        ),
+        # Always built from the source options so the (hidden) editor is ready
+        # the moment the operator switches this row to "Time slots".
+        "option_windows": _option_windows(question, target),
     }
 
 

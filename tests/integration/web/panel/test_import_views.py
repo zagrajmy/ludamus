@@ -256,7 +256,10 @@ class TestEventImportSectionView:
                 "is_multiple": False,
                 "allow_custom": True,
                 "options": "do 16\n18+",
-                "option_windows": [],
+                "option_windows": [
+                    {"option": "do 16", "windows": [{"start": "", "end": ""}]},
+                    {"option": "18+", "windows": [{"start": "", "end": ""}]},
+                ],
             }
         ]
         # The source options reach the rendered setup textarea (not just context).
