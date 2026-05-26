@@ -18,6 +18,7 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryDTO,
+        ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionRepositoryProtocol,
         TimeSlotRepositoryProtocol,
@@ -109,6 +110,7 @@ class ImportRepos:
     personal_fields: PersonalDataFieldRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
+    categories: ProposalCategoryRepositoryProtocol
 
 
 class ProposalImportServiceProtocol(Protocol):

@@ -345,6 +345,8 @@ class ProposalImportService:
             "participants_limit": 0,
             "slug": slug,
         }
+        if (category_id := self._category_id(event_id, settings, row)) is not None:
+            session_data["category_id"] = category_id
         session_id = self._repos.sessions.create(
             session_data,
             tag_ids=[],
@@ -419,3 +421,17 @@ class ProposalImportService:
                 if track_id not in ids:
                     ids.append(track_id)
         return ids
+
+    def _category_id(
+        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+    ) -> int | None:
+        # A `category` question's chosen option resolves to one category (the
+        # single FK), provisioned by slug; a custom answer falls to the catchall.
+        for header, target in settings.questions.items():
+            if target.to != "category":
+                continue
+            for ref in self._chosen_entities(target, row.get(header, "")):
+                return self._repos.categories.get_or_create_by_slug(
+                    event_id, ref.name, ref.slug
+                )
+        return None

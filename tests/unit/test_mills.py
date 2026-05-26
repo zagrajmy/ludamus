@@ -949,6 +949,10 @@ class TestProposalImportService:
         return MagicMock()
 
     @pytest.fixture
+    def categories(self):
+        return MagicMock()
+
+    @pytest.fixture
     def service(
         self,
         transaction,
@@ -959,12 +963,20 @@ class TestProposalImportService:
         personal_fields,
         time_slots,
         tracks,
+        categories,
     ):
         return ProposalImportService(
             transaction,
             source,
             integrations,
-            ImportRepos(sessions, session_fields, personal_fields, time_slots, tracks),
+            ImportRepos(
+                sessions,
+                session_fields,
+                personal_fields,
+                time_slots,
+                tracks,
+                categories,
+            ),
         )
 
     def test_run_creates_one_proposal_per_response(
@@ -1216,6 +1228,45 @@ class TestProposalImportService:
 
         tracks.get_or_create_by_slug.assert_called_once_with(2, "Inne", "inne")
         assert sessions.create.call_args.kwargs["track_ids"] == [399]
+
+    def test_run_sets_the_category_for_the_chosen_option(
+        self, service, source, integrations, sessions, categories
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Kind": {"to": "category", "values": {'
+                '"RPG": {"name": "RPG session", "slug": "rpg"}}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Kind": "RPG"}]
+        category_pk = 401
+        categories.get_or_create_by_slug.return_value = category_pk
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        categories.get_or_create_by_slug.assert_called_once_with(
+            2, "RPG session", "rpg"
+        )
+        assert sessions.create.call_args.args[0]["category_id"] == category_pk
+
+    def test_run_routes_a_custom_category_answer_to_the_catchall(
+        self, service, source, integrations, sessions, categories
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Kind": {"to": "category",'
+                ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}},'
+                ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Kind": "Mystery"}]
+        category_pk = 499
+        categories.get_or_create_by_slug.return_value = category_pk
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        categories.get_or_create_by_slug.assert_called_once_with(2, "Inne", "inne")
+        assert sessions.create.call_args.args[0]["category_id"] == category_pk
 
     def test_run_provisions_new_field_and_saves_value(
         self, service, source, integrations, sessions, session_fields

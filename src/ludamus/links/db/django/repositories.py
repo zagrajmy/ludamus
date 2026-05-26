@@ -1537,6 +1537,13 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
 
         return ProposalCategoryDTO.model_validate(category)
 
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int:
+        category, _ = ProposalCategory.objects.get_or_create(
+            event_id=event_id, slug=slug, defaults={"name": name}
+        )
+        return category.pk
+
     _SIMPLE_UPDATE_FIELDS = (
         "description",
         "start_time",

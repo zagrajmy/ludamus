@@ -20,6 +20,7 @@ from ludamus.adapters.db.django.models import (
     EventIntegration,
     HostPersonalData,
     PersonalDataField,
+    ProposalCategory,
     Session,
     SessionField,
     SessionFieldOption,
@@ -997,6 +998,46 @@ class TestEventImportRunActionView:
         other = Track.objects.get(event=event, slug="other")
         loose = Session.objects.get(sphere=sphere, title="Loose")
         assert list(loose.tracks.all()) == [other]
+
+    def test_post_provisions_and_sets_the_category(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "Kind": {
+                        "to": "category",
+                        "values": {"RPG": {"name": "RPG session", "slug": "rpg"}},
+                        "catchall": {"name": "Other", "slug": "other"},
+                    },
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Kind"], ["My Talk", "RPG"], ["Loose", "Custom"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        # The configured option provisions and sets its category...
+        rpg = ProposalCategory.objects.get(event=event, slug="rpg")
+        assert rpg.name == "RPG session"
+        matched = Session.objects.get(sphere=sphere, title="My Talk")
+        assert matched.category_id == rpg.pk
+        # ...and a custom answer lands in the catchall category.
+        other = ProposalCategory.objects.get(event=event, slug="other")
+        loose = Session.objects.get(sphere=sphere, title="Loose")
+        assert loose.category_id == other.pk
 
 
 @pytest.mark.django_db

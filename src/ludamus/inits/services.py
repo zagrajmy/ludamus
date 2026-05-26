@@ -150,5 +150,6 @@ class Services:
                 self._repos.personal_data_fields,
                 self._repos.time_slots,
                 self._repos.tracks,
+                self._repos.proposal_categories,
             ),
         )

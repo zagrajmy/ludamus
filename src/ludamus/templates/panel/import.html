@@ -90,6 +90,10 @@
                                             {% translate "Time slots" %}
                                         </option>
                                         <option value="track" {% if row.selected == "track" %}selected{% endif %}>{% translate "Track" %}</option>
+                                        <option value="category"
+                                                {% if row.selected == "category" %}selected{% endif %}>
+                                            {% translate "Category" %}
+                                        </option>
                                         <option value="personal-field"
                                                 {% if row.selected == "personal-field" %}selected{% endif %}>
                                             {% translate "New personal field…" %}
