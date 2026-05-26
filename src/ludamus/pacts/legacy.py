@@ -891,6 +891,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         tag_ids: Iterable[int],
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
+        track_ids: Iterable[int] = (),
     ) -> int: ...
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
@@ -965,6 +966,8 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
 
 class TrackRepositoryProtocol(Protocol):
     def create(self, data: TrackCreateData) -> TrackDTO: ...
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
     @staticmethod
     def read(pk: int) -> TrackDTO: ...
     @staticmethod

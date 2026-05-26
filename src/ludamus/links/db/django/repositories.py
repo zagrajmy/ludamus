@@ -272,6 +272,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         tag_ids: Iterable[int],
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
+        track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
         session.tags.set(tag_ids)
@@ -279,6 +280,8 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             session.time_slots.set(time_slot_ids)
         if facilitator_ids:
             session.facilitators.set(facilitator_ids)
+        if track_ids:
+            session.tracks.set(track_ids)
         return session.pk
 
     @staticmethod
@@ -2599,6 +2602,13 @@ class TrackRepository(TrackRepositoryProtocol):
             msg = f"Track with slug '{slug}' not found"
             raise NotFoundError(msg) from err
         return TrackDTO.model_validate(track)
+
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int:
+        track, _ = Track.objects.get_or_create(
+            event_id=event_id, slug=slug, defaults={"name": name}
+        )
+        return track.pk
 
     @transaction.atomic
     def update(self, pk: int, data: TrackUpdateData) -> TrackDTO:

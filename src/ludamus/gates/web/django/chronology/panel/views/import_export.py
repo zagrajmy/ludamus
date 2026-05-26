@@ -26,10 +26,12 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.mills.submissions import slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
+    EntityRef,
     FieldDefinition,
     FieldDefinitions,
     ImportSettings,
     QuestionTarget,
+    QuestionValue,
     TimeSlotSpec,
 )
 
@@ -40,6 +42,7 @@ if TYPE_CHECKING:
 
 SESSION_COLUMNS = ("title", "description")
 TIME_SLOTS_TARGET = "session.time_slots"
+ENTITY_TARGETS = ("track", "category")
 FieldType = Literal["text", "select", "checkbox"]
 LOCAL_DT_FORMAT = "%Y-%m-%dT%H:%M"
 
@@ -54,6 +57,12 @@ class OptionWindows(TypedDict):
     windows: list[Window]
 
 
+class OptionEntity(TypedDict):
+    option: str
+    name: str
+    slug: str
+
+
 class RecipeRow(TypedDict):
     index: int
     question: str
@@ -65,6 +74,9 @@ class RecipeRow(TypedDict):
     allow_custom: bool
     options: str
     option_windows: list[OptionWindows]
+    option_entities: list[OptionEntity]
+    catchall_name: str
+    catchall_slug: str
 
 
 def _active_integration(
@@ -107,7 +119,9 @@ def _row(
         field_name = question.title
         field_slug = slugify(question.title)
     elif target.to and (
-        target.to.startswith("session.") or target.to == "facilitator.display_name"
+        target.to.startswith("session.")
+        or target.to == "facilitator.display_name"
+        or target.to in ENTITY_TARGETS
     ):
         selected = target.to
     elif target.to and target.to.startswith("personal."):
@@ -135,9 +149,13 @@ def _row(
         "is_multiple": multiple,
         "allow_custom": setup.allow_custom,
         "options": "\n".join(setup.options),
-        # Always built from the source options so the (hidden) editor is ready
-        # the moment the operator switches this row to "Time slots".
+        # Always built from the source options so the (hidden) editors are ready
+        # the moment the operator switches this row to "Time slots" or a
+        # track/category target.
         "option_windows": _option_windows(question, target),
+        "option_entities": _option_entities(question, target),
+        "catchall_name": target.catchall.name if target and target.catchall else "",
+        "catchall_slug": target.catchall.slug if target and target.catchall else "",
     }
 
 
@@ -174,8 +192,27 @@ def _option_windows(
                 "end": localtime(s.end_time).strftime(LOCAL_DT_FORMAT),
             }
             for s in specs
+            if isinstance(s, TimeSlotSpec)
         ] or [{"start": "", "end": ""}]
         rows.append({"option": option, "windows": windows})
+    return rows
+
+
+def _option_entities(
+    question: SourceQuestion, target: QuestionTarget | None
+) -> list[OptionEntity]:
+    # One row per source option, pre-filled with its configured track/category
+    # (name + slug) or defaulting to the option text and the slug derived from
+    # it, so the (hidden) editor is ready the moment the row becomes a track or
+    # category target.
+    configured = target.values if target else {}
+    rows: list[OptionEntity] = []
+    for option in question.options:
+        ref = configured.get(option)
+        if isinstance(ref, EntityRef):
+            rows.append({"option": option, "name": ref.name, "slug": ref.slug})
+        else:
+            rows.append({"option": option, "name": option, "slug": slugify(option)})
     return rows
 
 
@@ -205,7 +242,7 @@ def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
 
 def _time_slot_values_from_post(
     post: QueryDict, index: int
-) -> dict[str, TimeSlotSpec | list[TimeSlotSpec]]:
+) -> dict[str, QuestionValue]:
     # The window rows submit parallel arrays (one entry per row); regroup them
     # by option, dropping rows missing a start or end.
     grouped: dict[str, list[TimeSlotSpec]] = {}
@@ -225,10 +262,41 @@ def _time_slot_values_from_post(
                 end_time=make_aware(datetime.fromisoformat(end), tz),
             )
         )
-    return {
+    result: dict[str, QuestionValue] = {
         option: windows[0] if len(windows) == 1 else windows
         for option, windows in grouped.items()
     }
+    return result
+
+
+def _entity_map_from_post(
+    post: QueryDict, index: int
+) -> tuple[dict[str, QuestionValue], EntityRef | None]:
+    # Per-option track/category rows submit parallel arrays; a blank name drops
+    # that option. The catchall is one name/slug pair for custom answers. Each
+    # slug falls back to the slug of its name when left blank.
+    values: dict[str, QuestionValue] = {}
+    rows = zip(
+        post.getlist(f"entoption_{index}"),
+        post.getlist(f"entname_{index}"),
+        post.getlist(f"entslug_{index}"),
+        strict=False,
+    )
+    for option, name, slug in rows:
+        clean_name = name.strip()
+        if not (option and clean_name):
+            continue
+        values[option] = EntityRef(
+            name=clean_name, slug=slug.strip() or slugify(clean_name)
+        )
+    catch_name = (post.get(f"entcatchname_{index}") or "").strip()
+    catch_slug = (post.get(f"entcatchslug_{index}") or "").strip()
+    catchall = (
+        EntityRef(name=catch_name, slug=catch_slug or slugify(catch_name))
+        if catch_name
+        else None
+    )
+    return values, catchall
 
 
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
@@ -237,6 +305,9 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
         return QuestionTarget(
             to=choice, values=_time_slot_values_from_post(post, index)
         )
+    if choice in ENTITY_TARGETS:
+        values, catchall = _entity_map_from_post(post, index)
+        return QuestionTarget(to=choice, values=values, catchall=catchall)
     if choice.startswith("session.") or choice == "facilitator.display_name":
         return QuestionTarget(to=choice)
     name = (post.get(f"newname_{index}") or "").strip()

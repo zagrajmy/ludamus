@@ -19,12 +19,15 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.submissions import (
+    EntityRef,
     FieldDefinition,
     ImportRepos,
     ImportSettings,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
     ProposalImportResult,
+    QuestionTarget,
+    TimeSlotSpec,
 )
 
 if TYPE_CHECKING:
@@ -181,10 +184,7 @@ class ProposalImportService:
         self._transaction = transaction
         self._source = source
         self._integrations = integrations
-        self._sessions = repos.sessions
-        self._session_fields = repos.session_fields
-        self._personal_fields = repos.personal_fields
-        self._time_slots = repos.time_slots
+        self._repos = repos
 
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
@@ -262,10 +262,10 @@ class ProposalImportService:
         definition: FieldDefinition | None,
     ) -> tuple[int, int]:
         try:
-            field = self._session_fields.read_by_slug(event_id, slug)
+            field = self._repos.session_fields.read_by_slug(event_id, slug)
         except NotFoundError:
             field_type, options, is_multiple, allow_custom = _field_setup(definition)
-            field = self._session_fields.create(
+            field = self._repos.session_fields.create(
                 event_id,
                 SessionFieldCreateData(
                     name=_field_name(definition, slug),
@@ -292,10 +292,10 @@ class ProposalImportService:
         definition: FieldDefinition | None,
     ) -> int:
         try:
-            self._personal_fields.read_by_slug(event_id, slug)
+            self._repos.personal_fields.read_by_slug(event_id, slug)
         except NotFoundError:
             field_type, options, is_multiple, allow_custom = _field_setup(definition)
-            self._personal_fields.create(
+            self._repos.personal_fields.create(
                 event_id,
                 PersonalDataFieldCreateData(
                     name=_field_name(definition, slug),
@@ -333,7 +333,7 @@ class ProposalImportService:
                 display_name = row.get(header, "")
         slug = generate_unique_slug(
             title,
-            lambda s: self._sessions.slug_exists(sphere_id, s),
+            lambda s: self._repos.sessions.slug_exists(sphere_id, s),
             fallback="proposal",
         )
         session_data: SessionData = {
@@ -345,10 +345,11 @@ class ProposalImportService:
             "participants_limit": 0,
             "slug": slug,
         }
-        session_id = self._sessions.create(
+        session_id = self._repos.sessions.create(
             session_data,
             tag_ids=[],
             time_slot_ids=self._time_slot_ids(event_id, settings, row),
+            track_ids=self._track_ids(event_id, settings, row),
         )
         values = [
             SessionFieldValueData(
@@ -357,7 +358,7 @@ class ProposalImportService:
             for header, field_id in field_ids_by_header.items()
         ]
         if values:
-            self._sessions.save_field_values(session_id, values)
+            self._repos.sessions.save_field_values(session_id, values)
 
     def _time_slot_ids(
         self, event_id: int, settings: ImportSettings, row: dict[str, str]
@@ -376,9 +377,45 @@ class ProposalImportService:
                     continue
                 windows = spec if isinstance(spec, list) else [spec]
                 for window in windows:
-                    slot_id = self._time_slots.get_or_create(
+                    if not isinstance(window, TimeSlotSpec):
+                        continue
+                    slot_id = self._repos.time_slots.get_or_create(
                         event_id, window.start_time, window.end_time
                     )
                     if slot_id not in ids:
                         ids.append(slot_id)
+        return ids
+
+    @staticmethod
+    def _chosen_entities(target: QuestionTarget, cell: str) -> list[EntityRef]:
+        # Each chosen option resolves to its configured entity; a custom or
+        # unmatched answer falls through to the catchall when one is set. The
+        # response cell joins multi-select answers with ", "; options are
+        # comma-free, so a comma split + exact match resolves them.
+        refs: list[EntityRef] = []
+        for value in (part.strip() for part in cell.split(",")):
+            if not value:
+                continue
+            spec = target.values.get(value)
+            if isinstance(spec, EntityRef):
+                refs.append(spec)
+            elif target.catchall is not None:
+                refs.append(target.catchall)
+        return refs
+
+    def _track_ids(
+        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+    ) -> list[int]:
+        # Each `track` question's chosen options resolve to tracks, provisioned
+        # (deduped by slug) and collected as the session's preferred tracks.
+        ids: list[int] = []
+        for header, target in settings.questions.items():
+            if target.to != "track":
+                continue
+            for ref in self._chosen_entities(target, row.get(header, "")):
+                track_id = self._repos.tracks.get_or_create_by_slug(
+                    event_id, ref.name, ref.slug
+                )
+                if track_id not in ids:
+                    ids.append(track_id)
         return ids

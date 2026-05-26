@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         SessionFieldRepositoryProtocol,
         SessionRepositoryProtocol,
         TimeSlotRepositoryProtocol,
+        TrackRepositoryProtocol,
     )
 
 
@@ -34,16 +35,32 @@ class TimeSlotSpec(BaseModel):
     end_time: datetime
 
 
+class EntityRef(BaseModel):
+    # A track or category the importer resolves by slug, provisioning it
+    # (deduped by slug) with `name` when the event does not have it yet.
+    name: str
+    slug: str
+
+
+# A choice option's mapped value: a time-slot window (or several), or the
+# track/category entity it resolves to.
+QuestionValue = TimeSlotSpec | list[TimeSlotSpec] | EntityRef
+
+
 class QuestionTarget(BaseModel):
     # `to` is "session.<col>" (a built-in proposal field), "field.<slug>" (a new
-    # session field), "personal.<slug>" (a new personal-data field) or
-    # "session.time_slots" (provisioned windows), each provisioned by slug from
+    # session field), "personal.<slug>" (a new personal-data field),
+    # "session.time_slots" (provisioned windows), or "track"/"category"
+    # (provisioned entities); each provisioned by slug from
     # `ImportSettings.definitions`; `ignore` marks a question as deliberately
     # unmapped. `values` maps a choice option's text to its target value — for
-    # `session.time_slots`, one window or several.
+    # `session.time_slots`, one window or several; for "track"/"category", the
+    # entity it resolves to. `catchall` is the track/category that catches a
+    # custom or unmatched answer.
     to: str | None = None
     ignore: bool = False
-    values: dict[str, TimeSlotSpec | list[TimeSlotSpec]] = {}
+    values: dict[str, QuestionValue] = {}
+    catchall: EntityRef | None = None
 
 
 class FieldDefinition(BaseModel):
@@ -91,6 +108,7 @@ class ImportRepos:
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
+    tracks: TrackRepositoryProtocol
 
 
 class ProposalImportServiceProtocol(Protocol):

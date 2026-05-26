@@ -3,15 +3,18 @@
  *   - reveal the new-field setup when the target is a "New personal/session
  *     field…" option;
  *   - reveal the options block when the field type takes options;
- *   - auto-fill the new field's slug from its name until the slug is edited;
+ *   - auto-fill a name's slug (the .recipe-slug in the same [data-slug-scope])
+ *     until that slug is edited — for the field setup and each entity row;
  *   - reveal the time-slot editor when the target is "Time slots", and let each
- *     option gain/drop window rows.
+ *     option gain/drop window rows;
+ *   - reveal the track/category entity editor for those targets.
  *
  * Markup (one per recipe row, keyed by a shared data-row):
  *   <select class="recipe-target" data-row="0">…</select>
  *   <div class="recipe-setup" data-row="0">
- *     <input class="recipe-name" data-row="0">
- *     <input class="recipe-slug" data-row="0">
+ *     <div data-slug-scope>
+ *       <input class="recipe-name"><input class="recipe-slug">
+ *     </div>
  *     <select class="recipe-fieldtype" data-row="0">…</select>
  *     <div class="recipe-options" data-row="0">…</div>
  *   </div>
@@ -20,10 +23,16 @@
  *       <div class="ts-window">…<button class="ts-remove">…</div>
  *     </div><button class="ts-add">…</button></div>
  *   </div>
+ *   <div class="recipe-entities" data-row="0">
+ *     <div class="ent-option" data-slug-scope>
+ *       <input class="recipe-name"><input class="recipe-slug">
+ *     </div>…
+ *   </div>
  */
 
 const NEW_FIELD_TARGETS = new Set(["personal-field", "session-field"]);
 const TIME_SLOTS_TARGET = "session.time_slots";
+const ENTITY_TARGETS = new Set(["track", "category"]);
 
 function rowElement(selector: string, row: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`${selector}[data-row="${row}"]`);
@@ -40,13 +49,15 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function slugInput(row: string): HTMLInputElement | null {
-  const slug = rowElement(".recipe-slug", row);
+// The slug paired with a name lives in the same [data-slug-scope] (the field
+// setup, or one track/category row).
+function pairedSlug(name: HTMLElement): HTMLInputElement | null {
+  const slug = name.closest("[data-slug-scope]")?.querySelector(".recipe-slug");
   return slug instanceof HTMLInputElement ? slug : null;
 }
 
 function syncSlug(name: HTMLInputElement): void {
-  const slug = slugInput(name.dataset.row ?? "");
+  const slug = pairedSlug(name);
   if (slug && !slug.dataset.edited) slug.value = slugify(name.value);
 }
 
@@ -59,6 +70,10 @@ function syncTarget(select: HTMLSelectElement): void {
   rowElement(".recipe-timeslots", row)?.classList.toggle(
     "hidden",
     select.value !== TIME_SLOTS_TARGET,
+  );
+  rowElement(".recipe-entities", row)?.classList.toggle(
+    "hidden",
+    !ENTITY_TARGETS.has(select.value),
   );
 }
 
@@ -133,7 +148,7 @@ function initRecipe(): void {
   // Preserve a hand-customised slug (one that differs from its name's slug); a
   // blank or name-matching slug stays auto-synced as the operator types.
   document.querySelectorAll<HTMLInputElement>(".recipe-name").forEach((name) => {
-    const slug = slugInput(name.dataset.row ?? "");
+    const slug = pairedSlug(name);
     if (slug && slug.value && slug.value !== slugify(name.value)) {
       slug.dataset.edited = "true";
     }

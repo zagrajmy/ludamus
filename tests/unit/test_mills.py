@@ -945,6 +945,10 @@ class TestProposalImportService:
         return MagicMock()
 
     @pytest.fixture
+    def tracks(self):
+        return MagicMock()
+
+    @pytest.fixture
     def service(
         self,
         transaction,
@@ -954,12 +958,13 @@ class TestProposalImportService:
         session_fields,
         personal_fields,
         time_slots,
+        tracks,
     ):
         return ProposalImportService(
             transaction,
             source,
             integrations,
-            ImportRepos(sessions, session_fields, personal_fields, time_slots),
+            ImportRepos(sessions, session_fields, personal_fields, time_slots, tracks),
         )
 
     def test_run_creates_one_proposal_per_response(
@@ -988,6 +993,7 @@ class TestProposalImportService:
             },
             tag_ids=[],
             time_slot_ids=[],
+            track_ids=[],
         )
 
     def test_run_maps_description_target_and_defaults_empty_cells(
@@ -1016,6 +1022,7 @@ class TestProposalImportService:
             },
             tag_ids=[],
             time_slot_ids=[],
+            track_ids=[],
         )
 
     def test_run_maps_facilitator_display_name(
@@ -1044,6 +1051,7 @@ class TestProposalImportService:
             },
             tag_ids=[],
             time_slot_ids=[],
+            track_ids=[],
         )
 
     def test_run_with_no_responses_creates_nothing(
@@ -1151,6 +1159,63 @@ class TestProposalImportService:
             ),
         ]
         assert sessions.create.call_args.kwargs["time_slot_ids"] == [201, 202]
+
+    def test_run_attaches_a_track_for_the_chosen_option(
+        self, service, source, integrations, sessions, tracks
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Suggested": {"to": "track", "values": {'
+                '"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Suggested": "RPG"}]
+        tracks.get_or_create_by_slug.return_value = 301
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        tracks.get_or_create_by_slug.assert_called_once_with(2, "RPG", "rpg")
+        assert sessions.create.call_args.kwargs["track_ids"] == [301]
+
+    def test_run_attaches_a_track_per_chosen_option(
+        self, service, source, integrations, sessions, tracks
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Suggested": {"to": "track", "values": {'
+                '"RPG": {"name": "RPG", "slug": "rpg"},'
+                '"LARP": {"name": "LARP", "slug": "larp"}}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Suggested": "RPG, LARP"}]
+        tracks.get_or_create_by_slug.side_effect = [301, 302]
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert tracks.get_or_create_by_slug.call_args_list == [
+            call(2, "RPG", "rpg"),
+            call(2, "LARP", "larp"),
+        ]
+        assert sessions.create.call_args.kwargs["track_ids"] == [301, 302]
+
+    def test_run_routes_a_custom_track_answer_to_the_catchall(
+        self, service, source, integrations, sessions, tracks
+    ):
+        integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Suggested": {"to": "track",'
+                ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}},'
+                ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
+            )
+        )
+        source.fetch_responses.return_value = [{"Suggested": "Something custom"}]
+        tracks.get_or_create_by_slug.return_value = 399
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        tracks.get_or_create_by_slug.assert_called_once_with(2, "Inne", "inne")
+        assert sessions.create.call_args.kwargs["track_ids"] == [399]
 
     def test_run_provisions_new_field_and_saves_value(
         self, service, source, integrations, sessions, session_fields

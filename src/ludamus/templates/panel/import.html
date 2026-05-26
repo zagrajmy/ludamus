@@ -89,6 +89,7 @@
                                                 {% if row.selected == "session.time_slots" %}selected{% endif %}>
                                             {% translate "Time slots" %}
                                         </option>
+                                        <option value="track" {% if row.selected == "track" %}selected{% endif %}>{% translate "Track" %}</option>
                                         <option value="personal-field"
                                                 {% if row.selected == "personal-field" %}selected{% endif %}>
                                             {% translate "New personal field…" %}
@@ -102,7 +103,8 @@
                                 <div class="recipe-setup {% if row.selected == "personal-field" or row.selected == "session-field" %}is-open{% endif %}"
                                      data-row="{{ row.index }}">
                                     <div class="recipe-setup-inner">
-                                        <div class="mt-3 max-w-md space-y-3 rounded-lg border border-border bg-bg-tertiary p-4 sm:ml-20">
+                                        <div class="mt-3 max-w-md space-y-3 rounded-lg border border-border bg-bg-tertiary p-4 sm:ml-20"
+                                             data-slug-scope>
                                             <div>
                                                 <label class="mb-1 block text-xs font-medium text-foreground-secondary"
                                                        for="newname_{{ row.index }}">
@@ -203,6 +205,46 @@
                                             </button>
                                         </div>
                                     {% endfor %}
+                                </div>
+                                <div class="recipe-entities mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "track" and row.selected != "category" %}hidden{% endif %}"
+                                     data-row="{{ row.index }}">
+                                    {% for ent in row.option_entities %}
+                                        <div class="ent-option rounded-lg border border-border bg-bg-tertiary p-3"
+                                             data-slug-scope>
+                                            <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ent.option }}</p>
+                                            <input type="hidden"
+                                                   name="entoption_{{ row.index }}"
+                                                   value="{{ ent.option }}">
+                                            <div class="flex items-center gap-2">
+                                                <input type="text"
+                                                       name="entname_{{ row.index }}"
+                                                       value="{{ ent.name }}"
+                                                       aria-label="{% translate "Field name" %}"
+                                                       class="recipe-name min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                                <input type="text"
+                                                       name="entslug_{{ row.index }}"
+                                                       value="{{ ent.slug }}"
+                                                       aria-label="{% translate "Slug" %}"
+                                                       class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                    <div class="ent-catchall rounded-lg border border-dashed border-border bg-bg-tertiary p-3"
+                                         data-slug-scope>
+                                        <p class="mb-2 text-xs font-medium text-foreground-secondary">{% translate "Catch-all for custom answers" %}</p>
+                                        <div class="flex items-center gap-2">
+                                            <input type="text"
+                                                   name="entcatchname_{{ row.index }}"
+                                                   value="{{ row.catchall_name }}"
+                                                   placeholder="{% translate "Field name" %}"
+                                                   class="recipe-name min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                            <input type="text"
+                                                   name="entcatchslug_{{ row.index }}"
+                                                   value="{{ row.catchall_slug }}"
+                                                   placeholder="{% translate "Slug" %}"
+                                                   class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}

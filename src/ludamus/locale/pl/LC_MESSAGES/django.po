@@ -4379,6 +4379,12 @@ msgid "Facilitator — Display name"
 msgstr "Twórca programu — nazwa wyświetlana"
 
 #: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Track"
+msgstr "Blok programowy"
+
+#: src/ludamus/templates/panel/import.html
 msgid "New personal field…"
 msgstr "Nowe pole danych osobowych…"
 
@@ -4433,6 +4439,10 @@ msgstr "Usuń przedział"
 #: src/ludamus/templates/panel/import.html
 msgid "Add window"
 msgstr "Dodaj przedział"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Catch-all for custom answers"
+msgstr "Domyślny dla odpowiedzi własnych"
 
 #: src/ludamus/templates/panel/import.html
 msgid ""
@@ -4960,11 +4970,6 @@ msgstr "Przesłane zgłoszenia"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Activity Log"
 msgstr "Dziennik zmian"
-
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Track"
-msgstr "Blok programowy"
 
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable.html

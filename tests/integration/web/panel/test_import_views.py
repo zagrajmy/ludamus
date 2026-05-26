@@ -24,6 +24,7 @@ from ludamus.adapters.db.django.models import (
     SessionField,
     SessionFieldOption,
     SessionFieldValue,
+    Track,
 )
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
@@ -31,7 +32,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.submissions import ImportSettings, TimeSlotSpec
+from ludamus.pacts.submissions import EntityRef, ImportSettings, TimeSlotSpec
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -194,6 +195,9 @@ class TestEventImportSectionView:
                         "allow_custom": False,
                         "options": "",
                         "option_windows": [],
+                        "option_entities": [],
+                        "catchall_name": "",
+                        "catchall_slug": "",
                     },
                     {
                         "index": 1,
@@ -206,6 +210,9 @@ class TestEventImportSectionView:
                         "allow_custom": False,
                         "options": "",
                         "option_windows": [],
+                        "option_entities": [],
+                        "catchall_name": "",
+                        "catchall_slug": "",
                     },
                 ],
             },
@@ -263,6 +270,12 @@ class TestEventImportSectionView:
                     {"option": "do 16", "windows": [{"start": "", "end": ""}]},
                     {"option": "18+", "windows": [{"start": "", "end": ""}]},
                 ],
+                "option_entities": [
+                    {"option": "do 16", "name": "do 16", "slug": "do-16"},
+                    {"option": "18+", "name": "18+", "slug": "18"},
+                ],
+                "catchall_name": "",
+                "catchall_slug": "",
             }
         ]
         # The source options reach the rendered setup textarea (not just context).
@@ -331,6 +344,65 @@ class TestEventImportSectionView:
             {"option": "Sat", "windows": [{"start": "", "end": ""}]},
         ]
 
+    def test_get_renders_track_entities_for_a_choice_question(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Suggested": {
+                        "to": "track",
+                        "values": {"RPG": {"name": "RPG sessions", "slug": "rpg"}},
+                        "catchall": {"name": "Other", "slug": "other"},
+                    }
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {
+                            "title": "Suggested",
+                            "questionItem": {
+                                "question": {
+                                    "choiceQuestion": {
+                                        "type": "RADIO",
+                                        "options": [
+                                            {"value": "RPG"},
+                                            {"value": "LARP"},
+                                        ],
+                                    }
+                                }
+                            },
+                        }
+                    ]
+                },
+            )
+            response = authenticated_client.get(_tab_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        row = response.context_data["rows"][0]
+        assert row["selected"] == "track"
+        # The configured option keeps its entity; an unconfigured one defaults to
+        # the option text and its slug.
+        assert row["option_entities"] == [
+            {"option": "RPG", "name": "RPG sessions", "slug": "rpg"},
+            {"option": "LARP", "name": "LARP", "slug": "larp"},
+        ]
+        assert row["catchall_name"] == "Other"
+        assert row["catchall_slug"] == "other"
+
     def test_post_saves_time_slot_windows_including_multiple(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
@@ -382,6 +454,45 @@ class TestEventImportSectionView:
                 ),
             ],
         }
+
+    def test_post_saves_a_track_target_with_catchall(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _tab_url(event, integration),
+            data={
+                "question_0": "Suggested",
+                "target_0": "track",
+                "entoption_0": ["RPG", "LARP"],
+                "entname_0": ["RPG sessions", "LARP"],
+                "entslug_0": ["rpg", ""],
+                "entcatchname_0": "Other",
+                "entcatchslug_0": "",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Import recipe saved.")],
+        )
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Suggested"]
+        assert target.to == "track"
+        # The explicit slug is kept; a blank slug falls back to the name's slug.
+        assert target.values == {
+            "RPG": EntityRef(name="RPG sessions", slug="rpg"),
+            "LARP": EntityRef(name="LARP", slug="larp"),
+        }
+        assert target.catchall == EntityRef(name="Other", slug="other")
 
     def test_get_without_pk_defaults_to_first_integration(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -457,8 +568,18 @@ class TestEventImportSectionView:
         integration.refresh_from_db()
         assert json.loads(integration.settings_json) == {
             "questions": {
-                "Title": {"to": "session.title", "ignore": False, "values": {}},
-                "System": {"to": "field.system", "ignore": False, "values": {}},
+                "Title": {
+                    "to": "session.title",
+                    "ignore": False,
+                    "values": {},
+                    "catchall": None,
+                },
+                "System": {
+                    "to": "field.system",
+                    "ignore": False,
+                    "values": {},
+                    "catchall": None,
+                },
             },
             "definitions": {
                 "personal_fields": {},
@@ -502,7 +623,12 @@ class TestEventImportSectionView:
         integration.refresh_from_db()
         assert json.loads(integration.settings_json) == {
             "questions": {
-                "RPG system": {"to": "field.rpg-system", "ignore": False, "values": {}}
+                "RPG system": {
+                    "to": "field.rpg-system",
+                    "ignore": False,
+                    "values": {},
+                    "catchall": None,
+                }
             },
             "definitions": {
                 "personal_fields": {},
@@ -547,6 +673,7 @@ class TestEventImportSectionView:
                     "to": "facilitator.display_name",
                     "ignore": False,
                     "values": {},
+                    "catchall": None,
                 }
             },
             "definitions": {"personal_fields": {}, "session_fields": {}},
@@ -583,6 +710,7 @@ class TestEventImportSectionView:
                     "to": "personal.telefon",
                     "ignore": False,
                     "values": {},
+                    "catchall": None,
                 }
             },
             "definitions": {
@@ -829,6 +957,46 @@ class TestEventImportRunActionView:
             "2025-09-19T16:00:00+02:00"
         )
         assert slots[0].end_time == datetime.fromisoformat("2025-09-19T22:00:00+02:00")
+
+    def test_post_provisions_and_attaches_tracks(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "Suggested": {
+                        "to": "track",
+                        "values": {"RPG": {"name": "RPG sessions", "slug": "rpg"}},
+                        "catchall": {"name": "Other", "slug": "other"},
+                    },
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Suggested"], ["My Talk", "RPG"], ["Loose", "Custom"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        # The configured option provisions and attaches its track...
+        rpg = Track.objects.get(event=event, slug="rpg")
+        assert rpg.name == "RPG sessions"
+        matched = Session.objects.get(sphere=sphere, title="My Talk")
+        assert list(matched.tracks.all()) == [rpg]
+        # ...and a custom answer lands in the catchall track.
+        other = Track.objects.get(event=event, slug="other")
+        loose = Session.objects.get(sphere=sphere, title="Loose")
+        assert list(loose.tracks.all()) == [other]
 
 
 @pytest.mark.django_db
