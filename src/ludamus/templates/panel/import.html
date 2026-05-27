@@ -165,16 +165,22 @@
                                                     {% for w in ow.windows %}
                                                         <div class="ts-window flex items-center gap-2">
                                                             <input type="hidden" name="tsoption_{{ row.index }}" value="{{ ow.option }}">
-                                                            <input type="datetime-local"
+                                                            <input type="text"
                                                                    name="tsstart_{{ row.index }}"
                                                                    value="{{ w.start }}"
                                                                    aria-label="{% translate "Start" %}"
+                                                                   placeholder="2025-09-19T16:00"
+                                                                   pattern="\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?"
+                                                                   title="2025-09-19T16:00"
                                                                    class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                                                             <span class="shrink-0 text-foreground-muted">–</span>
-                                                            <input type="datetime-local"
+                                                            <input type="text"
                                                                    name="tsend_{{ row.index }}"
                                                                    value="{{ w.end }}"
                                                                    aria-label="{% translate "End" %}"
+                                                                   placeholder="2025-09-19T16:00"
+                                                                   pattern="\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?"
+                                                                   title="2025-09-19T16:00"
                                                                    class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                                                             <button type="button"
                                                                     class="ts-remove shrink-0 text-foreground-muted hover:text-foreground"
