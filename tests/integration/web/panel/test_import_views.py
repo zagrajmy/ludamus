@@ -249,6 +249,7 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
+                "edit_row": None,
             },
         )
 
@@ -532,6 +533,71 @@ class TestEventImportProposalView:
         # The confirmed glyph reaches the rendered summary table.
         body = response.content.decode()
         assert 'data-summary-row="0"' in body
+
+    def test_get_with_edit_query_renders_a_single_row_editor(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Title", "questionItem": {"question": {}}},
+                        {"title": "System", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.get(
+                _tab_url(event, integration) + "?edit=1"
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        edit_row = response.context_data["edit_row"]
+        assert edit_row is not None
+        assert edit_row["index"] == 1
+        assert edit_row["question"] == "System"
+        body = response.content.decode()
+        # Only the System editor is in the body — summary and other row are gone.
+        assert 'name="question_1"' in body
+        assert 'name="question_0"' not in body
+        assert "data-summary-row=" not in body
+        # The "Back to summary" link returns to the same tab without the edit param.
+        assert _tab_url(event, integration) in body
+        # The header Save button is suppressed in single-row mode.
+        assert "Save recipe" not in body
+
+    def test_get_with_invalid_edit_query_falls_back_to_summary(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [{"title": "Title", "questionItem": {"question": {}}}]
+                },
+            )
+            for raw in ("99", "abc", "-1"):
+                response = authenticated_client.get(
+                    _tab_url(event, integration) + f"?edit={raw}"
+                )
+                assert response.status_code == HTTPStatus.OK, raw
+                assert response.context_data["edit_row"] is None, raw
 
     def test_post_saves_time_slot_windows_including_multiple(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

@@ -173,6 +173,17 @@ def _row(
     }
 
 
+def _edit_row(raw: str | None, rows: list[RecipeRow]) -> RecipeRow | None:
+    # The summary linked to ?edit=<index>; ignore anything non-numeric or out of
+    # range and fall back to the full list view.
+    if raw is None or not raw.isdigit():
+        return None
+    index = int(raw)
+    if 0 <= index < len(rows):
+        return rows[index]
+    return None
+
+
 def _summary_row(
     index: int,
     question: SourceQuestion,
@@ -508,6 +519,9 @@ class EventImportProposalView(_ImportTabView):
                 )
                 for index, q in enumerate(questions)
             ]
+            context["edit_row"] = _edit_row(
+                self.request.GET.get("edit"), context["rows"]
+            )
         return TemplateResponse(self.request, "panel/import.html", context)
 
     def post(

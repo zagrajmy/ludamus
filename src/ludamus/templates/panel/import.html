@@ -12,7 +12,7 @@
     {% if current_event %}{{ current_event.name }}{% endif %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if active_integration %}
+    {% if active_integration and not edit_row %}
         <div class="flex items-center gap-3">
             <button type="submit"
                     form="import-recipe-form"
@@ -34,6 +34,20 @@
                     <p class="text-foreground-muted">
                         {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
                     </p>
+                </div>
+            {% elif edit_row %}
+                <div class="max-w-3xl">
+                    <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
+                       class="inline-flex items-center text-sm text-primary hover:underline">
+                        {% icon "arrow-left" class="w-4 h-4 mr-1" %}
+                        {% translate "Back to summary" %}
+                    </a>
+                    <form method="post"
+                          action="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
+                          class="mt-4">
+                        {% csrf_token %}
+                        <div class="card">{% include "panel/parts/import-recipe-row.html" with row=edit_row %}</div>
+                    </form>
                 </div>
             {% else %}
                 {% if summary_rows %}
@@ -61,7 +75,7 @@
                             </thead>
                             <tbody class="divide-y divide-border bg-bg-secondary">
                                 {% for srow in summary_rows %}
-                                    <tr data-summary-row="{{ srow.index }}">
+                                    <tr data-summary-row="{{ srow.index }}" class="hover:bg-bg-tertiary">
                                         <td class="whitespace-nowrap px-4 py-3 text-sm">
                                             {% if srow.status == "confirmed" %}
                                                 <span class="inline-flex items-center gap-1 text-success"
@@ -83,7 +97,10 @@
                                                 </span>
                                             {% endif %}
                                         </td>
-                                        <td class="px-4 py-3 text-sm font-medium text-foreground">{{ srow.question }}</td>
+                                        <td class="px-4 py-3 text-sm font-medium">
+                                            <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}?edit={{ srow.index }}"
+                                               class="text-foreground hover:text-primary hover:underline">{{ srow.question }}</a>
+                                        </td>
                                         <td class="px-4 py-3 text-sm text-foreground-secondary">
                                             {% if srow.mapping %}
                                                 {{ srow.mapping }}
@@ -106,201 +123,7 @@
                     {% if rows %}
                         <div class="card divide-y divide-border">
                             {% for row in rows %}
-                                <div class="p-4 sm:p-5">
-                                    <p class="text-sm font-medium text-foreground">{{ row.question }}</p>
-                                    <input type="hidden"
-                                           name="question_{{ row.index }}"
-                                           value="{{ row.question }}">
-                                    <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                        <label class="shrink-0 text-sm text-foreground-muted sm:w-20"
-                                               for="target_{{ row.index }}">{% translate "Maps to" %}</label>
-                                        <select id="target_{{ row.index }}"
-                                                name="target_{{ row.index }}"
-                                                class="recipe-target w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:max-w-xs"
-                                                data-row="{{ row.index }}">
-                                            <option value="ignore" {% if row.selected == "ignore" %}selected{% endif %}>{% translate "Don't import" %}</option>
-                                            {% for col in session_columns %}
-                                                <option value="session.{{ col }}"
-                                                        {% if row.selected == "session."|add:col %}selected{% endif %}>
-                                                    {% translate "Proposal" %} — {{ col|capfirst }}
-                                                </option>
-                                            {% endfor %}
-                                            <option value="facilitator.display_name"
-                                                    {% if row.selected == "facilitator.display_name" %}selected{% endif %}>
-                                                {% translate "Facilitator — Display name" %}
-                                            </option>
-                                            <option value="session.time_slots"
-                                                    {% if row.selected == "session.time_slots" %}selected{% endif %}>
-                                                {% translate "Time slots" %}
-                                            </option>
-                                            <option value="track" {% if row.selected == "track" %}selected{% endif %}>{% translate "Track" %}</option>
-                                            <option value="category"
-                                                    {% if row.selected == "category" %}selected{% endif %}>
-                                                {% translate "Category" %}
-                                            </option>
-                                            <option value="personal-field"
-                                                    {% if row.selected == "personal-field" %}selected{% endif %}>
-                                                {% translate "New personal field…" %}
-                                            </option>
-                                            <option value="session-field"
-                                                    {% if row.selected == "session-field" %}selected{% endif %}>
-                                                {% translate "New session field…" %}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div class="recipe-setup {% if row.selected == "personal-field" or row.selected == "session-field" %}is-open{% endif %}"
-                                         data-row="{{ row.index }}">
-                                        <div class="recipe-setup-inner">
-                                            <div class="mt-3 max-w-md space-y-3 rounded-lg border border-border bg-bg-tertiary p-4 sm:ml-20"
-                                                 data-slug-scope>
-                                                <div>
-                                                    <label class="mb-1 block text-xs font-medium text-foreground-secondary"
-                                                           for="newname_{{ row.index }}">
-                                                        {% translate "Field name" %}
-                                                    </label>
-                                                    <input type="text"
-                                                           id="newname_{{ row.index }}"
-                                                           name="newname_{{ row.index }}"
-                                                           value="{{ row.field_name }}"
-                                                           placeholder="{% translate "Field name" %}"
-                                                           class="recipe-name w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                                           data-row="{{ row.index }}">
-                                                </div>
-                                                <div>
-                                                    <label class="mb-1 block text-xs font-medium text-foreground-secondary"
-                                                           for="newslug_{{ row.index }}">{% translate "Slug" %}</label>
-                                                    <input type="text"
-                                                           id="newslug_{{ row.index }}"
-                                                           name="newslug_{{ row.index }}"
-                                                           value="{{ row.field_slug }}"
-                                                           placeholder="{% translate "Slug" %}"
-                                                           class="recipe-slug w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                                           data-row="{{ row.index }}">
-                                                </div>
-                                                <div>
-                                                    <label class="mb-1 block text-xs font-medium text-foreground-secondary"
-                                                           for="fieldtype_{{ row.index }}">
-                                                        {% translate "Field type" %}
-                                                    </label>
-                                                    <select id="fieldtype_{{ row.index }}"
-                                                            name="fieldtype_{{ row.index }}"
-                                                            class="recipe-fieldtype w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                                            data-row="{{ row.index }}">
-                                                        <option value="text" {% if row.field_type == "text" %}selected{% endif %}>{% translate "Text" %}</option>
-                                                        <option value="select" {% if row.field_type == "select" %}selected{% endif %}>{% translate "Select" %}</option>
-                                                        <option value="checkbox"
-                                                                {% if row.field_type == "checkbox" %}selected{% endif %}>
-                                                            {% translate "Checkbox" %}
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                                <div class="recipe-options {% if row.field_type == "text" %}hidden{% endif %} space-y-3"
-                                                     data-row="{{ row.index }}">
-                                                    <textarea name="options_{{ row.index }}"
-                                                              rows="3"
-                                                              placeholder="{% translate "One option per line" %}"
-                                                              class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ row.options }}</textarea>
-                                                    <label class="flex items-center">
-                                                        <input type="checkbox"
-                                                               name="multiple_{{ row.index }}"
-                                                               {% if row.is_multiple %}checked{% endif %}
-                                                               class="rounded border-border text-primary focus:ring-primary">
-                                                        <span class="ml-2 text-sm text-foreground-secondary">{% translate "Allow multiple selections" %}</span>
-                                                    </label>
-                                                    <label class="flex items-center">
-                                                        <input type="checkbox"
-                                                               name="allowcustom_{{ row.index }}"
-                                                               {% if row.allow_custom %}checked{% endif %}
-                                                               class="rounded border-border text-primary focus:ring-primary">
-                                                        <span class="ml-2 text-sm text-foreground-secondary">{% translate "Allow custom values" %}</span>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="recipe-timeslots mt-3 max-w-xl space-y-4 sm:ml-20 {% if row.selected != "session.time_slots" %}hidden{% endif %}"
-                                         data-row="{{ row.index }}">
-                                        {% for ow in row.option_windows %}
-                                            <div class="ts-option rounded-lg border border-border bg-bg-tertiary p-4">
-                                                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ow.option }}</p>
-                                                <div class="ts-windows space-y-2">
-                                                    {% for w in ow.windows %}
-                                                        <div class="ts-window flex items-center gap-2">
-                                                            <input type="hidden" name="tsoption_{{ row.index }}" value="{{ ow.option }}">
-                                                            <input type="text"
-                                                                   name="tsstart_{{ row.index }}"
-                                                                   value="{{ w.start }}"
-                                                                   aria-label="{% translate "Start" %}"
-                                                                   placeholder="2025-09-19T16:00"
-                                                                   pattern="\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?"
-                                                                   title="2025-09-19T16:00"
-                                                                   class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                                            <span class="shrink-0 text-foreground-muted">–</span>
-                                                            <input type="text"
-                                                                   name="tsend_{{ row.index }}"
-                                                                   value="{{ w.end }}"
-                                                                   aria-label="{% translate "End" %}"
-                                                                   placeholder="2025-09-19T16:00"
-                                                                   pattern="\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?"
-                                                                   title="2025-09-19T16:00"
-                                                                   class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                                            <button type="button"
-                                                                    class="ts-remove shrink-0 text-foreground-muted hover:text-foreground"
-                                                                    aria-label="{% translate "Remove window" %}">
-                                                                {% icon "x-mark" class="w-4 h-4" %}
-                                                            </button>
-                                                        </div>
-                                                    {% endfor %}
-                                                </div>
-                                                <button type="button"
-                                                        class="ts-add mt-2 inline-flex items-center text-sm text-primary hover:underline">
-                                                    {% icon "plus" class="w-4 h-4 mr-1" %}
-                                                    {% translate "Add window" %}
-                                                </button>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="recipe-entities mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "track" and row.selected != "category" %}hidden{% endif %}"
-                                         data-row="{{ row.index }}">
-                                        {% for ent in row.option_entities %}
-                                            <div class="ent-option rounded-lg border border-border bg-bg-tertiary p-3"
-                                                 data-slug-scope>
-                                                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ ent.option }}</p>
-                                                <input type="hidden"
-                                                       name="entoption_{{ row.index }}"
-                                                       value="{{ ent.option }}">
-                                                <div class="flex items-center gap-2">
-                                                    <input type="text"
-                                                           name="entname_{{ row.index }}"
-                                                           value="{{ ent.name }}"
-                                                           aria-label="{% translate "Field name" %}"
-                                                           class="recipe-name min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                                    <input type="text"
-                                                           name="entslug_{{ row.index }}"
-                                                           value="{{ ent.slug }}"
-                                                           aria-label="{% translate "Slug" %}"
-                                                           class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                        <div class="ent-catchall rounded-lg border border-dashed border-border bg-bg-tertiary p-3"
-                                             data-slug-scope>
-                                            <p class="mb-2 text-xs font-medium text-foreground-secondary">{% translate "Catch-all for custom answers" %}</p>
-                                            <div class="flex items-center gap-2">
-                                                <input type="text"
-                                                       name="entcatchname_{{ row.index }}"
-                                                       value="{{ row.catchall_name }}"
-                                                       placeholder="{% translate "Field name" %}"
-                                                       class="recipe-name min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                                <input type="text"
-                                                       name="entcatchslug_{{ row.index }}"
-                                                       value="{{ row.catchall_slug }}"
-                                                       placeholder="{% translate "Slug" %}"
-                                                       class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                {% include "panel/parts/import-recipe-row.html" with row=row %}
                             {% endfor %}
                         </div>
                     {% else %}
