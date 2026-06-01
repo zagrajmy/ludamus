@@ -198,6 +198,7 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
+        assert "Connected Users" not in response.content.decode()
 
     def test_ok_session_with_linked_proposal(
         self, active_user, agenda_item, client, event, session
