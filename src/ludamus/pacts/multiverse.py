@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO
 
 
+class DuplicateConnectionDisplayNameError(Exception):
+    pass
+
+
 class ConnectionDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
