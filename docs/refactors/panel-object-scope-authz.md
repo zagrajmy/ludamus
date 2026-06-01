@@ -77,5 +77,4 @@ nothing.
 - Every panel view that consumes a request-supplied id is audited and scoped.
 - Each has a regression test proving a foreign id is rejected without side
   effects.
-- The CHECKLIST item can be walked clean by `/tbd-refine` against new panel
-  stories.
+- The CHECKLIST item can be walked clean by against new panel stories.
