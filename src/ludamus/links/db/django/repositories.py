@@ -2632,7 +2632,7 @@ _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
 )
 
 
-def _is_connection_display_name_conflict(exc: IntegrityError) -> bool:
+def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
     diag = getattr(exc.__cause__, "diag", None)
     if (
         getattr(diag, "constraint_name", None)
@@ -2671,7 +2671,7 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
                 sphere_id=sphere_id, display_name=display_name
             )
         except IntegrityError as exc:
-            if _is_connection_display_name_conflict(exc):
+            if is_connection_display_name_conflict(exc):
                 raise DuplicateConnectionDisplayNameError from exc
             raise
         return ConnectionDTO.model_validate(connection)
@@ -2686,7 +2686,7 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
         try:
             connection.save(update_fields=["display_name"])
         except IntegrityError as exc:
-            if _is_connection_display_name_conflict(exc):
+            if is_connection_display_name_conflict(exc):
                 raise DuplicateConnectionDisplayNameError from exc
             raise
         return ConnectionDTO.model_validate(connection)
