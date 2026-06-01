@@ -7,6 +7,11 @@
     {% else %}
         {% tab "proposal" href=tab_urls.proposal %}{% translate "Proposal" %}{% end_tab %}
     {% endif %}
+    {% if active_tab == "review" %}
+        {% tab "review" active=True href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
+    {% else %}
+        {% tab "review" href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
+    {% endif %}
     {% if active_tab == "json" %}
         {% tab "json" active=True href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
     {% else %}

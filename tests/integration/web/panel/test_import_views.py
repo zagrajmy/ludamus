@@ -60,6 +60,18 @@ def _tab_url(event, integration) -> str:
     )
 
 
+def _review_url(event, integration) -> str:
+    return reverse(
+        "panel:import-review", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
+def _row_save_url(event, integration) -> str:
+    return reverse(
+        "panel:import-row-save", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
 def _run_url(event, integration) -> str:
     return reverse(
         "panel:import-run-do", kwargs={"slug": event.slug, "pk": integration.pk}
@@ -164,7 +176,7 @@ class TestEventImportProposalView:
             | {"active_nav": "import", "active_integration": None},
         )
 
-    def test_get_lists_questions_as_recipe_rows_under_a_tab(
+    def test_get_renders_summary_table(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -198,41 +210,6 @@ class TestEventImportProposalView:
                 "active_integration": _dto(integration),
                 "active_tab": "proposal",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
-                "session_columns": ("title", "description"),
-                "rows": [
-                    {
-                        "index": 0,
-                        "question": "Title",
-                        "selected": "session-field",
-                        "confirmed": False,
-                        "field_name": "Title",
-                        "field_slug": "title",
-                        "field_type": "text",
-                        "is_multiple": False,
-                        "allow_custom": False,
-                        "options": "",
-                        "option_windows": [],
-                        "option_entities": [],
-                        "catchall_name": "",
-                        "catchall_slug": "",
-                    },
-                    {
-                        "index": 1,
-                        "question": "System",
-                        "selected": "session-field",
-                        "confirmed": False,
-                        "field_name": "System",
-                        "field_slug": "system",
-                        "field_type": "text",
-                        "is_multiple": False,
-                        "allow_custom": False,
-                        "options": "",
-                        "option_windows": [],
-                        "option_entities": [],
-                        "catchall_name": "",
-                        "catchall_slug": "",
-                    },
-                ],
                 "summary_rows": [
                     {
                         "index": 0,
@@ -249,10 +226,12 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
-                "edit_row": None,
-                "edit_nav": None,
             },
         )
+        # The Edit action column links each row to the Review tab.
+        body = response.content.decode()
+        assert _review_url(event, integration) + "?edit=0" in body
+        assert _review_url(event, integration) + "?edit=1" in body
 
     def test_get_prefills_new_field_setup_from_a_choice_question(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -288,7 +267,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = authenticated_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["rows"] == [
@@ -318,7 +297,7 @@ class TestEventImportProposalView:
         # The source options reach the rendered setup textarea (not just context).
         assert "do 16\n18+" in response.content.decode()
 
-    def test_get_renders_time_slot_windows_for_a_checkbox_question(
+    def test_review_renders_time_slot_windows_for_a_checkbox_question(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -365,7 +344,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = authenticated_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         fri_start = localtime(
@@ -381,7 +360,7 @@ class TestEventImportProposalView:
             {"option": "Sat", "windows": [{"start": "", "end": ""}]},
         ]
 
-    def test_get_renders_track_entities_for_a_choice_question(
+    def test_review_renders_track_entities_for_a_choice_question(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -426,7 +405,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = authenticated_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         row = response.context_data["rows"][0]
@@ -557,7 +536,7 @@ class TestEventImportProposalView:
                 },
             )
             response = authenticated_client.get(
-                _tab_url(event, integration) + "?edit=1"
+                _review_url(event, integration) + "?edit=1"
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -578,15 +557,14 @@ class TestEventImportProposalView:
             ],
         }
         body = response.content.decode()
-        # Only the System editor is in the body — summary and other row are gone.
+        # Only the System editor is in the body — the summary table lives on
+        # the Proposal tab now, not here.
         assert 'name="question_1"' in body
-        assert 'name="question_0"' not in body
         assert "data-summary-row=" not in body
-        # The nav panel renders Cancel and the dropdown lands on this question.
-        assert "Cancel" in body
+        # The nav renders Back-to-summary + Save + dropdown lands on this row.
+        assert "Back to summary" in body
+        assert "Save" in body
         assert 'value="1"' in body
-        # The header Save button is suppressed in single-row mode.
-        assert "Save recipe" not in body
 
     def test_get_with_hx_request_renders_only_the_swappable_region(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -610,20 +588,19 @@ class TestEventImportProposalView:
                 },
             )
             response = authenticated_client.get(
-                _tab_url(event, integration) + "?edit=1", headers={"HX-Request": "true"}
+                _review_url(event, integration) + "?edit=1",
+                headers={"HX-Request": "true"},
             )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "panel/parts/import-recipe-region.html"
+        assert response.template_name == "panel/parts/import-review-region.html"
         body = response.content.decode()
-        # The partial response carries the editor and the nav, no page chrome.
+        # The partial response carries just the editor and the nav, no chrome.
         assert 'name="question_1"' in body
-        assert "Cancel" in body
+        assert "Back to summary" in body
         assert "<html" not in body
-        # The summary table is gone in edit mode; the swap target wrapper is too
-        # (it lives in the parent template, not the partial).
-        assert "data-summary-row=" not in body
-        assert 'id="import-recipe-region"' not in body
+        # The swap target wrapper lives in the parent template, not the partial.
+        assert 'id="import-review-region"' not in body
 
     def test_edit_nav_disables_prev_at_first_question(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -647,7 +624,7 @@ class TestEventImportProposalView:
                 },
             )
             response = authenticated_client.get(
-                _tab_url(event, integration) + "?edit=0"
+                _review_url(event, integration) + "?edit=0"
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -663,7 +640,7 @@ class TestEventImportProposalView:
             ],
         }
 
-    def test_get_with_invalid_edit_query_falls_back_to_summary(
+    def test_review_with_invalid_edit_query_falls_back_to_first_row(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -683,12 +660,14 @@ class TestEventImportProposalView:
             )
             for raw in ("99", "abc", "-1"):
                 response = authenticated_client.get(
-                    _tab_url(event, integration) + f"?edit={raw}"
+                    _review_url(event, integration) + f"?edit={raw}"
                 )
                 assert response.status_code == HTTPStatus.OK, raw
-                assert response.context_data["edit_row"] is None, raw
+                edit_row = response.context_data["edit_row"]
+                assert edit_row is not None, raw
+                assert edit_row["index"] == 0, raw
 
-    def test_post_saves_time_slot_windows_including_multiple(
+    def test_review_without_edit_query_lands_on_the_first_row(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -696,88 +675,26 @@ class TestEventImportProposalView:
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
-            _tab_url(event, integration),
-            data={
-                "question_0": "When",
-                "target_0": "session.time_slots",
-                "tsoption_0": ["Fri", "All", "All"],
-                "tsstart_0": [
-                    "2025-09-19T16:00",
-                    "2025-09-19T16:00",
-                    "2025-09-20T10:00",
-                ],
-                "tsend_0": ["2025-09-19T22:00", "2025-09-19T22:00", "2025-09-20T14:00"],
-            },
-        )
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Alpha", "questionItem": {"question": {}}},
+                        {"title": "Beta", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.get(_review_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
-            messages=[(messages.SUCCESS, "Import recipe saved.")],
-        )
-        tz = get_current_timezone()
-        integration.refresh_from_db()
-        target = ImportSettings.model_validate_json(
-            integration.settings_json
-        ).questions["When"]
-        assert target.to == "session.time_slots"
-        assert target.values == {
-            "Fri": TimeSlotSpec(
-                start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
-                end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
-            ),
-            "All": [
-                TimeSlotSpec(
-                    start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
-                    end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
-                ),
-                TimeSlotSpec(
-                    start_time=datetime(2025, 9, 20, 10, 0, tzinfo=tz),
-                    end_time=datetime(2025, 9, 20, 14, 0, tzinfo=tz),
-                ),
-            ],
-        }
-
-    def test_post_saves_a_track_target_with_catchall(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-
-        response = authenticated_client.post(
-            _tab_url(event, integration),
-            data={
-                "question_0": "Suggested",
-                "target_0": "track",
-                "entoption_0": ["RPG", "LARP"],
-                "entname_0": ["RPG sessions", "LARP"],
-                "entslug_0": ["rpg", ""],
-                "entcatchname_0": "Other",
-                "entcatchslug_0": "",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
-            messages=[(messages.SUCCESS, "Import recipe saved.")],
-        )
-        integration.refresh_from_db()
-        target = ImportSettings.model_validate_json(
-            integration.settings_json
-        ).questions["Suggested"]
-        assert target.to == "track"
-        # The explicit slug is kept; a blank slug falls back to the name's slug.
-        assert target.values == {
-            "RPG": EntityRef(name="RPG sessions", slug="rpg"),
-            "LARP": EntityRef(name="LARP", slug="larp"),
-        }
-        assert target.catchall == EntityRef(name="Other", slug="other")
+        assert response.status_code == HTTPStatus.OK
+        edit_row = response.context_data["edit_row"]
+        assert edit_row is not None
+        assert edit_row["index"] == 0
+        assert edit_row["question"] == "Alpha"
 
     def test_get_without_pk_defaults_to_first_integration(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -821,68 +738,29 @@ class TestEventImportProposalView:
             messages=[(messages.ERROR, "Import integration not found.")],
         )
 
-    def test_post_saves_recipe_to_settings(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+
+@pytest.mark.django_db
+class TestEventImportRowSaveView:
+    def test_post_redirects_non_manager(
+        self, authenticated_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
         response = authenticated_client.post(
-            _tab_url(event, integration),
-            data={
-                "question_0": "Title",
-                "target_0": "session.title",
-                "question_1": "System",
-                "target_1": "session-field",
-                "newname_1": "System",
-                "fieldtype_1": "select",
-                "options_1": "D&D\nWarhammer",
-                "multiple_1": "on",
-                "allowcustom_1": "on",
-            },
+            _row_save_url(event, integration),
+            data={"index": "0", "question_0": "Title", "target_0": "session.title"},
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
-            messages=[(messages.SUCCESS, "Import recipe saved.")],
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
         )
-        integration.refresh_from_db()
-        assert json.loads(integration.settings_json) == {
-            "questions": {
-                "Title": {
-                    "to": "session.title",
-                    "ignore": False,
-                    "values": {},
-                    "catchall": None,
-                    "confirmed": False,
-                },
-                "System": {
-                    "to": "field.system",
-                    "ignore": False,
-                    "values": {},
-                    "catchall": None,
-                    "confirmed": False,
-                },
-            },
-            "definitions": {
-                "personal_fields": {},
-                "session_fields": {
-                    "system": {
-                        "name": "System",
-                        "type": "select",
-                        "multiple": True,
-                        "allow_custom": True,
-                        "options": ["D&D", "Warhammer"],
-                    }
-                },
-            },
-        }
 
-    def test_post_honors_an_explicit_field_slug(
+    def test_post_saves_a_session_field_and_marks_confirmed(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -891,13 +769,16 @@ class TestEventImportProposalView:
         )
 
         response = authenticated_client.post(
-            _tab_url(event, integration),
+            _row_save_url(event, integration),
             data={
-                "question_0": "RPG system",
+                "index": "0",
+                "question_0": "System",
                 "target_0": "session-field",
                 "newname_0": "System",
-                "newslug_0": "rpg-system",
-                "fieldtype_0": "text",
+                "fieldtype_0": "select",
+                "options_0": "D&D\nWarhammer",
+                "multiple_0": "on",
+                "allowcustom_0": "on",
             },
         )
 
@@ -905,34 +786,21 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.FOUND,
             url=_tab_url(event, integration),
-            messages=[(messages.SUCCESS, "Import recipe saved.")],
+            messages=[(messages.SUCCESS, "Question saved.")],
         )
         integration.refresh_from_db()
-        assert json.loads(integration.settings_json) == {
-            "questions": {
-                "RPG system": {
-                    "to": "field.rpg-system",
-                    "ignore": False,
-                    "values": {},
-                    "catchall": None,
-                    "confirmed": False,
-                }
-            },
-            "definitions": {
-                "personal_fields": {},
-                "session_fields": {
-                    "rpg-system": {
-                        "name": "System",
-                        "type": "text",
-                        "multiple": False,
-                        "allow_custom": False,
-                        "options": [],
-                    }
-                },
-            },
-        }
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        target = settings.questions["System"]
+        assert target.to == "field.system"
+        assert target.confirmed is True
+        definition = settings.definitions.session_fields["system"]
+        assert definition.name == "System"
+        assert definition.type == "select"
+        assert definition.multiple is True
+        assert definition.allow_custom is True
+        assert definition.options == ["D&D", "Warhammer"]
 
-    def test_post_saves_a_facilitator_display_name_target(
+    def test_post_saves_time_slot_windows_for_one_row(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -941,10 +809,18 @@ class TestEventImportProposalView:
         )
 
         response = authenticated_client.post(
-            _tab_url(event, integration),
+            _row_save_url(event, integration),
             data={
-                "question_0": "How should we credit you?",
-                "target_0": "facilitator.display_name",
+                "index": "0",
+                "question_0": "When",
+                "target_0": "session.time_slots",
+                "tsoption_0": ["Fri", "All", "All"],
+                "tsstart_0": [
+                    "2025-09-19T16:00",
+                    "2025-09-19T16:00",
+                    "2025-09-20T10:00",
+                ],
+                "tsend_0": ["2025-09-19T22:00", "2025-09-19T22:00", "2025-09-20T14:00"],
             },
         )
 
@@ -952,23 +828,33 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.FOUND,
             url=_tab_url(event, integration),
-            messages=[(messages.SUCCESS, "Import recipe saved.")],
+            messages=[(messages.SUCCESS, "Question saved.")],
         )
+        tz = get_current_timezone()
         integration.refresh_from_db()
-        assert json.loads(integration.settings_json) == {
-            "questions": {
-                "How should we credit you?": {
-                    "to": "facilitator.display_name",
-                    "ignore": False,
-                    "values": {},
-                    "catchall": None,
-                    "confirmed": False,
-                }
-            },
-            "definitions": {"personal_fields": {}, "session_fields": {}},
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["When"]
+        assert target.to == "session.time_slots"
+        assert target.confirmed is True
+        assert target.values == {
+            "Fri": TimeSlotSpec(
+                start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
+                end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
+            ),
+            "All": [
+                TimeSlotSpec(
+                    start_time=datetime(2025, 9, 19, 16, 0, tzinfo=tz),
+                    end_time=datetime(2025, 9, 19, 22, 0, tzinfo=tz),
+                ),
+                TimeSlotSpec(
+                    start_time=datetime(2025, 9, 20, 10, 0, tzinfo=tz),
+                    end_time=datetime(2025, 9, 20, 14, 0, tzinfo=tz),
+                ),
+            ],
         }
 
-    def test_post_saves_a_new_personal_field_definition(
+    def test_post_saves_track_target_with_catchall(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -977,12 +863,16 @@ class TestEventImportProposalView:
         )
 
         response = authenticated_client.post(
-            _tab_url(event, integration),
+            _row_save_url(event, integration),
             data={
-                "question_0": "Phone number",
-                "target_0": "personal-field",
-                "newname_0": "Telefon",
-                "fieldtype_0": "text",
+                "index": "0",
+                "question_0": "Suggested",
+                "target_0": "track",
+                "entoption_0": ["RPG", "LARP"],
+                "entname_0": ["RPG sessions", "LARP"],
+                "entslug_0": ["rpg", ""],
+                "entcatchname_0": "Other",
+                "entcatchslug_0": "",
             },
         )
 
@@ -990,32 +880,103 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.FOUND,
             url=_tab_url(event, integration),
-            messages=[(messages.SUCCESS, "Import recipe saved.")],
+            messages=[(messages.SUCCESS, "Question saved.")],
         )
         integration.refresh_from_db()
-        assert json.loads(integration.settings_json) == {
-            "questions": {
-                "Phone number": {
-                    "to": "personal.telefon",
-                    "ignore": False,
-                    "values": {},
-                    "catchall": None,
-                    "confirmed": False,
-                }
-            },
-            "definitions": {
-                "personal_fields": {
-                    "telefon": {
-                        "name": "Telefon",
-                        "type": "text",
-                        "multiple": False,
-                        "allow_custom": False,
-                        "options": [],
-                    }
-                },
-                "session_fields": {},
-            },
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Suggested"]
+        assert target.to == "track"
+        assert target.confirmed is True
+        assert target.values == {
+            "RPG": EntityRef(name="RPG sessions", slug="rpg"),
+            "LARP": EntityRef(name="LARP", slug="larp"),
         }
+        assert target.catchall == EntityRef(name="Other", slug="other")
+
+    def test_post_preserves_other_questions_and_definitions(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Already": {"to": "session.title", "confirmed": True},
+                    "Other": {"ignore": True},
+                },
+                "definitions": {
+                    "session_fields": {"existing": {"name": "Existing", "type": "text"}}
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Fresh",
+                "target_0": "session.description",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        # Per-row save preserves untouched questions and definitions.
+        assert set(settings.questions) == {"Already", "Other", "Fresh"}
+        assert settings.questions["Fresh"].to == "session.description"
+        assert settings.questions["Fresh"].confirmed is True
+        assert settings.questions["Already"].confirmed is True
+        assert settings.definitions.session_fields["existing"].name == "Existing"
+
+    def test_post_with_hx_request_returns_hx_redirect(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={"index": "0", "question_0": "Title", "target_0": "session.title"},
+            headers={"HX-Request": "true"},
+        )
+
+        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert response["HX-Redirect"] == _tab_url(event, integration)
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Title"]
+        assert target.confirmed is True
+
+    def test_post_with_invalid_index_redirects_with_error(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        before = integration.settings_json
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={"index": "abc", "target_0": "session.title"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_review_url(event, integration),
+            messages=[(messages.ERROR, "Invalid row submission.")],
+        )
+        integration.refresh_from_db()
+        assert integration.settings_json == before
 
 
 @pytest.mark.django_db

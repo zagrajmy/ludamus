@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:43+0200\n"
+"POT-Creation-Date: 2026-06-09 22:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1212,8 +1212,12 @@ msgid "Import integration not found."
 msgstr "Nie znaleziono integracji importu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
-msgid "Import recipe saved."
-msgstr "Zapisano przepis importu."
+msgid "Invalid row submission."
+msgstr "Nieprawidłowe dane wiersza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Question saved."
+msgstr "Pytanie zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "Invalid import settings JSON."
@@ -2269,7 +2273,6 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-create.html
@@ -2537,7 +2540,7 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
 msgstr "Status"
@@ -2712,8 +2715,9 @@ msgstr "Zaakceptuj"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Review"
-msgstr "Podejrzyj"
+msgstr "Przeglądaj"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Tags"
@@ -2904,6 +2908,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -3375,6 +3380,7 @@ msgstr "Powiązane osoby"
 #: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -3514,6 +3520,7 @@ msgstr "Połączenia importu dla tej sfery"
 #: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -3891,6 +3898,7 @@ msgstr ""
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/index.html
@@ -4429,6 +4437,7 @@ msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
 #: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 msgid "Google Docs Import"
@@ -4450,6 +4459,7 @@ msgstr ""
 "JSON jest odrzucany."
 
 #: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 msgid ""
@@ -4480,8 +4490,42 @@ msgid "Create a proposal from every response using the saved recipe."
 msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
 
 #: src/ludamus/templates/panel/import.html
-msgid "Save recipe"
-msgstr "Zapisz przepis"
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Question"
+msgstr "Pytanie"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Mapping"
+msgstr "Powiązanie"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Details"
+msgstr "Szczegóły"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Confirmed"
+msgstr "Potwierdzone"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Ignored"
+msgstr "Pomijane"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Unconfirmed"
+msgstr "Niepotwierdzone"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid ""
+"No source questions found. Check this integration's connection in Settings → "
+"Integrations."
+msgstr ""
+"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
+"Ustawienia → Integracje."
 
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/venues-structure.html
@@ -4524,64 +4568,6 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
 msgid "Venue / area…"
 msgstr "Lokalizacja / strefa…"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-msgid "Jump to question"
-msgstr "Przejdź do pytania"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-#, python-format
-msgid "Question %(position)s of %(total)s — %(question)s"
-msgstr "Pytanie %(position)s z %(total)s — %(question)s"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Question"
-msgstr "Pytanie"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-msgid "Mapping"
-msgstr "Powiązanie"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Details"
-msgstr "Szczegóły"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-msgid "Confirmed"
-msgstr "Potwierdzone"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-msgid "Ignored"
-msgstr "Pomijane"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-msgid "Unconfirmed"
-msgstr "Niepotwierdzone"
-
-#: src/ludamus/templates/panel/parts/import-recipe-region.html
-msgid ""
-"No source questions found. Check this integration's connection in Settings → "
-"Integrations."
-msgstr ""
-"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
-"Ustawienia → Integracje."
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Maps to"
@@ -4646,6 +4632,35 @@ msgstr "Dodaj przedział"
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Catch-all for custom answers"
 msgstr "Domyślny dla odpowiedzi własnych"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Jump to question"
+msgstr "Przejdź do pytania"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#, python-format
+msgid "Question %(position)s of %(total)s — %(question)s"
+msgstr "Pytanie %(position)s z %(total)s — %(question)s"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Discards any unsaved changes"
+msgstr "Odrzuca niezapisane zmiany"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Back to summary"
+msgstr "Powrót do podsumowania"
 
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "JSON"

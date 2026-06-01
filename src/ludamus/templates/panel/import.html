@@ -1,7 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% load django_vite %}
 {% block title_prefix %}
     {% translate "Google Docs Import" %} -
 {% endblock title_prefix %}
@@ -11,18 +10,6 @@
 {% block page_subtitle %}
     {% if current_event %}{{ current_event.name }}{% endif %}
 {% endblock page_subtitle %}
-{% block header_actions %}
-    {% if active_integration and not edit_row %}
-        <div class="flex items-center gap-3">
-            <button type="submit"
-                    form="import-recipe-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "check" class="w-4 h-4 mr-2" %}
-                {% translate "Save recipe" %}
-            </button>
-        </div>
-    {% endif %}
-{% endblock header_actions %}
 {% block content %}
     {% if current_event %}
         {% if active_integration %}
@@ -35,8 +22,81 @@
                         {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
                     </p>
                 </div>
+            {% elif summary_rows %}
+                <div class="card max-w-4xl overflow-x-auto">
+                    <table class="min-w-full divide-y divide-border">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-foreground-muted">
+                                    {% translate "Status" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-foreground-muted">
+                                    {% translate "Question" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-foreground-muted">
+                                    {% translate "Mapping" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-foreground-muted">
+                                    {% translate "Details" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-foreground-muted">
+                                    {% translate "Actions" %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border bg-bg-secondary">
+                            {% for srow in summary_rows %}
+                                <tr data-summary-row="{{ srow.index }}">
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm">
+                                        {% if srow.status == "confirmed" %}
+                                            <span class="inline-flex items-center gap-1 text-success"
+                                                  title="{% translate "Confirmed" %}">
+                                                {% icon "check" class="w-4 h-4" %}
+                                                <span class="sr-only">{% translate "Confirmed" %}</span>
+                                            </span>
+                                        {% elif srow.status == "ignored" %}
+                                            <span class="inline-flex items-center gap-1 text-foreground-muted"
+                                                  title="{% translate "Ignored" %}">
+                                                {% icon "x-mark" class="w-4 h-4" %}
+                                                <span class="sr-only">{% translate "Ignored" %}</span>
+                                            </span>
+                                        {% else %}
+                                            <span class="inline-flex items-center gap-1 text-foreground-muted"
+                                                  title="{% translate "Unconfirmed" %}">
+                                                <span aria-hidden="true">•</span>
+                                                <span class="sr-only">{% translate "Unconfirmed" %}</span>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-medium text-foreground">{{ srow.question }}</td>
+                                    <td class="px-4 py-3 text-sm text-foreground-secondary">
+                                        {% if srow.mapping %}
+                                            {{ srow.mapping }}
+                                        {% else %}
+                                            <span class="text-foreground-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-foreground-secondary">{{ srow.details }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium">
+                                        <a href="{% url 'panel:import-review' slug=current_event.slug pk=active_integration.pk %}?edit={{ srow.index }}"
+                                           class="text-primary hover:text-primary/80">{% translate "Edit" %}</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             {% else %}
-                <div id="import-recipe-region">{% include "panel/parts/import-recipe-region.html" %}</div>
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted">
+                        {% translate "No source questions found. Check this integration's connection in Settings → Integrations." %}
+                    </p>
+                </div>
             {% endif %}
         </div>
     {% else %}
@@ -47,6 +107,3 @@
         </div>
     {% endif %}
 {% endblock content %}
-{% block extra_scripts %}
-    {% vite_asset 'src/import-recipe.ts' %}
-{% endblock extra_scripts %}

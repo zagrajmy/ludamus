@@ -8,13 +8,14 @@ this section is where the (hardcoded) Google Docs import is configured
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
@@ -39,7 +40,7 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from django.http import HttpResponse, QueryDict
+    from django.http import QueryDict
 
     from ludamus.pacts import EventDTO
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
@@ -459,30 +460,6 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     return QuestionTarget(ignore=True)
 
 
-def _settings_from_post(post: QueryDict) -> ImportSettings:
-    questions: dict[str, QuestionTarget] = {}
-    definitions = FieldDefinitions()
-    for key in post:
-        match = re.fullmatch(r"question_(\d+)", key)
-        question = post.get(key)
-        if match is None or question is None:
-            continue
-        index = int(match.group(1))
-        target = _target_from_post(post, index)
-        questions[question] = target
-        if not target.to:
-            continue
-        if target.to.startswith("personal."):
-            definitions.personal_fields[target.to.removeprefix("personal.")] = (
-                _definition_from_post(post, index)
-            )
-        elif target.to.startswith("field."):
-            definitions.session_fields[target.to.removeprefix("field.")] = (
-                _definition_from_post(post, index)
-            )
-    return ImportSettings(questions=questions, definitions=definitions)
-
-
 def _pretty_json(raw: str | None) -> str:
     text = raw or "{}"
     try:
@@ -517,9 +494,36 @@ class _ImportTabView(PanelAccessMixin, EventContextMixin, View):
 
 
 class EventImportProposalView(_ImportTabView):
-    """Proposal tab: the per-question recipe editor."""
+    """Proposal tab: the read-only summary of every question's mapping."""
 
     active_tab = "proposal"
+
+    def get(
+        self, _request: PanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is not None:
+            sphere_id = self.request.context.current_sphere_id
+            questions = self.request.services.event_integrations.fetch_questions(
+                sphere_id, current_event.pk, active.pk
+            )
+            settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+            context["summary_rows"] = [
+                _summary_row(
+                    index, q, settings.questions.get(q.title), settings.definitions
+                )
+                for index, q in enumerate(questions)
+            ]
+        return TemplateResponse(self.request, "panel/import.html", context)
+
+
+class EventImportReviewView(_ImportTabView):
+    """Review tab: walk through each question's mapping one at a time."""
+
+    active_tab = "review"
 
     def get(
         self, _request: PanelRequest, slug: str, pk: int | None = None
@@ -539,43 +543,71 @@ class EventImportProposalView(_ImportTabView):
                 _row(index, q, settings.questions.get(q.title), settings.definitions)
                 for index, q in enumerate(questions)
             ]
-            context["summary_rows"] = [
-                _summary_row(
-                    index, q, settings.questions.get(q.title), settings.definitions
-                )
-                for index, q in enumerate(questions)
-            ]
-            context["edit_row"] = _edit_row(
-                self.request.GET.get("edit"), context["rows"]
-            )
+            # Default to the first question when no ?edit is supplied or the
+            # value is invalid (non-numeric, out of range); the Review tab is
+            # never empty so the operator always lands on something actionable.
+            edit = _edit_row(self.request.GET.get("edit"), context["rows"])
+            if edit is None and context["rows"]:
+                edit = context["rows"][0]
+            context["edit_row"] = edit
             context["edit_nav"] = (
                 _edit_nav(context["rows"], context["edit_row"]["index"])
                 if context["edit_row"]
                 else None
             )
         template = (
-            "panel/parts/import-recipe-region.html"
+            "panel/parts/import-review-region.html"
             if self.request.headers.get("HX-Request")
-            else "panel/import.html"
+            else "panel/import-review.html"
         )
         return TemplateResponse(self.request, template, context)
 
-    def post(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
-    ) -> HttpResponse:
-        loaded = self._load(slug, pk)
-        if not isinstance(loaded, tuple):
-            return loaded
-        _context, current_event, active = loaded
-        if active is None:
+
+class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
+    """Persist a single question's mapping and mark it confirmed."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+        integrations = _import_integrations(self.request, current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
-        settings = _settings_from_post(self.request.POST)
+        raw_index = (self.request.POST.get("index") or "").strip()
+        question = self.request.POST.get(f"question_{raw_index}") if raw_index else None
+        if not raw_index.isdigit() or not question:
+            messages.error(self.request, _("Invalid row submission."))
+            return redirect("panel:import-review", slug=slug, pk=active.pk)
+        index = int(raw_index)
+        settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+        target = _target_from_post(self.request.POST, index)
+        target.confirmed = True
+        settings.questions[question] = target
+        if target.to and target.to.startswith("personal."):
+            slug_part = target.to.removeprefix("personal.")
+            settings.definitions.personal_fields[slug_part] = _definition_from_post(
+                self.request.POST, index
+            )
+        elif target.to and target.to.startswith("field."):
+            slug_part = target.to.removeprefix("field.")
+            settings.definitions.session_fields[slug_part] = _definition_from_post(
+                self.request.POST, index
+            )
         self.request.services.event_integrations.save_settings(
             current_event.pk, active.pk, settings.model_dump_json()
         )
-        messages.success(self.request, _("Import recipe saved."))
-        return redirect("panel:import-integration", slug=slug, pk=active.pk)
+        messages.success(self.request, _("Question saved."))
+        summary_url = reverse(
+            "panel:import-integration", kwargs={"slug": slug, "pk": active.pk}
+        )
+        if self.request.headers.get("HX-Request"):
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = summary_url
+            return response
+        return redirect(summary_url)
 
 
 class EventImportJsonView(_ImportTabView):

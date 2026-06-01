@@ -387,6 +387,16 @@ urlpatterns = [
         name="import-integration",
     ),
     path(
+        "event/<slug:slug>/import/<int:pk>/review/",
+        import_export.EventImportReviewView.as_view(),
+        name="import-review",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/save-row/",
+        import_export.EventImportRowSaveView.as_view(),
+        name="import-row-save",
+    ),
+    path(
         "event/<slug:slug>/import/<int:pk>/json/",
         import_export.EventImportJsonView.as_view(),
         name="import-json",
