@@ -1825,11 +1825,7 @@ def _anonymous_event_redirect(request: RootRequest) -> HttpResponse:
     return redirect("web:index")
 
 
-def _session_allows_anonymous_enrollment(session: Session) -> bool:
-    try:
-        event = session.agenda_item.space.area.venue.event
-    except ObjectDoesNotExist:
-        return False
+def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
     return any(
         config.allow_anonymous_enrollment and config.is_session_eligible(session)
         for config in event.get_active_enrollment_configs()
@@ -1854,7 +1850,7 @@ def _validate_anonymous_session_event(
         )
         return _anonymous_event_redirect(request)
 
-    if not _session_allows_anonymous_enrollment(session):
+    if not _event_allows_anonymous_enrollment(event, session):
         messages.error(
             request, _("No enrollment configuration is available for this session.")
         )

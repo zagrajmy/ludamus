@@ -530,3 +530,91 @@ class TestSessionEnrollmentAnonymousPageView:
                 "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}
             ),
         )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_rejects_session_when_event_disallows_anonymous(
+        self,
+        agenda_item,
+        anonymous_user_factory,
+        client,
+        method,
+        sphere,
+        enrollment_config,
+    ):
+        user = anonymous_user_factory()
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+
+        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}
+            ),
+        )
+        assert not SessionParticipation.objects.filter(
+            session=agenda_item.session, user=user
+        ).exists()
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_unscheduled_session_redirects_to_index_when_event_missing(
+        self, pending_session, anonymous_user_factory, client, method, sphere
+    ):
+        user = anonymous_user_factory()
+        django_session = client.session
+        django_session["anonymous_enrollment_active"] = True
+        django_session["anonymous_site_id"] = sphere.site.id
+        django_session["anonymous_event_id"] = 9_999_999
+        django_session["anonymous_user_code"] = _anonymous_user_code(user)
+        django_session.save()
+
+        response = getattr(client, method)(self.get_url(pending_session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url="/",
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_redirects_to_index_when_activated_event_unset(
+        self, agenda_item, anonymous_user_factory, client, method, sphere
+    ):
+        user = anonymous_user_factory()
+        django_session = client.session
+        django_session["anonymous_enrollment_active"] = True
+        django_session["anonymous_site_id"] = sphere.site.id
+        django_session["anonymous_user_code"] = _anonymous_user_code(user)
+        django_session.save()
+
+        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Anonymous enrollment is not available for this session.",
+                )
+            ],
+            url="/",
+        )
