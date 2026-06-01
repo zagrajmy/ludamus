@@ -92,6 +92,20 @@ class SummaryRow(TypedDict):
     details: str
 
 
+class EditNavOption(TypedDict):
+    index: int
+    question: str
+
+
+class EditNav(TypedDict):
+    index: int
+    total: int
+    position: int
+    prev_index: int | None
+    next_index: int | None
+    options: list[EditNavOption]
+
+
 def _active_integration(
     integrations: list[EventIntegrationDTO], pk: int | None
 ) -> EventIntegrationDTO | None:
@@ -170,6 +184,18 @@ def _row(
         "option_entities": _option_entities(question, target),
         "catchall_name": target.catchall.name if target and target.catchall else "",
         "catchall_slug": target.catchall.slug if target and target.catchall else "",
+    }
+
+
+def _edit_nav(rows: list[RecipeRow], current: int) -> EditNav:
+    total = len(rows)
+    return {
+        "index": current,
+        "total": total,
+        "position": current + 1,
+        "prev_index": current - 1 if current > 0 else None,
+        "next_index": current + 1 if current + 1 < total else None,
+        "options": [{"index": r["index"], "question": r["question"]} for r in rows],
     }
 
 
@@ -521,6 +547,11 @@ class EventImportProposalView(_ImportTabView):
             ]
             context["edit_row"] = _edit_row(
                 self.request.GET.get("edit"), context["rows"]
+            )
+            context["edit_nav"] = (
+                _edit_nav(context["rows"], context["edit_row"]["index"])
+                if context["edit_row"]
+                else None
             )
         template = (
             "panel/parts/import-recipe-region.html"

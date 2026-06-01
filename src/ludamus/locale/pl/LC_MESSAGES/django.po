@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:41+0200\n"
+"POT-Creation-Date: 2026-06-09 22:43+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1118,12 +1118,12 @@ msgstr "Twórcy programu zostali pomyślnie scaleni."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Time slots"
 msgstr "Przedziały czasowe"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track"
@@ -1132,19 +1132,19 @@ msgstr "Blok programowy"
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Category"
 msgstr "Kategoria"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Facilitator — Display name"
 msgstr "Twórca programu — nazwa wyświetlana"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Don't import"
 msgstr "Nie importuj"
 
@@ -1185,7 +1185,7 @@ msgstr "Lista wyboru — opcji: %(count)d"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -1197,7 +1197,7 @@ msgstr "Potwierdzenie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -1534,7 +1534,7 @@ msgid "Minimum participants limit cannot exceed maximum."
 msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -2269,6 +2269,7 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-create.html
@@ -2536,7 +2537,7 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
 msgstr "Status"
@@ -2687,7 +2688,7 @@ msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Proposal"
 msgstr "Zgłoszenie"
@@ -4482,107 +4483,6 @@ msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
 msgid "Save recipe"
 msgstr "Zapisz przepis"
 
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Question"
-msgstr "Pytanie"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Mapping"
-msgstr "Powiązanie"
-
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Details"
-msgstr "Szczegóły"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Confirmed"
-msgstr "Potwierdzone"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Ignored"
-msgstr "Pomijane"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Unconfirmed"
-msgstr "Niepotwierdzone"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Maps to"
-msgstr "Mapuje na"
-
-#: src/ludamus/templates/panel/import.html
-msgid "New personal field…"
-msgstr "Nowe pole danych osobowych…"
-
-#: src/ludamus/templates/panel/import.html
-msgid "New session field…"
-msgstr "Nowe pole punktu programu…"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Field name"
-msgstr "Nazwa pola"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Slug"
-msgstr "Slug"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Field type"
-msgstr "Typ pola"
-
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "One option per line"
-msgstr "Jedna opcja na linię"
-
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-msgid "Allow multiple selections"
-msgstr "Zezwól na wielokrotny wybór"
-
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-msgid "Allow custom values"
-msgstr "Zezwól na własne wartości"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Start"
-msgstr "Początek"
-
-#: src/ludamus/templates/panel/import.html
-msgid "End"
-msgstr "Koniec"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Remove window"
-msgstr "Usuń przedział"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Add window"
-msgstr "Dodaj przedział"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Catch-all for custom answers"
-msgstr "Domyślny dla odpowiedzi własnych"
-
-#: src/ludamus/templates/panel/import.html
-msgid ""
-"No source questions found. Check this integration's connection in Settings → "
-"Integrations."
-msgstr ""
-"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
-"Ustawienia → Integracje."
-
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/venues-structure.html
 msgid "Overview"
@@ -4625,9 +4525,131 @@ msgstr ""
 msgid "Venue / area…"
 msgstr "Lokalizacja / strefa…"
 
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+msgid "Jump to question"
+msgstr "Przejdź do pytania"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+#, python-format
+msgid "Question %(position)s of %(total)s — %(question)s"
+msgstr "Pytanie %(position)s z %(total)s — %(question)s"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Question"
+msgstr "Pytanie"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+msgid "Mapping"
+msgstr "Powiązanie"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Details"
+msgstr "Szczegóły"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+msgid "Confirmed"
+msgstr "Potwierdzone"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+msgid "Ignored"
+msgstr "Pomijane"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+msgid "Unconfirmed"
+msgstr "Niepotwierdzone"
+
+#: src/ludamus/templates/panel/parts/import-recipe-region.html
+msgid ""
+"No source questions found. Check this integration's connection in Settings → "
+"Integrations."
+msgstr ""
+"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
+"Ustawienia → Integracje."
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Maps to"
+msgstr "Mapuje na"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "New personal field…"
+msgstr "Nowe pole danych osobowych…"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "New session field…"
+msgstr "Nowe pole punktu programu…"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Field name"
+msgstr "Nazwa pola"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Slug"
+msgstr "Slug"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Field type"
+msgstr "Typ pola"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "One option per line"
+msgstr "Jedna opcja na linię"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+msgid "Allow multiple selections"
+msgstr "Zezwól na wielokrotny wybór"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+msgid "Allow custom values"
+msgstr "Zezwól na własne wartości"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Start"
+msgstr "Początek"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "End"
+msgstr "Koniec"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Remove window"
+msgstr "Usuń przedział"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Add window"
+msgstr "Dodaj przedział"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Catch-all for custom answers"
+msgstr "Domyślny dla odpowiedzi własnych"
+
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "JSON"
-msgstr ""
+msgstr "JSON"
 
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Import run"
@@ -4734,16 +4756,6 @@ msgstr "Dodaj przedziały czasowe, aby zobaczyć siatkę harmonogramu."
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 msgid "total"
 msgstr "łącznie"
-
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Session details"

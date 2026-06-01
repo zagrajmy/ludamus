@@ -250,6 +250,7 @@ class TestEventImportProposalView:
                     },
                 ],
                 "edit_row": None,
+                "edit_nav": None,
             },
         )
 
@@ -564,13 +565,26 @@ class TestEventImportProposalView:
         assert edit_row is not None
         assert edit_row["index"] == 1
         assert edit_row["question"] == "System"
+        edit_nav = response.context_data["edit_nav"]
+        assert edit_nav == {
+            "index": 1,
+            "total": 2,
+            "position": 2,
+            "prev_index": 0,
+            "next_index": None,
+            "options": [
+                {"index": 0, "question": "Title"},
+                {"index": 1, "question": "System"},
+            ],
+        }
         body = response.content.decode()
         # Only the System editor is in the body — summary and other row are gone.
         assert 'name="question_1"' in body
         assert 'name="question_0"' not in body
         assert "data-summary-row=" not in body
-        # The "Back to summary" link returns to the same tab without the edit param.
-        assert _tab_url(event, integration) in body
+        # The nav panel renders Cancel and the dropdown lands on this question.
+        assert "Cancel" in body
+        assert 'value="1"' in body
         # The header Save button is suppressed in single-row mode.
         assert "Save recipe" not in body
 
@@ -602,14 +616,52 @@ class TestEventImportProposalView:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "panel/parts/import-recipe-region.html"
         body = response.content.decode()
-        # The partial response carries the editor and a Back link, no page chrome.
+        # The partial response carries the editor and the nav, no page chrome.
         assert 'name="question_1"' in body
-        assert "Back to summary" in body
+        assert "Cancel" in body
         assert "<html" not in body
         # The summary table is gone in edit mode; the swap target wrapper is too
         # (it lives in the parent template, not the partial).
         assert "data-summary-row=" not in body
         assert 'id="import-recipe-region"' not in body
+
+    def test_edit_nav_disables_prev_at_first_question(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "First", "questionItem": {"question": {}}},
+                        {"title": "Second", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.get(
+                _tab_url(event, integration) + "?edit=0"
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["edit_nav"] == {
+            "index": 0,
+            "total": 2,
+            "position": 1,
+            "prev_index": None,
+            "next_index": 1,
+            "options": [
+                {"index": 0, "question": "First"},
+                {"index": 1, "question": "Second"},
+            ],
+        }
 
     def test_get_with_invalid_edit_query_falls_back_to_summary(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

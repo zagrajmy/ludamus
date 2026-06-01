@@ -2,18 +2,43 @@
 {% load tessera %}
 {% if edit_row %}
     <div class="max-w-3xl">
-        <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
-           hx-get="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
-           hx-target="#import-recipe-region"
-           hx-swap="innerHTML"
-           hx-push-url="true"
-           class="inline-flex items-center text-sm text-primary hover:underline">
-            {% icon "arrow-left" class="w-4 h-4 mr-1" %}
-            {% translate "Back to summary" %}
-        </a>
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+            <button type="button"
+                    {% if edit_nav.prev_index is None %} disabled aria-disabled="true" {% else %} hx-get="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}?edit={{ edit_nav.prev_index }}" hx-target="#import-recipe-region" hx-swap="innerHTML" hx-push-url="true" {% endif %}
+                    class="btn btn-secondary inline-flex items-center disabled:cursor-not-allowed disabled:opacity-50">
+                {% icon "chevron-left" class="w-4 h-4 mr-1" %}
+                {% translate "Previous" %}
+            </button>
+            <select name="edit"
+                    aria-label="{% translate "Jump to question" %}"
+                    hx-get="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
+                    hx-target="#import-recipe-region"
+                    hx-swap="innerHTML"
+                    hx-trigger="change"
+                    hx-push-url="true"
+                    class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                {% for opt in edit_nav.options %}
+                    <option value="{{ opt.index }}"
+                            {% if opt.index == edit_nav.index %}selected{% endif %}>
+                        {% blocktranslate with position=opt.index|add:1 total=edit_nav.total question=opt.question %}Question {{ position }} of {{ total }} — {{ question }}{% endblocktranslate %}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="button"
+                    {% if edit_nav.next_index is None %} disabled aria-disabled="true" {% else %} hx-get="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}?edit={{ edit_nav.next_index }}" hx-target="#import-recipe-region" hx-swap="innerHTML" hx-push-url="true" {% endif %}
+                    class="btn btn-secondary inline-flex items-center disabled:cursor-not-allowed disabled:opacity-50">
+                {% translate "Next" %}
+                {% icon "chevron-right" class="w-4 h-4 ml-1" %}
+            </button>
+            <button type="button"
+                    hx-get="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
+                    hx-target="#import-recipe-region"
+                    hx-swap="innerHTML"
+                    hx-push-url="true"
+                    class="btn btn-secondary">{% translate "Cancel" %}</button>
+        </div>
         <form method="post"
-              action="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
-              class="mt-4">
+              action="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}">
             {% csrf_token %}
             <div class="card">{% include "panel/parts/import-recipe-row.html" with row=edit_row %}</div>
         </form>
