@@ -38,6 +38,8 @@ jobs:
           SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           STATIC_ROOT: ${{ vars.STATIC_ROOT }}
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
+          GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
+          GS_LOCATION: ${{ vars.GS_LOCATION }}
           POSTGRES_DATA_PATH: ${{ vars.POSTGRES_DATA_PATH }}
           STATIC_DATA_PATH: ${{ vars.STATIC_DATA_PATH }}
           MEDIA_DATA_PATH: ${{ vars.MEDIA_DATA_PATH }}
@@ -48,6 +50,7 @@ jobs:
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
           AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
           MEMBERSHIP_API_TOKEN: ${{ secrets.MEMBERSHIP_API_TOKEN }}
+          GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
         run: |
           set -eu
           : > .env.local
@@ -59,10 +62,12 @@ jobs:
                    MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
                    SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
                    POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
-                   WEB_PORT; do
+                   WEB_PORT \
+                   GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
-            [ -n "$v" ] && printf "%s='%s'\n" "$k" "$v" >> .env.local
-
+            if [ -n "$v" ]; then
+              printf "%s='%s'\n" "$k" "$v" >> .env.local
+            fi
           done
 
       - name: Validate .env.local with varlock

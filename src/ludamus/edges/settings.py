@@ -9,9 +9,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import json
 from pathlib import Path
 
 import environ
+from google.oauth2 import service_account
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +36,10 @@ env = environ.Env(
     GIT_COMMIT_SHA=(str, "1"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
+    # Google Cloud Storage (media) — set all three to enable GCS
+    GS_BUCKET_NAME=(str, ""),
+    GS_CREDENTIALS_JSON=(str, ""),
+    GS_LOCATION=(str, ""),
     # Membership API
     MEMBERSHIP_API_BASE_URL=(str, ""),
     MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
@@ -99,6 +105,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -330,24 +337,49 @@ else:
     CSRF_COOKIE_SAMESITE = "Lax"
 
 
-# Static files configuration for production
+MEDIA_ROOT = env("MEDIA_ROOT")
+MEDIA_URL = "/media/"
+
+# Default storage — GCS when all three GS_ vars are set, filesystem otherwise.
+# Independent of IS_PRODUCTION so GCS can be exercised locally.
+GS_BUCKET_NAME = env("GS_BUCKET_NAME")
+GS_CREDENTIALS_JSON = env("GS_CREDENTIALS_JSON")
+GS_LOCATION = env("GS_LOCATION")
+
+if GS_BUCKET_NAME and GS_CREDENTIALS_JSON and GS_LOCATION:
+    gs_credentials = service_account.Credentials.from_service_account_info(  # type: ignore[no-untyped-call]
+        json.loads(GS_CREDENTIALS_JSON)
+    )
+    default_storage_backend: dict[str, object] = {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": {
+            "bucket_name": GS_BUCKET_NAME,
+            "credentials": gs_credentials,
+            "location": GS_LOCATION,
+            "default_acl": None,
+            "querystring_auth": False,
+        },
+    }
+else:
+    default_storage_backend = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+
 if IS_PRODUCTION:
     STATIC_ROOT = env("STATIC_ROOT")
     STORAGES = {
-        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "default": default_storage_backend,
         "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
         },
     }
-
-    # Media files
-    MEDIA_ROOT = env("MEDIA_ROOT")
-    MEDIA_URL = "/media/"
 else:
     # Development email backend
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-    MEDIA_ROOT = env("MEDIA_ROOT")
-    MEDIA_URL = "/media/"
+    STORAGES = {
+        "default": default_storage_backend,
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
 
 # Cache configuration
 CACHES = (

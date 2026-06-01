@@ -163,7 +163,26 @@ Scopes: **L** = local, **D** = docker local, **P** = prod.
 
 - `GIT_COMMIT_SHA` — cache busting, default `1` — P(auto)
 - `STATIC_ROOT` — collected static path — P(opt)
-- `MEDIA_ROOT` — uploaded media path — P(opt)
+- `MEDIA_ROOT` — uploaded media path (used when GCS is not configured) — P(opt)
+
+**Media storage — Google Cloud Storage** (optional, any scope):
+
+Set all three to switch user-uploaded media to GCS. If any is missing the
+app uses `FileSystemStorage` (`MEDIA_ROOT`). Works in any scope — set them
+locally to test the GCS path without deploying.
+
+- `GS_BUCKET_NAME` — bucket name — L(opt) D(opt) P(opt)
+- `GS_CREDENTIALS_JSON` — service-account key JSON contents — L(opt) D(opt) P(opt)
+- `GS_LOCATION` — path prefix inside the bucket — L(opt) D(opt) P(opt)
+
+Bucket setup: enable uniform bucket-level access; grant
+`roles/storage.objectViewer` to `allUsers` for public read of header images.
+
+One-time migration of existing media to GCS:
+
+```bash
+gsutil -m rsync -r /var/lib/ludamus/media gs://<bucket>/<location>
+```
 
 **Membership API:**
 
