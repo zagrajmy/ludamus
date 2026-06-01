@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0078_alter_eventintegration_config_json")]
+    dependencies = [("db_main", "0079_remove_session_session_min_age_range_and_more")]
 
     operations = [
         migrations.AddField(

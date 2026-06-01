@@ -204,6 +204,7 @@ class TestEventImportProposalView:
                         "index": 0,
                         "question": "Title",
                         "selected": "session-field",
+                        "confirmed": False,
                         "field_name": "Title",
                         "field_slug": "title",
                         "field_type": "text",
@@ -219,6 +220,7 @@ class TestEventImportProposalView:
                         "index": 1,
                         "question": "System",
                         "selected": "session-field",
+                        "confirmed": False,
                         "field_name": "System",
                         "field_slug": "system",
                         "field_type": "text",
@@ -229,6 +231,22 @@ class TestEventImportProposalView:
                         "option_entities": [],
                         "catchall_name": "",
                         "catchall_slug": "",
+                    },
+                ],
+                "summary_rows": [
+                    {
+                        "index": 0,
+                        "status": "unconfirmed",
+                        "question": "Title",
+                        "mapping": "",
+                        "details": "",
+                    },
+                    {
+                        "index": 1,
+                        "status": "unconfirmed",
+                        "question": "System",
+                        "mapping": "",
+                        "details": "",
                     },
                 ],
             },
@@ -276,6 +294,7 @@ class TestEventImportProposalView:
                 "index": 0,
                 "question": "Wiek",
                 "selected": "session-field",
+                "confirmed": False,
                 "field_name": "Wiek",
                 "field_slug": "wiek",
                 "field_type": "select",
@@ -418,6 +437,101 @@ class TestEventImportProposalView:
         ]
         assert row["catchall_name"] == "Other"
         assert row["catchall_slug"] == "other"
+
+    def test_get_summary_reflects_confirmed_ignored_and_unconfirmed(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "confirmed": True},
+                    "Skip": {"ignore": True},
+                    "Suggested": {
+                        "to": "track",
+                        "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                    },
+                },
+                "definitions": {
+                    "session_fields": {
+                        "system": {
+                            "name": "System",
+                            "type": "select",
+                            "options": ["D&D", "Warhammer"],
+                        }
+                    }
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Title", "questionItem": {"question": {}}},
+                        {"title": "Skip", "questionItem": {"question": {}}},
+                        {
+                            "title": "Suggested",
+                            "questionItem": {
+                                "question": {
+                                    "choiceQuestion": {
+                                        "type": "RADIO",
+                                        "options": [
+                                            {"value": "RPG"},
+                                            {"value": "LARP"},
+                                        ],
+                                    }
+                                }
+                            },
+                        },
+                        {"title": "Drifting", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.get(_tab_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["summary_rows"] == [
+            {
+                "index": 0,
+                "status": "confirmed",
+                "question": "Title",
+                "mapping": "Proposal — Title",
+                "details": "",
+            },
+            {
+                "index": 1,
+                "status": "ignored",
+                "question": "Skip",
+                "mapping": "Don't import",
+                "details": "",
+            },
+            {
+                "index": 2,
+                "status": "unconfirmed",
+                "question": "Suggested",
+                "mapping": "Track",
+                "details": "1 mappings",
+            },
+            {
+                "index": 3,
+                "status": "unconfirmed",
+                "question": "Drifting",
+                "mapping": "",
+                "details": "",
+            },
+        ]
+        # The confirmed glyph reaches the rendered summary table.
+        body = response.content.decode()
+        assert 'data-summary-row="0"' in body
 
     def test_post_saves_time_slot_windows_including_multiple(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -589,12 +703,14 @@ class TestEventImportProposalView:
                     "ignore": False,
                     "values": {},
                     "catchall": None,
+                    "confirmed": False,
                 },
                 "System": {
                     "to": "field.system",
                     "ignore": False,
                     "values": {},
                     "catchall": None,
+                    "confirmed": False,
                 },
             },
             "definitions": {
@@ -644,6 +760,7 @@ class TestEventImportProposalView:
                     "ignore": False,
                     "values": {},
                     "catchall": None,
+                    "confirmed": False,
                 }
             },
             "definitions": {
@@ -690,6 +807,7 @@ class TestEventImportProposalView:
                     "ignore": False,
                     "values": {},
                     "catchall": None,
+                    "confirmed": False,
                 }
             },
             "definitions": {"personal_fields": {}, "session_fields": {}},
@@ -727,6 +845,7 @@ class TestEventImportProposalView:
                     "ignore": False,
                     "values": {},
                     "catchall": None,
+                    "confirmed": False,
                 }
             },
             "definitions": {

@@ -1117,6 +1117,97 @@ msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/panel/import.html
+msgid "Time slots"
+msgstr "Przedziały czasowe"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Track"
+msgstr "Blok programowy"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Category"
+msgstr "Kategoria"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/templates/panel/import.html
+msgid "Facilitator — Display name"
+msgstr "Twórca programu — nazwa wyświetlana"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/templates/panel/import.html
+msgid "Don't import"
+msgstr "Nie importuj"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Proposal — %(col)s"
+msgstr "Zgłoszenie — %(col)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Facilitator — %(part)s"
+msgstr "Twórca programu — %(part)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Personal field — %(name)s"
+msgstr "Pole danych osobowych — %(name)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Session field — %(name)s"
+msgstr "Pole punktu programu — %(name)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "%(count)d windows"
+msgstr "Okien: %(count)d"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "%(count)d mappings"
+msgstr "Powiązań: %(count)d"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Select — %(count)d options"
+msgstr "Lista wyboru — opcji: %(count)d"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Checkbox"
+msgstr "Potwierdzenie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Text"
+msgstr "Tekst"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "Import integration not found."
 msgstr "Nie znaleziono integracji importu."
 
@@ -1450,30 +1541,8 @@ msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/session-fields.html
-msgid "Text"
-msgstr "Tekst"
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/session-fields.html
 msgid "Select"
 msgstr "Wybór z listy"
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Checkbox"
-msgstr "Potwierdzenie"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Field name is too long (max 255 characters)."
@@ -2467,6 +2536,7 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
 msgstr "Status"
@@ -2908,21 +2978,8 @@ msgid "Proposal progress"
 msgstr "Postęp zgłoszenia"
 
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Category"
-msgstr "Kategoria"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
 msgid "Your info"
 msgstr "Twoje dane"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/panel/import.html
-msgid "Time slots"
-msgstr "Przedziały czasowe"
 
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 msgctxt "wizard step"
@@ -4426,22 +4483,37 @@ msgid "Save recipe"
 msgstr "Zapisz przepis"
 
 #: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Question"
+msgstr "Pytanie"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Mapping"
+msgstr "Powiązanie"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Details"
+msgstr "Szczegóły"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Confirmed"
+msgstr "Potwierdzone"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Ignored"
+msgstr "Pomijane"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Unconfirmed"
+msgstr "Niepotwierdzone"
+
+#: src/ludamus/templates/panel/import.html
 msgid "Maps to"
 msgstr "Mapuje na"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Don't import"
-msgstr "Nie importuj"
-
-#: src/ludamus/templates/panel/import.html
-msgid "Facilitator — Display name"
-msgstr "Twórca programu — nazwa wyświetlana"
-
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Track"
-msgstr "Blok programowy"
 
 #: src/ludamus/templates/panel/import.html
 msgid "New personal field…"
@@ -4756,13 +4828,6 @@ msgstr "np. Email, Telefon, Bio"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Question"
-msgstr "Pytanie"
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 msgid "e.g., What is your email address?"
 msgstr "np. Jaki jest Twój adres email?"
 
@@ -4980,10 +5045,6 @@ msgstr "Odrzuć"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Facilitator"
 msgstr "Prowadzący"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Details"
-msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."

@@ -57,11 +57,14 @@ class QuestionTarget(BaseModel):
     # unmapped. `values` maps a choice option's text to its target value — for
     # `session.time_slots`, one window or several; for "track"/"category", the
     # entity it resolves to. `catchall` is the track/category that catches a
-    # custom or unmatched answer.
+    # custom or unmatched answer. `confirmed` is the operator's per-row
+    # sign-off in the summary editor; the run gate refuses to import while any
+    # mapped question is still unconfirmed.
     to: str | None = None
     ignore: bool = False
     values: dict[str, QuestionValue] = {}
     catchall: EntityRef | None = None
+    confirmed: bool = False
 
 
 class FieldDefinition(BaseModel):

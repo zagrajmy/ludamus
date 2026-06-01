@@ -71,6 +71,7 @@ class RecipeRow(TypedDict):
     index: int
     question: str
     selected: str
+    confirmed: bool
     field_name: str
     field_slug: str
     field_type: str
@@ -81,6 +82,14 @@ class RecipeRow(TypedDict):
     option_entities: list[OptionEntity]
     catchall_name: str
     catchall_slug: str
+
+
+class SummaryRow(TypedDict):
+    index: int
+    status: Literal["confirmed", "ignored", "unconfirmed"]
+    question: str
+    mapping: str
+    details: str
 
 
 def _active_integration(
@@ -147,6 +156,7 @@ def _row(
         "index": index,
         "question": question.title,
         "selected": selected,
+        "confirmed": bool(target and target.confirmed),
         "field_name": field_name,
         "field_slug": field_slug,
         "field_type": field_type,
@@ -161,6 +171,95 @@ def _row(
         "catchall_name": target.catchall.name if target and target.catchall else "",
         "catchall_slug": target.catchall.slug if target and target.catchall else "",
     }
+
+
+def _summary_row(
+    index: int,
+    question: SourceQuestion,
+    target: QuestionTarget | None,
+    definitions: FieldDefinitions,
+) -> SummaryRow:
+    if target is not None and target.confirmed:
+        status: Literal["confirmed", "ignored", "unconfirmed"] = "confirmed"
+    elif target is not None and target.ignore:
+        status = "ignored"
+    else:
+        status = "unconfirmed"
+    return {
+        "index": index,
+        "status": status,
+        "question": question.title,
+        "mapping": _mapping_label(target, definitions),
+        "details": _details_label(target, definitions),
+    }
+
+
+_FIXED_MAPPING_LABELS = {
+    "session.time_slots": lambda: _("Time slots"),
+    "track": lambda: _("Track"),
+    "category": lambda: _("Category"),
+    "facilitator.display_name": lambda: _("Facilitator — Display name"),
+}
+
+
+def _mapping_label(target: QuestionTarget | None, definitions: FieldDefinitions) -> str:
+    if target is None or (not target.to and not target.ignore):
+        return ""
+    if target.ignore and not target.to:
+        return _("Don't import")
+    to = target.to or ""
+    if (fixed := _FIXED_MAPPING_LABELS.get(to)) is not None:
+        return fixed()
+    if to.startswith("session."):
+        col = to.removeprefix("session.").replace("_", " ")
+        return _("Proposal — %(col)s") % {"col": col.capitalize()}
+    if to.startswith("facilitator."):
+        part = to.removeprefix("facilitator.").replace("_", " ")
+        return _("Facilitator — %(part)s") % {"part": part.capitalize()}
+    return _field_mapping_label(to, definitions)
+
+
+def _field_mapping_label(to: str, definitions: FieldDefinitions) -> str:
+    if to.startswith("personal."):
+        slug = to.removeprefix("personal.")
+        name = _definition_name(definitions.personal_fields.get(slug), slug)
+        return _("Personal field — %(name)s") % {"name": name}
+    if to.startswith("field."):
+        slug = to.removeprefix("field.")
+        name = _definition_name(definitions.session_fields.get(slug), slug)
+        return _("Session field — %(name)s") % {"name": name}
+    return ""
+
+
+def _details_label(target: QuestionTarget | None, definitions: FieldDefinitions) -> str:
+    if target is None or target.ignore or not target.to:
+        return ""
+    to = target.to
+    if to == "session.time_slots":
+        return _("%(count)d windows") % {"count": len(target.values)}
+    if to in ENTITY_TARGETS:
+        return _("%(count)d mappings") % {"count": len(target.values)}
+    if to.startswith(("personal.", "field.")):
+        slug = to.split(".", 1)[1]
+        store = (
+            definitions.personal_fields
+            if to.startswith("personal.")
+            else definitions.session_fields
+        )
+        if (definition := store.get(slug)) is None:
+            return ""
+        if definition.type == "select":
+            return _("Select — %(count)d options") % {"count": len(definition.options)}
+        if definition.type == "checkbox":
+            return _("Checkbox")
+        return _("Text")
+    return ""
+
+
+def _definition_name(definition: FieldDefinition | None, slug: str) -> str:
+    if definition is None or not definition.name:
+        return slug
+    return definition.name
 
 
 def _field_row_setup(
@@ -401,6 +500,12 @@ class EventImportProposalView(_ImportTabView):
             context["session_columns"] = SESSION_COLUMNS
             context["rows"] = [
                 _row(index, q, settings.questions.get(q.title), settings.definitions)
+                for index, q in enumerate(questions)
+            ]
+            context["summary_rows"] = [
+                _summary_row(
+                    index, q, settings.questions.get(q.title), settings.definitions
+                )
                 for index, q in enumerate(questions)
             ]
         return TemplateResponse(self.request, "panel/import.html", context)
