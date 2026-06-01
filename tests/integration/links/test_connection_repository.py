@@ -6,6 +6,7 @@ import-execution slice.
 """
 
 import pytest
+from django.db import IntegrityError
 
 from ludamus.adapters.db.django.models import Connection
 from ludamus.links.db.django.repositories import ConnectionsRepository
@@ -97,3 +98,27 @@ class TestConnectionsRepositorySecretSurface:
             assert (
                 name in allowed
             ), f"Unexpected secret accessor on repo surface: {name}"
+
+
+class TestConnectionsRepositoryReraisesUnrelatedIntegrityError:
+    def test_create_reraises_non_duplicate_integrity_error(self, sphere, monkeypatch):
+        def raise_unrelated(*_args, **_kwargs):
+            raise IntegrityError("FOREIGN KEY constraint failed")
+
+        monkeypatch.setattr(Connection.objects, "create", raise_unrelated)
+
+        with pytest.raises(IntegrityError):
+            ConnectionsRepository.create(sphere_id=sphere.pk, display_name="Konto")
+
+    def test_update_reraises_non_duplicate_integrity_error(self, sphere, monkeypatch):
+        connection = Connection.objects.create(sphere=sphere, display_name="Konto")
+
+        def raise_unrelated(*_args, **_kwargs):
+            raise IntegrityError("FOREIGN KEY constraint failed")
+
+        monkeypatch.setattr(Connection, "save", raise_unrelated)
+
+        with pytest.raises(IntegrityError):
+            ConnectionsRepository.update(
+                sphere_id=sphere.pk, pk=connection.pk, display_name="Inne"
+            )
