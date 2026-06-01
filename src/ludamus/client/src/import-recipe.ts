@@ -160,3 +160,13 @@ if (document.readyState === "loading") {
 } else {
   initRecipe();
 }
+
+// The recipe region is HTMX-swapped when navigating between summary and the
+// single-row editor; re-seed visibility classes and the slug edited flags
+// against the newly inserted DOM.
+document.body.addEventListener("htmx:afterSwap", (event) => {
+  const target = (event as CustomEvent).detail?.target;
+  if (target instanceof HTMLElement && target.id === "import-recipe-region") {
+    initRecipe();
+  }
+});

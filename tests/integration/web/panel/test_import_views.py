@@ -574,6 +574,43 @@ class TestEventImportProposalView:
         # The header Save button is suppressed in single-row mode.
         assert "Save recipe" not in body
 
+    def test_get_with_hx_request_renders_only_the_swappable_region(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Title", "questionItem": {"question": {}}},
+                        {"title": "System", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.get(
+                _tab_url(event, integration) + "?edit=1", headers={"HX-Request": "true"}
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "panel/parts/import-recipe-region.html"
+        body = response.content.decode()
+        # The partial response carries the editor and a Back link, no page chrome.
+        assert 'name="question_1"' in body
+        assert "Back to summary" in body
+        assert "<html" not in body
+        # The summary table is gone in edit mode; the swap target wrapper is too
+        # (it lives in the parent template, not the partial).
+        assert "data-summary-row=" not in body
+        assert 'id="import-recipe-region"' not in body
+
     def test_get_with_invalid_edit_query_falls_back_to_summary(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):

@@ -522,7 +522,12 @@ class EventImportProposalView(_ImportTabView):
             context["edit_row"] = _edit_row(
                 self.request.GET.get("edit"), context["rows"]
             )
-        return TemplateResponse(self.request, "panel/import.html", context)
+        template = (
+            "panel/parts/import-recipe-region.html"
+            if self.request.headers.get("HX-Request")
+            else "panel/import.html"
+        )
+        return TemplateResponse(self.request, template, context)
 
     def post(
         self, _request: PanelRequest, slug: str, pk: int | None = None
