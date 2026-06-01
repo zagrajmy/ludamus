@@ -919,11 +919,7 @@ class TestProposalImportService:
         return MagicMock()
 
     @pytest.fixture
-    def source(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def integrations(self):
+    def event_integrations(self):
         return MagicMock()
 
     @pytest.fixture
@@ -956,8 +952,7 @@ class TestProposalImportService:
     def service(
         self,
         transaction,
-        source,
-        integrations,
+        event_integrations,
         sessions,
         session_fields,
         personal_fields,
@@ -967,8 +962,7 @@ class TestProposalImportService:
     ):
         return ProposalImportService(
             transaction,
-            source,
-            integrations,
+            event_integrations,
             ImportRepos(
                 sessions,
                 session_fields,
@@ -980,19 +974,19 @@ class TestProposalImportService:
         )
 
     def test_run_creates_one_proposal_per_response(
-        self, service, source, integrations, sessions
+        self, service, event_integrations, sessions
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json='{"questions": {"Title": {"to": "session.title"}}}'
         )
         responses = [{"Title": "My Talk"}, {"Title": "Another"}]
-        source.fetch_responses.return_value = responses
+        event_integrations.fetch_responses.return_value = responses
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == len(responses)
         assert result.fields_created == 0
-        source.fetch_responses.assert_called_once_with(1, 2, 3)
+        event_integrations.fetch_responses.assert_called_once_with(1, 2, 3)
         sessions.create.assert_any_call(
             {
                 "sphere_id": 1,
@@ -1009,15 +1003,15 @@ class TestProposalImportService:
         )
 
     def test_run_maps_description_target_and_defaults_empty_cells(
-        self, service, source, integrations, sessions
+        self, service, event_integrations, sessions
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Q1": {"to": "session.title"},'
                 ' "Q2": {"to": "session.description"}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Q1": "Talk"}]
+        event_integrations.fetch_responses.return_value = [{"Q1": "Talk"}]
 
         result = service.run(sphere_id=5, event_id=6, integration_pk=7)
 
@@ -1038,15 +1032,17 @@ class TestProposalImportService:
         )
 
     def test_run_maps_facilitator_display_name(
-        self, service, source, integrations, sessions
+        self, service, event_integrations, sessions
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
                 ' "Nick": {"to": "facilitator.display_name"}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Title": "My Talk", "Nick": "GM Bob"}]
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "My Talk", "Nick": "GM Bob"}
+        ]
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1067,10 +1063,10 @@ class TestProposalImportService:
         )
 
     def test_run_with_no_responses_creates_nothing(
-        self, service, source, integrations, sessions
+        self, service, event_integrations, sessions
     ):
-        integrations.get.return_value = MagicMock(settings_json="{}")
-        source.fetch_responses.return_value = []
+        event_integrations.get.return_value = MagicMock(settings_json="{}")
+        event_integrations.fetch_responses.return_value = []
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1078,12 +1074,12 @@ class TestProposalImportService:
         sessions.create.assert_not_called()
 
     def test_run_sample_imports_exactly_one_row(
-        self, service, source, integrations, sessions
+        self, service, event_integrations, sessions
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json='{"questions": {"Title": {"to": "session.title"}}}'
         )
-        source.fetch_responses.return_value = [
+        event_integrations.fetch_responses.return_value = [
             {"Title": "One"},
             {"Title": "Two"},
             {"Title": "Three"},
@@ -1095,10 +1091,10 @@ class TestProposalImportService:
         assert sessions.create.call_count == 1
 
     def test_run_sample_with_no_responses_creates_nothing(
-        self, service, source, integrations, sessions
+        self, service, event_integrations, sessions
     ):
-        integrations.get.return_value = MagicMock(settings_json="{}")
-        source.fetch_responses.return_value = []
+        event_integrations.get.return_value = MagicMock(settings_json="{}")
+        event_integrations.fetch_responses.return_value = []
 
         result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1106,9 +1102,9 @@ class TestProposalImportService:
         sessions.create.assert_not_called()
 
     def test_run_attaches_time_slots_for_chosen_options(
-        self, service, source, integrations, sessions, time_slots
+        self, service, event_integrations, sessions, time_slots
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"When": {"to": "session.time_slots", "values": {'
                 '"Fri": {"to": "time_slot",'
@@ -1119,7 +1115,7 @@ class TestProposalImportService:
                 ' "end_time": "2025-09-20T14:00:00+02:00"}}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"When": "Fri, Sat"}]
+        event_integrations.fetch_responses.return_value = [{"When": "Fri, Sat"}]
         time_slots.get_or_create.side_effect = [101, 102]
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1140,9 +1136,9 @@ class TestProposalImportService:
         assert sessions.create.call_args.kwargs["time_slot_ids"] == [101, 102]
 
     def test_run_attaches_every_window_of_a_multi_window_option(
-        self, service, source, integrations, sessions, time_slots
+        self, service, event_integrations, sessions, time_slots
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"When": {"to": "session.time_slots", "values": {'
                 '"All": [{"to": "time_slot",'
@@ -1153,7 +1149,7 @@ class TestProposalImportService:
                 ' "end_time": "2025-09-20T14:00:00+02:00"}]}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"When": "All"}]
+        event_integrations.fetch_responses.return_value = [{"When": "All"}]
         time_slots.get_or_create.side_effect = [201, 202]
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1173,15 +1169,15 @@ class TestProposalImportService:
         assert sessions.create.call_args.kwargs["time_slot_ids"] == [201, 202]
 
     def test_run_attaches_a_track_for_the_chosen_option(
-        self, service, source, integrations, sessions, tracks
+        self, service, event_integrations, sessions, tracks
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Suggested": {"to": "track", "values": {'
                 '"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Suggested": "RPG"}]
+        event_integrations.fetch_responses.return_value = [{"Suggested": "RPG"}]
         tracks.get_or_create_by_slug.return_value = 301
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1191,16 +1187,16 @@ class TestProposalImportService:
         assert sessions.create.call_args.kwargs["track_ids"] == [301]
 
     def test_run_attaches_a_track_per_chosen_option(
-        self, service, source, integrations, sessions, tracks
+        self, service, event_integrations, sessions, tracks
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Suggested": {"to": "track", "values": {'
                 '"RPG": {"name": "RPG", "slug": "rpg"},'
                 '"LARP": {"name": "LARP", "slug": "larp"}}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Suggested": "RPG, LARP"}]
+        event_integrations.fetch_responses.return_value = [{"Suggested": "RPG, LARP"}]
         tracks.get_or_create_by_slug.side_effect = [301, 302]
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1212,16 +1208,18 @@ class TestProposalImportService:
         assert sessions.create.call_args.kwargs["track_ids"] == [301, 302]
 
     def test_run_routes_a_custom_track_answer_to_the_catchall(
-        self, service, source, integrations, sessions, tracks
+        self, service, event_integrations, sessions, tracks
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Suggested": {"to": "track",'
                 ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}},'
                 ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Suggested": "Something custom"}]
+        event_integrations.fetch_responses.return_value = [
+            {"Suggested": "Something custom"}
+        ]
         tracks.get_or_create_by_slug.return_value = 399
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1230,15 +1228,15 @@ class TestProposalImportService:
         assert sessions.create.call_args.kwargs["track_ids"] == [399]
 
     def test_run_sets_the_category_for_the_chosen_option(
-        self, service, source, integrations, sessions, categories
+        self, service, event_integrations, sessions, categories
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Kind": {"to": "category", "values": {'
                 '"RPG": {"name": "RPG session", "slug": "rpg"}}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Kind": "RPG"}]
+        event_integrations.fetch_responses.return_value = [{"Kind": "RPG"}]
         category_pk = 401
         categories.get_or_create_by_slug.return_value = category_pk
 
@@ -1250,16 +1248,16 @@ class TestProposalImportService:
         assert sessions.create.call_args.args[0]["category_id"] == category_pk
 
     def test_run_routes_a_custom_category_answer_to_the_catchall(
-        self, service, source, integrations, sessions, categories
+        self, service, event_integrations, sessions, categories
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Kind": {"to": "category",'
                 ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}},'
                 ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Kind": "Mystery"}]
+        event_integrations.fetch_responses.return_value = [{"Kind": "Mystery"}]
         category_pk = 499
         categories.get_or_create_by_slug.return_value = category_pk
 
@@ -1269,9 +1267,9 @@ class TestProposalImportService:
         assert sessions.create.call_args.args[0]["category_id"] == category_pk
 
     def test_run_provisions_new_field_and_saves_value(
-        self, service, source, integrations, sessions, session_fields
+        self, service, event_integrations, sessions, session_fields
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
                 ' "RPG system": {"to": "field.system"}},'
@@ -1279,7 +1277,7 @@ class TestProposalImportService:
                 ' {"system": {"name": "System", "type": "text"}}}}'
             )
         )
-        source.fetch_responses.return_value = [
+        event_integrations.fetch_responses.return_value = [
             {"Title": "My Talk", "RPG system": "D&D"}
         ]
         session_fields.read_by_slug.side_effect = NotFoundError
@@ -1313,12 +1311,12 @@ class TestProposalImportService:
         )
 
     def test_run_reuses_existing_field_by_slug(
-        self, service, source, integrations, sessions, session_fields
+        self, service, event_integrations, sessions, session_fields
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json='{"questions": {"RPG system": {"to": "field.system"}}}'
         )
-        source.fetch_responses.return_value = [{"RPG system": "D&D"}]
+        event_integrations.fetch_responses.return_value = [{"RPG system": "D&D"}]
         session_fields.read_by_slug.return_value = MagicMock(pk=55)
         session_id = 7
         sessions.create.return_value = session_id
@@ -1333,9 +1331,9 @@ class TestProposalImportService:
         )
 
     def test_run_provisions_session_field_from_its_definition(
-        self, service, source, integrations, sessions, session_fields
+        self, service, event_integrations, sessions, session_fields
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"System": {"to": "field.system"}},'
                 ' "definitions": {"session_fields": {"system":'
@@ -1343,7 +1341,7 @@ class TestProposalImportService:
                 ' "allow_custom": true, "options": ["D&D", "Warhammer"]}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"System": "D&D"}]
+        event_integrations.fetch_responses.return_value = [{"System": "D&D"}]
         session_fields.read_by_slug.side_effect = NotFoundError
         session_fields.create.return_value = MagicMock(pk=55)
         sessions.create.return_value = 7
@@ -1368,9 +1366,9 @@ class TestProposalImportService:
         )
 
     def test_run_provisions_a_personal_field_without_filling_values(
-        self, service, source, integrations, sessions, session_fields, personal_fields
+        self, service, event_integrations, sessions, session_fields, personal_fields
     ):
-        integrations.get.return_value = MagicMock(
+        event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
                 ' "Phone": {"to": "personal.telefon"}},'
@@ -1378,7 +1376,9 @@ class TestProposalImportService:
                 ' {"telefon": {"name": "Telefon", "type": "text"}}}}'
             )
         )
-        source.fetch_responses.return_value = [{"Title": "My Talk", "Phone": "555"}]
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "My Talk", "Phone": "555"}
+        ]
         personal_fields.read_by_slug.side_effect = NotFoundError
         personal_fields.create.return_value = MagicMock(pk=99)
         sessions.create.return_value = 7

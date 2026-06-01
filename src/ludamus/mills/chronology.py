@@ -35,6 +35,7 @@ from ludamus.pacts.chronology import (
     EventIntegrationCreateData,
     EventIntegrationDTO,
     EventIntegrationsRepositoryProtocol,
+    EventIntegrationsServiceProtocol,
     EventIntegrationUpdateData,
     HeatmapCellDTO,
     HeatmapCellStatus,
@@ -960,7 +961,7 @@ class IntegrationImplementationNotFoundError(Exception):
     """Raised when the registry has no implementation for an identifier."""
 
 
-class EventIntegrationsService:
+class EventIntegrationsService(EventIntegrationsServiceProtocol):
     """CRUD + check dispatch for per-event integrations.
 
     The registry of `IntegrationImplementation`s is composition-time data

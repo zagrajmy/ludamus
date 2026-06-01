@@ -86,15 +86,6 @@ class ImportSettings(BaseModel):
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
 
 
-class ProposalSourceProtocol(Protocol):
-    # Raw rows from the integration's source: one dict per response,
-    # keyed by source question (header). Decrypt + dispatch lives in
-    # Chronology; Submissions only interprets the strings.
-    def fetch_responses(
-        self, sphere_id: int, event_id: int, pk: int
-    ) -> list[dict[str, str]]: ...
-
-
 @dataclass
 class ProposalImportResult:
     created: int

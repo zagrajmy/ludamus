@@ -39,9 +39,8 @@ if TYPE_CHECKING:
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
     )
-    from ludamus.pacts.chronology import EventIntegrationsRepositoryProtocol
+    from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import ProposalSourceProtocol
 
 
 def _field_setup(
@@ -177,20 +176,20 @@ class ProposalImportService:
     def __init__(
         self,
         transaction: TransactionProtocol,
-        source: ProposalSourceProtocol,
-        integrations: EventIntegrationsRepositoryProtocol,
+        event_integrations: EventIntegrationsServiceProtocol,
         repos: ImportRepos,
     ) -> None:
         self._transaction = transaction
-        self._source = source
-        self._integrations = integrations
+        self._event_integrations = event_integrations
         self._repos = repos
 
     def run(
         self, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult:
         settings = self._settings(event_id, integration_pk)
-        rows = self._source.fetch_responses(sphere_id, event_id, integration_pk)
+        rows = self._event_integrations.fetch_responses(
+            sphere_id, event_id, integration_pk
+        )
         return self._import_rows(sphere_id, event_id, settings, rows)
 
     def run_sample(
@@ -199,12 +198,14 @@ class ProposalImportService:
         # Import a single random response so the operator can eyeball one real
         # proposal before a full run floods the event with mismapped sessions.
         settings = self._settings(event_id, integration_pk)
-        rows = self._source.fetch_responses(sphere_id, event_id, integration_pk)
+        rows = self._event_integrations.fetch_responses(
+            sphere_id, event_id, integration_pk
+        )
         sample = [choice(rows)] if rows else []
         return self._import_rows(sphere_id, event_id, settings, sample)
 
     def _settings(self, event_id: int, integration_pk: int) -> ImportSettings:
-        integration = self._integrations.get(event_id, integration_pk)
+        integration = self._event_integrations.get(event_id, integration_pk)
         return ImportSettings.model_validate_json(integration.settings_json or "{}")
 
     def _import_rows(

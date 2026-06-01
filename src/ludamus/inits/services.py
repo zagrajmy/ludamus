@@ -138,12 +138,12 @@ class Services:
 
     @cached_property
     def proposals_import(self) -> ProposalImportService:
-        # The Chronology integrations service fetches raw rows from the
-        # source; Submissions interprets them into proposals.
+        # The Chronology integrations service supplies both the saved recipe
+        # (settings_json) and the raw source rows; Submissions interprets them
+        # into proposals.
         return ProposalImportService(
             self._transaction,
             self.event_integrations,
-            self._repos.event_integrations,
             ImportRepos(
                 self._repos.sessions,
                 self._repos.session_fields,
