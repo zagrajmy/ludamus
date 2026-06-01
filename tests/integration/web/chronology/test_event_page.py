@@ -199,6 +199,14 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
+    def test_connected_users_not_listed_in_session_modal(
+        self, authenticated_client, event, connected_user, agenda_item
+    ):
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert "Connected Users" not in response.content.decode()
+        assert connected_user.full_name not in response.content.decode()
+
     def test_ok_session_with_linked_proposal(
         self, active_user, agenda_item, client, event, session
     ):

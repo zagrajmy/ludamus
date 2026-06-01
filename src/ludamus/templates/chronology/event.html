@@ -812,34 +812,6 @@
                             </div>
                         </div>
                     {% endif %}
-                    {% if current_connected_users %}
-                        <div class="pt-4 mt-2 border-t border-border">
-                            <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Connected Users" %}</h3>
-                            <div class="space-y-2">
-                                {% for connected_user in current_connected_users %}
-                                    <div class="flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
-                                        <div class="flex items-center gap-3">
-                                            {% include "components/avatar.html" with user=connected_user size="size-8" %}
-                                            <span class="font-medium text-foreground">{{ connected_user.full_name }}</span>
-                                        </div>
-                                        {% with participations=data.session_participations|dictsort:"creation_time" %}
-                                            {% for participation in participations %}
-                                                {% if participation.user.pk == connected_user.pk %}
-                                                    {% if participation.status == 'confirmed' %}
-                                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">{% translate "Enrolled" %}</span>
-                                                    {% else %}
-                                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-(--theme-warning-light) text-(--theme-warning-text)">{% translate "Waiting List" %}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% empty %}
-                                                <span class="text-xs text-foreground-muted">{% translate "Not enrolled" %}</span>
-                                            {% endfor %}
-                                        {% endwith %}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
                 </div>
                 <!-- Participants Tab -->
                 <div id="participants-{{ data.session.pk }}"
