@@ -63,6 +63,23 @@ class TestSessionEnrollPageView:
             url="/",
         )
 
+    def test_get_unscheduled_session_rejected(
+        self, authenticated_client, pending_session
+    ):
+        response = authenticated_client.get(self._get_url(pending_session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url="/",
+        )
+
     def test_post_error_enrollment_inactive(
         self, agenda_item, authenticated_client, event, faker, time_zone
     ):

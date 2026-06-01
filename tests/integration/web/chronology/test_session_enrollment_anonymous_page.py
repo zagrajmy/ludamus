@@ -10,8 +10,26 @@ from ludamus.adapters.db.django.models import (
     User,
 )
 from ludamus.pacts import UserDTO
-from tests.integration.conftest import AgendaItemFactory, SessionFactory
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
+
+
+def _anonymous_user_code(user: User) -> str:
+    return user.slug.split("_")[1]
+
+
+def _activate_anonymous_client(client, *, sphere, event, user_code: str) -> None:
+    session = client.session
+    session["anonymous_enrollment_active"] = True
+    session["anonymous_site_id"] = sphere.site.id
+    session["anonymous_event_id"] = event.id
+    session["anonymous_user_code"] = user_code
+    session.save()
+
+
+def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
+    enrollment_config.allow_anonymous_enrollment = True
+    enrollment_config.save()
 
 
 class TestSessionEnrollmentAnonymousPageView:
@@ -81,10 +99,14 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
     @pytest.mark.parametrize("method", ("get", "post"))
-    def test_get_no_anonymous_user_id(self, agenda_item, client, method, sphere):
+    def test_get_no_anonymous_user_id(
+        self, agenda_item, client, method, sphere, enrollment_config
+    ):
+        _prepare_anonymous_enrollable_session(enrollment_config)
         session = client.session
         session["anonymous_enrollment_active"] = True
         session["anonymous_site_id"] = sphere.site.id
+        session["anonymous_event_id"] = enrollment_config.event.id
         session.save()
 
         response = getattr(client, method)(self.get_url(agenda_item.session.id))
@@ -97,10 +119,14 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
     @pytest.mark.parametrize("method", ("get", "post"))
-    def test_get_anonymous_user_doesnt_exist(self, agenda_item, client, method, sphere):
+    def test_get_anonymous_user_doesnt_exist(
+        self, agenda_item, client, method, sphere, enrollment_config
+    ):
+        _prepare_anonymous_enrollable_session(enrollment_config)
         session = client.session
         session["anonymous_enrollment_active"] = True
         session["anonymous_site_id"] = sphere.site.id
+        session["anonymous_event_id"] = enrollment_config.event.id
         session["anonymous_user_code"] = "789"
         session.save()
 
@@ -113,13 +139,17 @@ class TestSessionEnrollmentAnonymousPageView:
             url=reverse("web:index"),
         )
 
-    def test_get_ok(self, agenda_item, anonymous_user_factory, client, sphere):
+    def test_get_ok(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
 
         response = client.get(self.get_url(agenda_item.session.id))
 
@@ -139,14 +169,16 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
     def test_post_missing_name(
-        self, agenda_item, anonymous_user_factory, client, sphere
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
 
         response = client.post(self.get_url(agenda_item.session.id), data={})
 
@@ -160,16 +192,20 @@ class TestSessionEnrollmentAnonymousPageView:
             ),
         )
 
-    def test_post_user_saved(self, agenda_item, anonymous_user_factory, client, sphere):
+    def test_post_user_saved(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
         session = agenda_item.session
         session.min_age = 12
         session.save()
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
         name = "johny"
 
         response = client.post(
@@ -199,17 +235,19 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
     def test_post_cancel_error(
-        self, agenda_item, anonymous_user_factory, client, sphere
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
         session = agenda_item.session
         session.min_age = 12
         session.save()
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
         name = "johny"
 
         response = client.post(
@@ -230,17 +268,19 @@ class TestSessionEnrollmentAnonymousPageView:
         assert user.name == name
 
     def test_post_cancel_success(
-        self, agenda_item, anonymous_user_factory, client, sphere
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
         session = agenda_item.session
         session.min_age = 12
         session.save()
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
         SessionParticipation.objects.create(
             session=agenda_item.session,
             user=user,
@@ -274,17 +314,21 @@ class TestSessionEnrollmentAnonymousPageView:
         assert user.name == name
         assert not SessionParticipation.objects.all().exists()
 
-    def test_post_conflict(self, agenda_item, anonymous_user_factory, client, sphere):
+    def test_post_conflict(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
         session = agenda_item.session
         session.min_age = 12
         session.save()
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
-        session2 = SessionFactory()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        session2 = SessionFactory(sphere=sphere)
         AgendaItemFactory(
             session=session2,
             start_time=agenda_item.start_time,
@@ -321,7 +365,7 @@ class TestSessionEnrollmentAnonymousPageView:
         assert user.name == name
 
     def test_post_session_full(
-        self, agenda_item, anonymous_user_factory, client, sphere
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
         session = agenda_item.session
         session.min_age = 12
@@ -334,11 +378,13 @@ class TestSessionEnrollmentAnonymousPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
         name = "johny"
 
         response = client.post(
@@ -366,17 +412,19 @@ class TestSessionEnrollmentAnonymousPageView:
         assert user.name == name
 
     def test_post_update_waiting(
-        self, agenda_item, anonymous_user_factory, client, sphere
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
         session = agenda_item.session
         session.min_age = 12
         session.save()
         user = anonymous_user_factory()
-        session = client.session
-        session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = sphere.site.id
-        session["anonymous_user_code"] = user.slug.split("_")[1]
-        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
         SessionParticipation.objects.create(
             session=agenda_item.session,
             user=user,
@@ -408,4 +456,165 @@ class TestSessionEnrollmentAnonymousPageView:
             session=agenda_item.session,
             user=user,
             status=SessionParticipationStatus.CONFIRMED,
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_rejects_session_from_other_event(
+        self,
+        agenda_item,
+        anonymous_user_factory,
+        client,
+        method,
+        sphere,
+        enrollment_config,
+    ):
+        user = anonymous_user_factory()
+        other_event = EventFactory(sphere=sphere)
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=other_event,
+            user_code=_anonymous_user_code(user),
+        )
+
+        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Anonymous enrollment is not available for this session.",
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": other_event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            session=agenda_item.session, user=user
+        ).exists()
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_rejects_unscheduled_session(
+        self,
+        pending_session,
+        anonymous_user_factory,
+        client,
+        method,
+        sphere,
+        enrollment_config,
+    ):
+        user = anonymous_user_factory()
+        enrollment_config.allow_anonymous_enrollment = True
+        enrollment_config.save()
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+
+        response = getattr(client, method)(self.get_url(pending_session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}
+            ),
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_rejects_session_when_event_disallows_anonymous(
+        self,
+        agenda_item,
+        anonymous_user_factory,
+        client,
+        method,
+        sphere,
+        enrollment_config,
+    ):
+        user = anonymous_user_factory()
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+
+        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}
+            ),
+        )
+        assert not SessionParticipation.objects.filter(
+            session=agenda_item.session, user=user
+        ).exists()
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_unscheduled_session_redirects_to_index_when_event_missing(
+        self, pending_session, anonymous_user_factory, client, method, sphere
+    ):
+        user = anonymous_user_factory()
+        django_session = client.session
+        django_session["anonymous_enrollment_active"] = True
+        django_session["anonymous_site_id"] = sphere.site.id
+        django_session["anonymous_event_id"] = 9_999_999
+        django_session["anonymous_user_code"] = _anonymous_user_code(user)
+        django_session.save()
+
+        response = getattr(client, method)(self.get_url(pending_session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url="/",
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_redirects_to_index_when_activated_event_unset(
+        self, agenda_item, anonymous_user_factory, client, method, sphere
+    ):
+        user = anonymous_user_factory()
+        django_session = client.session
+        django_session["anonymous_enrollment_active"] = True
+        django_session["anonymous_site_id"] = sphere.site.id
+        django_session["anonymous_user_code"] = _anonymous_user_code(user)
+        django_session.save()
+
+        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Anonymous enrollment is not available for this session.",
+                )
+            ],
+            url="/",
         )
