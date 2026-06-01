@@ -518,7 +518,7 @@ bounded-context breakdown.
 | Multiverse | `Sphere`, `Connection` |
 | Notice Board | `Encounter`, `EncounterRSVP` |
 | Submissions | `Session`, `ProposalCategory`, `EventProposalSettings`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `HostPersonalData`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement` |
-| Chronology | `Event`, `EventSettings`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation`, `EventIntegration` |
+| Chronology | `Event`, `EventSettings`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -535,12 +535,3 @@ Boundary notes:
   behaviour still living on the `Session` model.
 - `Tag` / `TagCategory` are slated for deletion and are
   intentionally absent from this mapping.
-- `EventIntegration` is owned by Chronology (event-settings
-  CRUD + the connectivity check; a future ticketing
-  integration is also Chronology/enrollment). Its
-  `settings_json` is an opaque blob Chronology stores but
-  never parses; the IMPORT kind's meaning (the mapping
-  recipe) and the proposal import that materialises it live
-  in Submissions (`ProposalImportService`), which reads raw
-  source rows back through a narrow `ProposalSourceProtocol`
-  the Chronology integrations service satisfies.
