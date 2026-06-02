@@ -1048,8 +1048,19 @@
                 select.addEventListener('change', filterSessions);
             });
 
+            // Fold diacritics and lowercase so "swiata" matches "Świata".
+            const COMBINING_MARKS = new RegExp('[\\u0300-\\u036f]', 'g');
+            function normalizeText(value) {
+                return (value || '')
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(COMBINING_MARKS, '');
+            }
+
             function filterSessions() {
-                const searchText = sessionFilter.value.toLowerCase();
+                const searchTokens = normalizeText(sessionFilter.value)
+                    .split(/\s+/)
+                    .filter(Boolean);
                 const statusValue = statusFilter.value;
                 const venueValue = venueFilter.value;
                 const minAgeValue = minAgeFilter.value;
@@ -1065,17 +1076,17 @@
                     }
                 });
 
-                let hiddenCount = 0;
-                let totalCount = 0;
                 sessionCards.forEach(card => {
-                    totalCount++;
                     let show = true;
 
-                    // Text filter (title or host)
-                    if (searchText) {
-                        const title = card.dataset.title;
-                        const host = card.dataset.host;
-                        show = show && (title.includes(searchText) || host.includes(searchText));
+                    // Fuzzy text filter: every token must appear somewhere in
+                    // the combined title + host, so "Bestie Świata Jakub"
+                    // matches a "Bestie Świata" session hosted by "Jakub".
+                    if (searchTokens.length) {
+                        const haystack = normalizeText(
+                            `${card.dataset.title} ${card.dataset.host}`
+                        );
+                        show = show && searchTokens.every(token => haystack.includes(token));
                     }
 
                     // Status filter
@@ -1149,23 +1160,6 @@
                         });
 
                         show = show && matchesAllFilters;
-                    }
-
-                    // Debug the final show/hide decision
-                    if (card.dataset.title === 'bestie nowego świata') {
-                        console.log('Final decision for Bestie:', {
-                            show,
-                            searchText,
-                            statusValue,
-                            hasActiveTagFilters: Object.keys(activeTagFilters).length > 0,
-                            activeTagFilters,
-                            minAgeValue,
-                            maxAgeValue
-                        });
-                    }
-
-                    if (!show) {
-                        hiddenCount++;
                     }
 
                     // Show/hide card container

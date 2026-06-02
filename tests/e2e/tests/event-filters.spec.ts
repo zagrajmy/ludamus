@@ -21,3 +21,41 @@ test.describe('Event filter panel', () => {
     await context.close();
   });
 });
+
+test.describe('Event fuzzy search', () => {
+  const visibleCards = '.session-card-wrapper:visible .session-card';
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/chronology/event/autumn-open/');
+    await expect(page.locator(visibleCards)).toHaveCount(3);
+  });
+
+  test('matches multiple tokens across title and host, ignoring diacritics', async ({
+    page,
+  }) => {
+    // "Przygoda w Mieście Neonów" hosted by "Radek MG": tokens span the
+    // title (sans diacritics) and the host name.
+    await page.locator('#session-filter').fill('przygoda neonow radek');
+
+    const cards = page.locator(visibleCards);
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText('Przygoda w Mieście Neonów');
+  });
+
+  test('matches a token from the title and a token from the host', async ({
+    page,
+  }) => {
+    await page.locator('#session-filter').fill('mega alex');
+
+    const cards = page.locator(visibleCards);
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText('Mega Strategy Lab');
+  });
+
+  test('shows the empty state when nothing matches', async ({ page }) => {
+    await page.locator('#session-filter').fill('zzzznomatch');
+
+    await expect(page.locator(visibleCards)).toHaveCount(0);
+    await expect(page.locator('#filter-no-results')).toBeVisible();
+  });
+});
