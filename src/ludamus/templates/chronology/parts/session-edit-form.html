@@ -144,6 +144,12 @@
                                 </option>
                             {% endfor %}
                         </select>
+                        {% if field.allow_custom %}
+                            <input type="text"
+                                   name="session_field_{{ field.slug }}_custom"
+                                   placeholder="{% translate "Or type a custom value" %}"
+                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                        {% endif %}
                     {% elif field.field_type == "checkbox" %}
                         <label class="flex items-center gap-2 text-sm">
                             <input type="checkbox"
@@ -160,13 +166,19 @@
                                value="{{ current_value|default:'' }}"
                                {% if field.max_length %}maxlength="{{ field.max_length }}"{% endif %}
                                class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                        {% if field.allow_custom %}
+                            <input type="text"
+                                   name="session_field_{{ field.slug }}_custom"
+                                   placeholder="{% translate "Or type a custom value" %}"
+                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                        {% endif %}
                     {% endif %}
                     {% if field.help_text %}<p class="mt-1 text-xs text-foreground-muted">{{ field.help_text }}</p>{% endif %}
                 </div>
             {% endfor %}
         </div>
     </div>
-    <div class="px-6 py-4 flex items-center justify-end gap-3 border-t border-border shrink-0">
+    <div class="px-6 py-4 flex items-center justify-end gap-2 border-t border-border shrink-0">
         <button type="button"
                 class="btn btn-secondary text-sm"
                 data-edit-cancel="{{ session.pk }}">{% translate "Cancel" %}</button>

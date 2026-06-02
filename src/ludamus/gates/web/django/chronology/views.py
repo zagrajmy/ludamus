@@ -867,6 +867,7 @@ class SessionEditView(LoginRequiredMixin, View):
         if not self.request.headers.get("HX-Request"):
             event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
             return redirect(f"{event_url}?session={session_id}")
+        ctx = self._context(event_slug, session_id)
         return self._render(event_slug, session_id, ctx, form, saved=True)
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:

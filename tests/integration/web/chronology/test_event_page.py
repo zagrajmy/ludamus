@@ -2019,6 +2019,10 @@ class TestEventPageEditAffordance:
         other = UserFactory(username="other", email="other@example.com")
         session = self._scheduled_session(event, sphere, other)
         AgendaItemFactory(session=session, space=space)
+        edit_url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": event.slug, "session_id": session.pk},
+        )
 
         response = authenticated_client.get(self._get_url(event.slug))
 
@@ -2026,6 +2030,9 @@ class TestEventPageEditAffordance:
             s for s in response.context["sessions"] if s.session.pk == session.pk
         )
         assert session_data.can_edit is False
+        content = response.content.decode()
+        assert edit_url not in content
+        assert f'data-edit-open="{session.pk}"' not in content
 
     def test_owner_no_affordance_when_opted_out(
         self, authenticated_client, event, sphere, active_user, space
@@ -2034,6 +2041,10 @@ class TestEventPageEditAffordance:
         event.save()
         session = self._scheduled_session(event, sphere, active_user)
         AgendaItemFactory(session=session, space=space)
+        edit_url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": event.slug, "session_id": session.pk},
+        )
 
         response = authenticated_client.get(self._get_url(event.slug))
 
@@ -2041,3 +2052,6 @@ class TestEventPageEditAffordance:
             s for s in response.context["sessions"] if s.session.pk == session.pk
         )
         assert session_data.can_edit is False
+        content = response.content.decode()
+        assert edit_url not in content
+        assert f'data-edit-open="{session.pk}"' not in content
