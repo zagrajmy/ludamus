@@ -680,27 +680,11 @@
                     {% icon "x-mark" class="w-5 h-5" variant="mini" %}
                 </button>
             </div>
-            {% if messages and request.GET.session == data.session.pk|stringformat:"s" %}
-                <!-- Flash messages surfaced inside the reopened modal (top layer) -->
-                <div class="px-6 pt-4 space-y-2 shrink-0">
-                    {% for message in messages %}
-                        <div class="alert flex items-center {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'info' %}alert-info{% else %}alert-default{% endif %}"
-                             {% if message.tags == 'error' or message.tags == 'warning' %}role="alert"{% else %}role="status"{% endif %}
-                             aria-live="{% if message.tags == 'error' or message.tags == 'warning' %}assertive{% else %}polite{% endif %}">
-                            {% if message.tags == 'success' %}
-                                {% icon "check-circle" class="w-5 h-5 mr-3" %}
-                            {% elif message.tags == 'error' or message.tags == 'warning' %}
-                                {% icon "exclamation-triangle" class="w-5 h-5 mr-3" %}
-                            {% else %}
-                                {% icon "information-circle" class="w-5 h-5 mr-3" %}
-                            {% endif %}
-                            <span class="text-sm">{{ message }}</span>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-            <!-- Tabs -->
-            <div class="tab-list shrink-0" role="tablist">
+            <!-- Tabbed body; swapped for the inline edit form by the Edit button -->
+            <div class="flex-auto min-h-0 flex flex-col overflow-hidden"
+                 data-session-tabs="{{ data.session.pk }}">
+                <!-- Tabs -->
+                <div class="tab-list shrink-0" role="tablist">
                 <button role="tab"
                         aria-selected="true"
                         aria-controls="info-{{ data.session.pk }}"
@@ -906,15 +890,27 @@
                     {% endif %}
                 </div>
             </div>
+            </div>
+            {% if data.can_edit %}
+                <!-- Inline edit form target (lazy-loaded via HTMX on Edit) -->
+                <div id="session-{{ data.session.pk }}-editform"
+                     class="flex-auto min-h-0 overflow-y-auto px-6 py-5 text-foreground"
+                     hidden></div>
+            {% endif %}
             {% if data.is_enrollment_available or data.can_edit %}
                 <!-- Footer -->
-                <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0">
+                <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0"
+                     data-session-footer="{{ data.session.pk }}">
                     <div>
                         {% if data.can_edit %}
-                            <a href="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
-                               class="btn btn-secondary text-sm">
+                            <button type="button"
+                                    class="btn btn-secondary text-sm"
+                                    data-edit-open="{{ data.session.pk }}"
+                                    hx-get="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
+                                    hx-target="#session-{{ data.session.pk }}-editform"
+                                    hx-swap="innerHTML">
                                 {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
-                            </a>
+                            </button>
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-2">
@@ -994,6 +990,62 @@
                 setTimeout(() => {
                     button.className = originalClasses;
                 }, 2000);
+            });
+        });
+
+        // In-place session editing: toggle the tabbed body <-> inline edit form.
+        document.addEventListener('click', function (e) {
+            const openBtn = e.target.closest('[data-edit-open]');
+            if (openBtn) {
+                const dialog = openBtn.closest('dialog');
+                const pk = openBtn.dataset.editOpen;
+                const tabs = dialog && dialog.querySelector('[data-session-tabs="' + pk + '"]');
+                const editform = dialog && dialog.querySelector('#session-' + pk + '-editform');
+                const footer = dialog && dialog.querySelector('[data-session-footer="' + pk + '"]');
+                if (tabs) tabs.hidden = true;
+                if (footer) footer.hidden = true;
+                if (editform) editform.hidden = false;
+                return;
+            }
+            const cancelBtn = e.target.closest('[data-edit-cancel]');
+            if (cancelBtn) {
+                const dialog = cancelBtn.closest('dialog');
+                const pk = cancelBtn.dataset.editCancel;
+                const tabs = dialog && dialog.querySelector('[data-session-tabs="' + pk + '"]');
+                const editform = dialog && dialog.querySelector('#session-' + pk + '-editform');
+                const footer = dialog && dialog.querySelector('[data-session-footer="' + pk + '"]');
+                if (editform) {
+                    editform.hidden = true;
+                    editform.innerHTML = '';
+                }
+                if (tabs) tabs.hidden = false;
+                if (footer) footer.hidden = false;
+            }
+        });
+
+        // When the edit form swaps in: focus the title on first load; once a save
+        // succeeds, reset the "Saved" button back to its label as soon as the
+        // facilitator edits again, so the confirmation stays honest.
+        document.body.addEventListener('htmx:afterSwap', function (e) {
+            const root = e.target;
+            if (!root || !root.querySelectorAll) return;
+            const forms = root.matches('form[id$="-edit-form"]')
+                ? [root]
+                : Array.from(root.querySelectorAll('form[id$="-edit-form"]'));
+            forms.forEach(function (form) {
+                const save = form.querySelector('[data-edit-save]');
+                if (form.hasAttribute('data-just-saved')) {
+                    form.addEventListener('input', function () {
+                        if (!save) return;
+                        save.classList.remove('bg-(--theme-success)', 'text-white');
+                        save.classList.add('btn-primary');
+                        save.textContent = save.dataset.saveLabel || '';
+                        form.removeAttribute('data-just-saved');
+                    }, { once: true });
+                } else {
+                    const title = form.querySelector('[name="title"]');
+                    if (title) title.focus();
+                }
             });
         });
         document.addEventListener('DOMContentLoaded', function() {

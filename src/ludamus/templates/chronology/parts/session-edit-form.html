@@ -1,0 +1,181 @@
+{% load i18n %}
+{% load tessera %}
+<form id="session-{{ session.pk }}-edit-form"
+      method="post"
+      action="{{ post_url }}"
+      hx-post="{{ post_url }}"
+      hx-target="this"
+      hx-swap="outerHTML"
+      {% if saved %}data-just-saved{% endif %}>
+    {% csrf_token %}
+    {% if saved %}
+        <h3 id="session-{{ session.pk }}-title"
+            class="text-lg font-semibold text-foreground"
+            hx-swap-oob="true">{{ form.title.value }}</h3>
+    {% endif %}
+    <div class="space-y-5">
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_title">{% translate "Title" %}</label>
+            <input type="text"
+                   name="title"
+                   id="id_title"
+                   value="{{ form.title.value|default:'' }}"
+                   autofocus
+                   class="w-full border {% if form.title.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            {% if form.title.errors %}<p class="mt-1 text-sm text-danger">{{ form.title.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_display_name">{% translate "Display Name" %}</label>
+            <input type="text"
+                   name="display_name"
+                   id="id_display_name"
+                   value="{{ form.display_name.value|default:'' }}"
+                   class="w-full border {% if form.display_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            {% if form.display_name.errors %}<p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_description">{% translate "Description" %}</label>
+            <textarea name="description"
+                      id="id_description"
+                      rows="5"
+                      class="w-full border {% if form.description.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
+            <p class="mt-1 text-xs text-foreground-muted">{% translate "Plain text. Line breaks are kept." %}</p>
+            {% if form.description.errors %}<p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_requirements">{% translate "Requirements" %}</label>
+            <textarea name="requirements"
+                      id="id_requirements"
+                      rows="3"
+                      class="w-full border {% if form.requirements.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.requirements.value|default:'' }}</textarea>
+            {% if form.requirements.errors %}
+                <p class="mt-1 text-sm text-danger">{{ form.requirements.errors.0 }}</p>
+            {% endif %}
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_needs">{% translate "Needs" %}</label>
+            <textarea name="needs"
+                      id="id_needs"
+                      rows="3"
+                      class="w-full border {% if form.needs.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.needs.value|default:'' }}</textarea>
+            {% if form.needs.errors %}<p class="mt-1 text-sm text-danger">{{ form.needs.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_contact_email">{% translate "Contact Email" %}</label>
+            <input type="email"
+                   name="contact_email"
+                   id="id_contact_email"
+                   value="{{ form.contact_email.value|default:'' }}"
+                   class="w-full border {% if form.contact_email.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            {% if form.contact_email.errors %}<p class="mt-1 text-sm text-danger">{{ form.contact_email.errors.0 }}</p>{% endif %}
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                       for="id_participants_limit">{% translate "Participants Limit" %}</label>
+                <input type="number"
+                       name="participants_limit"
+                       id="id_participants_limit"
+                       value="{{ form.participants_limit.value|default:'' }}"
+                       min="0"
+                       class="w-full border {% if form.participants_limit.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                {% if form.participants_limit.errors %}
+                    <p class="mt-1 text-sm text-danger">{{ form.participants_limit.errors.0 }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                       for="id_min_age">{% translate "Minimum Age" %}</label>
+                <input type="number"
+                       name="min_age"
+                       id="id_min_age"
+                       value="{{ form.min_age.value|default:'' }}"
+                       min="0"
+                       class="w-full border {% if form.min_age.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                {% if form.min_age.errors %}<p class="mt-1 text-sm text-danger">{{ form.min_age.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                   for="id_duration">{% translate "Duration" %}</label>
+            <input type="text"
+                   name="duration"
+                   id="id_duration"
+                   value="{{ form.duration.value|default:'' }}"
+                   class="w-full border {% if form.duration.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            {% if form.duration.errors %}<p class="mt-1 text-sm text-danger">{{ form.duration.errors.0 }}</p>{% endif %}
+        </div>
+        {% for field, current_value in session_fields %}
+            <div>
+                {% if field.field_type != "checkbox" %}
+                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                           for="id_sf_{{ field.slug }}">{{ field.name }}</label>
+                {% endif %}
+                {% if field.field_type == "select" and field.is_multiple %}
+                    <div class="space-y-1">
+                        {% for option in field.options %}
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox"
+                                       name="session_field_{{ field.slug }}"
+                                       value="{{ option.value }}"
+                                       {% if current_value and option.value in current_value %}checked{% endif %}
+                                       class="rounded border-border">
+                                {{ option.label }}
+                            </label>
+                        {% endfor %}
+                    </div>
+                {% elif field.field_type == "select" %}
+                    <select name="session_field_{{ field.slug }}"
+                            id="id_sf_{{ field.slug }}"
+                            class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">—</option>
+                        {% for option in field.options %}
+                            <option value="{{ option.value }}"
+                                    {% if current_value == option.value %}selected{% endif %}>
+                                {{ option.label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                {% elif field.field_type == "checkbox" %}
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox"
+                               name="session_field_{{ field.slug }}"
+                               value="true"
+                               {% if current_value %}checked{% endif %}
+                               class="rounded border-border">
+                        {{ field.name }}
+                    </label>
+                {% else %}
+                    <input type="text"
+                           name="session_field_{{ field.slug }}"
+                           id="id_sf_{{ field.slug }}"
+                           value="{{ current_value|default:'' }}"
+                           {% if field.max_length %}maxlength="{{ field.max_length }}"{% endif %}
+                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                {% endif %}
+                {% if field.help_text %}<p class="mt-1 text-xs text-foreground-muted">{{ field.help_text }}</p>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="flex items-center justify-end gap-3 mt-6">
+        <button type="button"
+                class="btn btn-secondary text-sm"
+                data-edit-cancel="{{ session.pk }}">{% translate "Cancel" %}</button>
+        <button type="submit"
+                class="btn text-sm {% if saved %}bg-(--theme-success) text-white{% else %}btn-primary{% endif %}"
+                data-edit-save="{{ session.pk }}"
+                data-save-label="{% translate "Save changes" %}">
+            {% if saved %}
+                {% icon "check" class="w-4 h-4" variant="mini" %} {% translate "Saved" %}
+            {% else %}
+                {% translate "Save changes" %}
+            {% endif %}
+        </button>
+    </div>
+</form>

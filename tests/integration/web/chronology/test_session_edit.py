@@ -2,7 +2,6 @@ from http import HTTPStatus
 from unittest.mock import ANY
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Session
@@ -12,6 +11,8 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
+
+FRAGMENT = "chronology/parts/session-edit-form.html"
 
 
 @pytest.fixture(name="owned_session")
@@ -35,23 +36,22 @@ def _url(event, session):
     )
 
 
-class TestSessionEditPageViewGet:
-    def test_owner_gets_form(self, authenticated_client, event, owned_session):
-        response = authenticated_client.get(_url(event, owned_session))
+class TestSessionEditViewGet:
+    def test_owner_gets_form_fragment(self, authenticated_client, event, owned_session):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/session/edit.html",
+            template_name=FRAGMENT,
             context_data={
-                "event": ANY,
                 "session": ANY,
                 "form": ANY,
                 "session_fields": [],
-                "facilitators": [],
-                "cancel_url": (
-                    f"/chronology/event/{event.slug}/?session={owned_session.pk}"
-                ),
+                "post_url": url,
+                "saved": False,
             },
         )
 
@@ -100,34 +100,59 @@ class TestSessionEditPageViewGet:
         sphere.save()
         event.allow_facilitator_session_edit = True
         event.save()
+        url = _url(event, owned_session)
 
-        response = authenticated_client.get(_url(event, owned_session))
+        response = authenticated_client.get(url)
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/session/edit.html",
+            template_name=FRAGMENT,
             context_data={
-                "event": ANY,
                 "session": ANY,
                 "form": ANY,
                 "session_fields": [],
-                "facilitators": [],
-                "cancel_url": (
-                    f"/chronology/event/{event.slug}/?session={owned_session.pk}"
-                ),
+                "post_url": url,
+                "saved": False,
             },
         )
 
 
-class TestSessionEditPageViewPost:
+class TestSessionEditViewPost:
     @staticmethod
     def _data(**overrides):
         data = {"title": "Updated title", "display_name": "Updated name"}
         data.update(overrides)
         return data
 
-    def test_owner_updates_session(self, authenticated_client, event, owned_session):
+    def test_htmx_post_saves_and_returns_saved_fragment(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url, data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": ANY,
+                "form": ANY,
+                "session_fields": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.title == "Updated title"
+        assert owned_session.display_name == "Updated name"
+
+    def test_non_htmx_post_saves_and_redirects(
+        self, authenticated_client, event, owned_session
+    ):
         response = authenticated_client.post(
             _url(event, owned_session), data=self._data()
         )
@@ -135,12 +160,37 @@ class TestSessionEditPageViewPost:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session updated successfully.")],
             url=f"/chronology/event/{event.slug}/?session={owned_session.pk}",
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
-        assert owned_session.display_name == "Updated name"
+
+    def test_invalid_post_returns_fragment_without_saving(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+        original = owned_session.title
+
+        response = authenticated_client.post(
+            url,
+            data={"title": "", "display_name": "Name"},
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": ANY,
+                "form": ANY,
+                "session_fields": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.title == original
 
     def test_non_owner_404_no_write(self, authenticated_client, event, sphere):
         category = ProposalCategoryFactory(event=event)
@@ -153,7 +203,9 @@ class TestSessionEditPageViewPost:
             status="scheduled",
         )
 
-        response = authenticated_client.post(_url(event, session), data=self._data())
+        response = authenticated_client.post(
+            _url(event, session), data=self._data(), headers={"hx-request": "true"}
+        )
 
         assert_response_404(response)
         assert Session.objects.get(pk=session.pk).title == "Original"
@@ -164,7 +216,9 @@ class TestSessionEditPageViewPost:
         original = owned_session.title
 
         response = authenticated_client.post(
-            _url(event, owned_session), data=self._data()
+            _url(event, owned_session),
+            data=self._data(),
+            headers={"hx-request": "true"},
         )
 
         assert_response_404(response)

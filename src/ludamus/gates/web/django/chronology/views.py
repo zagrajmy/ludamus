@@ -814,30 +814,20 @@ def _collect_session_field_values(
     return entries
 
 
-class SessionEditPageView(LoginRequiredMixin, View):
-    """Facilitator self-service editing of their own session from the modal."""
+class SessionEditView(LoginRequiredMixin, View):
+    """Facilitator self-service editing of their own session, inline in the modal.
+
+    Both GET (edit form) and POST (save) return the form fragment swapped into
+    the open session dialog via HTMX. A non-HTMX POST falls back to a full-page
+    redirect to the event so the feature degrades gracefully.
+    """
 
     request: SessionEditRequest
-
-    @staticmethod
-    def _back_url(event_slug: str, session_id: int) -> str:
-        return (
-            reverse("web:chronology:event", kwargs={"slug": event_slug})
-            + f"?session={session_id}"
-        )
 
     def get(
         self, _request: HttpRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
-        user_id = self.request.context.current_user_id
-        service = self.request.services.session_self_edit
-        try:
-            ctx = service.get_edit_context(session_id, user_id)
-        except SessionEditNotAllowedError as exc:
-            raise Http404 from exc
-        if ctx.event.slug != event_slug:
-            raise Http404
-
+        ctx = self._context(event_slug, session_id)
         form = SessionEditForm(
             initial={
                 "title": ctx.session.title,
@@ -851,34 +841,44 @@ class SessionEditPageView(LoginRequiredMixin, View):
                 "duration": ctx.session.duration,
             }
         )
-        return self._render(event_slug, session_id, ctx, form)
+        return self._render(event_slug, session_id, ctx, form, saved=False)
 
     def post(
         self, _request: HttpRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
-        user_id = self.request.context.current_user_id
-        service = self.request.services.session_self_edit
-        try:
-            ctx = service.get_edit_context(session_id, user_id)
-        except SessionEditNotAllowedError as exc:
-            raise Http404 from exc
-        if ctx.event.slug != event_slug:
-            raise Http404
-
+        ctx = self._context(event_slug, session_id)
         form = SessionEditForm(self.request.POST)
         if not form.is_valid():
-            return self._render(event_slug, session_id, ctx, form)
+            return self._render(event_slug, session_id, ctx, form, saved=False)
 
         field_values = _collect_session_field_values(
             self.request, session_id, ctx.session_fields
         )
         try:
-            service.update(session_id, user_id, form.cleaned_data, field_values)
+            self.request.services.session_self_edit.update(
+                session_id,
+                self.request.context.current_user_id,
+                form.cleaned_data,
+                field_values,
+            )
         except SessionEditNotAllowedError as exc:
             raise Http404 from exc
 
-        messages.success(self.request, _("Session updated successfully."))
-        return redirect(self._back_url(event_slug, session_id))
+        if not self.request.headers.get("HX-Request"):
+            event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
+            return redirect(f"{event_url}?session={session_id}")
+        return self._render(event_slug, session_id, ctx, form, saved=True)
+
+    def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
+        try:
+            ctx = self.request.services.session_self_edit.get_edit_context(
+                session_id, self.request.context.current_user_id
+            )
+        except SessionEditNotAllowedError as exc:
+            raise Http404 from exc
+        if ctx.event.slug != event_slug:
+            raise Http404
+        return ctx
 
     def _render(
         self,
@@ -886,16 +886,21 @@ class SessionEditPageView(LoginRequiredMixin, View):
         session_id: int,
         ctx: SessionSelfEditContext,
         form: SessionEditForm,
+        *,
+        saved: bool,
     ) -> HttpResponse:
+        post_url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": event_slug, "session_id": session_id},
+        )
         return TemplateResponse(
             self.request,
-            "chronology/session/edit.html",
+            "chronology/parts/session-edit-form.html",
             {
-                "event": ctx.event,
                 "session": ctx.session,
                 "form": form,
                 "session_fields": ctx.session_fields,
-                "facilitators": ctx.facilitators,
-                "cancel_url": self._back_url(event_slug, session_id),
+                "post_url": post_url,
+                "saved": saved,
             },
         )
