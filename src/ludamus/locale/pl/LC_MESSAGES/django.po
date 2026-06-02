@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-02 10:23+0200\n"
+"POT-Creation-Date: 2026-06-02 18:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2574,6 +2574,10 @@ msgstr "Zaloguj się aby się zapisać"
 #: src/ludamus/templates/chronology/event.html
 msgid "Back to Events"
 msgstr "Powrót do wydarzeń"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Could not open the editor. Please try again."
+msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
 
 #: src/ludamus/templates/chronology/panel/integrations/_check_result.html
 msgid "Check passed."

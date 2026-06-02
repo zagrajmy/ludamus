@@ -66,6 +66,19 @@ class TestEventSettingsPageViewGet:
             },
         )
 
+    def test_inherit_label_reflects_sphere_default_disallowed(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        sphere.allow_facilitator_session_edit = False
+        sphere.save()
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
+        assert "disallowed" in dict(edit_field.choices)[""]
+
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
     ):

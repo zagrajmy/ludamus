@@ -4,9 +4,15 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Session, SessionField, SessionFieldValue
+from ludamus.adapters.db.django.models import (
+    Session,
+    SessionField,
+    SessionFieldOption,
+    SessionFieldValue,
+)
 from ludamus.pacts import SessionDTO
 from tests.integration.conftest import (
+    EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     UserFactory,
@@ -86,6 +92,19 @@ class TestSessionEditViewGet:
         event.save()
 
         response = authenticated_client.get(_url(event, owned_session))
+
+        assert_response_404(response)
+
+    def test_wrong_event_slug_404(
+        self, authenticated_client, sphere, owned_session, faker
+    ):
+        other_event = EventFactory(sphere=sphere, slug=faker.slug())
+        url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": other_event.slug, "session_id": owned_session.pk},
+        )
+
+        response = authenticated_client.get(url)
 
         assert_response_404(response)
 
@@ -179,7 +198,7 @@ class TestSessionEditViewPost:
 
         response = authenticated_client.post(
             url,
-            data={"title": "", "display_name": "Name"},
+            data={"title": "", "display_name": "Name", "participants_limit": "-1"},
             headers={"hx-request": "true"},
         )
 
@@ -255,3 +274,97 @@ class TestSessionEditViewPost:
         values = SessionFieldValue.objects.filter(session=owned_session, field=field)
         assert values.count() == 1
         assert values.get().value == "Pathfinder"
+
+    def _make_fields(self, event):
+        genres = SessionField.objects.create(
+            event=event,
+            name="Genres",
+            question="Which genres?",
+            slug="genres",
+            field_type="select",
+            is_multiple=True,
+            order=0,
+        )
+        SessionFieldOption.objects.create(
+            field=genres, label="Horror", value="horror", order=0
+        )
+        SessionFieldOption.objects.create(
+            field=genres, label="Comedy", value="comedy", order=1
+        )
+        system = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="select",
+            allow_custom=True,
+            order=1,
+        )
+        SessionFieldOption.objects.create(
+            field=system, label="D&D", value="dnd", order=0
+        )
+        adult = SessionField.objects.create(
+            event=event,
+            name="18+",
+            question="Adult?",
+            slug="adult",
+            field_type="checkbox",
+            order=2,
+        )
+        notes = SessionField.objects.create(
+            event=event,
+            name="Notes",
+            question="Notes?",
+            slug="notes",
+            field_type="text",
+            allow_custom=True,
+            max_length=99,
+            order=3,
+        )
+        return genres, system, adult, notes
+
+    def test_get_renders_every_field_type(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, system, adult, notes = self._make_fields(event)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=genres, value=["horror"]
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=system, value="dnd"
+        )
+        SessionFieldValue.objects.create(session=owned_session, field=adult, value=True)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=notes, value="hello"
+        )
+
+        response = authenticated_client.get(_url(event, owned_session))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'name="session_field_genres"' in content
+        assert 'name="session_field_system_custom"' in content
+        assert 'name="session_field_adult"' in content
+
+    def test_htmx_post_saves_every_field_type(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, system, adult, notes = self._make_fields(event)
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(
+                session_field_genres=["horror", "comedy"],
+                session_field_system="",
+                session_field_system_custom="Pathfinder",
+                session_field_adult="true",
+                session_field_notes="Some notes",
+            ),
+            headers={"hx-request": "true"},
+        )
+
+        get = SessionFieldValue.objects.get
+        assert get(session=owned_session, field=genres).value == ["horror", "comedy"]
+        assert get(session=owned_session, field=system).value == "Pathfinder"
+        assert get(session=owned_session, field=adult).value is True
+        assert get(session=owned_session, field=notes).value == "Some notes"

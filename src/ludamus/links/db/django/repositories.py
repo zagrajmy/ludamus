@@ -445,17 +445,16 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
     @staticmethod
     def save_field_values(session_id: int, values: list[SessionFieldValueData]) -> None:
-        field_ids = [v["field_id"] for v in values]
-        SessionFieldValue.objects.filter(
-            session_id=session_id, field_id__in=field_ids
-        ).delete()
         SessionFieldValue.objects.bulk_create(
             [
                 SessionFieldValue(
                     session_id=session_id, field_id=v["field_id"], value=v["value"]
                 )
                 for v in values
-            ]
+            ],
+            update_conflicts=True,
+            unique_fields=["session", "field"],
+            update_fields=["value"],
         )
 
     @staticmethod

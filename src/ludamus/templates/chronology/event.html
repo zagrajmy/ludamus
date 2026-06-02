@@ -996,39 +996,61 @@
             });
         });
 
-        // In-place session editing: toggle the tabbed body <-> inline edit form.
+        // In-place session editing: optimistic switch to the edit form on click,
+        // rolled back with a message if loading the form fails.
+        function setSessionEditMode(dialog, editing) {
+            if (!dialog) return;
+            const tabs = dialog.querySelector('[data-session-tabs]');
+            const editform = dialog.querySelector('[id$="-editform"]');
+            const footer = dialog.querySelector('[data-session-footer]');
+            if (tabs) tabs.hidden = editing;
+            if (footer) footer.hidden = editing;
+            if (editform) {
+                editform.hidden = !editing;
+                if (!editing) editform.innerHTML = '';
+            }
+            if (editing) {
+                const err = dialog.querySelector('[data-edit-error]');
+                if (err) err.remove();
+            }
+        }
+
+        function showSessionEditError(dialog) {
+            const tabs = dialog && dialog.querySelector('[data-session-tabs]');
+            if (!tabs || dialog.querySelector('[data-edit-error]')) return;
+            const alert = document.createElement('div');
+            alert.setAttribute('data-edit-error', '');
+            alert.setAttribute('role', 'alert');
+            alert.className = 'mx-6 mt-4 alert alert-danger text-sm shrink-0';
+            alert.textContent = '{% translate "Could not open the editor. Please try again." %}';
+            tabs.parentNode.insertBefore(alert, tabs);
+            setTimeout(function() {
+                if (alert) alert.remove();
+            }, 6000);
+        }
+
         document.addEventListener('click', function(e) {
             const openBtn = e.target.closest('[data-edit-open]');
             if (openBtn) {
-                const dialog = openBtn.closest('dialog');
-                const pk = openBtn.dataset.editOpen;
-                const tabs = dialog && dialog.querySelector('[data-session-tabs="' + pk + '"]');
-                const editform = dialog && dialog.querySelector('#session-' + pk + '-editform');
-                const footer = dialog && dialog.querySelector('[data-session-footer="' + pk + '"]');
-                if (tabs) tabs.hidden = true;
-                if (footer) footer.hidden = true;
-                if (editform) editform.hidden = false;
+                setSessionEditMode(openBtn.closest('dialog'), true);
                 return;
             }
             const cancelBtn = e.target.closest('[data-edit-cancel]');
-            if (cancelBtn) {
-                const dialog = cancelBtn.closest('dialog');
-                const pk = cancelBtn.dataset.editCancel;
-                const tabs = dialog && dialog.querySelector('[data-session-tabs="' + pk + '"]');
-                const editform = dialog && dialog.querySelector('#session-' + pk + '-editform');
-                const footer = dialog && dialog.querySelector('[data-session-footer="' + pk + '"]');
-                if (editform) {
-                    editform.hidden = true;
-                    editform.innerHTML = '';
-                }
-                if (tabs) tabs.hidden = false;
-                if (footer) footer.hidden = false;
-            }
+            if (cancelBtn) setSessionEditMode(cancelBtn.closest('dialog'), false);
         });
 
-        // When the edit form swaps in: focus the title on first load; once a save
-        // succeeds, reset the "Saved" button back to its label as soon as the
-        // facilitator edits again, so the confirmation stays honest.
+        function rollbackSessionEdit(e) {
+            const elt = e.detail && e.detail.elt;
+            if (!elt || !elt.matches || !elt.matches('[data-edit-open]')) return;
+            const dialog = elt.closest('dialog');
+            setSessionEditMode(dialog, false);
+            showSessionEditError(dialog);
+        }
+        document.body.addEventListener('htmx:responseError', rollbackSessionEdit);
+        document.body.addEventListener('htmx:sendError', rollbackSessionEdit);
+
+        // After the form loads: focus the title; reset the "Saved" button as soon
+        // as the facilitator edits again so the confirmation stays honest.
         document.body.addEventListener('htmx:afterSwap', function(e) {
             const root = e.target;
             if (!root || !root.querySelectorAll) return;
@@ -1058,15 +1080,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('dialog[id^="session-"]').forEach(function(dialog) {
                 dialog.addEventListener('close', function() {
-                    const editform = dialog.querySelector('[id$="-editform"]');
-                    const tabs = dialog.querySelector('[data-session-tabs]');
-                    const footer = dialog.querySelector('[data-session-footer]');
-                    if (editform) {
-                        editform.hidden = true;
-                        editform.innerHTML = '';
-                    }
-                    if (tabs) tabs.hidden = false;
-                    if (footer) footer.hidden = false;
+                    setSessionEditMode(dialog, false);
                 });
             });
         });
