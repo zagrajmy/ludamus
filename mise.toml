@@ -246,6 +246,7 @@ dir = "tests/e2e"
 [tasks."e2e:prep"]
 description = "Migrate, seed fixtures, and build client for e2e tests"
 run = """
+poetry install
 aube install
 mise run _e2e -- django-admin migrate --noinput
 mise run _e2e -- django-admin createcachetable
