@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.legacy import EventDTO, SphereDTO
 
 
 class DuplicateConnectionDisplayNameError(Exception):
@@ -70,3 +70,7 @@ class ConnectionsServiceProtocol(Protocol):
 class SpherePanelServiceProtocol(Protocol):
     def is_manager(self, sphere_id: int, user_slug: str) -> bool: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
+    def read(self, sphere_id: int) -> SphereDTO: ...
+    def update_settings(
+        self, sphere_id: int, *, allow_facilitator_session_edit: bool
+    ) -> None: ...

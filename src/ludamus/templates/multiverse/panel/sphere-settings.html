@@ -39,5 +39,29 @@
                 </div>
             </dl>
         </div>
+        <form method="post"
+              action="{% url 'multiverse:panel:sphere-settings' %}"
+              class="card overflow-hidden max-w-2xl mt-6">
+            {% csrf_token %}
+            <div class="card-body">
+                <label class="flex items-start gap-3 text-sm">
+                    <input type="checkbox"
+                           name="allow_facilitator_session_edit"
+                           value="on"
+                           {% if form.allow_facilitator_session_edit.value %}checked{% endif %}
+                           class="mt-0.5 rounded border-border">
+                    <span>
+                        <span class="font-medium text-foreground">{{ form.allow_facilitator_session_edit.label }}</span>
+                        <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
+                    </span>
+                </label>
+                <div class="mt-6">
+                    <button type="submit" class="btn btn-primary">
+                        {% icon "check" class="w-4 h-4 mr-2" %}
+                        {% translate "Save Settings" %}
+                    </button>
+                </div>
+            </div>
+        </form>
     </div>
 {% endblock content %}

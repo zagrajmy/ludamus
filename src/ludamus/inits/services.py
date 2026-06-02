@@ -12,6 +12,7 @@ from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.mills.chronology import (
     CFPPersonalDataFieldService,
     EventIntegrationsService,
+    SessionSelfEditService,
 )
 from ludamus.mills.multiverse import ConnectionsService, SpherePanelService
 from ludamus.pacts.chronology import IntegrationImplementationId
@@ -48,6 +49,15 @@ class Services:
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
         return SpherePanelService(self._repos.spheres, self._repos.events)
+
+    @cached_property
+    def session_self_edit(self) -> SessionSelfEditService:
+        return SessionSelfEditService(
+            self._transaction,
+            self._repos.sessions,
+            self._repos.session_fields,
+            self._repos.spheres,
+        )
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-24 14:31+0200\n"
+"POT-Creation-Date: 2026-06-01 21:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -606,7 +606,6 @@ msgstr "Wybierz przestrzeń..."
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/anonymous_manage.html
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Space"
 msgstr "Przestrzeń"
@@ -751,22 +750,27 @@ msgid "time conflict"
 msgstr "konflikt czasowy"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -787,6 +791,7 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -895,6 +900,7 @@ msgstr "0 = bez limitu"
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/proposals.html
@@ -908,6 +914,7 @@ msgstr "Tytuł"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/area-create.html
 #: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/area-edit.html
@@ -940,6 +947,7 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
@@ -1022,6 +1030,29 @@ msgstr "Nie można usunąć typu punktu programu z istniejącymi zgłoszeniami."
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
 msgid "Session type deleted successfully."
 msgstr "Typ punktu programu został usunięty."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "allowed"
+msgstr "dozwolone"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "disallowed"
+msgstr "niedozwolone"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#, python-brace-format
+msgid "Use sphere default (currently: {})"
+msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Allow"
+msgstr "Pozwól"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Disallow"
+msgstr "Nie pozwól"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "An event with this slug already exists."
@@ -1294,8 +1325,13 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
+#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "Session updated successfully."
+msgstr "Punkt programu został zaktualizowany."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Event name is too long (max 255 characters)."
@@ -1316,6 +1352,22 @@ msgstr "Czas rozpoczęcia jest wymagany."
 #: src/ludamus/gates/web/django/forms.py
 msgid "End time is required."
 msgstr "Czas zakończenia jest wymagany."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Use sphere default"
+msgstr "Użyj domyślnego ustawienia sfery"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Facilitators editing their own sessions"
+msgstr "Edycja własnych punktów programu przez twórców programu"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Allow facilitators to edit their own sessions"
+msgstr "Pozwól twórcom programu edytować własne punkty programu"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Default for the whole sphere. Events can override this setting."
+msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
@@ -1542,6 +1594,10 @@ msgstr "Połączenie zostało zaktualizowane."
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "Connection deleted successfully."
 msgstr "Połączenie zostało usunięte."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/sphere_settings.py
+msgid "Sphere settings saved successfully."
+msgstr "Ustawienia sfery zostały zapisane."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "Image too large. Maximum size is 2 MB."
@@ -1798,7 +1854,6 @@ msgstr "Wybierz przestrzeń i przedział czasowy dla"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/anonymous_manage.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 msgid "Host"
@@ -1806,6 +1861,7 @@ msgstr "Prowadzący"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -1815,6 +1871,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Contact Email"
@@ -1831,6 +1888,7 @@ msgstr "Pola punktu programu"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -1900,7 +1958,6 @@ msgid "Participants"
 msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/anonymous_manage.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
@@ -1911,6 +1968,7 @@ msgstr "Czas"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -1982,101 +2040,6 @@ msgstr "Twój kod"
 msgid "Save this code to access your enrollments later"
 msgstr "Zachowaj ten kod, aby później mieć dostęp do swoich zapisów"
 
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Manage Anonymous Enrollment"
-msgstr "Zarządzaj Anonimowym Zapisem"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Enter your code to view and manage your enrollments"
-msgstr "Wprowadź swój kod, aby zobaczyć i zarządzać swoimi zapisami"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Enter Your Code"
-msgstr "Wprowadź Swój Kod"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Anonymous Enrollment Code"
-msgstr "Kod Anonimowego Zapisu"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Enter your code"
-msgstr "Wprowadź swój kod"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Enter the code you received when you enrolled (e.g., ab3x)"
-msgstr "Wprowadź kod, który otrzymałeś podczas zapisu (np. ab3x)"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Find My Enrollments"
-msgstr "Znajdź Moje Zapisy"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Code found!"
-msgstr "Kod znaleziony!"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Showing enrollments for"
-msgstr "Pokazuję zapisy dla"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Code"
-msgstr "Kod"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Your Enrollments"
-msgstr "Twoje Zapisy"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Enrolled"
-msgstr "Zapisany"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "Waiting"
-msgstr "Oczekuję"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/venue-copy.html
-msgid "Event"
-msgstr "Wydarzenie"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "You don't have any enrollments yet."
-msgstr "Nie masz jeszcze żadnych zapisów."
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-#: src/ludamus/templates/multiverse/panel/connections/list.html
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/tracks.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues.html
-msgid "Actions"
-msgstr "Akcje"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid "View Event"
-msgstr "Zobacz wydarzenie"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Enter Different Code"
-msgstr "Wprowadź Inny Kod"
-
-#: src/ludamus/templates/chronology/anonymous_manage.html
-msgid ""
-"Lost your code? Unfortunately, we cannot recover it. You'll need to create a "
-"new enrollment."
-msgstr ""
-"Zgubiłeś swój kod? Niestety, nie możemy go odzyskać. Musisz utworzyć nowy "
-"zapis."
-
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Select who to enroll in"
 msgstr "Wybierz kogo zapisać na"
@@ -2107,6 +2070,7 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/chronology/panel/integrations/create.html
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
 #: src/ludamus/templates/chronology/panel/integrations/edit.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/components/confirm-dialog.html
 #: src/ludamus/templates/crowd/user/connected.html
 #: src/ludamus/templates/multiverse/panel/connections/create.html
@@ -2335,6 +2299,10 @@ msgid "Anonymous Mode Active"
 msgstr "Tryb Anonimowy Aktywny"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Enter Different Code"
+msgstr "Wprowadź Inny Kod"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Finish"
 msgstr "Zakończ"
 
@@ -2345,6 +2313,10 @@ msgstr "Zamknij"
 #: src/ludamus/templates/chronology/event.html
 msgid "Anonymous Code"
 msgstr "Kod Anonimowy"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Enter your code"
+msgstr "Wprowadź swój kod"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "This will replace your current anonymous session"
@@ -2568,6 +2540,10 @@ msgid "Connected Users"
 msgstr "Powiązani użytkownicy"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Enrolled"
+msgstr "Zapisany"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Waiting List"
 msgstr "Lista oczekujących"
 
@@ -2586,6 +2562,11 @@ msgstr "Nikt nie czeka na liście oczekujących."
 #: src/ludamus/templates/chronology/event.html
 msgid "No participants enrolled yet."
 msgstr "Brak zapisanych uczestników."
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/session/edit.html
+msgid "Edit session"
+msgstr "Edytuj punkt programu"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Enroll Anonymously"
@@ -2679,6 +2660,7 @@ msgid "Edit integration"
 msgstr "Edytuj integrację"
 
 #: src/ludamus/templates/chronology/panel/integrations/edit.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/crowd/user/avatar.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
 #: src/ludamus/templates/panel/area-edit.html
@@ -2764,6 +2746,7 @@ msgid "Continue"
 msgstr "Dalej"
 
 #: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Session Details"
@@ -2795,6 +2778,7 @@ msgstr "(wymagane)"
 
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/chronology/session/edit.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Or type a custom value"
@@ -2864,6 +2848,35 @@ msgid "No time slot selection needed. Proceeding to next step."
 msgstr ""
 "Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego kroku."
 
+#: src/ludamus/templates/chronology/session/edit.html
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Display Name"
+msgstr "Nazwa wyświetlana"
+
+#: src/ludamus/templates/chronology/session/edit.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Needs"
+msgstr "Potrzeby"
+
+#: src/ludamus/templates/chronology/session/edit.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Session Fields"
+msgstr "Pola punktu programu"
+
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
@@ -2877,7 +2890,6 @@ msgid "You organize"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/components/encounter_card.html
-#: src/ludamus/templates/notice_board/_organizer_summary.html
 #: src/ludamus/templates/notice_board/detail.html
 msgid "attending"
 msgstr "uczestników"
@@ -3197,6 +3209,12 @@ msgid "There are currently no events scheduled. Please check back later!"
 msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
 
 #: src/ludamus/templates/multiverse/panel/_tabs.html
+#, fuzzy
+#| msgid "Sphere settings"
+msgid "Sphere settings sections"
+msgstr "Ustawienia sfery"
+
+#: src/ludamus/templates/multiverse/panel/_tabs.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/proposal-settings.html
@@ -3252,6 +3270,19 @@ msgid "Import connections for this sphere"
 msgstr "Połączenia importu dla tej sfery"
 
 #: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/panel/area-detail.html
+#: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/tracks.html
+#: src/ludamus/templates/panel/venue-detail.html
+#: src/ludamus/templates/panel/venues.html
+msgid "Actions"
+msgstr "Akcje"
+
+#: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Row actions"
 msgstr "Akcje wiersza"
 
@@ -3266,6 +3297,12 @@ msgstr "Strona domyślna"
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 msgid "Enabled pages"
 msgstr "Włączone strony"
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+#: src/ludamus/templates/panel/proposal-settings.html
+#: src/ludamus/templates/panel/settings.html
+msgid "Save Settings"
+msgstr "Zapisz ustawienia"
 
 #: src/ludamus/templates/notice_board/_calendar_inline.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -3306,10 +3343,6 @@ msgstr "Czy na pewno chcesz usunąć to spotkanie?"
 #: src/ludamus/templates/notice_board/edit.html
 msgid "Delete encounter"
 msgstr "Usuń spotkanie"
-
-#: src/ludamus/templates/notice_board/_organizer_summary.html
-msgid "spots taken"
-msgstr "miejsc zajętych"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Join"
@@ -3592,6 +3625,13 @@ msgstr ""
 "Czy na pewno chcesz usunąć tę przestrzeń? Tej operacji nie można cofnąć."
 
 #: src/ludamus/templates/panel/area-detail.html
+#: src/ludamus/templates/panel/venue-detail.html
+#: src/ludamus/templates/panel/venues.html
+#, python-format
+msgid "More actions for %(name)s"
+msgstr ""
+
+#: src/ludamus/templates/panel/area-detail.html
 msgid "No spaces yet. Create a space to define bookable rooms in this area."
 msgstr ""
 "Brak przestrzeni. Utwórz przestrzeń, aby zdefiniować sale do rezerwacji w "
@@ -3635,6 +3675,12 @@ msgid "Delete Area"
 msgstr "Usuń strefę"
 
 #: src/ludamus/templates/panel/base.html
+#, fuzzy
+#| msgid "Open navigation"
+msgid "Close navigation"
+msgstr "Otwórz nawigację"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Backoffice"
 msgstr "Panel organizatora"
 
@@ -3643,7 +3689,11 @@ msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
 #: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/venue-copy.html
+msgid "Event"
+msgstr "Wydarzenie"
+
+#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
 msgstr "Pulpit"
 
@@ -3693,14 +3743,6 @@ msgstr "Ustawienia wydarzenia"
 #: src/ludamus/templates/panel/base.html
 msgid "Sphere"
 msgstr "Sfera"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Back to website"
-msgstr "Wróć do strony"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Organizer"
-msgstr "Organizator"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Open navigation"
@@ -3857,16 +3899,6 @@ msgid "Configure host data fields"
 msgstr "Skonfiguruj pola danych twórcy"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Session Fields"
-msgstr "Pola punktu programu"
-
-#: src/ludamus/templates/panel/cfp-edit.html
 msgid "Select which session fields hosts must provide."
 msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
@@ -3993,15 +4025,6 @@ msgstr "Utwórz twórcę programu"
 #: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Facilitator Details"
 msgstr "Szczegóły twórcy programu"
-
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Display Name"
-msgstr "Nazwa wyświetlana"
 
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
@@ -4250,13 +4273,6 @@ msgstr "Brak twórcy programu"
 #, python-format
 msgid "%(age)s+"
 msgstr "%(age)s+"
-
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Needs"
-msgstr "Potrzeby"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Assignment"
@@ -4559,11 +4575,6 @@ msgid "Cancel Changes"
 msgstr "Anuluj zmiany"
 
 #: src/ludamus/templates/panel/proposal-settings.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Save Settings"
-msgstr "Zapisz ustawienia"
-
-#: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Description"
 msgstr "Opis zgłoszenia"
 
@@ -4728,6 +4739,10 @@ msgid ""
 msgstr ""
 "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
 "widoczne natychmiast."
+
+#: src/ludamus/templates/panel/settings.html
+msgid "Facilitator permissions"
+msgstr "Uprawnienia twórców programu"
 
 #: src/ludamus/templates/panel/space-create.html
 #: src/ludamus/templates/panel/space-edit.html
@@ -5047,6 +5062,12 @@ msgid "Save Changes"
 msgstr "Zapisz zmiany"
 
 #: src/ludamus/templates/panel/tracks.html
+#, fuzzy
+#| msgid "What are areas?"
+msgid "What are tracks?"
+msgstr "Czym są strefy?"
+
+#: src/ludamus/templates/panel/tracks.html
 msgid ""
 "Tracks let you group proposals by thematic area. Public tracks are shown to "
 "proposers in the submission wizard; private tracks are for internal "
@@ -5246,10 +5267,6 @@ msgid "Create First Venue"
 msgstr "Utwórz pierwszą lokalizację"
 
 #: src/ludamus/templates/panel/venues.html
-msgid "Physical Locations"
-msgstr "Fizyczne lokalizacje"
-
-#: src/ludamus/templates/panel/venues.html
 msgid "What are venues?"
 msgstr "Czym są lokalizacje?"
 
@@ -5265,6 +5282,10 @@ msgstr ""
 "przestrzenie (pojedyncze sale)."
 
 #: src/ludamus/templates/panel/venues.html
+msgid "Physical Locations"
+msgstr "Fizyczne lokalizacje"
+
+#: src/ludamus/templates/panel/venues.html
 msgid "Duplicate"
 msgstr "Duplikuj"
 
@@ -5275,3 +5296,58 @@ msgstr "Kopiuj"
 #: src/ludamus/templates/panel/venues.html
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
+
+#~ msgid "Manage Anonymous Enrollment"
+#~ msgstr "Zarządzaj Anonimowym Zapisem"
+
+#~ msgid "Enter your code to view and manage your enrollments"
+#~ msgstr "Wprowadź swój kod, aby zobaczyć i zarządzać swoimi zapisami"
+
+#~ msgid "Enter Your Code"
+#~ msgstr "Wprowadź Swój Kod"
+
+#~ msgid "Anonymous Enrollment Code"
+#~ msgstr "Kod Anonimowego Zapisu"
+
+#~ msgid "Enter the code you received when you enrolled (e.g., ab3x)"
+#~ msgstr "Wprowadź kod, który otrzymałeś podczas zapisu (np. ab3x)"
+
+#~ msgid "Find My Enrollments"
+#~ msgstr "Znajdź Moje Zapisy"
+
+#~ msgid "Code found!"
+#~ msgstr "Kod znaleziony!"
+
+#~ msgid "Showing enrollments for"
+#~ msgstr "Pokazuję zapisy dla"
+
+#~ msgid "Code"
+#~ msgstr "Kod"
+
+#~ msgid "Your Enrollments"
+#~ msgstr "Twoje Zapisy"
+
+#~ msgid "Waiting"
+#~ msgstr "Oczekuję"
+
+#~ msgid "You don't have any enrollments yet."
+#~ msgstr "Nie masz jeszcze żadnych zapisów."
+
+#~ msgid "View Event"
+#~ msgstr "Zobacz wydarzenie"
+
+#~ msgid ""
+#~ "Lost your code? Unfortunately, we cannot recover it. You'll need to "
+#~ "create a new enrollment."
+#~ msgstr ""
+#~ "Zgubiłeś swój kod? Niestety, nie możemy go odzyskać. Musisz utworzyć nowy "
+#~ "zapis."
+
+#~ msgid "spots taken"
+#~ msgstr "miejsc zajętych"
+
+#~ msgid "Back to website"
+#~ msgstr "Wróć do strony"
+
+#~ msgid "Organizer"
+#~ msgstr "Organizator"

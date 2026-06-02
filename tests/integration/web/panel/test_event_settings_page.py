@@ -284,3 +284,62 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.slug == new_slug
+
+    def test_sets_facilitator_edit_override_allow(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, allow_facilitator_session_edit="true"),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.allow_facilitator_session_edit is True
+
+    def test_sets_facilitator_edit_override_disallow(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, allow_facilitator_session_edit="false"),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.allow_facilitator_session_edit is False
+
+    def test_sets_facilitator_edit_override_inherit(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.allow_facilitator_session_edit = False
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, allow_facilitator_session_edit=""),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.allow_facilitator_session_edit is None

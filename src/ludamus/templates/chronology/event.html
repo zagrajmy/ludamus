@@ -680,6 +680,25 @@
                     {% icon "x-mark" class="w-5 h-5" variant="mini" %}
                 </button>
             </div>
+            {% if messages and request.GET.session == data.session.pk|stringformat:"s" %}
+                <!-- Flash messages surfaced inside the reopened modal (top layer) -->
+                <div class="px-6 pt-4 space-y-2 shrink-0">
+                    {% for message in messages %}
+                        <div class="alert flex items-center {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'info' %}alert-info{% else %}alert-default{% endif %}"
+                             {% if message.tags == 'error' or message.tags == 'warning' %}role="alert"{% else %}role="status"{% endif %}
+                             aria-live="{% if message.tags == 'error' or message.tags == 'warning' %}assertive{% else %}polite{% endif %}">
+                            {% if message.tags == 'success' %}
+                                {% icon "check-circle" class="w-5 h-5 mr-3" %}
+                            {% elif message.tags == 'error' or message.tags == 'warning' %}
+                                {% icon "exclamation-triangle" class="w-5 h-5 mr-3" %}
+                            {% else %}
+                                {% icon "information-circle" class="w-5 h-5 mr-3" %}
+                            {% endif %}
+                            <span class="text-sm">{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
             <!-- Tabs -->
             <div class="tab-list shrink-0" role="tablist">
                 <button role="tab"
@@ -887,41 +906,53 @@
                     {% endif %}
                 </div>
             </div>
-            {% if data.is_enrollment_available %}
+            {% if data.is_enrollment_available or data.can_edit %}
                 <!-- Footer -->
-                <div class="px-6 py-4 flex justify-end gap-2 border-t border-border shrink-0">
-                    {% if current_user %}
-                        {% if data.user_enrolled or data.user_waiting %}
-                            <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
-                               class="btn text-sm bg-(--theme-warning) text-white">
-                                {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
+                <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0">
+                    <div>
+                        {% if data.can_edit %}
+                            <a href="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
+                               class="btn btn-secondary text-sm">
+                                {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
                             </a>
-                        {% else %}
-                            {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
-                                <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if data.is_enrollment_available %}
+                            {% if current_user %}
+                                {% if data.user_enrolled or data.user_waiting %}
+                                    <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                                       class="btn text-sm bg-(--theme-warning) text-white">
+                                        {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
+                                    </a>
+                                {% else %}
+                                    {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
+                                        <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                                           class="btn btn-primary text-sm">
+                                            {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            {% elif request.session.anonymous_enrollment_active %}
+                                {% if data.user_enrolled or data.user_waiting %}
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
+                                       class="btn text-sm bg-(--theme-warning) text-white">
+                                        {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
+                                       class="btn btn-primary text-sm">
+                                        {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
+                                    </a>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri }}"
                                    class="btn btn-primary text-sm">
-                                    {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
+                                    {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
                                 </a>
                             {% endif %}
                         {% endif %}
-                    {% elif request.session.anonymous_enrollment_active %}
-                        {% if data.user_enrolled or data.user_waiting %}
-                            <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
-                               class="btn text-sm bg-(--theme-warning) text-white">
-                                {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
-                            </a>
-                        {% else %}
-                            <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
-                               class="btn btn-primary text-sm">
-                                {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
-                            </a>
-                        {% endif %}
-                    {% else %}
-                        <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri }}"
-                           class="btn btn-primary text-sm">
-                            {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
-                        </a>
-                    {% endif %}
+                    </div>
                 </div>
             {% endif %}
         </dialog>

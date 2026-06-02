@@ -70,6 +70,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     session_participations: list[ParticipationInfo]
     loc: LocationData
     has_any_enrollments: bool = False
+    can_edit: bool = False
     user_enrolled: bool = False
     user_waiting: bool = False
     displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)

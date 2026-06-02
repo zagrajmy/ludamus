@@ -53,6 +53,25 @@ class EventSettingsForm(forms.Form):
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
     )
+    allow_facilitator_session_edit = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", _("Allow")),
+            ("false", _("Disallow")),
+        ],
+        label=_("Facilitators editing their own sessions"),
+    )
+
+
+class SphereSettingsForm(forms.Form):
+    """Form for sphere-wide settings."""
+
+    allow_facilitator_session_edit = forms.BooleanField(
+        required=False,
+        label=_("Allow facilitators to edit their own sessions"),
+        help_text=_("Default for the whole sphere. Events can override this setting."),
+    )
 
 
 class ProposalSettingsForm(forms.Form):

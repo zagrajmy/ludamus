@@ -35,7 +35,13 @@ from ludamus.pacts import (
     VenueDTO,
     VirtualEnrollmentConfig,
 )
-from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    UserFactory,
+)
 from tests.integration.utils import assert_response, assert_response_404
 
 
@@ -137,6 +143,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(session.agenda_item),
             effective_participants_limit=10,
             enrolled_count=1,
@@ -859,6 +866,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -933,6 +941,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1011,6 +1020,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1086,6 +1096,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1163,6 +1174,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1236,6 +1248,7 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1321,6 +1334,7 @@ class TestEventPageView:
             allowed_slots=slots,
         )
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1398,6 +1412,7 @@ class TestEventPageView:
             allowed_slots=0,
         )
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1484,6 +1499,7 @@ class TestEventPageView:
             allowed_slots=0,
         )
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1564,6 +1580,7 @@ class TestEventPageView:
             allowed_slots=0,
         )
         session_data = SessionData(
+            can_edit=True,
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
@@ -1956,3 +1973,92 @@ class TestEventPageView:
         response = authenticated_client.get(self._get_url(event.slug))
 
         assert response.status_code == HTTPStatus.OK
+
+
+class TestEventPageEditAffordance:
+    URL_NAME = "web:chronology:event"
+
+    def _get_url(self, slug):
+        return reverse(self.URL_NAME, kwargs={"slug": slug})
+
+    def _scheduled_session(self, event, sphere, presenter):
+        category = ProposalCategoryFactory(event=event)
+        return SessionFactory(
+            category=category,
+            presenter=presenter,
+            display_name=presenter.name,
+            sphere=sphere,
+            participants_limit=10,
+            min_age=0,
+            status="scheduled",
+        )
+
+    def test_owner_sees_edit_affordance(
+        self, authenticated_client, event, sphere, active_user, space
+    ):
+        session = self._scheduled_session(event, sphere, active_user)
+        AgendaItemFactory(session=session, space=space)
+        edit_url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": event.slug, "session_id": session.pk},
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        session_data = next(
+            s for s in response.context["sessions"] if s.session.pk == session.pk
+        )
+        assert session_data.can_edit is True
+        assert edit_url in response.content.decode()
+
+    def test_non_owner_no_edit_affordance(
+        self, authenticated_client, event, sphere, space
+    ):
+        other = UserFactory(username="other", email="other@example.com")
+        session = self._scheduled_session(event, sphere, other)
+        AgendaItemFactory(session=session, space=space)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        session_data = next(
+            s for s in response.context["sessions"] if s.session.pk == session.pk
+        )
+        assert session_data.can_edit is False
+
+    def test_owner_no_affordance_when_opted_out(
+        self, authenticated_client, event, sphere, active_user, space
+    ):
+        event.allow_facilitator_session_edit = False
+        event.save()
+        session = self._scheduled_session(event, sphere, active_user)
+        AgendaItemFactory(session=session, space=space)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        session_data = next(
+            s for s in response.context["sessions"] if s.session.pk == session.pk
+        )
+        assert session_data.can_edit is False
+
+    def test_success_flash_rendered_inside_reopened_modal(
+        self, authenticated_client, event, sphere, active_user, space
+    ):
+        session = self._scheduled_session(event, sphere, active_user)
+        AgendaItemFactory(session=session, space=space)
+        edit_url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": event.slug, "session_id": session.pk},
+        )
+
+        response = authenticated_client.post(
+            edit_url,
+            data={"title": "Updated title", "display_name": active_user.name},
+            follow=True,
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        html = response.content.decode()
+        dialog_start = html.index(f'<dialog id="session-{session.pk}"')
+        dialog_end = html.index("</dialog>", dialog_start)
+        dialog_html = html[dialog_start:dialog_end]
+        assert "Session updated successfully." in dialog_html

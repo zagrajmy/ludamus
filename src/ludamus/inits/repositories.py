@@ -34,3 +34,11 @@ class Repositories:
     @cached_property
     def events(self) -> repositories.EventRepository:
         return repositories.EventRepository()
+
+    @cached_property
+    def sessions(self) -> repositories.SessionRepository:
+        return repositories.SessionRepository()
+
+    @cached_property
+    def session_fields(self) -> repositories.SessionFieldRepository:
+        return repositories.SessionFieldRepository()

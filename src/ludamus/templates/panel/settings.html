@@ -107,6 +107,28 @@
                         </div>
                     </div>
                 </div>
+                <!-- Facilitator self-edit -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator permissions" %}</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                   for="id_allow_facilitator_session_edit">
+                                {{ form.allow_facilitator_session_edit.label }}
+                            </label>
+                            <select name="allow_facilitator_session_edit"
+                                    id="id_allow_facilitator_session_edit"
+                                    class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% for value, label in form.allow_facilitator_session_edit.field.choices %}
+                                    <option value="{{ value }}"
+                                            {% if form.allow_facilitator_session_edit.value == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
