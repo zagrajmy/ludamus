@@ -328,7 +328,9 @@ def main() -> None:
             "Bring dice, meeples, and curiosity!"
         ),
         start_offset=timedelta(days=1),
-        duration_hours=4,
+        # Span two days so the event encloses its day-2 session (below) and the
+        # day/hour filters have more than one day to work with.
+        duration_hours=28,
         publication_offset=timedelta(days=2),
         enrollment_banner="Enrollment is open—grab a slot before we fill up!",
         allow_anonymous=True,
@@ -405,7 +407,8 @@ def main() -> None:
             "wirtualny świat, gdzie jako wybrane postaci zmierzycie się z "
             "okrutnym Bossem Akimurą i jego armią cyberninja."
         ),
-        start_offset=timedelta(hours=3),
+        # Scheduled on the event's second day so the day/hour filters appear.
+        start_offset=timedelta(days=1, hours=1),
         duration_hours=1,
     )
 
