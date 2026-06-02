@@ -1051,13 +1051,24 @@
             });
 
             // Fold diacritics and lowercase so "swiata" matches "Świata".
-            // NFD splits accented letters into base + combining mark, but "ł"
-            // is a distinct letter with no decomposition, so map it explicitly.
+            // NFD splits accented letters into base + combining mark, but some
+            // letters (e.g. "ł", "ø", "ß") have no decomposition, so map those
+            // explicitly before stripping the combining marks.
             const COMBINING_MARKS = new RegExp('[\\u0300-\\u036f]', 'g');
+            const NON_DECOMPOSING_MAP = {
+                ł: 'l',
+                ø: 'o',
+                đ: 'd',
+                ħ: 'h',
+                ı: 'i',
+                œ: 'oe',
+                æ: 'ae',
+                ß: 'ss',
+            };
             function normalizeText(value) {
                 return (value || '')
                     .toLowerCase()
-                    .replace(/ł/g, 'l')
+                    .replace(/[łøđħıœæß]/g, (char) => NON_DECOMPOSING_MAP[char] || char)
                     .normalize('NFD')
                     .replace(COMBINING_MARKS, '');
             }
