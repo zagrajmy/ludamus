@@ -112,6 +112,25 @@ test.describe('Event fuzzy search', () => {
     await expect(card(page, NEON)).toBeHidden();
   });
 
+  test('matches a word that only appears in the description', async ({
+    page,
+  }) => {
+    // "Jumanji" is in the neon session's blurb, not its title or host.
+    await searchBox(page).fill('jumanji');
+
+    await expect(card(page, NEON)).toBeVisible();
+    await expect(card(page, MEGA)).toBeHidden();
+    await expect(card(page, COZY)).toBeHidden();
+  });
+
+  test('combines a title token with a description token', async ({ page }) => {
+    // "neonow" comes from the title, "jumanji" from the description.
+    await searchBox(page).fill('neonow jumanji');
+
+    await expect(card(page, NEON)).toBeVisible();
+    await expect(card(page, MEGA)).toBeHidden();
+  });
+
   test('shows the empty state when nothing matches', async ({ page }) => {
     await searchBox(page).fill('zzzznomatch');
 

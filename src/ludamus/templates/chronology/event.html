@@ -1257,6 +1257,20 @@
                     .replace(COMBINING_MARKS, '');
             }
 
+            // Precompute the searchable haystack (title + host + description)
+            // once per card. The text is static, so there's no need to
+            // re-normalize it on every keystroke; the description is read from
+            // the card's existing paragraph rather than duplicated into the DOM.
+            const cardHaystacks = new Map();
+            sessionCards.forEach(card => {
+                const descEl = card.querySelector('[data-session-description]');
+                const description = descEl ? descEl.textContent : '';
+                cardHaystacks.set(
+                    card,
+                    normalizeText(`${card.dataset.title} ${card.dataset.host} ${description}`)
+                );
+            });
+
             function filterSessions() {
                 const searchTokens = normalizeText(sessionFilter.value)
                     .split(/\s+/)
@@ -1282,12 +1296,11 @@
                     let show = true;
 
                     // Fuzzy text filter: every token must appear somewhere in
-                    // the combined title + host, so "Bestie Świata Jakub"
-                    // matches a "Bestie Świata" session hosted by "Jakub".
+                    // the precomputed title + host + description haystack, so
+                    // "Bestie Świata Jakub" matches a "Bestie Świata" session
+                    // hosted by "Jakub", and a word from the blurb matches too.
                     if (searchTokens.length) {
-                        const haystack = normalizeText(
-                            `${card.dataset.title} ${card.dataset.host}`
-                        );
+                        const haystack = cardHaystacks.get(card);
                         show = show && searchTokens.every(token => haystack.includes(token));
                     }
 

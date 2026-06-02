@@ -42,7 +42,8 @@
                 </div>
             </header>
             {% if data.session.description %}
-                <p class="text-sm mb-2 line-clamp-3 text-foreground-primary">{{ data.session.description }}</p>
+                <p class="text-sm mb-2 line-clamp-3 text-foreground-primary"
+                   data-session-description>{{ data.session.description }}</p>
             {% endif %}
             <div class="relative">{% include "chronology/session_tags.html" %}</div>
             <div class="flex-1"></div>
