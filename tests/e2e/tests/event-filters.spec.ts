@@ -34,8 +34,11 @@ test.describe('Event filter panel', () => {
     await expect(page.locator('#day-filter-group')).toBeVisible();
     await expect(page.locator('#hour-filter-group')).toBeVisible();
 
-    // The second day holds only the neon-city adventure.
-    await page.locator('#day-filter').selectOption({ index: 2 });
+    // Select the day holding the neon-city adventure by its value (read from the
+    // card itself), so the test doesn't depend on option order or the date.
+    const neonDay = await card('Przygoda w Mieście Neonów').getAttribute('data-day');
+    if (!neonDay) throw new Error('neon-city card is missing data-day');
+    await page.locator('#day-filter').selectOption(neonDay);
     await expect(card('Przygoda w Mieście Neonów')).toBeVisible();
     await expect(card('Mega Strategy Lab')).toBeHidden();
     await expect(card('Cozy Storytellers Circle')).toBeHidden();
@@ -46,5 +49,16 @@ test.describe('Event filter panel', () => {
     await expect(card('Cozy Storytellers Circle')).toBeVisible();
     await expect(card('Mega Strategy Lab')).toBeHidden();
     await expect(card('Przygoda w Mieście Neonów')).toBeHidden();
+  });
+
+  test('filters by host name case-insensitively', async ({ page }) => {
+    await page.goto('/chronology/event/autumn-open/');
+
+    const card = (title: string) => page.locator('.session-card', { hasText: title });
+
+    // "Alex Morgan" hosts Mega Strategy Lab; a lowercase query must still match.
+    await page.locator('#session-filter').fill('alex');
+    await expect(card('Mega Strategy Lab')).toBeVisible();
+    await expect(card('Cozy Storytellers Circle')).toBeHidden();
   });
 });

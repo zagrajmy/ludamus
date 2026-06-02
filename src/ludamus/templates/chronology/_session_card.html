@@ -5,7 +5,7 @@
     <div class="session-card relative block w-full h-full rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          data-title="{{ data.session.title|lower }}"
          data-session-id="{{ data.session.pk }}"
-         data-host="{{ data.session.display_name }}"
+         data-host="{{ data.session.display_name|lower }}"
          data-tags="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ val }}{% if not forloop.last %},{% endif %}{% endfor %}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}"
          data-tag-categories="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ fv.field_slug }}:{{ val }}{% if not forloop.last %};{% endif %}{% endfor %}{% if not forloop.last %};{% endif %}{% endif %}{% endfor %}"
          data-status="{% if ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
