@@ -103,7 +103,7 @@ test.describe('Event detail page', () => {
     expect(sessionId).not.toBeNull();
 
     await page.evaluate((id) => {
-      const description = document.querySelector(`#session-${id} [id^="info-"] div.leading-relaxed`);
+      const description = document.querySelector(`#session-${id} [id^="info-"] div.prose`);
       if (!description) throw new Error('Missing session description');
       description.innerHTML = Array.from(
         { length: 28 },

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EventDTO,
         EventRepositoryProtocol,
+        SphereDTO,
         SphereRepositoryProtocol,
     )
     from ludamus.pacts.multiverse import (
@@ -83,3 +84,14 @@ class SpherePanelService:
 
     def list_events(self, sphere_id: int) -> list[EventDTO]:
         return self._events.list_by_sphere(sphere_id)
+
+    def read(self, sphere_id: int) -> SphereDTO:
+        return self._spheres.read(sphere_id)
+
+    def update_settings(
+        self, sphere_id: int, *, allow_facilitator_session_edit: bool
+    ) -> None:
+        self._spheres.update(
+            sphere_id,
+            {"allow_facilitator_session_edit": allow_facilitator_session_edit},
+        )

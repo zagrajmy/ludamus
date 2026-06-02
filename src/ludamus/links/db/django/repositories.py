@@ -101,6 +101,7 @@ from ludamus.pacts import (
     SpaceRepositoryProtocol,
     SphereDTO,
     SphereRepositoryProtocol,
+    SphereUpdateData,
     TagCategoryDTO,
     TagDTO,
     TimeSlotDTO,
@@ -189,6 +190,17 @@ class SphereRepository(SphereRepositoryProtocol):
         except Sphere.DoesNotExist as err:
             raise NotFoundError from err
         return [UserDTO.model_validate(u) for u in sphere.managers.order_by("name")]
+
+    @staticmethod
+    def update(sphere_id: int, data: SphereUpdateData) -> None:
+        try:
+            sphere = Sphere.objects.get(id=sphere_id)
+        except Sphere.DoesNotExist as exception:
+            raise NotFoundError from exception
+
+        for key, value in data.items():
+            setattr(sphere, key, value)
+        sphere.save(update_fields=list(data.keys()))
 
 
 class UserRepository(UserRepositoryProtocol):
@@ -439,7 +451,10 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                     session_id=session_id, field_id=v["field_id"], value=v["value"]
                 )
                 for v in values
-            ]
+            ],
+            update_conflicts=True,
+            unique_fields=["session", "field"],
+            update_fields=["value"],
         )
 
     @staticmethod

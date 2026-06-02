@@ -13,10 +13,13 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from ludamus.pacts import (
+    EventDTO,
     FieldUsageSummary,
     NotFoundError,
     ScheduleChangeAction,
     ScheduleChangeLogData,
+    SessionDTO,
+    SessionSelfEditContext,
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
@@ -53,6 +56,7 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     VenueGroupDTO,
 )
+from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
@@ -63,7 +67,12 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
+        SessionFieldValueData,
+        SessionRepositoryProtocol,
+        SessionUpdateData,
         SpaceDTO,
+        SphereRepositoryProtocol,
         TimeSlotDTO,
         UnitOfWorkProtocol,
     )
@@ -795,6 +804,102 @@ class CFPPersonalDataFieldService:
             return False
         self._fields.delete(field.pk)
         return True
+
+
+class SessionEditNotAllowedError(Exception):
+    """Raised when a user may not self-edit the requested session."""
+
+
+class SessionSelfEditService:
+    """Facilitator self-service editing of their own session."""
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._session_fields = session_fields
+        self._spheres = spheres
+
+    def _gate(
+        self, session_id: int, user_id: int | None
+    ) -> tuple[bool, SessionDTO | None, EventDTO | None]:
+        if user_id is None:
+            return False, None, None
+        try:
+            session = self._sessions.read(session_id)
+        except NotFoundError:
+            return False, None, None
+        if session.presenter_id is None or session.presenter_id != user_id:
+            return False, session, None
+        try:
+            event = self._sessions.read_event(session_id)
+        except NotFoundError:
+            return False, session, None
+        sphere = self._spheres.read(event.sphere_id)
+        allowed = resolve_facilitator_session_edit(
+            event_override=event.allow_facilitator_session_edit,
+            sphere_default=sphere.allow_facilitator_session_edit,
+        )
+        return allowed, session, event
+
+    def can_edit(self, session_id: int, user_id: int | None) -> bool:
+        allowed, _session, _event = self._gate(session_id, user_id)
+        return allowed
+
+    def get_edit_context(
+        self, session_id: int, user_id: int | None
+    ) -> SessionSelfEditContext:
+        allowed, session, event = self._gate(session_id, user_id)
+        if not allowed or session is None or event is None:
+            raise SessionEditNotAllowedError
+        fields = self._session_fields.list_by_event(event.pk)
+        existing = self._sessions.read_field_values(session_id)
+        values_by_slug = {fv.field_slug: fv.value for fv in existing}
+        return SessionSelfEditContext(
+            session=session,
+            event=event,
+            session_fields=[(f, values_by_slug.get(f.slug)) for f in fields],
+            facilitators=self._sessions.read_facilitators(session_id),
+        )
+
+    def update(
+        self,
+        session_id: int,
+        user_id: int | None,
+        cleaned_data: dict[str, object],
+        field_values: list[SessionFieldValueData],
+    ) -> None:
+        if not self.can_edit(session_id, user_id):
+            raise SessionEditNotAllowedError
+
+        def _str(key: str) -> str:
+            value = cleaned_data.get(key)
+            return str(value) if value else ""
+
+        def _int(key: str) -> int:
+            value = cleaned_data.get(key)
+            return value if isinstance(value, int) else 0
+
+        update: SessionUpdateData = {
+            "title": _str("title"),
+            "display_name": _str("display_name"),
+            "description": _str("description"),
+            "requirements": _str("requirements"),
+            "needs": _str("needs"),
+            "contact_email": _str("contact_email"),
+            "participants_limit": _int("participants_limit"),
+            "min_age": _int("min_age"),
+            "duration": _str("duration"),
+        }
+        with self._transaction.atomic():
+            self._sessions.update(session_id, update)
+            if field_values:
+                self._sessions.save_field_values(session_id, field_values)
 
 
 class IntegrationImplementationNotFoundError(Exception):

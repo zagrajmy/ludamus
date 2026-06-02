@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import (
         CFPPersonalDataFieldServiceProtocol,
         EventIntegrationsServiceProtocol,
+        SessionSelfEditServiceProtocol,
     )
     from ludamus.pacts.multiverse import (
         ConnectionsServiceProtocol,
@@ -34,3 +35,5 @@ class ServicesProtocol(Protocol):
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
+    @property
+    def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...

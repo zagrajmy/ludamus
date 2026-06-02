@@ -413,6 +413,7 @@ class SiteDTO(BaseModel):
 class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
     name: str
@@ -420,9 +421,22 @@ class SphereDTO(BaseModel):
     site_id: int
 
 
+class SphereUpdateData(TypedDict, total=False):
+    allow_facilitator_session_edit: bool
+
+
+@dataclass
+class SessionSelfEditContext:
+    session: SessionDTO
+    event: EventDTO
+    session_fields: list[tuple[SessionFieldDTO, str | list[str] | bool | None]]
+    facilitators: list[FacilitatorDTO]
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    allow_facilitator_session_edit: bool | None = None
     description: str
     end_time: datetime
     name: str
@@ -643,6 +657,7 @@ class EventUpdateData(TypedDict, total=False):
     publication_time: datetime | None
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
+    allow_facilitator_session_edit: bool | None
 
 
 @dataclass
@@ -773,6 +788,8 @@ class SphereRepositoryProtocol(Protocol):
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
+    @staticmethod
+    def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
 class UserRepositoryProtocol(Protocol):

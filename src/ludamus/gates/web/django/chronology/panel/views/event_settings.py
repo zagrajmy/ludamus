@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -24,6 +25,20 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
 
+def _override_to_choice(*, value: bool | None) -> str:
+    if value is None:
+        return ""
+    return "true" if value else "false"
+
+
+def _choice_to_override(value: str) -> bool | None:
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return None
+
+
 class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
     """Event settings page view."""
 
@@ -37,7 +52,8 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "general"
         context["tab_urls"] = settings_tab_urls(slug)
-        context["form"] = EventSettingsForm(
+        override = current_event.allow_facilitator_session_edit
+        form = EventSettingsForm(
             initial={
                 "name": current_event.name,
                 "slug": current_event.slug,
@@ -49,8 +65,23 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     if current_event.publication_time
                     else None
                 ),
+                "allow_facilitator_session_edit": _override_to_choice(value=override),
             }
         )
+        sphere = self.request.services.sphere_panel.read(
+            self.request.context.current_sphere_id
+        )
+        resolved = (
+            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        )
+        edit_field = form.fields["allow_facilitator_session_edit"]
+        if isinstance(edit_field, forms.ChoiceField):
+            edit_field.choices = [
+                ("", _("Use sphere default (currently: {})").format(resolved)),
+                ("true", _("Allow")),
+                ("false", _("Disallow")),
+            ]
+        context["form"] = form
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -88,6 +119,9 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             "start_time": cd["start_time"],
             "end_time": cd["end_time"],
             "publication_time": cd.get("publication_time"),
+            "allow_facilitator_session_edit": _choice_to_override(
+                cd.get("allow_facilitator_session_edit") or ""
+            ),
         }
 
         try:

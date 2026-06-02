@@ -143,6 +143,7 @@ class Sphere(models.Model):
         choices=[(p.value, p.name.title()) for p in SpherePage],
         default=SpherePage.EVENTS,
     )
+    allow_facilitator_session_edit = models.BooleanField(default=True)
 
     class Meta:
         db_table = "sphere"
@@ -166,6 +167,9 @@ class Event(models.Model):
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
+    allow_facilitator_session_edit = models.BooleanField(
+        null=True, blank=True, default=None
+    )
     # Filterable tag categories for session list
     filterable_tag_categories: models.ManyToManyField[TagCategory, Never] = (
         models.ManyToManyField(

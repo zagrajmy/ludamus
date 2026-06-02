@@ -19,6 +19,8 @@ from ludamus.pacts.legacy import (
     PersonalDataFieldDTO,
     PersonalDataFieldUpdateData,
     ProposalCategoryDTO,
+    SessionFieldValueData,
+    SessionSelfEditContext,
     SpaceDTO,
 )
 
@@ -125,6 +127,20 @@ class EventIntegrationsServiceProtocol(Protocol):
     def list_all_implementations(
         self,
     ) -> dict[IntegrationImplementationId, IntegrationImplementation]: ...
+
+
+class SessionSelfEditServiceProtocol(Protocol):
+    def can_edit(self, session_id: int, user_id: int | None) -> bool: ...
+    def get_edit_context(
+        self, session_id: int, user_id: int | None
+    ) -> SessionSelfEditContext: ...
+    def update(
+        self,
+        session_id: int,
+        user_id: int | None,
+        cleaned_data: dict[str, object],
+        field_values: list[SessionFieldValueData],
+    ) -> None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

@@ -1096,6 +1096,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     def _get_session_data(
         self, event_sessions: QuerySet[Session]
     ) -> dict[int, SessionData]:
+        event_override = self.object.allow_facilitator_session_edit
+        sphere_default = self.object.sphere.allow_facilitator_session_edit
+        edit_allowed = sphere_default if event_override is None else event_override
+        current_user_id = self.request.context.current_user_id
+
         sessions_data = {}
         for session in event_sessions:
             area = getattr(
@@ -1118,6 +1123,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     username=presenter_name,
                 )
             sessions_data[session.id] = SessionData(
+                can_edit=(
+                    edit_allowed
+                    and current_user_id is not None
+                    and session.presenter_id == current_user_id
+                ),
                 effective_participants_limit=session.effective_participants_limit,
                 full_participant_info=session.full_participant_info,
                 agenda_item=AgendaItemDTO.model_validate(session.agenda_item),
