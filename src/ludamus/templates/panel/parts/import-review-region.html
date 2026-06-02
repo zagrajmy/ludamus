@@ -9,12 +9,19 @@
           class="max-w-3xl">
         {% csrf_token %}
         <input type="hidden" name="index" value="{{ edit_row.index }}">
+        <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
+           class="mb-3 inline-flex items-center text-sm text-foreground-muted hover:text-foreground"
+           title="{% translate "Discards any unsaved changes" %}">
+            {% icon "arrow-uturn-left" class="w-4 h-4 mr-1" %}
+            {% translate "Back to summary" %}
+        </a>
         <div class="mb-4 flex flex-wrap items-center gap-2">
             <button type="button"
                     {% if edit_nav.prev_index is None %}disabled aria-disabled="true" {% else %}hx-get="{% url 'panel:import-review' slug=current_event.slug pk=active_integration.pk %}?edit={{ edit_nav.prev_index }}" hx-target="#import-review-region" hx-swap="innerHTML" hx-push-url="true"{% endif %}
+                    aria-label="{% translate "Previous" %}"
+                    title="{% translate "Previous" %}"
                     class="btn btn-secondary inline-flex items-center disabled:cursor-not-allowed disabled:opacity-50">
-                {% icon "chevron-left" class="w-4 h-4 mr-1" %}
-                {% translate "Previous" %}
+                {% icon "chevron-left" class="w-4 h-4" %}
             </button>
             <select name="edit"
                     aria-label="{% translate "Jump to question" %}"
@@ -33,9 +40,10 @@
             </select>
             <button type="button"
                     {% if edit_nav.next_index is None %}disabled aria-disabled="true" {% else %}hx-get="{% url 'panel:import-review' slug=current_event.slug pk=active_integration.pk %}?edit={{ edit_nav.next_index }}" hx-target="#import-review-region" hx-swap="innerHTML" hx-push-url="true"{% endif %}
+                    aria-label="{% translate "Next" %}"
+                    title="{% translate "Next" %}"
                     class="btn btn-secondary inline-flex items-center disabled:cursor-not-allowed disabled:opacity-50">
-                {% translate "Next" %}
-                {% icon "chevron-right" class="w-4 h-4 ml-1" %}
+                {% icon "chevron-right" class="w-4 h-4" %}
             </button>
             <button type="submit" class="btn btn-primary inline-flex items-center">
                 {% icon "check" class="w-4 h-4 mr-1" %}
@@ -45,12 +53,6 @@
                     {% translate "Save and next" %}
                 {% endif %}
             </button>
-            <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
-               class="btn btn-secondary inline-flex items-center"
-               title="{% translate "Discards any unsaved changes" %}">
-                {% icon "arrow-uturn-left" class="w-4 h-4 mr-1" %}
-                {% translate "Back to summary" %}
-            </a>
         </div>
         <div class="card">{% include "panel/parts/import-recipe-row.html" with row=edit_row %}</div>
     </form>

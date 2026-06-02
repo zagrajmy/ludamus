@@ -3,9 +3,9 @@
 <div class="sticky top-28 z-10 bg-bg-tertiary border-b border-border px-3 sm:px-4 lg:px-8 pt-3">
     {% tabs %}
     {% if active_tab == "proposal" %}
-        {% tab "proposal" active=True href=tab_urls.proposal %}{% translate "Proposal" %}{% end_tab %}
+        {% tab "proposal" active=True href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
     {% else %}
-        {% tab "proposal" href=tab_urls.proposal %}{% translate "Proposal" %}{% end_tab %}
+        {% tab "proposal" href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
     {% endif %}
     {% if active_tab == "review" %}
         {% tab "review" active=True href=tab_urls.review %}{% translate "Review" %}{% end_tab %}

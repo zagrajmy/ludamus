@@ -2697,7 +2697,6 @@ msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-#: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Proposal"
 msgstr "Zgłoszenie"
 
@@ -4653,6 +4652,14 @@ msgid "Catch-all for custom answers"
 msgstr "Domyślny dla odpowiedzi własnych"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Discards any unsaved changes"
+msgstr "Odrzuca niezapisane zmiany"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Back to summary"
+msgstr "Powrót do podsumowania"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Previous"
@@ -4681,13 +4688,9 @@ msgstr "Zapisz i zakończ"
 msgid "Save and next"
 msgstr "Zapisz i przejdź dalej"
 
-#: src/ludamus/templates/panel/parts/import-review-region.html
-msgid "Discards any unsaved changes"
-msgstr "Odrzuca niezapisane zmiany"
-
-#: src/ludamus/templates/panel/parts/import-review-region.html
-msgid "Back to summary"
-msgstr "Powrót do podsumowania"
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "Summary"
+msgstr "Podsumowanie"
 
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "JSON"
