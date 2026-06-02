@@ -983,6 +983,61 @@ class TestEventImportRowSaveView:
         ).questions["Title"]
         assert target.confirmed is True
 
+    def test_post_advances_to_next_question_when_more_remain(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.questions_snapshot_json = json.dumps(
+            [
+                {"title": "Title", "field_type": "text"},
+                {"title": "System", "field_type": "text"},
+                {"title": "Notes", "field_type": "text"},
+            ]
+        )
+        integration.save(update_fields=["questions_snapshot_json"])
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={"index": "0", "question_0": "Title", "target_0": "session.title"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_review_url(event, integration) + "?edit=1",
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
+
+    def test_post_returns_to_summary_when_last_question_saved(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.questions_snapshot_json = json.dumps(
+            [
+                {"title": "Title", "field_type": "text"},
+                {"title": "Last", "field_type": "text"},
+            ]
+        )
+        integration.save(update_fields=["questions_snapshot_json"])
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={"index": "1", "question_1": "Last", "target_1": "session.title"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
+
     def test_post_with_invalid_index_redirects_with_error(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):

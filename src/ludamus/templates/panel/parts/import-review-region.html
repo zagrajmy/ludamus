@@ -39,7 +39,11 @@
             </button>
             <button type="submit" class="btn btn-primary inline-flex items-center">
                 {% icon "check" class="w-4 h-4 mr-1" %}
-                {% translate "Save" %}
+                {% if edit_nav.next_index is None %}
+                    {% translate "Save and finish" %}
+                {% else %}
+                    {% translate "Save and next" %}
+                {% endif %}
             </button>
             <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
                class="btn btn-secondary inline-flex items-center"

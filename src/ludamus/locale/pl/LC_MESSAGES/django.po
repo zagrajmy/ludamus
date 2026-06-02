@@ -2913,7 +2913,6 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -4673,6 +4672,14 @@ msgstr "Pytanie %(position)s z %(total)s — %(question)s"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Save and finish"
+msgstr "Zapisz i zakończ"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Save and next"
+msgstr "Zapisz i przejdź dalej"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
 msgid "Discards any unsaved changes"
