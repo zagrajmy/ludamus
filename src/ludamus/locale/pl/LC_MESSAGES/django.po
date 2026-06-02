@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-02 09:21+0200\n"
+"POT-Creation-Date: 2026-06-02 10:23+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -820,6 +820,10 @@ msgid "Anonymous enrollment is not available for this event."
 msgstr "Anonimowy zapis nie jest dostępny dla tego wydarzenia."
 
 #: src/ludamus/adapters/web/django/views.py
+msgid "Anonymous enrollment is not available for this session."
+msgstr "Anonimowy zapis nie jest dostępny dla tego punktu programu."
+
+#: src/ludamus/adapters/web/django/views.py
 msgid "Anonymous enrollment is not active."
 msgstr "Anonimowy zapis nie jest aktywny."
 
@@ -1574,6 +1578,10 @@ msgstr "Wklej sekret połączenia API."
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 msgid "Secret is required when replacing."
 msgstr "Sekret jest wymagany przy zastępowaniu."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
+msgid "A connection with this display name already exists."
+msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
 
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "Connection not found."
@@ -2532,24 +2540,16 @@ msgid "You are on the waiting list"
 msgstr "Jesteś na liście oczekujących"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Connected Users"
-msgstr "Powiązani użytkownicy"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "Enrolled"
 msgstr "Zapisany"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Waiting List"
-msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Not enrolled"
-msgstr "Nie zapisany"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "You"
 msgstr "Ty"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Waiting List"
+msgstr "Lista oczekujących"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "No one on the waiting list."
@@ -2681,8 +2681,8 @@ msgid "Display Name"
 msgstr "Nazwa wyświetlana"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-msgid "Plain text. Line breaks are kept."
-msgstr "Zwykły tekst. Podziały wierszy są zachowywane."
+msgid "Markdown supported."
+msgstr "Obsługuje Markdown."
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
@@ -2693,8 +2693,14 @@ msgid "Needs"
 msgstr "Potrzeby"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#, fuzzy
-#| msgid "Save Changes"
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Or type a custom value"
+msgstr "Lub wpisz własną wartość"
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
 
@@ -2801,13 +2807,6 @@ msgstr "Wybierz bloki programowe dla tego punktu programu."
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 msgid "(required)"
 msgstr "(wymagane)"
-
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Or type a custom value"
-msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/personal.html
@@ -3205,10 +3204,8 @@ msgid "There are currently no events scheduled. Please check back later!"
 msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
 
 #: src/ludamus/templates/multiverse/panel/_tabs.html
-#, fuzzy
-#| msgid "Sphere settings"
 msgid "Sphere settings sections"
-msgstr "Ustawienia sfery"
+msgstr "Sekcje ustawień sfery"
 
 #: src/ludamus/templates/multiverse/panel/_tabs.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -3621,7 +3618,7 @@ msgstr ""
 #: src/ludamus/templates/panel/venues.html
 #, python-format
 msgid "More actions for %(name)s"
-msgstr ""
+msgstr "Więcej akcji dla %(name)s"
 
 #: src/ludamus/templates/panel/area-detail.html
 msgid "No spaces yet. Create a space to define bookable rooms in this area."
@@ -3667,10 +3664,8 @@ msgid "Delete Area"
 msgstr "Usuń strefę"
 
 #: src/ludamus/templates/panel/base.html
-#, fuzzy
-#| msgid "Open navigation"
 msgid "Close navigation"
-msgstr "Otwórz nawigację"
+msgstr "Zamknij nawigację"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Backoffice"
@@ -5064,10 +5059,8 @@ msgid "Save Changes"
 msgstr "Zapisz zmiany"
 
 #: src/ludamus/templates/panel/tracks.html
-#, fuzzy
-#| msgid "What are areas?"
 msgid "What are tracks?"
-msgstr "Czym są strefy?"
+msgstr "Czym są bloki programowe?"
 
 #: src/ludamus/templates/panel/tracks.html
 msgid ""
@@ -5298,6 +5291,15 @@ msgstr "Kopiuj"
 #: src/ludamus/templates/panel/venues.html
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
+
+#~ msgid "Connected Users"
+#~ msgstr "Powiązani użytkownicy"
+
+#~ msgid "Not enrolled"
+#~ msgstr "Nie zapisany"
+
+#~ msgid "Plain text. Line breaks are kept."
+#~ msgstr "Zwykły tekst. Podziały wierszy są zachowywane."
 
 #~ msgid "Session updated successfully."
 #~ msgstr "Punkt programu został zaktualizowany."

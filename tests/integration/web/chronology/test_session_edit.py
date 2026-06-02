@@ -4,7 +4,8 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Session
+from ludamus.adapters.db.django.models import Session, SessionField, SessionFieldValue
+from ludamus.pacts import SessionDTO
 from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
@@ -13,6 +14,11 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, assert_response_404
 
 FRAGMENT = "chronology/parts/session-edit-form.html"
+
+
+def _expected_session(session):
+    session.refresh_from_db()
+    return SessionDTO.model_validate(session)
 
 
 @pytest.fixture(name="owned_session")
@@ -47,7 +53,7 @@ class TestSessionEditViewGet:
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
-                "session": ANY,
+                "session": _expected_session(owned_session),
                 "form": ANY,
                 "session_fields": [],
                 "post_url": url,
@@ -109,7 +115,7 @@ class TestSessionEditViewGet:
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
-                "session": ANY,
+                "session": _expected_session(owned_session),
                 "form": ANY,
                 "session_fields": [],
                 "post_url": url,
@@ -139,7 +145,7 @@ class TestSessionEditViewPost:
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
-                "session": ANY,
+                "session": _expected_session(owned_session),
                 "form": ANY,
                 "session_fields": [],
                 "post_url": url,
@@ -182,7 +188,7 @@ class TestSessionEditViewPost:
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
-                "session": ANY,
+                "session": _expected_session(owned_session),
                 "form": ANY,
                 "session_fields": [],
                 "post_url": url,
@@ -224,3 +230,28 @@ class TestSessionEditViewPost:
         assert_response_404(response)
         owned_session.refresh_from_db()
         assert owned_session.title == original
+
+    def test_htmx_post_replaces_existing_session_field_value(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value="D&D"
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(session_field_system="Pathfinder"),
+            headers={"hx-request": "true"},
+        )
+
+        values = SessionFieldValue.objects.filter(session=owned_session, field=field)
+        assert values.count() == 1
+        assert values.get().value == "Pathfinder"

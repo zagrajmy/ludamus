@@ -3,6 +3,7 @@
 {% load tessera %}
 {% load cfp_tags %}
 {% load django_vite %}
+{% load markdown_tags %}
 {% block title %}
     {{ event.name }}
 {% endblock title %}
@@ -740,7 +741,9 @@
                             <!-- Description -->
                             <div class="mb-6">
                                 <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                                <div class="leading-relaxed text-foreground-muted">{{ data.session.description|linebreaks }}</div>
+                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground-muted">
+                                    {{ data.session.description|render_markdown }}
+                                </div>
                             </div>
                         {% endif %}
                         {% if data.field_values %}
