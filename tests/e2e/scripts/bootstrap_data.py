@@ -399,7 +399,7 @@ def main() -> None:
         fireside_space,
         title="Przygoda w Mieście Neonów",
         slug="neon-city-adventure",
-        presenter="Radek MG",
+        presenter="Radek Włodarczyk",
         description=(
             'Przygoda w stylu filmu "Jumanji". Na strychu znajdujecie grę '
             "komputerową z lat 90 o wojnach gangów w cyberpunkowym Mieście "

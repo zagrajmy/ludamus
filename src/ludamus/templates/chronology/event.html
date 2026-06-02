@@ -268,10 +268,12 @@
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
                             {% icon "magnifying-glass" class="w-5 h-5" variant="mini" %}
                         </span>
+                        {% translate "Filter by title or host..." as filter_placeholder %}
                         <input type="text"
                                class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-all duration-150"
                                id="session-filter"
-                               placeholder="{% translate "Filter by title or host..." %}"
+                               placeholder="{{ filter_placeholder }}"
+                               aria-label="{{ filter_placeholder }}"
                                autocomplete="off">
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
@@ -1232,8 +1234,33 @@
                 select.addEventListener('change', filterSessions);
             });
 
+            // Fold diacritics and lowercase so "swiata" matches "Świata".
+            // NFD splits accented letters into base + combining mark, but some
+            // letters (e.g. "ł", "ø", "ß") have no decomposition, so map those
+            // explicitly before stripping the combining marks.
+            const COMBINING_MARKS = new RegExp('[\\u0300-\\u036f]', 'g');
+            const NON_DECOMPOSING_MAP = {
+                ł: 'l',
+                ø: 'o',
+                đ: 'd',
+                ħ: 'h',
+                ı: 'i',
+                œ: 'oe',
+                æ: 'ae',
+                ß: 'ss',
+            };
+            function normalizeText(value) {
+                return (value || '')
+                    .toLowerCase()
+                    .replace(/[łøđħıœæß]/g, (char) => NON_DECOMPOSING_MAP[char] || char)
+                    .normalize('NFD')
+                    .replace(COMBINING_MARKS, '');
+            }
+
             function filterSessions() {
-                const searchText = sessionFilter.value.toLowerCase();
+                const searchTokens = normalizeText(sessionFilter.value)
+                    .split(/\s+/)
+                    .filter(Boolean);
                 const statusValue = statusFilter.value;
                 const dayValue = dayFilter.value;
                 const hourValue = hourFilter.value;
@@ -1254,11 +1281,14 @@
                 sessionCards.forEach(card => {
                     let show = true;
 
-                    // Text filter (title or host)
-                    if (searchText) {
-                        const title = card.dataset.title;
-                        const host = card.dataset.host;
-                        show = show && (title.includes(searchText) || host.includes(searchText));
+                    // Fuzzy text filter: every token must appear somewhere in
+                    // the combined title + host, so "Bestie Świata Jakub"
+                    // matches a "Bestie Świata" session hosted by "Jakub".
+                    if (searchTokens.length) {
+                        const haystack = normalizeText(
+                            `${card.dataset.title} ${card.dataset.host}`
+                        );
+                        show = show && searchTokens.every(token => haystack.includes(token));
                     }
 
                     // Status filter
