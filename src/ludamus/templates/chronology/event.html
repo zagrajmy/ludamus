@@ -301,22 +301,6 @@
                                         <option value="my-waiting">{% translate "I am waiting" %}</option>
                                     </select>
                                 </div>
-                                <div id="day-filter-group" class="flex flex-col gap-1.5 hidden">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
-                                           for="day-filter">{% translate "Day" %}</label>
-                                    <select id="day-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
-                                        <option value="">{% translate "All days" %}</option>
-                                    </select>
-                                </div>
-                                <div id="hour-filter-group" class="flex flex-col gap-1.5 hidden">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
-                                           for="hour-filter">{% translate "Hour" %}</label>
-                                    <select id="hour-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
-                                        <option value="">{% translate "All hours" %}</option>
-                                    </select>
-                                </div>
                                 <div id="venue-filter-group" class="flex flex-col gap-1.5 hidden">
                                     <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                            for="venue-filter">{% translate "Venue" %}</label>
@@ -343,6 +327,24 @@
                                                placeholder="{% translate "Max" %}"
                                                min="0"
                                                max="99">
+                                    </div>
+                                </div>
+                                <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
+                                    <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                               for="day-filter">{% translate "Day" %}</label>
+                                        <select id="day-filter"
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                            <option value="">{% translate "All days" %}</option>
+                                        </select>
+                                    </div>
+                                    <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                               for="hour-filter">{% translate "Hour" %}</label>
+                                        <select id="hour-filter"
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                            <option value="">{% translate "All hours" %}</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div id="tag-filters" class="contents">
@@ -1048,6 +1050,10 @@
                 });
             if (hourSet.size > 1) {
                 document.getElementById('hour-filter-group').classList.remove('hidden');
+            }
+            // Reveal the shared Day/Hour row when either filter is in play.
+            if (dayMap.size > 1 || hourSet.size > 1) {
+                document.getElementById('day-hour-filter-group').classList.remove('hidden');
             }
 
             // Populate venue filter dropdown from session data
