@@ -70,7 +70,7 @@ test.describe('Event fuzzy search', () => {
     page.getByRole('link', { name: `Open details for ${title}` });
 
   const searchBox = (page: Page) =>
-    page.getByRole('textbox', { name: 'Filter by title or host...' });
+    page.getByRole('textbox', { name: 'Search sessions...' });
 
   const MEGA = 'Mega Strategy Lab';
   const COZY = 'Cozy Storytellers Circle';
