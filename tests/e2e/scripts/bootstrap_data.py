@@ -328,6 +328,8 @@ def main() -> None:
             "Bring dice, meeples, and curiosity!"
         ),
         start_offset=timedelta(days=1),
+        # Span two days so the event encloses its day-2 session (below) and the
+        # day/hour filters have more than one day to work with.
         duration_hours=28,
         publication_offset=timedelta(days=2),
         enrollment_banner="Enrollment is open—grab a slot before we fill up!",
