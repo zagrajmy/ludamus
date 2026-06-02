@@ -18,9 +18,16 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.multiverse.panel.forms import ConnectionForm
 from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.multiverse import DuplicateConnectionDisplayNameError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+
+def _add_duplicate_display_name_error(form: ConnectionForm) -> None:
+    form.add_error(
+        "display_name", _("A connection with this display name already exists.")
+    )
 
 
 def _connection_not_found() -> RedirectError:
@@ -76,9 +83,20 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
 
         sphere_id = self.request.context.current_sphere_id
         plaintext = form.cleaned_data["secret"].encode("utf-8")
-        self.request.services.connections.create(
-            sphere_id, form.cleaned_data["display_name"], plaintext
-        )
+        try:
+            self.request.services.connections.create(
+                sphere_id, form.cleaned_data["display_name"], plaintext
+            )
+        except DuplicateConnectionDisplayNameError:
+            _add_duplicate_display_name_error(form)
+            return TemplateResponse(
+                self.request,
+                "multiverse/panel/connections/create.html",
+                {
+                    **sphere_panel_context(self.request, active_tab="connections"),
+                    "form": form,
+                },
+            )
         messages.success(self.request, _("Connection created successfully."))
         return redirect("multiverse:panel:connections")
 
@@ -126,13 +144,25 @@ class ConnectionEditPageView(SphereAccessMixin, View):
             )
 
         display_name = form.cleaned_data["display_name"]
-        if form.cleaned_data["replace_secret"]:
-            plaintext = form.cleaned_data["secret"].encode("utf-8")
-            self.request.services.connections.update(
-                sphere_id, pk, display_name, plaintext
+        try:
+            if form.cleaned_data["replace_secret"]:
+                plaintext = form.cleaned_data["secret"].encode("utf-8")
+                self.request.services.connections.update(
+                    sphere_id, pk, display_name, plaintext
+                )
+            else:
+                self.request.services.connections.update(sphere_id, pk, display_name)
+        except DuplicateConnectionDisplayNameError:
+            _add_duplicate_display_name_error(form)
+            return TemplateResponse(
+                self.request,
+                "multiverse/panel/connections/edit.html",
+                {
+                    **sphere_panel_context(self.request, active_tab="connections"),
+                    "form": form,
+                    "connection": connection,
+                },
             )
-        else:
-            self.request.services.connections.update(sphere_id, pk, display_name)
         messages.success(self.request, _("Connection updated successfully."))
         return redirect("multiverse:panel:connections")
 

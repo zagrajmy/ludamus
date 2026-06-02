@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q
 from django.utils.text import slugify
 
@@ -128,7 +128,11 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.multiverse import ConnectionDTO, ConnectionsRepositoryProtocol
+from ludamus.pacts.multiverse import (
+    ConnectionDTO,
+    ConnectionsRepositoryProtocol,
+    DuplicateConnectionDisplayNameError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -2622,6 +2626,26 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
 
+_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"
+_SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
+    "UNIQUE constraint failed: connection.sphere_id, connection.display_name"
+)
+
+
+def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
+    diag = getattr(exc.__cause__, "diag", None)
+    if (
+        getattr(diag, "constraint_name", None)
+        == _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT
+    ):
+        return True
+    message = str(exc)
+    return (
+        _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
+        or _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
+    )
+
+
 class ConnectionsRepository(ConnectionsRepositoryProtocol):
     @staticmethod
     def list_for_sphere(sphere_id: int) -> list[ConnectionDTO]:
@@ -2642,9 +2666,14 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
 
     @staticmethod
     def create(sphere_id: int, display_name: str) -> ConnectionDTO:
-        connection = Connection.objects.create(
-            sphere_id=sphere_id, display_name=display_name
-        )
+        try:
+            connection = Connection.objects.create(
+                sphere_id=sphere_id, display_name=display_name
+            )
+        except IntegrityError as exc:
+            if is_connection_display_name_conflict(exc):
+                raise DuplicateConnectionDisplayNameError from exc
+            raise
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
@@ -2654,7 +2683,12 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
         except Connection.DoesNotExist as exc:
             raise NotFoundError from exc
         connection.display_name = display_name
-        connection.save(update_fields=["display_name"])
+        try:
+            connection.save(update_fields=["display_name"])
+        except IntegrityError as exc:
+            if is_connection_display_name_conflict(exc):
+                raise DuplicateConnectionDisplayNameError from exc
+            raise
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
@@ -2667,7 +2701,6 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
 
     @staticmethod
     def read_secret(sphere_id: int, pk: int) -> bytes:
-        # Returns the encrypted blob. Decryption is the encryptor's job.
         try:
             connection = Connection.objects.only("secret").get(
                 pk=pk, sphere_id=sphere_id
