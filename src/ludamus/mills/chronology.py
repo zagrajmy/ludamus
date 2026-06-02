@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
@@ -58,7 +58,10 @@ from ludamus.pacts.chronology import (
     VenueGroupDTO,
 )
 from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.submissions import ImportSettings, QuestionTarget
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+
+_SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
@@ -1034,6 +1037,49 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.fetch_questions(plaintext, config)
+
+    def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
+        integration = self._integrations.get(event_id, pk)
+        raw = integration.questions_snapshot_json or "[]"
+        try:
+            return _SOURCE_QUESTIONS_ADAPTER.validate_json(raw)
+        except ValidationError:
+            return []
+
+    def populate_questions_snapshot(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]:
+        # Transparent first-load cache fill: live-fetches and writes the
+        # snapshot, but leaves `settings.questions` (including confirmed
+        # flags) untouched. Use `refetch_questions` for the operator-driven
+        # action that also resets confirmations.
+        questions = self.fetch_questions(sphere_id, event_id, pk)
+        snapshot = _SOURCE_QUESTIONS_ADAPTER.dump_json(questions).decode()
+        with self._transaction.atomic():
+            self._integrations.update_questions_snapshot(event_id, pk, snapshot)
+        return questions
+
+    def refetch_questions(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]:
+        # Per shape: regenerate question entries against the freshly fetched
+        # form, drop every `confirmed` flag, preserve definitions untouched.
+        # Questions that no longer exist in the form are dropped from
+        # `settings.questions`; new ones land as missing entries (rendered
+        # as unconfirmed by the summary).
+        questions = self.populate_questions_snapshot(sphere_id, event_id, pk)
+        integration = self._integrations.get(event_id, pk)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        seen = {q.title for q in questions}
+        rebuilt: dict[str, QuestionTarget] = {}
+        for title, target in settings.questions.items():
+            if title in seen:
+                target.confirmed = False
+                rebuilt[title] = target
+        settings.questions = rebuilt
+        with self._transaction.atomic():
+            self._integrations.update_settings(event_id, pk, settings.model_dump_json())
+        return questions
 
     def fetch_responses(
         self, sphere_id: int, event_id: int, pk: int

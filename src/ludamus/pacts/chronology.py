@@ -81,6 +81,7 @@ class EventIntegrationDTO(BaseModel):
     display_name: str
     config_json: str
     settings_json: str
+    questions_snapshot_json: str = "[]"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -125,6 +126,10 @@ class EventIntegrationsRepositoryProtocol(Protocol):
         event_id: int, pk: int, settings_json: str
     ) -> EventIntegrationDTO: ...
     @staticmethod
+    def update_questions_snapshot(
+        event_id: int, pk: int, questions_snapshot_json: str
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
 
@@ -141,6 +146,13 @@ class EventIntegrationsServiceProtocol(Protocol):
     ) -> EventIntegrationDTO: ...
     def delete(self, event_id: int, pk: int) -> None: ...
     def fetch_questions(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]: ...
+    def populate_questions_snapshot(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def refetch_questions(
         self, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]: ...
     def fetch_responses(

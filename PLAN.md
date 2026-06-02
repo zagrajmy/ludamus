@@ -85,14 +85,24 @@ clean "browse questions one by one" surface.
 - Verify: import page only shows the summary by default; editor is reached
   only via click/swap.
 
-## Step 9 — Refetch form button
+## Step 9 — Refetch form button + question caching
 
-- Add "Refetch form" button in the summary toolbar. On click: native
-  `confirm()` with the exact wording from the shape (count of mappings, count
-  of confirmed). On accept: call the form-pull integration, regenerate
-  `questions` entries, drop every `confirmed`. Preserve `definitions`.
-- Verify: refetch with some confirmed rows → all reset to unconfirmed;
-  `definitions` untouched.
+Pulled forward from later in the plan because the Proposal / Review tabs
+were re-hitting the Google Forms API on every page load (~0.5–3 s each).
+
+- Persist the fetched question structure on the integration
+  (`questions_snapshot_json` column + migration 0081). The Proposal and
+  Review tabs read from this snapshot; the Google Forms API is hit only on
+  the first cold load (silent populate, no `confirmed` reset) or on an
+  explicit refetch.
+- Add the "Refetch form" action: a button in the Proposal-tab toolbar that
+  POSTs to a new endpoint and triggers a native `confirm()` with mapping /
+  confirmed counts. Acceptance: live-fetches the form, replaces the
+  snapshot, drops every `confirmed` flag, drops questions absent from the
+  new form, and preserves `definitions` untouched.
+- Verify: cached load skips the API; refetch with some confirmed rows →
+  all reset to unconfirmed; definitions untouched; questions that
+  disappeared from the form drop out of `settings.questions`.
 
 ## Step 10 — Run-import gate
 

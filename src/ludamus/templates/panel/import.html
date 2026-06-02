@@ -23,6 +23,17 @@
                     </p>
                 </div>
             {% elif summary_rows %}
+                <div class="mb-4 flex max-w-4xl items-center justify-end">
+                    <form method="post"
+                          action="{% url 'panel:import-refetch' slug=current_event.slug pk=active_integration.pk %}"
+                          onsubmit="return confirm('{% blocktranslate with mappings=mapping_count confirmed=confirmed_count %}Refetch the form? This drops every confirmation ({{ confirmed }} of {{ mappings }} confirmed) and rebuilds the question list. Mappings and field definitions are preserved.{% endblocktranslate %}')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary inline-flex items-center">
+                            {% icon "arrow-path" class="w-4 h-4 mr-1" %}
+                            {% translate "Refetch form" %}
+                        </button>
+                    </form>
+                </div>
                 <div class="card max-w-4xl overflow-x-auto">
                     <table class="min-w-full divide-y divide-border">
                         <thead class="bg-bg-tertiary">
@@ -93,9 +104,18 @@
                 </div>
             {% else %}
                 <div class="card p-8 text-center">
-                    <p class="text-foreground-muted">
+                    <p class="mb-4 text-foreground-muted">
                         {% translate "No source questions found. Check this integration's connection in Settings → Integrations." %}
                     </p>
+                    <form method="post"
+                          action="{% url 'panel:import-refetch' slug=current_event.slug pk=active_integration.pk %}"
+                          class="inline-block">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary inline-flex items-center">
+                            {% icon "arrow-path" class="w-4 h-4 mr-1" %}
+                            {% translate "Refetch form" %}
+                        </button>
+                    </form>
                 </div>
             {% endif %}
         </div>

@@ -2804,6 +2804,7 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         display_name=integration.display_name,
         config_json=integration.config_json or "{}",
         settings_json=integration.settings_json or "{}",
+        questions_snapshot_json=integration.questions_snapshot_json or "[]",
     )
 
 
@@ -2871,6 +2872,21 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
             raise NotFoundError from exc
         integration.settings_json = settings_json
         integration.save(update_fields=("settings_json",))
+        integration = EventIntegration.objects.select_related("connection").get(
+            pk=integration.pk
+        )
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def update_questions_snapshot(
+        event_id: int, pk: int, questions_snapshot_json: str
+    ) -> EventIntegrationDTO:
+        try:
+            integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        integration.questions_snapshot_json = questions_snapshot_json
+        integration.save(update_fields=("questions_snapshot_json",))
         integration = EventIntegration.objects.select_related("connection").get(
             pk=integration.pk
         )

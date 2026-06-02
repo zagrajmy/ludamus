@@ -1509,6 +1509,7 @@ class EventIntegration(models.Model):
     display_name = models.CharField(max_length=255)
     config_json = models.TextField(default="{}")
     settings_json = models.TextField(default="{}")
+    questions_snapshot_json = models.TextField(default="[]")
 
     class Meta:
         db_table = "event_integration"

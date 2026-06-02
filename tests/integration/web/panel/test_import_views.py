@@ -226,6 +226,8 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
+                "confirmed_count": 0,
+                "mapping_count": 0,
             },
         )
         # The Edit action column links each row to the Review tab.
@@ -418,6 +420,32 @@ class TestEventImportProposalView:
         ]
         assert row["catchall_name"] == "Other"
         assert row["catchall_slug"] == "other"
+
+    def test_get_uses_cached_snapshot_when_available(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.questions_snapshot_json = json.dumps(
+            [
+                {"title": "Cached", "field_type": "text"},
+                {"title": "Also cached", "field_type": "text"},
+            ]
+        )
+        integration.save(update_fields=["questions_snapshot_json"])
+
+        with patch("ludamus.links.google_docs.AuthorizedSession") as session_cls:
+            response = authenticated_client.get(_tab_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        # Google Forms API is not called — the snapshot served the view.
+        assert not session_cls.return_value.get.called
+        assert [r["question"] for r in response.context_data["summary_rows"]] == [
+            "Cached",
+            "Also cached",
+        ]
 
     def test_get_summary_reflects_confirmed_ignored_and_unconfirmed(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -977,6 +1005,82 @@ class TestEventImportRowSaveView:
         )
         integration.refresh_from_db()
         assert integration.settings_json == before
+
+
+@pytest.mark.django_db
+class TestEventImportRefetchView:
+    def _refetch_url(self, event, integration) -> str:
+        return reverse(
+            "panel:import-refetch", kwargs={"slug": event.slug, "pk": integration.pk}
+        )
+
+    def test_post_redirects_non_manager(
+        self, authenticated_client, event, connection_with_secret
+    ):
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(self._refetch_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_post_stores_snapshot_and_drops_confirmed(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "confirmed": True},
+                    "Gone": {"to": "session.description", "confirmed": True},
+                },
+                "definitions": {
+                    "session_fields": {"existing": {"name": "Existing", "type": "text"}}
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Title", "questionItem": {"question": {}}},
+                        {"title": "Fresh", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.post(self._refetch_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Form refetched: 2 questions.")],
+        )
+        integration.refresh_from_db()
+        # Snapshot now matches the freshly fetched form.
+        snapshot = json.loads(integration.questions_snapshot_json)
+        assert [q["title"] for q in snapshot] == ["Title", "Fresh"]
+        # Confirmed flag dropped on surviving entries; questions absent from
+        # the new form are removed; definitions stay intact.
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        assert set(settings.questions) == {"Title"}
+        assert settings.questions["Title"].confirmed is False
+        assert settings.definitions.session_fields["existing"].name == "Existing"
 
 
 @pytest.mark.django_db

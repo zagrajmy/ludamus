@@ -1244,6 +1244,11 @@ msgstr ""
 msgid "No responses found to test."
 msgstr "Nie znaleziono odpowiedzi do przetestowania."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Form refetched: %(count)d questions."
+msgstr "Pobrano formularz ponownie: %(count)d pytań."
+
 #: src/ludamus/gates/web/django/chronology/panel/views/index.py
 msgid "No events available for this sphere."
 msgstr "Brak wydarzeń dostępnych dla tej sfery."
@@ -4488,6 +4493,21 @@ msgstr "Uruchom import"
 #: src/ludamus/templates/panel/import-run.html
 msgid "Create a proposal from every response using the saved recipe."
 msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
+
+#: src/ludamus/templates/panel/import.html
+#, python-format
+msgid ""
+"Refetch the form? This drops every confirmation (%(confirmed)s of "
+"%(mappings)s confirmed) and rebuilds the question list. Mappings and field "
+"definitions are preserved."
+msgstr ""
+"Pobrać formularz ponownie? Spowoduje to wyczyszczenie wszystkich potwierdzeń "
+"(%(confirmed)s z %(mappings)s potwierdzonych) i odbudowanie listy pytań. "
+"Powiązania i definicje pól zostaną zachowane."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Refetch form"
+msgstr "Pobierz formularz ponownie"
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html

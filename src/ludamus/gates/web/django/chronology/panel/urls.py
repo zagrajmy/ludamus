@@ -397,6 +397,11 @@ urlpatterns = [
         name="import-row-save",
     ),
     path(
+        "event/<slug:slug>/import/<int:pk>/do/refetch/",
+        import_export.EventImportRefetchView.as_view(),
+        name="import-refetch",
+    ),
+    path(
         "event/<slug:slug>/import/<int:pk>/json/",
         import_export.EventImportJsonView.as_view(),
         name="import-json",

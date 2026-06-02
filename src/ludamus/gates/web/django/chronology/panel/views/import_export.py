@@ -468,6 +468,27 @@ def _pretty_json(raw: str | None) -> str:
         return text
 
 
+def _load_questions(
+    request: PanelRequest, event_pk: int, active: EventIntegrationDTO
+) -> list[SourceQuestion]:
+    # Cached snapshot keeps the Proposal / Review tabs off the Google Forms
+    # API on every request; the operator triggers an explicit reset via the
+    # "Refetch form" action. A cold integration (no snapshot yet) gets one
+    # transparent live-fetch that fills the snapshot without touching
+    # confirmed flags — only the explicit refetch resets those.
+    cached = request.services.event_integrations.get_cached_questions(
+        event_pk, active.pk
+    )
+    if cached or (
+        active.questions_snapshot_json and active.questions_snapshot_json != "[]"
+    ):
+        return cached
+    sphere_id = request.context.current_sphere_id
+    return request.services.event_integrations.populate_questions_snapshot(
+        sphere_id, event_pk, active.pk
+    )
+
+
 class _ImportTabView(PanelAccessMixin, EventContextMixin, View):
     """Shared loading for the Google Docs import tabs (proposal / json / run)."""
 
@@ -506,10 +527,7 @@ class EventImportProposalView(_ImportTabView):
             return loaded
         context, current_event, active = loaded
         if active is not None:
-            sphere_id = self.request.context.current_sphere_id
-            questions = self.request.services.event_integrations.fetch_questions(
-                sphere_id, current_event.pk, active.pk
-            )
+            questions = _load_questions(self.request, current_event.pk, active)
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["summary_rows"] = [
                 _summary_row(
@@ -517,6 +535,12 @@ class EventImportProposalView(_ImportTabView):
                 )
                 for index, q in enumerate(questions)
             ]
+            context["confirmed_count"] = sum(
+                1 for t in settings.questions.values() if t.confirmed
+            )
+            context["mapping_count"] = sum(
+                1 for t in settings.questions.values() if t.to or t.ignore
+            )
         return TemplateResponse(self.request, "panel/import.html", context)
 
 
@@ -533,10 +557,7 @@ class EventImportReviewView(_ImportTabView):
             return loaded
         context, current_event, active = loaded
         if active is not None:
-            sphere_id = self.request.context.current_sphere_id
-            questions = self.request.services.event_integrations.fetch_questions(
-                sphere_id, current_event.pk, active.pk
-            )
+            questions = _load_questions(self.request, current_event.pk, active)
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["session_columns"] = SESSION_COLUMNS
             context["rows"] = [
@@ -715,3 +736,27 @@ class EventImportTestRowActionView(_ImportActionView):
             )
         else:
             messages.info(self.request, _("No responses found to test."))
+
+
+class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):
+    """Pull a fresh question snapshot from the source form and drop confirmed."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+        integrations = _import_integrations(self.request, current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        sphere_id = self.request.context.current_sphere_id
+        questions = self.request.services.event_integrations.refetch_questions(
+            sphere_id, current_event.pk, active.pk
+        )
+        messages.success(
+            self.request,
+            _("Form refetched: %(count)d questions.") % {"count": len(questions)},
+        )
+        return redirect("panel:import-integration", slug=slug, pk=active.pk)
