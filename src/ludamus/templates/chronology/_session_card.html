@@ -9,15 +9,14 @@
          data-tags="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ val }}{% if not forloop.last %},{% endif %}{% endfor %}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}"
          data-tag-categories="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ fv.field_slug }}:{{ val }}{% if not forloop.last %};{% endif %}{% endfor %}{% if not forloop.last %};{% endif %}{% endif %}{% endfor %}"
          data-status="{% if ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
-         data-debug-ended="{{ ended|yesno:'true,false' }}"
-         data-debug-is-ongoing="{{ data.is_ongoing|yesno:'true,false' }}"
-         data-debug-enrollment-available="{{ data.is_enrollment_available|yesno:'true,false' }}"
-         data-debug-is-full="{{ data.is_full|yesno:'true,false' }}"
          data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
          data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
          data-min-age="{{ data.session.min_age }}"
          data-venue="{{ data.loc.venue.slug }}"
-         data-venue-name="{{ data.loc.venue.name }}">
+         data-venue-name="{{ data.loc.venue.name }}"
+         data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
+         data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
+         data-hour="{{ data.agenda_item.start_time|date:'H:i' }}">
         <div class="relative z-10 flex h-full flex-col px-5 pb-5">
             <a href="?session={{ data.session.pk }}"
                class="session-card-link absolute inset-0 z-10 rounded-2xl"

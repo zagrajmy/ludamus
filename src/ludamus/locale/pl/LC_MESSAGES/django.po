@@ -2407,6 +2407,22 @@ msgid "I am waiting"
 msgstr "Oczekuję"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Day"
+msgstr "Dzień"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "All days"
+msgstr "Wszystkie dni"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Hour"
+msgstr "Godzina"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "All hours"
+msgstr "Wszystkie godziny"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Venue"
 msgstr "Lokalizacja"
 
