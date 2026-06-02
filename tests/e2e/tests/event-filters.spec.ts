@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const MOBILE_WIDTH = 375;
 
@@ -23,39 +23,58 @@ test.describe('Event filter panel', () => {
 });
 
 test.describe('Event fuzzy search', () => {
-  const visibleCards = '.session-card-wrapper:visible .session-card';
+  // Each session card exposes an accessible link "Open details for <title>",
+  // so we can assert on cards by role + name rather than CSS classes.
+  const card = (page: Page, title: string) =>
+    page.getByRole('link', { name: `Open details for ${title}` });
+
+  const searchBox = (page: Page) =>
+    page.getByRole('textbox', { name: 'Filter by title or host...' });
+
+  const MEGA = 'Mega Strategy Lab';
+  const COZY = 'Cozy Storytellers Circle';
+  const NEON = 'Przygoda w Mieście Neonów';
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/chronology/event/autumn-open/');
-    await expect(page.locator(visibleCards)).toHaveCount(3);
+    await expect(card(page, NEON)).toBeVisible();
+    await expect(card(page, MEGA)).toBeVisible();
   });
 
   test('matches multiple tokens across title and host, ignoring diacritics', async ({
     page,
   }) => {
-    // "Przygoda w Mieście Neonów" hosted by "Radek MG": tokens span the
+    // "Przygoda w Mieście Neonów" hosted by "Radek Włodarczyk": tokens span the
     // title (sans diacritics) and the host name.
-    await page.locator('#session-filter').fill('przygoda neonow radek');
+    await searchBox(page).fill('przygoda neonow radek');
 
-    const cards = page.locator(visibleCards);
-    await expect(cards).toHaveCount(1);
-    await expect(cards.first()).toContainText('Przygoda w Mieście Neonów');
+    await expect(card(page, NEON)).toBeVisible();
+    await expect(card(page, MEGA)).toBeHidden();
+    await expect(card(page, COZY)).toBeHidden();
+  });
+
+  test('folds the Polish "ł", which NFD leaves intact', async ({ page }) => {
+    // Host "Radek Włodarczyk": "ł" has no NFD decomposition, so the
+    // stroke-less query "wlodarczyk" only matches with the explicit fold.
+    await searchBox(page).fill('wlodarczyk');
+
+    await expect(card(page, NEON)).toBeVisible();
+    await expect(card(page, MEGA)).toBeHidden();
   });
 
   test('matches a token from the title and a token from the host', async ({
     page,
   }) => {
-    await page.locator('#session-filter').fill('mega alex');
+    await searchBox(page).fill('mega alex');
 
-    const cards = page.locator(visibleCards);
-    await expect(cards).toHaveCount(1);
-    await expect(cards.first()).toContainText('Mega Strategy Lab');
+    await expect(card(page, MEGA)).toBeVisible();
+    await expect(card(page, NEON)).toBeHidden();
   });
 
   test('shows the empty state when nothing matches', async ({ page }) => {
-    await page.locator('#session-filter').fill('zzzznomatch');
+    await searchBox(page).fill('zzzznomatch');
 
-    await expect(page.locator(visibleCards)).toHaveCount(0);
-    await expect(page.locator('#filter-no-results')).toBeVisible();
+    await expect(card(page, MEGA)).toBeHidden();
+    await expect(page.getByText('No sessions match your filters')).toBeVisible();
   });
 });
