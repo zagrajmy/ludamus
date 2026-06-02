@@ -894,7 +894,7 @@
             {% if data.can_edit %}
                 <!-- Inline edit form target (lazy-loaded via HTMX on Edit) -->
                 <div id="session-{{ data.session.pk }}-editform"
-                     class="flex-auto min-h-0 overflow-y-auto px-6 py-5 text-foreground"
+                     class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
                      hidden></div>
             {% endif %}
             {% if data.is_enrollment_available or data.can_edit %}
