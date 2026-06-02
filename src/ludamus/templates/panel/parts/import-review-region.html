@@ -1,20 +1,18 @@
 {% load i18n %}
 {% load tessera %}
 {% if edit_row %}
-    <form id="review-row-form"
-          method="post"
-          hx-post="{% url 'panel:import-row-save' slug=current_event.slug pk=active_integration.pk %}"
-          hx-target="#import-review-region"
-          hx-swap="innerHTML"
-          class="max-w-3xl">
-        {% csrf_token %}
-        <input type="hidden" name="index" value="{{ edit_row.index }}">
+    <div class="max-w-3xl">
         <a href="{% url 'panel:import-integration' slug=current_event.slug pk=active_integration.pk %}"
            class="mb-3 inline-flex items-center text-sm text-foreground-muted hover:text-foreground"
            title="{% translate "Discards any unsaved changes" %}">
             {% icon "arrow-uturn-left" class="w-4 h-4 mr-1" %}
             {% translate "Back to summary" %}
         </a>
+        {# Nav lives OUTSIDE the row form: keeps Prev/Next/dropdown's hx-get
+           clean (HTMX would otherwise append the entire row editor's payload
+           to every navigation request because hx-include defaults to the
+           enclosing form for any form-descendant). Save reaches the form
+           via the standard HTML form="..." attribute. #}
         <div class="mb-4 flex flex-wrap items-center gap-2">
             <button type="button"
                     {% if edit_nav.prev_index is None %}disabled aria-disabled="true" {% else %}hx-get="{% url 'panel:import-review' slug=current_event.slug pk=active_integration.pk %}?edit={{ edit_nav.prev_index }}" hx-target="#import-review-region" hx-swap="innerHTML" hx-push-url="true"{% endif %}
@@ -29,6 +27,7 @@
                     hx-target="#import-review-region"
                     hx-swap="innerHTML"
                     hx-trigger="change"
+                    hx-include="this"
                     hx-push-url="true"
                     class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 {% for opt in edit_nav.options %}
@@ -45,7 +44,9 @@
                     class="btn btn-secondary inline-flex items-center disabled:cursor-not-allowed disabled:opacity-50">
                 {% icon "chevron-right" class="w-4 h-4" %}
             </button>
-            <button type="submit" class="btn btn-primary inline-flex items-center">
+            <button type="submit"
+                    form="review-row-form"
+                    class="btn btn-primary inline-flex items-center">
                 {% icon "check" class="w-4 h-4 mr-1" %}
                 {% if edit_nav.next_index is None %}
                     {% translate "Save and finish" %}
@@ -54,8 +55,16 @@
                 {% endif %}
             </button>
         </div>
-        <div class="card">{% include "panel/parts/import-recipe-row.html" with row=edit_row %}</div>
-    </form>
+        <form id="review-row-form"
+              method="post"
+              hx-post="{% url 'panel:import-row-save' slug=current_event.slug pk=active_integration.pk %}"
+              hx-target="#import-review-region"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            <input type="hidden" name="index" value="{{ edit_row.index }}">
+            <div class="card">{% include "panel/parts/import-recipe-row.html" with row=edit_row %}</div>
+        </form>
+    </div>
 {% else %}
     <div class="card p-8 text-center">
         <p class="text-foreground-muted">
