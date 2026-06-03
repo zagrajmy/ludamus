@@ -26,7 +26,7 @@ const flashCopyFeedback = (
     className: button.className,
   };
   if (existing) window.clearTimeout(existing.timer);
-  if (html !== undefined) button.innerHTML = html;
+  button.innerHTML = html ?? original.html;
   button.className = className;
   const timer = window.setTimeout(() => {
     button.innerHTML = original.html;

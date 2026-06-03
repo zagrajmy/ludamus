@@ -232,9 +232,12 @@ const initSessionFilters = (): void => {
         let matchesAllFilters = true;
         Object.keys(activeTagFilters).forEach((categorySlug) => {
           const requiredTag = escapeRegExp(activeTagFilters[categorySlug]);
-          // Try both category-based and simple tag-based matching.
+          const escapedCategory = escapeRegExp(categorySlug);
+          // Match a whole `slug:value` entry, anchored to the `;` delimiters
+          // (or string ends) so one category can't impersonate another whose
+          // slug it is a substring of.
           const categoryPattern = new RegExp(
-            `${categorySlug}[^:]*:${requiredTag}`,
+            `(?:^|;)${escapedCategory}:${requiredTag}(?:;|$)`,
             "i",
           );
           const simpleTagPattern = new RegExp(`\\b${requiredTag}\\b`, "i");
