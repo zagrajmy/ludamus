@@ -1,6 +1,6 @@
 // Small interactions for session cards and their detail modals on the event
-// page: copy-to-clipboard for Discord handles, keeping enrollment buttons from
-// opening the card, and numbering waiting-list positions.
+// page: copy-to-clipboard for Discord handles and numbering waiting-list
+// positions.
 
 const COPY_FEEDBACK_MS = 2000;
 
@@ -59,14 +59,6 @@ document.addEventListener("click", (e) => {
       flashCopyFeedback(button, "btn btn-danger p-1 copy-discord");
     });
 });
-
-// Prevent enrollment buttons from triggering the card click (which opens the
-// detail modal).
-document
-  .querySelectorAll<HTMLElement>(".session-card .btn")
-  .forEach((button) => {
-    button.addEventListener("click", (e) => e.stopPropagation());
-  });
 
 // Number waiting list positions within each tab panel.
 document.querySelectorAll<HTMLElement>(".tab-panel").forEach((tabPane) => {

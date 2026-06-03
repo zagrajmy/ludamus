@@ -283,9 +283,6 @@ const initSessionFilters = (): void => {
       tagFilters[categorySlug].value = "";
     });
 
-    document.querySelectorAll<HTMLElement>(".mb-4").forEach((section) => {
-      section.style.display = "";
-    });
     document
       .querySelectorAll<HTMLElement>(".time-slot-section")
       .forEach((section) => {
