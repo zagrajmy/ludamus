@@ -1,6 +1,7 @@
 from functools import cached_property
 
 from ludamus.links.db.django import repositories
+from ludamus.links.db.django.agenda_item import AgendaItemRepository
 
 
 class Repositories:
@@ -42,3 +43,15 @@ class Repositories:
     @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
         return repositories.SessionFieldRepository()
+
+    @cached_property
+    def agenda_items(self) -> AgendaItemRepository:
+        return AgendaItemRepository()
+
+    @cached_property
+    def spaces(self) -> repositories.SpaceRepository:
+        return repositories.SpaceRepository()
+
+    @cached_property
+    def time_slots(self) -> repositories.TimeSlotRepository:
+        return repositories.TimeSlotRepository()

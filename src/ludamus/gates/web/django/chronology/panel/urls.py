@@ -16,6 +16,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     tracks,
     venues,
 )
+from ludamus.gates.web.django.chronology.panel.views import print as print_views
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -67,6 +68,16 @@ _timetable_urlpatterns = [
     ),
     path(
         "do/revert/", timetable.TimetableRevertView.as_view(), name="timetable-revert"
+    ),
+    path(
+        "print/timetable/",
+        print_views.TimetablePrintView.as_view(material="timetable"),
+        name="timetable-print",
+    ),
+    path(
+        "print/door-cards/",
+        print_views.TimetablePrintView.as_view(material="door-cards"),
+        name="timetable-print-door-cards",
     ),
 ]
 

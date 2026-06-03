@@ -42,6 +42,7 @@ requests = "^2.32.5"
 segno = "^1.6.6"
 whitenoise = "^6.12.0"
 django-storages = {extras = ["google"], version = "^1.14.6"}
+weasyprint = "^69.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -183,6 +184,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["markdown"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["weasyprint"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

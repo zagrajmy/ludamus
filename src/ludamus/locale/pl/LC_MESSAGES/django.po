@@ -5312,6 +5312,30 @@ msgstr "Kopiuj"
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
 
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "Free slot"
+msgstr "Wolny przedział"
+
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "No scheduled program."
+msgstr "Brak zaplanowanego programu."
+
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "No rooms to print."
+msgstr "Brak sal do wydruku."
+
+#: src/ludamus/templates/panel/print/timetable.html
+msgid "No time slots scheduled."
+msgstr "Nie zaplanowano przedziałów czasowych."
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Print timetable (PDF)"
+msgstr "Drukuj harmonogram (PDF)"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Print door cards (PDF)"
+msgstr "Drukuj tabliczki na drzwi (PDF)"
+
 #~ msgid "Connected Users"
 #~ msgstr "Powiązani użytkownicy"
 

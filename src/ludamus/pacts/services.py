@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         EventsServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.printing import PrintMaterialsServiceProtocol
 
 
 class TransactionProtocol(Protocol):
@@ -40,3 +41,5 @@ class ServicesProtocol(Protocol):
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property
     def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...
+    @property
+    def print_materials(self) -> PrintMaterialsServiceProtocol: ...

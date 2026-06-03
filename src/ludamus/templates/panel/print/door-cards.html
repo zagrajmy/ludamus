@@ -1,0 +1,47 @@
+{% extends "panel/print/base.html" %}
+{% load i18n %}
+{% block body %}
+    {% for card in document.cards %}
+        {# one A4 page per room #}
+        <section {% if not forloop.last %}style="break-after: page;"{% endif %}>
+            <div class="doc-header">
+                <div class="event-name">{{ document.event_name }}</div>
+                <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
+            </div>
+            <h1 style="font-size: 26pt; margin: 0 0 1mm 0;">{{ card.space_name }}</h1>
+            {% if card.capacity %}
+                <p style="margin: 0 0 6mm 0; color: #6b7280;">{% translate "Capacity" %}: {{ card.capacity }}</p>
+            {% endif %}
+            {% for day in card.days %}
+                <h2 style="font-size: 12pt;
+                           margin: 5mm 0 2mm 0;
+                           border-bottom: 0.5pt solid #d1d5db">{{ day.day|date:"l, j E" }}</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    {% for entry in day.entries %}
+                        <tr style="border-bottom: 0.5pt solid #e5e7eb;">
+                            <td style="width: 28mm;
+                                       padding: 2mm 3mm 2mm 0;
+                                       vertical-align: top;
+                                       white-space: nowrap;
+                                       font-variant-numeric: tabular-nums">
+                                {{ entry.start_time|time:"H:i" }}–{{ entry.end_time|time:"H:i" }}
+                            </td>
+                            <td style="padding: 2mm 0; vertical-align: top;">
+                                {% if entry.session %}
+                                    <strong>{{ entry.session.title }}</strong>
+                                    {% if entry.session.presenter_name %}<div style="color: #6b7280;">{{ entry.session.presenter_name }}</div>{% endif %}
+                                {% else %}
+                                    <span class="empty">{% translate "Free slot" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            {% empty %}
+                <p class="empty">{% translate "No scheduled program." %}</p>
+            {% endfor %}
+        </section>
+    {% empty %}
+        <p class="empty">{% translate "No rooms to print." %}</p>
+    {% endfor %}
+{% endblock body %}
