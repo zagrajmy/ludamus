@@ -2433,6 +2433,14 @@ msgid "Clear all"
 msgstr "Wyczyść wszystko"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Age ≥"
+msgstr "Wiek ≥"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Age ≤"
+msgstr "Wiek ≤"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "No sessions match your filters"
 msgstr "Żadne punkty programu nie pasują do filtrów"
 

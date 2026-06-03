@@ -4,6 +4,38 @@
 
 const COPY_FEEDBACK_MS = 2000;
 
+interface CopyFeedback {
+  timer: number;
+  html: string;
+  className: string;
+}
+const activeFeedback = new WeakMap<HTMLElement, CopyFeedback>();
+
+// Briefly swap the button's content/style, then restore it. Re-entrant-safe: a
+// second click while feedback is still showing reuses the saved originals and
+// resets the timer, so the transient state can never be captured as the
+// baseline and the button can't get stranded in the success/error look.
+const flashCopyFeedback = (
+  button: HTMLElement,
+  className: string,
+  html?: string,
+): void => {
+  const existing = activeFeedback.get(button);
+  const original = existing ?? {
+    html: button.innerHTML,
+    className: button.className,
+  };
+  if (existing) window.clearTimeout(existing.timer);
+  if (html !== undefined) button.innerHTML = html;
+  button.className = className;
+  const timer = window.setTimeout(() => {
+    button.innerHTML = original.html;
+    button.className = original.className;
+    activeFeedback.delete(button);
+  }, COPY_FEEDBACK_MS);
+  activeFeedback.set(button, { timer, ...original });
+};
+
 // Event delegation so it works with htmx-loaded content too.
 document.addEventListener("click", (e) => {
   const target = e.target as Element | null;
@@ -15,23 +47,16 @@ document.addEventListener("click", (e) => {
 
   navigator.clipboard
     .writeText(text)
-    .then(() => {
-      const originalHTML = button.innerHTML;
-      const originalClasses = button.className;
-      button.innerHTML = "✓";
-      button.className = "btn bg-success text-white p-1 copy-discord";
-      window.setTimeout(() => {
-        button.innerHTML = originalHTML;
-        button.className = originalClasses;
-      }, COPY_FEEDBACK_MS);
-    })
+    .then(() =>
+      flashCopyFeedback(
+        button,
+        "btn bg-success text-white p-1 copy-discord",
+        "✓",
+      ),
+    )
     .catch((err: unknown) => {
       console.error("Copy failed:", err);
-      const originalClasses = button.className;
-      button.className = "btn btn-danger p-1 copy-discord";
-      window.setTimeout(() => {
-        button.className = originalClasses;
-      }, COPY_FEEDBACK_MS);
+      flashCopyFeedback(button, "btn btn-danger p-1 copy-discord");
     });
 });
 

@@ -329,8 +329,8 @@ const initSessionFilters = (): void => {
     pushSelectChip(dayFilter);
     pushSelectChip(hourFilter);
     pushSelectChip(venueFilter);
-    pushAgeChip(minAgeFilter, "Age ≥");
-    pushAgeChip(maxAgeFilter, "Age ≤");
+    pushAgeChip(minAgeFilter, filterChipsBar.dataset.minAgeLabel ?? "Age ≥");
+    pushAgeChip(maxAgeFilter, filterChipsBar.dataset.maxAgeLabel ?? "Age ≤");
     Object.keys(tagFilters).forEach((cat) => pushSelectChip(tagFilters[cat]));
 
     if (chips.length > 0) {
