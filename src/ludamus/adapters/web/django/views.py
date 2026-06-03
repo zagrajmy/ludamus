@@ -483,25 +483,20 @@ class EventsPageView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        all_events = list(
-            Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
-            .annotate(session_count=Count("venues__areas__spaces__agenda_items"))
-            .order_by("start_time")
-            .all()
+        items = self.request.services.events.list_for_sphere(
+            self.request.context.current_sphere_id,
+            include_unpublished=_is_manager(self.request),
         )
-        if not _is_manager(self.request):
-            all_events = [e for e in all_events if e.is_published]
-        event_datas: list[EventInfo] = []
-        # Assign placeholder images based on index
-        for i, event in enumerate(all_events):
-            img = EVENT_PLACEHOLDER_IMAGES[i % len(EVENT_PLACEHOLDER_IMAGES)]
-            event_datas.append(
-                EventInfo.from_event(
-                    event=event,
-                    session_count=event.session_count,
-                    cover_image_url=staticfiles_storage.url(img),
-                )
+        # Assign placeholder images by index.
+        event_datas = [
+            EventInfo.from_list_item(
+                item,
+                cover_image_url=staticfiles_storage.url(
+                    EVENT_PLACEHOLDER_IMAGES[i % len(EVENT_PLACEHOLDER_IMAGES)]
+                ),
             )
+            for i, item in enumerate(items)
+        ]
         context["upcoming_events"] = [e for e in event_datas if not e.is_ended]
         context["past_events"] = [e for e in event_datas if e.is_ended]
         return context

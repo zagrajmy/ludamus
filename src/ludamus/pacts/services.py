@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.multiverse import (
         ConnectionsServiceProtocol,
+        EventsServiceProtocol,
         SpherePanelServiceProtocol,
     )
 
@@ -31,6 +32,8 @@ class ServicesProtocol(Protocol):
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
     def connections(self) -> ConnectionsServiceProtocol: ...
+    @property
+    def events(self) -> EventsServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property

@@ -6,8 +6,34 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import reverse
 
 from ludamus.adapters.web.django.views import EVENT_PLACEHOLDER_IMAGES, EventInfo
-from tests.integration.conftest import EventFactory
+from ludamus.pacts import EventListItemDTO
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    AreaFactory,
+    EventFactory,
+    SpaceFactory,
+    VenueFactory,
+)
 from tests.integration.utils import assert_response
+
+
+def _expected_event_info(event, *, session_count=0, cover_index=0):
+    item = EventListItemDTO(
+        description=event.description,
+        end_time=event.end_time,
+        is_ended=event.is_ended,
+        is_live=event.is_live,
+        is_proposal_active=event.is_proposal_active,
+        is_published=event.is_published,
+        name=event.name,
+        session_count=session_count,
+        slug=event.slug,
+        start_time=event.start_time,
+    )
+    return EventInfo.from_list_item(
+        item,
+        cover_image_url=staticfiles_storage.url(EVENT_PLACEHOLDER_IMAGES[cover_index]),
+    )
 
 
 class TestIndexRedirectView:
@@ -52,15 +78,26 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "past_events": [],
-                "upcoming_events": [
-                    EventInfo.from_event(
-                        event=event,
-                        session_count=0,
-                        cover_image_url=staticfiles_storage.url(
-                            EVENT_PLACEHOLDER_IMAGES[0]
-                        ),
-                    )
-                ],
+                "upcoming_events": [_expected_event_info(event)],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_session_count_counts_agenda_items(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        AgendaItemFactory(space=space)
+        AgendaItemFactory(space=space)
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "past_events": [],
+                "upcoming_events": [_expected_event_info(event, session_count=2)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -80,15 +117,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "past_events": [],
-                "upcoming_events": [
-                    EventInfo.from_event(
-                        event=event,
-                        session_count=0,
-                        cover_image_url=staticfiles_storage.url(
-                            EVENT_PLACEHOLDER_IMAGES[0]
-                        ),
-                    )
-                ],
+                "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -108,15 +137,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "past_events": [],
-                "upcoming_events": [
-                    EventInfo.from_event(
-                        event=event,
-                        session_count=0,
-                        cover_image_url=staticfiles_storage.url(
-                            EVENT_PLACEHOLDER_IMAGES[0]
-                        ),
-                    )
-                ],
+                "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -136,15 +157,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "past_events": [],
-                "upcoming_events": [
-                    EventInfo.from_event(
-                        event=event,
-                        session_count=0,
-                        cover_image_url=staticfiles_storage.url(
-                            EVENT_PLACEHOLDER_IMAGES[0]
-                        ),
-                    )
-                ],
+                "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -208,15 +221,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "past_events": [],
-                "upcoming_events": [
-                    EventInfo.from_event(
-                        event=event,
-                        session_count=0,
-                        cover_image_url=staticfiles_storage.url(
-                            EVENT_PLACEHOLDER_IMAGES[0]
-                        ),
-                    )
-                ],
+                "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
             },
             template_name=["index.html"],

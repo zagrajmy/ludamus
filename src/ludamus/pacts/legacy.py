@@ -450,6 +450,21 @@ class EventDTO(BaseModel):
     start_time: datetime
 
 
+class EventListItemDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    description: str
+    end_time: datetime
+    is_ended: bool
+    is_live: bool
+    is_proposal_active: bool
+    is_published: bool
+    name: str
+    session_count: int
+    slug: str
+    start_time: datetime
+
+
 class EncounterDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -959,6 +974,10 @@ class ConnectedUserRepositoryProtocol(Protocol):
 class EventRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
+    @staticmethod
+    def list_for_events_page(
+        sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]: ...
     @staticmethod
     def read(pk: int) -> EventDTO: ...
     @staticmethod

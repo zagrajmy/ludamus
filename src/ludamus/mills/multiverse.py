@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EventDTO,
+        EventListItemDTO,
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
@@ -68,6 +69,20 @@ class ConnectionsService:
     def delete(self, sphere_id: int, pk: int) -> None:
         with self._transaction.atomic():
             self._connections.delete(sphere_id, pk)
+
+
+class EventsService:
+    """Read-side loader for the public events listing page."""
+
+    def __init__(self, events: EventRepositoryProtocol) -> None:
+        self._events = events
+
+    def list_for_sphere(
+        self, sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]:
+        return self._events.list_for_events_page(
+            sphere_id, include_unpublished=include_unpublished
+        )
 
 
 class SpherePanelService:
