@@ -6,6 +6,11 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.web.django.forms import (
+    COVER_IMAGE_ACCEPT,
+    validate_uploaded_image_format,
+    validate_uploaded_image_size,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -115,3 +120,18 @@ def build_session_details_form(
         _build_field_from_requirement(fields, f"session_{req.field.slug}", req)
 
     return type("SessionDetailsForm", (forms.Form,), fields)
+
+
+class SessionCoverImageForm(forms.Form):
+    cover_image = forms.ImageField(
+        label=_("Cover image"),
+        required=False,
+        help_text=_("Optional. Max 2 MB. JPG, PNG, WebP, or AVIF."),
+        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+    )
+
+    def clean_cover_image(self) -> object:
+        if image := self.cleaned_data.get("cover_image"):
+            validate_uploaded_image_size(image)
+            validate_uploaded_image_format(image)
+        return image

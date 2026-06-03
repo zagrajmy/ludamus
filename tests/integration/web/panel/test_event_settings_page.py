@@ -3,6 +3,7 @@ from unittest.mock import ANY, patch
 
 import pytest
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.pacts import EventDTO, NotFoundError
@@ -10,6 +11,16 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+GIF_BYTES = bytes.fromhex(
+    "47494638376101000100810000ffffff0000000000000000002c000000000100"
+    "010000080400010404003b"
+)
 
 
 class TestEventSettingsPageViewGet:
@@ -198,6 +209,66 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == new_name
 
+    def test_updates_cover_image(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+
+        response = authenticated_client.post(
+            self.get_url(event), data={**self._post_data(event), "cover_image": image}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.cover_image
+        assert event.cover_image_url.startswith("/media/events/")
+
+    def test_rejects_too_large_cover_image(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        image = SimpleUploadedFile(
+            "cover.png",
+            PNG_BYTES + b"0" * (2 * 1024 * 1024 + 1),
+            content_type="image/png",
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event), data={**self._post_data(event), "cover_image": image}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "panel/settings.html"
+        assert response.context["form"].errors["cover_image"] == [
+            "Image too large. Maximum size is 2 MB."
+        ]
+        event.refresh_from_db()
+        assert not event.cover_image
+
+    def test_rejects_unsupported_cover_image_format(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        image = SimpleUploadedFile("cover.gif", GIF_BYTES, content_type="image/gif")
+
+        response = authenticated_client.post(
+            self.get_url(event), data={**self._post_data(event), "cover_image": image}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "panel/settings.html"
+        assert response.context["form"].errors["cover_image"] == [
+            "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+        ]
+        event.refresh_from_db()
+        assert not event.cover_image
+
     def test_error_on_empty_form(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -206,17 +277,13 @@ class TestEventSettingsPageViewPost:
 
         response = authenticated_client.post(self.get_url(event), data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (messages.ERROR, "Event name is required."),
-                (messages.ERROR, "Event slug is required."),
-                (messages.ERROR, "Start time is required."),
-                (messages.ERROR, "End time is required."),
-            ],
-            url=f"/panel/event/{event.slug}/settings/",
-        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "panel/settings.html"
+        form_errors = response.context["form"].errors
+        assert form_errors["name"] == ["Event name is required."]
+        assert form_errors["slug"] == ["Event slug is required."]
+        assert form_errors["start_time"] == ["Start time is required."]
+        assert form_errors["end_time"] == ["End time is required."]
         event.refresh_from_db()
         assert event.name == original_name
 
@@ -231,12 +298,11 @@ class TestEventSettingsPageViewPost:
             self.get_url(event), data=self._post_data(event, name=long_name)
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event name is too long (max 255 characters).")],
-            url=f"/panel/event/{event.slug}/settings/",
-        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "panel/settings.html"
+        assert response.context["form"].errors["name"] == [
+            "Event name is too long (max 255 characters)."
+        ]
         event.refresh_from_db()
         assert event.name == original_name
 

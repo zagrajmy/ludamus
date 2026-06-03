@@ -159,6 +159,7 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    cover_image = models.ImageField(upload_to="events/", blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -200,6 +201,10 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def cover_image_url(self) -> str:
+        return self.cover_image.url if self.cover_image else ""
 
     @property
     def is_proposal_active(self) -> bool:
@@ -678,6 +683,7 @@ class Session(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    cover_image = models.ImageField(upload_to="sessions/", blank=True)
     requirements = models.TextField(blank=True)
     needs = models.TextField(default="", blank=True)
     duration = models.CharField(
@@ -726,6 +732,10 @@ class Session(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    @property
+    def cover_image_url(self) -> str:
+        return self.cover_image.url if self.cover_image else ""
 
     @property
     def enrolled_count(self) -> int:

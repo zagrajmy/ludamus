@@ -25,6 +25,14 @@
                aria-label="{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}">
                 <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
             </a>
+            {% if data.session.cover_image_url %}
+                {# ludamus-disable:no-negative-margin -- cover bleeds past the card's px-5 padding to sit flush with the rounded card edges #}
+                <img src="{{ data.session.cover_image_url }}"
+                     alt=""
+                     width="640"
+                     height="360"
+                     class="-mx-5 mb-4 h-40 w-[calc(100%+2.5rem)] rounded-t-2xl object-cover">
+            {% endif %}
             <header class="pt-5">
                 <h3 class="text-3xl font-bold leading-tight tracking-tight text-foreground-primary">{{ data.session.title }}</h3>
                 <div class="flex items-center gap-3 my-3.5 min-w-0 flex-nowrap overflow-hidden">

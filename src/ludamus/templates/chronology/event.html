@@ -22,12 +22,30 @@
 {% block twitter_description %}
     {{ event.description|truncatewords:30 }}
 {% endblock twitter_description %}
+{% block og_image %}
+    {% if event.cover_image_url %}
+        {{ request.scheme }}://{{ request.get_host }}{{ event.cover_image_url }}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock og_image %}
+{% block twitter_image %}
+    {% if event.cover_image_url %}
+        {{ request.scheme }}://{{ request.get_host }}{{ event.cover_image_url }}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock twitter_image %}
 {% block header_section %}
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="relative rounded-3xl shadow-xl overflow-hidden gradient-border mb-8 bg-bg-secondary"
          style="box-shadow: var(--theme-shadow-lg)">
+        {% if event.cover_image_url %}
+            <div class="h-56 sm:h-72 bg-cover bg-center"
+                 style="background-image: url('{{ event.cover_image_url }}')"></div>
+        {% endif %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 <div class="flex-1">
@@ -731,6 +749,13 @@
                          role="tabpanel"
                          class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
                          data-active>
+                        {% if data.session.cover_image_url %}
+                            <img src="{{ data.session.cover_image_url }}"
+                                 alt=""
+                                 width="960"
+                                 height="540"
+                                 class="mb-6 aspect-video w-full rounded-2xl object-cover border border-border">
+                        {% endif %}
                         <!-- Host & location -->
                         <div class="flex items-center gap-3 mb-6 flex-wrap">
                             {% include "components/avatar.html" with user=data.presenter size="size-10" %}
@@ -1249,6 +1274,7 @@
                 æ: 'ae',
                 ß: 'ss',
             };
+
             function normalizeText(value) {
                 return (value || '')
                     .toLowerCase()

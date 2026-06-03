@@ -20,6 +20,7 @@
             <span class="font-semibold text-primary">{% translate "Click to upload" %}</span>
             <span class="text-foreground-secondary">{% translate "or drag and drop" %}</span>
         </p>
+        {% if has_errors %}<p data-dropzone-error class="mt-2 text-sm font-medium text-danger">{{ errors.0 }}</p>{% endif %}
     </div>
     <div data-dropzone-selected
          class="pointer-events-none hidden group-data-[state=image]:absolute group-data-[state=image]:-inset-px group-data-[state=image]:z-10 group-data-[state=image]:block group-data-[state=image]:rounded-lg group-data-[state=image]:overflow-hidden group-data-[state=file]:relative group-data-[state=file]:z-10 group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md">

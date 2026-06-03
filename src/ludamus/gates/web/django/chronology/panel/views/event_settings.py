@@ -58,6 +58,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "name": current_event.name,
                 "slug": current_event.slug,
                 "description": current_event.description,
+                "cover_image": current_event.cover_image_url or None,
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (
@@ -93,11 +94,9 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
 
-        form = EventSettingsForm(self.request.POST)
+        form = EventSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            for field_errors in form.errors.values():
-                messages.error(self.request, str(field_errors[0]))
-            return redirect("panel:event-settings", slug=slug)
+            return self._render_with_form(slug, form)
 
         cd = form.cleaned_data
 
@@ -123,6 +122,8 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 cd.get("allow_facilitator_session_edit") or ""
             ),
         }
+        if cover_image := cd.get("cover_image"):
+            data["cover_image"] = cover_image
 
         try:
             self.request.di.uow.events.update(current_event.pk, data)
@@ -132,6 +133,14 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Event settings saved successfully."))
         return redirect("panel:event-settings", slug=new_slug)
+
+    def _render_with_form(self, slug: str, form: EventSettingsForm) -> HttpResponse:
+        context, _current_event = self.get_event_context(slug)
+        context["active_nav"] = "settings"
+        context["active_tab"] = "general"
+        context["tab_urls"] = settings_tab_urls(slug)
+        context["form"] = form
+        return TemplateResponse(self.request, "panel/settings.html", context)
 
 
 class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):

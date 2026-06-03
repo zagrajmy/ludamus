@@ -24,7 +24,11 @@ from ludamus.mills import (
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import NotFoundError, RedirectError, SessionFieldValueData
 
-from .forms import build_personal_data_form, build_session_details_form
+from .forms import (
+    SessionCoverImageForm,
+    build_personal_data_form,
+    build_session_details_form,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -349,9 +353,9 @@ def _render_review(
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
-    event_slug: str,
+    image_form: SessionCoverImageForm | None = None,
 ) -> HttpResponse:
-    wizard = request.session.get(_session_key(event_slug), {})
+    wizard = request.session.get(_session_key(event.slug), {})
     session_data = wizard.get("session_data", {})
     personal_data = wizard.get("personal_data", {})
     time_slot_ids = wizard.get("time_slot_ids", [])
@@ -416,6 +420,7 @@ def _render_review(
             "event": event,
             "category": category,
             "review": review,
+            "image_form": image_form or SessionCoverImageForm(),
             "current_step": "review",
             "wizard_steps": _wizard_steps(
                 service, category, has_category=_event_has_category_step(service, event)
@@ -737,7 +742,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 
-        return _render_review(request, service, event, category, event_slug)
+        return _render_review(request, service, event, category)
 
 
 class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
@@ -745,14 +750,14 @@ class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         category = self._get_wizard_category(request, service, event, event_slug)
-        return _render_review(request, service, event, category, event_slug)
+        return _render_review(request, service, event, category)
 
 
 class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
         event = self._get_event(service, event_slug)
-        self._get_wizard_category(request, service, event, event_slug)
+        category = self._get_wizard_category(request, service, event, event_slug)
         wizard = request.session.get(_session_key(event_slug), {})
         session_data = wizard.get("session_data", {})
 
@@ -775,7 +780,13 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        result = service.submit(event, wizard)
+        image_form = SessionCoverImageForm(request.POST, request.FILES)
+        if not image_form.is_valid():
+            return _render_review(request, service, event, category, image_form)
+
+        result = service.submit(
+            event, wizard, cover_image=image_form.cleaned_data.get("cover_image")
+        )
 
         del request.session[_session_key(event_slug)]
 
