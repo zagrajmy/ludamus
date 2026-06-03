@@ -14,7 +14,11 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     SessionSelfEditService,
 )
-from ludamus.mills.multiverse import ConnectionsService, SpherePanelService
+from ludamus.mills.multiverse import (
+    ConnectionsService,
+    EventsService,
+    SpherePanelService,
+)
 from ludamus.pacts.chronology import IntegrationImplementationId
 
 if TYPE_CHECKING:
@@ -45,6 +49,10 @@ class Services:
         return ConnectionsService(
             self._transaction, self._repos.connections, FernetEncryptor(key)
         )
+
+    @cached_property
+    def events(self) -> EventsService:
+        return EventsService(self._repos.events)
 
     @cached_property
     def sphere_panel(self) -> SpherePanelService:

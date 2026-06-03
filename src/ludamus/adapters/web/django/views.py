@@ -19,8 +19,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -484,37 +483,20 @@ class EventsPageView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        # Count agenda items per event via a correlated subquery rather than a
-        # Count() over the venues->areas->spaces->agenda_items join chain, which
-        # forces a wide GROUP BY over the whole join.
-        agenda_item_count = (
-            AgendaItem.objects.filter(space__area__venue__event=OuterRef("pk"))
-            .order_by()
-            .values("space__area__venue__event")
-            .annotate(count=Count("pk"))
-            .values("count")
+        items = self.request.services.events.list_for_sphere(
+            self.request.context.current_sphere_id,
+            include_unpublished=_is_manager(self.request),
         )
-        events = Event.objects.filter(
-            sphere_id=self.request.context.current_sphere_id
-        ).annotate(
-            session_count=Coalesce(
-                Subquery(agenda_item_count, output_field=IntegerField()), 0
+        # Assign placeholder images by index.
+        event_datas = [
+            EventInfo.from_list_item(
+                item,
+                cover_image_url=staticfiles_storage.url(
+                    EVENT_PLACEHOLDER_IMAGES[i % len(EVENT_PLACEHOLDER_IMAGES)]
+                ),
             )
-        )
-        if not _is_manager(self.request):
-            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
-        all_events = list(events.order_by("start_time"))
-        event_datas: list[EventInfo] = []
-        # Assign placeholder images based on index
-        for i, event in enumerate(all_events):
-            img = EVENT_PLACEHOLDER_IMAGES[i % len(EVENT_PLACEHOLDER_IMAGES)]
-            event_datas.append(
-                EventInfo.from_event(
-                    event=event,
-                    session_count=event.session_count,
-                    cover_image_url=staticfiles_storage.url(img),
-                )
-            )
+            for i, item in enumerate(items)
+        ]
         context["upcoming_events"] = [e for e in event_datas if not e.is_ended]
         context["past_events"] = [e for e in event_datas if e.is_ended]
         return context

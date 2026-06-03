@@ -5,7 +5,8 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
@@ -55,6 +56,7 @@ from ludamus.pacts import (
     EnrollmentConfigDTO,
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
+    EventListItemDTO,
     EventProposalSettingsDTO,
     EventProposalSettingsRepositoryProtocol,
     EventRepositoryProtocol,
@@ -672,6 +674,32 @@ class EventRepository(EventRepositoryProtocol):
             .order_by("-start_time")
         )
         return [_event_dto(event) for event in events]
+
+    @staticmethod
+    def list_for_events_page(
+        sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]:
+        # session_count comes from a correlated subquery rather than a Count()
+        # over the venues->areas->spaces->agenda_items join, which would force a
+        # wide GROUP BY across the whole join.
+        agenda_item_count = (
+            AgendaItem.objects.filter(space__area__venue__event=OuterRef("pk"))
+            .order_by()
+            .values("space__area__venue__event")
+            .annotate(count=Count("pk"))
+            .values("count")
+        )
+        events = Event.objects.filter(sphere_id=sphere_id).annotate(
+            session_count=Coalesce(
+                Subquery(agenda_item_count, output_field=IntegerField()), 0
+            )
+        )
+        if not include_unpublished:
+            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
+        return [
+            EventListItemDTO.model_validate(event)
+            for event in events.order_by("start_time")
+        ]
 
     @staticmethod
     def read(pk: int) -> EventDTO:
