@@ -24,7 +24,9 @@ class MembershipApiClient:
         # The membership API is optional: when no base URL is configured there
         # is nothing to look up, so signal "unavailable" without a request.
         if not self.base_url:
-            logger.debug("Membership API not configured; skipping lookup for %s", email)
+            # Global state, identical for every user, so the email adds no
+            # diagnostic value here — and keeps it out of the logs.
+            logger.debug("Membership API not configured; skipping lookup")
             raise MembershipAPIError
 
         try:

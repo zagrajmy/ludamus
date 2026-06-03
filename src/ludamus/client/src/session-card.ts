@@ -45,6 +45,14 @@ document.addEventListener("click", (e) => {
   const text = button.dataset.discord;
   if (!text) return;
 
+  // `navigator.clipboard` is undefined in insecure contexts; calling writeText
+  // there throws synchronously and would bypass the .catch below.
+  if (!navigator.clipboard?.writeText) {
+    console.error("Clipboard API unavailable");
+    flashCopyFeedback(button, "btn btn-danger p-1 copy-discord");
+    return;
+  }
+
   navigator.clipboard
     .writeText(text)
     .then(() =>
