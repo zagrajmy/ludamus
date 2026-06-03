@@ -19,7 +19,8 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -483,14 +484,26 @@ class EventsPageView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        all_events = list(
-            Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
-            .annotate(session_count=Count("venues__areas__spaces__agenda_items"))
-            .order_by("start_time")
-            .all()
+        # Count agenda items per event via a correlated subquery rather than a
+        # Count() over the venues->areas->spaces->agenda_items join chain, which
+        # forces a wide GROUP BY over the whole join.
+        agenda_item_count = (
+            AgendaItem.objects.filter(space__area__venue__event=OuterRef("pk"))
+            .order_by()
+            .values("space__area__venue__event")
+            .annotate(count=Count("pk"))
+            .values("count")
+        )
+        events = Event.objects.filter(
+            sphere_id=self.request.context.current_sphere_id
+        ).annotate(
+            session_count=Coalesce(
+                Subquery(agenda_item_count, output_field=IntegerField()), 0
+            )
         )
         if not _is_manager(self.request):
-            all_events = [e for e in all_events if e.is_published]
+            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
+        all_events = list(events.order_by("start_time"))
         event_datas: list[EventInfo] = []
         # Assign placeholder images based on index
         for i, event in enumerate(all_events):
