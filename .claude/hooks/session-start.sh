@@ -6,6 +6,10 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+# Run setup in the background so the session starts immediately — Claude
+# usually reads files and talks before it needs the toolchain.
+echo '{"async": true, "asyncTimeout": 600000}'
+
 cd "$CLAUDE_PROJECT_DIR"
 
 export PATH="$HOME/.local/bin:$PATH"
