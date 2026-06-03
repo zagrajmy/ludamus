@@ -14,6 +14,6 @@ export PATH="$HOME/.local/bin:$PATH"
 mise trust
 mise install
 
-# Python deps into the mise-managed .venv, then frontend/workspace deps.
-mise exec -- poetry install
-mise exec -- aube install
+# Idempotent dev setup: poetry + aube deps, .env.local, migrations,
+# vendored static, demo data.
+mise run bootstrap
