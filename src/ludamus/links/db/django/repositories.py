@@ -1,3 +1,4 @@
+import contextlib
 import json
 import re
 from datetime import UTC, datetime, timedelta
@@ -147,6 +148,15 @@ else:
     User = get_user_model()
 
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
+
+
+def _delete_stored_file(field_file: object, old_name: str) -> None:
+    # Best-effort: a storage hiccup (e.g. GCS) must not fail an otherwise
+    # successful DB update, so swallow cleanup errors.
+    if (storage := getattr(field_file, "storage", None)) is None:
+        return
+    with contextlib.suppress(Exception):
+        storage.delete(old_name)
 
 
 def _parse_iso8601_duration_minutes(duration: str) -> int:
@@ -777,7 +787,7 @@ class EventRepository(EventRepositoryProtocol):
         event.save(update_fields=list(data.keys()))
 
         if old_cover and old_cover != event.cover_image.name:
-            event.cover_image.storage.delete(old_cover)
+            _delete_stored_file(event.cover_image, old_cover)
 
     @staticmethod
     def update_proposal_description(event_id: int, description: str) -> None:
@@ -2513,7 +2523,7 @@ class EncounterRepository(EncounterRepositoryProtocol):
             setattr(encounter, key, value)
         encounter.save()
         if old_header and old_header != encounter.header_image.name:
-            encounter.header_image.storage.delete(old_header)
+            _delete_stored_file(encounter.header_image, old_header)
 
     @staticmethod
     def delete(pk: int) -> None:

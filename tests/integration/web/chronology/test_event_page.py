@@ -154,7 +154,12 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
         assert event.cover_image_url.encode() in response.content
 
     def test_ok_superuser_proposal(

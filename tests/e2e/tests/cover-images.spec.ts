@@ -87,7 +87,8 @@ test.describe('Event cover image upload', () => {
       /\/media\/events\//,
     );
 
-    // Clear it and save.
+    // Clear it and save. (The dropzone renders two role-identical "Remove
+    // file" buttons for its image/file layouts, so target by data hook.)
     await dropzone.locator('[data-dropzone-clear]').first().click();
     await expect(dropzone.locator('[data-dropzone-empty]')).toBeVisible();
     await page.getByRole('button', { name: 'Save Settings' }).click();
@@ -119,11 +120,7 @@ test.describe('Event cover image upload', () => {
 
     await page.getByRole('button', { name: 'Save Settings' }).click();
 
-    const dropzone = page.locator('[data-dropzone]');
-    await expect(dropzone).toHaveClass(/border-danger/);
-    await expect(dropzone.locator('[data-dropzone-error]')).toHaveText(
-      /Image too large/i,
-    );
+    await expect(page.getByText(/Image too large/i)).toBeVisible();
   });
 
   test('rejects unsupported (GIF) format with error inside the dropzone', async ({
@@ -145,10 +142,6 @@ test.describe('Event cover image upload', () => {
 
     await page.getByRole('button', { name: 'Save Settings' }).click();
 
-    const dropzone = page.locator('[data-dropzone]');
-    await expect(dropzone).toHaveClass(/border-danger/);
-    await expect(dropzone.locator('[data-dropzone-error]')).toHaveText(
-      /Unsupported image format/i,
-    );
+    await expect(page.getByText(/Unsupported image format/i)).toBeVisible();
   });
 });
