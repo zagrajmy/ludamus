@@ -1,8 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
+import threading
 from unittest.mock import ANY, Mock, patch
 
 import pytest
 from django.contrib import messages
+from django.contrib.auth.hashers import make_password
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -20,6 +24,7 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
+    UserFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -1529,3 +1534,41 @@ class TestSessionEnrollPageView:
             },
             template_name="chronology/enroll_select.html",
         )
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_concurrent_enroll_does_not_overbook_capacity(
+        self, client, active_user, agenda_item
+    ):
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+
+        other_user = UserFactory(
+            username="concurrentenroll",
+            email="concurrentenroll@example.com",
+            password=make_password(None),
+        )
+        other_client = Client()
+        other_client.force_login(other_user)
+
+        url = self._get_url(session.pk)
+        barrier = threading.Barrier(2)
+
+        def enroll(httpx_client, user_pk: int):
+            barrier.wait()
+            return httpx_client.post(url, data={f"user_{user_pk}": "enroll"})
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [
+                pool.submit(enroll, client, active_user.pk),
+                pool.submit(enroll, other_client, other_user.pk),
+            ]
+            for future in futures:
+                future.result()
+
+        confirmed = SessionParticipation.objects.filter(
+            session_id=session.pk,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).count()
+        assert confirmed == 1
