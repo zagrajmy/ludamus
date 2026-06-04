@@ -21,6 +21,7 @@ mise tasks          # list all tasks with descriptions
     option?
 - Use agent-browser to take screenshots of affected pages and include
   before/after images in the PR description
+- Don't ignore lint rules globally.
 
 ## Architecture
 
