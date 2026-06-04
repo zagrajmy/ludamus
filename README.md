@@ -20,10 +20,11 @@ mise run bootstrap      # .env, deps, migrations, demo data — idempotent
 mise run start          # Django :8000 + Vite :5173
 ```
 
-After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
+After bootstrap, log in at <http://localhost:8000/admin/> as
+`e2e-superuser` / `e2e-superuser-123`.
 
-`mise run bootstrap` is safe to re-run any time — it tops up missing deps and
-seed data without destroying anything.
+`mise run bootstrap` resets and reseeds the local database with the same
+deterministic data used by end-to-end tests.
 
 ### Day-to-day
 
