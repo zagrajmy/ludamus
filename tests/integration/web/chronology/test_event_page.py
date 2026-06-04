@@ -6,6 +6,7 @@ import pytest
 import responses
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template.defaultfilters import date as date_filter
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -161,6 +162,41 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
         assert event.cover_image_url.encode() in response.content
+
+    @override_settings(MEDIA_URL="https://cdn.example.test/media/")
+    def test_event_cover_image_used_as_absolute_social_metadata(self, client, event):
+        event.cover_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        content = response.content.decode()
+        absolute_url = event.cover_image_url
+        assert absolute_url.startswith("http")
+        # The cover URL is already absolute (CDN), so it is used verbatim — not
+        # the default logo, and not prefixed with the request host.
+        assert absolute_url in content
+        assert "zagrajmy.net/static/logo.png" not in content
+        assert f"testserver{absolute_url}" not in content
+
+    def test_shows_session_cover_image(self, agenda_item, client, event):
+        session = agenda_item.session
+        session.cover_image = SimpleUploadedFile(
+            "session.png", PNG_BYTES, content_type="image/png"
+        )
+        session.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
+        assert session.cover_image_url.encode() in response.content
 
     def test_ok_superuser_proposal(
         self, authenticated_client, event, active_user, pending_session
