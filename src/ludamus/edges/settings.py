@@ -24,6 +24,7 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, ["localhost"]),
     ROOT_DOMAIN=(str, ""),
     SESSION_COOKIE_DOMAIN=(str, None),
+    SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
     # Auth0
     AUTH0_CLIENT_ID=(str, ""),
@@ -58,6 +59,7 @@ env = environ.Env(
 # Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
+IN_TESTS = env("IN_TESTS")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -266,6 +268,7 @@ LOGIN_URL = "/crowd/login-required/"
 # Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+SITE_ID = env("SITE_ID")
 
 # Auth0
 
