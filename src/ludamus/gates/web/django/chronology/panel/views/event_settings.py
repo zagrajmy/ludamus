@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import messages
@@ -37,6 +37,25 @@ def _choice_to_override(value: str) -> bool | None:
     if value == "false":
         return False
     return None
+
+
+def _event_update_data(cd: dict[str, Any], new_slug: str) -> EventUpdateData:
+    data: EventUpdateData = {
+        "name": cd["name"],
+        "slug": new_slug,
+        "description": cd.get("description") or "",
+        "start_time": cd["start_time"],
+        "end_time": cd["end_time"],
+        "publication_time": cd.get("publication_time"),
+        "allow_facilitator_session_edit": _choice_to_override(
+            cd.get("allow_facilitator_session_edit") or ""
+        ),
+    }
+    # Only overwrite the logo when a new file was uploaded, so saving the
+    # settings form without re-picking a file keeps the existing logo.
+    if cd.get("logo"):
+        data["logo"] = cd["logo"]
+    return data
 
 
 class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -93,7 +112,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
 
-        form = EventSettingsForm(self.request.POST)
+        form = EventSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             for field_errors in form.errors.values():
                 messages.error(self.request, str(field_errors[0]))
@@ -112,17 +131,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             except NotFoundError:
                 pass  # Slug is available
 
-        data: EventUpdateData = {
-            "name": cd["name"],
-            "slug": new_slug,
-            "description": cd.get("description") or "",
-            "start_time": cd["start_time"],
-            "end_time": cd["end_time"],
-            "publication_time": cd.get("publication_time"),
-            "allow_facilitator_session_edit": _choice_to_override(
-                cd.get("allow_facilitator_session_edit") or ""
-            ),
-        }
+        data = _event_update_data(cd, new_slug)
 
         try:
             self.request.di.uow.events.update(current_event.pk, data)

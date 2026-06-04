@@ -1,9 +1,7 @@
-import io
 import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-import segno
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404, HttpResponse
@@ -24,6 +22,7 @@ from ludamus.mills import (
     outlook_calendar_url,
     render_markdown,
 )
+from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
 
 from .forms import EncounterForm
@@ -406,10 +405,7 @@ class EncounterQrView(View):
                 "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
             )
         )
-        qr = segno.make(url)
-        buffer = io.BytesIO()
-        qr.save(buffer, kind="svg", scale=4, dark="#1f2937")
-        return HttpResponse(buffer.getvalue(), content_type="image/svg+xml")
+        return HttpResponse(qr_svg(url, dark="#1f2937"), content_type="image/svg+xml")
 
 
 class EncounterIcsView(View):

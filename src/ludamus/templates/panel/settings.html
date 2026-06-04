@@ -38,6 +38,7 @@
     <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
         <form id="settings-form"
               method="post"
+              enctype="multipart/form-data"
               action="{% url 'panel:event-settings' slug=current_event.slug %}"
               class="max-w-2xl">
             {% csrf_token %}
@@ -75,6 +76,26 @@
                                           id="id_description"
                                           rows="3"
                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_logo">{% translate "Event logo" %}</label>
+                                {% translate "Current event logo" as logo_alt %}
+                                {% if current_event.logo %}
+                                    <img src="{{ MEDIA_URL }}{{ current_event.logo }}"
+                                         alt="{{ logo_alt }}"
+                                         width="240"
+                                         height="64"
+                                         class="h-16 mb-2 object-contain">
+                                {% endif %}
+                                <input type="file"
+                                       name="logo"
+                                       id="id_logo"
+                                       accept="image/*"
+                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <p class="mt-1 text-sm text-foreground-muted">
+                                    {% translate "Shown on the printable schedule. Max 2 MB. JPG, PNG, or WebP." %}
+                                </p>
                             </div>
                         </div>
                     </div>

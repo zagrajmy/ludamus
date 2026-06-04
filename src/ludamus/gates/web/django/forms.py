@@ -38,6 +38,13 @@ class EventSettingsForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+    MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
+
+    logo = forms.ImageField(
+        required=False,
+        label=_("Event logo"),
+        help_text=_("Shown on the printable schedule. Max 2 MB. JPG, PNG, or WebP."),
+    )
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -62,6 +69,12 @@ class EventSettingsForm(forms.Form):
         ],
         label=_("Facilitators editing their own sessions"),
     )
+
+    def clean_logo(self) -> object:
+        logo = self.cleaned_data.get("logo")
+        if logo and logo.size > self.MAX_LOGO_SIZE:
+            raise forms.ValidationError(_("Image too large. Maximum size is 2 MB."))
+        return logo
 
 
 class SphereSettingsForm(forms.Form):

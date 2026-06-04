@@ -64,6 +64,11 @@ chronology_urls = [
     *chronology_gate_urls,
     path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
     path(
+        "event/<str:slug>/print/",
+        views.PublicEventPrintView.as_view(),
+        name="event-print",
+    ),
+    path(
         "session/<int:session_id>/enrollment/",
         views.SessionEnrollPageView.as_view(),
         name="session-enrollment",

@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from enum import StrEnum, auto
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
@@ -24,7 +24,9 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
+from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
 from django.views.generic.detail import DetailView, SingleObjectTemplateResponseMixin
@@ -62,6 +64,7 @@ from ludamus.mills import (
     AnonymousEnrollmentService,
     get_user_enrollment_config,
 )
+from ludamus.mills.qr import qr_svg
 from ludamus.pacts import (
     AgendaItemDTO,
     AreaDTO,
@@ -1189,6 +1192,102 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self._set_user_participations(sessions_data, event_sessions)
 
         return sessions_data
+
+
+class PublicEventPrintView(View):
+    """Public, print-ready schedule for an event.
+
+    The destination of the ``Ctrl/Cmd+P`` hijack on the event page and the home
+    of the richer printables (logo, QR, timetable, per-area time-range pages).
+    Scoped to published events and confirmed program data only.
+    """
+
+    request: RootRequest
+    template_name = "chronology/print.html"
+    DEFAULT_RANGE_HOURS = 6
+    MAX_RANGE_HOURS = 72
+
+    def get(self, request: RootRequest, slug: str) -> HttpResponse:
+        try:
+            event = request.di.uow.events.read_by_slug(
+                slug, request.context.current_sphere_id
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+
+        published = (
+            event.publication_time is not None
+            and event.publication_time <= datetime.now(tz=UTC)
+        )
+        if not published and not _is_manager(request):
+            raise Http404
+
+        try:
+            scope = request.services.venues.resolve_scope(
+                event.pk,
+                request.GET.get("venue") or None,
+                request.GET.get("area") or None,
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+
+        tz = get_current_timezone()
+        range_start, range_hours = self._resolve_range(event, tz)
+        range_end = range_start + timedelta(hours=range_hours)
+
+        service = request.services.print_materials
+        timetable = service.build_timetable(
+            event.pk,
+            tz,
+            area_pks=scope.area_pks,
+            scope_name=scope.scope_name,
+            confirmed_only=True,
+        )
+        area_schedule = service.build_area_schedule(
+            event.pk,
+            (range_start, range_end),
+            area_pks=scope.area_pks,
+            scope_name=scope.scope_name,
+            confirmed_only=True,
+        )
+
+        event_url = request.build_absolute_uri(
+            reverse("web:chronology:event", kwargs={"slug": slug})
+        )
+
+        return TemplateResponse(
+            request,
+            self.template_name,
+            {
+                "event": event,
+                "timetable": timetable,
+                "area_schedule": area_schedule,
+                "qr_svg": qr_svg(event_url, xmldecl=False),
+                "event_url": event_url,
+                "venues": request.services.venues.list_with_areas(event.pk),
+                "scope": scope,
+                "selected_venue": request.GET.get("venue") or "",
+                "selected_area": request.GET.get("area") or "",
+                "range_start_value": (
+                    localtime(range_start, tz).strftime("%Y-%m-%dT%H:%M")
+                ),
+                "range_hours": range_hours,
+            },
+        )
+
+    def _resolve_range(self, event: EventDTO, tz: tzinfo) -> tuple[datetime, int]:
+        # A fixed-duration window from a chosen start (default: the event start,
+        # for DEFAULT_RANGE_HOURS). Bad input silently falls back to defaults.
+        hours = self.DEFAULT_RANGE_HOURS
+        with suppress(ValueError, TypeError):
+            hours = int(self.request.GET.get("hours", self.DEFAULT_RANGE_HOURS))
+        hours = max(1, min(hours, self.MAX_RANGE_HOURS))
+
+        start = localtime(event.start_time, tz)
+        raw_start = self.request.GET.get("start")
+        if raw_start and (parsed := parse_datetime(raw_start)) is not None:
+            start = parsed if parsed.tzinfo else make_aware(parsed, tz)
+        return start, hours
 
 
 class EnrollmentChoice(StrEnum):

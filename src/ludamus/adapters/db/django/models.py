@@ -159,6 +159,8 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    # Branding — shown on printables (the public /print page)
+    logo = models.ImageField(upload_to="events/", blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
