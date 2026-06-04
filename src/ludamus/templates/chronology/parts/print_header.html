@@ -1,0 +1,21 @@
+{% load i18n %}
+<header class="flex items-start justify-between gap-[8mm] border-b-[1.5pt] border-neutral-900 pb-[4mm] mb-[6mm]">
+    <div>
+        {% if logo %}
+            <img class="h-auto w-auto max-h-[22mm] max-w-[60mm] object-contain"
+                 src="{{ MEDIA_URL }}{{ logo }}"
+                 alt="{{ event.name }}"
+                 width="240"
+                 height="80">
+        {% endif %}
+        <div class="text-[18pt] font-bold">{{ event.name }}</div>
+        <div class="mt-[1mm] text-[9pt] text-neutral-500">{{ event.start_time|date:"j E Y" }}–{{ event.end_time|date:"j E Y" }}</div>
+        {% if scope_name %}<div class="mt-[1mm] text-[11pt] font-semibold">{{ scope_name }}</div>{% endif %}
+    </div>
+    <div class="shrink-0 text-center [&_svg]:h-[26mm] [&_svg]:w-[26mm]">
+        {% if show_full_schedule_label %}
+            <div class="mb-[1mm] text-[8pt] font-semibold tracking-wide">{% translate "Full schedule" %}</div>
+        {% endif %}
+        {{ qr_svg|safe }}
+    </div>
+</header>

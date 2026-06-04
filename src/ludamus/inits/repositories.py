@@ -57,6 +57,10 @@ class Repositories:
         return repositories.TimeSlotRepository()
 
     @cached_property
+    def tracks(self) -> repositories.TrackRepository:
+        return repositories.TrackRepository()
+
+    @cached_property
     def venues(self) -> repositories.VenueRepository:
         return repositories.VenueRepository()
 

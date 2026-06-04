@@ -133,6 +133,7 @@ class AgendaItemDTO(BaseModel):
     space_name: str = ""
     session_id: int = 0
     session_title: str = ""
+    session_description: str = ""
     presenter_name: str = ""
     session_duration_minutes: int = 0
     session_status: "SessionStatus | None" = None
@@ -416,13 +417,22 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    logo: str = ""
     name: str
     pk: int
     site_id: int
 
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
+
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
+    logo: str
 
 
 @dataclass
@@ -439,6 +449,7 @@ class EventDTO(BaseModel):
     allow_facilitator_session_edit: bool | None = None
     description: str
     end_time: datetime
+    logo: str = ""
     name: str
     pk: int
     proposal_description: str = ""
@@ -448,6 +459,11 @@ class EventDTO(BaseModel):
     slug: str
     sphere_id: int
     start_time: datetime
+
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
 
 
 class EventListItemDTO(BaseModel):
@@ -667,6 +683,9 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime, matching the EncounterData.header_image convention.
+    logo: str
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None

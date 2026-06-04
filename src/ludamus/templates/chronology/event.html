@@ -985,6 +985,28 @@
             {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
         </a>
     </div>
+    {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
+    {# event-print.ts); this block is the fallback for File→Print / the toolbar, #}
+    {# which JS cannot intercept — it collapses the page to a clean pointer plus #}
+    {# a minimal schedule so the chrome never prints. #}
+    <a id="event-print-link"
+       data-event-print
+       href="{% url 'web:chronology:event-print' slug=event.slug %}"
+       hidden>{% translate "Print-ready schedule" %}</a>
+    <div class="event-print-pointer" aria-hidden="true">
+        <h1>{{ event.name }}</h1>
+        <p class="pointer-note">
+            {% blocktranslate %}A print-ready schedule is available at:{% endblocktranslate %}
+            <br>
+            <strong>{{ request.scheme }}://{{ request.get_host }}{% url 'web:chronology:event-print' slug=event.slug %}</strong>
+        </p>
+        {% for hour, items in hour_data.items %}
+            <div class="pointer-row">
+                <span class="pointer-time">{{ hour|time:"H:i" }}</span>
+                {% for item in items %}<span class="pointer-session">{{ item.session.title }}</span>{% endfor %}
+            </div>
+        {% endfor %}
+    </div>
 {% endblock body %}
 {% block extra_scripts %}
     {% vite_asset 'src/modal.ts' %}
@@ -992,9 +1014,70 @@
     {% vite_asset 'src/session-card.ts' %}
     {% vite_asset 'src/session-edit.ts' %}
     {% vite_asset 'src/session-filters.ts' %}
+    {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}
     <style>
+        /* Print pointer: hidden on screen; the @media print rule below reveals it
+           and hides the page chrome, so File->Print / the toolbar never print the
+           interactive UI. The Ctrl/Cmd+P gesture is handled separately by JS. */
+        .event-print-pointer {
+            display: none;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .event-print-pointer,
+            .event-print-pointer * {
+                visibility: visible;
+            }
+
+            .event-print-pointer {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                font-family: sans-serif;
+                color: #111827;
+            }
+
+            .event-print-pointer h1 {
+                font-size: 18pt;
+                font-weight: 700;
+                margin: 0 0 4mm 0;
+            }
+
+            .event-print-pointer .pointer-note {
+                font-size: 11pt;
+                margin: 0 0 6mm 0;
+            }
+
+            .event-print-pointer .pointer-row {
+                font-size: 9pt;
+                margin-bottom: 1mm;
+            }
+
+            .event-print-pointer .pointer-time {
+                display: inline-block;
+                width: 16mm;
+                font-variant-numeric: tabular-nums;
+                color: #6b7280;
+            }
+
+            .event-print-pointer .pointer-session::after {
+                content: " · ";
+                color: #6b7280;
+            }
+
+            .event-print-pointer .pointer-session:last-child::after {
+                content: "";
+            }
+        }
+
         /* Tag filter container styling */
         .tag-filter-container {
             width: 18vw;

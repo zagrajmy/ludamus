@@ -45,7 +45,7 @@ def _slot_on_day(pk, day, start_hour, end_hour):
     )
 
 
-def _item(pk, space_id, start_hour, end_hour, *, title, confirmed):
+def _item(pk, space_id, start_hour, end_hour, *, title, confirmed, description=""):
     return AgendaItemDTO(
         pk=pk,
         session_confirmed=confirmed,
@@ -53,6 +53,7 @@ def _item(pk, space_id, start_hour, end_hour, *, title, confirmed):
         end_time=datetime(2026, 6, 1, end_hour, 0, tzinfo=UTC),
         space_id=space_id,
         session_title=title,
+        session_description=description,
         presenter_name="GM",
     )
 
@@ -73,12 +74,21 @@ class _ListByEvent:
         return list(self._rows)
 
 
-def _service(*, spaces, items, slots):
+class _Tracks:
+    def list_public_by_event(self, _event_pk):
+        return []
+
+    def list_space_pks(self, _track_pk):
+        return []
+
+
+def _service(*, spaces, items, slots, tracks=None):
     return PrintMaterialsService(
         _Events(_event()),
         _ListByEvent(spaces),
         _ListByEvent(items),
         _ListByEvent(slots),
+        tracks or _Tracks(),
     )
 
 
@@ -185,6 +195,139 @@ class TestBuildTimetable:
         assert (
             service.build_door_cards(1, UTC).event_description == "Konwent dla nerdów"
         )
+
+
+class TestConfirmedOnly:
+    def test_timetable_drops_unconfirmed_when_confirmed_only(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="Confirmed", confirmed=True),
+            _item(2, 1, 10, 11, title="Pending", confirmed=False),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_timetable(1, UTC, confirmed_only=True)
+
+        titles = [
+            s.title
+            for day in document.days
+            for row in day.rows
+            for cell in row.cells
+            for s in cell.sessions
+        ]
+        assert titles == ["Confirmed"]
+
+    def test_door_cards_drop_unconfirmed_when_confirmed_only(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [_item(1, 1, 9, 10, title="Pending", confirmed=False)]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_door_cards(1, UTC, confirmed_only=True)
+
+        sessions = [
+            e.session.title
+            for card in document.cards
+            for day in card.days
+            for e in day.entries
+            if e.session
+        ]
+        assert sessions == []
+
+
+class TestTimetableCompleteness:
+    def test_complete_when_every_scheduled_session_confirmed(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        assert service.build_timetable(1, UTC).is_complete is True
+
+    def test_incomplete_when_a_scheduled_session_is_unconfirmed(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True),
+            _item(2, 1, 10, 11, title="Maybe", confirmed=False),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        # Completeness reflects the whole program, even when the public view is
+        # confirmed-only — a pending session means the paper is partial.
+        assert service.build_timetable(1, UTC, confirmed_only=True).is_complete is False
+
+    def test_incomplete_when_nothing_scheduled(self):
+        spaces = [_space(1, "Alfa", 0)]
+        service = _service(spaces=spaces, items=[], slots=[])
+
+        assert service.build_timetable(1, UTC).is_complete is False
+
+    def test_scoped_timetable_is_never_complete(self):
+        # A scoped print (one venue/area) is a subset, so never "the whole thing".
+        spaces = [_space(1, "Alfa", 0, area_id=10)]
+        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_timetable(1, UTC, area_pks=frozenset({10}))
+
+        assert document.is_complete is False
+
+
+class TestBuildAreaSchedule:
+    def test_sessions_within_range_carry_full_description(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 10, 11, title="RPG", confirmed=True, description="A long tale")
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+        window = (
+            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
+        )
+
+        document = service.build_area_schedule(1, window)
+
+        space = document.spaces[0]
+        assert space.space_name == "Alfa"
+        assert [s.title for s in space.sessions] == ["RPG"]
+        assert space.sessions[0].description == "A long tale"
+
+    def test_sessions_outside_range_are_excluded(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [_item(1, 1, 20, 21, title="Late night", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[])
+        window = (
+            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
+        )
+
+        document = service.build_area_schedule(1, window)
+
+        assert document.spaces[0].sessions == []
+
+    def test_confirmed_only_excludes_pending_sessions(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [_item(1, 1, 10, 11, title="Pending", confirmed=False)]
+        service = _service(spaces=spaces, items=items, slots=[])
+        window = (
+            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
+        )
+
+        document = service.build_area_schedule(1, window, confirmed_only=True)
+
+        assert document.spaces[0].sessions == []
+
+    def test_carries_range_bounds(self):
+        spaces = [_space(1, "Alfa", 0)]
+        service = _service(spaces=spaces, items=[], slots=[])
+        window = (
+            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
+        )
+
+        document = service.build_area_schedule(1, window)
+
+        assert document.range_start == window[0]
+        assert document.range_end == window[1]
 
 
 class TestScoping:

@@ -3,6 +3,7 @@ from unittest.mock import ANY, patch
 
 import pytest
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.pacts import EventDTO, NotFoundError
@@ -65,6 +66,18 @@ class TestEventSettingsPageViewGet:
                 "form": ANY,
             },
         )
+
+    def test_shows_existing_logo_preview(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/logo.png"
+        event.save()
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert "events/logo.png" in response.content.decode()
 
     def test_inherit_label_reflects_sphere_default_disallowed(
         self, authenticated_client, active_user, sphere, event
@@ -197,6 +210,72 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.name == new_name
+
+    def test_uploads_logo(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        gif_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
+            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        logo = SimpleUploadedFile("logo.gif", gif_bytes, content_type="image/gif")
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, logo=logo)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.logo
+        assert event.logo.name.startswith("events/")
+
+    def test_logo_too_large_is_rejected(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        gif_header = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
+            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        oversized = gif_header + b"\x00" * (5 * 1024 * 1024 + 1)
+        logo = SimpleUploadedFile("big.gif", oversized, content_type="image/gif")
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, logo=logo)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Image too large. Maximum size is 5 MB.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+
+    def test_save_without_logo_keeps_existing(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/keep.png"
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, name="Renamed")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.logo.name == "events/keep.png"
 
     def test_error_on_empty_form(
         self, authenticated_client, active_user, sphere, event
