@@ -48,6 +48,17 @@ def validate_uploaded_image(image: object) -> None:
         validate_uploaded_image_format(image)
 
 
+def cover_image_field() -> forms.ImageField:
+    # Shared definition so every cover/header upload field stays identical
+    # (label, limits, accepted types) without copy-pasting the declaration.
+    return forms.ImageField(
+        label=_("Cover image"),
+        required=False,
+        help_text=COVER_IMAGE_HELP_TEXT,
+        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+    )
+
+
 def _datetime_local_widget() -> forms.DateTimeInput:
     return forms.DateTimeInput(
         attrs={
@@ -78,12 +89,7 @@ class EventSettingsForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
-    cover_image = forms.ImageField(
-        label=_("Cover image"),
-        required=False,
-        help_text=COVER_IMAGE_HELP_TEXT,
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
-    )
+    cover_image = cover_image_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,

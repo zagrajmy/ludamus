@@ -45,7 +45,6 @@ const initDropzone = (label: HTMLLabelElement): void => {
     "[data-dropzone-clear-flag]",
   );
   if (!input || nameEls.length === 0 || sizeEls.length === 0) return;
-  if (clearBtns.length === 0) return;
 
   let previewUrl: string | null = null;
   const revokePreview = (): void => {
@@ -71,9 +70,10 @@ const initDropzone = (label: HTMLLabelElement): void => {
     sizeEls.forEach((el) => {
       el.textContent = formatBytes(file.size);
     });
+    // Mirror the accepted upload formats (COVER_IMAGE_ACCEPT) so an
+    // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.
     const useImageLayout =
-      Boolean(preview) &&
-      /^image\/(png|jpe?g|gif|webp|avif)$/.test(file.type);
+      Boolean(preview) && /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
     if (useImageLayout) {
       revokePreview();
       previewUrl = URL.createObjectURL(file);

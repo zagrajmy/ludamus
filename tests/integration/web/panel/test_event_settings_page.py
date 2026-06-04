@@ -257,6 +257,39 @@ class TestEventSettingsPageViewPost:
         assert not event.cover_image
         assert not storage.exists(old_name)
 
+    def test_cover_replacement_survives_storage_cleanup_failure(
+        self, authenticated_client, active_user, sphere, event, caplog
+    ):
+        sphere.managers.add(active_user)
+        event.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        event.save()
+        new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
+
+        # Deleting the replaced file is best-effort: a storage hiccup must not
+        # turn an otherwise successful update into a 500.
+        with (
+            patch.object(
+                event.cover_image.storage, "delete", side_effect=OSError("boom")
+            ),
+            caplog.at_level("WARNING", logger="ludamus.links.db.django.repositories"),
+        ):
+            response = authenticated_client.post(
+                self.get_url(event),
+                data={**self._post_data(event), "cover_image": new_image},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.cover_image  # new cover saved despite the cleanup failure
+        assert "Best-effort cleanup" in caplog.text
+
     def test_rejects_oversize_cover_dimensions(
         self, authenticated_client, active_user, sphere, event
     ):
