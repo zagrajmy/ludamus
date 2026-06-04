@@ -55,6 +55,30 @@ def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
     return site, sphere
 
 
+def _create_root_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
+    site, _ = Site.objects.update_or_create(
+        id=settings.SITE_ID, defaults={"domain": domain, "name": name}
+    )
+    sphere, _ = Sphere.objects.get_or_create(
+        site=site, defaults={"name": f"{name} Sphere"}
+    )
+    return site, sphere
+
+
+def _root_domain_for_seed() -> str:
+    if settings.IN_TESTS:
+        return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
+
+    existing_domain = (
+        Site.objects.filter(id=settings.SITE_ID)
+        .values_list("domain", flat=True)
+        .first()
+    )
+    if existing_domain and existing_domain != "example.com":
+        return existing_domain
+    return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
+
+
 def _ensure_spheres_for_all_sites() -> None:
     """Backfill spheres for any sites created outside this script.
 
@@ -220,15 +244,15 @@ def _create_test_user() -> User:
 
 
 def main() -> None:
+    root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
 
     # Root site used for fallbacks / redirects
-    root_domain = os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
-    _create_site(root_domain, name="Root Domain")
+    _create_root_site(root_domain, name="Root Domain")
 
-    sphere_domain = os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST")
-    if not sphere_domain:
-        sphere_domain = "localhost:8000"
+    sphere_domain = (
+        os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
+    )
     site, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
