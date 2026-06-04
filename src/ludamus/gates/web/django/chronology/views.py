@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from django.conf import settings as django_settings
@@ -35,7 +35,10 @@ from .forms import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
+
+    from django.core.files.uploadedfile import UploadedFile
+    from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import (
@@ -68,13 +71,13 @@ def _session_key(event_slug: str) -> str:
 _WIZARD_COVER_KEY = "cover_image_temp"
 
 
-def _delete_wizard_cover(wizard: dict) -> None:
+def _delete_wizard_cover(wizard: dict[str, Any]) -> None:
     if path := wizard.get(_WIZARD_COVER_KEY):
         default_storage.delete(path)
     wizard.pop(_WIZARD_COVER_KEY, None)
 
 
-def _stash_wizard_cover(wizard: dict, uploaded_file: object) -> None:
+def _stash_wizard_cover(wizard: dict[str, Any], uploaded_file: UploadedFile) -> None:
     _delete_wizard_cover(wizard)
     name = getattr(uploaded_file, "name", "cover")
     wizard[_WIZARD_COVER_KEY] = default_storage.save(
@@ -82,13 +85,13 @@ def _stash_wizard_cover(wizard: dict, uploaded_file: object) -> None:
     )
 
 
-def _wizard_cover_initial(wizard: dict) -> str | None:
+def _wizard_cover_initial(wizard: dict[str, Any]) -> str | None:
     if (path := wizard.get(_WIZARD_COVER_KEY)) and default_storage.exists(path):
         return default_storage.url(path)
     return None
 
 
-def _pop_wizard_cover(wizard: dict) -> ContentFile | None:
+def _pop_wizard_cover(wizard: dict[str, Any]) -> ContentFile[bytes] | None:
     path = wizard.get(_WIZARD_COVER_KEY)
     wizard.pop(_WIZARD_COVER_KEY, None)
     if not path or not default_storage.exists(path):
@@ -100,7 +103,10 @@ def _pop_wizard_cover(wizard: dict) -> ContentFile | None:
 
 
 def _wizard_image_form(
-    wizard: dict, *, data: object = None, files: object = None
+    wizard: dict[str, Any],
+    *,
+    data: Mapping[str, Any] | None = None,
+    files: MultiValueDict[str, UploadedFile] | None = None,
 ) -> SessionCoverImageForm:
     if data is None and files is None:
         initial = _wizard_cover_initial(wizard)
@@ -111,7 +117,7 @@ def _wizard_image_form(
 
 
 def _apply_wizard_cover_from_form(
-    wizard: dict, image_form: SessionCoverImageForm
+    wizard: dict[str, Any], image_form: SessionCoverImageForm
 ) -> None:
     if not image_form.is_valid():
         return

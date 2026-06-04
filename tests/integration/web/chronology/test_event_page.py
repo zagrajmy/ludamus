@@ -143,9 +143,7 @@ class TestEventPageView:
         content = response.content.decode()
         assert f'data-day="{local_start:%Y-%m-%d}"' in content
         assert f'data-hour="{local_start:%H:%M}"' in content
-        assert (
-            f'data-day-label="{date_filter(local_start, "l, j F")}"' in content
-        )
+        assert f'data-day-label="{date_filter(local_start, "l, j F")}"' in content
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(

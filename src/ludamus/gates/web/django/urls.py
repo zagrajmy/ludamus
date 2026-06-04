@@ -63,11 +63,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
 
 if not settings.IS_PRODUCTION:
     urlpatterns += [
-        re_path(
-            r"^media/(?P<path>.*)$",
-            serve,
-            {"document_root": settings.MEDIA_ROOT},
-        ),
+        re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT})
     ]
 
 if settings.DEBUG:

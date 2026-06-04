@@ -64,9 +64,7 @@
                                       id="id_description"
                                       rows="5"
                                       class="w-full border {% if form.description.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
-                            {% if form.description.errors %}
-                                <p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>
-                            {% endif %}
+                            {% if form.description.errors %}<p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"

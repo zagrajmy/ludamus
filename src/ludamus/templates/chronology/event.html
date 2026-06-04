@@ -40,7 +40,7 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden gradient-border mb-8 bg-bg-secondary"
+    <div class="relative rounded-3xl shadow-xl overflow-hidden {% if not event.cover_image_url %}gradient-border{% endif %} mb-8 bg-bg-secondary"
          style="box-shadow: var(--theme-shadow-lg)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
@@ -752,13 +752,6 @@
                          role="tabpanel"
                          class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
                          data-active>
-                        {% if data.session.cover_image_url %}
-                            <img src="{{ data.session.cover_image_url }}"
-                                 alt=""
-                                 width="960"
-                                 height="540"
-                                 class="mb-6 aspect-video w-full rounded-2xl object-cover border border-border">
-                        {% endif %}
                         <!-- Host & location -->
                         <div class="flex items-center gap-3 mb-6 flex-wrap">
                             {% include "components/avatar.html" with user=data.presenter size="size-10" %}

@@ -32,7 +32,9 @@
                            maxlength="255">
                     {% if form.title.errors %}<p class="text-sm text-danger mt-1">{{ form.title.errors.0 }}</p>{% endif %}
                 </div>
-                {% if image_form %}{% tessera_field image_form.cover_image %}{% endif %}
+                {% if image_form %}
+                    {% tessera_field image_form.cover_image %}
+                {% endif %}
                 <div>
                     <label for="id_description"
                            class="block text-sm font-medium text-foreground-secondary mb-1">
@@ -239,4 +241,6 @@
         <p class="text-sm text-foreground-muted">{% translate "Session details saved. Next step coming soon." %}</p>
     {% endif %}
 </div>
-{% if image_form %}{% vite_asset 'src/encounter-form.ts' %}{% endif %}
+{% if image_form %}
+    {% vite_asset 'src/encounter-form.ts' %}
+{% endif %}
