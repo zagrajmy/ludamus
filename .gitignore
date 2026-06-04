@@ -226,3 +226,7 @@ tests/e2e/.auth-state-empty.json
 .tbd
 
 .local
+
+
+# Un-ignore .claude (global ~/.gitignore ignores it); .claude/.gitignore manages the rest
+!.claude/
