@@ -336,7 +336,7 @@ class TestProposalEditPageView:
         storage = session.cover_image.storage
         old_name = session.cover_image.name
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event, session.pk),
             data={
                 "title": "Updated Title",
@@ -345,6 +345,15 @@ class TestProposalEditPageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
         session.refresh_from_db()
         assert not session.cover_image
         assert not storage.exists(old_name)
