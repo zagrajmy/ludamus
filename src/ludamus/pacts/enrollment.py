@@ -105,6 +105,34 @@ class OfferNotification(BaseModel):
     offer_expires_at: datetime
 
 
+class NotificationDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    kind: str
+    title: str
+    body: str
+    url: str
+    creation_time: datetime
+    is_read: bool
+
+
+class NavbarNotificationsDTO(BaseModel):
+    unread_count: int
+    items: list[NotificationDTO]
+
+
+class NotificationReadRepositoryProtocol(Protocol):
+    def unread_count(self, user_id: int) -> int: ...
+    def list_recent(self, user_id: int, limit: int) -> list[NotificationDTO]: ...
+    def mark_all_read(self, user_id: int) -> None: ...
+
+
+class NotificationsServiceProtocol(Protocol):
+    def get_navbar(self, user_id: int) -> NavbarNotificationsDTO: ...
+    def mark_all_read(self, user_id: int) -> None: ...
+
+
 class ParticipationPromotionRepositoryProtocol(Protocol):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         """Lock the session row and read everything needed to promote.

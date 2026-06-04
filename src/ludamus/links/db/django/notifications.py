@@ -7,6 +7,7 @@ send time and links each notification to the relevant page.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.core.mail import send_mail
@@ -16,6 +17,7 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.adapters.db.django.models import Notification
+from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
@@ -110,3 +112,22 @@ class DjangoUserNotifier:
                 recipient_list=[email],
                 fail_silently=False,
             )
+
+
+class NotificationReadRepository:
+    @staticmethod
+    def unread_count(user_id: int) -> int:
+        return Notification.objects.filter(
+            recipient_id=user_id, read_at__isnull=True
+        ).count()
+
+    @staticmethod
+    def list_recent(user_id: int, limit: int) -> list[NotificationDTO]:
+        recent = Notification.objects.filter(recipient_id=user_id)[:limit]
+        return [NotificationDTO.model_validate(notification) for notification in recent]
+
+    @staticmethod
+    def mark_all_read(user_id: int) -> None:
+        Notification.objects.filter(
+            recipient_id=user_id, read_at__isnull=True
+        ).update(read_at=datetime.now(UTC))

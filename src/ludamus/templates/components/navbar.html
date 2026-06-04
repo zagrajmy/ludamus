@@ -39,8 +39,9 @@
                     {% endwith %}
                 {% endif %}
             </div>
-            <div class="flex items-center">
+            <div class="flex items-center gap-2">
                 {% if request.user.is_authenticated %}
+                    {% include "components/notifications.html" %}
                     <!-- User dropdown menu -->
                     <div class="relative group">
                         <!-- Avatar trigger -->

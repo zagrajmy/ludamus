@@ -2,6 +2,7 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.links.db.django.notifications import NotificationReadRepository
 
 
 class Repositories:
@@ -47,3 +48,7 @@ class Repositories:
     @cached_property
     def participation_promotion(self) -> ParticipationPromotionRepository:
         return ParticipationPromotionRepository()
+
+    @cached_property
+    def notifications(self) -> NotificationReadRepository:
+        return NotificationReadRepository()

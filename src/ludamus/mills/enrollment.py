@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.enrollment import (
     ClaimResult,
+    NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
@@ -23,6 +24,7 @@ from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
+        NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
         ParticipationPromotionRepositoryProtocol,
@@ -31,6 +33,8 @@ if TYPE_CHECKING:
         WaitingParticipantDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+_NAVBAR_NOTIFICATION_LIMIT = 10
 
 
 def _now() -> datetime:
@@ -181,3 +185,27 @@ class WaitlistPromotionService:
 
         self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
+
+
+class NotificationsService:
+    """Read path for the navbar notifications dropdown + mark-as-read."""
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        notifications: NotificationReadRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._notifications = notifications
+
+    def get_navbar(self, user_id: int) -> NavbarNotificationsDTO:
+        return NavbarNotificationsDTO(
+            unread_count=self._notifications.unread_count(user_id),
+            items=self._notifications.list_recent(
+                user_id, _NAVBAR_NOTIFICATION_LIMIT
+            ),
+        )
+
+    def mark_all_read(self, user_id: int) -> None:
+        with self._transaction.atomic():
+            self._notifications.mark_all_read(user_id)

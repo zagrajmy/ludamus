@@ -969,6 +969,10 @@ class Notification(models.Model):
     def __str__(self) -> str:
         return f"{self.kind} for {self.recipient.name}"
 
+    @property
+    def is_read(self) -> bool:
+        return self.read_at is not None
+
 
 class PersonalDataFieldType(models.TextChoices):
     TEXT = "text", "Text"

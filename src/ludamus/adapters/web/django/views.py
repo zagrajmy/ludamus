@@ -24,6 +24,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
@@ -1275,6 +1276,22 @@ class SessionOfferClaimView(View):
             return redirect("web:chronology:event", slug=result.event_slug)
         messages.error(request, _("This offer has expired or was already claimed."))
         return redirect("web:events")
+
+
+class NotificationsMarkReadView(LoginRequiredMixin, View):
+    """POST: mark all of the current user's notifications as read."""
+
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        request.services.notifications.mark_all_read(request.context.current_user_id)
+        next_url = request.POST.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}
+        ):
+            return redirect(next_url)
+        return redirect("web:index")
 
 
 class SessionEnrollPageView(LoginRequiredMixin, View):

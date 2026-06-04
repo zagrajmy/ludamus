@@ -1,0 +1,43 @@
+{% load i18n %}
+{% load tessera %}
+<div class="relative group">
+    <button type="button"
+            class="relative w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-all duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50 text-foreground-secondary"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-label="{% translate "Notifications" %}{% if navbar_notifications.unread_count %} ({{ navbar_notifications.unread_count }} {% translate "unread" %}){% endif %}">
+        {% icon "bell" class="w-5 h-5" %}
+        {% if navbar_notifications.unread_count %}
+            <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-coral-500 text-white text-xs font-semibold flex items-center justify-center">{{ navbar_notifications.unread_count }}</span>
+        {% endif %}
+    </button>
+    <div class="absolute right-0 top-full pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-150 ease-out z-50">
+        <div class="w-72 rounded-lg shadow-lg border bg-bg-secondary border-border"
+             style="box-shadow: var(--theme-shadow-lg)">
+            <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border flex items-center justify-between gap-2">
+                <p class="text-sm font-medium text-foreground-primary mb-0">{% translate "Notifications" %}</p>
+                {% if navbar_notifications.items %}
+                    <form method="post" action="{% url 'web:notifications-mark-read' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit"
+                                class="text-xs transition-colors duration-150 text-foreground-secondary hover:text-foreground-primary">
+                            {% translate "Mark all read" %}
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            {% for notification in navbar_notifications.items %}
+                <a href="{{ notification.url }}"
+                   class="block px-3.5 py-3 text-sm border-b last:border-b-0 transition-colors duration-150 hover:bg-bg-tertiary border-border {% if not notification.is_read %}bg-bg-tertiary/40{% endif %}">
+                    <span class="block font-medium text-foreground-primary">{{ notification.title }}</span>
+                    {% if notification.body %}
+                        <span class="block text-xs mt-0.5 text-foreground-secondary">{{ notification.body }}</span>
+                    {% endif %}
+                </a>
+            {% empty %}
+                <p class="px-3.5 py-4 text-sm text-foreground-secondary mb-0">{% translate "No notifications yet." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>

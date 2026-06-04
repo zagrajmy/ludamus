@@ -5451,3 +5451,19 @@ msgstr "Zajmij do:"
 #: src/ludamus/templates/chronology/offer_claim.html
 msgid "Claim my spot"
 msgstr "Zajmij moje miejsce"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "Notifications"
+msgstr "Powiadomienia"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "unread"
+msgstr "nieprzeczytane"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "Mark all read"
+msgstr "Oznacz wszystkie jako przeczytane"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "No notifications yet."
+msgstr "Brak powiadomień."

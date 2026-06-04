@@ -16,7 +16,7 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     SessionSelfEditService,
 )
-from ludamus.mills.enrollment import WaitlistPromotionService
+from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
     ConnectionsService,
     EventsService,
@@ -78,6 +78,10 @@ class Services:
             DjangoUserNotifier(),
             CronSweepOfferScheduler(),
         )
+
+    @cached_property
+    def notifications(self) -> NotificationsService:
+        return NotificationsService(self._transaction, self._repos.notifications)
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:
