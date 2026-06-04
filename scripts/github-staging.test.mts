@@ -203,6 +203,22 @@ test("explicit dispatch does not deploy draft pull requests", async () => {
   ]);
 });
 
+test("explicit dispatch on closed pull request does not deploy or mutate labels", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, state: "closed" },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "PR #2 is no longer the current staging target for head-sha"],
+  ]);
+});
+
 test("manual dispatch deploys and clears other staging labels", async () => {
   const args = makeArgs({
     inputs: { sha: "manual-sha" },
