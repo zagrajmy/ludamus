@@ -38,6 +38,18 @@ Frontend lives in `src/ludamus/client/` (Vite + Tailwind). Architecture and
 contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also
 available as `AGENTS.md` for Cursor/OpenAI agents).
 
+### Email in development
+
+Outgoing email is configured by the `EMAIL_URL` env var (django-environ):
+
+- `consolemail://` — default; prints emails to the server log.
+- `smtp://mailpit:1025` — wired automatically in `mise run dc local`; view the
+  captured inbox at <http://127.0.0.1:8025> (Mailpit). Best for end-to-end
+  testing of enrollment/offer notifications.
+- `filemail:///path/to/dir` — writes each email to a file.
+
+Production sets `EMAIL_URL=smtp://user:pass@host:587/?tls=True`.
+
 ### Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
