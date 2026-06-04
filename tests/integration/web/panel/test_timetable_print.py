@@ -5,7 +5,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -47,14 +47,16 @@ class TestTimetablePrintView:
         event,
         session,
         space,
+        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
+        empty_space = SpaceFactory(area=area, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
+            start_time=time_slot.start_time,
+            end_time=time_slot.start_time + timedelta(hours=1),
         )
 
         response = authenticated_client.get(self.timetable_url(event))
@@ -65,8 +67,10 @@ class TestTimetablePrintView:
             template_name="panel/print/timetable.html",
             context_data={"document": ANY},
         )
-        assert session.title in response.content.decode()
-        assert time_slot is not None
+        content = response.content.decode()
+        assert session.title in content
+        assert empty_space.name in content  # empty room is still a column
+        assert "—" in content  # its empty cell renders a visible gap marker
 
     def test_door_cards_page_for_sphere_manager(
         self,
@@ -76,14 +80,16 @@ class TestTimetablePrintView:
         event,
         session,
         space,
+        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
+        empty_space = SpaceFactory(area=area, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
+            start_time=time_slot.start_time,
+            end_time=time_slot.start_time + timedelta(hours=1),
         )
 
         response = authenticated_client.get(self.door_cards_url(event))
@@ -94,5 +100,8 @@ class TestTimetablePrintView:
             template_name="panel/print/door-cards.html",
             context_data={"document": ANY},
         )
-        assert space.name in response.content.decode()
-        assert time_slot is not None
+        content = response.content.decode()
+        assert space.name in content
+        # the empty room's card shows the slot as a free gap
+        assert empty_space.name in content
+        assert "Free slot" in content

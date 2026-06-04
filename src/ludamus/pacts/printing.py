@@ -16,9 +16,6 @@ from pydantic import BaseModel
 class PrintSessionDTO(BaseModel):
     title: str
     presenter_name: str
-    category_name: str | None
-    start_time: datetime
-    end_time: datetime
 
 
 class DoorCardEntryDTO(BaseModel):

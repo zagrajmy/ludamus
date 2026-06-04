@@ -38,13 +38,7 @@ if TYPE_CHECKING:
 
 
 def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
-    return PrintSessionDTO(
-        title=item.session_title,
-        presenter_name=item.presenter_name,
-        category_name=item.category_name,
-        start_time=item.start_time,
-        end_time=item.end_time,
-    )
+    return PrintSessionDTO(title=item.session_title, presenter_name=item.presenter_name)
 
 
 def _overlaps(item: AgendaItemDTO, start: datetime, end: datetime) -> bool:
@@ -59,8 +53,31 @@ def _space_order(space: SpaceDTO) -> tuple[int, str]:
     return (space.order, space.name)
 
 
+def _timetable_rows_by_date(
+    windows_by_date: dict[date, list[tuple[datetime, datetime]]],
+    items_by_space: dict[int, list[AgendaItemDTO]],
+    tz: tzinfo,
+) -> dict[date, list[tuple[datetime, datetime]]]:
+    # Rows are the event's time slots, plus a fallback row for any scheduled
+    # session that overlaps no slot — so a session placed outside the defined
+    # slots (or an event with no slots at all) never silently drops off the
+    # grid the way it would if rows came from slots alone.
+    rows: dict[date, set[tuple[datetime, datetime]]] = defaultdict(set)
+    for day, windows in windows_by_date.items():
+        rows[day].update(windows)
+
+    all_windows = [w for windows in windows_by_date.values() for w in windows]
+    for items in items_by_space.values():
+        for item in items:
+            if not any(_overlaps(item, ws, we) for ws, we in all_windows):
+                day = item.start_time.astimezone(tz).date()
+                rows[day].add((item.start_time, item.end_time))
+
+    return {day: sorted(intervals) for day, intervals in rows.items()}
+
+
 class PrintMaterialsService:
-    """Read-side assembler for printable PDF materials."""
+    """Read-side assembler for printable materials."""
 
     def __init__(
         self,
@@ -136,11 +153,12 @@ class PrintMaterialsService:
             self._time_slots.list_by_event(event_pk), tz
         )
         space_names = [space.name for space in spaces]
+        rows_by_date = _timetable_rows_by_date(windows_by_date, items_by_space, tz)
 
         days: list[PrintTimetableDayDTO] = []
-        for day in sorted(windows_by_date):
+        for day in sorted(rows_by_date):
             rows: list[PrintTimetableRowDTO] = []
-            for window_start, window_end in sorted(windows_by_date[day]):
+            for window_start, window_end in rows_by_date[day]:
                 cells: list[PrintTimetableCellDTO] = []
                 for space in spaces:
                     sessions = [

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO, TimeSlotDTO
@@ -34,10 +34,14 @@ def _space(pk, name, order):
 
 
 def _slot(pk, start_hour, end_hour):
+    return _slot_on_day(pk, 1, start_hour, end_hour)
+
+
+def _slot_on_day(pk, day, start_hour, end_hour):
     return TimeSlotDTO(
         pk=pk,
-        start_time=datetime(2026, 6, 1, start_hour, 0, tzinfo=UTC),
-        end_time=datetime(2026, 6, 1, end_hour, 0, tzinfo=UTC),
+        start_time=datetime(2026, 6, day, start_hour, 0, tzinfo=UTC),
+        end_time=datetime(2026, 6, day, end_hour, 0, tzinfo=UTC),
     )
 
 
@@ -130,3 +134,46 @@ class TestBuildTimetable:
         assert first_row.cells[1].sessions == []
         assert second_row.cells[0].sessions == []
         assert second_row.cells[1].sessions == []
+
+    def test_session_outside_every_slot_still_appears(self):
+        spaces = [_space(1, "Alfa", 0)]
+        slots = [_slot(1, 9, 10), _slot(2, 11, 12)]
+        # 10:00-11:00 falls in the gap between the two slots.
+        items = [_item(1, 1, 10, 11, title="Gap RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=slots)
+
+        document = service.build_timetable(1, UTC)
+
+        rows = document.days[0].rows
+        titles = [s.title for row in rows for cell in row.cells for s in cell.sessions]
+        assert titles == ["Gap RPG"]
+        gap_start = datetime(2026, 6, 1, 10, 0, tzinfo=UTC)
+        gap_end = datetime(2026, 6, 1, 11, 0, tzinfo=UTC)
+        assert any(
+            row.start_time == gap_start and row.end_time == gap_end for row in rows
+        )
+
+    def test_sessions_render_when_event_has_no_slots(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [_item(1, 1, 10, 11, title="Solo", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_timetable(1, UTC)
+
+        titles = [
+            s.title
+            for day in document.days
+            for row in day.rows
+            for cell in row.cells
+            for s in cell.sessions
+        ]
+        assert titles == ["Solo"]
+
+    def test_one_day_per_date(self):
+        spaces = [_space(1, "Alfa", 0)]
+        slots = [_slot_on_day(1, 1, 9, 10), _slot_on_day(2, 2, 9, 10)]
+        service = _service(spaces=spaces, items=[], slots=slots)
+
+        document = service.build_timetable(1, UTC)
+
+        assert [d.day for d in document.days] == [date(2026, 6, 1), date(2026, 6, 2)]
