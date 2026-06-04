@@ -38,6 +38,7 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Notification,
     ProposalCategory,
     Session,
+    SessionParticipation,
     Space,
     Sphere,
     TimeSlot,
@@ -45,7 +46,10 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Venue,
 )
 from ludamus.pacts import SessionStatus  # noqa: E402
-from ludamus.pacts.legacy import NotificationKind  # noqa: E402
+from ludamus.pacts.legacy import (  # noqa: E402
+    NotificationKind,
+    SessionParticipationStatus,
+)
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -230,6 +234,82 @@ def _create_test_user() -> User:
     return user
 
 
+def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
+    """Seed a full session with a dedicated waiter behind the superuser.
+
+    Cancelling the superuser's confirmed seat (T1) frees a seat and promotes the
+    waiter, exercising the waiting-list promotion + notification path end to end.
+    The waiter is its own user (not the shared e2e-tester) so the notification
+    state stays isolated from other specs.
+    """
+    event = _create_event(
+        sphere,
+        name="Waitlist Demo Convention",
+        slug="waitlist-demo",
+        description="Promotion end-to-end scenario.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    venue = _create_venue(event, name="Demo Venue", slug="demo-venue")
+    area = _create_area(venue, name="Demo Area", slug="demo-area")
+    space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
+    session = Session.objects.create(
+        sphere=sphere,
+        display_name="Demo GM",
+        title="Waitlist Promotion Demo",
+        slug="waitlist-promotion-demo",
+        description="A full session used by the promotion e2e.",
+        participants_limit=1,
+        min_age=0,
+    )
+    AgendaItem.objects.create(
+        space=space,
+        session=session,
+        session_confirmed=True,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=2),
+    )
+    waiter = User.objects.create_user(
+        username="e2e-waiter",
+        email="e2e-waiter@test.local",
+        password="e2e-waiter-123",
+        name="E2E Waiter",
+        slug="e2e-waiter",
+    )
+    SessionParticipation.objects.create(
+        session=session,
+        user=superuser,
+        status=SessionParticipationStatus.CONFIRMED.value,
+    )
+    SessionParticipation.objects.create(
+        session=session, user=waiter, status=SessionParticipationStatus.WAITING.value
+    )
+
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    parsed = urlparse(base_url)
+    _write_storage_state(
+        waiter,
+        domain=parsed.hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-waiter.json",
+    )
+
+    scenario_path = REPO_ROOT / "tests" / "e2e" / ".promotion-scenario.json"
+    scenario_path.write_text(
+        json.dumps(
+            {
+                "session_id": session.pk,
+                "superuser_id": superuser.pk,
+                "waiter_email": waiter.email,
+                "session_title": session.title,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
     call_command("flush", verbosity=0, interactive=False)
 
@@ -260,6 +340,9 @@ def main() -> None:
     _write_storage_state(
         superuser, domain=parsed.hostname or "localhost", path=superuser_state_path
     )
+
+    # Full session with a dedicated waiter, for the promotion e2e.
+    _create_promotion_scenario(sphere, superuser=superuser)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
