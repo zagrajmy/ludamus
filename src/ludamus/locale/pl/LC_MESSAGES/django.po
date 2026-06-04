@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-02 18:42+0200\n"
+"POT-Creation-Date: 2026-06-04 10:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -615,6 +615,7 @@ msgid "Select the space where this session will take place"
 msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/panel/print/timetable.html
 msgid "Time slot"
 msgstr "Przedział czasowy"
 
@@ -738,39 +739,22 @@ msgid "Please review the enrollment options below."
 msgstr "Proszę przejrzeć opcje zapisu poniżej."
 
 #: src/ludamus/adapters/web/django/views.py
-msgid "promoted from waiting list"
-msgstr "przeniesiony z listy oczekujących"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "session host"
-msgstr "twórca punktu programu"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "time conflict"
-msgstr "konflikt czasowy"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -791,7 +775,6 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -1044,7 +1027,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1329,7 +1311,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -2383,22 +2364,6 @@ msgid "I am waiting"
 msgstr "Oczekuję"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Day"
-msgstr "Dzień"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "All days"
-msgstr "Wszystkie dni"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Hour"
-msgstr "Godzina"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "All hours"
-msgstr "Wszystkie godziny"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "Venue"
 msgstr "Lokalizacja"
 
@@ -2417,6 +2382,22 @@ msgstr "Min"
 #: src/ludamus/templates/chronology/event.html
 msgid "Max"
 msgstr "Max"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Day"
+msgstr "Dzień"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "All days"
+msgstr "Wszystkie dni"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Hour"
+msgstr "Godzina"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "All hours"
+msgstr "Wszystkie godziny"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
@@ -2536,6 +2517,7 @@ msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/area-detail.html
+#: src/ludamus/templates/panel/print/door-cards.html
 #: src/ludamus/templates/panel/space-create.html
 #: src/ludamus/templates/panel/space-edit.html
 msgid "Capacity"
@@ -4548,6 +4530,26 @@ msgstr ""
 "Nie zdefiniowano pól danych osobowych. Dodaj pola, aby zbierać informacje o "
 "twórcach."
 
+#: src/ludamus/templates/panel/print/base.html
+msgid "Print"
+msgstr "Drukuj"
+
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "Free slot"
+msgstr "Wolny przedział"
+
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "No scheduled program."
+msgstr "Brak zaplanowanego programu."
+
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "No rooms to print."
+msgstr "Brak sal do wydruku."
+
+#: src/ludamus/templates/panel/print/timetable.html
+msgid "No time slots scheduled."
+msgstr "Nie zaplanowano przedziałów czasowych."
+
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Create Session"
@@ -5039,6 +5041,14 @@ msgid "Click a position on the grid to place the session"
 msgstr "Kliknij pozycję na siatce, aby umieścić punkt programu"
 
 #: src/ludamus/templates/panel/timetable.html
+msgid "Print timetable"
+msgstr "Drukuj harmonogram"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Print door cards"
+msgstr "Drukuj tabliczki na drzwi"
+
+#: src/ludamus/templates/panel/timetable.html
 msgid "Day:"
 msgstr "Dzień:"
 
@@ -5312,29 +5322,14 @@ msgstr "Kopiuj"
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
 
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "Free slot"
-msgstr "Wolny przedział"
+#~ msgid "promoted from waiting list"
+#~ msgstr "przeniesiony z listy oczekujących"
 
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "No scheduled program."
-msgstr "Brak zaplanowanego programu."
+#~ msgid "session host"
+#~ msgstr "twórca punktu programu"
 
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "No rooms to print."
-msgstr "Brak sal do wydruku."
-
-#: src/ludamus/templates/panel/print/timetable.html
-msgid "No time slots scheduled."
-msgstr "Nie zaplanowano przedziałów czasowych."
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Print timetable (PDF)"
-msgstr "Drukuj harmonogram (PDF)"
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Print door cards (PDF)"
-msgstr "Drukuj tabliczki na drzwi (PDF)"
+#~ msgid "time conflict"
+#~ msgstr "konflikt czasowy"
 
 #~ msgid "Connected Users"
 #~ msgstr "Powiązani użytkownicy"

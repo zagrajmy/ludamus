@@ -22,14 +22,14 @@
                 <thead>
                     <tr>
                         <th style="width: 22mm;
-                                   border: 0.5pt solid #d1d5db;
+                                   border: 0.5pt solid #111827;
+                                   border-bottom-width: 1.5pt;
                                    padding: 1.5mm;
-                                   background: #f3f4f6;
                                    text-align: left">{% translate "Time slot" %}</th>
                         {% for name in day.space_names %}
-                            <th style="border: 0.5pt solid #d1d5db;
+                            <th style="border: 0.5pt solid #111827;
+                                       border-bottom-width: 1.5pt;
                                        padding: 1.5mm;
-                                       background: #f3f4f6;
                                        text-align: left">{{ name }}</th>
                         {% endfor %}
                     </tr>
@@ -48,12 +48,14 @@
                                 <td style="border: 0.5pt solid #d1d5db;
                                            padding: 1.5mm;
                                            vertical-align: top;
-                                           {% if not cell.sessions %}background: #fafafa;{% endif %}">
+                                           text-align: {% if cell.sessions %}left{% else %}center{% endif %}">
                                     {% for session in cell.sessions %}
                                         <div {% if not forloop.last %}style="margin-bottom: 1mm;"{% endif %}>
                                             <strong>{{ session.title }}</strong>
                                             {% if session.presenter_name %}<div style="color: #6b7280;">{{ session.presenter_name }}</div>{% endif %}
                                         </div>
+                                    {% empty %}
+                                        <span class="empty">—</span>
                                     {% endfor %}
                                 </td>
                             {% endfor %}

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -8,13 +9,6 @@ from tests.integration.conftest import AgendaItemFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _assert_pdf(response, *, filename_part):
-    assert response.status_code == HTTPStatus.OK, response.status_code
-    assert response["Content-Type"] == "application/pdf"
-    assert filename_part in response["Content-Disposition"]
-    assert response.content[:5] == b"%PDF-"
 
 
 class TestTimetablePrintView:
@@ -45,7 +39,7 @@ class TestTimetablePrintView:
             url="/",
         )
 
-    def test_timetable_pdf_for_sphere_manager(
+    def test_timetable_page_for_sphere_manager(
         self,
         authenticated_client,
         active_user,
@@ -65,10 +59,16 @@ class TestTimetablePrintView:
 
         response = authenticated_client.get(self.timetable_url(event))
 
-        _assert_pdf(response, filename_part=f"{event.slug}-timetable.pdf")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/print/timetable.html",
+            context_data={"document": ANY},
+        )
+        assert session.title in response.content.decode()
         assert time_slot is not None
 
-    def test_door_cards_pdf_for_sphere_manager(
+    def test_door_cards_page_for_sphere_manager(
         self,
         authenticated_client,
         active_user,
@@ -88,5 +88,11 @@ class TestTimetablePrintView:
 
         response = authenticated_client.get(self.door_cards_url(event))
 
-        _assert_pdf(response, filename_part=f"{event.slug}-door-cards.pdf")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/print/door-cards.html",
+            context_data={"document": ANY},
+        )
+        assert space.name in response.content.decode()
         assert time_slot is not None

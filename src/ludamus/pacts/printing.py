@@ -1,8 +1,8 @@
 """Printing subdomain DTOs and protocols.
 
 Read-only document shapes for organizer-facing printable materials
-(per-room door cards, a printed timetable). Rendered to PDF in the web gate;
-assembled by `mills.printing`.
+(per-room door cards, a printed timetable). Rendered as print-styled HTML
+pages in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
 """
 
 from __future__ import annotations

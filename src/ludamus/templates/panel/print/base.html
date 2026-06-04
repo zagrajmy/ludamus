@@ -9,12 +9,6 @@
             @page {
                 size: A4;
                 margin: 14mm;
-
-                @bottom-right {
-                    content: counter(page) " / " counter(pages);
-                    font: 8pt sans-serif;
-                    color: #6b7280;
-                }
             }
 
             * {
@@ -49,12 +43,56 @@
                 color: #9ca3af;
                 font-style: italic;
             }
+
+            .toolbar {
+                margin: 0 0 12px;
+            }
+
+            .print-btn {
+                font: 600 14px sans-serif;
+                padding: 8px 16px;
+                border: 1px solid #111827;
+                border-radius: 8px;
+                background: #111827;
+                color: #fff;
+                cursor: pointer;
+            }
+
+            @media screen {
+                body {
+                    background: #e5e7eb;
+                }
+
+                .sheet {
+                    max-width: 210mm;
+                    margin: 16px auto;
+                    padding: 14mm;
+                    background: #fff;
+                    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+                }
+            }
+
+            @media print {
+                .no-print {
+                    display: none !important;
+                }
+            }
         </style>
         {% block extra_style %}
         {% endblock extra_style %}
     </head>
     <body>
-        {% block body %}
-        {% endblock body %}
+        <div class="sheet">
+            <div class="toolbar no-print">
+                <button type="button" class="print-btn" onclick="window.print()">{% translate "Print" %}</button>
+            </div>
+            {% block body %}
+            {% endblock body %}
+        </div>
+        <script>
+            window.addEventListener("load", function() {
+                window.print();
+            });
+        </script>
     </body>
 </html>
