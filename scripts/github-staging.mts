@@ -3,6 +3,7 @@ interface Label {
 }
 
 export interface PullRequestLike {
+  draft?: boolean;
   head?: {
     repo?: {
       full_name: string;
@@ -134,7 +135,7 @@ const listStagingPrIssues = async ({
 }: ActionArgs): Promise<PullRequestLike[]> => {
   const issues = await github.paginate(github.rest.issues.listForRepo, {
     ...repoParams(context),
-    state: "all",
+    state: "open",
     labels: STAGING_LABEL,
     per_page: 100,
   });
@@ -226,8 +227,8 @@ const dispatchDeploy = async ({
 };
 
 export const handlePullRequest = async ({ github, context, core }: ActionArgs) => {
-  const pr = context.payload.pull_request;
-  if (!pr) throw new Error("Expected pull_request payload");
+  const eventPr = context.payload.pull_request;
+  if (!eventPr) throw new Error("Expected pull_request payload");
 
   if (
     context.payload.action === "labeled" &&
@@ -237,14 +238,25 @@ export const handlePullRequest = async ({ github, context, core }: ActionArgs) =
     return;
   }
 
+  const pr = await fetchPullRequest({ github, context, number: eventPr.number });
+
+  if (pr.draft) {
+    core.info(`PR #${pr.number} is a draft`);
+    return;
+  }
+
+  if (pr.state !== "open") {
+    core.info(`PR #${pr.number} is not open`);
+    return;
+  }
+
   if (!hasStagingLabel(pr)) {
     core.info(`PR #${pr.number} does not have ${STAGING_LABEL}`);
     return;
   }
 
-  const claim = await claimStagingTarget({ github, context, core }, pr);
-  if (!claim.ok) {
-    core.info(claim.message);
+  if (!isSameRepositoryPullRequest(context, pr)) {
+    core.info(`Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
     return;
   }
 
@@ -283,7 +295,7 @@ const resolveExplicitDeploy = async ({
 }: ResolveExplicitDeployArgs) => {
   const pr = await fetchPullRequest({ github, context, number: prNumber });
 
-  if (pr.state !== "open" || !hasStagingLabel(pr) || pr.head?.sha !== sha) {
+  if (pr.state !== "open" || pr.draft || !hasStagingLabel(pr) || pr.head?.sha !== sha) {
     setShouldDeploy(
       core,
       false,
@@ -325,8 +337,24 @@ const resolveManualDeploy = async ({
     return;
   }
 
-  await exclusiveStagingFor({ github, context, core }, matchingStagingPrs[0].number);
-  setShouldDeploy(core, true, `Deploying PR #${matchingStagingPrs[0].number} at ${sha}`);
+  const winner = await fetchPullRequest({
+    github,
+    context,
+    number: matchingStagingPrs[0].number,
+  });
+
+  if (
+    winner.state !== "open" ||
+    winner.draft ||
+    !hasStagingLabel(winner) ||
+    !isSameRepositoryPullRequest(context, winner)
+  ) {
+    setShouldDeploy(core, false, `No unique open PR with ${STAGING_LABEL} for ${sha}`);
+    return;
+  }
+
+  await exclusiveStagingFor({ github, context, core }, winner.number);
+  setShouldDeploy(core, true, `Deploying PR #${winner.number} at ${sha}`);
 };
 
 export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {

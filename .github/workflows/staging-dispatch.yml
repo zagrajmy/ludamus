@@ -14,11 +14,11 @@ jobs:
     permissions:
       actions: write
       contents: read
-      issues: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
       - uses: actions/github-script@v8
         with:
           script: |

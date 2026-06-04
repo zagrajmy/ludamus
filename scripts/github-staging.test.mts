@@ -50,7 +50,19 @@ const makeArgs = ({
     paginate: async (
       fn: (params: Record<string, unknown>) => Promise<PullRequestLike[]>,
       params: Record<string, unknown>,
-    ) => fn(params),
+    ) => {
+      const perPage = (params.per_page as number | undefined) ?? 100;
+      const pages: PullRequestLike[] = [];
+      let page = 1;
+      while (true) {
+        const pageResults = await fn({ ...params, page, per_page: perPage });
+        if (pageResults.length === 0) break;
+        pages.push(...pageResults);
+        if (pageResults.length < perPage) break;
+        page += 1;
+      }
+      return pages;
+    },
     rest: {
       actions: {
         createWorkflowDispatch: async (params: Record<string, unknown>) =>
@@ -84,7 +96,7 @@ const makeArgs = ({
   return { calls, context, core, github };
 };
 
-test("dispatches the labeled PR and clears stale labels from other PRs", async () => {
+test("dispatches the labeled PR without mutating other labels", async () => {
   const args = makeArgs({
     stagingPrs: [
       { number: 1, pull_request: {}, state: "open" },
@@ -95,39 +107,6 @@ test("dispatches the labeled PR and clears stale labels from other PRs", async (
   await staging.handlePullRequest(args);
 
   assert.deepEqual(args.calls, [
-    ["remove", 1],
-    ["info", "Removed staging from PR #1"],
-    [
-      "dispatch",
-      {
-        owner: "owner",
-        repo: "repo",
-        workflow_id: "deploy-staging.yml",
-        ref: "main",
-        inputs: {
-          pr_number: "2",
-          sha: "head-sha",
-        },
-      },
-    ],
-    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
-  ]);
-});
-
-test("dispatches on synchronize when PR still has staging label", async () => {
-  const args = makeArgs({
-    action: "synchronize",
-    stagingPrs: [
-      { number: 1, pull_request: {}, state: "open" },
-      { number: 2, pull_request: {}, state: "open" },
-    ],
-  });
-
-  await staging.handlePullRequest(args);
-
-  assert.deepEqual(args.calls, [
-    ["remove", 1],
-    ["info", "Removed staging from PR #1"],
     [
       "dispatch",
       {
@@ -205,6 +184,22 @@ test("explicit dispatch does not deploy fork pull requests", async () => {
     ["output", "sha", "head-sha"],
     ["output", "should_deploy", "false"],
     ["info", "Skipping staging deploy for fork PR #2"],
+  ]);
+});
+
+test("explicit dispatch does not deploy draft pull requests", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, draft: true },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "PR #2 is no longer the current staging target for head-sha"],
   ]);
 });
 
@@ -295,17 +290,41 @@ test("ignores non-staging labels", async () => {
 });
 
 test("does not dispatch staging deploys for fork pull requests", async () => {
+  const forkPr = {
+    head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
+    labels: [{ name: "staging" }],
+    number: 3,
+    state: "open",
+  };
   const args = makeArgs({
-    pr: {
-      head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
-      labels: [{ name: "staging" }],
-      number: 3,
-      state: "open",
-    },
+    currentPr: forkPr,
+    pr: forkPr,
     stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
   });
 
   await staging.handlePullRequest(args);
 
   assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
+});
+
+test("does not dispatch or mutate labels for closed pull requests", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, state: "closed" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [["info", "PR #2 is not open"]]);
+});
+
+test("does not dispatch or mutate labels for draft pull requests", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, draft: true },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [["info", "PR #2 is a draft"]]);
 });

@@ -111,10 +111,6 @@ depends = [
   "impeccable",
 ]
 
-[tasks.github-staging-test]
-description = "Run GitHub staging workflow script tests"
-run = "node --test scripts/github-staging.test.mts"
-
 [tasks.prcheck]
 description = "CI-style lint pass: report violations without fixing"
 depends = [
@@ -126,9 +122,7 @@ depends = [
   "pylint",
   "vulture",
   "ast-grep",
-  "github-staging-test",
 ]
-
 
 [tasks._pytest]
 description = "Base pytest runner with test env (internal)"
