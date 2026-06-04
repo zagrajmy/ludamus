@@ -4,9 +4,9 @@ from unittest.mock import ANY
 
 import pytest
 import responses
-from django.template.defaultfilters import date as date_filter
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
@@ -134,9 +134,7 @@ class TestEventPageView:
         content = response.content.decode()
         assert f'data-day="{local_start:%Y-%m-%d}"' in content
         assert f'data-hour="{local_start:%H:%M}"' in content
-        assert f'data-day-label="{date_filter(agenda_item.start_time, "l, j F")}"' in (
-            content
-        )
+        assert f'data-day-label="{date_format(local_start, "l, j F")}"' in content
 
     def test_ok_superuser_proposal(
         self, authenticated_client, event, active_user, pending_session
