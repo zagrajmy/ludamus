@@ -43,10 +43,9 @@ available as `AGENTS.md` for Cursor/OpenAI agents).
 Outgoing email is configured by the `EMAIL_URL` env var (django-environ):
 
 - `consolemail://` — default; prints emails to the server log.
-- `smtp://mailpit:1025` — wired automatically in `mise run dc local`; view the
-  captured inbox at <http://127.0.0.1:8025> (Mailpit). Best for end-to-end
-  testing of enrollment/offer notifications.
-- `filemail:///path/to/dir` — writes each email to a file.
+- `filemail:///path/to/dir` — writes each email to a file. Handy for
+  end-to-end testing of enrollment/offer notifications: point the server at a
+  directory and assert on the written `.log` files.
 
 Production sets `EMAIL_URL=smtp://user:pass@host:587/?tls=True`.
 

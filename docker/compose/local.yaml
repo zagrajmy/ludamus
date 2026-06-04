@@ -26,19 +26,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  mailpit:
-    # Local development mailbox: catches all outgoing email and shows it in a
-    # web UI at http://127.0.0.1:8025 (SMTP on 1025). Nothing leaves the host.
-    image: axllent/mailpit:latest
-    ports:
-      - '127.0.0.1:8025:8025'
-      - '127.0.0.1:1025:1025'
-    restart: unless-stopped
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-
   web:
     build:
       context: ../../
@@ -50,8 +37,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     volumes:
       - ../../src:/app/src
       - ../../tests:/app/tests
@@ -61,13 +46,10 @@ services:
       - media_volume:/app/media
     environment:
       MISE_TRUSTED_CONFIG_PATHS: /app/mise.toml
-      # Route all outgoing email to the local Mailpit inbox (web UI :8025).
-      EMAIL_URL: smtp://mailpit:1025
       # Container env is provided by varlock (see [tasks.dc] in mise.toml).
       # Listed below as implicit pass-throughs from the host process env.
       ENV:
       DEBUG:
-      DEFAULT_FROM_EMAIL:
       DEBUG_TOOLBAR:
       USE_POSTGRES:
       DJANGO_SETTINGS_MODULE:
