@@ -13,6 +13,16 @@ from typing import Protocol
 from pydantic import BaseModel
 
 
+class PrintOptionDTO(BaseModel):
+    pk: int
+    name: str
+    slug: str
+
+
+class PrintSpaceOptionDTO(PrintOptionDTO):
+    area_id: int | None
+
+
 class PrintSessionDTO(BaseModel):
     title: str
     presenter_name: str
@@ -104,7 +114,27 @@ class AreaScheduleDocumentDTO(BaseModel):
     spaces: list[AreaScheduleSpaceDTO]
 
 
+class PrintSessionListItemDTO(BaseModel):
+    title: str
+    presenter_name: str
+    description: str
+    start_time: datetime
+    end_time: datetime
+    space_name: str
+
+
+class PrintSessionListDocumentDTO(BaseModel):
+    event_name: str
+    event_description: str
+    event_start: datetime
+    event_end: datetime
+    scope_name: str | None = None
+    sessions: list[PrintSessionListItemDTO]
+
+
 class PrintMaterialsServiceProtocol(Protocol):
+    def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]: ...
+    def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]: ...
     def build_door_cards(
         self,
         event_pk: int,
@@ -120,6 +150,8 @@ class PrintMaterialsServiceProtocol(Protocol):
         tz: tzinfo,
         *,
         area_pks: frozenset[int] | None = None,
+        space_pks: frozenset[int] | None = None,
+        track_pk: int | None = None,
         scope_name: str | None = None,
         confirmed_only: bool = False,
     ) -> PrintTimetableDocumentDTO: ...
@@ -129,6 +161,13 @@ class PrintMaterialsServiceProtocol(Protocol):
         time_range: tuple[datetime, datetime],
         *,
         area_pks: frozenset[int] | None = None,
+        space_pks: frozenset[int] | None = None,
         scope_name: str | None = None,
         confirmed_only: bool = False,
     ) -> AreaScheduleDocumentDTO: ...
+    def build_session_list(
+        self,
+        event_pk: int,
+        *,
+        confirmed_only: bool = False,
+    ) -> PrintSessionListDocumentDTO | None: ...

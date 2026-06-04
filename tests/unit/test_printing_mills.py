@@ -74,12 +74,21 @@ class _ListByEvent:
         return list(self._rows)
 
 
-def _service(*, spaces, items, slots):
+class _Tracks:
+    def list_public_by_event(self, _event_pk):
+        return []
+
+    def list_space_pks(self, _track_pk):
+        return []
+
+
+def _service(*, spaces, items, slots, tracks=None):
     return PrintMaterialsService(
         _Events(_event()),
         _ListByEvent(spaces),
         _ListByEvent(items),
         _ListByEvent(slots),
+        tracks or _Tracks(),
     )
 
 
