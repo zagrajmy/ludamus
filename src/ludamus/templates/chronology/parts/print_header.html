@@ -1,0 +1,21 @@
+{% load i18n %}
+<header class="doc-header">
+    <div>
+        {% if logo %}
+            <img class="event-logo"
+                 src="{{ MEDIA_URL }}{{ logo }}"
+                 alt="{{ event.name }}"
+                 width="240"
+                 height="80">
+        {% endif %}
+        <div class="event-name">{{ event.name }}</div>
+        <div class="event-dates">{{ event.start_time|date:"j E Y" }}–{{ event.end_time|date:"j E Y" }}</div>
+        {% if scope_name %}<div class="scope-name">{{ scope_name }}</div>{% endif %}
+    </div>
+    <div class="qr">
+        {% if show_full_schedule_label %}
+            <div class="qr-label">{% translate "Full schedule" %}</div>
+        {% endif %}
+        {{ qr_svg|safe }}
+    </div>
+</header>
