@@ -59,6 +59,18 @@
                 cursor: pointer;
             }
 
+            .print-hint {
+                margin-left: 10px;
+                font: 13px sans-serif;
+                color: #6b7280;
+            }
+
+            .doc-header .scope-name {
+                font-size: 11pt;
+                font-weight: 600;
+                margin-top: 1mm;
+            }
+
             @media screen {
                 body {
                     background: #e5e7eb;
@@ -86,6 +98,7 @@
         <div class="sheet">
             <div class="toolbar no-print">
                 <button type="button" class="print-btn" onclick="window.print()">{% translate "Print" %}</button>
+                <span class="print-hint">{% translate "or press Ctrl+P (⌘P on Mac)" %}</span>
             </div>
             {% block body %}
             {% endblock body %}

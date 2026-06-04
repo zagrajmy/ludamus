@@ -11,6 +11,7 @@
     <div class="doc-header">
         <div class="event-name">{{ document.event_name }}</div>
         <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
+        {% if document.scope_name %}<div class="scope-name">{{ document.scope_name }}</div>{% endif %}
     </div>
     {% for day in document.days %}
         <section {% if not forloop.last %}style="break-after: page;"{% endif %}>

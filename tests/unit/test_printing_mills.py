@@ -19,10 +19,10 @@ def _event():
     )
 
 
-def _space(pk, name, order):
+def _space(pk, name, order, area_id=None):
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return SpaceDTO(
-        area_id=None,
+        area_id=area_id,
         capacity=20,
         creation_time=now,
         modification_time=now,
@@ -177,3 +177,36 @@ class TestBuildTimetable:
         document = service.build_timetable(1, UTC)
 
         assert [d.day for d in document.days] == [date(2026, 6, 1), date(2026, 6, 2)]
+
+
+class TestScoping:
+    @staticmethod
+    def _scoped_service():
+        spaces = [
+            _space(1, "Alfa", 0, area_id=10),
+            _space(2, "Bravo", 1, area_id=20),
+            _space(3, "Cesarz", 2, area_id=30),
+        ]
+        return _service(spaces=spaces, items=[], slots=[_slot(1, 9, 10)])
+
+    def test_timetable_filtered_to_area_pks(self):
+        document = self._scoped_service().build_timetable(
+            1, UTC, area_pks=frozenset({10, 20}), scope_name="Budynek A"
+        )
+
+        assert document.days[0].space_names == ["Alfa", "Bravo"]
+        assert document.scope_name == "Budynek A"
+
+    def test_door_cards_filtered_to_single_area(self):
+        document = self._scoped_service().build_door_cards(
+            1, UTC, area_pks=frozenset({10}), scope_name="Parter"
+        )
+
+        assert [c.space_name for c in document.cards] == ["Alfa"]
+        assert document.scope_name == "Parter"
+
+    def test_unscoped_has_no_scope_name(self):
+        document = self._scoped_service().build_timetable(1, UTC)
+
+        assert document.scope_name is None
+        assert document.days[0].space_names == ["Alfa", "Bravo", "Cesarz"]

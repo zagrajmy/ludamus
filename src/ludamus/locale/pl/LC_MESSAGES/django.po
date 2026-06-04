@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-04 10:26+0200\n"
+"POT-Creation-Date: 2026-06-04 15:05+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1131,6 +1131,10 @@ msgstr "Nie można usunąć pola używanego w typach punktów programu."
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field deleted successfully."
 msgstr "Pole danych osobowych zostało usunięte."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/print.py
+msgid "Venue or area not found."
+msgstr "Lokalizacja lub strefa nie została znaleziona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal not found."
@@ -3581,6 +3585,18 @@ msgid "Edit Area"
 msgstr "Edycja strefy"
 
 #: src/ludamus/templates/panel/area-detail.html
+#: src/ludamus/templates/panel/timetable.html
+#: src/ludamus/templates/panel/venue-detail.html
+msgid "Print timetable"
+msgstr "Drukuj harmonogram"
+
+#: src/ludamus/templates/panel/area-detail.html
+#: src/ludamus/templates/panel/timetable.html
+#: src/ludamus/templates/panel/venue-detail.html
+msgid "Print door cards"
+msgstr "Drukuj tabliczki na drzwi"
+
+#: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/space-create.html
 msgid "New Space"
 msgstr "Nowa przestrzeń"
@@ -4534,6 +4550,10 @@ msgstr ""
 msgid "Print"
 msgstr "Drukuj"
 
+#: src/ludamus/templates/panel/print/base.html
+msgid "or press Ctrl+P (⌘P on Mac)"
+msgstr "lub naciśnij Ctrl+P (⌘P na Macu)"
+
 #: src/ludamus/templates/panel/print/door-cards.html
 msgid "Free slot"
 msgstr "Wolny przedział"
@@ -5041,12 +5061,16 @@ msgid "Click a position on the grid to place the session"
 msgstr "Kliknij pozycję na siatce, aby umieścić punkt programu"
 
 #: src/ludamus/templates/panel/timetable.html
-msgid "Print timetable"
-msgstr "Drukuj harmonogram"
+msgid "Print timetable for a venue or area"
+msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
 
 #: src/ludamus/templates/panel/timetable.html
-msgid "Print door cards"
-msgstr "Drukuj tabliczki na drzwi"
+msgid "Venue / area…"
+msgstr "Lokalizacja / strefa…"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Print door cards for a venue or area"
+msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
 
 #: src/ludamus/templates/panel/timetable.html
 msgid "Day:"

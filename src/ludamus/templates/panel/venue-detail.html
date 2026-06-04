@@ -14,6 +14,20 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
+        <a href="{% url 'panel:timetable-print' slug=current_event.slug %}?venue={{ venue.slug }}"
+           target="_blank"
+           rel="noopener"
+           class="px-4 py-2 bg-bg-secondary text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center mr-2">
+            {% icon "printer" class="w-4 h-4 mr-2" %}
+            {% translate "Print timetable" %}
+        </a>
+        <a href="{% url 'panel:timetable-print-door-cards' slug=current_event.slug %}?venue={{ venue.slug }}"
+           target="_blank"
+           rel="noopener"
+           class="px-4 py-2 bg-bg-secondary text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center mr-2">
+            {% icon "printer" class="w-4 h-4 mr-2" %}
+            {% translate "Print door cards" %}
+        </a>
         <a href="{% url 'panel:area-create' slug=current_event.slug venue_slug=venue.slug %}"
            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition flex items-center">
             {% icon "plus" class="w-4 h-4 mr-2" %}

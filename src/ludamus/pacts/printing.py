@@ -40,6 +40,8 @@ class DoorCardsDocumentDTO(BaseModel):
     event_name: str
     event_start: datetime
     event_end: datetime
+    # Venue or area name when the document is scoped; None for the whole event.
+    scope_name: str | None = None
     cards: list[DoorCardDTO]
 
 
@@ -64,11 +66,25 @@ class PrintTimetableDocumentDTO(BaseModel):
     event_name: str
     event_start: datetime
     event_end: datetime
+    # Venue or area name when the document is scoped; None for the whole event.
+    scope_name: str | None = None
     days: list[PrintTimetableDayDTO]
 
 
 class PrintMaterialsServiceProtocol(Protocol):
-    def build_door_cards(self, event_pk: int, tz: tzinfo) -> DoorCardsDocumentDTO: ...
+    def build_door_cards(
+        self,
+        event_pk: int,
+        tz: tzinfo,
+        *,
+        area_pks: frozenset[int] | None = None,
+        scope_name: str | None = None,
+    ) -> DoorCardsDocumentDTO: ...
     def build_timetable(
-        self, event_pk: int, tz: tzinfo
+        self,
+        event_pk: int,
+        tz: tzinfo,
+        *,
+        area_pks: frozenset[int] | None = None,
+        scope_name: str | None = None,
     ) -> PrintTimetableDocumentDTO: ...

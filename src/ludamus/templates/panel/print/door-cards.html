@@ -7,6 +7,7 @@
             <div class="doc-header">
                 <div class="event-name">{{ document.event_name }}</div>
                 <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
+                {% if document.scope_name %}<div class="scope-name">{{ document.scope_name }}</div>{% endif %}
             </div>
             <h1 style="font-size: 26pt; margin: 0 0 1mm 0;">{{ card.space_name }}</h1>
             {% if card.capacity %}

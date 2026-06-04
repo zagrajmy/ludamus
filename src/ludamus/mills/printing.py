@@ -91,9 +91,16 @@ class PrintMaterialsService:
         self._agenda_items = agenda_items
         self._time_slots = time_slots
 
-    def build_door_cards(self, event_pk: int, tz: tzinfo) -> DoorCardsDocumentDTO:
+    def build_door_cards(
+        self,
+        event_pk: int,
+        tz: tzinfo,
+        *,
+        area_pks: frozenset[int] | None = None,
+        scope_name: str | None = None,
+    ) -> DoorCardsDocumentDTO:
         event = self._events.read(event_pk)
-        spaces = self._ordered_spaces(event_pk)
+        spaces = self._scoped_spaces(event_pk, area_pks)
         items_by_space = self._items_by_space(event_pk)
         windows_by_date = slot_windows_by_local_date(
             self._time_slots.list_by_event(event_pk), tz
@@ -142,13 +149,22 @@ class PrintMaterialsService:
             event_name=event.name,
             event_start=event.start_time,
             event_end=event.end_time,
+            scope_name=scope_name,
             cards=cards,
         )
 
-    def build_timetable(self, event_pk: int, tz: tzinfo) -> PrintTimetableDocumentDTO:
+    def build_timetable(
+        self,
+        event_pk: int,
+        tz: tzinfo,
+        *,
+        area_pks: frozenset[int] | None = None,
+        scope_name: str | None = None,
+    ) -> PrintTimetableDocumentDTO:
         event = self._events.read(event_pk)
-        spaces = self._ordered_spaces(event_pk)
-        items_by_space = self._items_by_space(event_pk)
+        spaces = self._scoped_spaces(event_pk, area_pks)
+        all_items = self._items_by_space(event_pk)
+        items_by_space = {space.pk: all_items.get(space.pk, []) for space in spaces}
         windows_by_date = slot_windows_by_local_date(
             self._time_slots.list_by_event(event_pk), tz
         )
@@ -180,11 +196,20 @@ class PrintMaterialsService:
             event_name=event.name,
             event_start=event.start_time,
             event_end=event.end_time,
+            scope_name=scope_name,
             days=days,
         )
 
     def _ordered_spaces(self, event_pk: int) -> list[SpaceDTO]:
         return sorted(self._spaces.list_by_event(event_pk), key=_space_order)
+
+    def _scoped_spaces(
+        self, event_pk: int, area_pks: frozenset[int] | None
+    ) -> list[SpaceDTO]:
+        spaces = self._ordered_spaces(event_pk)
+        if area_pks is None:
+            return spaces
+        return [s for s in spaces if s.area_id in area_pks]
 
     def _items_by_space(self, event_pk: int) -> dict[int, list[AgendaItemDTO]]:
         items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
