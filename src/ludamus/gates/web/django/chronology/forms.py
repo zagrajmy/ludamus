@@ -6,11 +6,7 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import (
-    COVER_IMAGE_ACCEPT,
-    validate_uploaded_image_format,
-    validate_uploaded_image_size,
-)
+from ludamus.gates.web.django.forms import COVER_IMAGE_ACCEPT, validate_uploaded_image
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -131,7 +127,6 @@ class SessionCoverImageForm(forms.Form):
     )
 
     def clean_cover_image(self) -> object:
-        if image := self.cleaned_data.get("cover_image"):
-            validate_uploaded_image_size(image)
-            validate_uploaded_image_format(image)
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
         return image

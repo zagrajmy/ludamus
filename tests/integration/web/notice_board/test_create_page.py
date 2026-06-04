@@ -82,12 +82,13 @@ class TestEncounterCreatePageView:
 
     def test_ok_post_with_header_image(self, authenticated_client, sphere):
         start = datetime.now(UTC) + timedelta(days=7)
-        gif_bytes = (
-            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
-            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
-            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        png_bytes = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+            b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+            b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
         )
-        image = SimpleUploadedFile("header.gif", gif_bytes, content_type="image/gif")
+        image = SimpleUploadedFile("header.png", png_bytes, content_type="image/png")
         data = {
             "title": "Image Night",
             "start_time": start.strftime("%Y-%m-%dT%H:%M"),
@@ -108,6 +109,34 @@ class TestEncounterCreatePageView:
         )
         assert encounter.header_image
         assert encounter.sphere == sphere
+
+    def test_rejects_unsupported_header_image_format(self, authenticated_client):
+        start = datetime.now(UTC) + timedelta(days=7)
+        gif_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
+            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        image = SimpleUploadedFile("header.gif", gif_bytes, content_type="image/gif")
+        data = {
+            "title": "Wrong Format Night",
+            "start_time": start.strftime("%Y-%m-%dT%H:%M"),
+            "max_participants": 4,
+            "header_image": image,
+        }
+
+        response = authenticated_client.post(self.URL, data)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
+        assert response.context["form"].errors["header_image"] == [
+            "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+        ]
+        assert not Encounter.objects.filter(title="Wrong Format Night").exists()
 
     def test_image_too_large(self, authenticated_client):
         start = datetime.now(UTC) + timedelta(days=7)

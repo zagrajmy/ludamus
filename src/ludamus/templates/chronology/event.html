@@ -24,22 +24,14 @@
 {% endblock twitter_description %}
 {% block og_image %}
     {% if event.cover_image_url %}
-        {% if event.cover_image_url|slice:":4" == "http" %}
-            {{ event.cover_image_url }}
-        {% else %}
-            {{ request.scheme }}://{{ request.get_host }}{{ event.cover_image_url }}
-        {% endif %}
+        {% include "chronology/_meta_image_url.html" with url=event.cover_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock og_image %}
 {% block twitter_image %}
     {% if event.cover_image_url %}
-        {% if event.cover_image_url|slice:":4" == "http" %}
-            {{ event.cover_image_url }}
-        {% else %}
-            {{ request.scheme }}://{{ request.get_host }}{{ event.cover_image_url }}
-        {% endif %}
+        {% include "chronology/_meta_image_url.html" with url=event.cover_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}

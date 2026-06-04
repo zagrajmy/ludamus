@@ -8,6 +8,8 @@ from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+# Image-upload invariants (business rules, not gate trivia): every cover/header
+# upload across the app is held to these same limits via validate_uploaded_image.
 MAX_IMAGE_SIZE = 2 * 1024 * 1024
 # A small (≤2 MB) file can still decode to a huge bitmap; cap pixel count to
 # bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
@@ -36,6 +38,14 @@ def validate_uploaded_image_format(image: object) -> None:
     height = getattr(pil_image, "height", 0)
     if width * height > MAX_IMAGE_PIXELS:
         raise ValidationError(_gettext("Image dimensions are too large."))
+
+
+def validate_uploaded_image(image: object) -> None:
+    # Single entry point shared by every cover/header upload form so the size +
+    # format guarantees can't drift apart across forms.
+    if image:
+        validate_uploaded_image_size(image)
+        validate_uploaded_image_format(image)
 
 
 def _datetime_local_widget() -> forms.DateTimeInput:
@@ -100,9 +110,8 @@ class EventSettingsForm(forms.Form):
     )
 
     def clean_cover_image(self) -> object:
-        if image := self.cleaned_data.get("cover_image"):
-            validate_uploaded_image_size(image)
-            validate_uploaded_image_format(image)
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
         return image
 
 

@@ -163,12 +163,7 @@ class TestEncounterEditPageView:
 
     def test_ok_post_with_header_image(self, authenticated_client, user, sphere):
         encounter = EncounterFactory(creator=user, sphere=sphere)
-        gif_bytes = (
-            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
-            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
-            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
-        )
-        image = SimpleUploadedFile("header.gif", gif_bytes, content_type="image/gif")
+        image = SimpleUploadedFile("header.png", PNG_BYTES, content_type="image/png")
 
         response = authenticated_client.post(
             self._url(encounter.pk),
@@ -189,6 +184,39 @@ class TestEncounterEditPageView:
                 kwargs={"share_code": encounter.share_code},
             ),
         )
+
+    def test_rejects_unsupported_header_image_format(
+        self, authenticated_client, user, sphere
+    ):
+        encounter = EncounterFactory(creator=user, sphere=sphere)
+        gif_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
+            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        image = SimpleUploadedFile("header.gif", gif_bytes, content_type="image/gif")
+
+        response = authenticated_client.post(
+            self._url(encounter.pk),
+            {
+                "title": "Updated Title",
+                "start_time": "2026-06-01T14:00",
+                "max_participants": 5,
+                "header_image": image,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY, "encounter": ANY},
+            template_name="notice_board/edit.html",
+        )
+        assert response.context["form"].errors["header_image"] == [
+            "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+        ]
+        encounter.refresh_from_db()
+        assert not encounter.header_image
 
     def test_not_found(self, authenticated_client):
         response = authenticated_client.get(self._url(99999))

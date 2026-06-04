@@ -1,9 +1,14 @@
 from typing import Any
 
 from django import forms
-from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _lazy
+
+from ludamus.gates.web.django.forms import (
+    COVER_IMAGE_ACCEPT,
+    COVER_IMAGE_HELP_TEXT,
+    validate_uploaded_image,
+)
 
 
 class EncounterForm(forms.Form):
@@ -28,18 +33,16 @@ class EncounterForm(forms.Form):
     max_participants = forms.IntegerField(
         label=_lazy("Max participants"), min_value=0, initial=0, required=False
     )
-    MAX_IMAGE_SIZE = 2 * 1024 * 1024  # 2 MB
-
     header_image = forms.ImageField(
         label=_lazy("Cover image"),
         required=False,
-        help_text=_lazy("Max 2 MB. JPG, PNG, or WebP."),
+        help_text=COVER_IMAGE_HELP_TEXT,
+        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
     )
 
     def clean_header_image(self) -> object:
         image = self.cleaned_data.get("header_image")
-        if image and image.size > self.MAX_IMAGE_SIZE:
-            raise ValidationError(_("Image too large. Maximum size is 2 MB."))
+        validate_uploaded_image(image)
         return image
 
     def clean(self) -> dict[str, Any] | None:
