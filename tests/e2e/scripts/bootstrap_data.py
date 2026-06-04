@@ -261,11 +261,11 @@ def main() -> None:
     _create_test_user()
 
     superuser = User.objects.create_superuser(
-        username="e2e-superuser",
-        email="e2e-superuser@test.local",
-        password="e2e-superuser-123",
-        name="E2E Superuser",
-        slug="e2e-superuser",
+        username="admin",
+        email="admin@test.local",
+        password="admin",
+        name="Admin",
+        slug="admin",
     )
     base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
     parsed = urlparse(base_url)

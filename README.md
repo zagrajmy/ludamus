@@ -20,8 +20,7 @@ mise run bootstrap      # .env, deps, migrations, demo data — idempotent
 mise run start          # Django :8000 + Vite :5173
 ```
 
-After bootstrap, log in at <http://localhost:8000/admin/> as
-`e2e-superuser` / `e2e-superuser-123`.
+After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
 
 `mise run bootstrap` resets and reseeds the local database with the same
 deterministic data used by end-to-end tests.
@@ -36,8 +35,8 @@ mise tasks              # list every task with descriptions
 ```
 
 Frontend lives in `src/ludamus/client/` (Vite + Tailwind). Architecture and
-contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also
-available as `AGENTS.md` for Cursor/OpenAI agents).
+contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also available
+as `AGENTS.md` for Cursor/OpenAI agents).
 
 ### Deployment
 
