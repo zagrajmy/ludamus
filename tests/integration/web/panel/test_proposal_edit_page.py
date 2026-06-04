@@ -4,6 +4,7 @@ from http import HTTPStatus
 from unittest.mock import ANY
 
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -19,6 +20,12 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _make_session(event, sphere, **kwargs):
@@ -287,6 +294,35 @@ class TestProposalEditPageView:
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
         assert session.duration == "2h"
+
+    def test_post_uploads_cover_image(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "cover_image": image,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.cover_image
+        assert session.cover_image_url.startswith("/media/sessions/")
 
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event

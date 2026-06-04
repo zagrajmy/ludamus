@@ -294,7 +294,22 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None:
-        Session.objects.filter(id=pk).update(**data)
+        # The plain queryset UPDATE can't persist a file upload (no storage
+        # write), so when a cover is set/cleared we load the instance and save
+        # it, mirroring EventRepository.update's replace-and-cleanup handling.
+        if "cover_image" not in data:
+            Session.objects.filter(id=pk).update(**data)
+            return
+        try:
+            session = Session.objects.get(id=pk)
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        old_cover = session.cover_image.name
+        for key, value in data.items():
+            setattr(session, key, value)
+        session.save(update_fields=list(data.keys()))
+        if old_cover and old_cover != session.cover_image.name:
+            _delete_stored_file(session.cover_image, old_cover)
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:

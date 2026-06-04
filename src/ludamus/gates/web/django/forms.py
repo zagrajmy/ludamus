@@ -457,6 +457,12 @@ class SessionEditForm(forms.Form):
     participants_limit = forms.IntegerField(required=False, min_value=0)
     min_age = forms.IntegerField(required=False, min_value=0)
     duration = forms.CharField(required=False)
+    cover_image = cover_image_field()
+
+    def clean_cover_image(self) -> object:
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
+        return image
 
 
 def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditForm]:

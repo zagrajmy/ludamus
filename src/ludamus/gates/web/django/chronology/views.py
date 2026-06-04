@@ -835,11 +835,9 @@ class SessionEditView(LoginRequiredMixin, View):
 
     request: SessionEditRequest
 
-    def get(
-        self, _request: HttpRequest, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        ctx = self._context(event_slug, session_id)
-        form = SessionEditForm(
+    @staticmethod
+    def _initial_form(ctx: SessionSelfEditContext) -> SessionEditForm:
+        return SessionEditForm(
             initial={
                 "title": ctx.session.title,
                 "display_name": ctx.session.display_name,
@@ -850,15 +848,23 @@ class SessionEditView(LoginRequiredMixin, View):
                 "participants_limit": ctx.session.participants_limit,
                 "min_age": ctx.session.min_age,
                 "duration": ctx.session.duration,
+                "cover_image": ctx.session.cover_image_url or None,
             }
         )
-        return self._render(event_slug, session_id, ctx, form, saved=False)
+
+    def get(
+        self, _request: HttpRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        ctx = self._context(event_slug, session_id)
+        return self._render(
+            event_slug, session_id, ctx, self._initial_form(ctx), saved=False
+        )
 
     def post(
         self, _request: HttpRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
-        form = SessionEditForm(self.request.POST)
+        form = SessionEditForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             return self._render(event_slug, session_id, ctx, form, saved=False)
 
@@ -879,7 +885,11 @@ class SessionEditView(LoginRequiredMixin, View):
             event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
             return redirect(f"{event_url}?session={session_id}")
         ctx = self._context(event_slug, session_id)
-        return self._render(event_slug, session_id, ctx, form, saved=True)
+        # Rebuild from the saved session so the cover dropzone re-hydrates with
+        # the new image rather than the just-submitted (now stale) bound form.
+        return self._render(
+            event_slug, session_id, ctx, self._initial_form(ctx), saved=True
+        )
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
         try:

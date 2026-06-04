@@ -119,6 +119,38 @@ class TestUpdate:
         )
         sessions.save_field_values.assert_called_once_with(5, field_values)
 
+    def test_passes_uploaded_cover_image_through(self):
+        service, sessions, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        cover = object()
+
+        service.update(
+            5, 10, {"title": "T", "display_name": "D", "cover_image": cover}, []
+        )
+
+        assert sessions.update.call_args.args[1]["cover_image"] is cover
+
+    def test_clears_cover_image_when_false(self):
+        service, sessions, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        service.update(
+            5, 10, {"title": "T", "display_name": "D", "cover_image": False}, []
+        )
+
+        assert sessions.update.call_args.args[1]["cover_image"] == ""
+
+    def test_leaves_cover_image_untouched_when_absent(self):
+        service, sessions, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        service.update(5, 10, {"title": "T", "display_name": "D"}, [])
+
+        assert "cover_image" not in sessions.update.call_args.args[1]
+
     def test_raises_when_not_allowed(self):
         service, sessions, _ = _build(
             presenter_id=10, event_override=False, sphere_default=True

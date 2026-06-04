@@ -351,6 +351,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
+    cover_image: object
     description: str
     display_name: str
     duration: str
