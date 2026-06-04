@@ -24,6 +24,34 @@ def _confirmed_item(event, session, space):
     )
 
 
+def _assert_print_ok(response, *, selected_venue="", selected_area="", range_hours=6):
+    # qr_svg and range_start_value are variable strings, so assert their shape
+    # rather than ANY (ANY is reserved for complex view objects), then feed the
+    # checked values back in so assert_response can hold the full context to
+    # exact equality.
+    ctx = response.context_data
+    assert isinstance(ctx["qr_svg"], str)
+    assert "<svg" in ctx["qr_svg"]
+    assert isinstance(ctx["range_start_value"], str)
+    assert ctx["range_start_value"]
+    assert_response(
+        response,
+        HTTPStatus.OK,
+        template_name="chronology/print.html",
+        context_data={
+            "event": ANY,
+            "timetable": ANY,
+            "area_schedule": ANY,
+            "qr_svg": ctx["qr_svg"],
+            "venues": ANY,
+            "selected_venue": selected_venue,
+            "selected_area": selected_area,
+            "range_start_value": ctx["range_start_value"],
+            "range_hours": range_hours,
+        },
+    )
+
+
 class TestPublicEventPrintView:
     URL_NAME = "web:chronology:event-print"
 
@@ -41,22 +69,7 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="chronology/print.html",
-            context_data={
-                "event": ANY,
-                "timetable": ANY,
-                "area_schedule": ANY,
-                "qr_svg": ANY,
-                "venues": ANY,
-                "selected_venue": "",
-                "selected_area": "",
-                "range_start_value": ANY,
-                "range_hours": 6,
-            },
-        )
+        _assert_print_ok(response)
         content = response.content.decode()
         assert session.title in content
         # The per-area pages carry the full description; the grid does not.
@@ -73,22 +86,7 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="chronology/print.html",
-            context_data={
-                "event": ANY,
-                "timetable": ANY,
-                "area_schedule": ANY,
-                "qr_svg": ANY,
-                "venues": ANY,
-                "selected_venue": "",
-                "selected_area": "",
-                "range_start_value": ANY,
-                "range_hours": 6,
-            },
-        )
+        _assert_print_ok(response)
         assert session.title not in response.content.decode()
 
     def test_full_schedule_label_shown_when_a_session_is_pending(
@@ -154,7 +152,7 @@ class TestPublicEventPrintView:
 
         response = authenticated_client.get(self._url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        _assert_print_ok(response)
         assert session.title in response.content.decode()
 
     def test_scoped_to_venue_shows_logo_capacity_and_scope_name(
@@ -168,8 +166,8 @@ class TestPublicEventPrintView:
 
         response = client.get(f"{self._url(event.slug)}?venue={venue.slug}")
 
+        _assert_print_ok(response, selected_venue=venue.slug)
         content = response.content.decode()
-        assert response.status_code == HTTPStatus.OK
         assert "events/logo.png" in content  # logo header
         assert venue.name in content  # scope name
         assert "Full schedule" in content  # a scoped print is never the whole thing
@@ -184,9 +182,8 @@ class TestPublicEventPrintView:
             f"{self._url(event.slug)}?venue={venue.slug}&area={area.slug}"
         )
 
-        assert response.status_code == HTTPStatus.OK
+        _assert_print_ok(response, selected_venue=venue.slug, selected_area=area.slug)
         assert area.name in response.content.decode()
-        assert response.context_data["selected_area"] == area.slug
 
     def test_invalid_range_params_fall_back_to_defaults(
         self, client, event, session, space
@@ -197,12 +194,7 @@ class TestPublicEventPrintView:
             f"{self._url(event.slug)}?hours=nope&start=2026-13-40T99:99"
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="chronology/print.html",
-            context_data=ANY,
-        )
+        _assert_print_ok(response)
 
     def test_explicit_start_and_hours_are_applied(self, client, event, session, space):
         _confirmed_item(event, session, space)
@@ -211,8 +203,7 @@ class TestPublicEventPrintView:
 
         response = client.get(f"{self._url(event.slug)}?start={start}&hours={hours}")
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["range_hours"] == hours
+        _assert_print_ok(response, range_hours=hours)
 
     def test_unknown_venue_is_not_found(self, client, event):
         response = client.get(f"{self._url(event.slug)}?venue=does-not-exist")
@@ -224,7 +215,7 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(bare.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        _assert_print_ok(response)
 
 
 class TestEventPagePrintHijack:
