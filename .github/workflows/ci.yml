@@ -74,22 +74,27 @@ jobs:
       - name: Install Playwright Browsers
         run: mise run install:playwright
       - name: Run end-to-end tests
+        id: e2e
         run: mise run e2e
 
-      # Combine and upload
+      # Combine and upload only when unit + e2e tests passed
       - name: Combine coverage reports
         run: mise run coverage:combine
-        if: ${{ !cancelled() }}
+        if: success()
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
-        if: ${{ !cancelled() }}
+        if: success()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
 
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: always() && !cancelled()
         with:
           name: playwright-report
           path: ./tests/e2e/playwright-report/
           retention-days: 30
+
+      - name: Assert e2e passed
+        if: always()
+        run: test "${{ steps.e2e.outcome }}" = "success"
