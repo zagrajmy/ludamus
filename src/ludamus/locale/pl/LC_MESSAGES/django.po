@@ -5397,11 +5397,11 @@ msgstr "Zwolniło się miejsce w %(session)s — zajmij je do %(deadline)s"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid ""
-"A spot opened up. Claim it before %(deadline)s or it goes to the next person "
-"on the waiting list."
+"A spot opened up — claim it before %(deadline)s using the link below, or it "
+"will go to the next person on the waiting list."
 msgstr ""
-"Zwolniło się miejsce. Zajmij je przed %(deadline)s, w przeciwnym razie trafi "
-"do następnej osoby na liście oczekujących."
+"Zwolniło się miejsce — zajmij je przed %(deadline)s, korzystając z poniższego "
+"linku, w przeciwnym razie trafi do następnej osoby na liście oczekujących."
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "Your offer for %(session)s expired"

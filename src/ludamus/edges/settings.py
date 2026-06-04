@@ -53,6 +53,12 @@ env = environ.Env(
     # smtp://user:pass@host:587/?tls=True in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Ludamus <noreply@ludamus.local>"),
+    # Waiting-list offer-expiry trigger: "cron" (default; the expire_offers
+    # sweep) or "dbos" (durable in-process workflow timer).
+    OFFER_EXPIRY_SCHEDULER=(str, "cron"),
+    # DBOS system database (separate from the app DB). SQLite in dev, set to a
+    # Postgres URL in production.
+    DBOS_SYSTEM_DATABASE_URL=(str, "sqlite:///dbos_sys.sqlite"),
     ENV=str,
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
@@ -398,6 +404,10 @@ EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
 EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Waiting-list offer-expiry scheduler (see inits/services.py).
+OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
+DBOS_SYSTEM_DATABASE_URL = env("DBOS_SYSTEM_DATABASE_URL")
 
 # Cache configuration
 CACHES = (

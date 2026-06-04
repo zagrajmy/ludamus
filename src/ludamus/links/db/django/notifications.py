@@ -58,8 +58,8 @@ class DjangoUserNotifier:
             "deadline": deadline,
         }
         body = _(
-            "A spot opened up. Claim it before %(deadline)s or it goes to the "
-            "next person on the waiting list."
+            "A spot opened up — claim it before %(deadline)s using the link "
+            "below, or it will go to the next person on the waiting list."
         ) % {"deadline": deadline}
         self._deliver(
             Notification(
