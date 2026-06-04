@@ -16,8 +16,8 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.pacts import (
-    NotificationKind,
     OCCUPYING_PARTICIPATION_STATUSES,
+    NotificationKind,
     PromotionMode,
     SessionParticipationStatus,
     SessionStatus,
@@ -941,8 +941,7 @@ class Notification(models.Model):
         User, on_delete=models.CASCADE, related_name="notifications"
     )
     kind = models.CharField(
-        max_length=32,
-        choices=[(item.value, item.name) for item in NotificationKind],
+        max_length=32, choices=[(item.value, item.name) for item in NotificationKind]
     )
     # Localised, ready-to-render copy plus structured refs (session/event ids,
     # claim url, deadline). Rendered by the recipient's request, not at send.
