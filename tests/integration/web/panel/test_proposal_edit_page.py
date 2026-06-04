@@ -324,6 +324,31 @@ class TestProposalEditPageView:
         assert session.cover_image
         assert session.cover_image_url.startswith("/media/sessions/")
 
+    def test_post_clears_cover_image(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        session.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        session.save()
+        storage = session.cover_image.storage
+        old_name = session.cover_image.name
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "cover_image-clear": "on",
+            },
+        )
+
+        session.refresh_from_db()
+        assert not session.cover_image
+        assert not storage.exists(old_name)
+
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):

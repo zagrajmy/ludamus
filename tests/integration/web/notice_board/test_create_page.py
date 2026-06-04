@@ -8,6 +8,13 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import Encounter
 from tests.integration.utils import assert_response
 
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 
 class TestEncounterCreatePageView:
     URL = reverse("web:notice-board:create")
@@ -82,13 +89,7 @@ class TestEncounterCreatePageView:
 
     def test_ok_post_with_header_image(self, authenticated_client, sphere):
         start = datetime.now(UTC) + timedelta(days=7)
-        png_bytes = (
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-            b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-            b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
-        image = SimpleUploadedFile("header.png", png_bytes, content_type="image/png")
+        image = SimpleUploadedFile("header.png", PNG_BYTES, content_type="image/png")
         data = {
             "title": "Image Night",
             "start_time": start.strftime("%Y-%m-%dT%H:%M"),
@@ -140,13 +141,10 @@ class TestEncounterCreatePageView:
 
     def test_image_too_large(self, authenticated_client):
         start = datetime.now(UTC) + timedelta(days=7)
-        gif_header = (
-            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
-            b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
-            b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
-        )
-        oversized = gif_header + b"\x00" * (2 * 1024 * 1024 + 1)
-        image = SimpleUploadedFile("big.gif", oversized, content_type="image/gif")
+        # Padding after IEND keeps it a valid PNG, so size validation (which
+        # runs before format) is unambiguously what rejects it.
+        oversized = PNG_BYTES + b"\x00" * (2 * 1024 * 1024 + 1)
+        image = SimpleUploadedFile("big.png", oversized, content_type="image/png")
         data = {
             "title": "Too Large Image",
             "start_time": start.strftime("%Y-%m-%dT%H:%M"),
