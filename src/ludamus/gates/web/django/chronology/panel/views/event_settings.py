@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import messages
@@ -37,6 +37,27 @@ def _choice_to_override(value: str) -> bool | None:
     if value == "false":
         return False
     return None
+
+
+def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
+    data: EventUpdateData = {
+        "name": cd["name"],
+        "slug": slug,
+        "description": cd.get("description") or "",
+        "start_time": cd["start_time"],
+        "end_time": cd["end_time"],
+        "publication_time": cd.get("publication_time"),
+        "allow_facilitator_session_edit": _choice_to_override(
+            cd.get("allow_facilitator_session_edit") or ""
+        ),
+    }
+    # ClearableFileInput yields a file on upload, False when cleared, or None
+    # when left untouched (keep the current cover).
+    if cover_image := cd.get("cover_image"):
+        data["cover_image"] = cover_image
+    elif cover_image is False:
+        data["cover_image"] = ""
+    return data
 
 
 class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -111,19 +132,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             except NotFoundError:
                 pass  # Slug is available
 
-        data: EventUpdateData = {
-            "name": cd["name"],
-            "slug": new_slug,
-            "description": cd.get("description") or "",
-            "start_time": cd["start_time"],
-            "end_time": cd["end_time"],
-            "publication_time": cd.get("publication_time"),
-            "allow_facilitator_session_edit": _choice_to_override(
-                cd.get("allow_facilitator_session_edit") or ""
-            ),
-        }
-        if cover_image := cd.get("cover_image"):
-            data["cover_image"] = cover_image
+        data = _event_update_data(cd, new_slug)
 
         try:
             self.request.di.uow.events.update(current_event.pk, data)

@@ -229,6 +229,29 @@ class TestEventSettingsPageViewPost:
         assert event.cover_image
         assert event.cover_image_url.startswith("/media/events/")
 
+    def test_removes_cover_image(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.cover_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={**self._post_data(event), "cover_image-clear": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert not event.cover_image
+
     def test_rejects_too_large_cover_image(
         self, authenticated_client, active_user, sphere, event
     ):

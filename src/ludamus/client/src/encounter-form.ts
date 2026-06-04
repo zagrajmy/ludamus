@@ -38,6 +38,9 @@ const initDropzone = (label: HTMLLabelElement): void => {
   );
   const clearBtns =
     label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
+  const clearFlag = label.querySelector<HTMLInputElement>(
+    "[data-dropzone-clear-flag]",
+  );
   if (!input || nameEls.length === 0 || sizeEls.length === 0) return;
   if (clearBtns.length === 0) return;
 
@@ -57,6 +60,8 @@ const initDropzone = (label: HTMLLabelElement): void => {
       label.dataset.state = "empty";
       return;
     }
+    // A fresh selection cancels any pending removal of the stored file.
+    if (clearFlag) clearFlag.checked = false;
     nameEls.forEach((el) => {
       el.textContent = file.name;
     });
@@ -83,6 +88,8 @@ const initDropzone = (label: HTMLLabelElement): void => {
       e.preventDefault();
       e.stopPropagation();
       input.value = "";
+      // Signal removal of the already-stored file on the next submit.
+      if (clearFlag) clearFlag.checked = true;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
   });

@@ -11,6 +11,14 @@
            {% if accept %}accept="{{ accept }}"{% endif %}
            {% if required and not initial_url %}required{% endif %}
            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+    {# Django ClearableFileInput convention: a checked `<name>-clear` removes the stored file on submit. Toggled by the dropzone JS. #}
+    <input type="checkbox"
+           name="{{ name }}-clear"
+           id="{{ id }}-clear"
+           data-dropzone-clear-flag
+           tabindex="-1"
+           aria-hidden="true"
+           class="sr-only">
     <div data-dropzone-empty
          class="pointer-events-none flex flex-col items-center text-center hidden group-data-[state=empty]:flex">
         <span class="mb-3 inline-flex items-center justify-center w-11 h-11 rounded-full bg-bg-secondary text-foreground-secondary border border-border transition-colors hover:duration-0 group-hover:text-primary group-hover:border-primary/30">
