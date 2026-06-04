@@ -1,0 +1,71 @@
+{% extends "panel/print/base.html" %}
+{% load i18n %}
+{% block extra_style %}
+    <style>
+        @page {
+            size: A4 landscape;
+        }
+    </style>
+{% endblock extra_style %}
+{% block body %}
+    <div class="doc-header">
+        <div class="event-name">{{ document.event_name }}</div>
+        <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
+        {% if document.scope_name %}<div class="scope-name">{{ document.scope_name }}</div>{% endif %}
+    </div>
+    {% for day in document.days %}
+        <section {% if not forloop.last %}style="break-after: page;"{% endif %}>
+            <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">{{ day.day|date:"l, j E Y" }}</h2>
+            <table style="width: 100%;
+                          border-collapse: collapse;
+                          font-size: 8pt;
+                          table-layout: fixed">
+                <thead>
+                    <tr>
+                        <th style="width: 22mm;
+                                   border: 0.5pt solid #111827;
+                                   border-bottom-width: 1.5pt;
+                                   padding: 1.5mm;
+                                   text-align: left">{% translate "Time slot" %}</th>
+                        {% for name in day.space_names %}
+                            <th style="border: 0.5pt solid #111827;
+                                       border-bottom-width: 1.5pt;
+                                       padding: 1.5mm;
+                                       text-align: left">{{ name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in day.rows %}
+                        <tr>
+                            <td style="border: 0.5pt solid #d1d5db;
+                                       padding: 1.5mm;
+                                       white-space: nowrap;
+                                       font-variant-numeric: tabular-nums;
+                                       vertical-align: top">
+                                {{ row.start_time|time:"H:i" }}–{{ row.end_time|time:"H:i" }}
+                            </td>
+                            {% for cell in row.cells %}
+                                <td style="border: 0.5pt solid #d1d5db;
+                                           padding: 1.5mm;
+                                           vertical-align: top;
+                                           text-align: {% if cell.sessions %}left{% else %}center{% endif %}">
+                                    {% for session in cell.sessions %}
+                                        <div {% if not forloop.last %}style="margin-bottom: 1mm;"{% endif %}>
+                                            <strong>{{ session.title }}</strong>
+                                            {% if session.presenter_name %}<div style="color: #6b7280;">{{ session.presenter_name }}</div>{% endif %}
+                                        </div>
+                                    {% empty %}
+                                        <span class="empty">—</span>
+                                    {% endfor %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    {% empty %}
+        <p class="empty">{% translate "No time slots scheduled." %}</p>
+    {% endfor %}
+{% endblock body %}
