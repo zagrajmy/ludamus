@@ -16,8 +16,8 @@ project tasks.
 
 ```bash
 mise install            # Python, Node, Poetry, ast-grep
-mise run bootstrap      # .env, deps, migrations, demo data — idempotent
-mise run start          # Django :8000 + Vite :5173
+mise bootstrap      # .env, deps, migrations, demo data — idempotent
+mise dev                # Django :8000 + Vite :5173
 ```
 
 After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
@@ -28,9 +28,9 @@ deterministic data used by end-to-end tests.
 ### Day-to-day
 
 ```bash
-mise run test           # all tests
-mise run check          # format + lint + autofix
-mise run prcheck        # CI-style lint, no autofix
+mise test               # all tests
+mise check              # format + lint + autofix
+mise prcheck            # CI-style lint, no autofix
 mise tasks              # list every task with descriptions
 ```
 

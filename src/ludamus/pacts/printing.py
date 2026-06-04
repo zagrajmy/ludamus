@@ -166,8 +166,5 @@ class PrintMaterialsServiceProtocol(Protocol):
         confirmed_only: bool = False,
     ) -> AreaScheduleDocumentDTO: ...
     def build_session_list(
-        self,
-        event_pk: int,
-        *,
-        confirmed_only: bool = False,
+        self, event_pk: int, *, confirmed_only: bool = False
     ) -> PrintSessionListDocumentDTO | None: ...
