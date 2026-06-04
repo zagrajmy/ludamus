@@ -144,6 +144,7 @@ class SessionDTO(BaseModel):
 
     category_id: int | None
     contact_email: str
+    cover_image_url: str = ""
     creation_time: datetime
     description: str
     duration: str = ""
@@ -332,6 +333,7 @@ class TagDTO(BaseModel):
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
+    cover_image: object
     description: str
     duration: str
     min_age: int
@@ -349,6 +351,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
+    cover_image: object
     description: str
     display_name: str
     duration: str
@@ -437,6 +440,7 @@ class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
+    cover_image_url: str = ""
     description: str
     end_time: datetime
     name: str
@@ -453,6 +457,7 @@ class EventDTO(BaseModel):
 class EventListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    cover_image_url: str = ""
     description: str
     end_time: datetime
     is_ended: bool
@@ -474,6 +479,7 @@ class EncounterDTO(BaseModel):
     end_time: datetime | None
     game: str
     header_image: str
+    header_image_url: str = ""
     max_participants: int
     pk: int
     place: str
@@ -667,6 +673,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
+    cover_image: object
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None

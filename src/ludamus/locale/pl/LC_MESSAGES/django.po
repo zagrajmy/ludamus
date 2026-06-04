@@ -5369,6 +5369,27 @@ msgstr "Kopiuj"
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
 
+#: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Cover image"
+msgstr "Obraz okładki"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Max 2 MB. JPG, PNG, WebP, or AVIF."
+msgstr "Maks. 2 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Optional. Max 2 MB. JPG, PNG, WebP, or AVIF."
+msgstr "Opcjonalnie. Maks. 2 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Image dimensions are too large."
+msgstr "Wymiary obrazu są zbyt duże."
+
 #~ msgid "promoted from waiting list"
 #~ msgstr "przeniesiony z listy oczekujących"
 

@@ -3,6 +3,7 @@ from http import HTTPStatus
 from unittest.mock import ANY
 
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.web.django.views import EVENT_PLACEHOLDER_IMAGES, EventInfo
@@ -15,6 +16,13 @@ from tests.integration.conftest import (
     VenueFactory,
 )
 from tests.integration.utils import assert_response
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -98,6 +106,28 @@ class TestEventsPageView:
             context_data={
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event, session_count=2)],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_ok_with_event_cover_image(self, client, event):
+        event.cover_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        event.save()
+
+        response = client.get(self.URL)
+
+        expected = _expected_event_info(event).model_copy(
+            update={"cover_image_url": event.cover_image_url}
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "past_events": [],
+                "upcoming_events": [expected],
                 "view": ANY,
             },
             template_name=["index.html"],

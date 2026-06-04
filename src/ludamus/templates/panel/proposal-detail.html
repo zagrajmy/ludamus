@@ -50,6 +50,15 @@
                 {% endif %}
             </div>
         </div>
+        {% if proposal.cover_image_url %}
+            <div class="card mb-6 overflow-hidden">
+                <img src="{{ proposal.cover_image_url }}"
+                     alt=""
+                     width="960"
+                     height="540"
+                     class="aspect-video w-full object-cover">
+            </div>
+        {% endif %}
         {% if proposal.description %}
             <div class="card mb-6">
                 <div class="card-body">

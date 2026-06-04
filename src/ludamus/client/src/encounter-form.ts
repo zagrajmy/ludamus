@@ -30,6 +30,9 @@ const formatBytes = (bytes: number): string => {
 };
 
 const initDropzone = (label: HTMLLabelElement): void => {
+  // Idempotent: a label may be re-scanned after an HTMX swap.
+  if (label.dataset.dropzoneReady === "1") return;
+  label.dataset.dropzoneReady = "1";
   const input = label.querySelector<HTMLInputElement>("[data-dropzone-input]");
   const nameEls = label.querySelectorAll<HTMLElement>("[data-dropzone-name]");
   const sizeEls = label.querySelectorAll<HTMLElement>("[data-dropzone-size]");
@@ -38,8 +41,10 @@ const initDropzone = (label: HTMLLabelElement): void => {
   );
   const clearBtns =
     label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
+  const clearFlag = label.querySelector<HTMLInputElement>(
+    "[data-dropzone-clear-flag]",
+  );
   if (!input || nameEls.length === 0 || sizeEls.length === 0) return;
-  if (clearBtns.length === 0) return;
 
   let previewUrl: string | null = null;
   const revokePreview = (): void => {
@@ -57,15 +62,18 @@ const initDropzone = (label: HTMLLabelElement): void => {
       label.dataset.state = "empty";
       return;
     }
+    // A fresh selection cancels any pending removal of the stored file.
+    if (clearFlag) clearFlag.checked = false;
     nameEls.forEach((el) => {
       el.textContent = file.name;
     });
     sizeEls.forEach((el) => {
       el.textContent = formatBytes(file.size);
     });
+    // Mirror the accepted upload formats (COVER_IMAGE_ACCEPT) so an
+    // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.
     const useImageLayout =
-      Boolean(preview) &&
-      /^image\/(png|jpe?g|gif|webp|avif)$/.test(file.type);
+      Boolean(preview) && /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
     if (useImageLayout) {
       revokePreview();
       previewUrl = URL.createObjectURL(file);
@@ -83,11 +91,22 @@ const initDropzone = (label: HTMLLabelElement): void => {
       e.preventDefault();
       e.stopPropagation();
       input.value = "";
+      // Signal removal of the already-stored file on the next submit.
+      if (clearFlag) clearFlag.checked = true;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
   });
 };
 
-document
-  .querySelectorAll<HTMLLabelElement>("[data-dropzone]")
-  .forEach(initDropzone);
+const initDropzones = (root: ParentNode = document): void => {
+  root.querySelectorAll<HTMLLabelElement>("[data-dropzone]").forEach(initDropzone);
+};
+
+initDropzones();
+
+// The propose wizard swaps its review step (with the dropzone) in via HTMX;
+// this module only evaluates once, so re-scan swapped-in content.
+document.body.addEventListener("htmx:afterSwap", (event) => {
+  const target = (event as CustomEvent).target;
+  initDropzones(target instanceof Element ? target : document);
+});

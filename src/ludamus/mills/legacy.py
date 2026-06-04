@@ -362,7 +362,9 @@ class ProposeSessionService:
             )
         )
 
-    def submit(self, event: EventDTO, wizard_data: WizardData) -> ProposeSessionResult:
+    def submit(
+        self, event: EventDTO, wizard_data: WizardData, *, cover_image: object = None
+    ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
             msg = "session_data must contain 'title'"
@@ -409,6 +411,8 @@ class ProposeSessionService:
                 contact_email=wizard_data.get("contact_email", ""),
                 status=SessionStatus.PENDING,
             )
+            if cover_image:
+                create_data["cover_image"] = cover_image
 
             session_id = self._uow.sessions.create(
                 create_data,

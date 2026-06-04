@@ -216,11 +216,11 @@ run = [
 description = "Combine integration + e2e coverage and export XML"
 run = """
 set -eu
-sources=(.coverage.unit)
 if [ -f .coverage.e2e ]; then
-  sources+=(.coverage.e2e)
+  coverage combine .coverage.unit .coverage.e2e
+else
+  coverage combine .coverage.unit
 fi
-coverage combine "${sources[@]}"
 coverage xml -o coverage.xml
 coverage report --fail-under=93
 """

@@ -5,6 +5,8 @@ from unittest.mock import ANY
 
 import pytest
 import responses
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -45,6 +47,13 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 class TestEventPageView:
@@ -140,6 +149,55 @@ class TestEventPageView:
         )
         assert match
         assert match.group(1)
+
+    def test_shows_event_cover_image(self, client, event):
+        event.cover_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
+        assert event.cover_image_url.encode() in response.content
+
+    @override_settings(MEDIA_URL="https://cdn.example.test/media/")
+    def test_event_cover_image_used_as_absolute_social_metadata(self, client, event):
+        event.cover_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        content = response.content.decode()
+        absolute_url = event.cover_image_url
+        assert absolute_url.startswith("http")
+        assert absolute_url in content
+        assert "zagrajmy.net/static/logo.png" not in content
+        assert f"testserver{absolute_url}" not in content
+
+    def test_shows_session_cover_image(self, agenda_item, client, event):
+        session = agenda_item.session
+        session.cover_image = SimpleUploadedFile(
+            "session.png", PNG_BYTES, content_type="image/png"
+        )
+        session.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
+        assert session.cover_image_url.encode() in response.content
 
     def test_ok_superuser_proposal(
         self, authenticated_client, event, active_user, pending_session

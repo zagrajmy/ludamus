@@ -1,10 +1,13 @@
 {% load i18n %}
 {% load tessera %}
+{% load django_vite %}
 <form id="session-{{ session.pk }}-edit-form"
       class="flex flex-col min-h-0 flex-auto"
       method="post"
       action="{{ post_url }}"
+      enctype="multipart/form-data"
       hx-post="{{ post_url }}"
+      hx-encoding="multipart/form-data"
       hx-target="this"
       hx-swap="outerHTML"
       {% if saved %}data-just-saved{% endif %}>
@@ -47,6 +50,7 @@
                 <p class="mt-1 text-xs text-foreground-muted">{% translate "Markdown supported." %}</p>
                 {% if form.description.errors %}<p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>{% endif %}
             </div>
+            <div>{% tessera_field form.cover_image %}</div>
             <div>
                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                        for="id_requirements">{% translate "Requirements" %}</label>
@@ -194,3 +198,4 @@
         </button>
     </div>
 </form>
+{% vite_asset 'src/encounter-form.ts' %}
