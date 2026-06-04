@@ -5,6 +5,7 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import Notification
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import UserFactory
+from tests.integration.utils import assert_response
 
 
 def _make_notification(recipient):
@@ -45,7 +46,7 @@ class TestNavbarNotifications:
             reverse("web:notifications-mark-read"), {"next": "/"}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(response, HTTPStatus.FOUND, url="/")
         notification.refresh_from_db()
         assert notification.read_at is not None
 
@@ -57,5 +58,4 @@ class TestNavbarNotifications:
             {"next": "https://evil.example.com/"},
         )
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == reverse("web:index")
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))

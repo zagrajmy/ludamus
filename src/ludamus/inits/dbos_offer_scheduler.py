@@ -12,6 +12,7 @@ the application DB. Construction and launch are lazy so importing this module
 
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime
 
 from dbos import DBOS
@@ -22,7 +23,8 @@ from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.mills.enrollment import WaitlistPromotionService
 
-_launched = {"value": False}
+_launched = threading.Event()
+_launch_lock = threading.Lock()
 
 
 def _build_service() -> WaitlistPromotionService:
@@ -49,17 +51,20 @@ def _expire_offer_workflow(participation_id: int, delay_seconds: float) -> None:
 
 
 def _ensure_launched() -> None:
-    if _launched["value"]:
+    if _launched.is_set():
         return
-    DBOS(
-        config={
-            "name": "ludamus",
-            "system_database_url": settings.DBOS_SYSTEM_DATABASE_URL,
-            "run_admin_server": False,
-        }
-    )
-    DBOS.launch()
-    _launched["value"] = True
+    with _launch_lock:  # double-checked so concurrent requests launch DBOS once
+        if _launched.is_set():
+            return
+        DBOS(
+            config={
+                "name": "ludamus",
+                "system_database_url": settings.DBOS_SYSTEM_DATABASE_URL,
+                "run_admin_server": False,
+            }
+        )
+        DBOS.launch()
+        _launched.set()
 
 
 class DBOSOfferExpiryScheduler:

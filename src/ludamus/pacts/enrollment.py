@@ -68,7 +68,6 @@ class OfferDTO(BaseModel):
     recipient_user_id: int
     recipient_email: str
     offer_expires_at: datetime
-    is_claimable: bool
 
 
 class PromotionResult(BaseModel):
@@ -76,8 +75,6 @@ class PromotionResult(BaseModel):
     promoted: list[int] = []
     # participation ids put on hold as OFFERED (OFFER_CLAIM mode)
     offered: list[int] = []
-    # human-readable skip reasons, for observability
-    skipped: list[str] = []
 
 
 class ClaimResult(BaseModel):

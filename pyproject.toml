@@ -191,6 +191,7 @@ module = [
     "ludamus.adapters.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
     "ludamus.links.ticket_api",
@@ -294,6 +295,11 @@ name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
 forbidden_modules = ["ludamus.links", "ludamus.inits", "ludamus.edges"]
+# Management commands are composition entrypoints (like manage.py/wsgi): the
+# expire_offers cron job must build the service via the inits root.
+ignore_imports = [
+    "ludamus.gates.cli.django.management.commands.expire_offers -> ludamus.inits.services",
+]
 
 
 [[tool.importlinter.contracts]]

@@ -189,7 +189,7 @@ class TestFillFreedSeats:
 
 
 class TestClaimOffer:
-    def _offer(self, *, claimable=True, expires=_NOW + timedelta(hours=1)):
+    def _offer(self, *, expires=_NOW + timedelta(hours=1)):
         return OfferDTO(
             session_id=_SESSION_ID,
             session_title="Dragons",
@@ -198,7 +198,6 @@ class TestClaimOffer:
             recipient_user_id=_MANAGER_ID,
             recipient_email="r@e.com",
             offer_expires_at=expires,
-            is_claimable=claimable,
         )
 
     def test_valid_token_confirms_whole_party(self):
@@ -210,22 +209,15 @@ class TestClaimOffer:
         assert result.session_id == _SESSION_ID
         assert repo.claimed == [[1, 2]]
 
-    def test_unknown_token_rejected(self):
+    def test_unknown_or_resolved_token_rejected(self):
+        # A claimed/dropped party is no longer OFFERED, so the locked read
+        # returns None — indistinguishable from an unknown token.
         service, repo, _, _ = _build(offer=None)
 
         result = service.claim_offer(token="nope")
 
         assert result.success is False
         assert result.reason == "not_found"
-        assert not repo.claimed
-
-    def test_already_claimed_or_dropped_rejected(self):
-        service, repo, _, _ = _build(offer=self._offer(claimable=False))
-
-        result = service.claim_offer(token="tok-xyz")
-
-        assert result.success is False
-        assert result.reason == "expired"
         assert not repo.claimed
 
     def test_past_deadline_rejected(self):
@@ -241,7 +233,7 @@ class TestClaimOffer:
 
 
 class TestExpireOffer:
-    def _offer(self, *, claimable=True, expires=_NOW - timedelta(minutes=1)):
+    def _offer(self, *, expires=_NOW - timedelta(minutes=1)):
         return OfferDTO(
             session_id=_SESSION_ID,
             session_title="Dragons",
@@ -250,7 +242,6 @@ class TestExpireOffer:
             recipient_user_id=_MANAGER_ID,
             recipient_email="r@e.com",
             offer_expires_at=expires,
-            is_claimable=claimable,
         )
 
     def test_lapsed_offer_dropped_notified_and_rolls_on(self):
@@ -271,7 +262,8 @@ class TestExpireOffer:
         assert repo.confirmed == [[3]]
 
     def test_already_resolved_offer_is_noop(self):
-        service, repo, notifier, _ = _build(offer=self._offer(claimable=False))
+        # Claimed/dropped party is no longer OFFERED, so the locked read is None.
+        service, repo, notifier, _ = _build(offer=None)
 
         result = service.expire_offer(participation_id=1)
 

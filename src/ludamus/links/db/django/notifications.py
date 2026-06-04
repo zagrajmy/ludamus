@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.core.mail import send_mail
+from django.db import transaction
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.timezone import localtime
@@ -103,15 +104,22 @@ class DjangoUserNotifier:
 
     @staticmethod
     def _deliver(notification: Notification, email: str) -> None:
-        notification.save()
-        if email:
-            send_mail(
-                subject=notification.title,
-                message=f"{notification.body}\n\n{notification.url}",
-                from_email=None,
-                recipient_list=[email],
-                fail_silently=False,
-            )
+        # Persist the row and send mail only after the surrounding transaction
+        # commits (ATOMIC_REQUESTS wraps the whole request), so a later rollback
+        # can't leave a "you're promoted" email for a promotion that was undone.
+        # Mail is best-effort: an SMTP outage must not roll back a confirmed seat.
+        def _send() -> None:
+            notification.save()
+            if email:
+                send_mail(
+                    subject=notification.title,
+                    message=f"{notification.body}\n\n{notification.url}",
+                    from_email=None,
+                    recipient_list=[email],
+                    fail_silently=True,
+                )
+
+        transaction.on_commit(_send)
 
 
 class NotificationReadRepository:
@@ -123,7 +131,9 @@ class NotificationReadRepository:
 
     @staticmethod
     def list_recent(user_id: int, limit: int) -> list[NotificationDTO]:
-        recent = Notification.objects.filter(recipient_id=user_id)[:limit]
+        recent = Notification.objects.filter(recipient_id=user_id).order_by(
+            "-creation_time"
+        )[:limit]
         return [NotificationDTO.model_validate(notification) for notification in recent]
 
     @staticmethod

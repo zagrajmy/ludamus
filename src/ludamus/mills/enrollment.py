@@ -152,7 +152,7 @@ class WaitlistPromotionService:
         with self._transaction.atomic():
             if (offer := self._participations.read_offer_by_token(token)) is None:
                 return ClaimResult(success=False, reason="not_found")
-            if not offer.is_claimable or _now() > offer.offer_expires_at:
+            if _now() > offer.offer_expires_at:
                 return ClaimResult(
                     success=False,
                     reason="expired",
@@ -169,7 +169,7 @@ class WaitlistPromotionService:
         # fill_freed_seats so the released seats roll on to the next party.
         with self._transaction.atomic():
             offer = self._participations.read_offer_by_participation(participation_id)
-            if offer is None or not offer.is_claimable:
+            if offer is None:
                 return PromotionResult()
             if _now() <= offer.offer_expires_at:
                 return PromotionResult()

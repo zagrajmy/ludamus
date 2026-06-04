@@ -166,31 +166,51 @@ class ParticipationPromotionRepository:
         )
 
     def read_offer_by_token(self, token: str) -> OfferDTO | None:
-        first = (
+        identity = (
             SessionParticipation.objects.filter(
                 claim_token=token, status=SessionParticipationStatus.OFFERED
             )
-            .select_related("user", "user__manager")
-            .order_by("creation_time")
+            .values("session_id")
             .first()
         )
-        if first is None:
+        if identity is None:
             return None
-        return self._build_offer(first)
+        return self._read_locked_party(identity["session_id"], token)
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None:
         try:
-            participation = SessionParticipation.objects.select_related(
-                "user", "user__manager"
-            ).get(id=participation_id)
+            participation = SessionParticipation.objects.get(id=participation_id)
         except SessionParticipation.DoesNotExist:
             return None
-        if participation.status != SessionParticipationStatus.OFFERED:
+        if (
+            participation.status != SessionParticipationStatus.OFFERED
+            or not participation.claim_token
+        ):
             return None
-        return self._build_offer(participation)
+        return self._read_locked_party(
+            participation.session_id, participation.claim_token
+        )
+
+    def _read_locked_party(self, session_id: int, token: str) -> OfferDTO | None:
+        # Lock the party's still-OFFERED rows for the caller's transaction so
+        # claim and expiry serialise; the loser re-reads an empty set and no-ops.
+        party = list(
+            SessionParticipation.objects.select_for_update(of=("self",))
+            .filter(
+                session_id=session_id,
+                claim_token=token,
+                status=SessionParticipationStatus.OFFERED,
+            )
+            .select_related("user", "user__manager")
+            .order_by("creation_time")
+        )
+        if not party:
+            return None
+        return self._build_offer(party)
 
     @staticmethod
-    def _build_offer(lead: SessionParticipation) -> OfferDTO:
+    def _build_offer(party: list[SessionParticipation]) -> OfferDTO:
+        lead = party[0]
         session = Session.objects.select_related(
             "agenda_item__space__area__venue__event"
         ).get(id=lead.session_id)
@@ -198,13 +218,6 @@ class ParticipationPromotionRepository:
             event_slug = session.agenda_item.space.area.venue.event.slug
         except ObjectDoesNotExist:
             event_slug = ""
-        party = list(
-            SessionParticipation.objects.filter(
-                session_id=lead.session_id,
-                claim_token=lead.claim_token,
-                status=SessionParticipationStatus.OFFERED,
-            ).order_by("creation_time")
-        )
         recipient = lead.user.manager or lead.user
         return OfferDTO(
             session_id=lead.session_id,
@@ -214,12 +227,15 @@ class ParticipationPromotionRepository:
             recipient_user_id=recipient.pk,
             recipient_email=recipient.email or "",
             offer_expires_at=lead.offer_expires_at or datetime.now(UTC),
-            is_claimable=True,
         )
 
     @staticmethod
     def mark_claimed(participation_ids: list[int], *, claimed_at: datetime) -> None:
-        SessionParticipation.objects.filter(id__in=participation_ids).update(
+        # Status-scoped so a racing expiry that already dropped the party cannot
+        # be clobbered (and vice-versa) — only still-OFFERED rows are claimed.
+        SessionParticipation.objects.filter(
+            id__in=participation_ids, status=SessionParticipationStatus.OFFERED
+        ).update(
             status=SessionParticipationStatus.CONFIRMED,
             claimed_at=claimed_at,
             modification_time=datetime.now(UTC),
@@ -229,4 +245,7 @@ class ParticipationPromotionRepository:
     def drop(participation_ids: list[int]) -> None:
         # A lapsed offer is terminal (Eventbrite-style): drop the rows so the
         # held seats are released and the party must rejoin to be reconsidered.
-        SessionParticipation.objects.filter(id__in=participation_ids).delete()
+        # Status-scoped so a party already claimed by a racing winner is left be.
+        SessionParticipation.objects.filter(
+            id__in=participation_ids, status=SessionParticipationStatus.OFFERED
+        ).delete()

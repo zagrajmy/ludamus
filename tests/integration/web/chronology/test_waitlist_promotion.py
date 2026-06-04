@@ -1,7 +1,9 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
+from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -12,6 +14,7 @@ from ludamus.adapters.db.django.models import (
 from ludamus.inits.services import Services
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory, UserFactory
+from tests.integration.utils import assert_response
 
 
 def _service():
@@ -20,9 +23,7 @@ def _service():
 
 @pytest.mark.usefixtures("enrollment_config", "agenda_item")
 class TestFillFreedSeats:
-    def test_auto_promotes_waiter_and_notifies(
-        self, session, waiter, mailoutbox
-    ):
+    def test_auto_promotes_waiter_and_notifies(self, session, waiter, mailoutbox):
         session.participants_limit = 1
         session.save()
         participation = SessionParticipation.objects.create(
@@ -64,9 +65,7 @@ class TestFillFreedSeats:
         ).exists()
         assert len(mailoutbox) == 1
 
-    def test_offered_seat_is_held_not_offered_twice(
-        self, session, event, waiter
-    ):
+    def test_offered_seat_is_held_not_offered_twice(self, session, event, waiter):
         session.participants_limit = 1
         session.category = ProposalCategoryFactory(
             event=event, promotion_mode=PromotionMode.OFFER_CLAIM.value
@@ -104,9 +103,7 @@ class TestOfferClaimAndExpiry:
         participation.refresh_from_db()
         return participation
 
-    def test_claim_view_confirms_party(
-        self, client, session, event, waiter
-    ):
+    def test_claim_view_confirms_party(self, client, session, event, waiter):
         participation = self._offer(session, event, waiter)
 
         response = client.post(
@@ -116,16 +113,22 @@ class TestOfferClaimAndExpiry:
             )
         )
 
-        assert_url = reverse("web:chronology:event", kwargs={"slug": event.slug})
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == assert_url
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Spot claimed — you are now confirmed for this session.",
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
         assert participation.claimed_at is not None
 
-    def test_claim_view_get_shows_offer(
-        self, client, session, event, waiter
-    ):
+    def test_claim_view_get_shows_offer(self, client, session, event, waiter):
         participation = self._offer(session, event, waiter)
 
         response = client.get(
@@ -135,16 +138,26 @@ class TestOfferClaimAndExpiry:
             )
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/offer_claim.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/offer_claim.html",
+            context_data=ANY,
+        )
 
     def test_claim_view_unknown_token_redirects(self, client):
         response = client.post(
             reverse("web:chronology:offer-claim", kwargs={"token": "nope"})
         )
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == reverse("web:events")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "This offer has expired or was already claimed.")
+            ],
+            url=reverse("web:events"),
+        )
 
     def test_expire_drops_lapsed_party_and_rolls_on(
         self, session, event, waiter, mailoutbox
