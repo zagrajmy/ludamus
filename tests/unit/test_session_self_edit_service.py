@@ -140,7 +140,21 @@ class TestUpdate:
             5, 10, {"title": "T", "display_name": "D", "cover_image": False}, []
         )
 
-        assert sessions.update.call_args.args[1]["cover_image"] == ""
+        sessions.update.assert_called_once_with(
+            5,
+            {
+                "title": "T",
+                "display_name": "D",
+                "description": "",
+                "requirements": "",
+                "needs": "",
+                "contact_email": "",
+                "participants_limit": 0,
+                "min_age": 0,
+                "duration": "",
+                "cover_image": "",
+            },
+        )
 
     def test_leaves_cover_image_untouched_when_absent(self):
         service, sessions, _ = _build(
