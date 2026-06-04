@@ -282,12 +282,10 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     @staticmethod
     def read_event(session_id: int) -> EventDTO:
         try:
-            event = Event.objects.select_related("proposal_settings").get(
-                proposal_categories__sessions__id=session_id
-            )
+            event = Event.objects.get(proposal_categories__sessions__id=session_id)
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
-        return _event_dto(event)
+        return EventDTO.model_validate(event)
 
     @staticmethod
     def read_spaces(session_id: int) -> list[SpaceDTO]:
@@ -653,13 +651,6 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
         user.delete()
 
 
-def _event_dto(event: Event) -> EventDTO:
-    settings = getattr(event, "proposal_settings", None)
-    description = settings.description if settings is not None else ""
-    dto = EventDTO.model_validate(event)
-    return dto.model_copy(update={"proposal_description": description})
-
-
 class EventRepository(EventRepositoryProtocol):
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]:
@@ -668,12 +659,8 @@ class EventRepository(EventRepositoryProtocol):
         Returns:
             List of EventDTO objects for the sphere.
         """
-        events = (
-            Event.objects.filter(sphere_id=sphere_id)
-            .select_related("proposal_settings")
-            .order_by("-start_time")
-        )
-        return [_event_dto(event) for event in events]
+        events = Event.objects.filter(sphere_id=sphere_id).order_by("-start_time")
+        return [EventDTO.model_validate(event) for event in events]
 
     @staticmethod
     def list_for_events_page(
@@ -712,10 +699,10 @@ class EventRepository(EventRepositoryProtocol):
             NotFoundError: If the event does not exist.
         """
         try:
-            event = Event.objects.select_related("proposal_settings").get(id=pk)
+            event = Event.objects.get(id=pk)
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
-        return _event_dto(event)
+        return EventDTO.model_validate(event)
 
     @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO:
@@ -728,12 +715,10 @@ class EventRepository(EventRepositoryProtocol):
             NotFoundError: If the event does not exist.
         """
         try:
-            event = Event.objects.select_related("proposal_settings").get(
-                slug=slug, sphere_id=sphere_id
-            )
+            event = Event.objects.get(slug=slug, sphere_id=sphere_id)
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
-        return _event_dto(event)
+        return EventDTO.model_validate(event)
 
     @staticmethod
     def get_stats_data(event_id: int) -> EventStatsData:
@@ -772,18 +757,18 @@ class EventRepository(EventRepositoryProtocol):
             setattr(event, key, value)
         event.save(update_fields=list(data.keys()))
 
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None:
-        EventProposalSettings.objects.update_or_create(
-            event_id=event_id, defaults={"description": description}
-        )
-
 
 class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO:
         settings, _ = EventProposalSettings.objects.get_or_create(event_id=event_id)
         return EventProposalSettingsDTO.model_validate(settings)
+
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None:
+        EventProposalSettings.objects.update_or_create(
+            event_id=event_id, defaults={"description": description}
+        )
 
 
 class EventSettingsRepository(EventSettingsRepositoryProtocol):

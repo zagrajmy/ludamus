@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
+        EventProposalSettingsDTO,
         PersonalDataFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
@@ -188,26 +189,38 @@ def _login_nudge_context(request: HttpRequest) -> dict[str, object]:
 
 
 def _render_category(
+    *,
     request: RootRequest,
     service: ProposeSessionService,
     event: EventDTO,
     event_slug: str,
+    proposal_settings: EventProposalSettingsDTO,
 ) -> HttpResponse:
     categories = service.get_categories(event.pk)
     if not _has_category_step(categories):
         wizard = request.session.get(_session_key(event_slug), {})
         wizard["category_id"] = categories[0].pk
         request.session[_session_key(event_slug)] = wizard
-        personal_context = _personal_context(request, service, event, categories[0])
+        personal_context = _personal_context(
+            request=request,
+            service=service,
+            event=event,
+            category=categories[0],
+            proposal_settings=proposal_settings,
+        )
         return TemplateResponse(
             request, "chronology/propose/parts/personal.html", personal_context
         )
 
     wizard = request.session.get(_session_key(event_slug), {})
     selected_id = wizard.get("category_id")
+    proposal_settings = request.di.uow.event_proposal_settings.read_or_create_by_event(
+        event.pk
+    )
 
     context: dict[str, object] = {
         "event": event,
+        "proposal_settings": proposal_settings,
         "categories": categories,
         "selected_category_id": selected_id,
         "current_step": "category",
@@ -221,10 +234,12 @@ def _render_category(
 
 
 def _personal_context(
+    *,
     request: RootRequest,
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
+    proposal_settings: EventProposalSettingsDTO,
 ) -> dict[str, object]:
     requirements = service.get_personal_requirements(category.pk)
 
@@ -246,6 +261,7 @@ def _personal_context(
     context: dict[str, object] = {
         "event": event,
         "category": category,
+        "proposal_settings": proposal_settings,
         "form": form,
         "field_descriptors": _field_descriptors("personal", requirements, form),
         "current_step": "personal",
@@ -258,28 +274,44 @@ def _personal_context(
 
 
 def _render_personal(
+    *,
     request: RootRequest,
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
+    proposal_settings: EventProposalSettingsDTO,
 ) -> HttpResponse:
     return TemplateResponse(
         request,
         "chronology/propose/parts/personal.html",
-        _personal_context(request, service, event, category),
+        _personal_context(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            proposal_settings=proposal_settings,
+        ),
     )
 
 
 def _render_timeslots(
+    *,
     request: RootRequest,
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
+    proposal_settings: EventProposalSettingsDTO,
 ) -> HttpResponse:
     requirements = service.get_timeslot_requirements(category.pk)
     if not _has_timeslots_step(requirements):
         _store_single_timeslot(request, event.slug, requirements)
-        return _render_details(request, service, event, category)
+        return _render_details(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            proposal_settings=proposal_settings,
+        )
 
     wizard = request.session.get(_session_key(event.slug), {})
     selected_ids = wizard.get("time_slot_ids", [])
@@ -290,6 +322,7 @@ def _render_timeslots(
         {
             "event": event,
             "category": category,
+            "proposal_settings": proposal_settings,
             "slot_descriptors": _timeslot_descriptors(requirements, selected_ids),
             "current_step": "timeslots",
             "wizard_steps": _wizard_steps(
@@ -303,10 +336,12 @@ def _render_timeslots(
 
 
 def _render_details(
+    *,
     request: RootRequest,
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
+    proposal_settings: EventProposalSettingsDTO,
 ) -> HttpResponse:
     requirements = service.get_session_requirements(category.pk)
     public_tracks = service.get_public_tracks(event.pk)
@@ -331,6 +366,7 @@ def _render_details(
         {
             "event": event,
             "category": category,
+            "proposal_settings": proposal_settings,
             "form": form,
             "durations": category.durations,
             "field_descriptors": _field_descriptors("session", requirements, form),
@@ -344,12 +380,14 @@ def _render_details(
     )
 
 
-def _render_review(
+def _render_review(  # noqa: PLR0913
+    *,
     request: RootRequest,
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
     event_slug: str,
+    proposal_settings: EventProposalSettingsDTO,
 ) -> HttpResponse:
     wizard = request.session.get(_session_key(event_slug), {})
     session_data = wizard.get("session_data", {})
@@ -415,6 +453,7 @@ def _render_review(
         {
             "event": event,
             "category": category,
+            "proposal_settings": proposal_settings,
             "review": review,
             "current_step": "review",
             "wizard_steps": _wizard_steps(
@@ -513,6 +552,9 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         categories = service.get_categories(event.pk)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
 
         request.session.pop(_session_key(event_slug), None)
 
@@ -520,12 +562,19 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
             request.session[_session_key(event_slug)] = {
                 "category_id": categories[0].pk
             }
-            context = _personal_context(request, service, event, categories[0])
+            context = _personal_context(
+                request=request,
+                service=service,
+                event=event,
+                category=categories[0],
+                proposal_settings=proposal_settings,
+            )
             context["wizard_part_template"] = "chronology/propose/parts/personal.html"
         else:
             context = {
                 "event": event,
                 "categories": categories,
+                "proposal_settings": proposal_settings,
                 "step": "category",
                 "current_step": "category",
                 "wizard_steps": _wizard_steps(
@@ -542,14 +591,24 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
         event = self._get_event(service, event_slug)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
 
         if request.POST.get("back"):
-            return _render_category(request, service, event, event_slug)
+            return _render_category(
+                request=request,
+                service=service,
+                event=event,
+                event_slug=event_slug,
+                proposal_settings=proposal_settings,
+            )
 
         if not (category_id := request.POST.get("category_id")):
             categories = service.get_categories(event.pk)
             ctx: dict[str, object] = {
                 "event": event,
+                "proposal_settings": proposal_settings,
                 "categories": categories,
                 "error": _("Please select a category."),
                 "current_step": "category",
@@ -577,7 +636,13 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
             wizard = {"category_id": category.pk}
         request.session[_session_key(event_slug)] = wizard
 
-        return _render_personal(request, service, event, category)
+        return _render_personal(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            proposal_settings=proposal_settings,
+        )
 
 
 class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
@@ -585,9 +650,18 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         category = self._get_wizard_category(request, service, event, event_slug)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
 
         if request.POST.get("back"):
-            return _render_personal(request, service, event, category)
+            return _render_personal(
+                request=request,
+                service=service,
+                event=event,
+                category=category,
+                proposal_settings=proposal_settings,
+            )
 
         requirements = service.get_personal_requirements(category.pk)
 
@@ -599,6 +673,7 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
             context: dict[str, object] = {
                 "event": event,
                 "category": category,
+                "proposal_settings": proposal_settings,
                 "form": form,
                 "field_descriptors": _field_descriptors("personal", requirements, form),
                 "current_step": "personal",
@@ -623,7 +698,13 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
         wizard["contact_email"] = form.cleaned_data["contact_email"]
         request.session[_session_key(event_slug)] = wizard
 
-        return _render_timeslots(request, service, event, category)
+        return _render_timeslots(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            proposal_settings=proposal_settings,
+        )
 
 
 class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
@@ -631,16 +712,37 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         category = self._get_wizard_category(request, service, event, event_slug)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
 
         requirements = service.get_timeslot_requirements(category.pk)
         if request.POST.get("back"):
             if not _has_timeslots_step(requirements):
-                return _render_personal(request, service, event, category)
-            return _render_timeslots(request, service, event, category)
+                return _render_personal(
+                    request=request,
+                    service=service,
+                    event=event,
+                    category=category,
+                    proposal_settings=proposal_settings,
+                )
+            return _render_timeslots(
+                request=request,
+                service=service,
+                event=event,
+                category=category,
+                proposal_settings=proposal_settings,
+            )
 
         if not _has_timeslots_step(requirements):
             _store_single_timeslot(request, event_slug, requirements)
-            return _render_details(request, service, event, category)
+            return _render_details(
+                request=request,
+                service=service,
+                event=event,
+                category=category,
+                proposal_settings=proposal_settings,
+            )
 
         selected_ids = request.POST.getlist("time_slot_ids")
         valid_ids = {str(r.time_slot_id) for r in requirements}
@@ -652,6 +754,7 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
                 {
                     "event": event,
                     "category": category,
+                    "proposal_settings": proposal_settings,
                     "slot_descriptors": _timeslot_descriptors(requirements, []),
                     "error": _("Please select at least one time slot."),
                     "current_step": "timeslots",
@@ -670,7 +773,13 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
         wizard["time_slot_ids"] = [int(sid) for sid in selected_ids]
         request.session[_session_key(event_slug)] = wizard
 
-        return _render_details(request, service, event, category)
+        return _render_details(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            proposal_settings=proposal_settings,
+        )
 
 
 class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
@@ -678,9 +787,17 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         category = self._get_wizard_category(request, service, event, event_slug)
-
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
         if request.POST.get("back"):
-            return _render_details(request, service, event, category)
+            return _render_details(
+                request=request,
+                service=service,
+                event=event,
+                category=category,
+                proposal_settings=proposal_settings,
+            )
 
         requirements = service.get_session_requirements(category.pk)
         form_class = build_session_details_form(
@@ -706,6 +823,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                 {
                     "event": event,
                     "category": category,
+                    "proposal_settings": proposal_settings,
                     "form": form,
                     "durations": category.durations,
                     "field_descriptors": _field_descriptors(
@@ -737,7 +855,14 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 
-        return _render_review(request, service, event, category, event_slug)
+        return _render_review(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            event_slug=event_slug,
+            proposal_settings=proposal_settings,
+        )
 
 
 class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
@@ -745,7 +870,18 @@ class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         category = self._get_wizard_category(request, service, event, event_slug)
-        return _render_review(request, service, event, category, event_slug)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
+
+        return _render_review(
+            request=request,
+            service=service,
+            event=event,
+            category=category,
+            event_slug=event_slug,
+            proposal_settings=proposal_settings,
+        )
 
 
 class ProposeSessionSubmitActionView(ProposeWizardMixin, View):

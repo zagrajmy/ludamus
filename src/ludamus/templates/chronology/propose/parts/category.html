@@ -2,6 +2,21 @@
 <div id="wizard-content">
     {% include "chronology/propose/parts/_proposal_description.html" %}
     {% include "chronology/propose/parts/_stepper.html" %}
+    {% if show_login_nudge %}
+        <div class="alert alert-info flex items-start gap-3 mb-4">
+            {% icon "user" class="w-5 h-5 shrink-0 mt-0.5" %}
+            <div class="flex-1">
+                <h6 class="font-semibold mb-1">{% translate "Have an account?" %}</h6>
+                <p class="mb-2 text-sm">
+                    {% translate "Log in to save your details across submissions, track your proposals, and skip re-entering personal data next time." %}
+                </p>
+                <a href="{{ login_url }}" class="btn btn-primary">{% translate "Log in" %}</a>
+            </div>
+        </div>
+    {% endif %}
+    {% if proposal_settings.description %}
+        <div class="prose prose-sm dark:prose-invert mb-6">{{ proposal_settings.description|render_markdown }}</div>
+    {% endif %}
     {% include "chronology/propose/parts/_login_nudge.html" %}
     <h2 class="text-lg font-semibold mb-1">{% translate "What would you like to propose?" %}</h2>
     <p class="text-sm text-foreground-muted mb-5">{% translate "Choose the type of session you want to run." %}</p>
