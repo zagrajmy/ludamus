@@ -2342,8 +2342,8 @@ msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Filter by title or host..."
-msgstr "Filtruj według tytułu lub prowadzącego..."
+msgid "Search sessions..."
+msgstr "Szukaj punktów programu..."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Filters"
@@ -2431,6 +2431,14 @@ msgstr "Usuń filtr"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all"
 msgstr "Wyczyść wszystko"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Age ≥"
+msgstr "Wiek ≥"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Age ≤"
+msgstr "Wiek ≤"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "No sessions match your filters"
