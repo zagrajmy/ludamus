@@ -4,12 +4,12 @@ import time
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.db import connection
 from django.http import JsonResponse
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.views.decorators.cache import never_cache
+from django.views.static import serve
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -62,7 +62,13 @@ urlpatterns: list[URLResolver | URLPattern] = [
 
 
 if not settings.IS_PRODUCTION:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            serve,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+    ]
 
 if settings.DEBUG:
     urlpatterns += [path("__reload__/", include("django_browser_reload.urls"))]
