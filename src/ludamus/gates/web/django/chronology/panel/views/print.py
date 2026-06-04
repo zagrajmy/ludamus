@@ -38,7 +38,11 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            area_pks, scope_name = self._resolve_scope(current_event.pk)
+            scope = self.request.services.venues.resolve_scope(
+                current_event.pk,
+                self.request.GET.get("venue") or None,
+                self.request.GET.get("area") or None,
+            )
         except NotFoundError:
             messages.error(request, _("Venue or area not found."))
             return redirect("panel:timetable", slug=slug)
@@ -52,7 +56,10 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
                 "panel/print/door-cards.html",
                 {
                     "document": service.build_door_cards(
-                        current_event.pk, tz, area_pks=area_pks, scope_name=scope_name
+                        current_event.pk,
+                        tz,
+                        area_pks=scope.area_pks,
+                        scope_name=scope.scope_name,
                     )
                 },
             )
@@ -61,27 +68,13 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
             "panel/print/timetable.html",
             {
                 "document": service.build_timetable(
-                    current_event.pk, tz, area_pks=area_pks, scope_name=scope_name
+                    current_event.pk,
+                    tz,
+                    area_pks=scope.area_pks,
+                    scope_name=scope.scope_name,
                 )
             },
         )
-
-    def _resolve_scope(self, event_pk: int) -> tuple[frozenset[int] | None, str | None]:
-        # Turn the ?venue=/&area= slugs into the set of area pks to render and
-        # the scope's display name. Raises NotFoundError on an unknown slug.
-        venue_slug = self.request.GET.get("venue") or None
-        area_slug = self.request.GET.get("area") or None
-        if not venue_slug:
-            return None, None
-
-        uow = self.request.di.uow
-        venue = uow.venues.read_by_slug(event_pk, venue_slug)
-        if not area_slug:
-            areas = uow.areas.list_by_venue(venue.pk)
-            return frozenset(area.pk for area in areas), venue.name
-
-        area = uow.areas.read_by_slug(venue.pk, area_slug)
-        return frozenset({area.pk}), area.name
 
 
 class PrintMaterialsPageView(PanelAccessMixin, EventContextMixin, View):

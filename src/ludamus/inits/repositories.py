@@ -55,3 +55,11 @@ class Repositories:
     @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:
         return repositories.TimeSlotRepository()
+
+    @cached_property
+    def venues(self) -> repositories.VenueRepository:
+        return repositories.VenueRepository()
+
+    @cached_property
+    def areas(self) -> repositories.AreaRepository:
+        return repositories.AreaRepository()

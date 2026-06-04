@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
+    from ludamus.pacts.printing import VenueWithAreasDTO
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -124,17 +125,9 @@ class EventContextMixin:
         )
         return sorted_tracks, managed_pks, filter_track_pk
 
-    def get_print_venues(self, event_pk: int) -> list[dict[str, Any]]:
+    def get_print_venues(self, event_pk: int) -> list[VenueWithAreasDTO]:
         # Venues with their areas, for the print scope menus.
-        uow = self.request.di.uow
-        return [
-            {
-                "name": venue.name,
-                "slug": venue.slug,
-                "areas": uow.areas.list_by_venue(venue.pk),
-            }
-            for venue in uow.venues.list_by_event(event_pk)
-        ]
+        return self.request.services.venues.list_with_areas(event_pk)
 
 
 def settings_tab_urls(slug: str) -> dict[str, str]:

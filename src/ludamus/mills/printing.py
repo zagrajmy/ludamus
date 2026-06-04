@@ -77,8 +77,6 @@ def _timetable_rows_by_date(
 
 
 class PrintMaterialsService:
-    """Read-side assembler for printable materials."""
-
     def __init__(
         self,
         events: EventRepositoryProtocol,

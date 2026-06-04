@@ -20,6 +20,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 
 if TYPE_CHECKING:
@@ -63,6 +64,10 @@ class Services:
             self._repos.agenda_items,
             self._repos.time_slots,
         )
+
+    @cached_property
+    def venues(self) -> VenuesService:
+        return VenuesService(self._repos.venues, self._repos.areas)
 
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
