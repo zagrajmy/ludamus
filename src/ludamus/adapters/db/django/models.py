@@ -1510,6 +1510,7 @@ class EventIntegration(models.Model):
     config_json = models.TextField(default="{}")
     settings_json = models.TextField(default="{}")
     questions_snapshot_json = models.TextField(default="[]")
+    import_failures_json = models.TextField(default="[]")
 
     class Meta:
         db_table = "event_integration"

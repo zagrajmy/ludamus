@@ -158,6 +158,7 @@ def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
         "review": reverse("panel:import-review", kwargs={"slug": slug, "pk": pk}),
         "json": reverse("panel:import-json", kwargs={"slug": slug, "pk": pk}),
         "run": reverse("panel:import-run", kwargs={"slug": slug, "pk": pk}),
+        "errors": reverse("panel:import-errors", kwargs={"slug": slug, "pk": pk}),
     }
 
 

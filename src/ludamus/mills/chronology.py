@@ -1088,13 +1088,22 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         if (impl := self._registry.get(integration.implementation)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
-        return impl.fetch_responses(plaintext, config)
+        return impl.fetch_responses(plaintext, config, header_row=settings.header_row)
 
     def save_settings(self, event_id: int, pk: int, settings_json: str) -> None:
         with self._transaction.atomic():
             self._integrations.update_settings(event_id, pk, settings_json)
+
+    def save_import_failures(
+        self, event_id: int, pk: int, import_failures_json: str
+    ) -> None:
+        with self._transaction.atomic():
+            self._integrations.update_import_failures(
+                event_id, pk, import_failures_json
+            )
 
     def check(self, request: IntegrationCheckRequest) -> CheckResult:
         if (impl := self._registry.get(request.implementation)) is None:

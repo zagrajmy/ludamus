@@ -46,6 +46,19 @@ class _CredentialsError(Exception):
     """Raised internally when a service-account secret can't build a session."""
 
 
+def _disambiguate(titles: list[str]) -> list[str]:
+    # Google Forms permits two questions with the same title; the recipe
+    # (dict[title, QuestionTarget]) and the response row (dict[header, str])
+    # would silently collapse them into one. Suffix the 2nd, 3rd, ...
+    # occurrences so each column ends up with a unique key on both sides.
+    seen: dict[str, int] = {}
+    result: list[str] = []
+    for title in titles:
+        seen[title] = (occurrence := seen.get(title, 0) + 1)
+        result.append(title if occurrence == 1 else f"{title} ({occurrence})")
+    return result
+
+
 def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
     # Sheets omits trailing empty cells, so a row may be shorter than headers.
     return {header: row[i] if i < len(row) else "" for i, header in enumerate(headers)}
@@ -167,13 +180,22 @@ class GoogleDocsProposalImporter:
         if response is None or not response.ok:
             return []
         schema = _FormSchema.model_validate(response.json())
-        return [
+        questions = [
             question
             for item in schema.items
             if (question := _source_question(item)) is not None
         ]
+        titles = _disambiguate([q.title for q in questions])
+        return [
+            q.model_copy(update={"title": title})
+            for q, title in zip(questions, titles, strict=True)
+        ]
 
-    def fetch_responses(self, secret: bytes, config: BaseModel) -> list[dict[str, str]]:
+    def fetch_responses(
+        self, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[dict[str, str]]:
+        # `header_row` is 1-indexed to match the row numbers the operator sees
+        # in the browser; the first data row is `header_row + 1`.
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
         try:
@@ -194,8 +216,10 @@ class GoogleDocsProposalImporter:
             return []
         if not (values := response.json().get("values") or []):
             return []
-        headers = [str(cell) for cell in values[0]]
-        return [_row_to_dict(headers, row) for row in values[1:]]
+        if not 1 <= header_row <= len(values):
+            return []
+        headers = _disambiguate([str(cell) for cell in values[header_row - 1]])
+        return [_row_to_dict(headers, row) for row in values[header_row:]]
 
     @staticmethod
     def _responses_tab_title(session: AuthorizedSession, sheet_id: str) -> str:

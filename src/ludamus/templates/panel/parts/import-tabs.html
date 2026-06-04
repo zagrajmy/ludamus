@@ -22,5 +22,10 @@
     {% else %}
         {% tab "run" href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
     {% endif %}
+    {% if active_tab == "errors" %}
+        {% tab "errors" active=True href=tab_urls.errors %}{% translate "Errors" %}{% end_tab %}
+    {% else %}
+        {% tab "errors" href=tab_urls.errors %}{% translate "Errors" %}{% end_tab %}
+    {% endif %}
 {% end_tabs %}
 </div>

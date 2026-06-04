@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load django_vite %}
 {% block title_prefix %}
     {% translate "Google Docs Import" %} -
 {% endblock title_prefix %}
@@ -14,8 +15,109 @@
     {% if current_event %}
         {% if active_integration %}
             {% include "panel/parts/import-tabs.html" %}
-            <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
+            <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6 space-y-6">
+                <form method="post"
+                      action="{% url 'panel:import-settings-save' slug=current_event.slug pk=active_integration.pk %}"
+                      class="card max-w-3xl space-y-6 p-4 sm:p-5">
+                    {% csrf_token %}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-foreground"
+                               for="header_row">{% translate "Header row" %}</label>
+                        <p class="mb-2 text-xs text-foreground-muted">
+                            {% translate "The 1-indexed sheet row whose cells become the column keys. Row 1 is the first row in the sheet; everything above this row is ignored." %}
+                        </p>
+                        <input type="number"
+                               id="header_row"
+                               name="header_row"
+                               value="{{ header_row }}"
+                               min="1"
+                               required
+                               class="w-32 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <p class="mb-1 text-sm font-medium text-foreground">{% translate "Unique key columns" %}</p>
+                        <p class="mb-2 text-xs text-foreground-muted">
+                            {% translate "Columns whose values together identify a row uniquely. Retry uses them to find the same row again after the sheet shifts." %}
+                        </p>
+                        {% if available_columns %}
+                            <div data-unique-keys
+                                 class="space-y-2"
+                                 data-empty-label="{{ no_unique_keys_label }}">
+                                <ul data-unique-keys-list class="flex flex-wrap gap-2">
+                                    {% for col in unique_key_columns %}
+                                        <li class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-bg-secondary px-3 py-1 text-sm text-foreground-secondary">
+                                            <input type="hidden" name="unique_key_columns" value="{{ col }}">
+                                            <span class="truncate" title="{{ col }}">{{ col }}</span>
+                                            <button type="button"
+                                                    data-unique-keys-remove
+                                                    aria-label="{% blocktranslate with col=col %}Remove {{ col }}{% endblocktranslate %}"
+                                                    class="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground">
+                                                {% icon "x-mark" class="w-3 h-3" %}
+                                            </button>
+                                        </li>
+                                    {% empty %}
+                                        <li data-unique-keys-empty class="text-xs text-foreground-muted">{% translate "No columns selected." %}</li>
+                                    {% endfor %}
+                                </ul>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <select data-unique-keys-select
+                                            class="w-full max-w-xs truncate rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                                        <option value="">{% translate "Add column…" %}</option>
+                                        {% for col in available_columns %}
+                                            {% if col not in unique_key_columns %}<option value="{{ col }}">{{ col }}</option>{% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button"
+                                            data-unique-keys-add
+                                            class="btn btn-secondary inline-flex items-center">
+                                        {% icon "plus" class="w-4 h-4 mr-1" %}
+                                        {% translate "Add" %}
+                                    </button>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p class="text-xs text-foreground-muted">
+                                {% translate "Map the form's questions first — the saved columns will appear here as unique-key candidates." %}
+                            </p>
+                        {% endif %}
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn btn-primary inline-flex items-center">
+                            {% icon "check" class="w-4 h-4 mr-1" %}
+                            {% translate "Save settings" %}
+                        </button>
+                    </div>
+                </form>
                 <div class="card max-w-3xl divide-y divide-border">
+                    <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                        <div>
+                            <p class="text-sm font-medium text-foreground">{% translate "Form fields" %}</p>
+                            <p class="text-sm text-foreground-muted">
+                                {% if fields_imported %}
+                                    {% blocktranslate count count=fields_count %}Imported: {{ count }} question.{% plural %}Imported: {{ count }} questions.{% endblocktranslate %}
+                                {% else %}
+                                    {% translate "Not imported yet." %}
+                                {% endif %}
+                                {% if mapping_total %}
+                                    {% blocktranslate with confirmed=mapping_confirmed total=mapping_total %}{{ confirmed }} of {{ total }} mapped questions confirmed.{% endblocktranslate %}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <form method="post"
+                              action="{% url 'panel:import-refetch' slug=current_event.slug pk=active_integration.pk %}"
+                              {% if fields_imported %}onsubmit="return confirm('{% blocktranslate with mappings=mapping_total confirmed=mapping_confirmed %}Reimport the form? This drops every confirmation ({{ confirmed }} of {{ mappings }} confirmed) and rebuilds the question list. Mappings and field definitions are preserved.{% endblocktranslate %}')"{% endif %}
+                              class="shrink-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary flex items-center">
+                                {% icon "arrow-path" class="w-4 h-4 mr-2" %}
+                                {% if fields_imported %}
+                                    {% translate "Reimport fields" %}
+                                {% else %}
+                                    {% translate "Import fields" %}
+                                {% endif %}
+                            </button>
+                        </form>
+                    </div>
                     <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                         <div>
                             <p class="text-sm font-medium text-foreground">{% translate "Test import (one row)" %}</p>
@@ -69,3 +171,6 @@
         </div>
     {% endif %}
 {% endblock content %}
+{% block extra_scripts %}
+    {% vite_asset 'src/import-recipe.ts' %}
+{% endblock extra_scripts %}

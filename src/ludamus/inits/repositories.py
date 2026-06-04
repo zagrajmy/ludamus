@@ -82,3 +82,7 @@ class Repositories:
     @cached_property
     def tracks(self) -> repositories.TrackRepository:
         return repositories.TrackRepository()
+
+    @cached_property
+    def facilitators(self) -> repositories.FacilitatorRepository:
+        return repositories.FacilitatorRepository()

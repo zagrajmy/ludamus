@@ -225,6 +225,35 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             FORMS_API_URL.format(form_id="form-1"), timeout=10
         )
 
+    def test_duplicate_titles_get_occurrence_suffixes_so_recipe_keys_are_unique(
+        self, google
+    ):
+        # Two form questions with the same title would otherwise collapse into
+        # one ImportSettings.questions entry (dict[title, target]).
+        google.session.get.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {
+                        "title": "Imię",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    },
+                    {
+                        "title": "Imię",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    },
+                    {
+                        "title": "Wiek",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    },
+                ]
+            },
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+
+        assert [q.title for q in result] == ["Imię", "Imię (2)", "Wiek"]
+
     def test_wrong_config_type_returns_empty(self):
         assert (
             GoogleDocsProposalImporter().fetch_questions(SECRET, _OtherConfig()) == []
@@ -322,3 +351,56 @@ class TestGoogleDocsProposalImporterFetchResponses:
         google.session.get.side_effect = _route_get(values=[])
 
         assert GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG) == []
+
+    def test_header_row_skips_leading_rows_and_uses_named_row_as_headers(self, google):
+        # Sheet has 2 banner rows before the real header. With header_row=3,
+        # row 3 (1-indexed) is the headers, row 4+ are the data.
+        google.session.get.side_effect = _route_get(
+            values=[
+                ["Banner row 1", "", ""],
+                ["Banner row 2", "", ""],
+                ["Timestamp", "Imię", "Wiek"],
+                ["t1", "Anna", "30"],
+                ["t2", "Bartek", "25"],
+            ]
+        )
+
+        result = GoogleDocsProposalImporter().fetch_responses(
+            SECRET, CONFIG, header_row=3
+        )
+
+        assert result == [
+            {"Timestamp": "t1", "Imię": "Anna", "Wiek": "30"},
+            {"Timestamp": "t2", "Imię": "Bartek", "Wiek": "25"},
+        ]
+
+    def test_header_row_out_of_range_returns_empty(self, google):
+        google.session.get.side_effect = _route_get(
+            values=[["Timestamp", "Imię"], ["t1", "Anna"]]
+        )
+
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG, header_row=5)
+            == []
+        )
+
+    def test_header_row_below_one_returns_empty(self, google):
+        google.session.get.side_effect = _route_get(
+            values=[["Timestamp", "Imię"], ["t1", "Anna"]]
+        )
+
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG, header_row=0)
+            == []
+        )
+
+    def test_duplicate_header_columns_get_occurrence_suffixes(self, google):
+        # Sheet header "Imię" twice: without disambiguation the second column
+        # silently overwrites the first in _row_to_dict.
+        google.session.get.side_effect = _route_get(
+            values=[["Timestamp", "Imię", "Imię"], ["t1", "Anna", "Bartek"]]
+        )
+
+        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+
+        assert result == [{"Timestamp": "t1", "Imię": "Anna", "Imię (2)": "Bartek"}]

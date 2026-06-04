@@ -8,11 +8,7 @@
             {% icon "arrow-uturn-left" class="w-4 h-4 mr-1" %}
             {% translate "Back to summary" %}
         </a>
-        {# Nav lives OUTSIDE the row form: keeps Prev/Next/dropdown's hx-get
-           clean (HTMX would otherwise append the entire row editor's payload
-           to every navigation request because hx-include defaults to the
-           enclosing form for any form-descendant). Save reaches the form
-           via the standard HTML form="..." attribute. #}
+        {# Nav lives outside the row form so Prev/Next/dropdown hx-get aren't auto-included with the editor payload. Save uses form="review-row-form". #}
         <div class="mb-4 flex flex-wrap items-center gap-2">
             <button type="button"
                     {% if edit_nav.prev_index is None %}disabled aria-disabled="true" {% else %}hx-get="{% url 'panel:import-review' slug=current_event.slug pk=active_integration.pk %}?edit={{ edit_nav.prev_index }}" hx-target="#import-review-region" hx-swap="innerHTML" hx-push-url="true"{% endif %}

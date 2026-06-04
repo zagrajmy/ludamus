@@ -127,6 +127,8 @@ def _dto(integration) -> EventIntegrationDTO:
         display_name=integration.display_name,
         config_json=integration.config_json,
         settings_json=integration.settings_json,
+        questions_snapshot_json=integration.questions_snapshot_json or "[]",
+        import_failures_json=integration.import_failures_json or "[]",
     )
 
 
@@ -226,8 +228,6 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
-                "confirmed_count": 0,
-                "mapping_count": 0,
             },
         )
         # The Edit action column links each row to the Review tab.
@@ -291,6 +291,10 @@ class TestEventImportProposalView:
                 "option_entities": [
                     {"option": "do 16", "name": "do 16", "slug": "do-16"},
                     {"option": "18+", "name": "18+", "slug": "18"},
+                ],
+                "option_durations": [
+                    {"option": "do 16", "iso": ""},
+                    {"option": "18+", "iso": ""},
                 ],
                 "catchall_name": "",
                 "catchall_slug": "",
@@ -1123,7 +1127,7 @@ class TestEventImportRefetchView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=_tab_url(event, integration),
+            url=_run_page_url(event, integration),
             messages=[(messages.SUCCESS, "Form refetched: 2 questions.")],
         )
         integration.refresh_from_db()
@@ -1658,5 +1662,142 @@ class TestEventImportRunPageView:
                 "active_integration": _dto(integration),
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "header_row": 1,
+                "unique_key_columns": [],
+                "available_columns": ["Timestamp", "Email Address"],
+                "fields_imported": False,
+                "fields_count": 0,
+                "mapping_total": 0,
+                "mapping_confirmed": 0,
+                "no_unique_keys_label": "No columns selected.",
             },
+        )
+
+    def test_get_reports_imported_fields_and_mapping_progress(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.questions_snapshot_json = json.dumps(
+            [
+                {
+                    "title": "Title",
+                    "options": [],
+                    "field_type": "text",
+                    "is_multiple": False,
+                    "allow_custom": False,
+                },
+                {
+                    "title": "System",
+                    "options": [],
+                    "field_type": "text",
+                    "is_multiple": False,
+                    "allow_custom": False,
+                },
+            ]
+        )
+        header_row = 3
+        integration.settings_json = json.dumps(
+            {
+                "header_row": header_row,
+                "unique_key_columns": ["Email Address"],
+                "questions": {
+                    "Title": {"to": "session.title", "confirmed": True},
+                    "System": {"to": "field.system"},
+                },
+            }
+        )
+        integration.save(update_fields=("questions_snapshot_json", "settings_json"))
+
+        response = authenticated_client.get(_run_page_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-run.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "run",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "header_row": header_row,
+                "unique_key_columns": ["Email Address"],
+                "available_columns": ["Timestamp", "Email Address", "Title", "System"],
+                "fields_imported": True,
+                "fields_count": len(["Title", "System"]),
+                "mapping_total": len(["Title", "System"]),
+                "mapping_confirmed": 1,
+                "no_unique_keys_label": "No columns selected.",
+            },
+        )
+
+
+@pytest.mark.django_db
+class TestEventImportSettingsSaveView:
+    def _save_url(self, event, integration) -> str:
+        return reverse(
+            "panel:import-settings-save",
+            kwargs={"slug": event.slug, "pk": integration.pk},
+        )
+
+    def test_post_redirects_non_manager(self, authenticated_client, event, connection):
+        integration = _make_import_integration(event, connection, display_name="Puller")
+
+        response = authenticated_client.post(self._save_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_post_saves_header_row_and_unique_keys_then_returns_to_run_tab(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        header_row = 3
+
+        response = authenticated_client.post(
+            self._save_url(event, integration),
+            data={
+                "header_row": str(header_row),
+                "unique_key_columns": ["Title", " Email "],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[(messages.SUCCESS, "Sheet settings saved.")],
+        )
+        integration.refresh_from_db()
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        assert settings.header_row == header_row
+        assert settings.unique_key_columns == ["Title", "Email"]
+
+    def test_post_rejects_non_positive_header_row(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            self._save_url(event, integration), data={"header_row": "0"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[(messages.ERROR, "Header row must be 1 or greater.")],
         )

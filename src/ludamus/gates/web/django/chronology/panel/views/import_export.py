@@ -30,6 +30,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.mills.submissions import slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
+    DurationSpec,
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
 
-SESSION_COLUMNS = ("title", "description")
+SESSION_COLUMNS = ("title", "description", "duration", "participants_limit")
 TIME_SLOTS_TARGET = "session.time_slots"
 ENTITY_TARGETS = ("track", "category")
 FieldType = Literal["text", "select", "checkbox"]
@@ -68,6 +69,11 @@ class OptionEntity(TypedDict):
     slug: str
 
 
+class OptionDuration(TypedDict):
+    option: str
+    iso: str
+
+
 class RecipeRow(TypedDict):
     index: int
     question: str
@@ -81,6 +87,7 @@ class RecipeRow(TypedDict):
     options: str
     option_windows: list[OptionWindows]
     option_entities: list[OptionEntity]
+    option_durations: list[OptionDuration]
     catchall_name: str
     catchall_slug: str
 
@@ -183,6 +190,7 @@ def _row(
         # track/category target.
         "option_windows": _option_windows(question, target),
         "option_entities": _option_entities(question, target),
+        "option_durations": _option_durations(question, target),
         "catchall_name": target.catchall.name if target and target.catchall else "",
         "catchall_slug": target.catchall.slug if target and target.catchall else "",
     }
@@ -275,6 +283,8 @@ def _details_label(target: QuestionTarget | None, definitions: FieldDefinitions)
     to = target.to
     if to == "session.time_slots":
         return _("%(count)d windows") % {"count": len(target.values)}
+    if to == "session.duration":
+        return _("%(count)d mappings") % {"count": len(target.values)}
     if to in ENTITY_TARGETS:
         return _("%(count)d mappings") % {"count": len(target.values)}
     if to.startswith(("personal.", "field.")):
@@ -357,6 +367,22 @@ def _option_entities(
     return rows
 
 
+def _option_durations(
+    question: SourceQuestion, target: QuestionTarget | None
+) -> list[OptionDuration]:
+    # One row per source option, pre-filled with the operator-typed ISO 8601
+    # duration so the (hidden) editor is ready the moment the row becomes a
+    # session-duration target. A blank ISO leaves that option unmapped: the
+    # importer then skips rows whose answer hits this option.
+    configured = target.values if target else {}
+    rows: list[OptionDuration] = []
+    for option in question.options:
+        spec = configured.get(option)
+        iso = spec.iso if isinstance(spec, DurationSpec) else ""
+        rows.append({"option": option, "iso": iso})
+    return rows
+
+
 def _field_type_from_post(post: QueryDict, index: int) -> FieldType:
     match (post.get(f"fieldtype_{index}") or "text").strip():
         case "select":
@@ -410,6 +436,21 @@ def _time_slot_values_from_post(
     return result
 
 
+def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, QuestionValue]:
+    # Per-option ISO duration rows submit parallel arrays; a blank ISO drops
+    # that option (its answers will be skipped at import time).
+    values: dict[str, QuestionValue] = {}
+    rows = zip(
+        post.getlist(f"droption_{index}"), post.getlist(f"driso_{index}"), strict=False
+    )
+    for option, iso in rows:
+        clean_iso = iso.strip()
+        if not (option and clean_iso):
+            continue
+        values[option] = DurationSpec(iso=clean_iso)
+    return values
+
+
 def _entity_map_from_post(
     post: QueryDict, index: int
 ) -> tuple[dict[str, QuestionValue], EntityRef | None]:
@@ -449,6 +490,8 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     if choice in ENTITY_TARGETS:
         values, catchall = _entity_map_from_post(post, index)
         return QuestionTarget(to=choice, values=values, catchall=catchall)
+    if choice == "session.duration":
+        return QuestionTarget(to=choice, values=_duration_values_from_post(post, index))
     if choice.startswith("session.") or choice == "facilitator.display_name":
         return QuestionTarget(to=choice)
     name = (post.get(f"newname_{index}") or "").strip()
@@ -535,12 +578,6 @@ class EventImportProposalView(_ImportTabView):
                 )
                 for index, q in enumerate(questions)
             ]
-            context["confirmed_count"] = sum(
-                1 for t in settings.questions.values() if t.confirmed
-            )
-            context["mapping_count"] = sum(
-                1 for t in settings.questions.values() if t.to or t.ignore
-            )
         return TemplateResponse(self.request, "panel/import.html", context)
 
 
@@ -681,7 +718,7 @@ class EventImportJsonView(_ImportTabView):
 
 
 class EventImportRunPageView(_ImportTabView):
-    """Import run tab: trigger a full run or a one-row test."""
+    """Import run tab: sheet settings + the import actions, with inferred status."""
 
     active_tab = "run"
 
@@ -691,8 +728,89 @@ class EventImportRunPageView(_ImportTabView):
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
             return loaded
-        context, _current_event, _active = loaded
+        context, current_event, active = loaded
+        if active is not None:
+            settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+            cached = self.request.services.event_integrations.get_cached_questions(
+                current_event.pk, active.pk
+            )
+            # Form-linked sheets always carry these two metadata columns ahead of
+            # the form's own question columns; surface them as unique-key
+            # candidates without a live sheet fetch. Operators uncheck them if
+            # the form doesn't collect email.
+            forms_metadata = ("Timestamp", "Email Address")
+            seen: set[str] = set()
+            available: list[str] = []
+            for col in (*forms_metadata, *settings.questions.keys()):
+                if col and col not in seen:
+                    seen.add(col)
+                    available.append(col)
+            context["header_row"] = settings.header_row
+            context["unique_key_columns"] = settings.unique_key_columns
+            context["available_columns"] = available
+            context["fields_imported"] = bool(cached)
+            context["fields_count"] = len(cached)
+            mappings = [t for t in settings.questions.values() if t.to or t.ignore]
+            context["mapping_total"] = len(mappings)
+            context["mapping_confirmed"] = sum(1 for t in mappings if t.confirmed)
+            context["no_unique_keys_label"] = _("No columns selected.")
         return TemplateResponse(self.request, "panel/import-run.html", context)
+
+
+class EventImportErrorsPageView(_ImportTabView):
+    """Errors tab: per-row skip reasons from the last run + retry button."""
+
+    active_tab = "errors"
+
+    def get(
+        self, _request: PanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is not None:
+            context["failures"] = self.request.services.proposals_import.list_failures(
+                current_event.pk, active.pk
+            )
+        return TemplateResponse(self.request, "panel/import-errors.html", context)
+
+
+class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
+    """Persist the sheet-level config (header row, unique-key cols).
+
+    Rendered inline on the Run tab; this endpoint is POST-only.
+    """
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+        integrations = _import_integrations(self.request, current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+        raw_row = (self.request.POST.get("header_row") or "").strip()
+        if not raw_row.isdigit() or int(raw_row) < 1:
+            messages.error(self.request, _("Header row must be 1 or greater."))
+            return redirect("panel:import-run", slug=slug, pk=active.pk)
+        settings.header_row = int(raw_row)
+        # Trust the operator: any non-empty column name is a valid unique-key
+        # candidate. Sheet metadata columns (Timestamp, Email Address) aren't
+        # in settings.questions, so we can't filter against the recipe.
+        settings.unique_key_columns = [
+            stripped
+            for col in self.request.POST.getlist("unique_key_columns")
+            if (stripped := col.strip())
+        ]
+        self.request.services.event_integrations.save_settings(
+            current_event.pk, active.pk, settings.model_dump_json()
+        )
+        messages.success(self.request, _("Sheet settings saved."))
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
 
 
 class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
@@ -726,6 +844,18 @@ class EventImportRunActionView(_ImportActionView):
         messages.success(
             self.request, _("Created %(count)d proposals.") % {"count": result.created}
         )
+        if result.duplicates:
+            messages.info(
+                self.request,
+                _("Skipped %(count)d responses already imported.")
+                % {"count": result.duplicates},
+            )
+        if result.skipped:
+            messages.warning(
+                self.request,
+                _("Skipped %(count)d responses with an invalid or unmapped answer.")
+                % {"count": result.skipped},
+            )
 
 
 class EventImportTestRowActionView(_ImportActionView):
@@ -743,8 +873,45 @@ class EventImportTestRowActionView(_ImportActionView):
                     "it, then delete it before running the full import."
                 ),
             )
+        elif result.skipped:
+            messages.warning(
+                self.request,
+                _(
+                    "Test row was skipped because one of its mapped answers "
+                    "is invalid or has no mapping."
+                ),
+            )
         else:
             messages.info(self.request, _("No responses found to test."))
+
+
+class EventImportRetryRowActionView(PanelAccessMixin, EventContextMixin, View):
+    """Retry a single skipped row against the current recipe."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+        integrations = _import_integrations(self.request, current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        raw = (self.request.POST.get("row_index") or "").strip()
+        if not raw.isdigit():
+            messages.error(self.request, _("Invalid row index."))
+            return redirect("panel:import-errors", slug=slug, pk=active.pk)
+        row_index = int(raw)
+        sphere_id = self.request.context.current_sphere_id
+        succeeded = self.request.services.proposals_import.retry_failure(
+            sphere_id, current_event.pk, active.pk, row_index
+        )
+        if succeeded:
+            messages.success(self.request, _("Row imported."))
+        else:
+            messages.warning(self.request, _("Row still cannot be imported."))
+        return redirect("panel:import-errors", slug=slug, pk=active.pk)
 
 
 class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):
@@ -768,4 +935,4 @@ class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):
             self.request,
             _("Form refetched: %(count)d questions.") % {"count": len(questions)},
         )
-        return redirect("panel:import-integration", slug=slug, pk=active.pk)
+        return redirect("panel:import-run", slug=slug, pk=active.pk)

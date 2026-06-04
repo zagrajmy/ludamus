@@ -4,7 +4,9 @@
  *     field…" option;
  *   - reveal the options block when the field type takes options;
  *   - auto-fill a name's slug (the .recipe-slug in the same [data-slug-scope])
- *     until that slug is edited — for the field setup and each entity row;
+ *     until the operator types into the slug directly, OR the row is confirmed
+ *     (slug stays locked); emptying the slug field unlocks auto-sync again.
+ *     Applies to field setup + each entity row;
  *   - reveal the time-slot editor when the target is "Time slots", and let each
  *     option gain/drop window rows;
  *   - reveal the track/category entity editor for those targets.
@@ -30,23 +32,22 @@
  *   </div>
  */
 
+import slugifyLib from "slugify";
+
 const NEW_FIELD_TARGETS = new Set(["personal-field", "session-field"]);
 const TIME_SLOTS_TARGET = "session.time_slots";
+const DURATION_TARGET = "session.duration";
 const ENTITY_TARGETS = new Set(["track", "category"]);
 
 function rowElement(selector: string, row: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`${selector}[data-row="${row}"]`);
 }
 
-// ASCII slug mirroring the server's slugify, for the live name→slug preview.
+// Lowercase ASCII slug for the live name→slug preview. Mirrors the server-side
+// slugify, which applies the same simov/slugify transliteration table via a
+// hand-maintained Python copy (mills/submissions.py: _TRANSLITERATION).
 function slugify(value: string): string {
-  return value
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/[\s-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return slugifyLib(value, { lower: true, strict: true, locale: "pl" });
 }
 
 // The slug paired with a name lives in the same [data-slug-scope] (the field
@@ -74,6 +75,10 @@ function syncTarget(select: HTMLSelectElement): void {
   rowElement(".recipe-entities", row)?.classList.toggle(
     "hidden",
     !ENTITY_TARGETS.has(select.value),
+  );
+  rowElement(".recipe-durations", row)?.classList.toggle(
+    "hidden",
+    select.value !== DURATION_TARGET,
   );
 }
 
@@ -145,20 +150,122 @@ function initRecipe(): void {
   document
     .querySelectorAll<HTMLSelectElement>(".recipe-fieldtype")
     .forEach(syncFieldType);
-  // Preserve a hand-customised slug (one that differs from its name's slug); a
-  // blank or name-matching slug stays auto-synced as the operator types.
-  document.querySelectorAll<HTMLInputElement>(".recipe-name").forEach((name) => {
-    const slug = pairedSlug(name);
-    if (slug && slug.value && slug.value !== slugify(name.value)) {
-      slug.dataset.edited = "true";
-    }
+  // Lock every populated slug in a confirmed row from name-driven auto-sync.
+  // The input listener clears the flag when the operator empties the slug,
+  // reopening auto-sync for that field.
+  document
+    .querySelectorAll<HTMLElement>("[data-recipe-row][data-confirmed='true']")
+    .forEach((row) => {
+      row.querySelectorAll<HTMLInputElement>(".recipe-slug").forEach((slug) => {
+        if (slug.value) slug.dataset.edited = "true";
+      });
+    });
+}
+
+// Unique-key columns chip editor (Run tab): selected columns as removable
+// chips with hidden inputs, plus a dropdown of the remaining candidates.
+// Click "Add" to move the dropdown's selected value into the chip list;
+// click a chip's × to drop it back into the dropdown. Submission is plain
+// form POST — the hidden inputs name="unique_key_columns" carry the
+// selection.
+function initUniqueKeys(root: HTMLElement): void {
+  const list = root.querySelector<HTMLElement>("[data-unique-keys-list]");
+  const select = root.querySelector<HTMLSelectElement>("[data-unique-keys-select]");
+  const addBtn = root.querySelector<HTMLButtonElement>("[data-unique-keys-add]");
+  if (!list || !select || !addBtn) return;
+
+  const removeEmpty = (): void => {
+    list.querySelector("[data-unique-keys-empty]")?.remove();
+  };
+
+  const restoreEmptyIfNeeded = (): void => {
+    if (list.querySelector("li:not([data-unique-keys-empty])")) return;
+    const empty = document.createElement("li");
+    empty.dataset.uniqueKeysEmpty = "";
+    empty.className = "text-xs text-foreground-muted";
+    empty.textContent = root.dataset.emptyLabel ?? "";
+    list.appendChild(empty);
+  };
+
+  const addToDropdown = (value: string): void => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = value;
+    select.appendChild(opt);
+  };
+
+  const removeChip = (li: HTMLElement, value: string): void => {
+    li.remove();
+    addToDropdown(value);
+    restoreEmptyIfNeeded();
+  };
+
+  const buildChip = (value: string): HTMLLIElement => {
+    const li = document.createElement("li");
+    li.className =
+      "inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-bg-secondary px-3 py-1 text-sm text-foreground-secondary";
+
+    const hidden = document.createElement("input");
+    hidden.type = "hidden";
+    hidden.name = "unique_key_columns";
+    hidden.value = value;
+    li.appendChild(hidden);
+
+    const label = document.createElement("span");
+    label.className = "truncate";
+    label.textContent = value;
+    label.title = value;
+    li.appendChild(label);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.uniqueKeysRemove = "";
+    btn.className =
+      "ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground";
+    btn.setAttribute("aria-label", `Remove ${value}`);
+    btn.textContent = "×";
+    btn.addEventListener("click", () => removeChip(li, value));
+    li.appendChild(btn);
+
+    return li;
+  };
+
+  list
+    .querySelectorAll<HTMLButtonElement>("[data-unique-keys-remove]")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const li = btn.closest<HTMLLIElement>("li");
+        const value = li?.querySelector<HTMLInputElement>(
+          "input[name='unique_key_columns']",
+        )?.value;
+        if (li && value) removeChip(li, value);
+      });
+    });
+
+  addBtn.addEventListener("click", () => {
+    const value = select.value;
+    if (!value) return;
+    removeEmpty();
+    list.appendChild(buildChip(value));
+    select.querySelector(`option[value="${CSS.escape(value)}"]`)?.remove();
+    select.value = "";
   });
 }
 
+function initUniqueKeysAll(): void {
+  document
+    .querySelectorAll<HTMLElement>("[data-unique-keys]")
+    .forEach(initUniqueKeys);
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initRecipe);
+  document.addEventListener("DOMContentLoaded", () => {
+    initRecipe();
+    initUniqueKeysAll();
+  });
 } else {
   initRecipe();
+  initUniqueKeysAll();
 }
 
 // The review region is HTMX-swapped when walking Prev/Next/dropdown through

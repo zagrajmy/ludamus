@@ -151,5 +151,6 @@ class Services:
                 self._repos.time_slots,
                 self._repos.tracks,
                 self._repos.proposal_categories,
+                self._repos.facilitators,
             ),
         )

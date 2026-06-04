@@ -1,3 +1,4 @@
+import json as _json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, call
 
@@ -949,6 +950,15 @@ class TestProposalImportService:
         return MagicMock()
 
     @pytest.fixture
+    def facilitators(self):
+        mock = MagicMock()
+        mock.read_by_event_and_slug.side_effect = NotFoundError
+        mock.create.side_effect = lambda data: MagicMock(
+            pk=7, slug=data["slug"], display_name=data["display_name"]
+        )
+        return mock
+
+    @pytest.fixture
     def service(
         self,
         transaction,
@@ -959,6 +969,7 @@ class TestProposalImportService:
         time_slots,
         tracks,
         categories,
+        facilitators,
     ):
         return ProposalImportService(
             transaction,
@@ -970,6 +981,7 @@ class TestProposalImportService:
                 time_slots,
                 tracks,
                 categories,
+                facilitators,
             ),
         )
 
@@ -1000,6 +1012,7 @@ class TestProposalImportService:
             tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
+            facilitator_ids=[],
         )
 
     def test_run_maps_description_target_and_defaults_empty_cells(
@@ -1029,6 +1042,7 @@ class TestProposalImportService:
             tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
+            facilitator_ids=[],
         )
 
     def test_run_maps_facilitator_display_name(
@@ -1060,7 +1074,300 @@ class TestProposalImportService:
             tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
+            facilitator_ids=[7],
         )
+
+    def test_run_maps_session_duration_via_per_option_iso_lookup(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Len": {"to": "session.duration",'
+                ' "values": {"long": {"to": "duration", "iso": "PT1H30M"}}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Len": "long"}
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.skipped == 0
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "Talk",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 0,
+                "slug": "talk",
+                "duration": "PT1H30M",
+            },
+            tag_ids=[],
+            time_slot_ids=[],
+            track_ids=[],
+            facilitator_ids=[],
+        )
+
+    def test_run_skips_duplicate_rows_when_unique_key_columns_are_set(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Timestamp", "Email"],'
+                ' "questions": {"Title": {"to": "session.title"}}}'
+            )
+        )
+        # First two rows hit slug_exists=False → created. Third row repeats the
+        # first row's Timestamp+Email and hits slug_exists=True → counted as a
+        # duplicate, not a failure.
+        event_integrations.fetch_responses.return_value = [
+            {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
+            {"Timestamp": "2026-06-04T10:30", "Email": "b@x.z", "Title": "Talk B"},
+            {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
+        ]
+        # slug_exists answers False for the first two rows' identity slugs,
+        # then True for the third (same as the first).
+        sessions.slug_exists.side_effect = [False, False, True]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        expected_created = 2
+        expected_duplicates = 1
+        assert result.created == expected_created
+        assert result.duplicates == expected_duplicates
+        assert result.skipped == 0
+
+    def test_run_creates_row_with_empty_duration_when_respondent_left_it_blank(
+        self, service, event_integrations
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Len": {"to": "session.duration",'
+                ' "values": {"short": {"to": "duration", "iso": "PT30M"}}}}}'
+            )
+        )
+        # Form data is the source of truth: a blank answer is "respondent did
+        # not fill this in", not an operator misconfiguration, so the row goes
+        # in with an empty duration instead of being skipped.
+        rows = [{"Title": "Talk", "Len": ""}, {"Title": "Padded", "Len": "   "}]
+        event_integrations.fetch_responses.return_value = rows
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == len(rows)
+        assert result.skipped == 0
+
+    def test_run_skips_row_when_duration_answer_has_no_mapping(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Len": {"to": "session.duration",'
+                ' "values": {"short": {"to": "duration", "iso": "PT30M"}}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Len": "long"},
+            {"Title": "Other", "Len": "short"},
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.skipped == 1
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "Other",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 0,
+                "slug": "other",
+                "duration": "PT30M",
+            },
+            tag_ids=[],
+            time_slot_ids=[],
+            track_ids=[],
+            facilitator_ids=[],
+        )
+
+    def test_run_maps_participants_limit_passing_an_integer_through(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Cap": "8"}
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.skipped == 0
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "Talk",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 8,
+                "slug": "talk",
+            },
+            tag_ids=[],
+            time_slot_ids=[],
+            track_ids=[],
+            facilitator_ids=[],
+        )
+
+    def test_run_treats_blank_participants_limit_as_default_zero(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "Talk", "Cap": ""}]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.skipped == 0
+        kwargs = sessions.create.call_args
+        zero_default = 0
+        assert kwargs.args[0]["participants_limit"] == zero_default
+
+    def test_run_skips_row_when_participants_limit_is_not_a_number(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Cap": "lots"}
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.skipped == 1
+        sessions.create.assert_not_called()
+
+    def test_run_persists_failure_with_reason_and_row_response_snapshot(
+        self, service, event_integrations
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Cap": "loads"}
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.skipped == 1
+        event_integrations.save_import_failures.assert_called_once()
+        _event_id, _pk, payload = event_integrations.save_import_failures.call_args.args
+        failures = _json.loads(payload)
+        assert failures == [
+            {
+                "row_index": 0,
+                "reason": "Cap: 'loads' is not an integer",
+                "response": {"Title": "Talk", "Cap": "loads"},
+            }
+        ]
+
+    def test_retry_failure_clears_entry_when_row_now_succeeds(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json='{"questions": {"Title": {"to": "session.title"}}}',
+            import_failures_json=(
+                '[{"row_index": 0,'
+                ' "reason": "stale",'
+                ' "response": {"Title": "Talk"}}]'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+
+        succeeded = service.retry_failure(sphere_id=1, event_id=2, pk=3, row_index=0)
+
+        assert succeeded is True
+        sessions.create.assert_called_once()
+        # On success the entry is dropped from the persisted list.
+        _e, _p, payload = event_integrations.save_import_failures.call_args.args
+        assert _json.loads(payload) == []
+
+    def test_retry_failure_keeps_entry_when_row_still_skips(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            ),
+            import_failures_json=(
+                '[{"row_index": 0,'
+                ' "reason": "old",'
+                ' "response": {"Title": "Talk", "Cap": "loads"}}]'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Cap": "loads"}
+        ]
+
+        succeeded = service.retry_failure(sphere_id=1, event_id=2, pk=3, row_index=0)
+
+        assert succeeded is False
+        sessions.create.assert_not_called()
+        # Entry stays, with the fresh reason replacing the stale one.
+        _e, _p, payload = event_integrations.save_import_failures.call_args.args
+        persisted = _json.loads(payload)
+        assert len(persisted) == 1
+        assert persisted[0]["reason"] == "Cap: 'loads' is not an integer"
+
+    def test_run_sample_persists_failure_so_errors_tab_shows_test_skips(
+        self, service, event_integrations
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            ),
+            import_failures_json="[]",
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Cap": "loads"}
+        ]
+
+        result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        event_integrations.save_import_failures.assert_called_once()
+        _e, _p, payload = event_integrations.save_import_failures.call_args.args
+        persisted = _json.loads(payload)
+        assert len(persisted) == 1
+        assert persisted[0]["reason"] == "Cap: 'loads' is not an integer"
 
     def test_run_with_no_responses_creates_nothing(
         self, service, event_integrations, sessions

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:44+0200\n"
+"POT-Creation-Date: 2026-06-09 22:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1228,9 +1228,32 @@ msgid "Import settings saved."
 msgstr "Zapisano ustawienia importu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/templates/panel/import-run.html
+msgid "No columns selected."
+msgstr "Nie wybrano żadnych kolumn."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Header row must be 1 or greater."
+msgstr ""
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Sheet settings saved."
+msgstr "Zapisano ustawienia arkusza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
 msgid "Created %(count)d proposals."
 msgstr "Utworzono zgłoszenia: %(count)d."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Skipped %(count)d responses already imported."
+msgstr ""
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#, python-format
+msgid "Skipped %(count)d responses with an invalid or unmapped answer."
+msgstr ""
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid ""
@@ -1241,8 +1264,26 @@ msgstr ""
 "następnie usuń przed uruchomieniem pełnego importu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid ""
+"Test row was skipped because one of its mapped answers is invalid or has no "
+"mapping."
+msgstr ""
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "No responses found to test."
 msgstr "Nie znaleziono odpowiedzi do przetestowania."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Invalid row index."
+msgstr "Nieprawidłowy indeks wiersza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Row imported."
+msgstr "Wiersz zaimportowany."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Row still cannot be imported."
+msgstr ""
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
@@ -3900,6 +3941,7 @@ msgstr ""
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-errors.html
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
@@ -4115,6 +4157,7 @@ msgid "min"
 msgstr "min"
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Add"
 msgstr "Dodaj"
@@ -4439,6 +4482,7 @@ msgstr "Scal zaznaczonych twórców"
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
+#: src/ludamus/templates/panel/import-errors.html
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
@@ -4446,7 +4490,50 @@ msgstr "Brak twórców programu."
 msgid "Google Docs Import"
 msgstr "Import z Google Docs"
 
+#: src/ludamus/templates/panel/import-errors.html
 #: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-review.html
+#: src/ludamus/templates/panel/import-run.html
+#: src/ludamus/templates/panel/import.html
+msgid ""
+"No import integrations yet. Add one in Settings → Integrations to import "
+"proposals from an external form."
+msgstr ""
+"Nie ma jeszcze żadnych integracji importu. Dodaj jedną w sekcji Ustawienia → "
+"Integracje, aby importować zgłoszenia z zewnętrznego formularza."
+
+#: src/ludamus/templates/panel/import-errors.html
+msgid "No skipped rows from the last import run."
+msgstr ""
+
+#: src/ludamus/templates/panel/import-errors.html
+#, python-format
+msgid ""
+"\n"
+"                        %(count)s response was skipped during the last "
+"import run. Update the recipe to map the answer, then click Retry.\n"
+"                    "
+msgid_plural ""
+"\n"
+"                        %(count)s responses were skipped during the last "
+"import run. Update the recipe to map the answers, then click Retry.\n"
+"                    "
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+
+#: src/ludamus/templates/panel/import-errors.html
+#, python-format
+msgid "Row %(index)s"
+msgstr ""
+
+#: src/ludamus/templates/panel/import-errors.html
+msgid "Retry"
+msgstr ""
+
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-run.html
 msgid "Save settings"
 msgstr "Zapisz ustawienia"
 
@@ -4461,16 +4548,83 @@ msgstr ""
 "Edytuj surowe mapowanie generowane przez zakładkę Zgłoszenie. Nieprawidłowy "
 "JSON jest odrzucany."
 
-#: src/ludamus/templates/panel/import-json.html
-#: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/import.html
-msgid ""
-"No import integrations yet. Add one in Settings → Integrations to import "
-"proposals from an external form."
+msgid "Header row"
 msgstr ""
-"Nie ma jeszcze żadnych integracji importu. Dodaj jedną w sekcji Ustawienia → "
-"Integracje, aby importować zgłoszenia z zewnętrznego formularza."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"The 1-indexed sheet row whose cells become the column keys. Row 1 is the "
+"first row in the sheet; everything above this row is ignored."
+msgstr ""
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Unique key columns"
+msgstr ""
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Columns whose values together identify a row uniquely. Retry uses them to "
+"find the same row again after the sheet shifts."
+msgstr ""
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid "Remove %(col)s"
+msgstr "Usuń %(col)s"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Add column…"
+msgstr ""
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Map the form's questions first — the saved columns will appear here as "
+"unique-key candidates."
+msgstr ""
+"Najpierw przypisz pytania formularza — zapisane kolumny pojawią się tu jako "
+"kandydaci na klucze unikalności."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Form fields"
+msgstr "Pola formularza"
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid "Imported: %(count)s question."
+msgid_plural "Imported: %(count)s questions."
+msgstr[0] "Zaimportowano: %(count)s pytanie."
+msgstr[1] "Zaimportowano: %(count)s pytania."
+msgstr[2] "Zaimportowano: %(count)s pytań."
+msgstr[3] "Zaimportowano: %(count)s pytania."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Not imported yet."
+msgstr "Jeszcze nie zaimportowano."
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid "%(confirmed)s of %(total)s mapped questions confirmed."
+msgstr "Potwierdzono %(confirmed)s z %(total)s przypisanych pytań."
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid ""
+"Reimport the form? This drops every confirmation (%(confirmed)s of "
+"%(mappings)s confirmed) and rebuilds the question list. Mappings and field "
+"definitions are preserved."
+msgstr ""
+"Pobrać formularz ponownie? Spowoduje to wyczyszczenie wszystkich potwierdzeń "
+"(%(confirmed)s z %(mappings)s potwierdzonych) i odbudowanie listy pytań. "
+"Powiązania i definicje pól zostaną zachowane."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Reimport fields"
+msgstr "Pobierz pola ponownie"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Import fields"
+msgstr "Pobierz pola"
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Test import (one row)"
@@ -4491,21 +4645,6 @@ msgstr "Uruchom import"
 #: src/ludamus/templates/panel/import-run.html
 msgid "Create a proposal from every response using the saved recipe."
 msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
-
-#: src/ludamus/templates/panel/import.html
-#, python-format
-msgid ""
-"Refetch the form? This drops every confirmation (%(confirmed)s of "
-"%(mappings)s confirmed) and rebuilds the question list. Mappings and field "
-"definitions are preserved."
-msgstr ""
-"Pobrać formularz ponownie? Spowoduje to wyczyszczenie wszystkich potwierdzeń "
-"(%(confirmed)s z %(mappings)s potwierdzonych) i odbudowanie listy pytań. "
-"Powiązania i definicje pól zostaną zachowane."
-
-#: src/ludamus/templates/panel/import.html
-msgid "Refetch form"
-msgstr "Pobierz formularz ponownie"
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -4537,13 +4676,15 @@ msgid "Unconfirmed"
 msgstr "Niepotwierdzone"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
 msgid ""
-"No source questions found. Check this integration's connection in Settings → "
-"Integrations."
+"No source questions found yet. Open the Import run tab to fetch the form."
 msgstr ""
-"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
-"Ustawienia → Integracje."
+"Nie znaleziono jeszcze pytań źródłowych. Otwórz zakładkę Uruchomienie "
+"importu, aby pobrać formularz."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Go to Import run"
+msgstr "Przejdź do uruchomienia importu"
 
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/venues-structure.html
@@ -4651,6 +4792,16 @@ msgstr "Dodaj przedział"
 msgid "Catch-all for custom answers"
 msgstr "Domyślny dla odpowiedzi własnych"
 
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid ""
+"Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
+"min). Answers without a mapping are skipped at import time."
+msgstr ""
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "ISO 8601 duration"
+msgstr ""
+
 #: src/ludamus/templates/panel/parts/import-review-region.html
 msgid "Discards any unsaved changes"
 msgstr "Odrzuca niezapisane zmiany"
@@ -4688,6 +4839,14 @@ msgstr "Zapisz i zakończ"
 msgid "Save and next"
 msgstr "Zapisz i przejdź dalej"
 
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid ""
+"No source questions found. Check this integration's connection in Settings → "
+"Integrations."
+msgstr ""
+"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
+"Ustawienia → Integracje."
+
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Summary"
 msgstr "Podsumowanie"
@@ -4699,6 +4858,10 @@ msgstr "JSON"
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Import run"
 msgstr "Uruchomienie importu"
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "Errors"
+msgstr ""
 
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print timetable for a venue or area"

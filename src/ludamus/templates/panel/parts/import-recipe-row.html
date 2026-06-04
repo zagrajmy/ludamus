@@ -1,6 +1,8 @@
 {% load i18n %}
 {% load tessera %}
-<div class="p-4 sm:p-5">
+<div class="p-4 sm:p-5"
+     data-recipe-row
+     {% if row.confirmed %}data-confirmed="true"{% endif %}>
     <p class="text-sm font-medium text-foreground">{{ row.question }}</p>
     <input type="hidden"
            name="question_{{ row.index }}"
@@ -187,5 +189,27 @@
                        class="recipe-slug min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
         </div>
+    </div>
+    <div class="recipe-durations mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "session.duration" %}hidden{% endif %}"
+         data-row="{{ row.index }}">
+        <p class="text-xs text-foreground-muted">
+            {% translate "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 min). Answers without a mapping are skipped at import time." %}
+        </p>
+        {% for dur in row.option_durations %}
+            <div class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
+                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</p>
+                <input type="hidden"
+                       name="droption_{{ row.index }}"
+                       value="{{ dur.option }}">
+                <input type="text"
+                       name="driso_{{ row.index }}"
+                       value="{{ dur.iso }}"
+                       aria-label="{% translate "ISO 8601 duration" %}"
+                       placeholder="PT1H30M"
+                       pattern="PT(\d+H)?(\d+M)?"
+                       title="PT1H30M"
+                       class="w-full rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+        {% endfor %}
     </div>
 </div>

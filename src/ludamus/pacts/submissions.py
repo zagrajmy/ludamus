@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
+        FacilitatorRepositoryProtocol,
         FieldUsageSummary,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
@@ -43,9 +44,17 @@ class EntityRef(BaseModel):
     slug: str
 
 
-# A choice option's mapped value: a time-slot window (or several), or the
-# track/category entity it resolves to.
-QuestionValue = TimeSlotSpec | list[TimeSlotSpec] | EntityRef
+class DurationSpec(BaseModel):
+    # An operator-typed ISO 8601 duration string (e.g. "PT1H30M") that the
+    # importer writes into Session.duration when the row's answer matches the
+    # option this spec is keyed under.
+    to: Literal["duration"] = "duration"
+    iso: str
+
+
+# A choice option's mapped value: a time-slot window (or several), the
+# track/category entity it resolves to, or an ISO duration.
+QuestionValue = TimeSlotSpec | list[TimeSlotSpec] | EntityRef | DurationSpec
 
 
 class QuestionTarget(BaseModel):
@@ -85,14 +94,37 @@ class FieldDefinitions(BaseModel):
 
 
 class ImportSettings(BaseModel):
+    # `header_row` is the 1-indexed sheet row whose cells become the column
+    # keys for every response row (everything above it is ignored). Numbering
+    # matches what the operator sees in the browser, so row 1 is the very
+    # first row. Sheets produced straight by Google Forms have headers in
+    # row 1; sheets with a branding / instructions banner at the top push
+    # them down.
+    # `unique_key_columns` names the column headers whose values together
+    # identify a row across re-fetches; retry uses them to locate the row
+    # again even after the operator deletes or rearranges rows in the source.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
+    header_row: int = 1
+    unique_key_columns: list[str] = []
+
+
+class ImportFailure(BaseModel):
+    # A row the importer deliberately skipped (mapping failure). The row index
+    # is the response sheet's row position at run time, used as a stable enough
+    # key for the Errors tab and the Retry action. `response` is a UI-only
+    # snapshot so the operator can see what answer it was without a refetch.
+    row_index: int
+    reason: str
+    response: dict[str, str] = {}
 
 
 @dataclass
 class ProposalImportResult:
     created: int
     fields_created: int
+    skipped: int = 0
+    duplicates: int = 0
 
 
 @dataclass(frozen=True)
@@ -105,6 +137,7 @@ class ImportRepos:
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
+    facilitators: FacilitatorRepositoryProtocol
 
 
 class ProposalImportServiceProtocol(Protocol):
@@ -114,6 +147,10 @@ class ProposalImportServiceProtocol(Protocol):
     def run_sample(
         self, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult: ...
+    def list_failures(self, event_id: int, pk: int) -> list[ImportFailure]: ...
+    def retry_failure(
+        self, sphere_id: int, event_id: int, pk: int, row_index: int
+    ) -> bool: ...
 
 
 # --- CFP (personal-data field management) ---
