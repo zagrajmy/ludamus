@@ -1,6 +1,7 @@
 from functools import cached_property
 
 from ludamus.links.db.django import repositories
+from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 
 
 class Repositories:
@@ -42,3 +43,7 @@ class Repositories:
     @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
         return repositories.SessionFieldRepository()
+
+    @cached_property
+    def participation_promotion(self) -> ParticipationPromotionRepository:
+        return ParticipationPromotionRepository()

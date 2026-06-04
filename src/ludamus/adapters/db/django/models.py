@@ -916,8 +916,12 @@ class SessionParticipation(models.Model):
     # waiters.
     offered_at = models.DateTimeField(null=True, blank=True)
     offer_expires_at = models.DateTimeField(null=True, blank=True)
+    # A whole party shares one secret token; the index serves the login-free
+    # claim lookup. Single-use is enforced by flipping status/claimed_at, not by
+    # a uniqueness constraint (so all of a party's rows can carry it). Empty for
+    # non-offered participations.
     claim_token = models.CharField(
-        max_length=64, null=True, blank=True, unique=True, db_index=True
+        max_length=64, blank=True, default="", db_index=True
     )
     claimed_at = models.DateTimeField(null=True, blank=True)
 

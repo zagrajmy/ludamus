@@ -84,6 +84,11 @@ chronology_urls = [
         name="session-enrollment-anonymous",
     ),
     path(
+        "offer/<str:token>/claim/",
+        views.SessionOfferClaimView.as_view(),
+        name="offer-claim",
+    ),
+    path(
         "anonymous/do/load",
         views.AnonymousLoadActionView.as_view(),
         name="anonymous-load",

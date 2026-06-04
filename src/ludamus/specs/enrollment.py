@@ -33,8 +33,7 @@ def _group_into_parties(
     parties: list[list[WaitingParticipantDTO]] = []
     index_by_manager: dict[int, int] = {}
     for participant in waiting:
-        manager = participant.effective_manager_id
-        if manager not in index_by_manager:
+        if (manager := participant.effective_manager_id) not in index_by_manager:
             index_by_manager[manager] = len(parties)
             parties.append([])
         parties[index_by_manager[manager]].append(participant)
@@ -61,8 +60,7 @@ def select_promotable_parties(
         ]
         if not eligible:
             continue
-        slots_remaining = min(p.manager_slots_remaining for p in eligible)
-        if slots_remaining <= 0:
+        if (slots_remaining := min(p.manager_slots_remaining for p in eligible)) <= 0:
             continue
         if len(eligible) > seats_remaining or len(eligible) > slots_remaining:
             break

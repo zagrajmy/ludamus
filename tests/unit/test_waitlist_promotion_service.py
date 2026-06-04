@@ -132,17 +132,17 @@ class TestFillFreedSeats:
 
         result = service.fill_freed_seats(session_id=_SESSION_ID)
 
-        assert result.promoted == []
-        assert repo.confirmed == []
-        assert notifier.promoted == []
+        assert not result.promoted
+        assert not repo.confirmed
+        assert not notifier.promoted
 
     def test_no_waiters_is_noop(self):
         service, repo, _, _ = _build(states=[_state([])])
 
         result = service.fill_freed_seats(session_id=_SESSION_ID)
 
-        assert result.promoted == []
-        assert repo.confirmed == []
+        assert not result.promoted
+        assert not repo.confirmed
 
     def test_auto_promotes_and_notifies(self):
         service, repo, notifier, scheduler = _build(states=[_state([_wp(1)])])
@@ -153,7 +153,7 @@ class TestFillFreedSeats:
         assert repo.confirmed == [[1]]
         assert len(notifier.promoted) == 1
         assert notifier.promoted[0].session_title == "Dragons"
-        assert scheduler.scheduled == []
+        assert not scheduler.scheduled
 
     def test_offer_mode_holds_offers_schedules_and_notifies(self):
         service, repo, notifier, scheduler = _build(
@@ -163,7 +163,7 @@ class TestFillFreedSeats:
         result = service.fill_freed_seats(session_id=_SESSION_ID)
 
         assert result.offered == [1]
-        assert result.promoted == []
+        assert not result.promoted
         assert repo.offered == [
             {"ids": [1], "token": "tok-xyz", "exp": _NOW + timedelta(hours=24)}
         ]
@@ -217,7 +217,7 @@ class TestClaimOffer:
 
         assert result.success is False
         assert result.reason == "not_found"
-        assert repo.claimed == []
+        assert not repo.claimed
 
     def test_already_claimed_or_dropped_rejected(self):
         service, repo, _, _ = _build(offer=self._offer(claimable=False))
@@ -226,7 +226,7 @@ class TestClaimOffer:
 
         assert result.success is False
         assert result.reason == "expired"
-        assert repo.claimed == []
+        assert not repo.claimed
 
     def test_past_deadline_rejected(self):
         service, repo, _, _ = _build(
@@ -237,7 +237,7 @@ class TestClaimOffer:
 
         assert result.success is False
         assert result.reason == "expired"
-        assert repo.claimed == []
+        assert not repo.claimed
 
 
 class TestExpireOffer:
@@ -275,9 +275,9 @@ class TestExpireOffer:
 
         result = service.expire_offer(participation_id=1)
 
-        assert repo.dropped == []
-        assert notifier.expired == []
-        assert result.promoted == []
+        assert not repo.dropped
+        assert not notifier.expired
+        assert not result.promoted
 
     def test_not_yet_due_is_noop(self):
         service, repo, notifier, _ = _build(
@@ -286,5 +286,5 @@ class TestExpireOffer:
 
         service.expire_offer(participation_id=1)
 
-        assert repo.dropped == []
-        assert notifier.expired == []
+        assert not repo.dropped
+        assert not notifier.expired

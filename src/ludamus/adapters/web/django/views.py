@@ -1243,6 +1243,37 @@ _status_by_choice = {
 }
 
 
+class SessionOfferClaimView(View):
+    """Login-free claim of an offered waiting-list spot via its token link.
+
+    Works for anonymous waiters (the token is the credential). GET shows the
+    offer; POST claims the whole party.
+    """
+
+    @staticmethod
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        offer = request.services.waitlist_promotion.peek_offer(token=token)
+        if offer is None:
+            messages.error(
+                request, _("This offer is no longer available or has expired.")
+            )
+            return redirect("web:events")
+        return TemplateResponse(
+            request, "chronology/offer_claim.html", {"offer": offer, "token": token}
+        )
+
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        result = request.services.waitlist_promotion.claim_offer(token=token)
+        if result.success and result.event_slug:
+            messages.success(
+                request, _("Spot claimed — you are now confirmed for this session.")
+            )
+            return redirect("web:chronology:event", slug=result.event_slug)
+        messages.error(request, _("This offer has expired or was already claimed."))
+        return redirect("web:events")
+
+
 class SessionEnrollPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 

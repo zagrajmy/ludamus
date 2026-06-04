@@ -7,13 +7,16 @@ from django.conf import settings
 
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
+from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
+from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
     CFPPersonalDataFieldService,
     EventIntegrationsService,
     SessionSelfEditService,
 )
+from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.multiverse import (
     ConnectionsService,
     EventsService,
@@ -65,6 +68,15 @@ class Services:
             self._repos.sessions,
             self._repos.session_fields,
             self._repos.spheres,
+        )
+
+    @cached_property
+    def waitlist_promotion(self) -> WaitlistPromotionService:
+        return WaitlistPromotionService(
+            self._transaction,
+            self._repos.participation_promotion,
+            DjangoUserNotifier(),
+            CronSweepOfferScheduler(),
         )
 
     @cached_property

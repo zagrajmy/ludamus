@@ -23,6 +23,7 @@ from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
+        OfferDTO,
         OfferExpirySchedulerProtocol,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
@@ -64,11 +65,9 @@ class WaitlistPromotionService:
         result = PromotionResult()
 
         with self._transaction.atomic():
-            state = self._participations.lock_and_read_state(session_id)
-            if state is None:
+            if (state := self._participations.lock_and_read_state(session_id)) is None:
                 return result
-            parties = select_promotable_parties(state)
-            if not parties:
+            if not (parties := select_promotable_parties(state)):
                 return result
             if state.promotion_mode == PromotionMode.AUTO:
                 self._confirm(parties, state, result, promotions)
@@ -139,13 +138,15 @@ class WaitlistPromotionService:
             )
             expiries.append((ids[0], expires_at))
 
+    def peek_offer(self, *, token: str) -> OfferDTO | None:
+        return self._participations.read_offer_by_token(token)
+
     def claim_offer(self, *, token: str) -> ClaimResult:
         # Confirm a whole offered party from its single-use claim token. The
         # status + token guard makes claim and expiry race-safe: whichever runs
         # first flips the party out of OFFERED and the other becomes a no-op.
         with self._transaction.atomic():
-            offer = self._participations.read_offer_by_token(token)
-            if offer is None:
+            if (offer := self._participations.read_offer_by_token(token)) is None:
                 return ClaimResult(success=False, reason="not_found")
             if not offer.is_claimable or _now() > offer.offer_expires_at:
                 return ClaimResult(

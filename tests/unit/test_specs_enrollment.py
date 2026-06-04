@@ -53,7 +53,7 @@ def _state(waiting, *, seats=1, presenter_id=None):
 class TestSelectPromotableParties:
     def test_no_seats_selects_nothing(self):
         state = _state([_wp(1)], seats=0)
-        assert select_promotable_parties(state) == []
+        assert not select_promotable_parties(state)
 
     def test_fifo_single_seat_fills_first_party(self):
         state = _state([_wp(1, order=0), _wp(2, order=1)], seats=1)
@@ -66,7 +66,7 @@ class TestSelectPromotableParties:
         party = [_wp(1, manager_id=99, order=0), _wp(2, manager_id=99, order=1)]
         state = _state(party, seats=1)
 
-        assert select_promotable_parties(state) == []
+        assert not select_promotable_parties(state)
 
     def test_no_leapfrog_to_smaller_party_behind(self):
         waiting = [
@@ -78,7 +78,7 @@ class TestSelectPromotableParties:
 
         # The 2-person party is first and does not fit; the lone waiter behind
         # must not leapfrog it.
-        assert select_promotable_parties(state) == []
+        assert not select_promotable_parties(state)
 
     def test_ineligible_member_dropped_rest_promoted(self):
         waiting = [
@@ -125,7 +125,7 @@ class TestSelectPromotableParties:
         ]
         state = _state(waiting, seats=5)
 
-        assert select_promotable_parties(state) == []
+        assert not select_promotable_parties(state)
 
     def test_fills_multiple_parties_until_seats_exhausted(self):
         waiting = [_wp(1, order=0), _wp(2, order=1), _wp(3, order=2)]
