@@ -59,6 +59,31 @@ jobs:
         continue-on-error: true
         run: mise run fallow
 
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ludamus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - run: mise run p install
+      # PostgreSQL-only tests: row-level locking (select_for_update) is a
+      # no-op on the SQLite backend used by the main `test` job below.
+      - run: mise run test:postgres
+
   test:
     runs-on: ubuntu-latest
     steps:

@@ -134,9 +134,10 @@ class TestEventPageView:
         content = response.content.decode()
         assert f'data-day="{local_start:%Y-%m-%d}"' in content
         assert f'data-hour="{local_start:%H:%M}"' in content
-        assert f'data-day-label="{date_filter(agenda_item.start_time, "l, j F")}"' in (
-            content
-        )
+        # Use local_start, not the UTC start_time: the template renders the
+        # label in the active timezone, so comparing against the raw UTC value
+        # flaked whenever the (random) time crossed the UTC day boundary.
+        assert f'data-day-label="{date_filter(local_start, "l, j F")}"' in content
 
     def test_ok_superuser_proposal(
         self, authenticated_client, event, active_user, pending_session
