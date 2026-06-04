@@ -1,6 +1,6 @@
+import re
 from datetime import UTC
 from http import HTTPStatus
-import re
 from unittest.mock import ANY
 
 import pytest
