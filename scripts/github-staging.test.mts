@@ -11,6 +11,7 @@ interface MockActionArgs extends ActionArgs {
 }
 
 type MockOptions = {
+  action?: string;
   currentPr?: PullRequestLike;
   inputs?: {
     pr_number?: string;
@@ -31,6 +32,7 @@ const basePr = {
 };
 
 const makeArgs = ({
+  action = "labeled",
   currentPr = basePr,
   inputs,
   labelName = "staging",
@@ -71,7 +73,7 @@ const makeArgs = ({
     repo: { owner: "owner", repo: "repo" },
     sha,
     payload: {
-      action: "labeled",
+      action,
       inputs,
       label: { name: labelName },
       pull_request: pr,
@@ -84,6 +86,37 @@ const makeArgs = ({
 
 test("dispatches the labeled PR and clears stale labels from other PRs", async () => {
   const args = makeArgs({
+    stagingPrs: [
+      { number: 1, pull_request: {}, state: "open" },
+      { number: 2, pull_request: {}, state: "open" },
+    ],
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [
+    ["remove", 1],
+    ["info", "Removed staging from PR #1"],
+    [
+      "dispatch",
+      {
+        owner: "owner",
+        repo: "repo",
+        workflow_id: "deploy-staging.yml",
+        ref: "main",
+        inputs: {
+          pr_number: "2",
+          sha: "head-sha",
+        },
+      },
+    ],
+    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
+  ]);
+});
+
+test("dispatches on synchronize when PR still has staging label", async () => {
+  const args = makeArgs({
+    action: "synchronize",
     stagingPrs: [
       { number: 1, pull_request: {}, state: "open" },
       { number: 2, pull_request: {}, state: "open" },
@@ -172,6 +205,32 @@ test("explicit dispatch does not deploy fork pull requests", async () => {
     ["output", "sha", "head-sha"],
     ["output", "should_deploy", "false"],
     ["info", "Skipping staging deploy for fork PR #2"],
+  ]);
+});
+
+test("manual dispatch deploys and clears other staging labels", async () => {
+  const args = makeArgs({
+    inputs: { sha: "manual-sha" },
+    prsForSha: [
+      {
+        head: { repo: { full_name: "owner/repo" }, sha: "manual-sha" },
+        number: 2,
+      },
+    ],
+    stagingPrs: [
+      { number: 1, pull_request: {}, state: "open" },
+      { number: 2, pull_request: {}, state: "open" },
+    ],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "manual-sha"],
+    ["remove", 1],
+    ["info", "Removed staging from PR #1"],
+    ["output", "should_deploy", "true"],
+    ["info", "Deploying PR #2 at manual-sha"],
   ]);
 });
 

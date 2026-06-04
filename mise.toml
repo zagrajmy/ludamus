@@ -221,7 +221,12 @@ run = [
 [tasks."coverage:combine"]
 description = "Combine integration + e2e coverage and export XML"
 run = """
-coverage combine .coverage.unit .coverage.e2e
+set -eu
+sources=(.coverage.unit)
+if [ -f .coverage.e2e ]; then
+  sources+=(.coverage.e2e)
+fi
+coverage combine "${sources[@]}"
 coverage xml -o coverage.xml
 coverage report --fail-under=93
 """
