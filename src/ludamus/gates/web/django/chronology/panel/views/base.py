@@ -124,6 +124,18 @@ class EventContextMixin:
         )
         return sorted_tracks, managed_pks, filter_track_pk
 
+    def get_print_venues(self, event_pk: int) -> list[dict[str, Any]]:
+        # Venues with their areas, for the print scope menus.
+        uow = self.request.di.uow
+        return [
+            {
+                "name": venue.name,
+                "slug": venue.slug,
+                "areas": uow.areas.list_by_venue(venue.pk),
+            }
+            for venue in uow.venues.list_by_event(event_pk)
+        ]
+
 
 def settings_tab_urls(slug: str) -> dict[str, str]:
     return {

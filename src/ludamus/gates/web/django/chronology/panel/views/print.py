@@ -82,3 +82,18 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
 
         area = uow.areas.read_by_slug(venue.pk, area_slug)
         return frozenset({area.pk}), area.name
+
+
+class PrintMaterialsPageView(PanelAccessMixin, EventContextMixin, View):
+    """Hub page linking to the printable materials for an event."""
+
+    request: PanelRequest
+
+    def get(self, request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        context["active_nav"] = "print"
+        context["print_venues"] = self.get_print_venues(current_event.pk)
+        return TemplateResponse(request, "panel/print-materials.html", context)

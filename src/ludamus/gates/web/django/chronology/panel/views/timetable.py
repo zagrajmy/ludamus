@@ -122,14 +122,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
-        context["print_venues"] = [
-            {
-                "name": venue.name,
-                "slug": venue.slug,
-                "areas": uow.areas.list_by_venue(venue.pk),
-            }
-            for venue in uow.venues.list_by_event(current_event.pk)
-        ]
+        context["print_venues"] = self.get_print_venues(current_event.pk)
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 

@@ -1,0 +1,21 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% block title_prefix %}
+    {% translate "Print Materials" %} —
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Print Materials" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    {% if current_event %}
+        <div class="card p-6 max-w-2xl">
+            <p class="text-sm text-foreground-muted mb-4">
+                {% translate "Open a print-ready page, then use your browser to save it as a PDF or print it. Use the venue / area menu to print a single venue or area." %}
+            </p>
+            <div class="flex gap-3 flex-wrap items-center">{% include "panel/parts/print-controls.html" %}</div>
+        </div>
+    {% endif %}
+{% endblock content %}

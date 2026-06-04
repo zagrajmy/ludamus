@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-04 15:05+0200\n"
+"POT-Creation-Date: 2026-06-04 15:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3585,13 +3585,13 @@ msgid "Edit Area"
 msgstr "Edycja strefy"
 
 #: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/timetable.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 #: src/ludamus/templates/panel/venue-detail.html
 msgid "Print timetable"
 msgstr "Drukuj harmonogram"
 
 #: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/timetable.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 #: src/ludamus/templates/panel/venue-detail.html
 msgid "Print door cards"
 msgstr "Drukuj tabliczki na drzwi"
@@ -3736,6 +3736,12 @@ msgstr "Twórcy programu"
 #: src/ludamus/templates/panel/base.html
 msgid "Harmonogram"
 msgstr "Harmonogram"
+
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/print-materials.html
+msgid "Print Materials"
+msgstr "Materiały do druku"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -4172,6 +4178,18 @@ msgstr ""
 "Nie ma jeszcze żadnych integracji. Dodaj jedną, aby to wydarzenie mogło "
 "komunikować się przez zewnętrzny system."
 
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Print timetable for a venue or area"
+msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
+
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Venue / area…"
+msgstr "Lokalizacja / strefa…"
+
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Print door cards for a venue or area"
+msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
+
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"
 msgstr "Punkty programu do przypisania"
@@ -4545,6 +4563,15 @@ msgid ""
 msgstr ""
 "Nie zdefiniowano pól danych osobowych. Dodaj pola, aby zbierać informacje o "
 "twórcach."
+
+#: src/ludamus/templates/panel/print-materials.html
+msgid ""
+"Open a print-ready page, then use your browser to save it as a PDF or print "
+"it. Use the venue / area menu to print a single venue or area."
+msgstr ""
+"Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub wydrukuj w "
+"przeglądarce. Użyj menu lokalizacji / strefy, aby wydrukować pojedynczą "
+"lokalizację lub strefę."
 
 #: src/ludamus/templates/panel/print/base.html
 msgid "Print"
@@ -5059,18 +5086,6 @@ msgstr "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach.
 #: src/ludamus/templates/panel/timetable.html
 msgid "Click a position on the grid to place the session"
 msgstr "Kliknij pozycję na siatce, aby umieścić punkt programu"
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Print timetable for a venue or area"
-msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Venue / area…"
-msgstr "Lokalizacja / strefa…"
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Print door cards for a venue or area"
-msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
 
 #: src/ludamus/templates/panel/timetable.html
 msgid "Day:"

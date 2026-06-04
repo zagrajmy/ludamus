@@ -188,3 +188,37 @@ class TestTimetablePrintView:
             messages=[(messages.ERROR, "Venue or area not found.")],
             url=reverse("panel:timetable", kwargs={"slug": event.slug}),
         )
+
+
+class TestPrintMaterialsPageView:
+    @staticmethod
+    def url(event):
+        return reverse("panel:print-materials", kwargs={"slug": event.slug})
+
+    def test_redirects_non_manager_user(self, authenticated_client, event):
+        response = authenticated_client.get(self.url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_renders_for_sphere_manager(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/print-materials.html",
+            context_data=ANY,
+        )
+        content = response.content.decode()
+        assert "Print timetable" in content
+        assert "Print door cards" in content
+        assert response.context_data["active_nav"] == "print"

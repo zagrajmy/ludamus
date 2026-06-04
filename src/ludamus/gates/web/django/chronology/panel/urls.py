@@ -346,6 +346,11 @@ urlpatterns = [
     ),
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
     path(
+        "event/<slug:slug>/print/",
+        print_views.PrintMaterialsPageView.as_view(),
+        name="print-materials",
+    ),
+    path(
         "event/<slug:slug>/settings/integrations/check/",
         integrations.IntegrationCheckActionView.as_view(),
         name="integration-check",
