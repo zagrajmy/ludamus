@@ -27,7 +27,7 @@ description = "Build frontend assets (CSS + JS)"
 run = "aubr -C src/ludamus/client build"
 
 [bootstrap]
-description = "Set up the dev environment from scratch — idempotent"
+description = "Set up the dev environment from scratch (idempotent)"
 run = """
 poetry install
 aube install
@@ -45,5 +45,7 @@ fi
 aubr varlock django-admin migrate --noinput
 aubr varlock django-admin createcachetable
 aubr varlock django-admin downloadvendor
-aubr varlock python scripts/bootstrap_dev.py
+aubr varlock python tests/e2e/scripts/bootstrap_data.py
+aubr varlock python tests/e2e/scripts/bootstrap_facilitators.py
+aubr varlock python tests/e2e/scripts/bootstrap_timetable.py
 """
