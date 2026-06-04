@@ -206,6 +206,33 @@ class SessionStatus(StrEnum):
 class SessionParticipationStatus(StrEnum):
     CONFIRMED = auto()
     WAITING = auto()
+    OFFERED = auto()
+
+
+# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
+# seat is held so the same seat is never offered to two waiters at once.
+OCCUPYING_PARTICIPATION_STATUSES = (
+    SessionParticipationStatus.CONFIRMED,
+    SessionParticipationStatus.OFFERED,
+)
+
+
+class PromotionMode(StrEnum):
+    """How a freed seat is filled from the waiting list, per ProposalCategory.
+
+    AUTO: the next eligible waiter is moved straight to CONFIRMED.
+    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
+    bounded window; they must actively claim it or it rolls to the next party.
+    """
+
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
+class NotificationKind(StrEnum):
+    WAITLIST_PROMOTED = auto()
+    WAITLIST_OFFER = auto()
+    OFFER_EXPIRED = auto()
 
 
 class SpherePage(StrEnum):

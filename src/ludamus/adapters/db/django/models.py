@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, ClassVar, Never, cast
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
@@ -16,6 +16,9 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.pacts import (
+    NotificationKind,
+    OCCUPYING_PARTICIPATION_STATUSES,
+    PromotionMode,
     SessionParticipationStatus,
     SessionStatus,
     SpherePage,
@@ -732,8 +735,10 @@ class Session(models.Model):
         # Use cached count if available from annotation, otherwise query
         if hasattr(self, "enrolled_count_cached"):
             return cast("int", self.enrolled_count_cached)
+        # CONFIRMED and OFFERED both hold a seat: an offered (but not yet
+        # claimed) seat must not be handed out twice.
         return self.session_participations.filter(
-            status=SessionParticipationStatus.CONFIRMED
+            status__in=OCCUPYING_PARTICIPATION_STATUSES
         ).count()
 
     @property
@@ -861,6 +866,20 @@ class ProposalCategory(models.Model):
     durations = models.JSONField(
         default=list
     )  # ISO 8601 durations, e.g. ["PT30M", "PT1H"]
+    # Waiting-list promotion behaviour for sessions in this category.
+    promotion_mode = models.CharField(
+        max_length=15,
+        choices=[(item.value, item.name) for item in PromotionMode],
+        default=PromotionMode.AUTO,
+        help_text=(
+            "How a freed seat is filled: AUTO promotes the next waiter straight"
+            " to confirmed; OFFER_CLAIM offers the seat for a bounded window."
+        ),
+    )
+    offer_claim_window = models.DurationField(
+        default=timedelta(hours=24),
+        help_text="How long an offered seat is held before it rolls to the next waiter",
+    )
 
     class Meta:
         db_table = "proposal_category"
@@ -891,6 +910,16 @@ class SessionParticipation(models.Model):
         max_length=15,
         choices=[(item.value, item.name) for item in SessionParticipationStatus],
     )
+    # Offer lifecycle (offer-and-claim mode). An OFFERED seat is held until the
+    # offer is claimed or expires; a lapsed offer is terminal (the party is
+    # dropped). The claim token makes the claim flow login-free for anonymous
+    # waiters.
+    offered_at = models.DateTimeField(null=True, blank=True)
+    offer_expires_at = models.DateTimeField(null=True, blank=True)
+    claim_token = models.CharField(
+        max_length=64, null=True, blank=True, unique=True, db_index=True
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = (("session", "user"),)
@@ -898,6 +927,44 @@ class SessionParticipation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.name} {self.status} on {self.session}"
+
+
+class Notification(models.Model):
+    """In-app notification for a single recipient.
+
+    Persistent, unlike flash messages. Surfaced in the navbar notifications
+    dropdown and counted for the unread badge. Small and generic enough for the
+    errata broadcast channel to reuse later.
+    """
+
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )
+    kind = models.CharField(
+        max_length=32,
+        choices=[(item.value, item.name) for item in NotificationKind],
+    )
+    # Localised, ready-to-render copy plus structured refs (session/event ids,
+    # claim url, deadline). Rendered by the recipient's request, not at send.
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True, default="")
+    url = models.CharField(max_length=512, blank=True, default="")
+    payload = models.JSONField(default=dict, blank=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "notification"
+        ordering: ClassVar = ["-creation_time"]
+        indexes: ClassVar = [
+            # Cheap per-user unread-count query for the navbar badge.
+            models.Index(
+                fields=["recipient", "read_at"], name="notif_recipient_read_idx"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} for {self.recipient.name}"
 
 
 class PersonalDataFieldType(models.TextChoices):
@@ -1324,10 +1391,10 @@ def can_enroll_users(
     virtual_config: VirtualEnrollmentConfig,
     users_to_enroll: list[UserDTO],
 ) -> bool:
-    # Get currently enrolled users
+    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
     currently_enrolled = set(
         SessionParticipation.objects.filter(
-            status=SessionParticipationStatus.CONFIRMED,
+            status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__agenda_item__space__area__venue__event_id=event.pk,
         )
@@ -1343,10 +1410,10 @@ def can_enroll_users(
 
 
 def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
-    # Count unique users who have at least one confirmed enrollment
+    # Count unique users who hold at least one seat (confirmed or offered)
     return len(
         SessionParticipation.objects.filter(
-            status=SessionParticipationStatus.CONFIRMED,
+            status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__agenda_item__space__area__venue__event_id=event.pk,
         )
