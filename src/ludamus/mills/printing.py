@@ -212,7 +212,9 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=scope_name,
-            is_complete=_is_complete(all_items),
+            # A scoped print (one venue/area) is a subset by construction, so it
+            # is never "the whole program"; completeness only applies unscoped.
+            is_complete=area_pks is None and _is_complete(all_items),
             days=days,
         )
 

@@ -15,10 +15,19 @@ function getPrintUrl(): string | null {
   return link?.getAttribute("href") ?? null;
 }
 
+function isEditing(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
+}
+
 function onKeydown(event: KeyboardEvent): void {
   const isPrintCombo =
     (event.metaKey || event.ctrlKey) && (event.key === "p" || event.key === "P");
   if (!isPrintCombo || event.altKey || event.shiftKey) return;
+  // Don't steal the gesture mid-edit — navigating away would discard input.
+  if (isEditing(event.target)) return;
 
   const url = getPrintUrl();
   if (!url) return;

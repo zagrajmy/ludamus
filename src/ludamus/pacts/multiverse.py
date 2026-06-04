@@ -71,6 +71,7 @@ class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]: ...
+    def read_by_slug(self, slug: str, sphere_id: int) -> EventDTO: ...
 
 
 class SpherePanelServiceProtocol(Protocol):

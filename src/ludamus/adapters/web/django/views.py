@@ -1209,7 +1209,7 @@ class PublicEventPrintView(View):
 
     def get(self, request: RootRequest, slug: str) -> HttpResponse:
         try:
-            event = request.di.uow.events.read_by_slug(
+            event = request.services.events.read_by_slug(
                 slug, request.context.current_sphere_id
             )
         except NotFoundError as exc:
@@ -1263,9 +1263,7 @@ class PublicEventPrintView(View):
                 "timetable": timetable,
                 "area_schedule": area_schedule,
                 "qr_svg": qr_svg(event_url, xmldecl=False),
-                "event_url": event_url,
                 "venues": request.services.venues.list_with_areas(event.pk),
-                "scope": scope,
                 "selected_venue": request.GET.get("venue") or "",
                 "selected_area": request.GET.get("area") or "",
                 "range_start_value": (
@@ -1284,9 +1282,12 @@ class PublicEventPrintView(View):
         hours = max(1, min(hours, self.MAX_RANGE_HOURS))
 
         start = localtime(event.start_time, tz)
-        raw_start = self.request.GET.get("start")
-        if raw_start and (parsed := parse_datetime(raw_start)) is not None:
-            start = parsed if parsed.tzinfo else make_aware(parsed, tz)
+        if raw_start := self.request.GET.get("start"):
+            # parse_datetime raises ValueError on well-formatted but invalid
+            # values (e.g. month 13, minute 99); fall back to the default start.
+            with suppress(ValueError):
+                if (parsed := parse_datetime(raw_start)) is not None:
+                    start = parsed if parsed.tzinfo else make_aware(parsed, tz)
         return start, hours
 
 

@@ -251,6 +251,16 @@ class TestTimetableCompleteness:
 
         assert service.build_timetable(1, UTC).is_complete is False
 
+    def test_scoped_timetable_is_never_complete(self):
+        # A scoped print (one venue/area) is a subset, so never "the whole thing".
+        spaces = [_space(1, "Alfa", 0, area_id=10)]
+        items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_timetable(1, UTC, area_pks=frozenset({10}))
+
+        assert document.is_complete is False
+
 
 class TestBuildAreaSchedule:
     def test_sessions_within_range_carry_full_description(self):
