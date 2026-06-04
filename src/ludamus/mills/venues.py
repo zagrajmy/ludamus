@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.printing import AreaRefDTO, PrintScopeDTO, VenueWithAreasDTO
@@ -18,14 +19,14 @@ class VenuesService:
         self._areas = areas
 
     def list_with_areas(self, event_pk: int) -> list[VenueWithAreasDTO]:
+        areas_by_venue: dict[int, list[AreaRefDTO]] = defaultdict(list)
+        for area in self._areas.list_by_event(event_pk):
+            areas_by_venue[area.venue_id].append(
+                AreaRefDTO(name=area.name, slug=area.slug)
+            )
         return [
             VenueWithAreasDTO(
-                name=venue.name,
-                slug=venue.slug,
-                areas=[
-                    AreaRefDTO(name=area.name, slug=area.slug)
-                    for area in self._areas.list_by_venue(venue.pk)
-                ],
+                name=venue.name, slug=venue.slug, areas=areas_by_venue.get(venue.pk, [])
             )
             for venue in self._venues.list_by_event(event_pk)
         ]

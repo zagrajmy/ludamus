@@ -210,3 +210,22 @@ class TestScoping:
 
         assert document.scope_name is None
         assert document.days[0].space_names == ["Alfa", "Bravo", "Cesarz"]
+
+    def test_orphan_session_outside_scope_adds_no_row(self):
+        # An un-slotted session lives in Cesarz (area 30), outside the scoped
+        # area 10 — it must not spawn a fallback row in the scoped grid.
+        spaces = [_space(1, "Alfa", 0, area_id=10), _space(3, "Cesarz", 2, area_id=30)]
+        items = [_item(1, 3, 12, 13, title="Out of scope", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[_slot(1, 9, 10)])
+
+        document = service.build_timetable(1, UTC, area_pks=frozenset({10}))
+
+        day = document.days[0]
+        assert day.space_names == ["Alfa"]
+        slot_row = (
+            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
+        )
+        assert [(r.start_time, r.end_time) for r in day.rows] == [slot_row]
+        titles = [s.title for r in day.rows for c in r.cells for s in c.sessions]
+        assert titles == []

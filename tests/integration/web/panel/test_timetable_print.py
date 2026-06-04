@@ -222,3 +222,15 @@ class TestPrintMaterialsPageView:
         assert "Print timetable" in content
         assert "Print door cards" in content
         assert response.context_data["active_nav"] == "print"
+
+    def test_scope_menu_lists_venue_and_area(
+        self, authenticated_client, active_user, sphere, event, venue, area
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.url(event))
+
+        content = response.content.decode()
+        assert venue.name in content  # optgroup label
+        assert area.name in content  # area option
+        assert f"?venue={venue.slug}" in content  # scoped print link

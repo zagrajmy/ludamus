@@ -32,6 +32,9 @@ class _Areas:
     def __init__(self, areas):
         self._areas = list(areas)
 
+    def list_by_event(self, _event_pk):
+        return list(self._areas)
+
     def list_by_venue(self, venue_pk):
         return [a for a in self._areas if a.venue_id == venue_pk]
 
