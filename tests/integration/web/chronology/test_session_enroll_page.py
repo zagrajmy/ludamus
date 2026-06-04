@@ -6,6 +6,7 @@ from unittest.mock import ANY, Mock, patch
 import pytest
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password
+from django.db import connection
 from django.test import Client
 from django.urls import reverse
 
@@ -1535,34 +1536,40 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
+    @pytest.mark.postgres
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.usefixtures("enrollment_config")
-    def test_concurrent_enroll_does_not_overbook_capacity(
-        self, client, active_user, agenda_item
-    ):
+    def test_concurrent_enroll_does_not_overbook_capacity(self, agenda_item):
+        # The `session` fixture makes `active_user` the presenter, who is always
+        # skipped as the host, so both contenders must be fresh non-presenters.
         session = agenda_item.session
         session.participants_limit = 1
         session.save(update_fields=["participants_limit"])
 
-        other_user = UserFactory(
-            username="concurrentenroll",
-            email="concurrentenroll@example.com",
-            password=make_password(None),
-        )
-        other_client = Client()
-        other_client.force_login(other_user)
+        contenders = []
+        for index in range(2):
+            user = UserFactory(
+                username=f"contender{index}",
+                email=f"contender{index}@example.com",
+                password=make_password(None),
+            )
+            client = Client()
+            client.force_login(user)
+            contenders.append((client, user.pk))
 
         url = self._get_url(session.pk)
-        barrier = threading.Barrier(2)
+        barrier = threading.Barrier(len(contenders))
 
-        def enroll(httpx_client, user_pk: int):
+        def enroll(client, user_pk):
             barrier.wait()
-            return httpx_client.post(url, data={f"user_{user_pk}": "enroll"})
+            try:
+                return client.post(url, data={f"user_{user_pk}": "enroll"})
+            finally:
+                connection.close()
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=len(contenders)) as pool:
             futures = [
-                pool.submit(enroll, client, active_user.pk),
-                pool.submit(enroll, other_client, other_user.pk),
+                pool.submit(enroll, client, user_pk) for client, user_pk in contenders
             ]
             for future in futures:
                 future.result()
