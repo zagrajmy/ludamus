@@ -25,17 +25,25 @@ def _confirmed_item(event, session, space):
 
 
 def _assert_print_ok(
-    response, *, logo="", selected_venue="", selected_area="", range_hours=6
+    response,
+    *,
+    logo="",
+    selected_venue="",
+    selected_area="",
+    selected_space=None,
+    selected_track=None,
+    range_hours=6,
+    material="event-timetable",
 ):
-    # qr_svg and range_start_value are variable strings, so assert their shape
-    # rather than ANY (ANY is reserved for complex view objects), then feed the
-    # checked values back in so assert_response can hold the full context to
-    # exact equality.
     ctx = response.context_data
     assert isinstance(ctx["qr_svg"], str)
     assert "<svg" in ctx["qr_svg"]
     assert isinstance(ctx["range_start_value"], str)
     assert ctx["range_start_value"]
+    if selected_space is None:
+        selected_space = ctx["selected_space"]
+    if selected_track is None:
+        selected_track = ctx["selected_track"]
     assert_response(
         response,
         HTTPStatus.OK,
@@ -45,10 +53,16 @@ def _assert_print_ok(
             "logo": logo,
             "timetable": ANY,
             "area_schedule": ANY,
+            "session_list": ANY,
             "qr_svg": ctx["qr_svg"],
             "venues": ANY,
+            "spaces": ANY,
+            "tracks": ANY,
+            "material": material,
             "selected_venue": selected_venue,
             "selected_area": selected_area,
+            "selected_space": selected_space,
+            "selected_track": selected_track,
             "range_start_value": ctx["range_start_value"],
             "range_hours": range_hours,
         },
@@ -75,8 +89,25 @@ class TestPublicEventPrintView:
         _assert_print_ok(response)
         content = response.content.decode()
         assert session.title in content
-        # The per-area pages carry the full description; the grid does not.
+        assert "Table of contents" in content
+        assert 'href="#timetable-day-1"' in content
+        assert 'id="timetable-day-1"' in content
+        assert "Timetable" in content
+
+    def test_area_descriptions_render_full_description(
+        self, client, event, session, space
+    ):
+        _confirmed_item(event, session, space)
+
+        response = client.get(
+            self._url(event.slug), {"material": "area-descriptions"}
+        )
+
+        _assert_print_ok(response, material="area-descriptions")
+        content = response.content.decode()
+        assert session.title in content
         assert session.description in content
+        assert 'id="area-space-1"' in content
 
     def test_unconfirmed_session_is_hidden(self, client, event, session, space):
         AgendaItemFactory(
@@ -169,12 +200,17 @@ class TestPublicEventPrintView:
 
         response = client.get(f"{self._url(event.slug)}?venue={venue.slug}")
 
-        _assert_print_ok(response, logo="events/logo.png", selected_venue=venue.slug)
+        _assert_print_ok(
+            response,
+            logo="events/logo.png",
+            selected_venue=venue.slug,
+            material="venue-timetable",
+        )
         content = response.content.decode()
-        assert "events/logo.png" in content  # logo header
-        assert venue.name in content  # scope name
-        assert "Full schedule" in content  # a scoped print is never the whole thing
-        assert "30" in content  # space capacity
+        assert "events/logo.png" in content
+        assert venue.name in content
+        assert "Full schedule" in content
+        assert "30" in content
 
     def test_falls_back_to_sphere_logo_when_event_has_none(
         self, client, event, session, space, sphere
@@ -197,7 +233,12 @@ class TestPublicEventPrintView:
             f"{self._url(event.slug)}?venue={venue.slug}&area={area.slug}"
         )
 
-        _assert_print_ok(response, selected_venue=venue.slug, selected_area=area.slug)
+        _assert_print_ok(
+            response,
+            selected_venue=venue.slug,
+            selected_area=area.slug,
+            material="area-timetable",
+        )
         assert area.name in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
@@ -240,7 +281,5 @@ class TestEventPagePrintHijack:
 
         content = client.get(url).content.decode()
 
-        # The hijack anchor (read by event-print.ts) and the @media print
-        # fallback both reference the public print page.
         assert "data-event-print" in content
         assert print_url in content

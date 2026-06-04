@@ -100,6 +100,8 @@ from .forms import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.printing import PrintOptionDTO, PrintSpaceOptionDTO
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -1206,6 +1208,22 @@ class PublicEventPrintView(View):
     template_name = "chronology/print.html"
     DEFAULT_RANGE_HOURS = 6
     MAX_RANGE_HOURS = 72
+    MATERIAL_AREA_DESCRIPTIONS = "area-descriptions"
+    MATERIAL_AREA_TIMETABLE = "area-timetable"
+    MATERIAL_SPACE_TIMETABLE = "space-timetable"
+    MATERIAL_VENUE_TIMETABLE = "venue-timetable"
+    MATERIAL_TRACK_TIMETABLE = "track-timetable"
+    MATERIAL_EVENT_TIMETABLE = "event-timetable"
+    MATERIAL_SESSION_LIST = "session-list"
+    MATERIALS = {
+        MATERIAL_AREA_DESCRIPTIONS,
+        MATERIAL_AREA_TIMETABLE,
+        MATERIAL_SPACE_TIMETABLE,
+        MATERIAL_VENUE_TIMETABLE,
+        MATERIAL_TRACK_TIMETABLE,
+        MATERIAL_EVENT_TIMETABLE,
+        MATERIAL_SESSION_LIST,
+    }
 
     def get(self, request: RootRequest, slug: str) -> HttpResponse:
         try:
@@ -1236,20 +1254,79 @@ class PublicEventPrintView(View):
         range_end = range_start + timedelta(hours=range_hours)
 
         service = request.services.print_materials
-        timetable = service.build_timetable(
-            event.pk,
-            tz,
-            area_pks=scope.area_pks,
-            scope_name=scope.scope_name,
-            confirmed_only=True,
+        raw_material = request.GET.get("material")
+        if raw_material:
+            material = raw_material
+        elif request.GET.get("area"):
+            material = self.MATERIAL_AREA_TIMETABLE
+        elif request.GET.get("venue"):
+            material = self.MATERIAL_VENUE_TIMETABLE
+        else:
+            material = self.MATERIAL_EVENT_TIMETABLE
+        if material not in self.MATERIALS:
+            material = self.MATERIAL_EVENT_TIMETABLE
+
+        spaces = service.list_spaces(event.pk)
+        selected_space_pk = self._selected_space_pk(spaces)
+        space_pks = (
+            frozenset({selected_space_pk})
+            if material == self.MATERIAL_SPACE_TIMETABLE
+            and selected_space_pk is not None
+            else None
         )
-        area_schedule = service.build_area_schedule(
-            event.pk,
-            (range_start, range_end),
-            area_pks=scope.area_pks,
-            scope_name=scope.scope_name,
-            confirmed_only=True,
+        space_scope_name = next(
+            (space.name for space in spaces if space.pk == selected_space_pk), None
         )
+
+        tracks = service.list_tracks(event.pk)
+        selected_track = self._selected_track(tracks)
+        track_pk = (
+            selected_track.pk
+            if material == self.MATERIAL_TRACK_TIMETABLE
+            and selected_track is not None
+            else None
+        )
+
+        timetable = None
+        area_schedule = None
+        session_list = None
+        if material == self.MATERIAL_AREA_DESCRIPTIONS:
+            area_schedule = service.build_area_schedule(
+                event.pk,
+                (range_start, range_end),
+                area_pks=scope.area_pks,
+                scope_name=scope.scope_name,
+                confirmed_only=True,
+            )
+        elif material == self.MATERIAL_SESSION_LIST:
+            session_list = service.build_session_list(event.pk, confirmed_only=True)
+        else:
+            timetable_area_pks = (
+                scope.area_pks
+                if material
+                in {self.MATERIAL_AREA_TIMETABLE, self.MATERIAL_VENUE_TIMETABLE}
+                else None
+            )
+            timetable_scope_name = (
+                space_scope_name
+                if material == self.MATERIAL_SPACE_TIMETABLE
+                else selected_track.name
+                if material == self.MATERIAL_TRACK_TIMETABLE
+                and selected_track is not None
+                else scope.scope_name
+                if material
+                in {self.MATERIAL_AREA_TIMETABLE, self.MATERIAL_VENUE_TIMETABLE}
+                else None
+            )
+            timetable = service.build_timetable(
+                event.pk,
+                tz,
+                area_pks=timetable_area_pks,
+                space_pks=space_pks,
+                track_pk=track_pk,
+                scope_name=timetable_scope_name,
+                confirmed_only=True,
+            )
 
         event_url = request.build_absolute_uri(
             reverse("web:chronology:event", kwargs={"slug": slug})
@@ -1267,10 +1344,16 @@ class PublicEventPrintView(View):
                 "logo": logo,
                 "timetable": timetable,
                 "area_schedule": area_schedule,
+                "session_list": session_list,
                 "qr_svg": qr_svg(event_url, xmldecl=False),
                 "venues": request.services.venues.list_with_areas(event.pk),
+                "spaces": spaces,
+                "tracks": tracks,
+                "material": material,
                 "selected_venue": request.GET.get("venue") or "",
                 "selected_area": request.GET.get("area") or "",
+                "selected_space": str(selected_space_pk or ""),
+                "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
                     localtime(range_start, tz).strftime("%Y-%m-%dT%H:%M")
                 ),
@@ -1294,6 +1377,22 @@ class PublicEventPrintView(View):
                 if (parsed := parse_datetime(raw_start)) is not None:
                     start = parsed if parsed.tzinfo else make_aware(parsed, tz)
         return start, hours
+
+    def _selected_space_pk(self, spaces: list["PrintSpaceOptionDTO"]) -> int | None:
+        raw = self.request.GET.get("space") or ""
+        with suppress(ValueError):
+            selected = int(raw)
+            if any(getattr(space, "pk") == selected for space in spaces):
+                return selected
+        return spaces[0].pk if spaces else None
+
+    def _selected_track(
+        self, tracks: list["PrintOptionDTO"]
+    ) -> "PrintOptionDTO | None":
+        slug = self.request.GET.get("track") or ""
+        if slug:
+            return next((track for track in tracks if track.slug == slug), None)
+        return tracks[0] if tracks else None
 
 
 class EnrollmentChoice(StrEnum):
