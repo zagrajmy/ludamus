@@ -43,6 +43,7 @@ segno = "^1.6.6"
 whitenoise = "^6.12.0"
 django-storages = {extras = ["google"], version = "^1.14.6"}
 dbos = ">=2.23.0"
+unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -87,7 +88,7 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,src/ludamus/static/vite'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,aube-lock.yaml,src/ludamus/client/package-lock.json'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'
 ignore-words-list = 'fallow'
 
