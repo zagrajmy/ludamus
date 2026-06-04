@@ -145,6 +145,7 @@ class PrintMaterialsService:
 
         return DoorCardsDocumentDTO(
             event_name=event.name,
+            event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=scope_name,
@@ -192,6 +193,7 @@ class PrintMaterialsService:
 
         return PrintTimetableDocumentDTO(
             event_name=event.name,
+            event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=scope_name,

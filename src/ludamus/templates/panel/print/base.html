@@ -4,7 +4,8 @@
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
     <head>
         <meta charset="utf-8">
-        <meta name="description" content="{{ document.event_name }}">
+        <meta name="description"
+              content="{{ document.event_description|default:document.event_name }}">
         <title>{{ document.event_name }}</title>
         <style>
             @page {

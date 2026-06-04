@@ -38,6 +38,7 @@ class DoorCardDTO(BaseModel):
 
 class DoorCardsDocumentDTO(BaseModel):
     event_name: str
+    event_description: str
     event_start: datetime
     event_end: datetime
     # Venue or area name when the document is scoped; None for the whole event.
@@ -64,6 +65,7 @@ class PrintTimetableDayDTO(BaseModel):
 
 class PrintTimetableDocumentDTO(BaseModel):
     event_name: str
+    event_description: str
     event_start: datetime
     event_end: datetime
     # Venue or area name when the document is scoped; None for the whole event.

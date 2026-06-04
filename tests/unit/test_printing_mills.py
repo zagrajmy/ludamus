@@ -6,7 +6,7 @@ from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO, TimeSlotDTO
 
 def _event():
     return EventDTO(
-        description="",
+        description="Konwent dla nerdów",
         end_time=datetime(2026, 6, 1, 18, 0, tzinfo=UTC),
         name="Konwent",
         pk=1,
@@ -177,6 +177,14 @@ class TestBuildTimetable:
         document = service.build_timetable(1, UTC)
 
         assert [d.day for d in document.days] == [date(2026, 6, 1), date(2026, 6, 2)]
+
+    def test_documents_carry_event_description(self):
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=[], slots=[])
+
+        assert service.build_timetable(1, UTC).event_description == "Konwent dla nerdów"
+        assert (
+            service.build_door_cards(1, UTC).event_description == "Konwent dla nerdów"
+        )
 
 
 class TestScoping:
