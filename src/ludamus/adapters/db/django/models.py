@@ -1217,6 +1217,10 @@ class Encounter(models.Model):
     def __str__(self) -> str:
         return self.title
 
+    @property
+    def header_image_url(self) -> str:
+        return self.header_image.url if self.header_image else ""
+
 
 class EncounterRSVP(models.Model):
     encounter = models.ForeignKey(

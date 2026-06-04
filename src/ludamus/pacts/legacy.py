@@ -478,6 +478,7 @@ class EncounterDTO(BaseModel):
     end_time: datetime | None
     game: str
     header_image: str
+    header_image_url: str = ""
     max_participants: int
     pk: int
     place: str

@@ -9,6 +9,13 @@ from ludamus.pacts import EncounterDTO
 from tests.integration.conftest import EncounterFactory
 from tests.integration.utils import assert_response, assert_response_404
 
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 
 class TestEncounterEditPageView:
     def _url(self, pk):
@@ -64,6 +71,38 @@ class TestEncounterEditPageView:
                 kwargs={"share_code": encounter.share_code},
             ),
         )
+
+    def test_removes_header_image(self, authenticated_client, user, sphere):
+        encounter = EncounterFactory(creator=user, sphere=sphere)
+        encounter.header_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        encounter.save()
+        storage = encounter.header_image.storage
+        old_name = encounter.header_image.name
+
+        response = authenticated_client.post(
+            self._url(encounter.pk),
+            {
+                "title": encounter.title,
+                "start_time": "2026-06-01T14:00",
+                "max_participants": 5,
+                "header_image-clear": "on",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "Encounter updated."),),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+        encounter.refresh_from_db()
+        assert not encounter.header_image
+        assert not storage.exists(old_name)
 
     def test_ok_post_with_blank_max_participants(
         self, authenticated_client, user, sphere

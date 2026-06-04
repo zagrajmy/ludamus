@@ -2508,9 +2508,12 @@ class EncounterRepository(EncounterRepositoryProtocol):
     @staticmethod
     def update(pk: int, data: EncounterData) -> None:
         encounter = Encounter.objects.get(pk=pk)
+        old_header = encounter.header_image.name if "header_image" in data else None
         for key, value in data.items():
             setattr(encounter, key, value)
         encounter.save()
+        if old_header and old_header != encounter.header_image.name:
+            encounter.header_image.storage.delete(old_header)
 
     @staticmethod
     def delete(pk: int) -> None:
