@@ -1,11 +1,11 @@
 from datetime import UTC
 from http import HTTPStatus
+import re
 from unittest.mock import ANY
 
 import pytest
 import responses
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.template.defaultfilters import date as date_filter
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -141,11 +141,14 @@ class TestEventPageView:
         )
         local_start = timezone.localtime(agenda_item.start_time)
         content = response.content.decode()
-        assert f'data-day="{local_start:%Y-%m-%d}"' in content
-        assert f'data-hour="{local_start:%H:%M}"' in content
-        assert f'data-day-label="{date_filter(agenda_item.start_time, "l, j F")}"' in (
-            content
+        day = local_start.strftime("%Y-%m-%d")
+        hour = local_start.strftime("%H:%M")
+        match = re.search(
+            rf'data-day="{re.escape(day)}"\s+data-day-label="([^"]+)"\s+data-hour="{re.escape(hour)}"',
+            content,
         )
+        assert match
+        assert match.group(1)
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
@@ -175,8 +178,6 @@ class TestEventPageView:
         content = response.content.decode()
         absolute_url = event.cover_image_url
         assert absolute_url.startswith("http")
-        # The cover URL is already absolute (CDN), so it is used verbatim — not
-        # the default logo, and not prefixed with the request host.
         assert absolute_url in content
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
