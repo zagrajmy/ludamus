@@ -1,8 +1,6 @@
 name: Deploy to staging
 
 on:
-  pull_request_target:
-    types: [ labeled, synchronize ]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -16,30 +14,8 @@ permissions:
   contents: read
 
 jobs:
-  dispatch-from-pr:
-    name: Dispatch staging deploy from PR
-    if: github.event_name == 'pull_request_target'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: read
-      issues: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-      - uses: actions/github-script@v8
-        with:
-          script: |
-            const { pathToFileURL } = require("node:url");
-            const staging = await import(
-              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/github-staging.mts`)
-            );
-            await staging.handlePullRequest({ github, context, core });
-
   resolve-staging:
     name: Resolve staging target
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,7 +39,7 @@ jobs:
   build:
     name: Rebuild and upstart dockers
     needs: resolve-staging
-    if: github.event_name == 'workflow_dispatch' && needs.resolve-staging.outputs.should_deploy == 'true'
+    if: needs.resolve-staging.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: staging

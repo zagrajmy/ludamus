@@ -1,0 +1,29 @@
+name: Dispatch staging deploy
+
+on:
+  pull_request_target:
+    types: [ labeled ]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-from-pr:
+    name: Dispatch staging deploy from PR
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/github-staging.mts`)
+            );
+            await staging.handlePullRequest({ github, context, core });

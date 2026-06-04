@@ -4,6 +4,9 @@ type Label = {
 
 export type PullRequestLike = {
   head?: {
+    repo?: {
+      full_name: string;
+    };
     sha: string;
   };
   labels?: Label[];
@@ -85,6 +88,11 @@ const repoParams = (context: Context) => ({
   owner: context.repo.owner,
   repo: context.repo.repo,
 });
+
+const repoFullName = (context: Context) => `${context.repo.owner}/${context.repo.repo}`;
+
+const isSameRepositoryPullRequest = (context: Context, pr: PullRequestLike) =>
+  pr.head?.repo?.full_name === repoFullName(context);
 
 const hasStagingLabel = (pr: PullRequestLike) =>
   (pr.labels ?? []).some((label) => label.name === STAGING_LABEL);
@@ -179,6 +187,11 @@ export const handlePullRequest = async ({ github, context, core }: ActionArgs) =
     return;
   }
 
+  if (!isSameRepositoryPullRequest(context, pr)) {
+    core.info(`Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
+    return;
+  }
+
   const stagingPrs = await listStagingPrIssues({ github, context, core });
   await removeStagingFrom({
     github,
@@ -229,6 +242,12 @@ const resolveExplicitDeploy = async ({
     return;
   }
 
+  if (!isSameRepositoryPullRequest(context, pr)) {
+    core.setOutput("should_deploy", "false");
+    core.info(`Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
+    return;
+  }
+
   const stagingPrs = await listStagingPrIssues({ github, context, core });
   await removeStagingFrom({
     github,
@@ -241,10 +260,19 @@ const resolveExplicitDeploy = async ({
   core.info(`Deploying PR #${pr.number} at ${sha}`);
 };
 
-const resolveManualDeploy = async ({ github, context, core, sha }: ActionArgs & { sha: string }) => {
+const resolveManualDeploy = async ({
+  github,
+  context,
+  core,
+  sha,
+}: ActionArgs & { sha: string }) => {
   const stagingPrs = await listStagingPrIssues({ github, context, core });
   const prsForSha = await listPullRequestsForSha({ github, context, sha, core });
-  const prNumbersForSha = new Set(prsForSha.map((pr) => pr.number));
+  const prNumbersForSha = new Set(
+    prsForSha
+      .filter((pr) => isSameRepositoryPullRequest(context, pr))
+      .map((pr) => pr.number),
+  );
   const matchingStagingPrs = stagingPrs.filter(
     (pr) => pr.state === "open" && prNumbersForSha.has(pr.number),
   );

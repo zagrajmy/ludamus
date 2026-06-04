@@ -20,7 +20,7 @@ type MockOptions = {
 };
 
 const basePr = {
-  head: { sha: "head-sha" },
+  head: { repo: { full_name: "owner/repo" }, sha: "head-sha" },
   labels: [{ name: "staging" }],
   number: 2,
   state: "open",
@@ -111,7 +111,7 @@ test("dispatches the labeled PR and clears stale labels from other PRs", async (
 test("stale explicit dispatch does not remove another PR staging label", async () => {
   const args = makeArgs({
     currentPr: {
-      head: { sha: "new-head-sha" },
+      head: { repo: { full_name: "owner/repo" }, sha: "new-head-sha" },
       labels: [{ name: "staging" }],
       number: 1,
       state: "open",
@@ -150,11 +150,53 @@ test("current explicit dispatch deploys and clears other staging labels", async 
   ]);
 });
 
+test("explicit dispatch does not deploy fork pull requests", async () => {
+  const args = makeArgs({
+    currentPr: {
+      head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
+      labels: [{ name: "staging" }],
+      number: 2,
+      state: "open",
+    },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "Skipping staging deploy for fork PR #2"],
+  ]);
+});
+
 test("manual dispatch with no unique staging PR is non-mutating", async () => {
   const args = makeArgs({
     inputs: { sha: "manual-sha" },
     prsForSha: [{ number: 1 }],
     stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "manual-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "No unique open PR with staging for manual-sha"],
+  ]);
+});
+
+test("manual dispatch ignores fork pull requests", async () => {
+  const args = makeArgs({
+    inputs: { sha: "manual-sha" },
+    prsForSha: [
+      {
+        head: { repo: { full_name: "contributor/repo" }, sha: "manual-sha" },
+        number: 1,
+      },
+    ],
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
   });
 
   await staging.resolveDeploy(args);
@@ -187,4 +229,20 @@ test("ignores non-staging labels", async () => {
   await staging.handlePullRequest(args);
 
   assert.deepEqual(args.calls, [["info", "Ignoring non-staging label"]]);
+});
+
+test("does not dispatch staging deploys for fork pull requests", async () => {
+  const args = makeArgs({
+    pr: {
+      head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
+      labels: [{ name: "staging" }],
+      number: 3,
+      state: "open",
+    },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
 });
