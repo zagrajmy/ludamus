@@ -1,0 +1,26 @@
+{% load i18n %}
+<div class="flex items-center gap-1">
+    <a href="{% url url_name slug=current_event.slug %}"
+       target="_blank"
+       rel="noopener"
+       class="text-sm px-3 py-1.5 border border-border rounded-lg bg-bg-secondary text-foreground hover:bg-bg-tertiary transition">
+        {{ label }}
+    </a>
+    {% if print_venues %}
+        <select onchange="if(this.value){window.open(this.value,'_blank','noopener');this.selectedIndex=0;}"
+                aria-label="{{ aria }}"
+                class="text-sm border border-border rounded-lg px-2 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="">{% translate "Venue / area…" %}</option>
+            {% for v in print_venues %}
+                <optgroup label="{{ v.name }}">
+                    <option value="{% url url_name slug=current_event.slug %}?venue={{ v.slug }}">{{ v.name }}</option>
+                    {% for a in v.areas %}
+                        <option value="{% url url_name slug=current_event.slug %}?venue={{ v.slug }}&amp;area={{ a.slug }}">
+                            — {{ a.name }}
+                        </option>
+                    {% endfor %}
+                </optgroup>
+            {% endfor %}
+        </select>
+    {% endif %}
+</div>

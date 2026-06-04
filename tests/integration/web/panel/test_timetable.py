@@ -132,6 +132,7 @@ class TestTimetablePageView:
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
                 },
+                "print_venues": [],
             },
         )
         assert response.context["grid"].spaces == []

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
     EventDTO,
     FieldUsageSummary,
@@ -73,7 +74,6 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
-        TimeSlotDTO,
         UnitOfWorkProtocol,
     )
     from ludamus.pacts.multiverse import (
@@ -81,27 +81,6 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-
-
-def _slot_windows_by_local_date(
-    slots: list[TimeSlotDTO], tz: tzinfo
-) -> dict[date, list[tuple[datetime, datetime]]]:
-    # A slot spanning multiple local dates contributes one (start, end) window
-    # to each date it touches, clamped to that date's [00:00, 24:00) range.
-    grouped: dict[date, list[tuple[datetime, datetime]]] = defaultdict(list)
-    for slot in slots:
-        local_start = slot.start_time.astimezone(tz)
-        local_end = slot.end_time.astimezone(tz)
-        days_span = (local_end.date() - local_start.date()).days + 1
-        for offset in range(days_span):
-            cursor_date = local_start.date() + timedelta(days=offset)
-            day_start = datetime.combine(cursor_date, datetime.min.time(), tzinfo=tz)
-            day_end = day_start + timedelta(days=1)
-            window_start = max(local_start, day_start)
-            window_end = min(local_end, day_end)
-            if window_start < window_end:
-                grouped[cursor_date].append((window_start, window_end))
-    return grouped
 
 
 def _position_sessions(
@@ -173,7 +152,7 @@ class TimetableService:
         spaces = all_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
         all_slots = self._uow.time_slots.list_by_event(event_pk)
-        windows_by_date = _slot_windows_by_local_date(all_slots, tz)
+        windows_by_date = slot_windows_by_local_date(all_slots, tz)
         available_dates = sorted(windows_by_date.keys())
 
         if selected_date is None or selected_date not in windows_by_date:
@@ -628,7 +607,7 @@ class TimetableOverviewService:
             if item.space_id in space_pk_set:
                 space_items[item.space_id].append(item)
 
-        windows_by_date = _slot_windows_by_local_date(
+        windows_by_date = slot_windows_by_local_date(
             self._uow.time_slots.list_by_event(event_pk), tz
         )
 

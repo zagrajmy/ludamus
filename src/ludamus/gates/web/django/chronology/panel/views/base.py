@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.venues import VenueWithAreasDTO
 
 
 class PanelRequest(HttpRequest):
@@ -123,6 +124,10 @@ class EventContextMixin:
             all_tracks, key=lambda t: (t.pk not in managed_pks, t.name)
         )
         return sorted_tracks, managed_pks, filter_track_pk
+
+    def get_print_venues(self, event_pk: int) -> list[VenueWithAreasDTO]:
+        # Venues with their areas, for the print scope menus.
+        return self.request.services.venues.list_with_areas(event_pk)
 
 
 def settings_tab_urls(slug: str) -> dict[str, str]:
