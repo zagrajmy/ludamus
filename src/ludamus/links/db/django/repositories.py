@@ -1,5 +1,5 @@
-import contextlib
 import json
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
@@ -149,14 +149,21 @@ else:
 
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 
+logger = logging.getLogger(__name__)
+
 
 def _delete_stored_file(field_file: object, old_name: str) -> None:
     # Best-effort: a storage hiccup (e.g. GCS) must not fail an otherwise
-    # successful DB update, so swallow cleanup errors.
+    # successful DB update, so log and swallow cleanup errors rather than
+    # letting them propagate. Broad by design — the backend can raise anything.
     if (storage := getattr(field_file, "storage", None)) is None:
         return
-    with contextlib.suppress(Exception):
+    try:
         storage.delete(old_name)
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "Best-effort cleanup of replaced file %r failed", old_name, exc_info=True
+        )
 
 
 def _parse_iso8601_duration_minutes(duration: str) -> int:
