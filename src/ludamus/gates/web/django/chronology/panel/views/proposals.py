@@ -255,6 +255,13 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         self._update_facilitators(session.pk, current_event.pk)
         self._save_session_fields(session.pk, current_event.pk)
 
+        # T2: raising (or unlimiting) capacity frees seats — promote waiters.
+        new_limit = form.cleaned_data.get("participants_limit") or 0
+        if new_limit == 0 or new_limit > session.participants_limit:
+            self.request.services.waitlist_promotion.fill_freed_seats(
+                session_id=proposal_id
+            )
+
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
