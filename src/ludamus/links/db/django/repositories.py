@@ -1205,15 +1205,13 @@ class AreaRepository(AreaRepositoryProtocol):
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[AreaDTO]:
-        """List all areas for an event, grouped by venue then ordered.
+        """List all areas for an event, ordered by venue then order then name.
 
         Returns:
             List of AreaDTO objects for the event.
         """
-        areas = (
-            Area.objects.filter(venue__event_id=event_pk)
-            .annotate(spaces_count=Count("spaces"))
-            .order_by("venue_id", "order", "name")
+        areas = Area.objects.filter(venue__event_id=event_pk).order_by(
+            "venue_id", "order", "name"
         )
 
         return [AreaDTO.model_validate(area) for area in areas]

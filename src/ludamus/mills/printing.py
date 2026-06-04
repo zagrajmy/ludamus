@@ -198,13 +198,10 @@ class PrintMaterialsService:
             days=days,
         )
 
-    def _ordered_spaces(self, event_pk: int) -> list[SpaceDTO]:
-        return sorted(self._spaces.list_by_event(event_pk), key=_space_order)
-
     def _scoped_spaces(
         self, event_pk: int, area_pks: frozenset[int] | None
     ) -> list[SpaceDTO]:
-        spaces = self._ordered_spaces(event_pk)
+        spaces = sorted(self._spaces.list_by_event(event_pk), key=_space_order)
         if area_pks is None:
             return spaces
         return [s for s in spaces if s.area_id in area_pks]

@@ -20,8 +20,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
-    from ludamus.pacts.printing import VenueWithAreasDTO
     from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.venues import VenueWithAreasDTO
 
 
 class PanelRequest(HttpRequest):

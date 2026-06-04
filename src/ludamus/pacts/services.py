@@ -20,10 +20,8 @@ if TYPE_CHECKING:
         EventsServiceProtocol,
         SpherePanelServiceProtocol,
     )
-    from ludamus.pacts.printing import (
-        PrintMaterialsServiceProtocol,
-        VenuesServiceProtocol,
-    )
+    from ludamus.pacts.printing import PrintMaterialsServiceProtocol
+    from ludamus.pacts.venues import VenuesServiceProtocol
 
 
 class TransactionProtocol(Protocol):

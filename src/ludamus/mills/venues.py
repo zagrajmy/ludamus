@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.printing import AreaRefDTO, PrintScopeDTO, VenueWithAreasDTO
+from ludamus.pacts.venues import AreaRefDTO, PrintScopeDTO, VenueWithAreasDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts import AreaRepositoryProtocol, VenueRepositoryProtocol
