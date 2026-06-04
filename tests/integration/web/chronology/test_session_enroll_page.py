@@ -1,6 +1,6 @@
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
-import threading
 from unittest.mock import ANY, Mock, patch
 
 import pytest
@@ -1568,7 +1568,6 @@ class TestSessionEnrollPageView:
                 future.result()
 
         confirmed = SessionParticipation.objects.filter(
-            session_id=session.pk,
-            status=SessionParticipationStatus.CONFIRMED,
+            session_id=session.pk, status=SessionParticipationStatus.CONFIRMED
         ).count()
         assert confirmed == 1

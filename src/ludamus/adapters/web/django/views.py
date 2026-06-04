@@ -1467,9 +1467,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         enrollments = Enrollments()
 
         session = Session.objects.select_for_update().get(id=session.id)
-        if self._is_capacity_invalid(
-            enrollment_requests, session, enrollment_config
-        ):
+        if self._is_capacity_invalid(enrollment_requests, session, enrollment_config):
             raise RedirectError(
                 reverse(
                     "web:chronology:session-enrollment",
