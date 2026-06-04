@@ -1,8 +1,8 @@
-type Label = {
+interface Label {
   name: string;
-};
+}
 
-export type PullRequestLike = {
+export interface PullRequestLike {
   head?: {
     repo?: {
       full_name: string;
@@ -13,9 +13,9 @@ export type PullRequestLike = {
   number: number;
   pull_request?: unknown;
   state?: string;
-};
+}
 
-export type Context = {
+export interface Context {
   payload: {
     action?: string;
     inputs?: {
@@ -33,18 +33,18 @@ export type Context = {
     repo: string;
   };
   sha: string;
-};
+}
 
-export type Core = {
+export interface Core {
   info(message: string): void;
   setOutput(name: string, value: string): void;
-};
+}
 
 type PaginatedEndpoint = (
   params: Record<string, unknown>,
 ) => Promise<PullRequestLike[]>;
 
-export type Github = {
+export interface Github {
   paginate(
     fn: PaginatedEndpoint,
     params: Record<string, unknown>,
@@ -64,22 +64,48 @@ export type Github = {
       listPullRequestsAssociatedWithCommit: PaginatedEndpoint;
     };
   };
-};
+}
 
-export type ActionArgs = {
+export interface ActionArgs {
   context: Context;
   core: Core;
   github: Github;
-};
+}
 
-type RemoveArgs = ActionArgs & {
+interface RemoveArgs extends ActionArgs {
   issueNumber: number;
-};
+}
 
-type RemoveManyArgs = ActionArgs & {
+interface RemoveManyArgs extends ActionArgs {
   exceptNumber?: number;
   prs: PullRequestLike[];
-};
+}
+
+interface DispatchDeployArgs extends ActionArgs {
+  pr: PullRequestLike;
+}
+
+interface RepoGithubArgs {
+  github: Github;
+  context: Context;
+}
+
+interface ListPullRequestsForShaArgs extends RepoGithubArgs {
+  sha: string;
+}
+
+interface FetchPullRequestArgs extends RepoGithubArgs {
+  number: number;
+}
+
+interface ResolveExplicitDeployArgs extends ActionArgs {
+  prNumber: number;
+  sha: string;
+}
+
+interface ResolveManualDeployArgs extends ActionArgs {
+  sha: string;
+}
 
 const STAGING_LABEL = "staging";
 const DEPLOY_WORKFLOW_ID = "deploy-staging.yml";
@@ -96,6 +122,11 @@ const isSameRepositoryPullRequest = (context: Context, pr: PullRequestLike) =>
 
 const hasStagingLabel = (pr: PullRequestLike) =>
   (pr.labels ?? []).some((label) => label.name === STAGING_LABEL);
+
+const setShouldDeploy = (core: Core, deploy: boolean, message: string) => {
+  core.setOutput("should_deploy", deploy ? "true" : "false");
+  core.info(message);
+};
 
 const listStagingPrIssues = async ({
   github,
@@ -150,12 +181,36 @@ const removeStagingFrom = async ({
   );
 };
 
+const exclusiveStagingFor = async (args: ActionArgs, exceptNumber: number) => {
+  const stagingPrs = await listStagingPrIssues(args);
+  await removeStagingFrom({
+    ...args,
+    prs: stagingPrs,
+    exceptNumber,
+  });
+};
+
+const claimStagingTarget = async (
+  args: ActionArgs,
+  pr: PullRequestLike,
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  if (!isSameRepositoryPullRequest(args.context, pr)) {
+    return {
+      ok: false,
+      message: `Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`,
+    };
+  }
+
+  await exclusiveStagingFor(args, pr.number);
+  return { ok: true };
+};
+
 const dispatchDeploy = async ({
   github,
   context,
   pr,
   core,
-}: ActionArgs & { pr: PullRequestLike }) => {
+}: DispatchDeployArgs) => {
   if (!pr.head) throw new Error("Expected pull_request head");
 
   await github.rest.actions.createWorkflowDispatch({
@@ -187,19 +242,11 @@ export const handlePullRequest = async ({ github, context, core }: ActionArgs) =
     return;
   }
 
-  if (!isSameRepositoryPullRequest(context, pr)) {
-    core.info(`Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
+  const claim = await claimStagingTarget({ github, context, core }, pr);
+  if (!claim.ok) {
+    core.info(claim.message);
     return;
   }
-
-  const stagingPrs = await listStagingPrIssues({ github, context, core });
-  await removeStagingFrom({
-    github,
-    context,
-    prs: stagingPrs,
-    exceptNumber: pr.number,
-    core,
-  });
 
   await dispatchDeploy({ github, context, pr, core });
 };
@@ -208,7 +255,7 @@ const listPullRequestsForSha = async ({
   github,
   context,
   sha,
-}: ActionArgs & { sha: string }) =>
+}: ListPullRequestsForShaArgs) =>
   github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
     ...repoParams(context),
     commit_sha: sha,
@@ -219,7 +266,7 @@ const fetchPullRequest = async ({
   github,
   context,
   number,
-}: ActionArgs & { number: number }) => {
+}: FetchPullRequestArgs) => {
   const response = await github.rest.pulls.get({
     ...repoParams(context),
     pull_number: number,
@@ -233,31 +280,25 @@ const resolveExplicitDeploy = async ({
   core,
   prNumber,
   sha,
-}: ActionArgs & { prNumber: number; sha: string }) => {
-  const pr = await fetchPullRequest({ github, context, core, number: prNumber });
+}: ResolveExplicitDeployArgs) => {
+  const pr = await fetchPullRequest({ github, context, number: prNumber });
 
   if (pr.state !== "open" || !hasStagingLabel(pr) || pr.head?.sha !== sha) {
-    core.setOutput("should_deploy", "false");
-    core.info(`PR #${prNumber} is no longer the current ${STAGING_LABEL} target for ${sha}`);
+    setShouldDeploy(
+      core,
+      false,
+      `PR #${prNumber} is no longer the current ${STAGING_LABEL} target for ${sha}`,
+    );
     return;
   }
 
-  if (!isSameRepositoryPullRequest(context, pr)) {
-    core.setOutput("should_deploy", "false");
-    core.info(`Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
+  const claim = await claimStagingTarget({ github, context, core }, pr);
+  if (!claim.ok) {
+    setShouldDeploy(core, false, claim.message);
     return;
   }
 
-  const stagingPrs = await listStagingPrIssues({ github, context, core });
-  await removeStagingFrom({
-    github,
-    context,
-    prs: stagingPrs,
-    exceptNumber: pr.number,
-    core,
-  });
-  core.setOutput("should_deploy", "true");
-  core.info(`Deploying PR #${pr.number} at ${sha}`);
+  setShouldDeploy(core, true, `Deploying PR #${pr.number} at ${sha}`);
 };
 
 const resolveManualDeploy = async ({
@@ -265,9 +306,11 @@ const resolveManualDeploy = async ({
   context,
   core,
   sha,
-}: ActionArgs & { sha: string }) => {
-  const stagingPrs = await listStagingPrIssues({ github, context, core });
-  const prsForSha = await listPullRequestsForSha({ github, context, sha, core });
+}: ResolveManualDeployArgs) => {
+  const [stagingPrs, prsForSha] = await Promise.all([
+    listStagingPrIssues({ github, context, core }),
+    listPullRequestsForSha({ github, context, sha }),
+  ]);
   const prNumbersForSha = new Set(
     prsForSha
       .filter((pr) => isSameRepositoryPullRequest(context, pr))
@@ -278,20 +321,12 @@ const resolveManualDeploy = async ({
   );
 
   if (matchingStagingPrs.length !== 1) {
-    core.setOutput("should_deploy", "false");
-    core.info(`No unique open PR with ${STAGING_LABEL} for ${sha}`);
+    setShouldDeploy(core, false, `No unique open PR with ${STAGING_LABEL} for ${sha}`);
     return;
   }
 
-  await removeStagingFrom({
-    github,
-    context,
-    prs: stagingPrs,
-    exceptNumber: matchingStagingPrs[0].number,
-    core,
-  });
-  core.setOutput("should_deploy", "true");
-  core.info(`Deploying PR #${matchingStagingPrs[0].number} at ${sha}`);
+  await exclusiveStagingFor({ github, context, core }, matchingStagingPrs[0].number);
+  setShouldDeploy(core, true, `Deploying PR #${matchingStagingPrs[0].number} at ${sha}`);
 };
 
 export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {
@@ -303,8 +338,7 @@ export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {
   core.setOutput("sha", sha);
 
   if (prNumberInput && (!prNumber || String(prNumber) !== prNumberInput)) {
-    core.setOutput("should_deploy", "false");
-    core.info(`Invalid pull request number: ${prNumberInput}`);
+    setShouldDeploy(core, false, `Invalid pull request number: ${prNumberInput}`);
     return;
   }
 

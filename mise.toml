@@ -1,5 +1,4 @@
 [settings]
-# Sequential execution to avoid race conditions in parallel tests
 jobs = 1
 
 [hooks]
@@ -14,11 +13,7 @@ markdownlint-cli2 = "0.22.1"
 aube = "latest"
 
 [env]
-# Mise creates and activates this virtualenv automatically
 _.python.venv = { path = ".venv", create = true }
-# .env loading is owned by varlock (see Procfile.dev / scripts/dev) so the
-# resolved env is identical regardless of whether the process is launched
-# via mise shim, honcho, or directly.
 
 [task_config]
 includes = ["tasks.toml"]
@@ -35,7 +30,6 @@ pip-audit .
 poetry show -o
 """
 
-# LINT
 
 [tasks._lint]
 description = "Base env vars for lint tasks"
@@ -117,6 +111,10 @@ depends = [
   "impeccable",
 ]
 
+[tasks.github-staging-test]
+description = "Run GitHub staging workflow script tests"
+run = "node --test scripts/github-staging.test.mts"
+
 [tasks.prcheck]
 description = "CI-style lint pass: report violations without fixing"
 depends = [
@@ -128,9 +126,9 @@ depends = [
   "pylint",
   "vulture",
   "ast-grep",
+  "github-staging-test",
 ]
 
-# PYTEST
 
 [tasks._pytest]
 description = "Base pytest runner with test env (internal)"
@@ -229,7 +227,6 @@ coverage report --fail-under=93
 """
 env.PYTHONPATH = "src"
 
-# E2E
 
 [tasks._e2e]
 description = "Base env vars for e2e tasks (internal)"
@@ -284,7 +281,6 @@ aubr -C src/ludamus/client build
 description = "Run the e2e dev server (assumes `e2e:prep` has run)"
 run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload"
 
-# DEPLOYMENT
 
 [tasks.dc]
 description = "Run docker compose for a target environment (local or prod)"
@@ -305,7 +301,6 @@ aubr varlock \
 description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
 run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
-# FRONTEND
 
 [tasks.ts-check]
 description = "Type-check frontend TypeScript"
@@ -321,7 +316,6 @@ description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
 
-# OTHER
 
 [tasks.shitcheck]
 description = "Flag suspicious additions vs main: noqa, type: ignore, Any, cast"

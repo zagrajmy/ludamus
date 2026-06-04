@@ -6,6 +6,10 @@ import type { ActionArgs, PullRequestLike } from "./github-staging.mts";
 
 type Call = readonly unknown[];
 
+interface MockActionArgs extends ActionArgs {
+  calls: Call[];
+}
+
 type MockOptions = {
   currentPr?: PullRequestLike;
   inputs?: {
@@ -34,7 +38,7 @@ const makeArgs = ({
   prsForSha = [],
   sha = "workflow-sha",
   stagingPrs = [],
-}: MockOptions = {}): ActionArgs & { calls: Call[] } => {
+}: MockOptions = {}): MockActionArgs => {
   const calls: Call[] = [];
   const core = {
     info: (message: string) => calls.push(["info", message]),
