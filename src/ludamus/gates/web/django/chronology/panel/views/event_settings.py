@@ -65,6 +65,21 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _apply_facilitator_choices(self, form: EventSettingsForm) -> None:
+        sphere = self.request.services.sphere_panel.read(
+            self.request.context.current_sphere_id
+        )
+        resolved = (
+            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        )
+        edit_field = form.fields["allow_facilitator_session_edit"]
+        if isinstance(edit_field, forms.ChoiceField):
+            edit_field.choices = [
+                ("", _("Use sphere default (currently: {})").format(resolved)),
+                ("true", _("Allow")),
+                ("false", _("Disallow")),
+            ]
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -90,19 +105,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
             }
         )
-        sphere = self.request.services.sphere_panel.read(
-            self.request.context.current_sphere_id
-        )
-        resolved = (
-            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
-        )
-        edit_field = form.fields["allow_facilitator_session_edit"]
-        if isinstance(edit_field, forms.ChoiceField):
-            edit_field.choices = [
-                ("", _("Use sphere default (currently: {})").format(resolved)),
-                ("true", _("Allow")),
-                ("false", _("Disallow")),
-            ]
+        self._apply_facilitator_choices(form)
         context["form"] = form
         return TemplateResponse(self.request, "panel/settings.html", context)
 
@@ -148,6 +151,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "general"
         context["tab_urls"] = settings_tab_urls(slug)
+        self._apply_facilitator_choices(form)
         context["form"] = form
         return TemplateResponse(self.request, "panel/settings.html", context)
 

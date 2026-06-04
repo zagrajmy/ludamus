@@ -30,6 +30,9 @@ const formatBytes = (bytes: number): string => {
 };
 
 const initDropzone = (label: HTMLLabelElement): void => {
+  // Idempotent: a label may be re-scanned after an HTMX swap.
+  if (label.dataset.dropzoneReady === "1") return;
+  label.dataset.dropzoneReady = "1";
   const input = label.querySelector<HTMLInputElement>("[data-dropzone-input]");
   const nameEls = label.querySelectorAll<HTMLElement>("[data-dropzone-name]");
   const sizeEls = label.querySelectorAll<HTMLElement>("[data-dropzone-size]");
@@ -95,6 +98,15 @@ const initDropzone = (label: HTMLLabelElement): void => {
   });
 };
 
-document
-  .querySelectorAll<HTMLLabelElement>("[data-dropzone]")
-  .forEach(initDropzone);
+const initDropzones = (root: ParentNode = document): void => {
+  root.querySelectorAll<HTMLLabelElement>("[data-dropzone]").forEach(initDropzone);
+};
+
+initDropzones();
+
+// The propose wizard swaps its review step (with the dropzone) in via HTMX;
+// this module only evaluates once, so re-scan swapped-in content.
+document.body.addEventListener("htmx:afterSwap", (event) => {
+  const target = (event as CustomEvent).target;
+  initDropzones(target instanceof Element ? target : document);
+});

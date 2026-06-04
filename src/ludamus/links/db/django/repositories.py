@@ -768,9 +768,16 @@ class EventRepository(EventRepositoryProtocol):
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
 
+        # Remember the existing cover so a replace or clear doesn't orphan it
+        # in storage (notably billable on GCS).
+        old_cover = event.cover_image.name if "cover_image" in data else None
+
         for key, value in data.items():
             setattr(event, key, value)
         event.save(update_fields=list(data.keys()))
+
+        if old_cover and old_cover != event.cover_image.name:
+            event.cover_image.storage.delete(old_cover)
 
     @staticmethod
     def update_proposal_description(event_id: int, description: str) -> None:

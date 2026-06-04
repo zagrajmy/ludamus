@@ -9,6 +9,9 @@ from django.utils.translation import gettext_lazy as _
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 MAX_IMAGE_SIZE = 2 * 1024 * 1024
+# A small (≤2 MB) file can still decode to a huge bitmap; cap pixel count to
+# bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
+MAX_IMAGE_PIXELS = 24_000_000
 ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
 COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
 COVER_IMAGE_HELP_TEXT = _("Max 2 MB. JPG, PNG, WebP, or AVIF.")
@@ -24,11 +27,15 @@ def validate_uploaded_image_format(image: object) -> None:
     # Django's ImageField populates `image.image` (a PIL Image with `.format`)
     # during clean. We trust the detected format over user-supplied
     # content_type or filename extension.
-    detected = getattr(getattr(image, "image", None), "format", None)
-    if detected not in ALLOWED_IMAGE_FORMATS:
+    pil_image = getattr(image, "image", None)
+    if getattr(pil_image, "format", None) not in ALLOWED_IMAGE_FORMATS:
         raise ValidationError(
             _gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
         )
+    width = getattr(pil_image, "width", 0)
+    height = getattr(pil_image, "height", 0)
+    if width * height > MAX_IMAGE_PIXELS:
+        raise ValidationError(_gettext("Image dimensions are too large."))
 
 
 def _datetime_local_widget() -> forms.DateTimeInput:

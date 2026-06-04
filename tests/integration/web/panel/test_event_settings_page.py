@@ -1,3 +1,4 @@
+import io
 from http import HTTPStatus
 from unittest.mock import ANY, patch
 
@@ -5,6 +6,7 @@ import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from PIL import Image
 
 from ludamus.pacts import EventDTO, NotFoundError
 from tests.integration.conftest import EventFactory
@@ -237,6 +239,8 @@ class TestEventSettingsPageViewPost:
             "cover.png", PNG_BYTES, content_type="image/png"
         )
         event.save()
+        storage = event.cover_image.storage
+        old_name = event.cover_image.name
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -249,6 +253,34 @@ class TestEventSettingsPageViewPost:
             messages=[(messages.SUCCESS, "Event settings saved successfully.")],
             url=f"/panel/event/{event.slug}/settings/",
         )
+        event.refresh_from_db()
+        assert not event.cover_image
+        assert not storage.exists(old_name)
+
+    def test_rejects_oversize_cover_dimensions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        # Tiny file (solid colour) that decodes to > 24 MP — a decompression bomb.
+        buffer = io.BytesIO()
+        Image.new("RGB", (5000, 5000)).save(buffer, format="PNG")
+        image = SimpleUploadedFile(
+            "huge.png", buffer.getvalue(), content_type="image/png"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event), data={**self._post_data(event), "cover_image": image}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="panel/settings.html",
+        )
+        assert response.context["form"].errors["cover_image"] == [
+            "Image dimensions are too large."
+        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -266,8 +298,12 @@ class TestEventSettingsPageViewPost:
             self.get_url(event), data={**self._post_data(event), "cover_image": image}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "panel/settings.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="panel/settings.html",
+        )
         assert response.context["form"].errors["cover_image"] == [
             "Image too large. Maximum size is 2 MB."
         ]
@@ -284,8 +320,12 @@ class TestEventSettingsPageViewPost:
             self.get_url(event), data={**self._post_data(event), "cover_image": image}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "panel/settings.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="panel/settings.html",
+        )
         assert response.context["form"].errors["cover_image"] == [
             "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
         ]
@@ -300,8 +340,12 @@ class TestEventSettingsPageViewPost:
 
         response = authenticated_client.post(self.get_url(event), data={})
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "panel/settings.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="panel/settings.html",
+        )
         form_errors = response.context["form"].errors
         assert form_errors["name"] == ["Event name is required."]
         assert form_errors["slug"] == ["Event slug is required."]
@@ -321,8 +365,12 @@ class TestEventSettingsPageViewPost:
             self.get_url(event), data=self._post_data(event, name=long_name)
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "panel/settings.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="panel/settings.html",
+        )
         assert response.context["form"].errors["name"] == [
             "Event name is too long (max 255 characters)."
         ]

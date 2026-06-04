@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -1440,8 +1440,12 @@ class TestProposeSessionPageView:
             self._get_submit_url(event.slug), {"cover_image": image}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/review.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/review.html",
+        )
         assert "cover_image" in response.context["image_form"].errors
         assert not Session.objects.filter(title="Test Session").exists()
 
@@ -1456,8 +1460,12 @@ class TestProposeSessionPageView:
             self._get_submit_url(event.slug), {"cover_image": image}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/review.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/review.html",
+        )
         assert "cover_image" in response.context["image_form"].errors
         assert not Session.objects.filter(title="Test Session").exists()
 
