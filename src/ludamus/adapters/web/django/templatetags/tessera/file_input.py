@@ -44,6 +44,7 @@ def render_file_input(field: BoundField) -> str:
         {
             "name": field.html_name,
             "id": field.id_for_label,
+            "label": field.label,
             "required": field.field.required,
             "accept": accept,
             "has_errors": bool(field.errors),

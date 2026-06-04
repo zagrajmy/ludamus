@@ -7,6 +7,7 @@
            id="{{ id }}"
            name="{{ name }}"
            data-dropzone-input
+           aria-label="{{ label }}"
            aria-invalid="{{ has_errors|yesno:'true,false' }}"
            {% if accept %}accept="{{ accept }}"{% endif %}
            {% if required and not initial_url %}required{% endif %}
@@ -46,7 +47,7 @@
             <button type="button"
                     data-dropzone-clear
                     class="pointer-events-auto absolute top-2 right-2 p-1.5 rounded-md text-white hover:bg-white/15 transition-colors shrink-0 [&_svg]:pointer-events-none"
-                    aria-label="{% translate "Remove file" %}">{% icon "x-mark" class="w-4 h-4" %}</button>
+                    aria-label="{% translate "Remove image" %}">{% icon "x-mark" class="w-4 h-4" %}</button>
         </div>
         <div class="pointer-events-none hidden group-data-[state=file]:flex group-data-[state=file]:items-center group-data-[state=file]:gap-3 group-data-[state=file]:w-full group-data-[state=file]:max-w-md group-data-[state=file]:relative">
             <span class="inline-flex items-center justify-center w-16 h-16 rounded-lg bg-bg-secondary border border-border text-foreground-secondary shrink-0">
