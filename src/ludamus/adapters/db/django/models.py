@@ -134,6 +134,8 @@ class Sphere(models.Model):
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
+    # Branding fallback — used on printables when an event has no logo of its own
+    logo = models.ImageField(upload_to="spheres/", blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",

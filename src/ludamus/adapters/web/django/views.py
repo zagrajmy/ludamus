@@ -1255,11 +1255,16 @@ class PublicEventPrintView(View):
             reverse("web:chronology:event", kwargs={"slug": slug})
         )
 
+        # The event's own logo wins; otherwise fall back to the sphere's logo.
+        sphere = request.services.sphere_panel.read(request.context.current_sphere_id)
+        logo = event.logo or sphere.logo
+
         return TemplateResponse(
             request,
             self.template_name,
             {
                 "event": event,
+                "logo": logo,
                 "timetable": timetable,
                 "area_schedule": area_schedule,
                 "qr_svg": qr_svg(event_url, xmldecl=False),

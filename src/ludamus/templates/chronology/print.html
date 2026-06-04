@@ -1,301 +1,295 @@
-{% load i18n %}
-{% get_current_language as LANGUAGE_CODE %}
-{% translate "Venue or area" as aria_scope %}
-<!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="robots" content="noindex">
-        <meta name="description"
-              content="{{ event.description|default:event.name }}">
-        <title>{{ event.name }} — {% translate "Print" %}</title>
-        <style>
-            @page {
-                size: A4;
-                margin: 14mm;
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {{ event.name }} — {% translate "Print" %}
+{% endblock title %}
+{% block site_navbar %}
+    <div class="no-print">{% include "components/navbar.html" %}</div>
+{% endblock site_navbar %}
+{% block site_footer %}
+    <div class="no-print">{{ block.super }}</div>
+{% endblock site_footer %}
+{% block extra_head %}
+    <style>
+        @page {
+            size: A4;
+            margin: 14mm;
+        }
+
+        /* Each printed page is previewed on screen as its own A4 "sheet" so the
+           page-breaks are visible before printing. On paper the chrome is hidden
+           and every sheet starts a fresh page. Sheets are always white paper,
+           independent of the site theme. */
+        .print-sheets {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8mm;
+        }
+
+        .sheet {
+            box-sizing: border-box;
+            width: 210mm;
+            max-width: 100%;
+            min-height: 297mm;
+            padding: 14mm;
+            background: #fff;
+            color: #111827;
+            box-shadow: 0 1px 10px rgba(0, 0, 0, 0.18);
+            border-radius: 2px;
+            font-family: sans-serif;
+            font-size: 10pt;
+        }
+
+        .sheet a {
+            color: inherit;
+        }
+
+        .doc-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8mm;
+            border-bottom: 1.5pt solid #111827;
+            padding-bottom: 4mm;
+            margin-bottom: 6mm;
+        }
+
+        .doc-header .event-logo {
+            width: auto;
+            height: auto;
+            max-height: 22mm;
+            max-width: 60mm;
+            object-fit: contain;
+        }
+
+        .doc-header .event-name {
+            font-size: 18pt;
+            font-weight: 700;
+        }
+
+        .doc-header .event-dates {
+            font-size: 9pt;
+            color: #6b7280;
+            margin-top: 1mm;
+        }
+
+        .doc-header .scope-name {
+            font-size: 11pt;
+            font-weight: 600;
+            margin-top: 1mm;
+        }
+
+        .qr {
+            text-align: center;
+            flex: none;
+        }
+
+        .qr svg {
+            width: 26mm;
+            height: 26mm;
+        }
+
+        .qr .qr-label {
+            font-size: 8pt;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            margin-bottom: 1mm;
+        }
+
+        .sheet h2.section-title {
+            font-size: 14pt;
+            margin: 0 0 3mm 0;
+        }
+
+        .sheet .empty {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        table.timetable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+            table-layout: fixed;
+        }
+
+        table.timetable th {
+            border: 0.5pt solid #111827;
+            border-bottom-width: 1.5pt;
+            padding: 1.5mm;
+            text-align: left;
+        }
+
+        table.timetable td {
+            border: 0.5pt solid #d1d5db;
+            padding: 1.5mm;
+            vertical-align: top;
+        }
+
+        table.timetable td.time {
+            width: 22mm;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .area-space h3 {
+            font-size: 13pt;
+            margin: 0 0 2mm 0;
+            border-bottom: 0.5pt solid #d1d5db;
+        }
+
+        .area-entry {
+            break-inside: avoid;
+            margin-bottom: 4mm;
+        }
+
+        .area-entry .when {
+            font-variant-numeric: tabular-nums;
+            color: #6b7280;
+            font-size: 9pt;
+        }
+
+        .area-entry .title {
+            font-weight: 700;
+            font-size: 11pt;
+        }
+
+        .area-entry .presenter {
+            color: #6b7280;
+        }
+
+        .area-entry .description {
+            margin-top: 1mm;
+            white-space: pre-wrap;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
             }
 
-            * {
-                box-sizing: border-box;
-            }
-
-            body {
-                font-family: sans-serif;
-                color: #111827;
-                font-size: 10pt;
-                margin: 0;
-            }
-
-            a {
-                color: inherit;
-            }
-
-            .doc-header {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                gap: 8mm;
-                border-bottom: 1.5pt solid #111827;
-                padding-bottom: 4mm;
-                margin-bottom: 6mm;
-            }
-
-            .doc-header .event-logo {
-                width: auto;
-                height: auto;
-                max-height: 22mm;
-                max-width: 60mm;
-                object-fit: contain;
-            }
-
-            .doc-header .event-name {
-                font-size: 18pt;
-                font-weight: 700;
-            }
-
-            .doc-header .event-dates {
-                font-size: 9pt;
-                color: #6b7280;
-                margin-top: 1mm;
-            }
-
-            .doc-header .scope-name {
-                font-size: 11pt;
-                font-weight: 600;
-                margin-top: 1mm;
-            }
-
-            .qr {
-                text-align: center;
-                flex: none;
-            }
-
-            .qr svg {
-                width: 26mm;
-                height: 26mm;
-            }
-
-            .qr .qr-label {
-                font-size: 8pt;
-                font-weight: 600;
-                letter-spacing: 0.04em;
-                margin-bottom: 1mm;
-            }
-
-            h2.section-title {
-                font-size: 14pt;
-                margin: 0 0 3mm 0;
-            }
-
-            .empty {
-                color: #6b7280;
-                font-style: italic;
-            }
-
-            table.timetable {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 8pt;
-                table-layout: fixed;
-            }
-
-            table.timetable th {
-                border: 0.5pt solid #111827;
-                border-bottom-width: 1.5pt;
-                padding: 1.5mm;
-                text-align: left;
-            }
-
-            table.timetable td {
-                border: 0.5pt solid #d1d5db;
-                padding: 1.5mm;
-                vertical-align: top;
-            }
-
-            table.timetable td.time {
-                width: 22mm;
-                white-space: nowrap;
-                font-variant-numeric: tabular-nums;
-            }
-
-            .area-space {
-                break-inside: avoid;
-                margin-bottom: 6mm;
-            }
-
-            .area-space h3 {
-                font-size: 13pt;
-                margin: 0 0 2mm 0;
-                border-bottom: 0.5pt solid #d1d5db;
-            }
-
-            .area-entry {
-                break-inside: avoid;
-                margin-bottom: 4mm;
-            }
-
-            .area-entry .when {
-                font-variant-numeric: tabular-nums;
-                color: #6b7280;
-                font-size: 9pt;
-            }
-
-            .area-entry .title {
-                font-weight: 700;
-                font-size: 11pt;
-            }
-
-            .area-entry .presenter {
-                color: #6b7280;
-            }
-
-            .area-entry .description {
-                margin-top: 1mm;
-                white-space: pre-wrap;
-            }
-
-            .toolbar {
-                background: #111827;
-                color: #fff;
-                padding: 12px 16px;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 12px;
-                align-items: flex-end;
-            }
-
-            .toolbar label {
+            .print-sheets {
                 display: block;
-                font: 600 11px sans-serif;
-                margin-bottom: 2px;
-                color: #d1d5db;
             }
 
-            .toolbar select,
-            .toolbar input {
-                font: 14px sans-serif;
-                padding: 6px 8px;
-                border: 1px solid #374151;
-                border-radius: 6px;
+            .sheet {
+                width: auto;
+                max-width: none;
+                min-height: 0;
+                padding: 0;
+                margin: 0;
+                box-shadow: none;
+                border-radius: 0;
+                break-after: page;
             }
 
-            .toolbar .print-btn {
-                font: 600 14px sans-serif;
-                padding: 8px 16px;
-                border: 1px solid #fff;
-                border-radius: 8px;
-                background: #fff;
-                color: #111827;
-                cursor: pointer;
+            .sheet:last-child {
+                break-after: auto;
             }
-
-            @media screen {
-                body {
-                    background: #e5e7eb;
-                }
-
-                .sheet {
-                    max-width: 210mm;
-                    margin: 16px auto;
-                    padding: 14mm;
-                    background: #fff;
-                    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
-                }
-            }
-
-            @media print {
-                .no-print {
-                    display: none !important;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="toolbar no-print">
-            <form method="get"
-                  style="display: flex;
-                         flex-wrap: wrap;
-                         gap: 12px;
-                         align-items: flex-end;
-                         margin: 0">
-                {% if venues %}
-                    <div>
-                        <label for="scope-select">{% translate "Venue / area" %}</label>
-                        <select id="scope-select"
-                                aria-label="{{ aria_scope }}"
-                                onchange="if(this.value!==null){window.location.search=this.value;}">
-                            <option value="?start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                    {% if not selected_venue %}selected{% endif %}>
-                                {% translate "Whole event" %}
-                            </option>
-                            {% for v in venues %}
-                                <optgroup label="{{ v.name }}">
-                                    <option value="?venue={{ v.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                            {% if selected_venue == v.slug and not selected_area %}selected{% endif %}>
-                                        {{ v.name }}
-                                    </option>
-                                    {% for a in v.areas %}
-                                        <option value="?venue={{ v.slug }}&area={{ a.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                {% if selected_venue == v.slug and selected_area == a.slug %}selected{% endif %}>
-                                            — {{ a.name }}
+        }
+    </style>
+{% endblock extra_head %}
+{% block main_region %}
+    {% translate "Venue or area" as aria_scope %}
+    <main class="grow w-full px-4 py-6">
+        <div class="no-print card max-w-3xl mx-auto mb-6">
+            <div class="card-body">
+                <form method="get" class="flex flex-wrap items-end gap-4">
+                    {% if venues %}
+                        <div>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                   for="scope-select">{% translate "Venue / area" %}</label>
+                            <select id="scope-select"
+                                    aria-label="{{ aria_scope }}"
+                                    onchange="if(this.value!==null){window.location.search=this.value;}"
+                                    class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground">
+                                <option value="?start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                        {% if not selected_venue %}selected{% endif %}>
+                                    {% translate "Whole event" %}
+                                </option>
+                                {% for v in venues %}
+                                    <optgroup label="{{ v.name }}">
+                                        <option value="?venue={{ v.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                                {% if selected_venue == v.slug and not selected_area %}selected{% endif %}>
+                                            {{ v.name }}
                                         </option>
-                                    {% endfor %}
-                                </optgroup>
-                            {% endfor %}
-                        </select>
+                                        {% for a in v.areas %}
+                                            <option value="?venue={{ v.slug }}&area={{ a.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                                    {% if selected_venue == v.slug and selected_area == a.slug %}selected{% endif %}>
+                                                — {{ a.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
+                    <input type="hidden" name="venue" value="{{ selected_venue }}">
+                    <input type="hidden" name="area" value="{{ selected_area }}">
+                    <div>
+                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                               for="id_start">{% translate "Area pages — start" %}</label>
+                        <input type="datetime-local"
+                               id="id_start"
+                               name="start"
+                               value="{{ range_start_value }}"
+                               class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground">
                     </div>
-                {% endif %}
-                <input type="hidden" name="venue" value="{{ selected_venue }}">
-                <input type="hidden" name="area" value="{{ selected_area }}">
-                <div>
-                    <label for="id_start">{% translate "Area pages — start" %}</label>
-                    <input type="datetime-local"
-                           id="id_start"
-                           name="start"
-                           value="{{ range_start_value }}">
-                </div>
-                <div>
-                    <label for="id_hours">{% translate "Hours" %}</label>
-                    <input type="number"
-                           id="id_hours"
-                           name="hours"
-                           min="1"
-                           max="72"
-                           value="{{ range_hours }}">
-                </div>
-                <button type="submit"
-                        class="print-btn"
-                        style="background:#374151;
-                               color:#fff;
-                               border-color:#374151">{% translate "Apply" %}</button>
-                <button type="button" class="print-btn" onclick="window.print()">{% translate "Print" %}</button>
-            </form>
+                    <div>
+                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                               for="id_hours">{% translate "Hours" %}</label>
+                        <input type="number"
+                               id="id_hours"
+                               name="hours"
+                               min="1"
+                               max="72"
+                               value="{{ range_hours }}"
+                               class="w-24 px-3 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground">
+                    </div>
+                    <button type="submit" class="btn btn-secondary">
+                        {% icon "arrow-path" class="w-4 h-4" %}
+                        {% translate "Apply" %}
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="window.print()">
+                        {% icon "printer" class="w-4 h-4" %}
+                        {% translate "Print" %}
+                    </button>
+                </form>
+            </div>
         </div>
-        <div class="sheet">
-            <header class="doc-header">
-                <div>
-                    {% if event.logo %}
-                        <img class="event-logo"
-                             src="{{ MEDIA_URL }}{{ event.logo }}"
-                             alt="{{ event.name }}"
-                             width="240"
-                             height="80">
-                    {% endif %}
-                    <div class="event-name">{{ event.name }}</div>
-                    <div class="event-dates">{{ event.start_time|date:"j E Y" }}–{{ event.end_time|date:"j E Y" }}</div>
-                    {% if timetable.scope_name %}<div class="scope-name">{{ timetable.scope_name }}</div>{% endif %}
-                </div>
-                <div class="qr">
-                    {% if not timetable.is_complete %}
-                        <div class="qr-label">{% translate "Full schedule" %}</div>
-                    {% endif %}
-                    {{ qr_svg|safe }}
-                </div>
-            </header>
-            <section>
+        <div class="print-sheets">
+            {# Cover sheet: branding, dates, QR. #}
+            <section class="sheet">
+                <header class="doc-header">
+                    <div>
+                        {% if logo %}
+                            <img class="event-logo"
+                                 src="{{ MEDIA_URL }}{{ logo }}"
+                                 alt="{{ event.name }}"
+                                 width="240"
+                                 height="80">
+                        {% endif %}
+                        <div class="event-name">{{ event.name }}</div>
+                        <div class="event-dates">{{ event.start_time|date:"j E Y" }}–{{ event.end_time|date:"j E Y" }}</div>
+                        {% if timetable.scope_name %}<div class="scope-name">{{ timetable.scope_name }}</div>{% endif %}
+                    </div>
+                    <div class="qr">
+                        {% if not timetable.is_complete %}
+                            <div class="qr-label">{% translate "Full schedule" %}</div>
+                        {% endif %}
+                        {{ qr_svg|safe }}
+                    </div>
+                </header>
                 <h2 class="section-title">{% translate "Timetable" %}</h2>
-                {% for day in timetable.days %}
-                    <h3 style="font-size: 12pt; margin: 4mm 0 2mm 0;">{{ day.day|date:"l, j E Y" }}</h3>
+                {% if not timetable.days %}
+                    <p class="empty">{% translate "No confirmed sessions scheduled yet." %}</p>
+                {% endif %}
+            </section>
+            {# One sheet per day of the timetable grid. #}
+            {% for day in timetable.days %}
+                <section class="sheet">
+                    <h3 style="font-size: 12pt; margin: 0 0 2mm 0;">{{ day.day|date:"l, j E Y" }}</h3>
                     <table class="timetable">
                         <thead>
                             <tr>
@@ -323,16 +317,15 @@
                             {% endfor %}
                         </tbody>
                     </table>
-                {% empty %}
-                    <p class="empty">{% translate "No confirmed sessions scheduled yet." %}</p>
-                {% endfor %}
-            </section>
-            <section style="break-before: page;">
-                <h2 class="section-title">{% translate "Program details" %}</h2>
-                <p class="event-dates" style="margin-bottom: 4mm;">
-                    {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
-                </p>
-                {% for space in area_schedule.spaces %}
+                </section>
+            {% endfor %}
+            {# One sheet per room: program details with full descriptions. #}
+            {% for space in area_schedule.spaces %}
+                <section class="sheet">
+                    <h2 class="section-title">{% translate "Program details" %}</h2>
+                    <p class="event-dates" style="margin-bottom: 4mm;">
+                        {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                    </p>
                     <div class="area-space">
                         <h3>
                             {{ space.space_name }}
@@ -351,10 +344,8 @@
                             <p class="empty">{% translate "Nothing scheduled in this time range." %}</p>
                         {% endfor %}
                     </div>
-                {% empty %}
-                    <p class="empty">{% translate "No rooms to show." %}</p>
-                {% endfor %}
-            </section>
+                </section>
+            {% endfor %}
         </div>
-    </body>
-</html>
+    </main>
+{% endblock main_region %}

@@ -1,11 +1,30 @@
 """Django forms for panel views."""
 
-from typing import ClassVar
+from typing import ClassVar, Protocol
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+_MAX_LOGO_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+class _Sized(Protocol):
+    size: int
+
+
+def _logo_field() -> forms.ImageField:
+    return forms.ImageField(
+        required=False,
+        label=_("Logo"),
+        help_text=_("Shown on the printable schedule. Max 5 MB. JPG, PNG, or WebP."),
+    )
+
+
+def _validate_logo_size(image: _Sized | None) -> _Sized | None:
+    if image is not None and image.size > _MAX_LOGO_SIZE:
+        raise forms.ValidationError(_("Image too large. Maximum size is 5 MB."))
+    return image
 
 
 def _datetime_local_widget() -> forms.DateTimeInput:
@@ -38,13 +57,7 @@ class EventSettingsForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
-    MAX_LOGO_SIZE = 5 * 1024 * 1024  # 5 MB
-
-    logo = forms.ImageField(
-        required=False,
-        label=_("Event logo"),
-        help_text=_("Shown on the printable schedule. Max 5 MB. JPG, PNG, or WebP."),
-    )
+    logo = _logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -71,10 +84,7 @@ class EventSettingsForm(forms.Form):
     )
 
     def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        if logo and logo.size > self.MAX_LOGO_SIZE:
-            raise forms.ValidationError(_("Image too large. Maximum size is 5 MB."))
-        return logo
+        return _validate_logo_size(self.cleaned_data.get("logo"))
 
 
 class SphereSettingsForm(forms.Form):
@@ -85,6 +95,10 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    logo = _logo_field()
+
+    def clean_logo(self) -> object:
+        return _validate_logo_size(self.cleaned_data.get("logo"))
 
 
 class ProposalSettingsForm(forms.Form):

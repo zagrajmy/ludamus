@@ -417,13 +417,22 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    logo: str = ""
     name: str
     pk: int
     site_id: int
 
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
+
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
+    logo: str
 
 
 @dataclass

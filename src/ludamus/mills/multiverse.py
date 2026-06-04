@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
+        SphereUpdateData,
     )
     from ludamus.pacts.multiverse import (
         ConnectionDTO,
@@ -107,9 +108,17 @@ class SpherePanelService:
         return self._spheres.read(sphere_id)
 
     def update_settings(
-        self, sphere_id: int, *, allow_facilitator_session_edit: bool
+        self,
+        sphere_id: int,
+        *,
+        allow_facilitator_session_edit: bool,
+        logo: str | None = None,
     ) -> None:
-        self._spheres.update(
-            sphere_id,
-            {"allow_facilitator_session_edit": allow_facilitator_session_edit},
-        )
+        data: SphereUpdateData = {
+            "allow_facilitator_session_edit": allow_facilitator_session_edit
+        }
+        # Only overwrite the logo when a new file was uploaded, so saving the
+        # form without re-picking a file keeps the existing logo.
+        if logo is not None:
+            data["logo"] = logo
+        self._spheres.update(sphere_id, data)

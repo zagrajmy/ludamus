@@ -24,7 +24,9 @@ def _confirmed_item(event, session, space):
     )
 
 
-def _assert_print_ok(response, *, selected_venue="", selected_area="", range_hours=6):
+def _assert_print_ok(
+    response, *, logo="", selected_venue="", selected_area="", range_hours=6
+):
     # qr_svg and range_start_value are variable strings, so assert their shape
     # rather than ANY (ANY is reserved for complex view objects), then feed the
     # checked values back in so assert_response can hold the full context to
@@ -40,6 +42,7 @@ def _assert_print_ok(response, *, selected_venue="", selected_area="", range_hou
         template_name="chronology/print.html",
         context_data={
             "event": ANY,
+            "logo": logo,
             "timetable": ANY,
             "area_schedule": ANY,
             "qr_svg": ctx["qr_svg"],
@@ -166,12 +169,24 @@ class TestPublicEventPrintView:
 
         response = client.get(f"{self._url(event.slug)}?venue={venue.slug}")
 
-        _assert_print_ok(response, selected_venue=venue.slug)
+        _assert_print_ok(response, logo="events/logo.png", selected_venue=venue.slug)
         content = response.content.decode()
         assert "events/logo.png" in content  # logo header
         assert venue.name in content  # scope name
         assert "Full schedule" in content  # a scoped print is never the whole thing
         assert "30" in content  # space capacity
+
+    def test_falls_back_to_sphere_logo_when_event_has_none(
+        self, client, event, session, space, sphere
+    ):
+        sphere.logo = "spheres/brand.png"
+        sphere.save()
+        _confirmed_item(event, session, space)
+
+        response = client.get(self._url(event.slug))
+
+        _assert_print_ok(response, logo="spheres/brand.png")
+        assert "spheres/brand.png" in response.content.decode()
 
     def test_scoped_to_area_resolves_area_scope(
         self, client, event, session, venue, area, space
