@@ -1,14 +1,69 @@
-name: Deploy on staging
+name: Deploy to staging
 
 on:
+  pull_request_target:
+    types: [ labeled, synchronize ]
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to deploy
+        required: false
+      sha:
+        description: Commit SHA to deploy
+        required: false
 
 permissions:
   contents: read
 
 jobs:
+  dispatch-from-pr:
+    name: Dispatch staging deploy from PR
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/github-staging.mts`)
+            );
+            await staging.handlePullRequest({ github, context, core });
+
+  resolve-staging:
+    name: Resolve staging target
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      should_deploy: ${{ steps.resolve.outputs.should_deploy }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/github-script@v8
+        id: resolve
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/github-staging.mts`)
+            );
+            await staging.resolveDeploy({ github, context, core });
+
   build:
     name: Rebuild and upstart dockers
+    needs: resolve-staging
+    if: github.event_name == 'workflow_dispatch' && needs.resolve-staging.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: staging
@@ -16,6 +71,8 @@ jobs:
     steps:
       - name: Checkout (provides .env.schema for varlock validation)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-staging.outputs.sha }}
 
       - name: Materialize .env.local from environment variables and secrets
         env:
@@ -92,7 +149,7 @@ jobs:
       - name: Deploy
         uses: appleboy/ssh-action@v1
         env:
-          GITHUB_COMMIT_SHA: ${{ github.sha }}
+          GITHUB_COMMIT_SHA: ${{ needs.resolve-staging.outputs.sha }}
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
