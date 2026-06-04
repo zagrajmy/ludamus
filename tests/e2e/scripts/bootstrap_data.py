@@ -35,6 +35,7 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Encounter,
     EnrollmentConfig,
     Event,
+    Notification,
     ProposalCategory,
     Session,
     Space,
@@ -44,6 +45,7 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Venue,
 )
 from ludamus.pacts import SessionStatus  # noqa: E402
+from ludamus.pacts.legacy import NotificationKind  # noqa: E402
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -215,6 +217,15 @@ def _create_test_user() -> User:
     domain = parsed.hostname or "localhost"
     state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state.json"
     _write_storage_state(user, domain=domain, path=state_path)
+
+    # An unread notification so the navbar dropdown has content to show in e2e.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="You're in: a spot opened in Dragons & Dungeons",
+        body="A confirmed spot opened up and you have been enrolled automatically.",
+        url="/events/",
+    )
 
     return user
 

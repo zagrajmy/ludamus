@@ -1,17 +1,21 @@
 {% load i18n %}
 {% load tessera %}
-<div class="relative group">
+<div class="relative" data-menu>
     <button type="button"
-            class="relative w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-all duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50 text-foreground-secondary"
-            aria-haspopup="true"
+            data-menu-button
+            aria-controls="navbar-notifications-panel"
             aria-expanded="false"
+            class="relative w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-all duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50 text-foreground-secondary"
             aria-label="{% translate "Notifications" %}{% if navbar_notifications.unread_count %} ({{ navbar_notifications.unread_count }} {% translate "unread" %}){% endif %}">
         {% icon "bell" class="w-5 h-5" %}
         {% if navbar_notifications.unread_count %}
             <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-coral-500 text-white text-xs font-semibold flex items-center justify-center">{{ navbar_notifications.unread_count }}</span>
         {% endif %}
     </button>
-    <div class="absolute right-0 top-full pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-150 ease-out z-50">
+    <div id="navbar-notifications-panel"
+         data-menu-panel
+         hidden
+         class="absolute right-0 top-full mt-2 z-50">
         <div class="w-72 rounded-lg shadow-lg border bg-bg-secondary border-border"
              style="box-shadow: var(--theme-shadow-lg)">
             <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border flex items-center justify-between gap-2">
