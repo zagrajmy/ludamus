@@ -17,10 +17,10 @@
             </div>
             <div class="card-body">
                 <p>
-                    {% blocktranslate with deadline=offer.offer_expires_at %}
-                        A spot opened up in this session. Claim it before {{ deadline }}
-                        or it will be offered to the next person on the waiting list.
-                    {% endblocktranslate %}
+                    {% translate "A spot opened up. Claim it before the deadline below or it will be offered to the next person on the waiting list." %}
+                </p>
+                <p>
+                    <strong>{% translate "Claim by:" %}</strong> {{ offer.offer_expires_at }}
                 </p>
                 <form method="post"
                       action="{% url 'web:chronology:offer-claim' token=token %}">

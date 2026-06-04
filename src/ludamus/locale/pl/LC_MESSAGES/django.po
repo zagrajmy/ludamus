@@ -5378,3 +5378,76 @@ msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu
 
 #~ msgid "Organizer"
 #~ msgstr "Organizator"
+
+#: src/ludamus/adapters/web/django/forms.py
+msgid "Decline offer"
+msgstr "Odrzuć ofertę"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "You're in: a spot opened in %(session)s"
+msgstr "Masz miejsce: zwolniło się miejsce w %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "A confirmed spot opened up and you have been enrolled automatically."
+msgstr "Zwolniło się potwierdzone miejsce i zostałeś automatycznie zapisany."
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "A spot opened in %(session)s — claim it by %(deadline)s"
+msgstr "Zwolniło się miejsce w %(session)s — zajmij je do %(deadline)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid ""
+"A spot opened up. Claim it before %(deadline)s or it goes to the next person "
+"on the waiting list."
+msgstr ""
+"Zwolniło się miejsce. Zajmij je przed %(deadline)s, w przeciwnym razie trafi "
+"do następnej osoby na liście oczekujących."
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "Your offer for %(session)s expired"
+msgstr "Twoja oferta dla %(session)s wygasła"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid ""
+"Your offered spot was not claimed in time and has gone to the next person. "
+"You can join the waiting list again if you are still interested."
+msgstr ""
+"Zaproponowane miejsce nie zostało zajęte na czas i trafiło do następnej "
+"osoby. Jeśli nadal jesteś zainteresowany, możesz ponownie zapisać się na "
+"listę oczekujących."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "This offer is no longer available or has expired."
+msgstr "Ta oferta jest już niedostępna lub wygasła."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Spot claimed — you are now confirmed for this session."
+msgstr "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "This offer has expired or was already claimed."
+msgstr "Ta oferta wygasła lub została już zajęta."
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Claim your spot"
+msgstr "Zajmij swoje miejsce"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "A spot opened up for you"
+msgstr "Zwolniło się dla Ciebie miejsce"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid ""
+"A spot opened up. Claim it before the deadline below or it will be offered "
+"to the next person on the waiting list."
+msgstr ""
+"Zwolniło się miejsce. Zajmij je przed poniższym terminem, w przeciwnym razie "
+"zostanie zaproponowane następnej osobie na liście oczekujących."
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Claim by:"
+msgstr "Zajmij do:"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Claim my spot"
+msgstr "Zajmij moje miejsce"
