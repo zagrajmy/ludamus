@@ -143,8 +143,8 @@ class TestEventPageView:
         content = response.content.decode()
         assert f'data-day="{local_start:%Y-%m-%d}"' in content
         assert f'data-hour="{local_start:%H:%M}"' in content
-        assert f'data-day-label="{date_filter(agenda_item.start_time, "l, j F")}"' in (
-            content
+        assert (
+            f'data-day-label="{date_filter(local_start, "l, j F")}"' in content
         )
 
     def test_shows_event_cover_image(self, client, event):
@@ -175,8 +175,6 @@ class TestEventPageView:
         content = response.content.decode()
         absolute_url = event.cover_image_url
         assert absolute_url.startswith("http")
-        # The cover URL is already absolute (CDN), so it is used verbatim — not
-        # the default logo, and not prefixed with the request host.
         assert absolute_url in content
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content

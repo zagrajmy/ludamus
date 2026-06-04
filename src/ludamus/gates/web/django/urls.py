@@ -23,7 +23,7 @@ handler500 = (  # pylint: disable=invalid-name
     "ludamus.adapters.web.django.error_views.custom_500"
 )
 
-_HEALTHZ_INTERVAL = 5  # seconds between actual DB checks (per worker)
+_HEALTHZ_INTERVAL = 5
 _healthz_cache: dict[str, object] = {"time": 0.0, "ok": True}
 
 
@@ -61,11 +61,12 @@ urlpatterns: list[URLResolver | URLPattern] = [
 ]
 
 
-if settings.DEBUG:  # pragma: no cover
+if not settings.IS_PRODUCTION:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if settings.DEBUG:
     urlpatterns += [path("__reload__/", include("django_browser_reload.urls"))]
 
-    # Debug URLs to test error pages
     def _trigger_500(_: HttpRequest) -> HttpResponse:
         raise ValueError
 

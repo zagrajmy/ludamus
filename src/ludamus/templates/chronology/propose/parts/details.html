@@ -1,6 +1,6 @@
 {% load i18n %}
 {% load markdown_tags %}
-{% load tessera %}
+{% load tessera django_vite %}
 <div id="wizard-content">
     {% include "chronology/propose/parts/_proposal_description.html" %}
     {% include "chronology/propose/parts/_stepper.html" %}
@@ -10,7 +10,9 @@
             {% blocktranslate %}Session info — public by default. A 🔒 marks what only organizers see.{% endblocktranslate %}
         </p>
         <form method="post"
+              enctype="multipart/form-data"
               hx-post="{% url 'web:chronology:session-propose-details' event_slug=event.slug %}"
+              hx-encoding="multipart/form-data"
               hx-target="#wizard-content"
               hx-swap="outerHTML show:#wizard-content:top">
             {% csrf_token %}
@@ -30,6 +32,7 @@
                            maxlength="255">
                     {% if form.title.errors %}<p class="text-sm text-danger mt-1">{{ form.title.errors.0 }}</p>{% endif %}
                 </div>
+                {% if image_form %}{% tessera_field image_form.cover_image %}{% endif %}
                 <div>
                     <label for="id_description"
                            class="block text-sm font-medium text-foreground-secondary mb-1">
@@ -236,3 +239,4 @@
         <p class="text-sm text-foreground-muted">{% translate "Session details saved. Next step coming soon." %}</p>
     {% endif %}
 </div>
+{% if image_form %}{% vite_asset 'src/encounter-form.ts' %}{% endif %}

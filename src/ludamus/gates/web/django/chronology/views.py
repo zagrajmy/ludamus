@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -57,11 +61,65 @@ class SessionEditRequest(HttpRequest):
     services: ServicesProtocol
 
 
-# -- Module-level helpers --
-
-
 def _session_key(event_slug: str) -> str:
     return f"propose_{event_slug}"
+
+
+_WIZARD_COVER_KEY = "cover_image_temp"
+
+
+def _delete_wizard_cover(wizard: dict) -> None:
+    if path := wizard.get(_WIZARD_COVER_KEY):
+        default_storage.delete(path)
+    wizard.pop(_WIZARD_COVER_KEY, None)
+
+
+def _stash_wizard_cover(wizard: dict, uploaded_file: object) -> None:
+    _delete_wizard_cover(wizard)
+    name = getattr(uploaded_file, "name", "cover")
+    wizard[_WIZARD_COVER_KEY] = default_storage.save(
+        f"propose-wizard/{uuid4().hex}/{name}", uploaded_file
+    )
+
+
+def _wizard_cover_initial(wizard: dict) -> str | None:
+    if (path := wizard.get(_WIZARD_COVER_KEY)) and default_storage.exists(path):
+        return default_storage.url(path)
+    return None
+
+
+def _pop_wizard_cover(wizard: dict) -> ContentFile | None:
+    path = wizard.get(_WIZARD_COVER_KEY)
+    wizard.pop(_WIZARD_COVER_KEY, None)
+    if not path or not default_storage.exists(path):
+        return None
+    with default_storage.open(path) as stored:
+        data = stored.read()
+    default_storage.delete(path)
+    return ContentFile(data, name=PurePosixPath(path).name)
+
+
+def _wizard_image_form(
+    wizard: dict, *, data: object = None, files: object = None
+) -> SessionCoverImageForm:
+    if data is None and files is None:
+        initial = _wizard_cover_initial(wizard)
+        return SessionCoverImageForm(
+            initial={"cover_image": initial} if initial else None
+        )
+    return SessionCoverImageForm(data, files)
+
+
+def _apply_wizard_cover_from_form(
+    wizard: dict, image_form: SessionCoverImageForm
+) -> None:
+    if not image_form.is_valid():
+        return
+    cover = image_form.cleaned_data.get("cover_image")
+    if cover is False:
+        _delete_wizard_cover(wizard)
+    elif cover:
+        _stash_wizard_cover(wizard, cover)
 
 
 def _field_descriptors(
@@ -177,9 +235,6 @@ def _wizard_steps(
         for key in _ALL_WIZARD_STEP_KEYS
         if (key != "category" or has_category) and (key != "timeslots" or has_timeslots)
     ]
-
-
-# -- Module-level render functions --
 
 
 def _login_nudge_context(request: HttpRequest) -> dict[str, object]:
@@ -336,6 +391,7 @@ def _render_details(
             "event": event,
             "category": category,
             "form": form,
+            "image_form": _wizard_image_form(wizard),
             "durations": category.durations,
             "field_descriptors": _field_descriptors("session", requirements, form),
             "public_tracks": public_tracks,
@@ -353,7 +409,6 @@ def _render_review(
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
-    image_form: SessionCoverImageForm | None = None,
 ) -> HttpResponse:
     wizard = request.session.get(_session_key(event.slug), {})
     session_data = wizard.get("session_data", {})
@@ -420,16 +475,12 @@ def _render_review(
             "event": event,
             "category": category,
             "review": review,
-            "image_form": image_form or SessionCoverImageForm(),
             "current_step": "review",
             "wizard_steps": _wizard_steps(
                 service, category, has_category=_event_has_category_step(service, event)
             ),
         },
     )
-
-
-# -- Mixin --
 
 
 def _service(request: RootRequest) -> ProposeSessionService:
@@ -508,9 +559,6 @@ class ProposeWizardMixin(BaseView):
                 ),
                 error=_("Invalid category."),
             ) from None
-
-
-# -- Views --
 
 
 class ProposeSessionPageView(ProposeWizardMixin, View):
@@ -695,6 +743,8 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             durations=category.durations,
         )
         form = form_class(data=request.POST)
+        wizard = request.session.get(_session_key(event_slug), {})
+        image_form = _wizard_image_form(wizard, data=request.POST, files=request.FILES)
 
         public_tracks = service.get_public_tracks(event.pk)
         selected_track_pks = [
@@ -704,7 +754,14 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         if public_tracks and not selected_track_pks:
             track_error = _("Please select at least one track.")
 
-        if not form.is_valid() or track_error:
+        if image_form.is_valid():
+            _apply_wizard_cover_from_form(wizard, image_form)
+            request.session[_session_key(event_slug)] = wizard
+
+        if not form.is_valid() or track_error or not image_form.is_valid():
+            display_image_form = (
+                _wizard_image_form(wizard) if image_form.is_valid() else image_form
+            )
             return TemplateResponse(
                 request,
                 "chronology/propose/parts/details.html",
@@ -712,6 +769,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                     "event": event,
                     "category": category,
                     "form": form,
+                    "image_form": display_image_form,
                     "durations": category.durations,
                     "field_descriptors": _field_descriptors(
                         "session", requirements, form
@@ -735,7 +793,6 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             if tid in valid_track_ids
         ]
 
-        wizard = request.session.get(_session_key(event_slug), {})
         wizard["session_data"] = {
             key: value for key, value in form.cleaned_data.items() if value
         }
@@ -757,7 +814,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
         event = self._get_event(service, event_slug)
-        category = self._get_wizard_category(request, service, event, event_slug)
+        self._get_wizard_category(request, service, event, event_slug)
         wizard = request.session.get(_session_key(event_slug), {})
         session_data = wizard.get("session_data", {})
 
@@ -780,13 +837,8 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        image_form = SessionCoverImageForm(request.POST, request.FILES)
-        if not image_form.is_valid():
-            return _render_review(request, service, event, category, image_form)
-
-        result = service.submit(
-            event, wizard, cover_image=image_form.cleaned_data.get("cover_image")
-        )
+        cover = _pop_wizard_cover(wizard)
+        result = service.submit(event, wizard, cover_image=cover)
 
         del request.session[_session_key(event_slug)]
 
@@ -885,8 +937,6 @@ class SessionEditView(LoginRequiredMixin, View):
             event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
             return redirect(f"{event_url}?session={session_id}")
         ctx = self._context(event_slug, session_id)
-        # Rebuild from the saved session so the cover dropzone re-hydrates with
-        # the new image rather than the just-submitted (now stale) bound form.
         return self._render(
             event_slug, session_id, ctx, self._initial_form(ctx), saved=True
         )
