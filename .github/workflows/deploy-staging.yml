@@ -13,6 +13,12 @@ on:
 permissions:
   contents: read
 
+# Only one staging deploy at a time; a newer push supersedes an in-flight one
+# (last push to the labeled PR wins).
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
 jobs:
   resolve-staging:
     name: Resolve staging target

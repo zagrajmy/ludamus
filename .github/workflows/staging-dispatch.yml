@@ -2,7 +2,7 @@ name: Dispatch staging deploy
 
 on:
   pull_request_target:
-    types: [ labeled ]
+    types: [ labeled, synchronize, reopened ]
 
 permissions:
   contents: read

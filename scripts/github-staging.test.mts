@@ -124,6 +124,65 @@ test("dispatches the labeled PR without mutating other labels", async () => {
   ]);
 });
 
+test("redeploys a labeled PR on synchronize", async () => {
+  const args = makeArgs({
+    action: "synchronize",
+    labelName: undefined,
+    stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [
+    [
+      "dispatch",
+      {
+        owner: "owner",
+        repo: "repo",
+        workflow_id: "deploy-staging.yml",
+        ref: "main",
+        inputs: {
+          pr_number: "2",
+          sha: "head-sha",
+        },
+      },
+    ],
+    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
+  ]);
+});
+
+test("does not redeploy an unlabeled PR on synchronize", async () => {
+  const args = makeArgs({
+    action: "synchronize",
+    labelName: undefined,
+    currentPr: { ...basePr, labels: [] },
+    pr: { ...basePr, labels: [] },
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [["info", "PR #2 does not have staging"]]);
+});
+
+test("does not redeploy a fork PR on synchronize", async () => {
+  const forkPr = {
+    head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
+    labels: [{ name: "staging" }],
+    number: 3,
+    state: "open",
+  };
+  const args = makeArgs({
+    action: "synchronize",
+    labelName: undefined,
+    currentPr: forkPr,
+    pr: forkPr,
+  });
+
+  await staging.handlePullRequest(args);
+
+  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
+});
+
 test("stale explicit dispatch does not remove another PR staging label", async () => {
   const args = makeArgs({
     currentPr: {
