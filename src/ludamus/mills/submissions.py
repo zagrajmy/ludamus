@@ -323,7 +323,11 @@ class ProposalImportService:
             entry = self._repos.log_entries.read(entry_pk)
         except NotFoundError:
             return False
-        integration = self._event_integrations.get(event_id, entry.integration_id)
+        try:
+            integration = self._event_integrations.get(event_id, entry.integration_id)
+        except NotFoundError:
+            # entry belongs to an integration that's not in this event — refuse.
+            return False
         if integration.pk != entry.integration_id:
             return False
         settings = self._settings(event_id, integration.pk)
@@ -361,7 +365,10 @@ class ProposalImportService:
             entry = self._repos.log_entries.read(entry_pk)
         except NotFoundError:
             return False
-        integration = self._event_integrations.get(event_id, entry.integration_id)
+        try:
+            integration = self._event_integrations.get(event_id, entry.integration_id)
+        except NotFoundError:
+            return False
         if integration.pk != entry.integration_id:
             return False
         if entry.session_id is None:

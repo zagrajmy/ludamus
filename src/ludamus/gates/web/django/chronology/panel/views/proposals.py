@@ -117,9 +117,14 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         )
         import_log_integration = None
         if import_log_entry is not None:
-            import_log_integration = self.request.services.event_integrations.get(
-                current_event.pk, import_log_entry.integration_id
-            )
+            try:
+                import_log_integration = self.request.services.event_integrations.get(
+                    current_event.pk, import_log_entry.integration_id
+                )
+            except NotFoundError:
+                # Defensive: the linked integration doesn't belong to this
+                # event (deleted, or stale link). Hide the back-link cleanly.
+                import_log_entry = None
 
         context["active_nav"] = "proposals"
         context["proposal"] = session

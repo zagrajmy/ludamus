@@ -36,6 +36,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
 )
 from ludamus.pacts.submissions import EntityRef, ImportSettings, TimeSlotSpec
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -1960,6 +1961,35 @@ class TestEventImportLogPageView:
             url=_log_url(event, integration),
             messages=[(messages.ERROR, "Invalid log entry.")],
         )
+
+    def test_post_retry_with_foreign_entry_id_refuses_and_writes_nothing(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # Object-scope auth: an entry belonging to another event must not be
+        # actionable through this event's retry endpoint.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        other_event = EventFactory(sphere=sphere)
+        other_integration = _make_import_integration(
+            other_event, connection_with_secret, display_name="Other Puller"
+        )
+        foreign = ImportLogEntry.objects.create(
+            integration=other_integration,
+            row_index=0,
+            status="skipped",
+            reason="seed",
+            response_json="{}",
+        )
+        before = ImportLogEntry.objects.count()
+
+        response = authenticated_client.post(
+            _log_retry_url(event, integration), data={"entry_id": str(foreign.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert ImportLogEntry.objects.count() == before
 
 
 @pytest.mark.django_db
