@@ -7,6 +7,7 @@ pages in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, tzinfo
 from typing import Protocol
 
@@ -26,6 +27,27 @@ class PrintSpaceOptionDTO(PrintOptionDTO):
 class PrintSessionDTO(BaseModel):
     title: str
     presenter_name: str
+
+
+@dataclass(frozen=True)
+class PrintTimetableQueryDTO:
+    event_pk: int
+    tz: tzinfo
+    area_pks: frozenset[int] | None = None
+    space_pks: frozenset[int] | None = None
+    track_pk: int | None = None
+    scope_name: str | None = None
+    confirmed_only: bool = False
+
+
+@dataclass(frozen=True)
+class AreaScheduleQueryDTO:
+    event_pk: int
+    time_range: tuple[datetime, datetime]
+    area_pks: frozenset[int] | None = None
+    space_pks: frozenset[int] | None = None
+    scope_name: str | None = None
+    confirmed_only: bool = False
 
 
 class DoorCardEntryDTO(BaseModel):
@@ -71,6 +93,7 @@ class PrintTimetableDayDTO(BaseModel):
     day: date
     space_names: list[str]
     rows: list[PrintTimetableRowDTO]
+    space_range_name: str | None = None
 
 
 class PrintTimetableDocumentDTO(BaseModel):
@@ -145,25 +168,10 @@ class PrintMaterialsServiceProtocol(Protocol):
         confirmed_only: bool = False,
     ) -> DoorCardsDocumentDTO: ...
     def build_timetable(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        area_pks: frozenset[int] | None = None,
-        space_pks: frozenset[int] | None = None,
-        track_pk: int | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
+        self, query: PrintTimetableQueryDTO
     ) -> PrintTimetableDocumentDTO: ...
     def build_area_schedule(
-        self,
-        event_pk: int,
-        time_range: tuple[datetime, datetime],
-        *,
-        area_pks: frozenset[int] | None = None,
-        space_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
+        self, query: AreaScheduleQueryDTO
     ) -> AreaScheduleDocumentDTO: ...
     def build_session_list(
         self, event_pk: int, *, confirmed_only: bool = False

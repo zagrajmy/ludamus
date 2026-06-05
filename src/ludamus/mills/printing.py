@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts.printing import (
     AreaScheduleDocumentDTO,
+    AreaScheduleQueryDTO,
     AreaScheduleSessionDTO,
     AreaScheduleSpaceDTO,
     DoorCardDayDTO,
@@ -29,6 +30,7 @@ from ludamus.pacts.printing import (
     PrintTimetableCellDTO,
     PrintTimetableDayDTO,
     PrintTimetableDocumentDTO,
+    PrintTimetableQueryDTO,
     PrintTimetableRowDTO,
 )
 
@@ -44,6 +46,9 @@ if TYPE_CHECKING:
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
+
+
+MAX_TIMETABLE_SPACES_PER_PAGE = 4
 
 
 def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
@@ -66,6 +71,19 @@ def _entry_start(entry: DoorCardEntryDTO) -> datetime:
 
 def _space_order(space: SpaceDTO) -> tuple[int, str]:
     return (space.order, space.name)
+
+
+def _space_chunks(spaces: list[SpaceDTO]) -> list[list[SpaceDTO]]:
+    return [
+        spaces[index : index + MAX_TIMETABLE_SPACES_PER_PAGE]
+        for index in range(0, len(spaces), MAX_TIMETABLE_SPACES_PER_PAGE)
+    ]
+
+
+def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
+    if len(spaces) <= 1:
+        return None
+    return f"{spaces[0].name} - {spaces[-1].name}"
 
 
 def _timetable_rows_by_date(
@@ -109,10 +127,7 @@ class PrintMaterialsService:
     def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]:
         return [
             PrintSpaceOptionDTO(
-                pk=space.pk,
-                name=space.name,
-                slug=space.slug,
-                area_id=space.area_id,
+                pk=space.pk, name=space.name, slug=space.slug, area_id=space.area_id
             )
             for space in self._scoped_spaces(event_pk, None, None, None)
         ]
@@ -190,84 +205,81 @@ class PrintMaterialsService:
         )
 
     def build_timetable(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        area_pks: frozenset[int] | None = None,
-        space_pks: frozenset[int] | None = None,
-        track_pk: int | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
+        self, query: PrintTimetableQueryDTO
     ) -> PrintTimetableDocumentDTO:
-        event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, area_pks, space_pks, track_pk)
-        all_items = (
-            self._agenda_items.list_by_track(track_pk)
-            if track_pk is not None
-            else self._agenda_items.list_by_event(event_pk)
+        event = self._events.read(query.event_pk)
+        spaces = self._scoped_spaces(
+            query.event_pk, query.area_pks, query.space_pks, query.track_pk
         )
-        grouped = self._group_by_space(all_items, confirmed_only=confirmed_only)
+        all_items = (
+            self._agenda_items.list_by_track(query.track_pk)
+            if query.track_pk is not None
+            else self._agenda_items.list_by_event(query.event_pk)
+        )
+        grouped = self._group_by_space(all_items, confirmed_only=query.confirmed_only)
         items_by_space = {space.pk: grouped.get(space.pk, []) for space in spaces}
         windows_by_date = slot_windows_by_local_date(
-            self._time_slots.list_by_event(event_pk), tz
+            self._time_slots.list_by_event(query.event_pk), query.tz
         )
-        space_names = [space.name for space in spaces]
-        rows_by_date = _timetable_rows_by_date(windows_by_date, items_by_space, tz)
+        rows_by_date = _timetable_rows_by_date(
+            windows_by_date, items_by_space, query.tz
+        )
 
         days: list[PrintTimetableDayDTO] = []
         for day in sorted(rows_by_date):
-            rows: list[PrintTimetableRowDTO] = []
-            for window_start, window_end in rows_by_date[day]:
-                cells: list[PrintTimetableCellDTO] = []
-                for space in spaces:
-                    sessions = [
-                        _to_session(item)
-                        for item in items_by_space.get(space.pk, [])
-                        if _overlaps(item, window_start, window_end)
-                    ]
-                    cells.append(PrintTimetableCellDTO(sessions=sessions))
-                rows.append(
-                    PrintTimetableRowDTO(
-                        start_time=window_start, end_time=window_end, cells=cells
+            for space_chunk in _space_chunks(spaces):
+                rows: list[PrintTimetableRowDTO] = []
+                for window_start, window_end in rows_by_date[day]:
+                    cells: list[PrintTimetableCellDTO] = []
+                    for space in space_chunk:
+                        sessions = [
+                            _to_session(item)
+                            for item in items_by_space.get(space.pk, [])
+                            if _overlaps(item, window_start, window_end)
+                        ]
+                        cells.append(PrintTimetableCellDTO(sessions=sessions))
+                    rows.append(
+                        PrintTimetableRowDTO(
+                            start_time=window_start, end_time=window_end, cells=cells
+                        )
+                    )
+                days.append(
+                    PrintTimetableDayDTO(
+                        day=day,
+                        space_names=[space.name for space in space_chunk],
+                        rows=rows,
+                        space_range_name=_space_range_name(space_chunk),
                     )
                 )
-            days.append(
-                PrintTimetableDayDTO(day=day, space_names=space_names, rows=rows)
-            )
 
         return PrintTimetableDocumentDTO(
             event_name=event.name,
             event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
-            scope_name=scope_name,
+            scope_name=query.scope_name,
             # A scoped print (one venue/area) is a subset by construction, so it
             # is never "the whole program"; completeness only applies unscoped.
             is_complete=(
-                area_pks is None
-                and space_pks is None
-                and track_pk is None
+                query.area_pks is None
+                and query.space_pks is None
+                and query.track_pk is None
                 and _is_complete(all_items)
             ),
             days=days,
         )
 
     def build_area_schedule(
-        self,
-        event_pk: int,
-        time_range: tuple[datetime, datetime],
-        *,
-        area_pks: frozenset[int] | None = None,
-        space_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
+        self, query: AreaScheduleQueryDTO
     ) -> AreaScheduleDocumentDTO:
-        range_start, range_end = time_range
-        event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, area_pks, space_pks, None)
+        range_start, range_end = query.time_range
+        event = self._events.read(query.event_pk)
+        spaces = self._scoped_spaces(
+            query.event_pk, query.area_pks, query.space_pks, None
+        )
         grouped = self._group_by_space(
-            self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
+            self._agenda_items.list_by_event(query.event_pk),
+            confirmed_only=query.confirmed_only,
         )
 
         space_dtos: list[AreaScheduleSpaceDTO] = []
@@ -296,15 +308,12 @@ class PrintMaterialsService:
             event_end=event.end_time,
             range_start=range_start,
             range_end=range_end,
-            scope_name=scope_name,
+            scope_name=query.scope_name,
             spaces=space_dtos,
         )
 
     def build_session_list(
-        self,
-        event_pk: int,
-        *,
-        confirmed_only: bool = False,
+        self, event_pk: int, *, confirmed_only: bool = False
     ) -> PrintSessionListDocumentDTO | None:
         tracks = self._tracks.list_public_by_event(event_pk)
         slots = self._time_slots.list_by_event(event_pk)

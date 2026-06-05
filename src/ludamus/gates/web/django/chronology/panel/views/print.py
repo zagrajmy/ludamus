@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.printing import PrintTimetableQueryDTO
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -68,10 +69,12 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
             "panel/print/timetable.html",
             {
                 "document": service.build_timetable(
-                    current_event.pk,
-                    tz,
-                    area_pks=scope.area_pks,
-                    scope_name=scope.scope_name,
+                    PrintTimetableQueryDTO(
+                        event_pk=current_event.pk,
+                        tz=tz,
+                        area_pks=scope.area_pks,
+                        scope_name=scope.scope_name,
+                    )
                 )
             },
         )

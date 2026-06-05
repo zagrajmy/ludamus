@@ -15,7 +15,12 @@
     </div>
     {% for day in document.days %}
         <section {% if not forloop.last %}style="break-after: page;"{% endif %}>
-            <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">{{ day.day|date:"l, j E Y" }}</h2>
+            <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">
+                {{ day.day|date:"l, j E Y" }}
+                {% if day.space_range_name %}
+                    <span style="display: block; font-size: 9pt; font-weight: 400;">{{ day.space_range_name }}</span>
+                {% endif %}
+            </h2>
             <table style="width: 100%;
                           border-collapse: collapse;
                           font-size: 8pt;

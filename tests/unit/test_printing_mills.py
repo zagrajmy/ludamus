@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO, TimeSlotDTO
+from ludamus.pacts.printing import AreaScheduleQueryDTO, PrintTimetableQueryDTO
 
 
 def _event():
@@ -92,6 +93,16 @@ def _service(*, spaces, items, slots, tracks=None):
     )
 
 
+def _timetable(service, **kwargs):
+    return service.build_timetable(PrintTimetableQueryDTO(event_pk=1, tz=UTC, **kwargs))
+
+
+def _area_schedule(service, window, **kwargs):
+    return service.build_area_schedule(
+        AreaScheduleQueryDTO(event_pk=1, time_range=window, **kwargs)
+    )
+
+
 class TestBuildDoorCards:
     def test_one_card_per_space_in_order(self):
         spaces = [_space(2, "Bravo", 1), _space(1, "Alfa", 0)]
@@ -135,7 +146,7 @@ class TestBuildTimetable:
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=slots)
 
-        document = service.build_timetable(1, UTC)
+        document = _timetable(service)
 
         day = document.days[0]
         assert day.space_names == ["Alfa", "Bravo"]
@@ -152,7 +163,7 @@ class TestBuildTimetable:
         items = [_item(1, 1, 10, 11, title="Gap RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=slots)
 
-        document = service.build_timetable(1, UTC)
+        document = _timetable(service)
 
         rows = document.days[0].rows
         titles = [s.title for row in rows for cell in row.cells for s in cell.sessions]
@@ -168,7 +179,7 @@ class TestBuildTimetable:
         items = [_item(1, 1, 10, 11, title="Solo", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = service.build_timetable(1, UTC)
+        document = _timetable(service)
 
         titles = [
             s.title
@@ -184,14 +195,30 @@ class TestBuildTimetable:
         slots = [_slot_on_day(1, 1, 9, 10), _slot_on_day(2, 2, 9, 10)]
         service = _service(spaces=spaces, items=[], slots=slots)
 
-        document = service.build_timetable(1, UTC)
+        document = _timetable(service)
 
         assert [d.day for d in document.days] == [date(2026, 6, 1), date(2026, 6, 2)]
+
+    def test_large_timetables_are_chunked_by_spaces(self):
+        spaces = [_space(pk, f"Space {pk}", pk) for pk in range(1, 8)]
+        slots = [_slot(1, 9, 10)]
+        items = [_item(1, 7, 9, 10, title="Final table", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=slots)
+
+        document = _timetable(service)
+
+        assert [day.space_names for day in document.days] == [
+            ["Space 1", "Space 2", "Space 3", "Space 4"],
+            ["Space 5", "Space 6", "Space 7"],
+        ]
+        assert document.days[0].space_range_name == "Space 1 - Space 4"
+        assert document.days[1].space_range_name == "Space 5 - Space 7"
+        assert document.days[1].rows[0].cells[2].sessions[0].title == "Final table"
 
     def test_documents_carry_event_description(self):
         service = _service(spaces=[_space(1, "Alfa", 0)], items=[], slots=[])
 
-        assert service.build_timetable(1, UTC).event_description == "Konwent dla nerdów"
+        assert _timetable(service).event_description == "Konwent dla nerdów"
         assert (
             service.build_door_cards(1, UTC).event_description == "Konwent dla nerdów"
         )
@@ -206,7 +233,7 @@ class TestConfirmedOnly:
         ]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = service.build_timetable(1, UTC, confirmed_only=True)
+        document = _timetable(service, confirmed_only=True)
 
         titles = [
             s.title
@@ -240,7 +267,7 @@ class TestTimetableCompleteness:
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        assert service.build_timetable(1, UTC).is_complete is True
+        assert _timetable(service).is_complete is True
 
     def test_incomplete_when_a_scheduled_session_is_unconfirmed(self):
         spaces = [_space(1, "Alfa", 0)]
@@ -252,13 +279,13 @@ class TestTimetableCompleteness:
 
         # Completeness reflects the whole program, even when the public view is
         # confirmed-only — a pending session means the paper is partial.
-        assert service.build_timetable(1, UTC, confirmed_only=True).is_complete is False
+        assert _timetable(service, confirmed_only=True).is_complete is False
 
     def test_incomplete_when_nothing_scheduled(self):
         spaces = [_space(1, "Alfa", 0)]
         service = _service(spaces=spaces, items=[], slots=[])
 
-        assert service.build_timetable(1, UTC).is_complete is False
+        assert _timetable(service).is_complete is False
 
     def test_scoped_timetable_is_never_complete(self):
         # A scoped print (one venue/area) is a subset, so never "the whole thing".
@@ -266,7 +293,7 @@ class TestTimetableCompleteness:
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = service.build_timetable(1, UTC, area_pks=frozenset({10}))
+        document = _timetable(service, area_pks=frozenset({10}))
 
         assert document.is_complete is False
 
@@ -283,7 +310,7 @@ class TestBuildAreaSchedule:
             datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
         )
 
-        document = service.build_area_schedule(1, window)
+        document = _area_schedule(service, window)
 
         space = document.spaces[0]
         assert space.space_name == "Alfa"
@@ -299,7 +326,7 @@ class TestBuildAreaSchedule:
             datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
         )
 
-        document = service.build_area_schedule(1, window)
+        document = _area_schedule(service, window)
 
         assert document.spaces[0].sessions == []
 
@@ -312,7 +339,7 @@ class TestBuildAreaSchedule:
             datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
         )
 
-        document = service.build_area_schedule(1, window, confirmed_only=True)
+        document = _area_schedule(service, window, confirmed_only=True)
 
         assert document.spaces[0].sessions == []
 
@@ -324,7 +351,7 @@ class TestBuildAreaSchedule:
             datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
         )
 
-        document = service.build_area_schedule(1, window)
+        document = _area_schedule(service, window)
 
         assert document.range_start == window[0]
         assert document.range_end == window[1]
@@ -341,8 +368,8 @@ class TestScoping:
         return _service(spaces=spaces, items=[], slots=[_slot(1, 9, 10)])
 
     def test_timetable_filtered_to_area_pks(self):
-        document = self._scoped_service().build_timetable(
-            1, UTC, area_pks=frozenset({10, 20}), scope_name="Budynek A"
+        document = _timetable(
+            self._scoped_service(), area_pks=frozenset({10, 20}), scope_name="Budynek A"
         )
 
         assert document.days[0].space_names == ["Alfa", "Bravo"]
@@ -357,7 +384,7 @@ class TestScoping:
         assert document.scope_name == "Parter"
 
     def test_unscoped_has_no_scope_name(self):
-        document = self._scoped_service().build_timetable(1, UTC)
+        document = _timetable(self._scoped_service())
 
         assert document.scope_name is None
         assert document.days[0].space_names == ["Alfa", "Bravo", "Cesarz"]
@@ -369,7 +396,7 @@ class TestScoping:
         items = [_item(1, 3, 12, 13, title="Out of scope", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[_slot(1, 9, 10)])
 
-        document = service.build_timetable(1, UTC, area_pks=frozenset({10}))
+        document = _timetable(service, area_pks=frozenset({10}))
 
         day = document.days[0]
         assert day.space_names == ["Alfa"]

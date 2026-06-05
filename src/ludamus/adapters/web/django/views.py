@@ -24,9 +24,8 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
-from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
-from django.utils.timezone import get_current_timezone, localtime, make_aware
+from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
 from django.views.generic.detail import DetailView, SingleObjectTemplateResponseMixin
@@ -47,6 +46,7 @@ from ludamus.adapters.db.django.models import (
     can_enroll_users,
 )
 from ludamus.adapters.oauth import oauth
+from ludamus.adapters.web.django.print_views import PublicEventPrintView
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
@@ -64,7 +64,6 @@ from ludamus.mills import (
     AnonymousEnrollmentService,
     get_user_enrollment_config,
 )
-from ludamus.mills.qr import qr_svg
 from ludamus.pacts import (
     AgendaItemDTO,
     AreaDTO,
@@ -99,8 +98,6 @@ from .forms import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-    from ludamus.pacts.printing import PrintOptionDTO, PrintSpaceOptionDTO
 
 logger = logging.getLogger(__name__)
 
@@ -1194,205 +1191,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self._set_user_participations(sessions_data, event_sessions)
 
         return sessions_data
-
-
-class PublicEventPrintView(View):
-    """Public, print-ready schedule for an event.
-
-    The destination of the ``Ctrl/Cmd+P`` hijack on the event page and the home
-    of the richer printables (logo, QR, timetable, per-area time-range pages).
-    Scoped to published events and confirmed program data only.
-    """
-
-    request: RootRequest
-    template_name = "chronology/print.html"
-    DEFAULT_RANGE_HOURS = 6
-    MAX_RANGE_HOURS = 72
-    MATERIAL_AREA_DESCRIPTIONS = "area-descriptions"
-    MATERIAL_AREA_TIMETABLE = "area-timetable"
-    MATERIAL_SPACE_TIMETABLE = "space-timetable"
-    MATERIAL_VENUE_TIMETABLE = "venue-timetable"
-    MATERIAL_TRACK_TIMETABLE = "track-timetable"
-    MATERIAL_EVENT_TIMETABLE = "event-timetable"
-    MATERIAL_SESSION_LIST = "session-list"
-    MATERIALS = {
-        MATERIAL_AREA_DESCRIPTIONS,
-        MATERIAL_AREA_TIMETABLE,
-        MATERIAL_SPACE_TIMETABLE,
-        MATERIAL_VENUE_TIMETABLE,
-        MATERIAL_TRACK_TIMETABLE,
-        MATERIAL_EVENT_TIMETABLE,
-        MATERIAL_SESSION_LIST,
-    }
-
-    def get(self, request: RootRequest, slug: str) -> HttpResponse:
-        try:
-            event = request.services.events.read_by_slug(
-                slug, request.context.current_sphere_id
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-
-        published = (
-            event.publication_time is not None
-            and event.publication_time <= datetime.now(tz=UTC)
-        )
-        if not published and not _is_manager(request):
-            raise Http404
-
-        try:
-            scope = request.services.venues.resolve_scope(
-                event.pk,
-                request.GET.get("venue") or None,
-                request.GET.get("area") or None,
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-
-        tz = get_current_timezone()
-        range_start, range_hours = self._resolve_range(event, tz)
-        range_end = range_start + timedelta(hours=range_hours)
-
-        service = request.services.print_materials
-        raw_material = request.GET.get("material")
-        if raw_material:
-            material = raw_material
-        elif request.GET.get("area"):
-            material = self.MATERIAL_AREA_TIMETABLE
-        elif request.GET.get("venue"):
-            material = self.MATERIAL_VENUE_TIMETABLE
-        else:
-            material = self.MATERIAL_EVENT_TIMETABLE
-        if material not in self.MATERIALS:
-            material = self.MATERIAL_EVENT_TIMETABLE
-
-        spaces = service.list_spaces(event.pk)
-        selected_space_pk = self._selected_space_pk(spaces)
-        space_pks = (
-            frozenset({selected_space_pk})
-            if material == self.MATERIAL_SPACE_TIMETABLE
-            and selected_space_pk is not None
-            else None
-        )
-        space_scope_name = next(
-            (space.name for space in spaces if space.pk == selected_space_pk), None
-        )
-
-        tracks = service.list_tracks(event.pk)
-        selected_track = self._selected_track(tracks)
-        track_pk = (
-            selected_track.pk
-            if material == self.MATERIAL_TRACK_TIMETABLE
-            and selected_track is not None
-            else None
-        )
-
-        timetable = None
-        area_schedule = None
-        session_list = None
-        if material == self.MATERIAL_AREA_DESCRIPTIONS:
-            area_schedule = service.build_area_schedule(
-                event.pk,
-                (range_start, range_end),
-                area_pks=scope.area_pks,
-                scope_name=scope.scope_name,
-                confirmed_only=True,
-            )
-        elif material == self.MATERIAL_SESSION_LIST:
-            session_list = service.build_session_list(event.pk, confirmed_only=True)
-        else:
-            timetable_area_pks = (
-                scope.area_pks
-                if material
-                in {self.MATERIAL_AREA_TIMETABLE, self.MATERIAL_VENUE_TIMETABLE}
-                else None
-            )
-            timetable_scope_name = (
-                space_scope_name
-                if material == self.MATERIAL_SPACE_TIMETABLE
-                else selected_track.name
-                if material == self.MATERIAL_TRACK_TIMETABLE
-                and selected_track is not None
-                else scope.scope_name
-                if material
-                in {self.MATERIAL_AREA_TIMETABLE, self.MATERIAL_VENUE_TIMETABLE}
-                else None
-            )
-            timetable = service.build_timetable(
-                event.pk,
-                tz,
-                area_pks=timetable_area_pks,
-                space_pks=space_pks,
-                track_pk=track_pk,
-                scope_name=timetable_scope_name,
-                confirmed_only=True,
-            )
-
-        event_url = request.build_absolute_uri(
-            reverse("web:chronology:event", kwargs={"slug": slug})
-        )
-
-        # The event's own logo wins; otherwise fall back to the sphere's logo.
-        sphere = request.services.sphere_panel.read(request.context.current_sphere_id)
-        logo = event.logo or sphere.logo
-
-        return TemplateResponse(
-            request,
-            self.template_name,
-            {
-                "event": event,
-                "logo": logo,
-                "timetable": timetable,
-                "area_schedule": area_schedule,
-                "session_list": session_list,
-                "qr_svg": qr_svg(event_url, xmldecl=False),
-                "venues": request.services.venues.list_with_areas(event.pk),
-                "spaces": spaces,
-                "tracks": tracks,
-                "material": material,
-                "selected_venue": request.GET.get("venue") or "",
-                "selected_area": request.GET.get("area") or "",
-                "selected_space": str(selected_space_pk or ""),
-                "selected_track": selected_track.slug if selected_track else "",
-                "range_start_value": (
-                    localtime(range_start, tz).strftime("%Y-%m-%dT%H:%M")
-                ),
-                "range_hours": range_hours,
-            },
-        )
-
-    def _resolve_range(self, event: EventDTO, tz: tzinfo) -> tuple[datetime, int]:
-        # A fixed-duration window from a chosen start (default: the event start,
-        # for DEFAULT_RANGE_HOURS). Bad input silently falls back to defaults.
-        hours = self.DEFAULT_RANGE_HOURS
-        with suppress(ValueError, TypeError):
-            hours = int(self.request.GET.get("hours", self.DEFAULT_RANGE_HOURS))
-        hours = max(1, min(hours, self.MAX_RANGE_HOURS))
-
-        start = localtime(event.start_time, tz)
-        if raw_start := self.request.GET.get("start"):
-            # parse_datetime raises ValueError on well-formatted but invalid
-            # values (e.g. month 13, minute 99); fall back to the default start.
-            with suppress(ValueError):
-                if (parsed := parse_datetime(raw_start)) is not None:
-                    start = parsed if parsed.tzinfo else make_aware(parsed, tz)
-        return start, hours
-
-    def _selected_space_pk(self, spaces: list["PrintSpaceOptionDTO"]) -> int | None:
-        raw = self.request.GET.get("space") or ""
-        with suppress(ValueError):
-            selected = int(raw)
-            if any(getattr(space, "pk") == selected for space in spaces):
-                return selected
-        return spaces[0].pk if spaces else None
-
-    def _selected_track(
-        self, tracks: list["PrintOptionDTO"]
-    ) -> "PrintOptionDTO | None":
-        slug = self.request.GET.get("track") or ""
-        if slug:
-            return next((track for track in tracks if track.slug == slug), None)
-        return tracks[0] if tracks else None
 
 
 class EnrollmentChoice(StrEnum):

@@ -5,11 +5,13 @@ from unittest.mock import ANY
 from django.urls import reverse
 from django.utils import timezone
 
+from ludamus.adapters.db.django.models import Track
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
+    TimeSlotFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
 
@@ -34,6 +36,7 @@ def _assert_print_ok(
     selected_track=None,
     range_hours=6,
     material="event-timetable",
+    session_list_available=False,
 ):
     ctx = response.context_data
     assert isinstance(ctx["qr_svg"], str)
@@ -58,6 +61,7 @@ def _assert_print_ok(
             "venues": ANY,
             "spaces": ANY,
             "tracks": ANY,
+            "session_list_available": session_list_available,
             "material": material,
             "selected_venue": selected_venue,
             "selected_area": selected_area,
@@ -99,9 +103,7 @@ class TestPublicEventPrintView:
     ):
         _confirmed_item(event, session, space)
 
-        response = client.get(
-            self._url(event.slug), {"material": "area-descriptions"}
-        )
+        response = client.get(self._url(event.slug), {"material": "area-descriptions"})
 
         _assert_print_ok(response, material="area-descriptions")
         content = response.content.decode()
@@ -272,6 +274,42 @@ class TestPublicEventPrintView:
         response = client.get(self._url(bare.slug))
 
         _assert_print_ok(response)
+
+    def test_session_list_material_falls_back_when_event_is_not_eligible(
+        self, client, event
+    ):
+        response = client.get(self._url(event.slug), {"material": "session-list"})
+
+        _assert_print_ok(response)
+        assert b'value="session-list"' not in response.content
+
+    def test_session_list_renders_for_single_track_single_timeslot(
+        self, client, event, session, space
+    ):
+        track = Track.objects.create(
+            event=event, name="Focused Track", slug="focused-track", is_public=True
+        )
+        session.tracks.add(track)
+        TimeSlotFactory(
+            event=event,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=2),
+        )
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            session_confirmed=True,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = client.get(self._url(event.slug), {"material": "session-list"})
+
+        _assert_print_ok(response, material="session-list", session_list_available=True)
+        content = response.content.decode()
+        assert '<option value="session-list"' in content
+        assert session.title in content
+        assert session.description in content
 
 
 class TestEventPagePrintHijack:
