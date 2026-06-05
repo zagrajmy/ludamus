@@ -18,6 +18,9 @@ root_domain="${root_domain%/}"
 export ROOT_DOMAIN="$root_domain"
 export ALLOWED_HOSTS=".localhost,127.0.0.1,localhost,.local"
 
+printf '[dev] auth0=%s root=%s app_port=%s\n' \
+  "${AUTH0_DOMAIN:-?}" "$ROOT_DOMAIN" "${PORT:-?}" >&2
+
 python - <<'PY'
 import os, sys
 
