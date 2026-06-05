@@ -1921,6 +1921,37 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
+    def test_ok_session_with_overflowing_field_values_shows_popover(
+        self, agenda_item, client, event
+    ):
+        """Values past the visible limit collapse into a hover popover."""
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Game Type",
+            question="Game Type",
+            slug="game-type",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+            icon="puzzle-piece",
+        )
+        SessionFieldValue.objects.create(
+            session=agenda_item.session,
+            field=session_field,
+            value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
+        )
+        settings, _ = EventSettings.objects.get_or_create(event=event)
+        settings.displayed_session_fields.add(session_field)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        # Four values stay visible; the two extras collapse into the "+N" popover.
+        assert "+2" in content
+        assert "Echo" in content
+        assert "Foxtrot" in content
+
     def test_ok_session_with_non_displayed_field_excluded_from_rows(
         self, active_user, agenda_item, client, event
     ):

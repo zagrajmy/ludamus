@@ -68,7 +68,7 @@ document.body.addEventListener("htmx:afterSwap", (e) => {
         "input",
         () => {
           if (!save) return;
-          save.classList.remove("bg-(--theme-success)", "text-white");
+          save.classList.remove("bg-success", "text-white");
           save.classList.add("btn-primary");
           save.textContent = save.dataset.saveLabel ?? "";
           form.removeAttribute("data-just-saved");

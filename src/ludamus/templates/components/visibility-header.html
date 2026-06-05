@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="flex items-center gap-2 text-xs font-medium mb-2 {% if not is_first %}mt-4{% endif %} {% if is_public %}text-[var(--theme-success-text)]{% else %}text-foreground-muted{% endif %}">
+<div class="flex items-center gap-2 text-xs font-medium mb-2 {% if not is_first %}mt-4{% endif %} {% if is_public %}text-success-text{% else %}text-foreground-muted{% endif %}">
     {% if is_public %}
         {% include "components/icon-eye.html" with size="w-3.5 h-3.5" %}
         {% translate "Public information" %}
