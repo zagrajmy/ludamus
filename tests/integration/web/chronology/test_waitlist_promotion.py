@@ -4,6 +4,7 @@ from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
+from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -12,6 +13,8 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.inits.services import Services
+from ludamus.inits.transaction import DjangoTransaction
+from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -181,3 +184,38 @@ class TestOfferClaimAndExpiry:
             m.subject.startswith("Your offer") or "expired" in m.subject.lower()
             for m in mailoutbox
         )
+
+    def test_expire_offers_command_sweeps_lapsed_offers(self, session, event, waiter):
+        participation = self._offer(session, event, waiter)
+        participation.offer_expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        participation.save()
+        next_user = UserFactory(username="cmd-next", email="cmd-next@example.com")
+        next_participation = SessionParticipation.objects.create(
+            session=session, user=next_user, status=SessionParticipationStatus.WAITING
+        )
+
+        call_command("expire_offers")
+
+        assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
+        next_participation.refresh_from_db()
+        assert next_participation.status == SessionParticipationStatus.OFFERED.value
+
+
+@pytest.mark.usefixtures("enrollment_config", "agenda_item")
+class TestPromotionRepositoryEdges:
+    def test_lock_and_read_state_missing_session_returns_none(self):
+        with DjangoTransaction().atomic():
+            assert (
+                ParticipationPromotionRepository().lock_and_read_state(9_999_999)
+                is None
+            )
+
+    def test_reads_return_none_for_non_offered_participations(self, session, waiter):
+        confirmed = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.CONFIRMED
+        )
+        repo = ParticipationPromotionRepository()
+        with DjangoTransaction().atomic():
+            assert repo.read_offer_by_participation(confirmed.pk) is None
+            assert repo.read_offer_by_participation(9_999_999) is None
+            assert repo.read_offer_by_token("no-such-token") is None
