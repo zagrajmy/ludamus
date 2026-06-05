@@ -110,10 +110,8 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
             presenter = self.request.di.uow.active_users.read_by_id(
                 session.presenter_id
             )
-        import_log_entry = (
-            self.request.services.proposals_import.latest_log_entry_for_session(
-                proposal_id
-            )
+        import_log_entry = self.request.services.proposals_import.log_entry_for_session(
+            proposal_id
         )
         import_log_integration = None
         if import_log_entry is not None:

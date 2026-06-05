@@ -34,7 +34,6 @@ from ludamus.pacts.submissions import (
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
-    ImportLogEntryDTO,
     ImportLogStatus,
     ImportSettings,
     QuestionTarget,
@@ -798,14 +797,10 @@ class EventImportLogPageView(_ImportTabView):
         entries = self.request.services.proposals_import.list_log_entries(
             current_event.pk, active.pk, search=search
         )
-        latest_skipped_by_row: dict[int, ImportLogEntryDTO] = {}
-        successes: list[ImportLogEntryDTO] = []
-        for entry in entries:
-            if entry.status == ImportLogStatus.SUCCESS:
-                successes.append(entry)
-            elif entry.row_index not in latest_skipped_by_row:
-                latest_skipped_by_row[entry.row_index] = entry
-        errors = list(latest_skipped_by_row.values())
+        # Each (integration, row_index) is unique now, so a simple split by
+        # status covers it — no per-row dedupe needed.
+        errors = [e for e in entries if e.status == ImportLogStatus.SKIPPED]
+        successes = [e for e in entries if e.status == ImportLogStatus.SUCCESS]
         successes_open = status_filter == ImportLogStatus.SUCCESS
         if focus_pk is not None:
             focused = next((e for e in entries if e.pk == focus_pk), None)

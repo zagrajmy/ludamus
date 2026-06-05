@@ -1932,16 +1932,12 @@ class TestEventImportLogPageView:
 
         assert response.status_code == HTTPStatus.FOUND
         assert response.url == _log_url(event, integration)
-        # Original skipped entry stays; a fresh success entry was added.
-        rows = list(
-            ImportLogEntry.objects.filter(integration=integration).order_by("pk")
-        )
-        expected_entries = 2
-        assert len(rows) == expected_entries
+        # The same log entry was upserted in place — same pk, now success.
+        rows = list(ImportLogEntry.objects.filter(integration=integration))
+        assert len(rows) == 1
         assert rows[0].pk == entry.pk
-        assert rows[0].status == "skipped"
-        assert rows[1].status == "success"
-        assert rows[1].session_id is not None
+        assert rows[0].status == "success"
+        assert rows[0].session_id is not None
 
     def test_post_retry_with_invalid_entry_id_redirects_with_error(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -2176,15 +2172,12 @@ class TestEventImportLogReimport:
         # Title is back to the source value; session pk is unchanged.
         Session.objects.get(pk=session_pk).refresh_from_db()
         assert Session.objects.get(pk=session_pk).title == "Original"
-        # A new log entry was written with the same session_id.
-        entries = list(
-            ImportLogEntry.objects.filter(integration=integration).order_by("pk")
-        )
-        expected_entries = 2
-        assert len(entries) == expected_entries
-        assert entries[1].pk != entry.pk
-        assert entries[1].status == "success"
-        assert entries[1].session_id == session_pk
+        # The same log entry is updated in place — same pk, same session FK.
+        entries = list(ImportLogEntry.objects.filter(integration=integration))
+        assert len(entries) == 1
+        assert entries[0].pk == entry.pk
+        assert entries[0].status == "success"
+        assert entries[0].session_id == session_pk
 
     def test_template_renders_reimport_confirm_dialog(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

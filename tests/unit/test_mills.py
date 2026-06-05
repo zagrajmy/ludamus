@@ -1296,8 +1296,8 @@ class TestProposalImportService:
         integration_pk = 3
         assert result.created == 0
         assert result.skipped == 1
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SKIPPED
         assert created.row_index == 0
         assert created.reason == "Cap: 'loads' is not an integer"
@@ -1319,8 +1319,8 @@ class TestProposalImportService:
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SUCCESS
         assert created.session_id == session_pk
         assert created.row_index == 0
@@ -1351,9 +1351,10 @@ class TestProposalImportService:
 
         assert succeeded is True
         sessions.create.assert_called_once()
-        # A fresh log entry is written; the original (pk=10) is untouched.
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        # The entry at (integration_id, row_index) is upserted with the new
+        # success state — same row, replaces the prior skipped one.
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SUCCESS
         assert created.session_id == retry_session_pk
         assert created.row_index == 0
@@ -1386,9 +1387,9 @@ class TestProposalImportService:
 
         assert succeeded is False
         sessions.create.assert_not_called()
-        # Fresh entry written with the new reason; old entry stays in the log.
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        # The entry at this row is upserted with the new reason.
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SKIPPED
         assert created.reason == "Cap: 'loads' is not an integer"
 
@@ -1418,9 +1419,10 @@ class TestProposalImportService:
         sessions.create.assert_not_called()
         sessions.update.assert_called_once()
         assert sessions.update.call_args.args[0] == existing_session_pk
-        # A fresh success entry is written, preserving the session FK.
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        # The existing entry is upserted with the latest attempted_at, but
+        # the session FK is preserved.
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SUCCESS
         assert created.session_id == existing_session_pk
 
@@ -1449,8 +1451,8 @@ class TestProposalImportService:
         assert succeeded is True
         sessions.create.assert_called_once()
         # Entry is recreated; the new log entry points to the fresh session.
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.session_id == fresh_session_pk
 
     def test_run_sample_writes_log_entry_so_log_tab_shows_test_skips(
@@ -1469,8 +1471,8 @@ class TestProposalImportService:
         result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 0
-        log_entries.create.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SKIPPED
         assert created.reason == "Cap: 'loads' is not an integer"
 

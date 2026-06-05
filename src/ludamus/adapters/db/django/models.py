@@ -1546,12 +1546,16 @@ class ImportLogEntry(models.Model):
 
     class Meta:
         db_table = "import_log_entry"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("integration", "row_index"), name="ile_unique_integration_row"
+            ),
+        )
         indexes = (
             models.Index(
                 fields=("integration", "status", "-attempted_at"),
                 name="ile_int_status_at_idx",
             ),
-            models.Index(fields=("integration", "row_index"), name="ile_int_row_idx"),
             models.Index(fields=("session",), name="ile_session_idx"),
         )
         ordering = ("-attempted_at", "-pk")

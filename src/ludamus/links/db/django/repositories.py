@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 from django.db import IntegrityError, transaction
 from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
+from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
@@ -2936,16 +2937,24 @@ def _import_log_entry_dto(entry: ImportLogEntry) -> ImportLogEntryDTO:
 
 class ImportLogEntryRepository(ImportLogEntryRepositoryProtocol):
     @staticmethod
-    def create(data: ImportLogEntryCreateData) -> ImportLogEntryDTO:
-        entry = ImportLogEntry.objects.create(
+    def upsert(data: ImportLogEntryCreateData) -> ImportLogEntryDTO:
+        # One log entry per (integration, row_index): each attempt overwrites
+        # the prior entry for that row, preserving the row's identity but
+        # reflecting the latest status, reason, response snapshot, and
+        # session FK. `attempted_at` resets to "now" on every upsert.
+        defaults = {
+            "status": data.status.value,
+            "reason": data.reason,
+            "response_json": data.response_json,
+            "title": data.title,
+            "display_name": data.display_name,
+            "session_id": data.session_id,
+            "attempted_at": django_timezone.now(),
+        }
+        entry, _ = ImportLogEntry.objects.update_or_create(
             integration_id=data.integration_id,
             row_index=data.row_index,
-            status=data.status.value,
-            reason=data.reason,
-            response_json=data.response_json,
-            title=data.title,
-            display_name=data.display_name,
-            session_id=data.session_id,
+            defaults=defaults,
         )
         return _import_log_entry_dto(entry)
 
@@ -2963,12 +2972,10 @@ class ImportLogEntryRepository(ImportLogEntryRepositoryProtocol):
         return [_import_log_entry_dto(e) for e in qs.order_by("-attempted_at", "-pk")]
 
     @staticmethod
-    def latest_for_session(session_pk: int) -> ImportLogEntryDTO | None:
-        entry = (
-            ImportLogEntry.objects.filter(session_id=session_pk)
-            .order_by("-attempted_at", "-pk")
-            .first()
-        )
+    def for_session(session_pk: int) -> ImportLogEntryDTO | None:
+        # Each session has at most one log entry — the row that produced it.
+        # Returns None if no log entry points at this session.
+        entry = ImportLogEntry.objects.filter(session_id=session_pk).first()
         return _import_log_entry_dto(entry) if entry is not None else None
 
     @staticmethod

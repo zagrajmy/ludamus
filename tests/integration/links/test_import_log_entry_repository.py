@@ -43,12 +43,41 @@ def _session(sphere) -> Session:
 
 
 @pytest.mark.django_db
-class TestImportLogEntryRepositoryCreate:
+class TestImportLogEntryRepositoryUpsert:
+    def test_re_upsert_overwrites_the_same_row_in_place(self):
+        integration = _integration()
+        first = ImportLogEntryRepository.upsert(
+            ImportLogEntryCreateData(
+                integration_id=integration.pk,
+                row_index=0,
+                status=ImportLogStatus.SKIPPED,
+                reason="initial",
+                response_json="{}",
+            )
+        )
+
+        second = ImportLogEntryRepository.upsert(
+            ImportLogEntryCreateData(
+                integration_id=integration.pk,
+                row_index=0,
+                status=ImportLogStatus.SUCCESS,
+                reason="",
+                response_json="{}",
+            )
+        )
+
+        # Same DB row, updated in place.
+        assert second.pk == first.pk
+        assert (
+            ImportLogEntryRepository.list_for_integration(integration.pk)[0].status
+            == ImportLogStatus.SUCCESS
+        )
+
     def test_persists_a_skipped_entry(self):
         integration = _integration()
         row_index = 2
 
-        dto = ImportLogEntryRepository.create(
+        dto = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=row_index,
@@ -70,7 +99,7 @@ class TestImportLogEntryRepositoryCreate:
         integration = _integration(sphere=sphere)
         session = _session(sphere)
 
-        dto = ImportLogEntryRepository.create(
+        dto = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=0,
@@ -89,7 +118,7 @@ class TestImportLogEntryRepositoryCreate:
 class TestImportLogEntryRepositoryListForIntegration:
     def test_returns_entries_in_reverse_chronological_order(self):
         integration = _integration()
-        first = ImportLogEntryRepository.create(
+        first = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=0,
@@ -98,7 +127,7 @@ class TestImportLogEntryRepositoryListForIntegration:
                 response_json="{}",
             )
         )
-        second = ImportLogEntryRepository.create(
+        second = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=1,
@@ -113,7 +142,7 @@ class TestImportLogEntryRepositoryListForIntegration:
 
     def test_filters_by_status(self):
         integration = _integration()
-        ImportLogEntryRepository.create(
+        ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=0,
@@ -121,7 +150,7 @@ class TestImportLogEntryRepositoryListForIntegration:
                 response_json="{}",
             )
         )
-        kept = ImportLogEntryRepository.create(
+        kept = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=1,
@@ -138,7 +167,7 @@ class TestImportLogEntryRepositoryListForIntegration:
 
     def test_filters_by_title_or_display_name_search(self):
         integration = _integration()
-        match_title = ImportLogEntryRepository.create(
+        match_title = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=0,
@@ -147,7 +176,7 @@ class TestImportLogEntryRepositoryListForIntegration:
                 title="Dragons of Despair",
             )
         )
-        match_display = ImportLogEntryRepository.create(
+        match_display = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=1,
@@ -157,7 +186,7 @@ class TestImportLogEntryRepositoryListForIntegration:
                 display_name="DragonMaster",
             )
         )
-        ImportLogEntryRepository.create(
+        ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=2,
@@ -178,7 +207,7 @@ class TestImportLogEntryRepositoryListForIntegration:
         event = EventFactory.create(sphere=sphere)
         first = _integration(event=event, sphere=sphere)
         other = _integration(event=event, sphere=sphere)
-        ImportLogEntryRepository.create(
+        ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=other.pk,
                 row_index=0,
@@ -191,20 +220,11 @@ class TestImportLogEntryRepositoryListForIntegration:
 
 
 @pytest.mark.django_db
-class TestImportLogEntryRepositoryLatestForSession:
-    def test_returns_the_most_recent_entry_for_the_session(self, sphere):
+class TestImportLogEntryRepositoryForSession:
+    def test_returns_the_entry_linked_to_the_session(self, sphere):
         integration = _integration(sphere=sphere)
         session = _session(sphere)
-        ImportLogEntryRepository.create(
-            ImportLogEntryCreateData(
-                integration_id=integration.pk,
-                row_index=0,
-                status=ImportLogStatus.SUCCESS,
-                response_json="{}",
-                session_id=session.pk,
-            )
-        )
-        latest = ImportLogEntryRepository.create(
+        entry = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=0,
@@ -214,15 +234,15 @@ class TestImportLogEntryRepositoryLatestForSession:
             )
         )
 
-        dto = ImportLogEntryRepository.latest_for_session(session.pk)
+        dto = ImportLogEntryRepository.for_session(session.pk)
 
         assert dto is not None
-        assert dto.pk == latest.pk
+        assert dto.pk == entry.pk
 
     def test_returns_none_when_no_entry_links_to_the_session(self, sphere):
         session = _session(sphere)
 
-        assert ImportLogEntryRepository.latest_for_session(session.pk) is None
+        assert ImportLogEntryRepository.for_session(session.pk) is None
 
 
 @pytest.mark.django_db
@@ -230,7 +250,7 @@ class TestImportLogEntryRepositoryRead:
     def test_returns_the_entry(self):
         integration = _integration()
         row_index = 3
-        created = ImportLogEntryRepository.create(
+        created = ImportLogEntryRepository.upsert(
             ImportLogEntryCreateData(
                 integration_id=integration.pk,
                 row_index=row_index,

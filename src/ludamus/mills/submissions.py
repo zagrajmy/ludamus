@@ -311,8 +311,8 @@ class ProposalImportService:
             pk, status=status, search=search
         )
 
-    def latest_log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None:
-        return self._repos.log_entries.latest_for_session(session_pk)
+    def log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None:
+        return self._repos.log_entries.for_session(session_pk)
 
     def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool:
         # Refetch the live responses (operator may have updated the recipe);
@@ -338,7 +338,7 @@ class ProposalImportService:
         if (
             located := _locate_row(rows, original_response, settings, entry.row_index)
         ) is None:
-            self._repos.log_entries.create(
+            self._repos.log_entries.upsert(
                 ImportLogEntryCreateData(
                     integration_id=integration.pk,
                     row_index=entry.row_index,
@@ -381,7 +381,7 @@ class ProposalImportService:
         if (
             located := _locate_row(rows, original_response, settings, entry.row_index)
         ) is None:
-            self._repos.log_entries.create(
+            self._repos.log_entries.upsert(
                 ImportLogEntryCreateData(
                     integration_id=integration.pk,
                     row_index=entry.row_index,
@@ -407,7 +407,7 @@ class ProposalImportService:
                     field_ids_by_header=field_ids_by_header,
                 )
             except _RowSkippedError as exc:
-                self._repos.log_entries.create(
+                self._repos.log_entries.upsert(
                     ImportLogEntryCreateData(
                         integration_id=integration.pk,
                         row_index=target_idx,
@@ -420,7 +420,7 @@ class ProposalImportService:
                     )
                 )
                 return False
-            self._repos.log_entries.create(
+            self._repos.log_entries.upsert(
                 ImportLogEntryCreateData(
                     integration_id=integration.pk,
                     row_index=target_idx,
@@ -469,7 +469,7 @@ class ProposalImportService:
                     duplicates += 1
                     continue
                 except _RowSkippedError as exc:
-                    self._repos.log_entries.create(
+                    self._repos.log_entries.upsert(
                         ImportLogEntryCreateData(
                             integration_id=integration_pk,
                             row_index=row_index,
@@ -482,7 +482,7 @@ class ProposalImportService:
                     )
                     skipped += 1
                     continue
-                self._repos.log_entries.create(
+                self._repos.log_entries.upsert(
                     ImportLogEntryCreateData(
                         integration_id=integration_pk,
                         row_index=row_index,
