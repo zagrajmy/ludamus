@@ -47,6 +47,25 @@ def _assert_print_ok(
         selected_space = ctx["selected_space"]
     if selected_track is None:
         selected_track = ctx["selected_track"]
+    expected_options = [
+        "area-descriptions",
+        "area-timetable",
+        "space-timetable",
+        "venue-timetable",
+        "track-timetable",
+        "event-timetable",
+    ]
+    if session_list_available:
+        expected_options.append("session-list")
+    assert [option.value for option in ctx["material_options"]] == expected_options
+    show_scope_control = material in {
+        "area-descriptions",
+        "area-timetable",
+        "venue-timetable",
+    }
+    show_space_control = material == "space-timetable"
+    show_track_control = material == "track-timetable"
+    show_range_controls = material == "area-descriptions"
     assert_response(
         response,
         HTTPStatus.OK,
@@ -61,8 +80,12 @@ def _assert_print_ok(
             "venues": ANY,
             "spaces": ANY,
             "tracks": ANY,
-            "session_list_available": session_list_available,
+            "material_options": ctx["material_options"],
             "material": material,
+            "show_scope_control": show_scope_control,
+            "show_space_control": show_space_control,
+            "show_track_control": show_track_control,
+            "show_range_controls": show_range_controls,
             "selected_venue": selected_venue,
             "selected_area": selected_area,
             "selected_space": selected_space,

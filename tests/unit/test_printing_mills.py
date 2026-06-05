@@ -148,9 +148,9 @@ class TestBuildTimetable:
 
         document = _timetable(service)
 
-        day = document.days[0]
-        assert day.space_names == ["Alfa", "Bravo"]
-        first_row, second_row = day.rows
+        page = document.pages[0]
+        assert page.space_names == ["Alfa", "Bravo"]
+        first_row, second_row = page.rows
         assert [s.title for s in first_row.cells[0].sessions] == ["RPG"]
         assert first_row.cells[1].sessions == []
         assert second_row.cells[0].sessions == []
@@ -165,7 +165,7 @@ class TestBuildTimetable:
 
         document = _timetable(service)
 
-        rows = document.days[0].rows
+        rows = document.pages[0].rows
         titles = [s.title for row in rows for cell in row.cells for s in cell.sessions]
         assert titles == ["Gap RPG"]
         gap_start = datetime(2026, 6, 1, 10, 0, tzinfo=UTC)
@@ -183,8 +183,8 @@ class TestBuildTimetable:
 
         titles = [
             s.title
-            for day in document.days
-            for row in day.rows
+            for page in document.pages
+            for row in page.rows
             for cell in row.cells
             for s in cell.sessions
         ]
@@ -197,7 +197,7 @@ class TestBuildTimetable:
 
         document = _timetable(service)
 
-        assert [d.day for d in document.days] == [date(2026, 6, 1), date(2026, 6, 2)]
+        assert [d.day for d in document.pages] == [date(2026, 6, 1), date(2026, 6, 2)]
 
     def test_large_timetables_are_chunked_by_spaces(self):
         spaces = [_space(pk, f"Space {pk}", pk) for pk in range(1, 8)]
@@ -207,13 +207,13 @@ class TestBuildTimetable:
 
         document = _timetable(service)
 
-        assert [day.space_names for day in document.days] == [
+        assert [page.space_names for page in document.pages] == [
             ["Space 1", "Space 2", "Space 3", "Space 4"],
             ["Space 5", "Space 6", "Space 7"],
         ]
-        assert document.days[0].space_range_name == "Space 1 - Space 4"
-        assert document.days[1].space_range_name == "Space 5 - Space 7"
-        assert document.days[1].rows[0].cells[2].sessions[0].title == "Final table"
+        assert document.pages[0].space_range_name == "Space 1 - Space 4"
+        assert document.pages[1].space_range_name == "Space 5 - Space 7"
+        assert document.pages[1].rows[0].cells[2].sessions[0].title == "Final table"
 
     def test_documents_carry_event_description(self):
         service = _service(spaces=[_space(1, "Alfa", 0)], items=[], slots=[])
@@ -237,8 +237,8 @@ class TestConfirmedOnly:
 
         titles = [
             s.title
-            for day in document.days
-            for row in day.rows
+            for page in document.pages
+            for row in page.rows
             for cell in row.cells
             for s in cell.sessions
         ]
@@ -372,7 +372,7 @@ class TestScoping:
             self._scoped_service(), area_pks=frozenset({10, 20}), scope_name="Budynek A"
         )
 
-        assert document.days[0].space_names == ["Alfa", "Bravo"]
+        assert document.pages[0].space_names == ["Alfa", "Bravo"]
         assert document.scope_name == "Budynek A"
 
     def test_door_cards_filtered_to_single_area(self):
@@ -387,7 +387,7 @@ class TestScoping:
         document = _timetable(self._scoped_service())
 
         assert document.scope_name is None
-        assert document.days[0].space_names == ["Alfa", "Bravo", "Cesarz"]
+        assert document.pages[0].space_names == ["Alfa", "Bravo", "Cesarz"]
 
     def test_orphan_session_outside_scope_adds_no_row(self):
         # An un-slotted session lives in Cesarz (area 30), outside the scoped
@@ -398,12 +398,12 @@ class TestScoping:
 
         document = _timetable(service, area_pks=frozenset({10}))
 
-        day = document.days[0]
-        assert day.space_names == ["Alfa"]
+        page = document.pages[0]
+        assert page.space_names == ["Alfa"]
         slot_row = (
             datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
             datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
         )
-        assert [(r.start_time, r.end_time) for r in day.rows] == [slot_row]
-        titles = [s.title for r in day.rows for c in r.cells for s in c.sessions]
+        assert [(r.start_time, r.end_time) for r in page.rows] == [slot_row]
+        titles = [s.title for r in page.rows for c in r.cells for s in c.sessions]
         assert titles == []

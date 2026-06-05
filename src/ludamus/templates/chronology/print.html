@@ -42,40 +42,16 @@
                                     name="material"
                                     onchange="this.form.submit()"
                                     class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
-                                <option value="area-descriptions"
-                                        {% if material == "area-descriptions" %}selected{% endif %}>
-                                    {% translate "Area with descriptions" %}
-                                </option>
-                                <option value="area-timetable"
-                                        {% if material == "area-timetable" %}selected{% endif %}>
-                                    {% translate "Area timetable" %}
-                                </option>
-                                <option value="space-timetable"
-                                        {% if material == "space-timetable" %}selected{% endif %}>
-                                    {% translate "Space timetable" %}
-                                </option>
-                                <option value="venue-timetable"
-                                        {% if material == "venue-timetable" %}selected{% endif %}>
-                                    {% translate "Venue timetable" %}
-                                </option>
-                                <option value="track-timetable"
-                                        {% if material == "track-timetable" %}selected{% endif %}>
-                                    {% translate "Track timetable" %}
-                                </option>
-                                <option value="event-timetable"
-                                        {% if material == "event-timetable" %}selected{% endif %}>
-                                    {% translate "Event timetable" %}
-                                </option>
-                                {% if session_list_available %}
-                                    <option value="session-list"
-                                            {% if material == "session-list" %}selected{% endif %}>
-                                        {% translate "Session list" %}
+                                {% for option in material_options %}
+                                    <option value="{{ option.value }}"
+                                            {% if material == option.value %}selected{% endif %}>
+                                        {{ option.label }}
                                     </option>
-                                {% endif %}
+                                {% endfor %}
                             </select>
                         </div>
                         {% if venues %}
-                            {% if material == "area-descriptions" or material == "area-timetable" or material == "venue-timetable" %}
+                            {% if show_scope_control %}
                                 <div class="flex flex-col gap-1">
                                     <label class="text-sm font-semibold text-foreground-secondary"
                                            for="scope-select">{% translate "Venue / area" %}</label>
@@ -107,7 +83,7 @@
                         {% endif %}
                         <input type="hidden" name="venue" value="{{ selected_venue }}">
                         <input type="hidden" name="area" value="{{ selected_area }}">
-                        {% if spaces and material == "space-timetable" %}
+                        {% if spaces and show_space_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_space">{% translate "Space" %}</label>
@@ -123,7 +99,7 @@
                                 </select>
                             </div>
                         {% endif %}
-                        {% if tracks and material == "track-timetable" %}
+                        {% if tracks and show_track_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_track">{% translate "Track" %}</label>
@@ -139,7 +115,7 @@
                                 </select>
                             </div>
                         {% endif %}
-                        {% if material == "area-descriptions" %}
+                        {% if show_range_controls %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_start">{% translate "Area pages — start" %}</label>
@@ -178,11 +154,11 @@
                         <div class="text-sm font-semibold text-foreground-secondary">{% translate "Table of contents" %}</div>
                         <div class="mt-2 grid gap-1 text-sm max-[900px]:max-h-56 max-[900px]:overflow-auto">
                             {% if timetable %}
-                                {% for day in timetable.days %}
+                                {% for page in timetable.pages %}
                                     <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
                                        href="#timetable-day-{{ forloop.counter }}">
-                                        {{ day.day|date:"l, j E Y" }}
-                                        {% if day.space_range_name %}<span class="block text-xs">{{ day.space_range_name }}</span>{% endif %}
+                                        {{ page.day|date:"l, j E Y" }}
+                                        {% if page.space_range_name %}<span class="block text-xs">{{ page.space_range_name }}</span>{% endif %}
                                     </a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
@@ -207,7 +183,7 @@
                      class="flex flex-row items-start gap-[8mm] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-[12mm] scroll-pl-px snap-x snap-mandatory print:block print:overflow-visible print:pb-0">
                     {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-[297mm] print:w-[210mm] print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
                     {% if timetable %}
-                        {% for day in timetable.days %}
+                        {% for page in timetable.pages %}
                             <section class="{{ sheet_class }}"
                                      id="timetable-day-{{ forloop.counter }}">
                                 {% if not timetable.is_complete %}
@@ -217,18 +193,18 @@
                                 {% endif %}
                                 <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
                                 <h3 class="m-0 mb-[2mm] text-[12pt]">
-                                    {{ day.day|date:"l, j E Y" }}
-                                    {% if day.space_range_name %}<span class="block text-[9pt] font-normal">{{ day.space_range_name }}</span>{% endif %}
+                                    {{ page.day|date:"l, j E Y" }}
+                                    {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
                                 </h3>
                                 <table class="w-full table-fixed border-collapse text-[7pt]">
                                     <thead>
                                         <tr>
                                             <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time slot" %}</th>
-                                            {% for name in day.space_names %}<th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>{% endfor %}
+                                            {% for name in page.space_names %}<th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>{% endfor %}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% for row in day.rows %}
+                                        {% for row in page.rows %}
                                             <tr>
                                                 <td class="w-[20mm] whitespace-nowrap border border-neutral-300 p-[1mm] align-top tabular-nums">{{ row.start_time|time:"H:i" }}–{{ row.end_time|time:"H:i" }}</td>
                                                 {% for cell in row.cells %}

@@ -28,8 +28,8 @@ from ludamus.pacts.printing import (
     PrintSessionListItemDTO,
     PrintSpaceOptionDTO,
     PrintTimetableCellDTO,
-    PrintTimetableDayDTO,
     PrintTimetableDocumentDTO,
+    PrintTimetablePageDTO,
     PrintTimetableQueryDTO,
     PrintTimetableRowDTO,
 )
@@ -225,7 +225,7 @@ class PrintMaterialsService:
             windows_by_date, items_by_space, query.tz
         )
 
-        days: list[PrintTimetableDayDTO] = []
+        pages: list[PrintTimetablePageDTO] = []
         for day in sorted(rows_by_date):
             for space_chunk in _space_chunks(spaces):
                 rows: list[PrintTimetableRowDTO] = []
@@ -243,8 +243,8 @@ class PrintMaterialsService:
                             start_time=window_start, end_time=window_end, cells=cells
                         )
                     )
-                days.append(
-                    PrintTimetableDayDTO(
+                pages.append(
+                    PrintTimetablePageDTO(
                         day=day,
                         space_names=[space.name for space in space_chunk],
                         rows=rows,
@@ -266,7 +266,7 @@ class PrintMaterialsService:
                 and query.track_pk is None
                 and _is_complete(all_items)
             ),
-            days=days,
+            pages=pages,
         )
 
     def build_area_schedule(

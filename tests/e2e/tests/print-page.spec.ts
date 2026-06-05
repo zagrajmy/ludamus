@@ -4,10 +4,7 @@ const densePrintUrl = '/chronology/event/kapitularz-2025-anonymized/print/';
 
 const countPdfPages = (pdf: Buffer) => {
   const text = pdf.toString('latin1');
-  const counts = [...text.matchAll(/\/Count\s+(\d+)/g)].map((match) =>
-    Number(match[1]),
-  );
-  return Math.max(...counts);
+  return [...text.matchAll(/\/Type\s*\/Page\b/g)].length;
 };
 
 test.describe('Public print page', () => {

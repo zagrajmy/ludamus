@@ -89,7 +89,7 @@ class PrintTimetableRowDTO(BaseModel):
     cells: list[PrintTimetableCellDTO]
 
 
-class PrintTimetableDayDTO(BaseModel):
+class PrintTimetablePageDTO(BaseModel):
     day: date
     space_names: list[str]
     rows: list[PrintTimetableRowDTO]
@@ -107,7 +107,7 @@ class PrintTimetableDocumentDTO(BaseModel):
     # least one is scheduled — i.e. the printed grid is the whole program. Drives
     # the public print page's QR label: a partial program points people online.
     is_complete: bool = False
-    days: list[PrintTimetableDayDTO]
+    pages: list[PrintTimetablePageDTO]
 
 
 class AreaScheduleSessionDTO(BaseModel):
