@@ -110,12 +110,24 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
             presenter = self.request.di.uow.active_users.read_by_id(
                 session.presenter_id
             )
+        import_log_entry = (
+            self.request.services.proposals_import.latest_log_entry_for_session(
+                proposal_id
+            )
+        )
+        import_log_integration = None
+        if import_log_entry is not None:
+            import_log_integration = self.request.services.event_integrations.get(
+                current_event.pk, import_log_entry.integration_id
+            )
 
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
+        context["import_log_entry"] = import_log_entry
+        context["import_log_integration"] = import_log_integration
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
 
 

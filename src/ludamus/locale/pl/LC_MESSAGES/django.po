@@ -5375,6 +5375,21 @@ msgid "Reject"
 msgstr "Odrzuć"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#, python-format
+msgid ""
+"\n"
+"                            Imported via %(name)s on %(at)s\n"
+"                        "
+msgstr ""
+"\n"
+"                            Zaimportowano przez %(name)s — %(at)s\n"
+"                        "
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "View import log"
+msgstr "Zobacz dziennik importu"
+
+#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Facilitator"
 msgstr "Prowadzący"

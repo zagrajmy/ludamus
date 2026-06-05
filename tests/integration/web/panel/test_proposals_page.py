@@ -824,6 +824,8 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
+                "import_log_entry": None,
+                "import_log_integration": None,
             },
         )
 
@@ -874,6 +876,8 @@ class TestProposalDetailPageView:
                 ],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
+                "import_log_entry": None,
+                "import_log_integration": None,
             },
         )
 

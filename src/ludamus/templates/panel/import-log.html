@@ -69,7 +69,8 @@
                         </h2>
                         <ul class="space-y-3">
                             {% for entry in log_errors %}
-                                <li class="card p-4 sm:p-5" id="entry-{{ entry.pk }}">
+                                <li class="card p-4 sm:p-5 {% if log_focus_pk == entry.pk %}ring-2 ring-primary{% endif %}"
+                                    id="entry-{{ entry.pk }}">
                                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div class="min-w-0 flex-1">
                                             <p class="text-xs text-foreground-muted">
@@ -115,7 +116,8 @@
                         </summary>
                         <ul class="mt-3 space-y-2">
                             {% for entry in log_successes %}
-                                <li class="border-t border-border pt-2" id="entry-{{ entry.pk }}">
+                                <li class="border-t border-border pt-2 {% if log_focus_pk == entry.pk %}ring-2 ring-primary rounded{% endif %}"
+                                    id="entry-{{ entry.pk }}">
                                     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                         <div class="min-w-0 flex-1">
                                             <p class="text-sm font-medium text-foreground">{{ entry.title|default:entry.display_name }}</p>

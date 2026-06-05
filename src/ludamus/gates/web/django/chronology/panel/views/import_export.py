@@ -790,6 +790,8 @@ class EventImportLogPageView(_ImportTabView):
         status_key = raw_status if raw_status in _LOG_STATUS_FILTERS else "all"
         status_filter = _LOG_STATUS_FILTERS[status_key]
         search = (self.request.GET.get("search") or "").strip()
+        raw_focus = (self.request.GET.get("focus") or "").strip()
+        focus_pk = int(raw_focus) if raw_focus.isdigit() else None
         # The repo filter already narrows by status when set; for grouping we
         # always read both buckets so the counts stay accurate even when only
         # one section renders.
@@ -804,14 +806,20 @@ class EventImportLogPageView(_ImportTabView):
             elif entry.row_index not in latest_skipped_by_row:
                 latest_skipped_by_row[entry.row_index] = entry
         errors = list(latest_skipped_by_row.values())
+        successes_open = status_filter == ImportLogStatus.SUCCESS
+        if focus_pk is not None:
+            focused = next((e for e in entries if e.pk == focus_pk), None)
+            if focused is not None and focused.status == ImportLogStatus.SUCCESS:
+                successes_open = True
         context["log_status"] = status_key
         context["log_search"] = search
+        context["log_focus_pk"] = focus_pk
         context["log_filter_urls"] = _log_pill_urls(
             current_event.slug, active.pk, search=search
         )
         context["log_show_errors"] = status_filter != ImportLogStatus.SUCCESS
         context["log_show_successes"] = status_filter != ImportLogStatus.SKIPPED
-        context["log_successes_open"] = status_filter == ImportLogStatus.SUCCESS
+        context["log_successes_open"] = successes_open
         context["log_errors"] = errors if context["log_show_errors"] else []
         context["log_successes"] = successes if context["log_show_successes"] else []
         context["log_total_attempts"] = len(entries)

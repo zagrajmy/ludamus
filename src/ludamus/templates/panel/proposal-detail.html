@@ -41,6 +41,19 @@
                 <li class="text-foreground font-medium">{{ proposal.title }}</li>
             </ol>
         </nav>
+        {% if import_log_entry and import_log_integration %}
+            <div class="card mb-6">
+                <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-foreground-muted">
+                        {% blocktranslate with name=import_log_integration.display_name at=import_log_entry.attempted_at|date:"DATETIME_FORMAT" %}
+                            Imported via {{ name }} on {{ at }}
+                        {% endblocktranslate %}
+                    </p>
+                    <a class="btn btn-tertiary text-sm"
+                       href="{% url 'panel:import-log' slug=current_event.slug pk=import_log_integration.pk %}?focus={{ import_log_entry.pk }}">{% translate "View import log" %}</a>
+                </div>
+            </div>
+        {% endif %}
         <div class="card mb-6">
             <div class="card-body">
                 <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Facilitator" %}</h3>

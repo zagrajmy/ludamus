@@ -5,8 +5,15 @@ from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ProposalCategory, Session
+from ludamus.adapters.db.django.models import (
+    Connection,
+    EventIntegration,
+    ImportLogEntry,
+    ProposalCategory,
+    Session,
+)
 from ludamus.pacts import EventDTO, SessionDTO
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
@@ -113,6 +120,8 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
+                "import_log_entry": None,
+                "import_log_integration": None,
             },
         )
 
@@ -143,3 +152,88 @@ class TestProposalDetailPageView:
             context_data=ANY,
         )
         assert session.cover_image_url.encode() in response.content
+
+
+    def test_imported_proposal_renders_back_link_to_log(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Anonymous",
+            title="Imported session",
+            slug="imported",
+            sphere=sphere,
+            participants_limit=5,
+            status="pending",
+        )
+        connection = Connection.objects.create(sphere=sphere, display_name="API key")
+        integration = EventIntegration.objects.create(
+            event=event,
+            kind=IntegrationKind.IMPORT.value,
+            implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER.value,
+            connection=connection,
+            display_name="Puller",
+        )
+        entry = ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json="{}",
+            title="Imported session",
+            session=session,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["import_log_entry"].pk == entry.pk
+        assert response.context_data["import_log_integration"].pk == integration.pk
+        body = response.content.decode()
+        log_url = reverse(
+            "panel:import-log", kwargs={"slug": event.slug, "pk": integration.pk}
+        )
+        assert f'href="{log_url}?focus={entry.pk}"' in body
+        assert "Imported via Puller" in body
+
+    def test_log_view_highlights_focused_entry_and_opens_successes(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        connection = Connection.objects.create(sphere=sphere, display_name="API key")
+        integration = EventIntegration.objects.create(
+            event=event,
+            kind=IntegrationKind.IMPORT.value,
+            implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER.value,
+            connection=connection,
+            display_name="Puller",
+        )
+        session = Session.objects.create(
+            sphere=sphere,
+            title="Focused",
+            slug="focused",
+            status="pending",
+            participants_limit=0,
+        )
+        entry = ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json="{}",
+            title="Focused",
+            session=session,
+        )
+
+        log_url = reverse(
+            "panel:import-log", kwargs={"slug": event.slug, "pk": integration.pk}
+        )
+        response = authenticated_client.get(f"{log_url}?focus={entry.pk}")
+
+        assert response.status_code == HTTPStatus.OK
+        # Forced open: focused success entry forces the <details> open.
+        assert response.context_data["log_successes_open"] is True
+        body = response.content.decode()
+        assert f'id="entry-{entry.pk}"' in body
+        # CSS highlight applied to the focused entry.
+        assert "ring-2 ring-primary" in body
