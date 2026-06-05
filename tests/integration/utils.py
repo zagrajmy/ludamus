@@ -36,6 +36,8 @@ def assert_response(
 
     needles = [contains] if isinstance(contains, str) else list(contains)
     absent = [not_contains] if isinstance(not_contains, str) else list(not_contains)
+    assert "" not in needles, "empty substring is not a meaningful content check"
+    assert "" not in absent, "empty substring is not a meaningful content check"
     if needles or absent:
         content = response.content.decode()
         for needle in needles:
