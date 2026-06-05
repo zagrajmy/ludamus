@@ -3,6 +3,7 @@ from http import HTTPStatus
 from unittest.mock import ANY, patch
 
 from django.contrib import messages
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -220,6 +221,136 @@ class TestProposeSessionPageView:
         assert wizard["category_id"] == cat_b.pk
         assert "session_data" not in wizard
         assert "contact_email" not in wizard
+
+    def test_post_different_category_deletes_stashed_cover(
+        self, authenticated_client, event, faker, time_zone
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        cat_a = ProposalCategoryFactory(event=event, name="RPG")
+        cat_b = ProposalCategoryFactory(event=event, name="Workshop")
+        self._set_wizard_category(authenticated_client, event, cat_a)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+        assert default_storage.exists(cover_path)
+
+        authenticated_client.post(
+            self._get_category_url(event.slug), {"category_id": cat_b.pk}
+        )
+
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert wizard["category_id"] == cat_b.pk
+        assert "cover_image_temp" not in wizard
+        assert not default_storage.exists(cover_path)
+
+    def test_get_clears_stashed_cover(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+        assert default_storage.exists(cover_path)
+
+        authenticated_client.get(self._get_url(event.slug))
+
+        assert not default_storage.exists(cover_path)
+
+    def test_details_clear_removes_stashed_cover(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image-clear": "on",
+            },
+        )
+
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert "cover_image_temp" not in wizard
+        assert not default_storage.exists(cover_path)
+
+    def test_details_invalid_post_keeps_stashed_cover_preview(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+        cover_url = default_storage.url(cover_path)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "",
+                "description": "A test session",
+                "participants_limit": "6",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["image_form"].initial["cover_image"] == cover_url
 
     def test_post_same_category_preserves_wizard_data(
         self, authenticated_client, event, faker, time_zone

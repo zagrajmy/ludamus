@@ -2,11 +2,20 @@
 
 import math
 from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from django.urls import resolve
 
 from ludamus.gates.web.django import urls as urls_module
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -47,3 +56,17 @@ class TestHealthz:
 
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert response.json() == {"status": "error"}
+
+
+class TestMediaUrls:
+    def test_serves_uploaded_file_under_media_prefix(self, client):
+        rel = "sessions/test-cover.png"
+        media_root = Path(resolve(f"/media/{rel}").kwargs["document_root"])
+        target = media_root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(PNG_BYTES)
+
+        response = client.get(f"/media/{rel}")
+
+        assert response.status_code == HTTPStatus.OK
+        assert b"".join(response.streaming_content) == PNG_BYTES

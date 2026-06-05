@@ -573,6 +573,8 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         event = self._get_event(service, event_slug)
         categories = service.get_categories(event.pk)
 
+        old_wizard = request.session.get(_session_key(event_slug), {})
+        _delete_wizard_cover(old_wizard)
         request.session.pop(_session_key(event_slug), None)
 
         if not _has_category_step(categories):
@@ -633,6 +635,7 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
 
         wizard = request.session.get(_session_key(event_slug), {})
         if wizard.get("category_id") != category.pk:
+            _delete_wizard_cover(wizard)
             wizard = {"category_id": category.pk}
         request.session[_session_key(event_slug)] = wizard
 
@@ -923,6 +926,8 @@ class SessionEditView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
         form = SessionEditForm(self.request.POST, self.request.FILES)
+        if ctx.session.cover_image_url:
+            form.fields["cover_image"].initial = ctx.session.cover_image_url
         if not form.is_valid():
             return self._render(event_slug, session_id, ctx, form, saved=False)
 
