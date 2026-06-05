@@ -1460,12 +1460,22 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return enrollment_requests
 
     def _process_enrollments(
-        self, enrollment_requests: list[EnrollmentRequest], session: Session
+        self,
+        enrollment_requests: list[EnrollmentRequest],
+        session: Session,
+        enrollment_config: EnrollmentConfig,
     ) -> Enrollments:
         enrollments = Enrollments()
 
-        # Lock the session to prevent race conditions within the transaction
         session = Session.objects.select_for_update().get(id=session.id)
+        if self._is_capacity_invalid(enrollment_requests, session, enrollment_config):
+            raise RedirectError(
+                reverse(
+                    "web:chronology:session-enrollment",
+                    kwargs={"session_id": session.id},
+                )
+            )
+
         participations = SessionParticipation.objects.filter(session=session).order_by(
             "creation_time"
         )
@@ -1622,23 +1632,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _manage_enrollments(
         self, form: forms.Form, session: Session, enrollment_config: EnrollmentConfig
     ) -> None:
-        # Collect enrollment requests from form
         if enrollment_requests := self._get_enrollment_requests(form):
-            # Validate capacity for confirmed enrollments (outside transaction)
-            if self._is_capacity_invalid(
-                enrollment_requests, session, enrollment_config
-            ):
-                raise RedirectError(
-                    reverse(
-                        "web:chronology:session-enrollment",
-                        kwargs={"session_id": session.id},
-                    )
-                )
-
-            # Use atomic transaction only for database operations
             with transaction.atomic():
-                # Process enrollments and create success message
-                enrollments = self._process_enrollments(enrollment_requests, session)
+                enrollments = self._process_enrollments(
+                    enrollment_requests, session, enrollment_config
+                )
 
             # Send message outside transaction
             self._send_message(enrollments)

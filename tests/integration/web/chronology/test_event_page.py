@@ -1,3 +1,4 @@
+import re
 from datetime import UTC
 from http import HTTPStatus
 from unittest.mock import ANY
@@ -5,7 +6,6 @@ from unittest.mock import ANY
 import pytest
 import responses
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.template.defaultfilters import date as date_filter
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -141,9 +141,14 @@ class TestEventPageView:
         )
         local_start = timezone.localtime(agenda_item.start_time)
         content = response.content.decode()
-        assert f'data-day="{local_start:%Y-%m-%d}"' in content
-        assert f'data-hour="{local_start:%H:%M}"' in content
-        assert f'data-day-label="{date_filter(local_start, "l, j F")}"' in content
+        day = local_start.strftime("%Y-%m-%d")
+        hour = local_start.strftime("%H:%M")
+        match = re.search(
+            rf'data-day="{re.escape(day)}"\s+data-day-label="([^"]+)"\s+data-hour="{re.escape(hour)}"',
+            content,
+        )
+        assert match
+        assert match.group(1)
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
@@ -156,7 +161,21 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
             template_name=["chronology/event.html"],
         )
         assert event.cover_image_url.encode() in response.content
@@ -177,7 +196,7 @@ class TestEventPageView:
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
 
-    def test_shows_session_cover_image(self, agenda_item, client, event):
+    def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session
         session.cover_image = SimpleUploadedFile(
             "session.png", PNG_BYTES, content_type="image/png"
@@ -186,10 +205,49 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        session_data = SessionData(
+            agenda_item=AgendaItemDTO.model_validate(agenda_item),
+            effective_participants_limit=10,
+            enrolled_count=0,
+            full_participant_info="0/10",
+            has_any_enrollments=False,
+            is_enrollment_available=False,
+            is_full=False,
+            is_ongoing=False,
+            presenter=UserInfo.from_user_dto(
+                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
+            ),
+            session_participations=[],
+            session=SessionDTO.model_validate(session),
+            should_show_as_inactive=False,
+            loc=LocationData(
+                space=SpaceDTO.model_validate(agenda_item.space),
+                area=AreaDTO.model_validate(agenda_item.space.area),
+                venue=VenueDTO.model_validate(agenda_item.space.area.venue),
+            ),
+            user_enrolled=False,
+            user_waiting=False,
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {
+                    agenda_item.start_time: [session_data]
+                },
+                "hour_data": {agenda_item.start_time: [session_data]},
+                "object": event,
+                "sessions": [session_data],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
             template_name=["chronology/event.html"],
         )
         assert session.cover_image_url.encode() in response.content

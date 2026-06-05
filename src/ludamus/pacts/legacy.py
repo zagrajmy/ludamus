@@ -36,6 +36,13 @@ class DateTimeRangeProtocol(Protocol):
     end_time: datetime
 
 
+class UploadedFileProtocol(Protocol):
+    name: str
+    content_type: str
+
+    def read(self, size: int = -1) -> bytes: ...
+
+
 class FacilitatorDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

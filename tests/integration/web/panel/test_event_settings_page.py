@@ -156,6 +156,26 @@ class TestEventSettingsPageViewPost:
         data.update(overrides)
         return data
 
+    @staticmethod
+    def _render_context(response, event):
+        return {
+            "current_event": EventDTO.model_validate(event),
+            "events": response.context["events"],
+            "is_proposal_active": response.context["is_proposal_active"],
+            "stats": {
+                "hosts_count": 0,
+                "pending_proposals": 0,
+                "rooms_count": 0,
+                "scheduled_sessions": 0,
+                "total_proposals": 0,
+                "total_sessions": 0,
+            },
+            "active_nav": "settings",
+            "active_tab": "general",
+            "tab_urls": response.context["tab_urls"],
+            "form": ANY,
+        }
+
     def test_redirects_anonymous_user(self, client, event):
         url = self.get_url(event)
 
@@ -267,8 +287,6 @@ class TestEventSettingsPageViewPost:
         event.save()
         new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
 
-        # Deleting the replaced file is best-effort: a storage hiccup must not
-        # turn an otherwise successful update into a 500.
         with (
             patch.object(
                 event.cover_image.storage, "delete", side_effect=OSError("boom")
@@ -287,14 +305,13 @@ class TestEventSettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/",
         )
         event.refresh_from_db()
-        assert event.cover_image  # new cover saved despite the cleanup failure
+        assert event.cover_image
         assert "Best-effort cleanup" in caplog.text
 
     def test_rejects_oversize_cover_dimensions(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        # Tiny file (solid colour) that decodes to > 24 MP — a decompression bomb.
         buffer = io.BytesIO()
         Image.new("RGB", (5000, 5000)).save(buffer, format="PNG")
         image = SimpleUploadedFile(
@@ -308,7 +325,7 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._render_context(response, event),
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["cover_image"] == [
@@ -334,7 +351,7 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._render_context(response, event),
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["cover_image"] == [
@@ -356,7 +373,7 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._render_context(response, event),
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["cover_image"] == [
@@ -376,7 +393,7 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._render_context(response, event),
             template_name="panel/settings.html",
         )
         form_errors = response.context["form"].errors
@@ -401,7 +418,7 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._render_context(response, event),
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["name"] == [
