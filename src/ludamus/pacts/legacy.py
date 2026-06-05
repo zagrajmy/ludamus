@@ -37,8 +37,7 @@ class DateTimeRangeProtocol(Protocol):
 
 
 class UploadedFileProtocol(Protocol):
-    name: str
-    content_type: str
+    name: str | None
 
     def read(self, size: int = -1) -> bytes: ...
 
