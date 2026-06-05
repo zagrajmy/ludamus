@@ -190,6 +190,20 @@ class TestOfferClaimAndExpiry:
             context_data=ANY,
         )
 
+    def test_claim_view_get_unknown_token_redirects(self, client):
+        response = client.get(
+            reverse("web:chronology:offer-claim", kwargs={"token": "nope"})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "This offer is no longer available or has expired.")
+            ],
+            url=reverse("web:events"),
+        )
+
     def test_claim_view_unknown_token_redirects(self, client):
         response = client.post(
             reverse("web:chronology:offer-claim", kwargs={"token": "nope"})
