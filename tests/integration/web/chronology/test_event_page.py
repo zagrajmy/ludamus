@@ -1,5 +1,5 @@
 import re
-from datetime import UTC
+from datetime import UTC, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -86,6 +86,42 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
         assert "Enrollment Open" not in response.content.decode()
+        assert "Upcoming" in response.content.decode()
+
+    def test_status_pills_capped_at_two_drops_upcoming(
+        self, client, enrollment_config, event
+    ):
+        now = timezone.now()
+        event.proposal_start_time = now - timedelta(days=1)
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+        )
+        content = response.content.decode()
+        assert "Enrollment Open" in content
+        assert "Proposals Open" in content
+        assert "Upcoming" not in content
 
     def test_ok_session_card_exposes_day_and_hour_data_attributes(
         self, active_user, agenda_item, client, event

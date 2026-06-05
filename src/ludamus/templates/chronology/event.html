@@ -49,35 +49,45 @@
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 <div class="flex-1">
-                    <!-- Status badge -->
-                    {% if event.is_live %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-sm font-medium mb-4">
-                            <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                            {% translate "Happening now!" %}
+                    <!-- Status pills: capped at two, priority order
+                         live/completed > enrollment open > proposals open > upcoming -->
+                    {% with configs=event.get_active_enrollment_configs %}
+                        <div class="flex flex-wrap items-center gap-2 mb-4">
+                            {% if event.is_live %}
+                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
+                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
+                                    {% translate "Happening now!" %}
+                                </div>
+                            {% elif event.is_ended %}
+                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-200 dark:bg-neutral-700/30 rounded-full text-sm font-medium text-foreground-secondary">
+                                    {% icon "check-circle" class="w-4 h-4" variant="mini" %}
+                                    {% translate "Completed" %}
+                                </div>
+                            {% endif %}
+                            {% if configs %}
+                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400 rounded-full text-sm font-medium">
+                                    {% icon "user-plus" class="w-4 h-4" variant="mini" %}
+                                    {% translate "Enrollment Open" %}
+                                </div>
+                            {% endif %}
+                            {% if event.is_proposal_active %}
+                                {% if not event.is_live and not event.is_ended or not configs %}
+                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium">
+                                        {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
+                                        {% translate "Proposals Open" %}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                            {% if not event.is_live and not event.is_ended %}
+                                {% if not configs or not event.is_proposal_active %}
+                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium">
+                                        {% icon "clock" class="w-4 h-4" variant="mini" %}
+                                        {% translate "Upcoming" %}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
                         </div>
-                    {% elif event.is_ended %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-200 dark:bg-neutral-700/30 rounded-full text-sm font-medium mb-4 text-foreground-secondary">
-                            {% icon "check-circle" class="w-4 h-4" variant="mini" %}
-                            {% translate "Completed" %}
-                        </div>
-                    {% else %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium mb-4">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %}
-                            {% translate "Upcoming" %}
-                        </div>
-                    {% endif %}
-                    {% if event.is_proposal_active %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium mb-4 ml-2">
-                            {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                            {% translate "Proposals Open" %}
-                        </div>
-                    {% endif %}
-                    {% if event.get_active_enrollment_configs %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400 rounded-full text-sm font-medium mb-4 ml-2">
-                            {% icon "user-plus" class="w-4 h-4" variant="mini" %}
-                            {% translate "Enrollment Open" %}
-                        </div>
-                    {% endif %}
+                    {% endwith %}
                     <h1 class="text-3xl sm:text-4xl font-bold mb-3 text-foreground">{{ event.name }}</h1>
                     {% if event.description %}
                         <p class="text-lg mb-6 max-w-2xl text-foreground-muted">{{ event.description }}</p>
