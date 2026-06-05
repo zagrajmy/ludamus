@@ -24,7 +24,11 @@ from ludamus.mills import (
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import NotFoundError, RedirectError, SessionFieldValueData
 
-from .forms import build_personal_data_form, build_session_details_form
+from .forms import (
+    SessionCoverImageForm,
+    build_personal_data_form,
+    build_session_details_form,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -349,9 +353,9 @@ def _render_review(
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
-    event_slug: str,
+    image_form: SessionCoverImageForm | None = None,
 ) -> HttpResponse:
-    wizard = request.session.get(_session_key(event_slug), {})
+    wizard = request.session.get(_session_key(event.slug), {})
     session_data = wizard.get("session_data", {})
     personal_data = wizard.get("personal_data", {})
     time_slot_ids = wizard.get("time_slot_ids", [])
@@ -416,6 +420,7 @@ def _render_review(
             "event": event,
             "category": category,
             "review": review,
+            "image_form": image_form or SessionCoverImageForm(),
             "current_step": "review",
             "wizard_steps": _wizard_steps(
                 service, category, has_category=_event_has_category_step(service, event)
@@ -737,7 +742,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 
-        return _render_review(request, service, event, category, event_slug)
+        return _render_review(request, service, event, category)
 
 
 class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
@@ -745,14 +750,14 @@ class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
         service = _service(request)
         event = self._get_event(service, event_slug)
         category = self._get_wizard_category(request, service, event, event_slug)
-        return _render_review(request, service, event, category, event_slug)
+        return _render_review(request, service, event, category)
 
 
 class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
         event = self._get_event(service, event_slug)
-        self._get_wizard_category(request, service, event, event_slug)
+        category = self._get_wizard_category(request, service, event, event_slug)
         wizard = request.session.get(_session_key(event_slug), {})
         session_data = wizard.get("session_data", {})
 
@@ -775,7 +780,13 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        result = service.submit(event, wizard)
+        image_form = SessionCoverImageForm(request.POST, request.FILES)
+        if not image_form.is_valid():
+            return _render_review(request, service, event, category, image_form)
+
+        result = service.submit(
+            event, wizard, cover_image=image_form.cleaned_data.get("cover_image")
+        )
 
         del request.session[_session_key(event_slug)]
 
@@ -824,11 +835,9 @@ class SessionEditView(LoginRequiredMixin, View):
 
     request: SessionEditRequest
 
-    def get(
-        self, _request: HttpRequest, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        ctx = self._context(event_slug, session_id)
-        form = SessionEditForm(
+    @staticmethod
+    def _initial_form(ctx: SessionSelfEditContext) -> SessionEditForm:
+        return SessionEditForm(
             initial={
                 "title": ctx.session.title,
                 "display_name": ctx.session.display_name,
@@ -839,15 +848,23 @@ class SessionEditView(LoginRequiredMixin, View):
                 "participants_limit": ctx.session.participants_limit,
                 "min_age": ctx.session.min_age,
                 "duration": ctx.session.duration,
+                "cover_image": ctx.session.cover_image_url or None,
             }
         )
-        return self._render(event_slug, session_id, ctx, form, saved=False)
+
+    def get(
+        self, _request: HttpRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        ctx = self._context(event_slug, session_id)
+        return self._render(
+            event_slug, session_id, ctx, self._initial_form(ctx), saved=False
+        )
 
     def post(
         self, _request: HttpRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
-        form = SessionEditForm(self.request.POST)
+        form = SessionEditForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             return self._render(event_slug, session_id, ctx, form, saved=False)
 
@@ -868,7 +885,11 @@ class SessionEditView(LoginRequiredMixin, View):
             event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
             return redirect(f"{event_url}?session={session_id}")
         ctx = self._context(event_slug, session_id)
-        return self._render(event_slug, session_id, ctx, form, saved=True)
+        # Rebuild from the saved session so the cover dropzone re-hydrates with
+        # the new image rather than the just-submitted (now stale) bound form.
+        return self._render(
+            event_slug, session_id, ctx, self._initial_form(ctx), saved=True
+        )
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
         try:

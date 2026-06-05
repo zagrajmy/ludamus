@@ -1,0 +1,5 @@
+{% if url|slice:":4" == "http" %}
+    {{ url }}
+{% else %}
+    {{ request.scheme }}://{{ request.get_host }}{{ url }}
+{% endif %}

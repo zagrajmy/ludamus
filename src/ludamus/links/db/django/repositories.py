@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
@@ -148,6 +149,22 @@ else:
 
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 
+logger = logging.getLogger(__name__)
+
+
+def _delete_stored_file(field_file: object, old_name: str) -> None:
+    # Best-effort: a storage hiccup (e.g. GCS) must not fail an otherwise
+    # successful DB update, so log and swallow cleanup errors rather than
+    # letting them propagate. Broad by design — the backend can raise anything.
+    if (storage := getattr(field_file, "storage", None)) is None:
+        return
+    try:
+        storage.delete(old_name)
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "Best-effort cleanup of replaced file %r failed", old_name, exc_info=True
+        )
+
 
 def _parse_iso8601_duration_minutes(duration: str) -> int:
     if not (m := _ISO8601_DURATION_RE.match(duration)):
@@ -277,7 +294,22 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None:
-        Session.objects.filter(id=pk).update(**data)
+        # The plain queryset UPDATE can't persist a file upload (no storage
+        # write), so when a cover is set/cleared we load the instance and save
+        # it, mirroring EventRepository.update's replace-and-cleanup handling.
+        if "cover_image" not in data:
+            Session.objects.filter(id=pk).update(**data)
+            return
+        try:
+            session = Session.objects.get(id=pk)
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        old_cover = session.cover_image.name
+        for key, value in data.items():
+            setattr(session, key, value)
+        session.save(update_fields=list(data.keys()))
+        if old_cover and old_cover != session.cover_image.name:
+            _delete_stored_file(session.cover_image, old_cover)
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:
@@ -768,9 +800,16 @@ class EventRepository(EventRepositoryProtocol):
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
 
+        # Remember the existing cover so a replace or clear doesn't orphan it
+        # in storage (notably billable on GCS).
+        old_cover = event.cover_image.name if "cover_image" in data else None
+
         for key, value in data.items():
             setattr(event, key, value)
         event.save(update_fields=list(data.keys()))
+
+        if old_cover and old_cover != event.cover_image.name:
+            _delete_stored_file(event.cover_image, old_cover)
 
     @staticmethod
     def update_proposal_description(event_id: int, description: str) -> None:
@@ -2514,9 +2553,12 @@ class EncounterRepository(EncounterRepositoryProtocol):
     @staticmethod
     def update(pk: int, data: EncounterData) -> None:
         encounter = Encounter.objects.get(pk=pk)
+        old_header = encounter.header_image.name if "header_image" in data else None
         for key, value in data.items():
             setattr(encounter, key, value)
         encounter.save()
+        if old_header and old_header != encounter.header_image.name:
+            _delete_stored_file(encounter.header_image, old_header)
 
     @staticmethod
     def delete(pk: int) -> None:

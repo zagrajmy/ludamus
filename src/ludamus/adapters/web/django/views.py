@@ -487,11 +487,12 @@ class EventsPageView(TemplateView):
             self.request.context.current_sphere_id,
             include_unpublished=_is_manager(self.request),
         )
-        # Assign placeholder images by index.
+        # Uploaded cover when present, otherwise a placeholder assigned by index.
         event_datas = [
             EventInfo.from_list_item(
                 item,
-                cover_image_url=staticfiles_storage.url(
+                cover_image_url=item.cover_image_url
+                or staticfiles_storage.url(
                     EVENT_PLACEHOLDER_IMAGES[i % len(EVENT_PLACEHOLDER_IMAGES)]
                 ),
             )
