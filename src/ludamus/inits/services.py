@@ -152,5 +152,6 @@ class Services:
                 self._repos.tracks,
                 self._repos.proposal_categories,
                 self._repos.facilitators,
+                self._repos.import_log_entries,
             ),
         )

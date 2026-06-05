@@ -82,7 +82,6 @@ class EventIntegrationDTO(BaseModel):
     config_json: str
     settings_json: str
     questions_snapshot_json: str = "[]"
-    import_failures_json: str = "[]"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -131,10 +130,6 @@ class EventIntegrationsRepositoryProtocol(Protocol):
         event_id: int, pk: int, questions_snapshot_json: str
     ) -> EventIntegrationDTO: ...
     @staticmethod
-    def update_import_failures(
-        event_id: int, pk: int, import_failures_json: str
-    ) -> EventIntegrationDTO: ...
-    @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
 
@@ -164,9 +159,6 @@ class EventIntegrationsServiceProtocol(Protocol):
         self, sphere_id: int, event_id: int, pk: int
     ) -> list[dict[str, str]]: ...
     def save_settings(self, event_id: int, pk: int, settings_json: str) -> None: ...
-    def save_import_failures(
-        self, event_id: int, pk: int, import_failures_json: str
-    ) -> None: ...
     def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
     def list_implementations(
         self, kind: IntegrationKind

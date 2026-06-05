@@ -1097,14 +1097,6 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         with self._transaction.atomic():
             self._integrations.update_settings(event_id, pk, settings_json)
 
-    def save_import_failures(
-        self, event_id: int, pk: int, import_failures_json: str
-    ) -> None:
-        with self._transaction.atomic():
-            self._integrations.update_import_failures(
-                event_id, pk, import_failures_json
-            )
-
     def check(self, request: IntegrationCheckRequest) -> CheckResult:
         if (impl := self._registry.get(request.implementation)) is None:
             return CheckResult(

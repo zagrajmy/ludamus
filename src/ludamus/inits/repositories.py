@@ -86,3 +86,7 @@ class Repositories:
     @cached_property
     def facilitators(self) -> repositories.FacilitatorRepository:
         return repositories.FacilitatorRepository()
+
+    @cached_property
+    def import_log_entries(self) -> repositories.ImportLogEntryRepository:
+        return repositories.ImportLogEntryRepository()

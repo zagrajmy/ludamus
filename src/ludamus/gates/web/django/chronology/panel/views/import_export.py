@@ -34,6 +34,8 @@ from ludamus.pacts.submissions import (
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
+    ImportLogEntryDTO,
+    ImportLogStatus,
     ImportSettings,
     QuestionTarget,
     QuestionValue,
@@ -757,10 +759,10 @@ class EventImportRunPageView(_ImportTabView):
         return TemplateResponse(self.request, "panel/import-run.html", context)
 
 
-class EventImportErrorsPageView(_ImportTabView):
-    """Errors tab: per-row skip reasons from the last run + retry button."""
+class EventImportLogPageView(_ImportTabView):
+    """Log tab: every attempt with its status, grouped errors and successes."""
 
-    active_tab = "errors"
+    active_tab = "log"
 
     def get(
         self, _request: PanelRequest, slug: str, pk: int | None = None
@@ -770,10 +772,23 @@ class EventImportErrorsPageView(_ImportTabView):
             return loaded
         context, current_event, active = loaded
         if active is not None:
-            context["failures"] = self.request.services.proposals_import.list_failures(
+            entries = self.request.services.proposals_import.list_log_entries(
                 current_event.pk, active.pk
             )
-        return TemplateResponse(self.request, "panel/import-errors.html", context)
+            latest_skipped_by_row: dict[int, ImportLogEntryDTO] = {}
+            successes: list[ImportLogEntryDTO] = []
+            for entry in entries:
+                if entry.status == ImportLogStatus.SUCCESS:
+                    successes.append(entry)
+                elif entry.row_index not in latest_skipped_by_row:
+                    latest_skipped_by_row[entry.row_index] = entry
+            errors = list(latest_skipped_by_row.values())
+            context["log_errors"] = errors
+            context["log_successes"] = successes
+            context["log_total_attempts"] = len(entries)
+            context["log_success_count"] = len(successes)
+            context["log_error_count"] = len(errors)
+        return TemplateResponse(self.request, "panel/import-log.html", context)
 
 
 class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
@@ -885,8 +900,8 @@ class EventImportTestRowActionView(_ImportActionView):
             messages.info(self.request, _("No responses found to test."))
 
 
-class EventImportRetryRowActionView(PanelAccessMixin, EventContextMixin, View):
-    """Retry a single skipped row against the current recipe."""
+class EventImportLogRetryActionView(PanelAccessMixin, EventContextMixin, View):
+    """Retry a single skipped log entry against the current recipe."""
 
     request: PanelRequest
 
@@ -898,20 +913,20 @@ class EventImportRetryRowActionView(PanelAccessMixin, EventContextMixin, View):
         if (active := _active_integration(integrations, pk)) is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
-        raw = (self.request.POST.get("row_index") or "").strip()
+        raw = (self.request.POST.get("entry_id") or "").strip()
         if not raw.isdigit():
-            messages.error(self.request, _("Invalid row index."))
-            return redirect("panel:import-errors", slug=slug, pk=active.pk)
-        row_index = int(raw)
+            messages.error(self.request, _("Invalid log entry."))
+            return redirect("panel:import-log", slug=slug, pk=active.pk)
+        entry_pk = int(raw)
         sphere_id = self.request.context.current_sphere_id
-        succeeded = self.request.services.proposals_import.retry_failure(
-            sphere_id, current_event.pk, active.pk, row_index
+        succeeded = self.request.services.proposals_import.retry_entry(
+            sphere_id, current_event.pk, entry_pk
         )
         if succeeded:
             messages.success(self.request, _("Row imported."))
         else:
             messages.warning(self.request, _("Row still cannot be imported."))
-        return redirect("panel:import-errors", slug=slug, pk=active.pk)
+        return redirect("panel:import-log", slug=slug, pk=active.pk)
 
 
 class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):

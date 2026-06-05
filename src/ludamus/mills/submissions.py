@@ -4,6 +4,7 @@ Owns proposal intake: CFP personal-data field management and proposal import
 (creating Session rows from an integration's source responses).
 """
 
+import json
 import re
 from secrets import choice, token_urlsafe
 from typing import TYPE_CHECKING, Literal, Never
@@ -24,7 +25,9 @@ from ludamus.pacts.submissions import (
     DurationSpec,
     EntityRef,
     FieldDefinition,
-    ImportFailure,
+    ImportLogEntryCreateData,
+    ImportLogEntryDTO,
+    ImportLogStatus,
     ImportRepos,
     ImportSettings,
     PersonalDataFieldEditContextDTO,
@@ -62,14 +65,14 @@ def _field_setup(
     )
 
 
-_FAILURES_ADAPTER = TypeAdapter(list[ImportFailure])
+_RESPONSE_ADAPTER = TypeAdapter(dict[str, str])
 
 
 class _RowSkippedError(Exception):
     # Raised inside `_create_proposal` to signal that this single row should be
     # counted as skipped and the importer should move on, leaving partial state
     # for the row rolled back by the row-scoped savepoint. `reason` is the
-    # operator-facing description that lands on the Errors tab.
+    # operator-facing description that lands on the Log tab.
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -79,7 +82,7 @@ class _DuplicateRowError(Exception):
     # Raised inside `_create_proposal` when settings.unique_key_columns matches
     # a row already imported into this event. Counted separately from skips so
     # the operator sees idempotency at work instead of a stack of "failure"
-    # entries — no Errors-tab entry is added.
+    # entries — no log entry is added.
     pass
 
 
@@ -124,18 +127,16 @@ def _skip(reason: str) -> Never:
 
 def _locate_row(
     rows: list[dict[str, str]],
-    failure: ImportFailure,
+    response: dict[str, str],
     settings: ImportSettings,
     fallback_index: int,
 ) -> tuple[int, dict[str, str]] | None:
     # Settings.unique_key_columns names the columns whose values jointly
     # identify a row across re-fetches. Without it, fall back to the position
-    # at failure time — fine for sheets where the operator doesn't shuffle
-    # rows between runs.
+    # at the original attempt time — fine for sheets where the operator
+    # doesn't shuffle rows between runs.
     if settings.unique_key_columns:
-        target_key = {
-            col: failure.response.get(col, "") for col in settings.unique_key_columns
-        }
+        target_key = {col: response.get(col, "") for col in settings.unique_key_columns}
         for idx, row in enumerate(rows):
             if all(
                 row.get(col, "") == target_key[col]
@@ -277,10 +278,7 @@ class ProposalImportService:
             sphere_id, event_id, integration_pk
         )
         indexed = list(enumerate(rows))
-        result, failures = self._import_rows(sphere_id, event_id, settings, indexed)
-        # A full run replaces the failure list — no merging with prior runs.
-        self._save_failures(event_id, integration_pk, failures)
-        return result
+        return self._import_rows(sphere_id, event_id, integration_pk, settings, indexed)
 
     def run_sample(
         self, sphere_id: int, event_id: int, integration_pk: int
@@ -294,71 +292,71 @@ class ProposalImportService:
         if not rows:
             return ProposalImportResult(created=0, fields_created=0)
         idx = choice(range(len(rows)))
-        result, fresh = self._import_rows(
-            sphere_id, event_id, settings, [(idx, rows[idx])]
+        return self._import_rows(
+            sphere_id, event_id, integration_pk, settings, [(idx, rows[idx])]
         )
-        # Merge into the existing failure list so the Errors tab surfaces
-        # test-row skips too. Replace any entry at the same row_index instead
-        # of duplicating it; remove on a success.
-        existing = self.list_failures(event_id, integration_pk)
-        merged = [f for f in existing if f.row_index != idx]
-        merged.extend(fresh)
-        self._save_failures(event_id, integration_pk, merged)
-        return result
 
-    def list_failures(self, event_id: int, pk: int) -> list[ImportFailure]:
-        integration = self._event_integrations.get(event_id, pk)
-        raw = integration.import_failures_json or "[]"
-        try:
-            return _FAILURES_ADAPTER.validate_json(raw)
-        except ValidationError:
-            return []
+    def list_log_entries(
+        self,
+        event_id: int,
+        pk: int,
+        *,
+        status: ImportLogStatus | None = None,
+        search: str = "",
+    ) -> list[ImportLogEntryDTO]:
+        # Touch the integration to enforce event scoping before listing.
+        self._event_integrations.get(event_id, pk)
+        return self._repos.log_entries.list_for_integration(
+            pk, status=status, search=search
+        )
 
-    def retry_failure(
-        self, sphere_id: int, event_id: int, pk: int, row_index: int
-    ) -> bool:
+    def latest_log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None:
+        return self._repos.log_entries.latest_for_session(session_pk)
+
+    def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool:
         # Refetch the live responses (operator may have updated the recipe);
-        # locate the row via the unique-key columns when set, otherwise by
-        # row_index. Drop the entry on success or update its reason on a
-        # fresh skip.
-        failures = self.list_failures(event_id, pk)
-        failure = next((f for f in failures if f.row_index == row_index), None)
-        if failure is None:
+        # locate the row via the unique-key columns when set, otherwise by the
+        # original row_index. Write a fresh log entry for the new attempt;
+        # the original entry stays in the log as history.
+        try:
+            entry = self._repos.log_entries.read(entry_pk)
+        except NotFoundError:
             return False
-        settings = self._settings(event_id, pk)
-        rows = self._event_integrations.fetch_responses(sphere_id, event_id, pk)
-        if (located := _locate_row(rows, failure, settings, row_index)) is None:
-            remaining = [
-                (
-                    f
-                    if f.row_index != row_index
-                    else ImportFailure(
-                        row_index=f.row_index,
-                        reason="row no longer present in source",
-                        response=f.response,
-                    )
+        integration = self._event_integrations.get(event_id, entry.integration_id)
+        if integration.pk != entry.integration_id:
+            return False
+        settings = self._settings(event_id, integration.pk)
+        rows = self._event_integrations.fetch_responses(
+            sphere_id, event_id, integration.pk
+        )
+        original_response = self._decode_response(entry.response_json)
+        if (
+            located := _locate_row(rows, original_response, settings, entry.row_index)
+        ) is None:
+            self._repos.log_entries.create(
+                ImportLogEntryCreateData(
+                    integration_id=integration.pk,
+                    row_index=entry.row_index,
+                    status=ImportLogStatus.SKIPPED,
+                    reason="row no longer present in source",
+                    response_json=entry.response_json,
+                    title=entry.title,
+                    display_name=entry.display_name,
                 )
-                for f in failures
-            ]
-            self._save_failures(event_id, pk, remaining)
+            )
             return False
         target_idx, target_row = located
-        result, fresh = self._import_rows(
-            sphere_id, event_id, settings, [(target_idx, target_row)]
+        result = self._import_rows(
+            sphere_id, event_id, integration.pk, settings, [(target_idx, target_row)]
         )
-        succeeded = result.created == 1
-        remaining = [f for f in failures if f.row_index != row_index]
-        if not succeeded and fresh:
-            remaining.append(fresh[0])
-        self._save_failures(event_id, pk, remaining)
-        return succeeded
+        return result.created == 1
 
-    def _save_failures(
-        self, event_id: int, pk: int, failures: list[ImportFailure]
-    ) -> None:
-        self._event_integrations.save_import_failures(
-            event_id, pk, _FAILURES_ADAPTER.dump_json(failures).decode()
-        )
+    @staticmethod
+    def _decode_response(response_json: str) -> dict[str, str]:
+        try:
+            return _RESPONSE_ADAPTER.validate_json(response_json or "{}")
+        except ValidationError:
+            return {}
 
     def _settings(self, event_id: int, integration_pk: int) -> ImportSettings:
         integration = self._event_integrations.get(event_id, integration_pk)
@@ -368,41 +366,72 @@ class ProposalImportService:
         self,
         sphere_id: int,
         event_id: int,
+        integration_pk: int,
         settings: ImportSettings,
         indexed_rows: list[tuple[int, dict[str, str]]],
-    ) -> tuple[ProposalImportResult, list[ImportFailure]]:
+    ) -> ProposalImportResult:
         created = 0
+        skipped = 0
         duplicates = 0
-        failures: list[ImportFailure] = []
         with self._transaction.atomic():
             field_ids_by_header, fields_created = self._provision_fields(
                 event_id, settings
             )
             for row_index, row in indexed_rows:
+                title, display_name = self._extract_identity(settings, row)
                 try:
-                    self._create_proposal(
+                    session_id = self._create_proposal(
                         sphere_id, event_id, settings, row, field_ids_by_header
                     )
                 except _DuplicateRowError:
                     duplicates += 1
                     continue
                 except _RowSkippedError as exc:
-                    failures.append(
-                        ImportFailure(
-                            row_index=row_index, reason=exc.reason, response=row
+                    self._repos.log_entries.create(
+                        ImportLogEntryCreateData(
+                            integration_id=integration_pk,
+                            row_index=row_index,
+                            status=ImportLogStatus.SKIPPED,
+                            reason=exc.reason,
+                            response_json=json.dumps(row, ensure_ascii=False),
+                            title=title,
+                            display_name=display_name,
                         )
                     )
+                    skipped += 1
                     continue
+                self._repos.log_entries.create(
+                    ImportLogEntryCreateData(
+                        integration_id=integration_pk,
+                        row_index=row_index,
+                        status=ImportLogStatus.SUCCESS,
+                        reason="",
+                        response_json=json.dumps(row, ensure_ascii=False),
+                        title=title,
+                        display_name=display_name,
+                        session_id=session_id,
+                    )
+                )
                 created += 1
-        return (
-            ProposalImportResult(
-                created=created,
-                fields_created=fields_created,
-                skipped=len(failures),
-                duplicates=duplicates,
-            ),
-            failures,
+        return ProposalImportResult(
+            created=created,
+            fields_created=fields_created,
+            skipped=skipped,
+            duplicates=duplicates,
         )
+
+    @staticmethod
+    def _extract_identity(
+        settings: ImportSettings, row: dict[str, str]
+    ) -> tuple[str, str]:
+        title = ""
+        display_name = ""
+        for header, target in settings.questions.items():
+            if target.to == "session.title":
+                title = row.get(header, "")
+            elif target.to == "facilitator.display_name":
+                display_name = row.get(header, "")
+        return title, display_name
 
     def _provision_fields(
         self, event_id: int, settings: ImportSettings
@@ -498,7 +527,7 @@ class ProposalImportService:
         settings: ImportSettings,
         row: dict[str, str],
         field_ids_by_header: dict[str, int],
-    ) -> None:
+    ) -> int:
         title = ""
         description = ""
         duration = ""
@@ -550,6 +579,7 @@ class ProposalImportService:
         ]
         if values:
             self._repos.sessions.save_field_values(session_id, values)
+        return session_id
 
     def _resolve_slug(
         self,

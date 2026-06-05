@@ -1510,7 +1510,6 @@ class EventIntegration(models.Model):
     config_json = models.TextField(default="{}")
     settings_json = models.TextField(default="{}")
     questions_snapshot_json = models.TextField(default="[]")
-    import_failures_json = models.TextField(default="[]")
 
     class Meta:
         db_table = "event_integration"
@@ -1524,3 +1523,38 @@ class EventIntegration(models.Model):
 
     def __str__(self) -> str:
         return self.display_name
+
+
+class ImportLogEntry(models.Model):
+    integration = models.ForeignKey(
+        EventIntegration, on_delete=models.CASCADE, related_name="log_entries"
+    )
+    row_index = models.IntegerField()
+    status = models.CharField(max_length=16)
+    reason = models.TextField(blank=True, default="")
+    response_json = models.TextField(default="{}")
+    title = models.CharField(max_length=255, blank=True, default="")
+    display_name = models.CharField(max_length=255, blank=True, default="")
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="import_log_entries",
+    )
+    attempted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "import_log_entry"
+        indexes = (
+            models.Index(
+                fields=("integration", "status", "-attempted_at"),
+                name="ile_int_status_at_idx",
+            ),
+            models.Index(fields=("integration", "row_index"), name="ile_int_row_idx"),
+            models.Index(fields=("session",), name="ile_session_idx"),
+        )
+        ordering = ("-attempted_at", "-pk")
+
+    def __str__(self) -> str:
+        return f"{self.integration_id}/{self.row_index} {self.status}"

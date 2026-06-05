@@ -422,9 +422,9 @@ urlpatterns = [
         name="import-test-do",
     ),
     path(
-        "event/<slug:slug>/import/<int:pk>/errors/",
-        import_export.EventImportErrorsPageView.as_view(),
-        name="import-errors",
+        "event/<slug:slug>/import/<int:pk>/log/",
+        import_export.EventImportLogPageView.as_view(),
+        name="import-log",
     ),
     path(
         "event/<slug:slug>/import/<int:pk>/settings/",
@@ -432,8 +432,8 @@ urlpatterns = [
         name="import-settings-save",
     ),
     path(
-        "event/<slug:slug>/import/<int:pk>/do/retry-row/",
-        import_export.EventImportRetryRowActionView.as_view(),
-        name="import-retry-row",
+        "event/<slug:slug>/import/<int:pk>/do/retry-entry/",
+        import_export.EventImportLogRetryActionView.as_view(),
+        name="import-log-retry",
     ),
 ]

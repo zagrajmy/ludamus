@@ -31,6 +31,9 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.submissions import (
+    ImportLogEntryCreateData,
+    ImportLogEntryDTO,
+    ImportLogStatus,
     ImportRepos,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -959,6 +962,10 @@ class TestProposalImportService:
         return mock
 
     @pytest.fixture
+    def log_entries(self):
+        return MagicMock()
+
+    @pytest.fixture
     def service(
         self,
         transaction,
@@ -970,6 +977,7 @@ class TestProposalImportService:
         tracks,
         categories,
         facilitators,
+        log_entries,
     ):
         return ProposalImportService(
             transaction,
@@ -982,6 +990,7 @@ class TestProposalImportService:
                 tracks,
                 categories,
                 facilitators,
+                log_entries,
             ),
         )
 
@@ -1269,8 +1278,8 @@ class TestProposalImportService:
         assert result.skipped == 1
         sessions.create.assert_not_called()
 
-    def test_run_persists_failure_with_reason_and_row_response_snapshot(
-        self, service, event_integrations
+    def test_run_writes_skipped_log_entry_with_reason_and_snapshot(
+        self, service, event_integrations, log_entries
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
@@ -1284,77 +1293,113 @@ class TestProposalImportService:
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
+        integration_pk = 3
         assert result.created == 0
         assert result.skipped == 1
-        event_integrations.save_import_failures.assert_called_once()
-        _event_id, _pk, payload = event_integrations.save_import_failures.call_args.args
-        failures = _json.loads(payload)
-        assert failures == [
-            {
-                "row_index": 0,
-                "reason": "Cap: 'loads' is not an integer",
-                "response": {"Title": "Talk", "Cap": "loads"},
-            }
-        ]
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.status == ImportLogStatus.SKIPPED
+        assert created.row_index == 0
+        assert created.reason == "Cap: 'loads' is not an integer"
+        assert created.integration_id == integration_pk
+        assert created.title == "Talk"
+        assert _json.loads(created.response_json) == {"Title": "Talk", "Cap": "loads"}
+        assert created.session_id is None
 
-    def test_retry_failure_clears_entry_when_row_now_succeeds(
-        self, service, event_integrations, sessions
+    def test_run_writes_success_log_entry_with_session_fk(
+        self, service, event_integrations, sessions, log_entries
     ):
         event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"Title": {"to": "session.title"}}}',
-            import_failures_json=(
-                '[{"row_index": 0,'
-                ' "reason": "stale",'
-                ' "response": {"Title": "Talk"}}]'
-            ),
+            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "My Talk"}]
+        session_pk = 42
+        sessions.create.return_value = session_pk
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.status == ImportLogStatus.SUCCESS
+        assert created.session_id == session_pk
+        assert created.row_index == 0
+        assert created.title == "My Talk"
+        assert not created.reason
+
+    def test_retry_entry_writes_a_fresh_entry_when_row_now_succeeds(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(
+            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SKIPPED,
+            reason="stale",
+            response_json='{"Title": "Talk"}',
+            title="Talk",
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+        retry_session_pk = 77
+        sessions.create.return_value = retry_session_pk
 
-        succeeded = service.retry_failure(sphere_id=1, event_id=2, pk=3, row_index=0)
+        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
 
         assert succeeded is True
         sessions.create.assert_called_once()
-        # On success the entry is dropped from the persisted list.
-        _e, _p, payload = event_integrations.save_import_failures.call_args.args
-        assert _json.loads(payload) == []
+        # A fresh log entry is written; the original (pk=10) is untouched.
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.status == ImportLogStatus.SUCCESS
+        assert created.session_id == retry_session_pk
+        assert created.row_index == 0
 
-    def test_retry_failure_keeps_entry_when_row_still_skips(
-        self, service, event_integrations, sessions
+    def test_retry_entry_writes_fresh_skipped_entry_when_row_still_skips(
+        self, service, event_integrations, sessions, log_entries
     ):
         event_integrations.get.return_value = MagicMock(
+            pk=3,
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
                 ' "Cap": {"to": "session.participants_limit"}}}'
             ),
-            import_failures_json=(
-                '[{"row_index": 0,'
-                ' "reason": "old",'
-                ' "response": {"Title": "Talk", "Cap": "loads"}}]'
-            ),
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SKIPPED,
+            reason="old",
+            response_json='{"Title": "Talk", "Cap": "loads"}',
+            title="Talk",
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         event_integrations.fetch_responses.return_value = [
             {"Title": "Talk", "Cap": "loads"}
         ]
 
-        succeeded = service.retry_failure(sphere_id=1, event_id=2, pk=3, row_index=0)
+        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
 
         assert succeeded is False
         sessions.create.assert_not_called()
-        # Entry stays, with the fresh reason replacing the stale one.
-        _e, _p, payload = event_integrations.save_import_failures.call_args.args
-        persisted = _json.loads(payload)
-        assert len(persisted) == 1
-        assert persisted[0]["reason"] == "Cap: 'loads' is not an integer"
+        # Fresh entry written with the new reason; old entry stays in the log.
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.status == ImportLogStatus.SKIPPED
+        assert created.reason == "Cap: 'loads' is not an integer"
 
-    def test_run_sample_persists_failure_so_errors_tab_shows_test_skips(
-        self, service, event_integrations
+    def test_run_sample_writes_log_entry_so_log_tab_shows_test_skips(
+        self, service, event_integrations, log_entries
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=(
                 '{"questions": {"Title": {"to": "session.title"},'
                 ' "Cap": {"to": "session.participants_limit"}}}'
-            ),
-            import_failures_json="[]",
+            )
         )
         event_integrations.fetch_responses.return_value = [
             {"Title": "Talk", "Cap": "loads"}
@@ -1363,11 +1408,10 @@ class TestProposalImportService:
         result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 0
-        event_integrations.save_import_failures.assert_called_once()
-        _e, _p, payload = event_integrations.save_import_failures.call_args.args
-        persisted = _json.loads(payload)
-        assert len(persisted) == 1
-        assert persisted[0]["reason"] == "Cap: 'loads' is not an integer"
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.status == ImportLogStatus.SKIPPED
+        assert created.reason == "Cap: 'loads' is not an integer"
 
     def test_run_with_no_responses_creates_nothing(
         self, service, event_integrations, sessions

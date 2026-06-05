@@ -24,6 +24,7 @@ from ludamus.adapters.db.django.models import (
     EventSettings,
     Facilitator,
     HostPersonalData,
+    ImportLogEntry,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
@@ -136,6 +137,12 @@ from ludamus.pacts.multiverse import (
     ConnectionDTO,
     ConnectionsRepositoryProtocol,
     DuplicateConnectionDisplayNameError,
+)
+from ludamus.pacts.submissions import (
+    ImportLogEntryCreateData,
+    ImportLogEntryDTO,
+    ImportLogEntryRepositoryProtocol,
+    ImportLogStatus,
 )
 
 if TYPE_CHECKING:
@@ -2805,7 +2812,6 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         config_json=integration.config_json or "{}",
         settings_json=integration.settings_json or "{}",
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
-        import_failures_json=integration.import_failures_json or "[]",
     )
 
 
@@ -2894,22 +2900,68 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
         return _event_integration_dto(integration)
 
     @staticmethod
-    def update_import_failures(
-        event_id: int, pk: int, import_failures_json: str
-    ) -> EventIntegrationDTO:
-        try:
-            integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
-        except EventIntegration.DoesNotExist as exc:
-            raise NotFoundError from exc
-        integration.import_failures_json = import_failures_json
-        integration.save(update_fields=("import_failures_json",))
-        integration = EventIntegration.objects.select_related("connection").get(
-            pk=integration.pk
-        )
-        return _event_integration_dto(integration)
-
-    @staticmethod
     def delete(event_id: int, pk: int) -> None:
         deleted, _ = EventIntegration.objects.filter(pk=pk, event_id=event_id).delete()
         if not deleted:
             raise NotFoundError
+
+
+def _import_log_entry_dto(entry: ImportLogEntry) -> ImportLogEntryDTO:
+    return ImportLogEntryDTO(
+        pk=entry.pk,
+        integration_id=entry.integration_id,
+        row_index=entry.row_index,
+        status=ImportLogStatus(entry.status),
+        reason=entry.reason or "",
+        response_json=entry.response_json or "{}",
+        title=entry.title or "",
+        display_name=entry.display_name or "",
+        session_id=entry.session_id,
+        attempted_at=entry.attempted_at,
+    )
+
+
+class ImportLogEntryRepository(ImportLogEntryRepositoryProtocol):
+    @staticmethod
+    def create(data: ImportLogEntryCreateData) -> ImportLogEntryDTO:
+        entry = ImportLogEntry.objects.create(
+            integration_id=data.integration_id,
+            row_index=data.row_index,
+            status=data.status.value,
+            reason=data.reason,
+            response_json=data.response_json,
+            title=data.title,
+            display_name=data.display_name,
+            session_id=data.session_id,
+        )
+        return _import_log_entry_dto(entry)
+
+    @staticmethod
+    def list_for_integration(
+        integration_pk: int, *, status: ImportLogStatus | None = None, search: str = ""
+    ) -> list[ImportLogEntryDTO]:
+        qs = ImportLogEntry.objects.filter(integration_id=integration_pk)
+        if status is not None:
+            qs = qs.filter(status=status.value)
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search) | Q(display_name__icontains=search)
+            )
+        return [_import_log_entry_dto(e) for e in qs.order_by("-attempted_at", "-pk")]
+
+    @staticmethod
+    def latest_for_session(session_pk: int) -> ImportLogEntryDTO | None:
+        entry = (
+            ImportLogEntry.objects.filter(session_id=session_pk)
+            .order_by("-attempted_at", "-pk")
+            .first()
+        )
+        return _import_log_entry_dto(entry) if entry is not None else None
+
+    @staticmethod
+    def read(pk: int) -> ImportLogEntryDTO:
+        try:
+            entry = ImportLogEntry.objects.get(pk=pk)
+        except ImportLogEntry.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return _import_log_entry_dto(entry)

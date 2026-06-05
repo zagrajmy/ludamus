@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:51+0200\n"
+"POT-Creation-Date: 2026-06-09 22:53+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1274,8 +1274,8 @@ msgid "No responses found to test."
 msgstr "Nie znaleziono odpowiedzi do przetestowania."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
-msgid "Invalid row index."
-msgstr "Nieprawidłowy indeks wiersza."
+msgid "Invalid log entry."
+msgstr "Nieprawidłowy wpis dziennika."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "Row imported."
@@ -1283,7 +1283,7 @@ msgstr "Wiersz zaimportowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "Row still cannot be imported."
-msgstr ""
+msgstr "Wiersz nadal nie może zostać zaimportowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
@@ -3941,8 +3941,8 @@ msgstr ""
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import-errors.html
 #: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
@@ -4482,55 +4482,13 @@ msgstr "Scal zaznaczonych twórców"
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
-#: src/ludamus/templates/panel/import-errors.html
 #: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/import.html
 msgid "Google Docs Import"
 msgstr "Import z Google Docs"
-
-#: src/ludamus/templates/panel/import-errors.html
-#: src/ludamus/templates/panel/import-json.html
-#: src/ludamus/templates/panel/import-review.html
-#: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/import.html
-msgid ""
-"No import integrations yet. Add one in Settings → Integrations to import "
-"proposals from an external form."
-msgstr ""
-"Nie ma jeszcze żadnych integracji importu. Dodaj jedną w sekcji Ustawienia → "
-"Integracje, aby importować zgłoszenia z zewnętrznego formularza."
-
-#: src/ludamus/templates/panel/import-errors.html
-msgid "No skipped rows from the last import run."
-msgstr ""
-
-#: src/ludamus/templates/panel/import-errors.html
-#, python-format
-msgid ""
-"\n"
-"                        %(count)s response was skipped during the last "
-"import run. Update the recipe to map the answer, then click Retry.\n"
-"                    "
-msgid_plural ""
-"\n"
-"                        %(count)s responses were skipped during the last "
-"import run. Update the recipe to map the answers, then click Retry.\n"
-"                    "
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-
-#: src/ludamus/templates/panel/import-errors.html
-#, python-format
-msgid "Row %(index)s"
-msgstr ""
-
-#: src/ludamus/templates/panel/import-errors.html
-msgid "Retry"
-msgstr ""
 
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-run.html
@@ -4547,6 +4505,106 @@ msgid ""
 msgstr ""
 "Edytuj surowe mapowanie generowane przez zakładkę Zgłoszenie. Nieprawidłowy "
 "JSON jest odrzucany."
+
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/import-review.html
+#: src/ludamus/templates/panel/import-run.html
+#: src/ludamus/templates/panel/import.html
+msgid ""
+"No import integrations yet. Add one in Settings → Integrations to import "
+"proposals from an external form."
+msgstr ""
+"Nie ma jeszcze żadnych integracji importu. Dodaj jedną w sekcji Ustawienia → "
+"Integracje, aby importować zgłoszenia z zewnętrznego formularza."
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "No import attempts logged yet."
+msgstr "Brak zapisanych prób importu."
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid ""
+"\n"
+"                        %(total)s attempts · %(successes)s successful · "
+"%(errors)s errors\n"
+"                    "
+msgstr ""
+"\n"
+"                        %(total)s prób · %(successes)s udanych · %(errors)s "
+"błędów\n"
+"                    "
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid ""
+"\n"
+"                                %(count)s error\n"
+"                            "
+msgid_plural ""
+"\n"
+"                                %(count)s errors\n"
+"                            "
+msgstr[0] ""
+"\n"
+"                                %(count)s błąd\n"
+"                            "
+msgstr[1] ""
+"\n"
+"                                %(count)s błędy\n"
+"                            "
+msgstr[2] ""
+"\n"
+"                                %(count)s błędów\n"
+"                            "
+msgstr[3] ""
+"\n"
+"                                %(count)s błędów\n"
+"                            "
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid "Row %(index)s · %(at)s"
+msgstr "Wiersz %(index)s · %(at)s"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Response"
+msgstr "Odpowiedź"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Retry"
+msgstr "Ponów"
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid ""
+"\n"
+"                                %(count)s successful import\n"
+"                            "
+msgid_plural ""
+"\n"
+"                                %(count)s successful imports\n"
+"                            "
+msgstr[0] ""
+"\n"
+"                                %(count)s udany import\n"
+"                            "
+msgstr[1] ""
+"\n"
+"                                %(count)s udane importy\n"
+"                            "
+msgstr[2] ""
+"\n"
+"                                %(count)s udanych importów\n"
+"                            "
+msgstr[3] ""
+"\n"
+"                                %(count)s udanych importów\n"
+"                            "
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "View proposal"
+msgstr "Zobacz zgłoszenie"
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Header row"
@@ -4860,8 +4918,8 @@ msgid "Import run"
 msgstr "Uruchomienie importu"
 
 #: src/ludamus/templates/panel/parts/import-tabs.html
-msgid "Errors"
-msgstr ""
+msgid "Log"
+msgstr "Dziennik"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print timetable for a venue or area"

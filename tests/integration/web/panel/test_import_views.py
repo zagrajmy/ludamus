@@ -19,6 +19,7 @@ from django.utils.timezone import get_current_timezone, localtime
 from ludamus.adapters.db.django.models import (
     EventIntegration,
     HostPersonalData,
+    ImportLogEntry,
     PersonalDataField,
     ProposalCategory,
     Session,
@@ -90,6 +91,18 @@ def _run_page_url(event, integration) -> str:
     )
 
 
+def _log_url(event, integration) -> str:
+    return reverse(
+        "panel:import-log", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
+def _log_retry_url(event, integration) -> str:
+    return reverse(
+        "panel:import-log-retry", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
 def _json_url(event, integration) -> str:
     return reverse(
         "panel:import-json", kwargs={"slug": event.slug, "pk": integration.pk}
@@ -128,7 +141,6 @@ def _dto(integration) -> EventIntegrationDTO:
         config_json=integration.config_json,
         settings_json=integration.settings_json,
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
-        import_failures_json=integration.import_failures_json or "[]",
     )
 
 
@@ -1800,4 +1812,145 @@ class TestEventImportSettingsSaveView:
             HTTPStatus.FOUND,
             url=_run_page_url(event, integration),
             messages=[(messages.ERROR, "Header row must be 1 or greater.")],
+        )
+
+
+@pytest.mark.django_db
+class TestEventImportLogPageView:
+    def test_get_redirects_non_manager(
+        self, authenticated_client, event, connection_with_secret
+    ):
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.get(_log_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_get_renders_empty_state_without_attempts(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.get(_log_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_total_attempts"] == 0
+
+    def test_get_groups_errors_and_successes_and_folds_successes_by_default(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["My Talk"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        response = authenticated_client.get(_log_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_total_attempts"] == 1
+        assert response.context_data["log_success_count"] == 1
+        assert response.context_data["log_error_count"] == 0
+        body = response.content.decode()
+        # Successes are collapsed inside a <details> without `open`.
+        assert "<details" in body
+        assert "open" not in body.split("</details>")[0]
+
+    def test_post_retry_creates_a_fresh_entry_and_redirects_to_log(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title"},
+                    "Cap": {"to": "session.participants_limit"},
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        # First run yields one skipped entry.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Cap"], ["Talk", "loads"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        entry = ImportLogEntry.objects.get(integration=integration)
+        # Operator fixes the recipe, then retries.
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Cap"], ["Talk", "loads"]]
+            )
+            response = authenticated_client.post(
+                _log_retry_url(event, integration), data={"entry_id": str(entry.pk)}
+            )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response.url == _log_url(event, integration)
+        # Original skipped entry stays; a fresh success entry was added.
+        rows = list(
+            ImportLogEntry.objects.filter(integration=integration).order_by("pk")
+        )
+        expected_entries = 2
+        assert len(rows) == expected_entries
+        assert rows[0].pk == entry.pk
+        assert rows[0].status == "skipped"
+        assert rows[1].status == "success"
+        assert rows[1].session_id is not None
+
+    def test_post_retry_with_invalid_entry_id_redirects_with_error(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _log_retry_url(event, integration), data={"entry_id": "abc"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_log_url(event, integration),
+            messages=[(messages.ERROR, "Invalid log entry.")],
         )

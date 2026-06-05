@@ -6,9 +6,10 @@ context today, with the Session lifecycle and proposal import to follow.
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
@@ -109,14 +110,48 @@ class ImportSettings(BaseModel):
     unique_key_columns: list[str] = []
 
 
-class ImportFailure(BaseModel):
-    # A row the importer deliberately skipped (mapping failure). The row index
-    # is the response sheet's row position at run time, used as a stable enough
-    # key for the Errors tab and the Retry action. `response` is a UI-only
-    # snapshot so the operator can see what answer it was without a refetch.
+class ImportLogStatus(StrEnum):
+    SUCCESS = "success"
+    SKIPPED = "skipped"
+
+
+class ImportLogEntryDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    integration_id: int
     row_index: int
-    reason: str
-    response: dict[str, str] = {}
+    status: ImportLogStatus
+    reason: str = ""
+    response_json: str = "{}"
+    title: str = ""
+    display_name: str = ""
+    session_id: int | None = None
+    attempted_at: datetime
+
+
+class ImportLogEntryCreateData(BaseModel):
+    integration_id: int
+    row_index: int
+    status: ImportLogStatus
+    reason: str = ""
+    response_json: str = "{}"
+    title: str = ""
+    display_name: str = ""
+    session_id: int | None = None
+
+
+class ImportLogEntryRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: ImportLogEntryCreateData) -> ImportLogEntryDTO: ...
+    @staticmethod
+    def list_for_integration(
+        integration_pk: int, *, status: ImportLogStatus | None = None, search: str = ""
+    ) -> list[ImportLogEntryDTO]: ...
+    @staticmethod
+    def latest_for_session(session_pk: int) -> ImportLogEntryDTO | None: ...
+    @staticmethod
+    def read(pk: int) -> ImportLogEntryDTO: ...
 
 
 @dataclass
@@ -128,7 +163,7 @@ class ProposalImportResult:
 
 
 @dataclass(frozen=True)
-class ImportRepos:
+class ImportRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the proposal importer creates proposals and provisions into."""
 
     sessions: SessionRepositoryProtocol
@@ -138,6 +173,7 @@ class ImportRepos:
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
+    log_entries: ImportLogEntryRepositoryProtocol
 
 
 class ProposalImportServiceProtocol(Protocol):
@@ -147,10 +183,18 @@ class ProposalImportServiceProtocol(Protocol):
     def run_sample(
         self, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult: ...
-    def list_failures(self, event_id: int, pk: int) -> list[ImportFailure]: ...
-    def retry_failure(
-        self, sphere_id: int, event_id: int, pk: int, row_index: int
-    ) -> bool: ...
+    def list_log_entries(
+        self,
+        event_id: int,
+        pk: int,
+        *,
+        status: ImportLogStatus | None = None,
+        search: str = "",
+    ) -> list[ImportLogEntryDTO]: ...
+    def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
+    def latest_log_entry_for_session(
+        self, session_pk: int
+    ) -> ImportLogEntryDTO | None: ...
 
 
 # --- CFP (personal-data field management) ---
