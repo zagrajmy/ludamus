@@ -1938,7 +1938,7 @@ class TestEventPageView:
         SessionFieldValue.objects.create(
             session=agenda_item.session,
             field=session_field,
-            value=["A", "B", "C", "D", "E", "F"],
+            value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
         )
         settings, _ = EventSettings.objects.get_or_create(event=event)
         settings.displayed_session_fields.add(session_field)
@@ -1947,8 +1947,10 @@ class TestEventPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        assert "session-tags-popover" in content
+        # Four values stay visible; the two extras collapse into the "+N" popover.
         assert "+2" in content
+        assert "Echo" in content
+        assert "Foxtrot" in content
 
     def test_ok_session_with_non_displayed_field_excluded_from_rows(
         self, active_user, agenda_item, client, event
