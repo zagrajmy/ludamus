@@ -138,6 +138,6 @@ class NotificationReadRepository:
 
     @staticmethod
     def mark_all_read(user_id: int) -> None:
-        Notification.objects.filter(
-            recipient_id=user_id, read_at__isnull=True
-        ).update(read_at=datetime.now(UTC))
+        Notification.objects.filter(recipient_id=user_id, read_at__isnull=True).update(
+            read_at=datetime.now(UTC)
+        )

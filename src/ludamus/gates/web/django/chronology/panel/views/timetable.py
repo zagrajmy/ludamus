@@ -331,9 +331,7 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
         # T3: the new placement can clear time conflicts for waiters — promote
         # against the session's current time.
-        self.request.services.waitlist_promotion.fill_freed_seats(
-            session_id=session_pk
-        )
+        self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
         # Conflicts are advisory: detection excludes the session itself, so it
         # runs after assignment with the same result and only on valid input.

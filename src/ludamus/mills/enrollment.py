@@ -201,9 +201,7 @@ class NotificationsService:
     def get_navbar(self, user_id: int) -> NavbarNotificationsDTO:
         return NavbarNotificationsDTO(
             unread_count=self._notifications.unread_count(user_id),
-            items=self._notifications.list_recent(
-                user_id, _NAVBAR_NOTIFICATION_LIMIT
-            ),
+            items=self._notifications.list_recent(user_id, _NAVBAR_NOTIFICATION_LIMIT),
         )
 
     def mark_all_read(self, user_id: int) -> None:

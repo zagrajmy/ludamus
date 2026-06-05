@@ -47,6 +47,4 @@ class Command(BaseCommand):
             service.expire_offer(participation_id=participation_id)
             expired += 1
         logger.info("expire_offers: processed %s lapsed offer(s)", expired)
-        self.stdout.write(
-            self.style.SUCCESS(f"Processed {expired} lapsed offer(s).")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Processed {expired} lapsed offer(s)."))

@@ -920,9 +920,7 @@ class SessionParticipation(models.Model):
     # claim lookup. Single-use is enforced by flipping status/claimed_at, not by
     # a uniqueness constraint (so all of a party's rows can carry it). Empty for
     # non-offered participations.
-    claim_token = models.CharField(
-        max_length=64, blank=True, default="", db_index=True
-    )
+    claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
     claimed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
