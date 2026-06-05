@@ -22,10 +22,10 @@ class FakeRepo:
         self._recent = recent
         self.marked: list[int] = []
 
-    def unread_count(self, user_id):  # noqa: ARG002
+    def unread_count(self, _user_id):
         return self._unread
 
-    def list_recent(self, user_id, limit):  # noqa: ARG002
+    def list_recent(self, _user_id, _limit):
         return self._recent
 
     def mark_all_read(self, user_id):

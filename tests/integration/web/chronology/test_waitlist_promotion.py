@@ -8,9 +8,11 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
+    DomainEnrollmentConfig,
     Notification,
     SessionParticipation,
     SessionParticipationStatus,
+    UserEnrollmentConfig,
 )
 from ludamus.inits.services import Services
 from ludamus.inits.transaction import DjangoTransaction
@@ -89,6 +91,42 @@ class TestFillFreedSeats:
         second.refresh_from_db()
         assert second.status == SessionParticipationStatus.WAITING.value
         assert not result.offered
+
+    def test_promotes_within_membership_allowance(
+        self, session, waiter, enrollment_config
+    ):
+        # Stored user + domain configs exercise the membership-slot computation.
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=waiter.email,
+            allowed_slots=5,
+        )
+        DomainEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            domain=waiter.email.split("@")[1],
+            allowed_slots_per_user=2,
+        )
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert result.promoted == [participation.pk]
+
+    def test_promotes_emailless_waiter_without_membership_limit(self, session):
+        emailless = UserFactory(username="no-email", email="")
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=emailless, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert result.promoted == [participation.pk]
 
 
 @pytest.mark.usefixtures("enrollment_config", "agenda_item")
@@ -199,6 +237,31 @@ class TestOfferClaimAndExpiry:
         assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
         next_participation.refresh_from_db()
         assert next_participation.status == SessionParticipationStatus.OFFERED.value
+
+    def test_expire_offers_command_dedups_party_by_token(self, session, waiter):
+        # A party shares one claim_token; the sweep must expire it once, not once
+        # per member, so the second row with the same token is skipped.
+        lapsed = datetime.now(UTC) - timedelta(minutes=1)
+        other = UserFactory(username="party-2", email="party-2@example.com")
+        first = SessionParticipation.objects.create(
+            session=session,
+            user=waiter,
+            status=SessionParticipationStatus.OFFERED,
+            claim_token="shared-token",
+            offer_expires_at=lapsed,
+        )
+        second = SessionParticipation.objects.create(
+            session=session,
+            user=other,
+            status=SessionParticipationStatus.OFFERED,
+            claim_token="shared-token",
+            offer_expires_at=lapsed,
+        )
+
+        call_command("expire_offers")
+
+        assert not SessionParticipation.objects.filter(pk=first.pk).exists()
+        assert not SessionParticipation.objects.filter(pk=second.pk).exists()
 
 
 @pytest.mark.usefixtures("enrollment_config", "agenda_item")

@@ -43,22 +43,22 @@ class FakeRepo:
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
 
-    def lock_and_read_state(self, session_id):  # noqa: ARG002
+    def lock_and_read_state(self, _session_id):
         return self._states.pop(0) if self._states else None
 
     def confirm(self, ids):
         self.confirmed.append(ids)
 
-    def offer(self, ids, *, offered_at, offer_expires_at, claim_token):  # noqa: ARG002
+    def offer(self, ids, *, offer_expires_at, claim_token, **_kwargs):
         self.offered.append({"ids": ids, "token": claim_token, "exp": offer_expires_at})
 
-    def read_offer_by_token(self, token):  # noqa: ARG002
+    def read_offer_by_token(self, _token):
         return self._offer
 
-    def read_offer_by_participation(self, participation_id):  # noqa: ARG002
+    def read_offer_by_participation(self, _participation_id):
         return self._offer
 
-    def mark_claimed(self, ids, *, claimed_at):  # noqa: ARG002
+    def mark_claimed(self, ids, **_kwargs):
         self.claimed.append(ids)
 
     def drop(self, ids):

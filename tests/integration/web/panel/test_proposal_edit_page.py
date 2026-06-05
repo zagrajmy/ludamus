@@ -332,7 +332,15 @@ class TestProposalEditPageView:
             },
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
         session.refresh_from_db()
         assert session.participants_limit == raised_limit
         participation.refresh_from_db()

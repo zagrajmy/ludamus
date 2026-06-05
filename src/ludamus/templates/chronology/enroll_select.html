@@ -115,6 +115,7 @@
                                                                class="accent-[var(--theme-success)]"
                                                                name="user_{{ user_data.user.pk }}"
                                                                id="user_{{ user_data.user.pk }}_enroll"
+                                                               aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}"
                                                                value="enroll">
                                                     {% else %}
                                                         <span class="text-foreground-muted text-xs">{% translate "Time conflict" %}</span>
@@ -129,6 +130,7 @@
                                                            class="accent-[var(--theme-warning)]"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_waitlist"
+                                                           aria-label="{% translate "Join waiting list" %}: {{ user_data.user.full_name }}"
                                                            value="waitlist">
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>
@@ -140,6 +142,7 @@
                                                            class="accent-[var(--theme-danger)]"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_cancel"
+                                                           aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}"
                                                            value="cancel">
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>

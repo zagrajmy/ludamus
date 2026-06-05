@@ -61,6 +61,42 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_get_offered_participation_only_offers_decline(
+        self, active_user, authenticated_client, agenda_item
+    ):
+        # A held offer lets the user only decline it; the page surfaces the
+        # "Decline offer" choice instead of enroll/waitlist actions.
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = authenticated_client.get(self._get_url(agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "connected_users": [],
+                "event": agenda_item.space.area.venue.event,
+                "form": ANY,
+                "session": agenda_item.session,
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    )
+                ],
+            },
+            template_name="chronology/enroll_select.html",
+        )
+        field = response.context_data["form"].fields[f"user_{active_user.pk}"]
+        assert ("cancel", "Decline offer") in list(field.choices)
+
     def test_get_error_404(self, authenticated_client):
         response = authenticated_client.get(self._get_url(17))
 

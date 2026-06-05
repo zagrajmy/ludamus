@@ -104,22 +104,25 @@ class DjangoUserNotifier:
 
     @staticmethod
     def _deliver(notification: Notification, email: str) -> None:
-        # Persist the row and send mail only after the surrounding transaction
-        # commits (ATOMIC_REQUESTS wraps the whole request), so a later rollback
-        # can't leave a "you're promoted" email for a promotion that was undone.
-        # Mail is best-effort: an SMTP outage must not roll back a confirmed seat.
-        def _send() -> None:
-            notification.save()
-            if email:
-                send_mail(
-                    subject=notification.title,
-                    message=f"{notification.body}\n\n{notification.url}",
-                    from_email=None,
-                    recipient_list=[email],
-                    fail_silently=True,
-                )
+        # Persist the row inside the surrounding transaction so a rolled-back
+        # promotion drops its notification too (the row is consistent with the
+        # seat change it announces). Only the email is deferred to after-commit,
+        # best-effort: SMTP can't be un-sent, so it must wait for the real commit
+        # and must not roll back a confirmed seat if it fails.
+        notification.save()
+        if not email:
+            return
 
-        transaction.on_commit(_send)
+        def _send_email() -> None:
+            send_mail(
+                subject=notification.title,
+                message=f"{notification.body}\n\n{notification.url}",
+                from_email=None,
+                recipient_list=[email],
+                fail_silently=True,
+            )
+
+        transaction.on_commit(_send_email)
 
 
 class NotificationReadRepository:

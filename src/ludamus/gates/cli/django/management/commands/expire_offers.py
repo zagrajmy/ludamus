@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "Expire lapsed waiting-list offers and promote the next waiter."
 
-    def handle(self, *args: object, **options: object) -> None:  # noqa: ARG002
+    def handle(self, *_args: object, **_options: object) -> None:
         service = Services().waitlist_promotion
         now = datetime.now(UTC)
         # One representative participation per lapsed party (the service expands
