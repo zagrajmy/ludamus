@@ -115,6 +115,8 @@ class TestFillFreedSeats:
         result = _service().fill_freed_seats(session_id=session.pk)
 
         assert result.promoted == [participation.pk]
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
 
     def test_promotes_emailless_waiter_without_membership_limit(self, session):
         emailless = UserFactory(username="no-email", email="")
@@ -127,6 +129,8 @@ class TestFillFreedSeats:
         result = _service().fill_freed_seats(session_id=session.pk)
 
         assert result.promoted == [participation.pk]
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
 
 
 @pytest.mark.usefixtures("enrollment_config", "agenda_item")
