@@ -84,13 +84,12 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
+            contains="Upcoming",
+            not_contains="Enrollment Open",
         )
-        assert "Enrollment Open" not in response.content.decode()
-        assert "Upcoming" in response.content.decode()
 
-    def test_status_pills_capped_at_two_drops_upcoming(
-        self, client, enrollment_config, event
-    ):
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
         now = timezone.now()
         event.proposal_start_time = now - timedelta(days=1)
         event.proposal_end_time = now + timedelta(days=1)
@@ -117,11 +116,9 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
+            contains=["Enrollment Open", "Proposals Open"],
+            not_contains="Upcoming",
         )
-        content = response.content.decode()
-        assert "Enrollment Open" in content
-        assert "Proposals Open" in content
-        assert "Upcoming" not in content
 
     def test_ok_session_card_exposes_day_and_hour_data_attributes(
         self, active_user, agenda_item, client, event
@@ -1125,8 +1122,8 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
+            contains="Enrollment Open",
         )
-        assert "Enrollment Open" in response.content.decode()
 
     @responses.activate
     def test_ok_current_session_get_user_config_from_api(

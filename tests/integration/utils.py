@@ -23,6 +23,8 @@ def assert_response(
     status_code: HTTPStatus,
     *,
     messages: Iterable[tuple[int, str]] = (),
+    contains: str | Iterable[str] = (),
+    not_contains: str | Iterable[str] = (),
     **response_fields: Any,
 ) -> None:
     assert response.status_code == status_code, response.status_code
@@ -31,6 +33,15 @@ def assert_response(
     default_fields = {"context_data": None, "template_name": None, "url": None}
     for key, value in (default_fields | response_fields).items():
         assert getattr(response, key, None) == value
+
+    needles = [contains] if isinstance(contains, str) else list(contains)
+    absent = [not_contains] if isinstance(not_contains, str) else list(not_contains)
+    if needles or absent:
+        content = response.content.decode()
+        for needle in needles:
+            assert needle in content, needle
+        for needle in absent:
+            assert needle not in content, needle
 
 
 def assert_response_404(
