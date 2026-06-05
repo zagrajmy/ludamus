@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
-from django.contrib import messages
 from django.http import (  # Django
     HttpRequest,
     HttpResponse,
@@ -81,10 +80,6 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
     # Renamed, deleted, or never existed, but the visitor reached the right
     # sphere: drop them on the sphere home instead of a dead end.
     if state == _EVENT_MISSING:
-        messages.info(
-            request,
-            _("We couldn't find that event, so here's everything happening here."),
-        )
         return HttpResponseRedirect(reverse("web:index"))
 
     # Unpublished (keep it private, do not bounce its previewers) or a clean

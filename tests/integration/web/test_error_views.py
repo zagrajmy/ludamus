@@ -1,14 +1,11 @@
 from http import HTTPStatus
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.web.django.error_views import custom_404, custom_500
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, assert_response_404
-
-_FALLBACK_MESSAGE = "We couldn't find that event, so here's everything happening here."
 
 
 @pytest.mark.django_db
@@ -147,22 +144,12 @@ class TestSemantic404Recovery:
     def test_missing_event_falls_back_to_sphere_home(self, client):
         response = client.get(self._event_url("no-such-event"))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=reverse("web:index"),
-            messages=[(messages.INFO, _FALLBACK_MESSAGE)],
-        )
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
     def test_junk_link_to_missing_event_falls_back_to_sphere_home(self, client):
         response = client.get(f"{self._event_url('ghost')}.")
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=reverse("web:index"),
-            messages=[(messages.INFO, _FALLBACK_MESSAGE)],
-        )
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
     def test_unpublished_event_with_junk_keeps_themed_404(self, client, sphere):
         # A real-but-unpublished event must not be revealed (nor its visitors
@@ -178,6 +165,13 @@ class TestSemantic404Recovery:
         # A resolvable, non-event path that 404s (a missing flatpage) must not
         # be swept up by the event fallback.
         response = client.get("/page/no-such-flatpage/")
+
+        assert_response_404(response)
+
+    def test_fully_unresolvable_path_renders_themed_404(self, client):
+        # No URL pattern matches, so request.resolver_match is None; the themed
+        # 404 (and its navbar) must still render.
+        response = client.get("/totally/unknown/place/")
 
         assert_response_404(response)
 
