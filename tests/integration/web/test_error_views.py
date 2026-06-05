@@ -1,8 +1,14 @@
 from http import HTTPStatus
 
 import pytest
+from django.contrib import messages
+from django.urls import reverse
 
 from ludamus.adapters.web.django.error_views import custom_404, custom_500
+from tests.integration.conftest import EventFactory
+from tests.integration.utils import assert_response, assert_response_404
+
+_FALLBACK_MESSAGE = "We couldn't find that event, so here's everything happening here."
 
 
 @pytest.mark.django_db
@@ -116,6 +122,73 @@ class TestCustom500:
         assert context["subtitle"]
         assert isinstance(context["icon"], str)
         assert context["icon"]
+
+
+@pytest.mark.django_db
+class TestSemantic404Recovery:
+    @staticmethod
+    def _event_url(slug: str) -> str:
+        return reverse("web:chronology:event", kwargs={"slug": slug})
+
+    def test_trailing_dot_redirects_to_canonical_event(self, client, event):
+        response = client.get(f"{self._event_url(event.slug)}.")
+
+        assert_response(
+            response, HTTPStatus.MOVED_PERMANENTLY, url=self._event_url(event.slug)
+        )
+
+    def test_trailing_emoji_redirects_to_canonical_event(self, client, event):
+        response = client.get(f"{self._event_url(event.slug)}\U0001f600")
+
+        assert_response(
+            response, HTTPStatus.MOVED_PERMANENTLY, url=self._event_url(event.slug)
+        )
+
+    def test_missing_event_falls_back_to_sphere_home(self, client):
+        response = client.get(self._event_url("no-such-event"))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:index"),
+            messages=[(messages.INFO, _FALLBACK_MESSAGE)],
+        )
+
+    def test_junk_link_to_missing_event_falls_back_to_sphere_home(self, client):
+        response = client.get(f"{self._event_url('ghost')}.")
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:index"),
+            messages=[(messages.INFO, _FALLBACK_MESSAGE)],
+        )
+
+    def test_unpublished_event_with_junk_keeps_themed_404(self, client, sphere):
+        # A real-but-unpublished event must not be revealed (nor its visitors
+        # bounced) by the fallback, even when the link carries trailing junk.
+        unpublished = EventFactory(sphere=sphere, publication_time=None)
+        junk_url = f"{self._event_url(unpublished.slug)[:-1]}./"
+
+        response = client.get(junk_url)
+
+        assert_response_404(response)
+
+    def test_non_event_path_keeps_themed_404(self, client):
+        # A resolvable, non-event path that 404s (a missing flatpage) must not
+        # be swept up by the event fallback.
+        response = client.get("/page/no-such-flatpage/")
+
+        assert_response_404(response)
+
+    @staticmethod
+    def test_non_get_request_falls_through_to_themed_404(rf):
+        # Only safe, idempotent navigations are recovered; a 404'd POST keeps
+        # the themed page rather than being redirected.
+        response = custom_404(rf.post("/chronology/event/ghost./"), None)
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.template_name == "404_dynamic.html"
 
 
 @pytest.mark.django_db

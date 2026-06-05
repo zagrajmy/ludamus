@@ -644,6 +644,10 @@ msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 msgid "Sphere not found"
 msgstr "Sfera nie została znaleziona."
 
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "We couldn't find that event, so here's everything happening here."
+msgstr "Nie znaleźliśmy tego wydarzenia — oto wszystko, co się tutaj dzieje."
+
 #: src/ludamus/adapters/web/django/views.py
 msgid "Please complete your profile."
 msgstr "Proszę uzupełnić profil."
