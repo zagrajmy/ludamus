@@ -7,7 +7,7 @@
                 {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" %}
             {% endfor %}
             {% if row.overflow_count %}
-                <div class="session-tags-more relative inline-block">
+                <div class="session-tags-more relative inline-block pointer-events-auto">
                     <div class="session-tags-popover absolute z-30 min-w-56 max-w-[20rem] rounded-xl border border-border bg-bg-secondary p-2 shadow-(--theme-shadow-lg) opacity-0 pointer-events-none transition-opacity duration-150 flex flex-wrap gap-1">
                         {% for val in row.overflow_values %}
                             {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" %}
