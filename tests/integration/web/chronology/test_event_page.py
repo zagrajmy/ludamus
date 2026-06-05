@@ -120,6 +120,68 @@ class TestEventPageView:
             not_contains="Upcoming",
         )
 
+    def test_status_pill_live_event_shows_happening_now(self, client, event):
+        now = timezone.now()
+        event.start_time = now - timedelta(hours=1)
+        event.end_time = now + timedelta(hours=1)
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains="Happening now!",
+            not_contains="Upcoming",
+        )
+
+    def test_status_pill_ended_event_shows_completed(self, client, event):
+        now = timezone.now()
+        event.start_time = now - timedelta(hours=2)
+        event.end_time = now - timedelta(hours=1)
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains="Completed",
+            not_contains="Upcoming",
+        )
+
     def test_ok_session_card_exposes_day_and_hour_data_attributes(
         self, active_user, agenda_item, client, event
     ):
