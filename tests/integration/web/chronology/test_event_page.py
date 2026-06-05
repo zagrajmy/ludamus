@@ -196,9 +196,7 @@ class TestEventPageView:
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
 
-    def test_shows_session_cover_image(
-        self, active_user, agenda_item, client, event
-    ):
+    def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session
         session.cover_image = SimpleUploadedFile(
             "session.png", PNG_BYTES, content_type="image/png"
