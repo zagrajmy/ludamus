@@ -209,7 +209,10 @@ class TestEncounterEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"form": ANY, "encounter": ANY},
+            context_data={
+                "form": ANY,
+                "encounter": EncounterDTO.model_validate(encounter),
+            },
             template_name="notice_board/edit.html",
         )
         assert response.context["form"].errors["header_image"] == [

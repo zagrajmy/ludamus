@@ -161,7 +161,21 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
             template_name=["chronology/event.html"],
         )
         assert event.cover_image_url.encode() in response.content
@@ -182,7 +196,9 @@ class TestEventPageView:
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
 
-    def test_shows_session_cover_image(self, agenda_item, client, event):
+    def test_shows_session_cover_image(
+        self, active_user, agenda_item, client, event
+    ):
         session = agenda_item.session
         session.cover_image = SimpleUploadedFile(
             "session.png", PNG_BYTES, content_type="image/png"
@@ -191,10 +207,49 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        session_data = SessionData(
+            agenda_item=AgendaItemDTO.model_validate(agenda_item),
+            effective_participants_limit=10,
+            enrolled_count=0,
+            full_participant_info="0/10",
+            has_any_enrollments=False,
+            is_enrollment_available=False,
+            is_full=False,
+            is_ongoing=False,
+            presenter=UserInfo.from_user_dto(
+                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
+            ),
+            session_participations=[],
+            session=SessionDTO.model_validate(session),
+            should_show_as_inactive=False,
+            loc=LocationData(
+                space=SpaceDTO.model_validate(agenda_item.space),
+                area=AreaDTO.model_validate(agenda_item.space.area),
+                venue=VenueDTO.model_validate(agenda_item.space.area.venue),
+            ),
+            user_enrolled=False,
+            user_waiting=False,
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {
+                    agenda_item.start_time: [session_data]
+                },
+                "hour_data": {agenda_item.start_time: [session_data]},
+                "object": event,
+                "sessions": [session_data],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
             template_name=["chronology/event.html"],
         )
         assert session.cover_image_url.encode() in response.content
