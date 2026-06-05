@@ -1954,3 +1954,133 @@ class TestEventImportLogPageView:
             url=_log_url(event, integration),
             messages=[(messages.ERROR, "Invalid log entry.")],
         )
+
+
+@pytest.mark.django_db
+class TestEventImportLogFilters:
+    def _seed(self, integration, *, sphere):
+        # One success + one skipped entry, both with distinct titles for search.
+        session = Session.objects.create(
+            sphere=sphere,
+            title="Dragons of Despair",
+            slug="dragons-success",
+            status="pending",
+            participants_limit=0,
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            reason="",
+            response_json="{}",
+            title="Dragons of Despair",
+            display_name="GM A",
+            session=session,
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=1,
+            status="skipped",
+            reason="bad",
+            response_json="{}",
+            title="Wargames",
+            display_name="GM B",
+        )
+
+    def test_status_pill_skipped_hides_successes(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        self._seed(integration, sphere=sphere)
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?status=skipped"
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_status"] == "skipped"
+        assert response.context_data["log_show_successes"] is False
+        assert response.context_data["log_show_errors"] is True
+        assert response.context_data["log_successes"] == []
+        assert [e.title for e in response.context_data["log_errors"]] == ["Wargames"]
+
+    def test_status_pill_success_hides_errors_and_opens_details(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        self._seed(integration, sphere=sphere)
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?status=success"
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_show_errors"] is False
+        assert response.context_data["log_successes_open"] is True
+        assert response.context_data["log_errors"] == []
+        assert [e.title for e in response.context_data["log_successes"]] == [
+            "Dragons of Despair"
+        ]
+        # The success <details> renders with the open attribute.
+        body = response.content.decode()
+        assert "<details" in body
+        assert "open" in body.split("</details>")[0]
+
+    def test_search_narrows_to_matching_title_or_display_name(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        self._seed(integration, sphere=sphere)
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?search=dragon"
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_search"] == "dragon"
+        assert [e.title for e in response.context_data["log_successes"]] == [
+            "Dragons of Despair"
+        ]
+        assert response.context_data["log_errors"] == []
+
+    def test_search_and_status_combine(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        self._seed(integration, sphere=sphere)
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?status=skipped&search=wargames"
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [e.title for e in response.context_data["log_errors"]] == ["Wargames"]
+        assert response.context_data["log_successes"] == []
+
+    def test_invalid_status_falls_back_to_all(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        self._seed(integration, sphere=sphere)
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?status=bogus"
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_status"] == "all"

@@ -22,7 +22,7 @@
                         {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
                     </p>
                 </div>
-            {% elif not log_total_attempts %}
+            {% elif not log_total_attempts and not log_search %}
                 <div class="card p-8 text-center">
                     <p class="text-foreground-muted">{% translate "No import attempts logged yet." %}</p>
                 </div>
@@ -32,7 +32,33 @@
                         {{ total }} attempts · {{ successes }} successful · {{ errors }} errors
                     {% endblocktranslate %}
                 </p>
-                {% if log_errors %}
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <nav class="flex flex-wrap gap-2"
+                         aria-label="{% translate "Status filter" %}">
+                        <a class="btn btn-tertiary text-sm {% if log_status == 'all' %}font-semibold underline{% endif %}"
+                           href="{{ log_filter_urls.all }}">{% translate "All" %}</a>
+                        <a class="btn btn-tertiary text-sm {% if log_status == 'skipped' %}font-semibold underline{% endif %}"
+                           href="{{ log_filter_urls.skipped }}">{% translate "Errors" %}</a>
+                        <a class="btn btn-tertiary text-sm {% if log_status == 'success' %}font-semibold underline{% endif %}"
+                           href="{{ log_filter_urls.success }}">{% translate "Successes" %}</a>
+                    </nav>
+                    <form method="get" class="flex items-center gap-2">
+                        {% if log_status and log_status != 'all' %}<input type="hidden" name="status" value="{{ log_status }}">{% endif %}
+                        <label for="log-search" class="sr-only">{% translate "Search by title or display name" %}</label>
+                        <input id="log-search"
+                               name="search"
+                               type="search"
+                               value="{{ log_search }}"
+                               placeholder="{% translate "Search title or display name" %}"
+                               class="form-control text-sm">
+                        <button type="submit" class="btn btn-secondary text-sm">{% translate "Search" %}</button>
+                        {% if log_search %}
+                            <a class="text-sm text-foreground-muted underline"
+                               href="{% url 'panel:import-log' slug=current_event.slug pk=active_integration.pk %}{% if log_status and log_status != 'all' %}?status={{ log_status }}{% endif %}">{% translate "Clear" %}</a>
+                        {% endif %}
+                    </form>
+                </div>
+                {% if log_show_errors and log_errors %}
                     <section class="mb-6">
                         <h2 class="mb-3 text-sm font-semibold text-foreground">
                             {% blocktranslate count count=log_error_count %}
@@ -78,8 +104,8 @@
                         </ul>
                     </section>
                 {% endif %}
-                {% if log_successes %}
-                    <details class="card p-4 sm:p-5">
+                {% if log_show_successes and log_successes %}
+                    <details class="card p-4 sm:p-5" {% if log_successes_open %}open{% endif %}>
                         <summary class="cursor-pointer text-sm font-semibold text-foreground">
                             {% blocktranslate count count=log_success_count %}
                                 {{ count }} successful import
@@ -109,6 +135,9 @@
                             {% endfor %}
                         </ul>
                     </details>
+                {% endif %}
+                {% if not log_errors and not log_successes %}
+                    <p class="text-sm text-foreground-muted">{% translate "No entries match the current filter." %}</p>
                 {% endif %}
             {% endif %}
         </div>

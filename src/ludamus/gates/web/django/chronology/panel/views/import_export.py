@@ -759,6 +759,19 @@ class EventImportRunPageView(_ImportTabView):
         return TemplateResponse(self.request, "panel/import-run.html", context)
 
 
+_LOG_STATUS_FILTERS = {
+    "all": None,
+    "skipped": ImportLogStatus.SKIPPED,
+    "success": ImportLogStatus.SUCCESS,
+}
+
+
+def _log_pill_urls(slug: str, pk: int, *, search: str) -> dict[str, str]:
+    base = reverse("panel:import-log", kwargs={"slug": slug, "pk": pk})
+    suffix = f"&search={search}" if search else ""
+    return {key: f"{base}?status={key}{suffix}" for key in _LOG_STATUS_FILTERS}
+
+
 class EventImportLogPageView(_ImportTabView):
     """Log tab: every attempt with its status, grouped errors and successes."""
 
@@ -771,23 +784,39 @@ class EventImportLogPageView(_ImportTabView):
         if not isinstance(loaded, tuple):
             return loaded
         context, current_event, active = loaded
-        if active is not None:
-            entries = self.request.services.proposals_import.list_log_entries(
-                current_event.pk, active.pk
-            )
-            latest_skipped_by_row: dict[int, ImportLogEntryDTO] = {}
-            successes: list[ImportLogEntryDTO] = []
-            for entry in entries:
-                if entry.status == ImportLogStatus.SUCCESS:
-                    successes.append(entry)
-                elif entry.row_index not in latest_skipped_by_row:
-                    latest_skipped_by_row[entry.row_index] = entry
-            errors = list(latest_skipped_by_row.values())
-            context["log_errors"] = errors
-            context["log_successes"] = successes
-            context["log_total_attempts"] = len(entries)
-            context["log_success_count"] = len(successes)
-            context["log_error_count"] = len(errors)
+        if active is None:
+            return TemplateResponse(self.request, "panel/import-log.html", context)
+        raw_status = (self.request.GET.get("status") or "all").strip()
+        status_key = raw_status if raw_status in _LOG_STATUS_FILTERS else "all"
+        status_filter = _LOG_STATUS_FILTERS[status_key]
+        search = (self.request.GET.get("search") or "").strip()
+        # The repo filter already narrows by status when set; for grouping we
+        # always read both buckets so the counts stay accurate even when only
+        # one section renders.
+        entries = self.request.services.proposals_import.list_log_entries(
+            current_event.pk, active.pk, search=search
+        )
+        latest_skipped_by_row: dict[int, ImportLogEntryDTO] = {}
+        successes: list[ImportLogEntryDTO] = []
+        for entry in entries:
+            if entry.status == ImportLogStatus.SUCCESS:
+                successes.append(entry)
+            elif entry.row_index not in latest_skipped_by_row:
+                latest_skipped_by_row[entry.row_index] = entry
+        errors = list(latest_skipped_by_row.values())
+        context["log_status"] = status_key
+        context["log_search"] = search
+        context["log_filter_urls"] = _log_pill_urls(
+            current_event.slug, active.pk, search=search
+        )
+        context["log_show_errors"] = status_filter != ImportLogStatus.SUCCESS
+        context["log_show_successes"] = status_filter != ImportLogStatus.SKIPPED
+        context["log_successes_open"] = status_filter == ImportLogStatus.SUCCESS
+        context["log_errors"] = errors if context["log_show_errors"] else []
+        context["log_successes"] = successes if context["log_show_successes"] else []
+        context["log_total_attempts"] = len(entries)
+        context["log_success_count"] = len(successes)
+        context["log_error_count"] = len(errors)
         return TemplateResponse(self.request, "panel/import-log.html", context)
 
 
