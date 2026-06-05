@@ -3,17 +3,16 @@ language: html
 severity: warning
 rule:
   kind: attribute
-  all:
-    - regex: 'style="[^"]*var\(--theme-'
-    - not:
-        regex: 'style="[^"]*(box-shadow|linear-gradient|background:\s*linear)'
+  regex: 'style="[^"]*var\(--theme-'
 message: |
-  Use Tailwind class instead of inline --theme- CSS variable.
-  --color-* is the canonical family (--theme-* is legacy, being phased out).
-  Every --theme-* color now has a --color-* counterpart; prefer the utility:
+  The --theme-* CSS variable family has been removed.
+  --color-* is the canonical palette (declared in @theme, so the standard
+  utilities and var(--color-*) pick up dark-mode shades). Prefer the utility:
     border-color: var(--theme-border)         → border-border
     background-color: var(--theme-bg-secondary) → bg-bg-secondary
     color: var(--theme-primary)               → text-primary
     background-color: var(--theme-warning-bg) → bg-warning-bg
     color: var(--theme-warning-text)          → text-warning-text
+  Non-color tokens moved too: shadows are --shadow-card / --shadow-dropdown /
+  --shadow-elevated, the accent gradient is --accent-gradient.
   If you must use var() inline, use --color-*, not --theme-*.

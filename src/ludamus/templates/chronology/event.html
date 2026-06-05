@@ -41,7 +41,7 @@
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="relative rounded-3xl shadow-xl overflow-hidden {% if not event.cover_image_url %}gradient-border{% endif %} mb-8 bg-bg-secondary"
-         style="box-shadow: var(--theme-shadow-lg)">
+         style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
@@ -481,7 +481,7 @@
                      data-time-slot="future-{{ forloop.counter }}">
                     <!-- Time Slot Header -->
                     <div class="flex items-center gap-4 mb-4">
-                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-(--theme-warning-bg) text-(--theme-warning-text)">
+                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warning-bg text-warning-text">
                             {% icon "clock" class="w-4 h-4" variant="mini" %}
                             {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
                             <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
@@ -517,8 +517,7 @@
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
         <div class="mt-12 text-center">
-            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border"
-                 style="background: linear-gradient(135deg, var(--theme-bg-tertiary), var(--theme-bg-secondary))">
+            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">
                     {% icon "plus" class="w-8 h-8 text-coral-500" %}
                 </div>
@@ -536,8 +535,8 @@
     <!-- Proposals Section (Superuser Only) -->
     {% if user.is_superuser and event.is_proposal_active and pending_sessions %}
         <div class="card mt-8">
-            <div class="px-6 py-4 flex items-center gap-3 bg-(--theme-warning-bg) border-b border-(--theme-warning-light)">
-                <h3 class="text-base font-semibold flex items-center gap-2 text-(--theme-warning-text)">
+            <div class="px-6 py-4 flex items-center gap-3 bg-warning-bg border-b border-warning-light">
+                <h3 class="text-base font-semibold flex items-center gap-2 text-warning-text">
                     {% icon "clipboard-document-check" class="w-5 h-5" variant="mini" %}
                     {% translate "Pending Proposals" %}
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-800 text-warm-100">{{ pending_sessions|length }}</span>
@@ -741,7 +740,7 @@
                         {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
                         <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">{{ data.enrolled_count }}</span>
                         {% if data.waiting_count > 0 %}
-                            <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-(--theme-warning-light) text-(--theme-warning-text)">+{{ data.waiting_count }}</span>
+                            <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
                         {% endif %}
                     </button>
                 </div>
@@ -829,7 +828,7 @@
                                             {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
                                         </span>
                                         {% if data.waiting_count > 0 %}
-                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-(--theme-warning-light) text-(--theme-warning-text)">+{{ data.waiting_count }}</span>
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -912,7 +911,7 @@
                                     {% if participation.status == 'waiting' %}
                                         <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
                                             <div class="flex items-center gap-3">
-                                                <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-(--theme-warning-light) text-(--theme-warning-text)"></span>
+                                                <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"></span>
                                                 <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                             </div>
                                             <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>
@@ -962,7 +961,7 @@
                             {% if current_user %}
                                 {% if data.user_enrolled or data.user_waiting %}
                                     <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
-                                       class="btn text-sm bg-(--theme-warning) text-white">
+                                       class="btn text-sm bg-warning text-white">
                                         {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
                                     </a>
                                 {% else %}
@@ -976,7 +975,7 @@
                             {% elif request.session.anonymous_enrollment_active %}
                                 {% if data.user_enrolled or data.user_waiting %}
                                     <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
-                                       class="btn text-sm bg-(--theme-warning) text-white">
+                                       class="btn text-sm bg-warning text-white">
                                         {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
                                     </a>
                                 {% else %}
@@ -1050,10 +1049,10 @@
             max-height: min(70vh, 32rem);
             overflow-y: auto;
             z-index: 50;
-            border: 1px solid var(--theme-border);
+            border: 1px solid var(--color-border);
             border-radius: 1rem;
             background: var(--color-bg-secondary);
-            box-shadow: var(--theme-shadow-lg);
+            box-shadow: var(--shadow-elevated);
             opacity: 0;
             pointer-events: none;
             filter: none;
