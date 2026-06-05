@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -11,6 +11,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldOption,
     SessionFieldValue,
 )
+from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
 from ludamus.pacts import SessionDTO
 from tests.integration.conftest import (
     EventFactory,
@@ -206,6 +207,27 @@ class TestSessionEditViewPost:
         assert owned_session.cover_image
         assert owned_session.cover_image_url.startswith("/media/sessions/")
 
+    def test_post_replacing_cover_deletes_previous_file(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        owned_session.save()
+        storage = owned_session.cover_image.storage
+        old_name = owned_session.cover_image.name
+        new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(cover_image=new_image),
+            headers={"hx-request": "true"},
+        )
+
+        owned_session.refresh_from_db()
+        assert owned_session.cover_image.name != old_name
+        assert not storage.exists(old_name)
+
     def test_post_clears_cover_image(self, authenticated_client, event, owned_session):
         owned_session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
@@ -239,6 +261,20 @@ class TestSessionEditViewPost:
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
 
+    def test_post_update_not_allowed_returns_404(
+        self, authenticated_client, event, owned_session
+    ):
+        with patch.object(
+            SessionSelfEditService, "update", side_effect=SessionEditNotAllowedError()
+        ):
+            response = authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(),
+                headers={"hx-request": "true"},
+            )
+
+        assert_response_404(response)
+
     def test_invalid_post_returns_fragment_without_saving(
         self, authenticated_client, event, owned_session
     ):
@@ -265,6 +301,37 @@ class TestSessionEditViewPost:
         )
         owned_session.refresh_from_db()
         assert owned_session.title == original
+
+    def test_invalid_post_keeps_existing_cover_preview(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.cover_image = SimpleUploadedFile(
+            "cover.png", PNG_BYTES, content_type="image/png"
+        )
+        owned_session.save()
+        cover_url = owned_session.cover_image_url
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url,
+            data={"title": "", "display_name": "Name"},
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "session_fields": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+        assert response.context["form"].fields["cover_image"].initial == cover_url
+        assert cover_url.encode() in response.content
 
     def test_non_owner_404_no_write(self, authenticated_client, event, sphere):
         category = ProposalCategoryFactory(event=event)
