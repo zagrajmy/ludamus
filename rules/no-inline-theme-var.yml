@@ -5,9 +5,10 @@ rule:
   kind: attribute
   regex: 'style="[^"]*var\(--theme-'
 message: |
-  The --theme-* CSS variable family has been removed.
-  --color-* is the canonical palette (declared in @theme, so the standard
-  utilities and var(--color-*) pick up dark-mode shades). Prefer the utility:
+  Use Tailwind class instead of inline --theme- CSS variable.
+  The --theme-* family is gone; --color-* is the canonical palette (declared
+  in @theme, so the standard utilities and var(--color-*) pick up dark-mode
+  shades). Prefer the utility:
     border-color: var(--theme-border)         → border-border
     background-color: var(--theme-bg-secondary) → bg-bg-secondary
     color: var(--theme-primary)               → text-primary
