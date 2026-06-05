@@ -85,6 +85,7 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
+        assert "Enrollment Open" not in response.content.decode()
 
     def test_ok_session_card_exposes_day_and_hour_data_attributes(
         self, active_user, agenda_item, client, event
@@ -1089,6 +1090,7 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
+        assert "Enrollment Open" in response.content.decode()
 
     @responses.activate
     def test_ok_current_session_get_user_config_from_api(

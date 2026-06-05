@@ -72,6 +72,12 @@
                             {% translate "Proposals Open" %}
                         </div>
                     {% endif %}
+                    {% if event.get_active_enrollment_configs %}
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400 rounded-full text-sm font-medium mb-4 ml-2">
+                            {% icon "user-plus" class="w-4 h-4" variant="mini" %}
+                            {% translate "Enrollment Open" %}
+                        </div>
+                    {% endif %}
                     <h1 class="text-3xl sm:text-4xl font-bold mb-3 text-foreground">{{ event.name }}</h1>
                     {% if event.description %}
                         <p class="text-lg mb-6 max-w-2xl text-foreground-muted">{{ event.description }}</p>
@@ -109,17 +115,6 @@
             </div>
         </div>
     </div>
-    <!-- Enrollment Banner -->
-    {% for enrollment_config in event.get_active_enrollment_configs %}
-        {% if enrollment_config.banner_text %}
-            <div class="alert alert-info mb-4" role="alert">
-                <div class="flex">
-                    <div class="shrink-0">{% icon "information-circle" class="w-5 h-5" %}</div>
-                    <div class="grow ml-3">{{ enrollment_config.banner_text|linebreaks }}</div>
-                </div>
-            </div>
-        {% endif %}
-    {% endfor %}
     <!-- Enrollment Passes Info (for authenticated users) -->
     {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
         <div class="alert alert-success mb-4" role="alert">

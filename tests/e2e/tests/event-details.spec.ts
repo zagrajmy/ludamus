@@ -5,14 +5,12 @@ test.describe('Event detail page', () => {
     await page.goto('/chronology/event/autumn-open/');
   });
 
-  test('shows event information and enrollment banner', async ({ page }) => {
+  test('shows event information and enrollment status pill', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Autumn Open Playtest' })).toBeVisible();
     await expect(page.getByText('Upcoming')).toBeVisible();
 
-    const banner = page.getByRole('alert').filter({
-      hasText: 'Enrollment is open—grab a slot before we fill up!',
-    });
-    await expect(banner).toBeVisible();
+    // Enrollment status is a compact pill in the hero, not a full-width banner.
+    await expect(page.getByText('Enrollment Open')).toBeVisible();
   });
 
   test('renders session cards with locations and opens detail modal', async ({ page }) => {
