@@ -2,6 +2,7 @@ from http import HTTPStatus
 from unittest.mock import ANY
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -20,6 +21,12 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, assert_response_404
 
 FRAGMENT = "chronology/parts/session-edit-form.html"
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _expected_session(session):
@@ -174,6 +181,48 @@ class TestSessionEditViewPost:
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
         assert owned_session.display_name == "Updated name"
+
+    def test_post_uploads_cover_image(self, authenticated_client, event, owned_session):
+        url = _url(event, owned_session)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+
+        response = authenticated_client.post(
+            url, data=self._data(cover_image=image), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "session_fields": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.cover_image
+        assert owned_session.cover_image_url.startswith("/media/sessions/")
+
+    def test_post_clears_cover_image(self, authenticated_client, event, owned_session):
+        owned_session.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        owned_session.save()
+        storage = owned_session.cover_image.storage
+        old_name = owned_session.cover_image.name
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(**{"cover_image-clear": "on"}),
+            headers={"hx-request": "true"},
+        )
+
+        owned_session.refresh_from_db()
+        assert not owned_session.cover_image
+        assert not storage.exists(old_name)
 
     def test_non_htmx_post_saves_and_redirects(
         self, authenticated_client, event, owned_session

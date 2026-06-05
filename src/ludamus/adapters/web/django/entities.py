@@ -127,7 +127,7 @@ class EventInfo(EventListItemDTO):
 
     @classmethod
     def from_list_item(cls, item: EventListItemDTO, *, cover_image_url: str) -> Self:
-        return cls(**item.model_dump(), cover_image_url=cover_image_url)
+        return cls(**{**item.model_dump(), "cover_image_url": cover_image_url})
 
 
 @dataclass

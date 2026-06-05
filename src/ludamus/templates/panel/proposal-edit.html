@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load django_vite %}
 {% block title_prefix %}
     {% translate "Edit Proposal" %} -
 {% endblock title_prefix %}
@@ -26,7 +27,10 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event and proposal %}
-        <form id="proposal-edit-form" method="post" class="max-w-2xl">
+        <form id="proposal-edit-form"
+              method="post"
+              enctype="multipart/form-data"
+              class="max-w-2xl">
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
@@ -63,6 +67,7 @@
                                 <p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>
                             {% endif %}
                         </div>
+                        <div>{% tessera_field form.cover_image %}</div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_requirements">{% translate "Requirements" %}</label>
@@ -230,6 +235,7 @@
                 </div>
             {% endif %}
         </form>
+        {% vite_asset 'src/encounter-form.ts' %}
         <script>
             (function() {
                 const search = document.getElementById('facilitator-search');

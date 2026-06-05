@@ -24,6 +24,7 @@ from ludamus.pacts import (
     SessionData,
     SessionFieldValueData,
     SessionStatus,
+    SessionUpdateData,
 )
 
 if TYPE_CHECKING:
@@ -199,6 +200,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "participants_limit": session.participants_limit,
                 "min_age": session.min_age,
                 "duration": session.duration,
+                "cover_image": session.cover_image_url or None,
             }
         )
         session_fields = self._get_session_fields(current_event.pk, proposal_id)
@@ -223,7 +225,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        form = SessionEditForm(self.request.POST)
+        form = SessionEditForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             all_facilitators, assigned_pks = self._get_facilitator_context(
                 current_event.pk, proposal_id
@@ -237,20 +239,24 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["session_fields"] = session_fields
             return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
-        self.request.di.uow.sessions.update(
-            proposal_id,
-            {
-                "title": form.cleaned_data["title"],
-                "display_name": form.cleaned_data["display_name"],
-                "description": form.cleaned_data.get("description") or "",
-                "requirements": form.cleaned_data.get("requirements") or "",
-                "needs": form.cleaned_data.get("needs") or "",
-                "contact_email": form.cleaned_data.get("contact_email") or "",
-                "participants_limit": form.cleaned_data.get("participants_limit") or 0,
-                "min_age": form.cleaned_data.get("min_age") or 0,
-                "duration": form.cleaned_data.get("duration") or "",
-            },
-        )
+        update_data: SessionUpdateData = {
+            "title": form.cleaned_data["title"],
+            "display_name": form.cleaned_data["display_name"],
+            "description": form.cleaned_data.get("description") or "",
+            "requirements": form.cleaned_data.get("requirements") or "",
+            "needs": form.cleaned_data.get("needs") or "",
+            "contact_email": form.cleaned_data.get("contact_email") or "",
+            "participants_limit": form.cleaned_data.get("participants_limit") or 0,
+            "min_age": form.cleaned_data.get("min_age") or 0,
+            "duration": form.cleaned_data.get("duration") or "",
+        }
+        # File on upload, False when cleared, unchanged value otherwise; only
+        # send the key when it changes so the stored cover is left intact.
+        if cover_image := form.cleaned_data.get("cover_image"):
+            update_data["cover_image"] = cover_image
+        elif cover_image is False:
+            update_data["cover_image"] = ""
+        self.request.di.uow.sessions.update(proposal_id, update_data)
 
         self._update_facilitators(session.pk, current_event.pk)
         self._save_session_fields(session.pk, current_event.pk)

@@ -3,9 +3,60 @@
 from typing import ClassVar
 
 from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+# Image-upload invariants (business rules, not gate trivia): every cover/header
+# upload across the app is held to these same limits via validate_uploaded_image.
+MAX_IMAGE_SIZE = 2 * 1024 * 1024
+# A small (≤2 MB) file can still decode to a huge bitmap; cap pixel count to
+# bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
+MAX_IMAGE_PIXELS = 24_000_000
+ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
+COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
+COVER_IMAGE_HELP_TEXT = _("Max 2 MB. JPG, PNG, WebP, or AVIF.")
+
+
+def validate_uploaded_image_size(image: object) -> None:
+    size = getattr(image, "size", 0)
+    if isinstance(size, int) and size > MAX_IMAGE_SIZE:
+        raise ValidationError(_gettext("Image too large. Maximum size is 2 MB."))
+
+
+def validate_uploaded_image_format(image: object) -> None:
+    # Django's ImageField populates `image.image` (a PIL Image with `.format`)
+    # during clean. We trust the detected format over user-supplied
+    # content_type or filename extension.
+    pil_image = getattr(image, "image", None)
+    if getattr(pil_image, "format", None) not in ALLOWED_IMAGE_FORMATS:
+        raise ValidationError(
+            _gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
+        )
+    width = getattr(pil_image, "width", 0)
+    height = getattr(pil_image, "height", 0)
+    if width * height > MAX_IMAGE_PIXELS:
+        raise ValidationError(_gettext("Image dimensions are too large."))
+
+
+def validate_uploaded_image(image: object) -> None:
+    # Single entry point shared by every cover/header upload form so the size +
+    # format guarantees can't drift apart across forms.
+    if image:
+        validate_uploaded_image_size(image)
+        validate_uploaded_image_format(image)
+
+
+def cover_image_field() -> forms.ImageField:
+    # Shared definition so every cover/header upload field stays identical
+    # (label, limits, accepted types) without copy-pasting the declaration.
+    return forms.ImageField(
+        label=_("Cover image"),
+        required=False,
+        help_text=COVER_IMAGE_HELP_TEXT,
+        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+    )
 
 
 def _datetime_local_widget() -> forms.DateTimeInput:
@@ -38,6 +89,7 @@ class EventSettingsForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+    cover_image = cover_image_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -62,6 +114,11 @@ class EventSettingsForm(forms.Form):
         ],
         label=_("Facilitators editing their own sessions"),
     )
+
+    def clean_cover_image(self) -> object:
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
+        return image
 
 
 class SphereSettingsForm(forms.Form):
@@ -400,6 +457,12 @@ class SessionEditForm(forms.Form):
     participants_limit = forms.IntegerField(required=False, min_value=0)
     min_age = forms.IntegerField(required=False, min_value=0)
     duration = forms.CharField(required=False)
+    cover_image = cover_image_field()
+
+    def clean_cover_image(self) -> object:
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
+        return image
 
 
 def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditForm]:

@@ -11,7 +11,7 @@ import ludamus.pacts.legacy
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0080_event_allow_facilitator_session_edit_and_more")]
+    dependencies = [("db_main", "0081_event_session_cover_images")]
 
     operations = [
         migrations.AddField(

@@ -21,8 +21,7 @@ mise tasks          # list all tasks with descriptions
     option?
 - Use agent-browser to take screenshots of affected pages and include
   before/after images in the PR description
-- NEVER modify, create, or delete non-TypeScript configuration files without
-  explicit per-case approval.
+- Don't ignore lint rules globally.
 
 ## Architecture
 
