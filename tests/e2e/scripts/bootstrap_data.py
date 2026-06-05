@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, time, timedelta
+from importlib import import_module
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -466,6 +467,9 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    seed_module = import_module("kapitularz_print_seed")
+    seed_module.seed_kapitularz_print_event(sphere)
 
     past_event = _create_event(
         sphere,
