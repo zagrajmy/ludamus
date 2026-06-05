@@ -196,6 +196,41 @@ class TestEventPageView:
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
 
+    def test_session_card_shows_all_ages_when_min_age_zero(
+        self, agenda_item, client, event
+    ):
+        session = agenda_item.session
+        session.min_age = 0
+        session.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert b"All ages" in response.content
+
+    def test_session_card_shows_overflow_tag_trigger(self, agenda_item, client, event):
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        session = agenda_item.session
+        SessionFieldValue.objects.create(
+            session=session, field=session_field, value=["a", "b", "c", "d", "e"]
+        )
+        settings, _ = EventSettings.objects.get_or_create(event=event)
+        settings.displayed_session_fields.add(session_field)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert b"session-tags-more" in response.content
+        assert b"+1" in response.content
+
     def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session
         session.cover_image = SimpleUploadedFile(

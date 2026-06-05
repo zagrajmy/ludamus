@@ -119,8 +119,6 @@ def _wizard_image_form(
 def _apply_wizard_cover_from_form(
     wizard: dict[str, Any], image_form: SessionCoverImageForm
 ) -> None:
-    if not image_form.is_valid():
-        return
     cover = image_form.cleaned_data.get("cover_image")
     if cover is False:
         _delete_wizard_cover(wizard)
