@@ -1286,6 +1286,14 @@ msgid "Row still cannot be imported."
 msgstr "Wiersz nadal nie może zostać zaimportowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Proposal reimported from source."
+msgstr "Zgłoszenie ponownie zaimportowane ze źródła."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+msgid "Reimport failed."
+msgstr "Ponowny import nie powiódł się."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
 msgid "Form refetched: %(count)d questions."
 msgstr "Pobrano formularz ponownie: %(count)d pytań."
@@ -4636,6 +4644,18 @@ msgstr[3] ""
 #: src/ludamus/templates/panel/import-log.html
 msgid "View proposal"
 msgstr "Zobacz zgłoszenie"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid ""
+"Reimport will overwrite any manual edits to the imported fields on this "
+"proposal. Continue?"
+msgstr ""
+"Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w tym "
+"zgłoszeniu. Kontynuować?"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Reimport"
+msgstr "Ponów import"
 
 #: src/ludamus/templates/panel/import-log.html
 msgid "No entries match the current filter."

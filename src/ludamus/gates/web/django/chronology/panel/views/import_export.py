@@ -929,8 +929,8 @@ class EventImportTestRowActionView(_ImportActionView):
             messages.info(self.request, _("No responses found to test."))
 
 
-class EventImportLogRetryActionView(PanelAccessMixin, EventContextMixin, View):
-    """Retry a single skipped log entry against the current recipe."""
+class _EventImportLogActionView(PanelAccessMixin, EventContextMixin, View):
+    """Base for actions that take an `entry_id` from the Log tab."""
 
     request: PanelRequest
 
@@ -948,14 +948,37 @@ class EventImportLogRetryActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import-log", slug=slug, pk=active.pk)
         entry_pk = int(raw)
         sphere_id = self.request.context.current_sphere_id
+        self._act(sphere_id, current_event.pk, entry_pk)
+        return redirect("panel:import-log", slug=slug, pk=active.pk)
+
+    def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+        raise NotImplementedError
+
+
+class EventImportLogRetryActionView(_EventImportLogActionView):
+    """Retry a single skipped log entry against the current recipe."""
+
+    def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
         succeeded = self.request.services.proposals_import.retry_entry(
-            sphere_id, current_event.pk, entry_pk
+            sphere_id, event_pk, entry_pk
         )
         if succeeded:
             messages.success(self.request, _("Row imported."))
         else:
             messages.warning(self.request, _("Row still cannot be imported."))
-        return redirect("panel:import-log", slug=slug, pk=active.pk)
+
+
+class EventImportLogReimportActionView(_EventImportLogActionView):
+    """Reapply the source row to the existing session for a success entry."""
+
+    def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+        succeeded = self.request.services.proposals_import.reimport_entry(
+            sphere_id, event_pk, entry_pk
+        )
+        if succeeded:
+            messages.success(self.request, _("Proposal reimported from source."))
+        else:
+            messages.warning(self.request, _("Reimport failed."))
 
 
 class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):

@@ -125,10 +125,22 @@
                                             </p>
                                         </div>
                                         {% if entry.session_id %}
-                                            <a class="btn btn-tertiary inline-flex items-center shrink-0"
-                                               href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=entry.session_id %}">
-                                                {% translate "View proposal" %}
-                                            </a>
+                                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                                <a class="btn btn-tertiary inline-flex items-center"
+                                                   href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=entry.session_id %}">
+                                                    {% translate "View proposal" %}
+                                                </a>
+                                                <form method="post"
+                                                      action="{% url 'panel:import-log-reimport' slug=current_event.slug pk=active_integration.pk %}"
+                                                      onsubmit="return confirm('{% translate "Reimport will overwrite any manual edits to the imported fields on this proposal. Continue?" %}');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                                                    <button type="submit" class="btn btn-secondary inline-flex items-center">
+                                                        {% icon "arrow-path" class="w-4 h-4 mr-1" %}
+                                                        {% translate "Reimport" %}
+                                                    </button>
+                                                </form>
+                                            </div>
                                         {% endif %}
                                     </div>
                                 </li>

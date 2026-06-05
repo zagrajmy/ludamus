@@ -1392,6 +1392,67 @@ class TestProposalImportService:
         assert created.status == ImportLogStatus.SKIPPED
         assert created.reason == "Cap: 'loads' is not an integer"
 
+    def test_reimport_entry_updates_existing_session_and_writes_success_entry(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        existing_session_pk = 42
+        event_integrations.get.return_value = MagicMock(
+            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk"}',
+            title="Talk",
+            session_id=existing_session_pk,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        # Existing session was updated, not re-created.
+        sessions.create.assert_not_called()
+        sessions.update.assert_called_once()
+        assert sessions.update.call_args.args[0] == existing_session_pk
+        # A fresh success entry is written, preserving the session FK.
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.status == ImportLogStatus.SUCCESS
+        assert created.session_id == existing_session_pk
+
+    def test_reimport_entry_falls_through_to_retry_when_session_deleted(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(
+            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk"}',
+            title="Talk",
+            session_id=None,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+        fresh_session_pk = 99
+        sessions.create.return_value = fresh_session_pk
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        sessions.create.assert_called_once()
+        # Entry is recreated; the new log entry points to the fresh session.
+        log_entries.create.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.create.call_args.args[0]
+        assert created.session_id == fresh_session_pk
+
     def test_run_sample_writes_log_entry_so_log_tab_shows_test_skips(
         self, service, event_integrations, log_entries
     ):

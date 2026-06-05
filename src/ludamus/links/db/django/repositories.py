@@ -570,6 +570,19 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         session.tracks.set(track_pks)
 
     @staticmethod
+    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None:
+        try:
+            session = Session.objects.get(pk=session_id)
+        except Session.DoesNotExist as err:
+            msg = f"Session with pk '{session_id}' not found"
+            raise NotFoundError(msg) from err
+        session.time_slots.set(time_slot_ids)
+
+    @staticmethod
+    def clear_field_values(session_id: int) -> None:
+        SessionFieldValue.objects.filter(session_id=session_id).delete()
+
+    @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
         try:
             session = Session.objects.get(pk=session_id)

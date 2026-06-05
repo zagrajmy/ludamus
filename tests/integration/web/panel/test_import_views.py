@@ -103,6 +103,12 @@ def _log_retry_url(event, integration) -> str:
     )
 
 
+def _log_reimport_url(event, integration) -> str:
+    return reverse(
+        "panel:import-log-reimport", kwargs={"slug": event.slug, "pk": integration.pk}
+    )
+
+
 def _json_url(event, integration) -> str:
     return reverse(
         "panel:import-json", kwargs={"slug": event.slug, "pk": integration.pk}
@@ -2084,3 +2090,84 @@ class TestEventImportLogFilters:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_status"] == "all"
+
+
+@pytest.mark.django_db
+class TestEventImportLogReimport:
+    def _setup(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        # Initial run creates one proposal + one success log entry.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["Original"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        entry = ImportLogEntry.objects.get(integration=integration, status="success")
+        return integration, entry
+
+    def test_post_overwrites_session_with_source_row_and_writes_log_entry(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        integration, entry = self._setup(
+            authenticated_client, active_user, sphere, event, connection_with_secret
+        )
+        session_pk = entry.session_id
+        # Operator edits the proposal in the panel.
+        Session.objects.filter(pk=session_pk).update(title="Hand-edited")
+
+        # Reimport: refetched source still returns the original title.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["Original"]]
+            )
+            response = authenticated_client.post(
+                _log_reimport_url(event, integration), data={"entry_id": str(entry.pk)}
+            )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert response.url == _log_url(event, integration)
+        # Title is back to the source value; session pk is unchanged.
+        Session.objects.get(pk=session_pk).refresh_from_db()
+        assert Session.objects.get(pk=session_pk).title == "Original"
+        # A new log entry was written with the same session_id.
+        entries = list(
+            ImportLogEntry.objects.filter(integration=integration).order_by("pk")
+        )
+        expected_entries = 2
+        assert len(entries) == expected_entries
+        assert entries[1].pk != entry.pk
+        assert entries[1].status == "success"
+        assert entries[1].session_id == session_pk
+
+    def test_template_renders_reimport_confirm_dialog(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        integration, _entry = self._setup(
+            authenticated_client, active_user, sphere, event, connection_with_secret
+        )
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?status=success"
+        )
+
+        body = response.content.decode()
+        assert "onsubmit=" in body
+        assert "Reimport will overwrite" in body
+        assert _log_reimport_url(event, integration) in body

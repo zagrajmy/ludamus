@@ -20,6 +20,7 @@ from ludamus.pacts import (
     SessionFieldCreateData,
     SessionFieldValueData,
     SessionStatus,
+    SessionUpdateData,
 )
 from ludamus.pacts.submissions import (
     DurationSpec,
@@ -351,6 +352,80 @@ class ProposalImportService:
         )
         return result.created == 1
 
+    def reimport_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool:
+        # Reassert the source row over the existing session: refetch live
+        # responses, locate the row, update mapped fields + replace m2m links.
+        # If the linked session was deleted (session_id = None from SET_NULL),
+        # fall through to retry-style "create fresh".
+        try:
+            entry = self._repos.log_entries.read(entry_pk)
+        except NotFoundError:
+            return False
+        integration = self._event_integrations.get(event_id, entry.integration_id)
+        if integration.pk != entry.integration_id:
+            return False
+        if entry.session_id is None:
+            return self.retry_entry(sphere_id, event_id, entry_pk)
+        settings = self._settings(event_id, integration.pk)
+        rows = self._event_integrations.fetch_responses(
+            sphere_id, event_id, integration.pk
+        )
+        original_response = self._decode_response(entry.response_json)
+        if (
+            located := _locate_row(rows, original_response, settings, entry.row_index)
+        ) is None:
+            self._repos.log_entries.create(
+                ImportLogEntryCreateData(
+                    integration_id=integration.pk,
+                    row_index=entry.row_index,
+                    status=ImportLogStatus.SKIPPED,
+                    reason="row no longer present in source",
+                    response_json=entry.response_json,
+                    title=entry.title,
+                    display_name=entry.display_name,
+                    session_id=entry.session_id,
+                )
+            )
+            return False
+        target_idx, target_row = located
+        title, display_name = self._extract_identity(settings, target_row)
+        with self._transaction.atomic():
+            field_ids_by_header, _ = self._provision_fields(event_id, settings)
+            try:
+                self._update_proposal(
+                    event_id=event_id,
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=target_row,
+                    field_ids_by_header=field_ids_by_header,
+                )
+            except _RowSkippedError as exc:
+                self._repos.log_entries.create(
+                    ImportLogEntryCreateData(
+                        integration_id=integration.pk,
+                        row_index=target_idx,
+                        status=ImportLogStatus.SKIPPED,
+                        reason=exc.reason,
+                        response_json=json.dumps(target_row, ensure_ascii=False),
+                        title=title,
+                        display_name=display_name,
+                        session_id=entry.session_id,
+                    )
+                )
+                return False
+            self._repos.log_entries.create(
+                ImportLogEntryCreateData(
+                    integration_id=integration.pk,
+                    row_index=target_idx,
+                    status=ImportLogStatus.SUCCESS,
+                    response_json=json.dumps(target_row, ensure_ascii=False),
+                    title=title,
+                    display_name=display_name,
+                    session_id=entry.session_id,
+                )
+            )
+        return True
+
     @staticmethod
     def _decode_response(response_json: str) -> dict[str, str]:
         try:
@@ -580,6 +655,63 @@ class ProposalImportService:
         if values:
             self._repos.sessions.save_field_values(session_id, values)
         return session_id
+
+    def _update_proposal(
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        settings: ImportSettings,
+        row: dict[str, str],
+        field_ids_by_header: dict[str, int],
+    ) -> None:
+        # Mirrors `_create_proposal` but targets the existing session: keeps
+        # slug/sphere/status, overwrites mapped session.<col> fields, and
+        # fully replaces time-slot / track / facilitator links plus the
+        # session field values.
+        title = ""
+        description = ""
+        duration = ""
+        participants_limit = 0
+        display_name = ""
+        for header, target in settings.questions.items():
+            if target.to == "session.title":
+                title = row.get(header, "")
+            elif target.to == "session.description":
+                description = row.get(header, "")
+            elif target.to == "session.duration":
+                duration = _duration_iso(target, header, row.get(header, ""))
+            elif target.to == "session.participants_limit":
+                participants_limit = _parse_int(header, row.get(header, ""))
+            elif target.to == "facilitator.display_name":
+                display_name = row.get(header, "")
+        update_data: SessionUpdateData = {
+            "title": title,
+            "description": description,
+            "display_name": display_name,
+            "participants_limit": participants_limit,
+            "duration": duration,
+            "category_id": self._category_id(event_id, settings, row),
+        }
+        self._repos.sessions.update(session_id, update_data)
+        self._repos.sessions.set_time_slots(
+            session_id, self._time_slot_ids(event_id, settings, row)
+        )
+        self._repos.sessions.set_session_tracks(
+            session_id, self._track_ids(event_id, settings, row)
+        )
+        self._repos.sessions.set_facilitators(
+            session_id, self._facilitator_ids(event_id, display_name)
+        )
+        self._repos.sessions.clear_field_values(session_id)
+        values = [
+            SessionFieldValueData(
+                session_id=session_id, field_id=field_id, value=row.get(header, "")
+            )
+            for header, field_id in field_ids_by_header.items()
+        ]
+        if values:
+            self._repos.sessions.save_field_values(session_id, values)
 
     def _resolve_slug(
         self,

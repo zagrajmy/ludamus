@@ -436,4 +436,9 @@ urlpatterns = [
         import_export.EventImportLogRetryActionView.as_view(),
         name="import-log-retry",
     ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/reimport-entry/",
+        import_export.EventImportLogReimportActionView.as_view(),
+        name="import-log-reimport",
+    ),
 ]
