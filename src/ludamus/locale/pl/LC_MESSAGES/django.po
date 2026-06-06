@@ -760,7 +760,7 @@ msgstr "Proszę przejrzeć opcje zapisu poniżej."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "session host"
-msgstr "twórca punktu programu"
+msgstr "twórca programu"
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "time conflict"
@@ -1234,7 +1234,7 @@ msgstr "Nie wybrano żadnych kolumn."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "Header row must be 1 or greater."
-msgstr ""
+msgstr "Wiersz nagłówka musi mieć wartość co najmniej 1."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "Sheet settings saved."
@@ -1248,12 +1248,13 @@ msgstr "Utworzono zgłoszenia: %(count)d."
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
 msgid "Skipped %(count)d responses already imported."
-msgstr ""
+msgstr "Pominięto %(count)d odpowiedzi już zaimportowanych."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 #, python-format
 msgid "Skipped %(count)d responses with an invalid or unmapped answer."
 msgstr ""
+"Pominięto %(count)d odpowiedzi z nieprawidłową lub niezmapowaną wartością."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid ""
@@ -1268,6 +1269,8 @@ msgid ""
 "Test row was skipped because one of its mapped answers is invalid or has no "
 "mapping."
 msgstr ""
+"Wiersz testowy został pominięty, ponieważ jedna z jego zmapowanych "
+"odpowiedzi jest nieprawidłowa lub nie ma mapowania."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
 msgid "No responses found to test."
@@ -4663,23 +4666,28 @@ msgstr "Żadne wpisy nie pasują do bieżącego filtra."
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Header row"
-msgstr ""
+msgstr "Wiersz nagłówka"
 
 #: src/ludamus/templates/panel/import-run.html
 msgid ""
 "The 1-indexed sheet row whose cells become the column keys. Row 1 is the "
 "first row in the sheet; everything above this row is ignored."
 msgstr ""
+"Wiersz arkusza (liczony od 1), którego komórki stają się kluczami kolumn. "
+"Wiersz 1 to pierwszy wiersz arkusza; wszystko powyżej jest pomijane."
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Unique key columns"
-msgstr ""
+msgstr "Kolumny klucza unikalnego"
 
 #: src/ludamus/templates/panel/import-run.html
 msgid ""
 "Columns whose values together identify a row uniquely. Retry uses them to "
 "find the same row again after the sheet shifts."
 msgstr ""
+"Kolumny, których wartości razem jednoznacznie identyfikują wiersz. "
+"Ponawianie używa ich do odnalezienia tego samego wiersza po przesunięciu "
+"arkusza."
 
 #: src/ludamus/templates/panel/import-run.html
 #, python-format
@@ -4688,7 +4696,7 @@ msgstr "Usuń %(col)s"
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Add column…"
-msgstr ""
+msgstr "Dodaj kolumnę…"
 
 #: src/ludamus/templates/panel/import-run.html
 msgid ""
@@ -4910,10 +4918,12 @@ msgid ""
 "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
 "min). Answers without a mapping are skipped at import time."
 msgstr ""
+"Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla 1 "
+"g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "ISO 8601 duration"
-msgstr ""
+msgstr "Czas trwania ISO 8601"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
 msgid "Discards any unsaved changes"
