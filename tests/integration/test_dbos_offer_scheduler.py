@@ -29,13 +29,18 @@ def test_dbos_scheduler_runs_expiry_workflow(settings, tmp_path, monkeypatch):
     launched = threading.Event()
     monkeypatch.setattr(scheduler_module, "_launched", launched)
 
+    scheduler = scheduler_module.DBOSOfferExpiryScheduler()
     try:
-        scheduler_module.DBOSOfferExpiryScheduler().schedule_expiry(
+        scheduler.schedule_expiry(
             participation_id=_MISSING_PARTICIPATION_ID, run_at=datetime.now(UTC)
         )
         # _ensure_launched constructed and launched DBOS.
         assert launched.is_set()
-        # Let the durable workflow (zero delay) run its step before teardown.
+        # A second schedule short-circuits launch on the already-set flag.
+        scheduler.schedule_expiry(
+            participation_id=_MISSING_PARTICIPATION_ID, run_at=datetime.now(UTC)
+        )
+        # Let the durable workflows (zero delay) run their steps before teardown.
         time.sleep(_WORKFLOW_GRACE_SECONDS)
     finally:
         DBOS.destroy()

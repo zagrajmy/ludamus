@@ -323,3 +323,68 @@ class TestPromotionRepositoryEdges:
             assert repo.read_offer_by_participation(confirmed.pk) is None
             assert repo.read_offer_by_participation(9_999_999) is None
             assert repo.read_offer_by_token("no-such-token") is None
+
+    def test_lock_and_read_state_reuses_manager_slots_within_a_party(self, session):
+        # Two waiters managed by the same person share one membership-slot
+        # computation: the second reuses the first's cached value.
+        manager = UserFactory(username="party-mgr", email="party-mgr@example.com")
+        members = [
+            UserFactory(username="party-a", email="a@example.com", manager=manager),
+            UserFactory(username="party-b", email="b@example.com", manager=manager),
+        ]
+        for member in members:
+            SessionParticipation.objects.create(
+                session=session, user=member, status=SessionParticipationStatus.WAITING
+            )
+
+        with DjangoTransaction().atomic():
+            state = ParticipationPromotionRepository().lock_and_read_state(session.pk)
+
+        assert state is not None
+        assert {w.recipient_user_id for w in state.waiting} == {manager.pk}
+        assert len({w.manager_slots_remaining for w in state.waiting}) == 1
+
+    def test_slots_remaining_handles_email_without_at_sign(
+        self, session, enrollment_config
+    ):
+        # A malformed (domainless) email skips the per-domain allowance lookup but
+        # still honours a matching per-user config.
+        allowed_slots = 3
+        weird = UserFactory(username="weird", email="weird-no-at")
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email="weird-no-at",
+            allowed_slots=allowed_slots,
+        )
+        SessionParticipation.objects.create(
+            session=session, user=weird, status=SessionParticipationStatus.WAITING
+        )
+
+        with DjangoTransaction().atomic():
+            state = ParticipationPromotionRepository().lock_and_read_state(session.pk)
+
+        assert state is not None
+        [waiting] = state.waiting
+        assert waiting.manager_slots_remaining == allowed_slots
+
+
+class TestPromotionRepositoryUnscheduledSession:
+    def test_offer_for_unscheduled_session_has_empty_event_slug(self, session, waiter):
+        # The session has no agenda item (never scheduled), so the offer is built
+        # with an empty event slug instead of raising.
+        offered = SessionParticipation.objects.create(
+            session=session,
+            user=waiter,
+            status=SessionParticipationStatus.OFFERED,
+            claim_token="tok-no-agenda",
+            offer_expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+
+        with DjangoTransaction().atomic():
+            offer = ParticipationPromotionRepository().read_offer_by_token(
+                "tok-no-agenda"
+            )
+
+        assert offer is not None
+        assert not offer.event_slug
+        assert offer.participant_ids == [offered.pk]

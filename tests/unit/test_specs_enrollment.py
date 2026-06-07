@@ -134,3 +134,13 @@ class TestSelectPromotableParties:
         selected = select_promotable_parties(state)
 
         assert [p.participation_id for party in selected for p in party] == [1, 2]
+
+    def test_promotes_all_waiting_when_seats_remain(self):
+        # Seats outnumber waiters: the walk runs off the end of the party list
+        # (no break) and returns everyone promoted.
+        waiting = [_wp(1, order=0), _wp(2, order=1)]
+        state = _state(waiting, seats=5)
+
+        selected = select_promotable_parties(state)
+
+        assert [p.participation_id for party in selected for p in party] == [1, 2]
