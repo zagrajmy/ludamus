@@ -59,7 +59,7 @@
                              hidden
                              class="absolute right-0 top-full mt-2 z-50">
                             <div class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border"
-                                 style="box-shadow: var(--theme-shadow-lg)">
+                                 style="box-shadow: var(--shadow-elevated)">
                                 <!-- User info header -->
                                 <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border">
                                     <p class="text-sm font-medium truncate text-foreground-primary">{{ request.user.full_name|default:"User" }}</p>
@@ -78,7 +78,7 @@
                                     {% translate "Edit profile" %}
                                 </a>
                                 <a href="{% url 'web:crowd:auth0:logout' %}"
-                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-[var(--theme-border)]">
+                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-border">
                                     {% icon "arrow-right-on-rectangle" class="w-4 h-4 opacity-60" %}
                                     {% translate "Log out" %}
                                 </a>

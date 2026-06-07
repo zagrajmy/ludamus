@@ -152,10 +152,7 @@ _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 logger = logging.getLogger(__name__)
 
 
-def _delete_stored_file(field_file: object, old_name: str) -> None:
-    # Best-effort: a storage hiccup (e.g. GCS) must not fail an otherwise
-    # successful DB update, so log and swallow cleanup errors rather than
-    # letting them propagate. Broad by design — the backend can raise anything.
+def delete_stored_file(field_file: object, old_name: str) -> None:
     if (storage := getattr(field_file, "storage", None)) is None:
         return
     try:
@@ -294,9 +291,6 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None:
-        # The plain queryset UPDATE can't persist a file upload (no storage
-        # write), so when a cover is set/cleared we load the instance and save
-        # it, mirroring EventRepository.update's replace-and-cleanup handling.
         if "cover_image" not in data:
             Session.objects.filter(id=pk).update(**data)
             return
@@ -309,7 +303,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             setattr(session, key, value)
         session.save(update_fields=list(data.keys()))
         if old_cover and old_cover != session.cover_image.name:
-            _delete_stored_file(session.cover_image, old_cover)
+            delete_stored_file(session.cover_image, old_cover)
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:
@@ -533,10 +527,6 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 )
 
         if search:
-            # SessionFieldValue.value is a JSONField. SQLite stores strings
-            # JSON-encoded with ensure_ascii=True, so non-ASCII chars are
-            # escaped (e.g. "przekleństwa"); Postgres jsonb cast to text keeps
-            # literal Unicode. OR both forms so the lookup works on both.
             encoded = json.dumps(search)[1:-1]
             qs = qs.filter(
                 Q(display_name__icontains=search)
@@ -711,9 +701,6 @@ class EventRepository(EventRepositoryProtocol):
     def list_for_events_page(
         sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]:
-        # session_count comes from a correlated subquery rather than a Count()
-        # over the venues->areas->spaces->agenda_items join, which would force a
-        # wide GROUP BY across the whole join.
         agenda_item_count = (
             AgendaItem.objects.filter(space__area__venue__event=OuterRef("pk"))
             .order_by()
@@ -774,7 +761,6 @@ class EventRepository(EventRepositoryProtocol):
         Returns:
             EventStatsData with raw counts and IDs for business logic processing.
         """
-        # Ensure event is cached in storage
         sessions = Session.objects.filter(category__event_id=event_id)
         scheduled = Session.objects.filter(
             agenda_item__space__area__venue__event_id=event_id
@@ -800,8 +786,6 @@ class EventRepository(EventRepositoryProtocol):
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
 
-        # Remember the existing cover so a replace or clear doesn't orphan it
-        # in storage (notably billable on GCS).
         old_cover = event.cover_image.name if "cover_image" in data else None
 
         for key, value in data.items():
@@ -809,7 +793,7 @@ class EventRepository(EventRepositoryProtocol):
         event.save(update_fields=list(data.keys()))
 
         if old_cover and old_cover != event.cover_image.name:
-            _delete_stored_file(event.cover_image, old_cover)
+            delete_stored_file(event.cover_image, old_cover)
 
     @staticmethod
     def update_proposal_description(event_id: int, description: str) -> None:
@@ -855,7 +839,6 @@ class VenueRepository(VenueRepositoryProtocol):
         Returns:
             VenueDTO of the created venue.
         """
-        # Lock event to serialize slug generation
         Event.objects.select_for_update().get(pk=event_id)
 
         base_slug = slugify(name)
@@ -949,14 +932,11 @@ class VenueRepository(VenueRepositoryProtocol):
             event_id: The event primary key.
             venue_pks: List of venue PKs in the desired order.
         """
-        # Filter to only venues belonging to this event
         venues = Venue.objects.filter(event_id=event_id, pk__in=venue_pks)
         venue_map = {v.pk: v for v in venues}
 
-        # Filter venue_pks to only include valid venues for this event
         valid_pks = [pk for pk in venue_pks if pk in venue_map]
 
-        # Update order based on position in the filtered list
         for order, pk in enumerate(valid_pks):
             venue = venue_map[pk]
             if venue.order != order:
@@ -979,7 +959,6 @@ class VenueRepository(VenueRepositoryProtocol):
             NotFoundError: If the venue is not found.
         """
         try:
-            # Lock venue and its event to serialize slug generation
             venue = Venue.objects.select_for_update().select_related("event").get(pk=pk)
             Event.objects.select_for_update().get(pk=venue.event_id)
         except Venue.DoesNotExist as err:
@@ -1042,10 +1021,8 @@ class VenueRepository(VenueRepositoryProtocol):
             msg = f"Venue with pk '{pk}' not found"
             raise NotFoundError(msg) from err
 
-        # Lock event to serialize slug generation for all new entities
         Event.objects.select_for_update().get(pk=venue.event_id)
 
-        # Create new venue
         base_slug = slugify(new_name)
         new_slug = self.generate_unique_slug(venue.event_id, base_slug)
 
@@ -1064,7 +1041,6 @@ class VenueRepository(VenueRepositoryProtocol):
             order=max_order + 1,
         )
 
-        # Copy areas and spaces (event lock serializes all slug generation)
         areas = Area.objects.filter(venue_id=pk).order_by("order")
         for area in areas:
             area_slug = AreaRepository.generate_unique_slug(new_venue.pk, area.slug)
@@ -1076,7 +1052,6 @@ class VenueRepository(VenueRepositoryProtocol):
                 order=area.order,
             )
 
-            # Copy spaces for this area
             spaces = Space.objects.filter(area_id=area.pk).order_by("order")
             for space in spaces:
                 space_slug = SpaceRepository.generate_unique_slug(
@@ -1114,10 +1089,8 @@ class VenueRepository(VenueRepositoryProtocol):
             msg = f"Venue with pk '{pk}' not found"
             raise NotFoundError(msg) from err
 
-        # Lock target event to serialize slug generation for all new entities
         Event.objects.select_for_update().get(pk=target_event_id)
 
-        # Create new venue in target event
         base_slug = slugify(venue.name)
         new_slug = self.generate_unique_slug(target_event_id, base_slug)
 
@@ -1136,7 +1109,6 @@ class VenueRepository(VenueRepositoryProtocol):
             order=max_order + 1,
         )
 
-        # Copy areas and spaces (event lock serializes all slug generation)
         areas = Area.objects.filter(venue_id=pk).order_by("order")
         for area in areas:
             area_slug = AreaRepository.generate_unique_slug(new_venue.pk, area.slug)
@@ -1148,7 +1120,6 @@ class VenueRepository(VenueRepositoryProtocol):
                 order=area.order,
             )
 
-            # Copy spaces for this area
             spaces = Space.objects.filter(area_id=area.pk).order_by("order")
             for space in spaces:
                 space_slug = SpaceRepository.generate_unique_slug(
@@ -1178,7 +1149,6 @@ class AreaRepository(AreaRepositoryProtocol):
         Returns:
             AreaDTO of the created area.
         """
-        # Lock venue to serialize slug generation
         Venue.objects.select_for_update().get(pk=venue_id)
 
         base_slug = slugify(name)
@@ -1285,14 +1255,11 @@ class AreaRepository(AreaRepositoryProtocol):
             venue_id: The venue primary key.
             area_pks: List of area PKs in the desired order.
         """
-        # Filter to only areas belonging to this venue
         areas = Area.objects.filter(venue_id=venue_id, pk__in=area_pks)
         area_map = {a.pk: a for a in areas}
 
-        # Filter area_pks to only include valid areas for this venue
         valid_pks = [pk for pk in area_pks if pk in area_map]
 
-        # Update order based on position in the filtered list
         for order, pk in enumerate(valid_pks):
             area = area_map[pk]
             if area.order != order:
@@ -1315,7 +1282,6 @@ class AreaRepository(AreaRepositoryProtocol):
             NotFoundError: If the area is not found.
         """
         try:
-            # Lock area and its venue to serialize slug generation
             area = Area.objects.select_for_update().select_related("venue").get(pk=pk)
             Venue.objects.select_for_update().get(pk=area.venue_id)
         except Area.DoesNotExist as err:
@@ -1370,7 +1336,6 @@ class SpaceRepository(SpaceRepositoryProtocol):
         Returns:
             SpaceDTO of the created space.
         """
-        # Lock area to serialize slug generation
         Area.objects.select_for_update().get(pk=area_id)
 
         base_slug = slugify(name)
@@ -1481,14 +1446,11 @@ class SpaceRepository(SpaceRepositoryProtocol):
             area_id: The area primary key.
             space_pks: List of space PKs in the desired order.
         """
-        # Filter to only spaces belonging to this area
         spaces = Space.objects.filter(area_id=area_id, pk__in=space_pks)
         space_map = {s.pk: s for s in spaces}
 
-        # Filter space_pks to only include valid spaces for this area
         valid_pks = [pk for pk in space_pks if pk in space_map]
 
-        # Update order based on position in the filtered list
         for order, pk in enumerate(valid_pks):
             space = space_map[pk]
             if space.order != order:
@@ -1511,7 +1473,6 @@ class SpaceRepository(SpaceRepositoryProtocol):
             NotFoundError: If the space is not found.
         """
         try:
-            # Lock space and its area to serialize slug generation
             space = Space.objects.select_for_update().select_related("area").get(pk=pk)
             Area.objects.select_for_update().get(pk=space.area_id)
         except Space.DoesNotExist as err:
@@ -1687,13 +1648,10 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             requirements: Dict mapping field_id to is_required boolean.
             order: Optional list of field IDs defining the order.
         """
-        # Delete existing requirements
         PersonalDataFieldRequirement.objects.filter(category_id=category_id).delete()
 
-        # Build order mapping
         order_map = {fid: idx for idx, fid in enumerate(order or [])}
 
-        # Create new requirements
         for field_id, is_required in requirements.items():
             PersonalDataFieldRequirement.objects.create(
                 category_id=category_id,
@@ -1737,13 +1695,10 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             requirements: Dict mapping field_id to is_required boolean.
             order: Optional list of field IDs defining the order.
         """
-        # Delete existing requirements
         SessionFieldRequirement.objects.filter(category_id=category_id).delete()
 
-        # Build order mapping
         order_map = {fid: idx for idx, fid in enumerate(order or [])}
 
-        # Create new requirements
         for field_id, is_required in requirements.items():
             SessionFieldRequirement.objects.create(
                 category_id=category_id,
@@ -2020,7 +1975,6 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         base_slug = slugify(data["name"])
         slug = self.generate_unique_slug(event_id, base_slug)
 
-        # is_multiple and allow_custom only apply to select fields
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
         actual_allow_custom = data["allow_custom"] if field_type == "select" else False
 
@@ -2164,7 +2118,6 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         base_slug = slugify(data["name"])
         slug = self.generate_unique_slug(event_id, base_slug)
 
-        # is_multiple and allow_custom only apply to select fields
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
         actual_allow_custom = data["allow_custom"] if field_type == "select" else False
 
@@ -2558,7 +2511,7 @@ class EncounterRepository(EncounterRepositoryProtocol):
             setattr(encounter, key, value)
         encounter.save()
         if old_header and old_header != encounter.header_image.name:
-            _delete_stored_file(encounter.header_image, old_header)
+            delete_stored_file(encounter.header_image, old_header)
 
     @staticmethod
     def delete(pk: int) -> None:

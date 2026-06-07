@@ -161,13 +161,10 @@
             {% endif %}
         </div>
         <form method="post"
-              enctype="multipart/form-data"
-              hx-encoding="multipart/form-data"
               hx-post="{% url 'web:chronology:session-propose-submit' event_slug=event.slug %}"
               hx-target="this"
               hx-swap="none">
             {% csrf_token %}
-            <div class="pt-6">{% tessera_field image_form.cover_image %}</div>
             <div class="flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3 pt-6">
                 <button type="button"
                         class="btn btn-secondary"
@@ -178,6 +175,5 @@
                 <button type="submit" class="btn btn-primary">{% translate "Submit Proposal" %}</button>
             </div>
         </form>
-        {% vite_asset 'src/encounter-form.ts' %}
     {% endif %}
 </div>

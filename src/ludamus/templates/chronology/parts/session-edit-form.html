@@ -30,6 +30,7 @@
                        class="w-full border {% if form.title.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                 {% if form.title.errors %}<p class="mt-1 text-sm text-danger">{{ form.title.errors.0 }}</p>{% endif %}
             </div>
+            <div>{% tessera_field form.cover_image %}</div>
             <div>
                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                        for="id_display_name">{% translate "Display Name" %}</label>
@@ -50,7 +51,6 @@
                 <p class="mt-1 text-xs text-foreground-muted">{% translate "Markdown supported." %}</p>
                 {% if form.description.errors %}<p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>{% endif %}
             </div>
-            <div>{% tessera_field form.cover_image %}</div>
             <div>
                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                        for="id_requirements">{% translate "Requirements" %}</label>
@@ -187,7 +187,7 @@
                 class="btn btn-secondary text-sm"
                 data-edit-cancel="{{ session.pk }}">{% translate "Cancel" %}</button>
         <button type="submit"
-                class="btn text-sm {% if saved %}bg-(--theme-success) text-white{% else %}btn-primary{% endif %}"
+                class="btn text-sm {% if saved %}bg-success text-white{% else %}btn-primary{% endif %}"
                 data-edit-save="{{ session.pk }}"
                 data-save-label="{% translate "Save changes" %}">
             {% if saved %}

@@ -78,12 +78,12 @@
                                 {% translate "Select" %}
                                 <span class="text-foreground-muted">({{ entry.field.options|length }})</span>
                                 {% if entry.field.is_multiple %}
-                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--theme-info-bg)] text-[var(--theme-info-text)]">
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-bg text-info-text">
                                         {% translate "Multiple" %}
                                     </span>
                                 {% endif %}
                                 {% if entry.field.allow_custom %}
-                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--theme-success-bg)] text-[var(--theme-success-text)]">
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success-text">
                                         {% translate "Custom" %}
                                     </span>
                                 {% endif %}
@@ -130,7 +130,7 @@
     {% endif %}
 </div>
 {% else %}
-<div class="bg-bg-secondary rounded-2xl shadow-[--theme-shadow] border border-border p-8 text-center">
+<div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
 </div>
 {% endif %}

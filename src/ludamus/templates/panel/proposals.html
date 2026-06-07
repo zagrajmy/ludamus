@@ -148,15 +148,15 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 {% if proposal.status == "pending" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-warning-bg)] text-[var(--theme-warning-text)]">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
                                         {% translate "Pending" %}
                                     </span>
                                 {% elif proposal.status == "rejected" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-danger-bg)] text-[var(--theme-danger-text)]">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
                                         {% translate "Rejected" %}
                                     </span>
                                 {% elif proposal.status == "scheduled" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-info-bg)] text-[var(--theme-info-text)]">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">
                                         {% translate "Scheduled" %}
                                     </span>
                                 {% endif %}

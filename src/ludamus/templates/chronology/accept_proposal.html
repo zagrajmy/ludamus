@@ -15,7 +15,7 @@
     <div class="max-w-3xl mx-auto">
         {# Proposal Details Card #}
         <div class="card mb-4">
-            <div class="card-header bg-(--theme-info) text-white flex items-center gap-2">
+            <div class="card-header bg-info text-white flex items-center gap-2">
                 {% icon "light-bulb" class="w-5 h-5" %}
                 <h5 class="font-semibold mb-0">{{ session.title }}</h5>
             </div>
@@ -61,7 +61,7 @@
                     <div class="flex flex-wrap gap-1">
                         {% for slot in time_slots %}
                             {% if slot.pk in preferred_time_slot_ids %}
-                                <span class="inline-flex items-center rounded-full bg-(--theme-bg-tertiary) px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</span>
+                                <span class="inline-flex items-center rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</span>
                             {% endif %}
                         {% endfor %}
                     </div>
@@ -70,7 +70,7 @@
         </div>
         {# Assignment Form Card #}
         <div class="card">
-            <div class="card-header bg-(--theme-success) text-white flex items-center gap-2">
+            <div class="card-header bg-success text-white flex items-center gap-2">
                 {% icon "calendar-days" class="w-5 h-5" %}
                 <h5 class="font-semibold mb-0">{% translate "Assign to Schedule" %}</h5>
             </div>

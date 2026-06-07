@@ -107,13 +107,13 @@
                     </div>
                 {% endif %}
                 {# Fix 4 — Spots with visual weight #}
-                <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-[var(--theme-danger-bg)]{% elif spots_remaining == 1 %}bg-[var(--theme-warning-bg)]{% else %}bg-bg-tertiary{% endif %}">
-                    <span class="{% if is_full %}text-[var(--theme-danger-base)]{% elif spots_remaining == 1 %}text-[var(--theme-warning-text)]{% else %}text-primary{% endif %}">
+                <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-danger-bg{% elif spots_remaining == 1 %}bg-warning-bg{% else %}bg-bg-tertiary{% endif %}">
+                    <span class="{% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-primary{% endif %}">
                         {% icon "users" class="h-5 w-5" %}
                     </span>
                     <div>
                         <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Spots" %}</div>
-                        <div class="font-semibold {% if is_full %}text-[var(--theme-danger-base)]{% elif spots_remaining == 1 %}text-[var(--theme-warning-text)]{% else %}text-foreground{% endif %}">
+                        <div class="font-semibold {% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-foreground{% endif %}">
                             {% if encounter.max_participants > 0 %}
                                 {% if is_full %}
                                     {% translate "No spots left" %}

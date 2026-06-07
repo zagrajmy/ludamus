@@ -1,5 +1,5 @@
 import re
-from datetime import UTC
+from datetime import UTC, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -84,6 +84,102 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
+            contains="Upcoming",
+            not_contains="Enrollment Open",
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
+        now = timezone.now()
+        event.proposal_start_time = now - timedelta(days=1)
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains=["Enrollment Open", "Proposals Open"],
+            not_contains="Upcoming",
+        )
+
+    def test_status_pill_live_event_shows_happening_now(self, client, event):
+        now = timezone.now()
+        event.start_time = now - timedelta(hours=1)
+        event.end_time = now + timedelta(hours=1)
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains="Happening now!",
+            not_contains="Upcoming",
+        )
+
+    def test_status_pill_ended_event_shows_completed(self, client, event):
+        now = timezone.now()
+        event.start_time = now - timedelta(hours=2)
+        event.end_time = now - timedelta(hours=1)
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains="Completed",
+            not_contains="Upcoming",
         )
 
     def test_ok_session_card_exposes_day_and_hour_data_attributes(
@@ -195,6 +291,41 @@ class TestEventPageView:
         assert absolute_url in content
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
+
+    def test_session_card_shows_all_ages_when_min_age_zero(
+        self, agenda_item, client, event
+    ):
+        session = agenda_item.session
+        session.min_age = 0
+        session.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert b"All ages" in response.content
+
+    def test_session_card_shows_overflow_tag_trigger(self, agenda_item, client, event):
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        session = agenda_item.session
+        SessionFieldValue.objects.create(
+            session=session, field=session_field, value=["a", "b", "c", "d", "e"]
+        )
+        settings, _ = EventSettings.objects.get_or_create(event=event)
+        settings.displayed_session_fields.add(session_field)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert b"session-tags-more" in response.content
+        assert b"+1" in response.content
 
     def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session
@@ -1088,6 +1219,7 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
+            contains="Enrollment Open",
         )
 
     @responses.activate
@@ -1885,6 +2017,37 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
+
+    def test_ok_session_with_overflowing_field_values_shows_popover(
+        self, agenda_item, client, event
+    ):
+        """Values past the visible limit collapse into a hover popover."""
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Game Type",
+            question="Game Type",
+            slug="game-type",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+            icon="puzzle-piece",
+        )
+        SessionFieldValue.objects.create(
+            session=agenda_item.session,
+            field=session_field,
+            value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
+        )
+        settings, _ = EventSettings.objects.get_or_create(event=event)
+        settings.displayed_session_fields.add(session_field)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        # Four values stay visible; the two extras collapse into the "+N" popover.
+        assert "+2" in content
+        assert "Echo" in content
+        assert "Foxtrot" in content
 
     def test_ok_session_with_non_displayed_field_excluded_from_rows(
         self, active_user, agenda_item, client, event

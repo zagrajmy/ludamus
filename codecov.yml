@@ -1,0 +1,16 @@
+# Patch-coverage floor for PR diffs.
+#
+# A few panel templates share a
+#   {% if current_event %} … {% else %}No events available{% endif %}
+# empty state whose else-branch is unreachable: the panel views redirect when
+# the event slug doesn't resolve, so the template is only ever rendered with a
+# truthy current_event. Any edit that touches those lines (e.g. a CSS-token
+# rename) therefore can't push them to covered, capping patch coverage just shy
+# of 100%. The 1% threshold absorbs that residual under a 96% target
+# (effective floor 95%).
+coverage:
+  status:
+    patch:
+      default:
+        target: 96%
+        threshold: 1%

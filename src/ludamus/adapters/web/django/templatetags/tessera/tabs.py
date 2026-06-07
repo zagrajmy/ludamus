@@ -21,7 +21,7 @@ _TAB_BASE = (
     " rounded-t-lg transition-colors"
 )
 TAB_ACTIVE_CLASS = (
-    f"{_TAB_BASE} py-2.5 bg-bg-secondary text-[var(--theme-primary)]"
+    f"{_TAB_BASE} py-2.5 bg-bg-secondary text-primary"
     " -mb-px relative z-10 shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]"
 )
 TAB_INACTIVE_CLASS = (

@@ -228,6 +228,5 @@ tests/e2e/.auth-state-empty.json
 
 .local
 
-
-# Un-ignore .claude (global ~/.gitignore ignores it); .claude/.gitignore manages the rest
 !.claude/
+test-results/
