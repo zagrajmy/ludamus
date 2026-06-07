@@ -367,7 +367,7 @@ class TagDTO(BaseModel):
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol
     description: str
     duration: str
     min_age: int
@@ -385,7 +385,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     description: str
     display_name: str
     duration: str
@@ -707,7 +707,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None

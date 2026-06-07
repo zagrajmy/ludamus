@@ -118,6 +118,29 @@ class TestFillFreedSeats:
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
 
+    def test_restrictive_domain_allowance_holds_seat(
+        self, session, waiter, enrollment_config
+    ):
+        # The stored domain config grants this waiter no slots, so even a free
+        # seat must not be filled — proving the membership allowance is read from
+        # the configs and governs promotion (not just the seat count).
+        DomainEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            domain=waiter.email.split("@")[1],
+            allowed_slots_per_user=0,
+        )
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert not result.promoted
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.WAITING.value
+
     def test_promotes_emailless_waiter_without_membership_limit(self, session):
         emailless = UserFactory(username="no-email", email="")
         session.participants_limit = 1

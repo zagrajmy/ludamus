@@ -25,9 +25,7 @@
                 <form method="post"
                       action="{% url 'web:chronology:offer-claim' token=token %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-primary">
-                        {% translate "Claim my spot" %}
-                    </button>
+                    <button type="submit" class="btn btn-primary">{% translate "Claim my spot" %}</button>
                 </form>
             </div>
         </div>
