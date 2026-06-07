@@ -10,7 +10,7 @@ from ludamus.pacts import NotFoundError
 class _FakeUpload:
     name = "cover.png"
 
-    def read(self, size: int = -1) -> bytes:
+    def read(self) -> bytes:
         return b""
 
 
