@@ -45,3 +45,8 @@ def test_segment_that_is_only_junk_is_dropped_to_parent() -> None:
     assert strip_trailing_junk("/chronology/event/summer-con/!!!") == (
         "/chronology/event/summer-con/"
     )
+
+
+@pytest.mark.parametrize("path", ("/.", "/!!!/", "/\U0001f600"))
+def test_all_junk_path_normalises_to_root(path: str) -> None:
+    assert strip_trailing_junk(path) == "/"

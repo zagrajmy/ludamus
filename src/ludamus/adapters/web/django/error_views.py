@@ -38,8 +38,8 @@ def _event_slug(path: str) -> str | None:
 
 def _event_state(request: RootRequestProtocol, slug: str) -> str:
     try:
-        event = request.di.uow.events.read_by_slug(
-            slug, request.context.current_sphere_id
+        event = request.services.events.read_by_slug(
+            request.context.current_sphere_id, slug
         )
     except NotFoundError:
         return _EVENT_MISSING
@@ -55,7 +55,7 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
     # request context middleware has resolved a sphere for this host.
     if request.method not in {"GET", "HEAD"}:
         return None
-    if not hasattr(request, "di") or not hasattr(request, "context"):
+    if not hasattr(request, "services") or not hasattr(request, "context"):
         return None
 
     cleaned = strip_trailing_junk(request.path)
@@ -77,13 +77,13 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
             reverse(_EVENT_VIEW_NAME, kwargs={"slug": slug})
         )
 
-    # Renamed, deleted, or never existed, but the visitor reached the right
-    # sphere: drop them on the sphere home instead of a dead end.
-    if state == _EVENT_MISSING:
+    # Missing and unpublished events return the same response on purpose, so a
+    # 404 never reveals whether an unannounced event exists. The visitor
+    # reached the right sphere, so offer the sphere home rather than a dead end.
+    # (A clean URL to a public event renders normally and never reaches here.)
+    if state in {_EVENT_MISSING, _EVENT_UNPUBLISHED}:
         return HttpResponseRedirect(reverse("web:index"))
 
-    # Unpublished (keep it private, do not bounce its previewers) or a clean
-    # URL to a public event that 404'd for some other reason: keep the page.
     return None
 
 

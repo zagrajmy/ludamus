@@ -151,15 +151,15 @@ class TestSemantic404Recovery:
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
-    def test_unpublished_event_with_junk_keeps_themed_404(self, client, sphere):
-        # A real-but-unpublished event must not be revealed (nor its visitors
-        # bounced) by the fallback, even when the link carries trailing junk.
+    def test_unpublished_event_redirects_like_a_missing_one(self, client, sphere):
+        # Crucial: an unpublished event must produce the SAME response as a
+        # missing one (302 to home), so a 404 never betrays whether an
+        # unannounced event with this slug exists.
         unpublished = EventFactory(sphere=sphere, publication_time=None)
-        junk_url = f"{self._event_url(unpublished.slug)[:-1]}./"
 
-        response = client.get(junk_url)
+        response = client.get(self._event_url(unpublished.slug))
 
-        assert_response_404(response)
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
     def test_non_event_path_keeps_themed_404(self, client):
         # A resolvable, non-event path that 404s (a missing flatpage) must not
