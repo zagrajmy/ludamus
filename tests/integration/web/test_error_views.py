@@ -184,6 +184,14 @@ class TestSemantic404Recovery:
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert response.template_name == "404_dynamic.html"
 
+    def test_head_request_is_recovered_like_get(self, client):
+        # HEAD is a safe, idempotent navigation, so it is recovered exactly
+        # like GET (302 to the sphere home) rather than dropped like POST.
+        url = self._event_url("no-such-event")
+
+        assert_response(client.get(url), HTTPStatus.FOUND, url=reverse("web:index"))
+        assert_response(client.head(url), HTTPStatus.FOUND, url=reverse("web:index"))
+
 
 @pytest.mark.django_db
 class TestErrorViewsIntegration:
