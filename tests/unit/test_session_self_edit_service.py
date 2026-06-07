@@ -7,6 +7,13 @@ from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEdit
 from ludamus.pacts import NotFoundError
 
 
+class _FakeUpload:
+    name = "cover.png"
+
+    def read(self, size: int = -1) -> bytes:
+        return b""
+
+
 @contextmanager
 def _atomic():
     yield
@@ -123,7 +130,7 @@ class TestUpdate:
         service, sessions, _ = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
-        cover = object()
+        cover = _FakeUpload()
 
         service.update(
             5, 10, {"title": "T", "display_name": "D", "cover_image": cover}, []
