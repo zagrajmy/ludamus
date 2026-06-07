@@ -26,7 +26,12 @@ IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = (
     "e2e/playwright-report/",
     "tailwind.min.js",
 )
-IGNORE_ANTIPATTERNS: frozenset[str] = frozenset({"tiny-text"})
+# tiny-text: design opinion we don't share.
+# single-font: the project deliberately uses one brand font (Outfit)
+# everywhere; this whole-project heuristic flags that by design and isn't
+# actionable (there's no second font to add). Its firing is also content-volume
+# sensitive, so it surfaces inconsistently on unrelated CSS edits.
+IGNORE_ANTIPATTERNS: frozenset[str] = frozenset({"tiny-text", "single-font"})
 
 SCAN_GLOBS: tuple[str, ...] = ("*.html", "*.css", "*.js", "*.jsx", "*.tsx")
 
