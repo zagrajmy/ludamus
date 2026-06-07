@@ -26,6 +26,6 @@ class AnonymousUserFactory(DjangoModelFactory):
 
     is_active = False
     password = factory.LazyFunction(lambda: make_password(None))
-    slug = factory.LazyFunction(lambda: f"code_{faker.word()}")
+    slug = factory.Sequence(lambda n: f"code_{n}")
     user_type = UserType.ANONYMOUS
     username = factory.Faker("uuid4")
