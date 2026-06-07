@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -36,10 +36,18 @@ class DateTimeRangeProtocol(Protocol):
     end_time: datetime
 
 
+@runtime_checkable
 class UploadedFileProtocol(Protocol):
     name: str | None
 
     def read(self, size: int = -1) -> bytes: ...
+
+
+def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
+    # Boundary parser: recover a typed upload from the untyped form-data value
+    # (a file on upload, "" / False / None otherwise), so callers narrow once
+    # here instead of casting.
+    return value if isinstance(value, UploadedFileProtocol) else None
 
 
 class FacilitatorDTO(BaseModel):

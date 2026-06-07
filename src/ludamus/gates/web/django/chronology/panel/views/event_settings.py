@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.legacy import parse_uploaded_file
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -53,9 +54,10 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
     }
     # ClearableFileInput yields a file on upload, False when cleared, or None
     # when left untouched (keep the current cover).
-    if cover_image := cd.get("cover_image"):
-        data["cover_image"] = cover_image
-    elif cover_image is False:
+    raw_cover_image = cd.get("cover_image")
+    if uploaded_cover := parse_uploaded_file(raw_cover_image):
+        data["cover_image"] = uploaded_cover
+    elif raw_cover_image is False:
         data["cover_image"] = ""
     return data
 

@@ -8,7 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -57,6 +57,7 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     VenueGroupDTO,
 )
+from ludamus.pacts.legacy import parse_uploaded_file
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 if TYPE_CHECKING:
@@ -76,7 +77,6 @@ if TYPE_CHECKING:
         SphereRepositoryProtocol,
         UnitOfWorkProtocol,
     )
-    from ludamus.pacts.legacy import UploadedFileProtocol
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
@@ -879,9 +879,10 @@ class SessionSelfEditService:
         # ClearableFileInput yields a file on upload, False when cleared, or the
         # unchanged value otherwise. Only set the key when it actually changes so
         # the repository keeps the current cover untouched.
-        if cover_image := cleaned_data.get("cover_image"):
-            update["cover_image"] = cast("UploadedFileProtocol", cover_image)
-        elif cover_image is False:
+        raw_cover_image = cleaned_data.get("cover_image")
+        if uploaded_cover := parse_uploaded_file(raw_cover_image):
+            update["cover_image"] = uploaded_cover
+        elif raw_cover_image is False:
             update["cover_image"] = ""
         with self._transaction.atomic():
             self._sessions.update(session_id, update)
