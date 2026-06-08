@@ -44,7 +44,8 @@ const makeArgs = ({
   const calls: Call[] = [];
   const core = {
     info: (message: string) => calls.push(["info", message]),
-    setOutput: (name: string, value: string) => calls.push(["output", name, value]),
+    setOutput: (name: string, value: string) =>
+      calls.push(["output", name, value]),
   };
   const github: ActionArgs["github"] = {
     paginate: async (
@@ -180,7 +181,9 @@ test("does not redeploy a fork PR on synchronize", async () => {
 
   await staging.handlePullRequest(args);
 
-  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
+  assert.deepEqual(args.calls, [
+    ["info", "Skipping staging deploy for fork PR #3"],
+  ]);
 });
 
 test("stale explicit dispatch does not remove another PR staging label", async () => {
@@ -200,7 +203,7 @@ test("stale explicit dispatch does not remove another PR staging label", async (
   assert.deepEqual(args.calls, [
     ["output", "sha", "old-head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #1 is no longer the current staging target for old-head-sha"],
+    ["info", "PR #1 head is no longer old-head-sha"],
   ]);
 });
 
@@ -212,6 +215,24 @@ test("current explicit dispatch deploys and clears other staging labels", async 
       { number: 1, pull_request: {}, state: "open" },
       { number: 2, pull_request: {}, state: "open" },
     ],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["remove", 1],
+    ["info", "Removed staging from PR #1"],
+    ["output", "should_deploy", "true"],
+    ["info", "Deploying PR #2 at head-sha"],
+  ]);
+});
+
+test("explicit dispatch deploys an unlabeled PR and rips staging from others", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, labels: [] },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
   });
 
   await staging.resolveDeploy(args);
@@ -258,7 +279,7 @@ test("explicit dispatch does not deploy draft pull requests", async () => {
   assert.deepEqual(args.calls, [
     ["output", "sha", "head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #2 is no longer the current staging target for head-sha"],
+    ["info", "PR #2 is not an open, non-draft pull request"],
   ]);
 });
 
@@ -274,7 +295,7 @@ test("explicit dispatch on closed pull request does not deploy or mutate labels"
   assert.deepEqual(args.calls, [
     ["output", "sha", "head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #2 is no longer the current staging target for head-sha"],
+    ["info", "PR #2 is not an open, non-draft pull request"],
   ]);
 });
 
@@ -379,7 +400,9 @@ test("does not dispatch staging deploys for fork pull requests", async () => {
 
   await staging.handlePullRequest(args);
 
-  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
+  assert.deepEqual(args.calls, [
+    ["info", "Skipping staging deploy for fork PR #3"],
+  ]);
 });
 
 test("does not dispatch or mutate labels for closed pull requests", async () => {
