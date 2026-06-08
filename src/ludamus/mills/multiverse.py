@@ -84,6 +84,9 @@ class EventsService:
             sphere_id, include_unpublished=include_unpublished
         )
 
+    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
+        return self._events.read_by_slug(slug, sphere_id)
+
 
 class SpherePanelService:
     """Read-side context loader for the multiverse sphere panel."""
