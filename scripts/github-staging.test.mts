@@ -401,6 +401,21 @@ test("manual dispatch with invalid PR number is non-mutating", async () => {
   ]);
 });
 
+test("dispatch with non-positive PR number is non-mutating", async () => {
+  const args = makeArgs({
+    inputs: { pr_number: "-1", sha: "manual-sha" },
+    stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "manual-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "Invalid pull request number: -1"],
+  ]);
+});
+
 test("ignores non-staging labels", async () => {
   const args = makeArgs({ labelName: "bug" });
 

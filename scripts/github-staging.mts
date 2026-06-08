@@ -397,10 +397,16 @@ export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {
   const prNumber = prNumberInput
     ? Number.parseInt(prNumberInput, 10)
     : undefined;
+  const isValidPrNumber =
+    !prNumberInput ||
+    (prNumber !== undefined &&
+      Number.isSafeInteger(prNumber) &&
+      prNumber > 0 &&
+      String(prNumber) === prNumberInput);
 
   core.setOutput("sha", sha);
 
-  if (prNumberInput && (!prNumber || String(prNumber) !== prNumberInput)) {
+  if (!isValidPrNumber) {
     setShouldDeploy(
       core,
       false,
