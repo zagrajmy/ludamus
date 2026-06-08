@@ -321,7 +321,11 @@ const resolveExplicitDeploy = async ({
   }
 
   if (pr.head?.sha !== sha) {
-    setShouldDeploy(core, false, `PR #${prNumber} head is no longer ${sha}`);
+    setShouldDeploy(
+      core,
+      false,
+      `PR #${prNumber} head ${pr.head?.sha} no longer matches requested ${sha}`,
+    );
     return;
   }
 

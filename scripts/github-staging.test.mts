@@ -203,7 +203,10 @@ test("stale explicit dispatch does not remove another PR staging label", async (
   assert.deepEqual(args.calls, [
     ["output", "sha", "old-head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #1 head is no longer old-head-sha"],
+    [
+      "info",
+      "PR #1 head new-head-sha no longer matches requested old-head-sha",
+    ],
   ]);
 });
 
@@ -251,6 +254,27 @@ test("explicit dispatch does not deploy fork pull requests", async () => {
     currentPr: {
       head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
       labels: [{ name: "staging" }],
+      number: 2,
+      state: "open",
+    },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "Skipping staging deploy for fork PR #2"],
+  ]);
+});
+
+test("explicit dispatch does not deploy an unlabeled fork PR", async () => {
+  const args = makeArgs({
+    currentPr: {
+      head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
+      labels: [],
       number: 2,
       state: "open",
     },
