@@ -969,6 +969,7 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
 msgstr "Czas trwania"
@@ -1237,6 +1238,10 @@ msgid "Header row must be 1 or greater."
 msgstr "Wiersz nagłówka musi mieć wartość co najmniej 1."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Email column must be 1 or greater."
+msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Sheet settings saved."
 msgstr "Zapisano ustawienia arkusza."
 
@@ -1315,12 +1320,16 @@ msgstr ""
 #, python-format
 msgid ""
 "Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
-"session fields, +%(p_added)d / -%(p_removed)d personal entries, pruned "
-"%(pruned)d orphan field definitions."
+"session fields, +%(p_added)d / -%(p_removed)d personal entries, filled "
+"%(builtins)d missing built-in fields, linked %(links)d missing "
+"facilitators / time slots / tracks, pruned %(pruned)d orphan field "
+"definitions."
 msgstr ""
 "Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
 "%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów danych "
-"osobowych, usunięto %(pruned)d osieroconych definicji pól."
+"osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, dowiązano "
+"%(links)d brakujących twórców programu / przedziałów czasowych / bloków, "
+"usunięto %(pruned)d osieroconych definicji pól."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/index.py
 msgid "No events available for this sphere."
@@ -2149,6 +2158,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Contact Email"
 msgstr "Email kontaktowy"
@@ -4696,6 +4706,21 @@ msgstr ""
 "Wiersz 1 to pierwszy wiersz arkusza; wszystko powyżej jest pomijane."
 
 #: src/ludamus/templates/panel/import-run.html
+msgid "Email column"
+msgstr "Kolumna e-maila"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"The 1-indexed sheet column that holds the auto-collected respondent email. "
+"Leave blank if the form does not collect email; otherwise set it so the "
+"importer can synthesize a question that maps to the proposal's contact email."
+msgstr ""
+"Kolumna arkusza (liczona od 1), w której zapisywany jest adres e-mail "
+"odpowiadającego pobrany automatycznie. Pozostaw puste, jeśli formularz nie "
+"zbiera adresów e-mail; w przeciwnym razie ustaw ją, aby importer mógł "
+"wygenerować pytanie powiązane z e-mailem kontaktowym propozycji."
+
+#: src/ludamus/templates/panel/import-run.html
 msgid "Unique key columns"
 msgstr "Kolumny klucza unikalnego"
 
@@ -4812,6 +4837,20 @@ msgid ""
 msgstr ""
 "Zastosować bieżący układ pól do wszystkich zaimportowanych zgłoszeń? "
 "Wartości pól, które nie są już zmapowane, zostaną usunięte."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Email column not set."
+msgstr "Kolumna e-maila nie jest ustawiona."
+
+#: src/ludamus/templates/panel/import.html
+msgid ""
+"When the form collects respondent email, set the 1-indexed sheet column "
+"number on the Run tab so the importer can map it to the proposal's contact "
+"email."
+msgstr ""
+"Jeśli formularz zbiera adresy e-mail odpowiadających, ustaw numer kolumny "
+"arkusza (liczony od 1) na zakładce „Uruchom import”, aby importer mógł "
+"powiązać go z e-mailem kontaktowym propozycji."
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html

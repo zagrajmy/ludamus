@@ -61,6 +61,15 @@
                 {% if presenter %}
                     <p class="text-foreground-muted text-sm mt-1">{{ presenter.name }} · {{ presenter.email }}</p>
                 {% endif %}
+                {% if proposal.contact_email %}
+                    <dl class="mt-3">
+                        <dt class="text-xs text-foreground-muted">{% translate "Contact Email" %}</dt>
+                        <dd class="text-foreground">
+                            <a href="mailto:{{ proposal.contact_email }}"
+                               class="text-primary hover:underline">{{ proposal.contact_email }}</a>
+                        </dd>
+                    </dl>
+                {% endif %}
             </div>
         </div>
         {% if proposal.cover_image_url %}

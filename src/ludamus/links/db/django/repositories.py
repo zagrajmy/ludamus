@@ -579,6 +579,12 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         ]
 
     @staticmethod
+    def read_track_ids(session_id: int) -> list[int]:
+        return list(
+            Track.objects.filter(sessions__id=session_id).values_list("id", flat=True)
+        )
+
+    @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None:
         try:
             session = Session.objects.get(pk=session_pk)

@@ -7,7 +7,7 @@ integration is just the connection it pulls through.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 
@@ -18,6 +18,7 @@ from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.adapters.db.django.models import (
     EventIntegration,
+    Facilitator,
     HostPersonalData,
     ImportLogEntry,
     PersonalDataField,
@@ -26,6 +27,7 @@ from ludamus.adapters.db.django.models import (
     SessionField,
     SessionFieldOption,
     SessionFieldValue,
+    TimeSlot,
     Track,
 )
 from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
@@ -247,6 +249,7 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
+                "email_column_missing": True,
             },
         )
         # The Edit action column links each row to the Review tab.
@@ -1909,6 +1912,7 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
+                "email_column": None,
                 "unique_key_columns": [],
                 "available_columns": ["Timestamp", "Email Address"],
                 "fields_imported": False,
@@ -1970,6 +1974,7 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": header_row,
+                "email_column": None,
                 "unique_key_columns": ["Email Address"],
                 "available_columns": ["Timestamp", "Email Address", "Title", "System"],
                 "fields_imported": True,
@@ -2046,6 +2051,70 @@ class TestEventImportSettingsSaveView:
             HTTPStatus.FOUND,
             url=_run_page_url(event, integration),
             messages=[(messages.ERROR, "Header row must be 1 or greater.")],
+        )
+
+    def test_post_saves_email_column_when_provided(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        email_column = 2
+
+        response = authenticated_client.post(
+            self._save_url(event, integration),
+            data={"header_row": "1", "email_column": str(email_column)},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[(messages.SUCCESS, "Sheet settings saved.")],
+        )
+        integration.refresh_from_db()
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        assert settings.email_column == email_column
+
+    def test_post_clears_email_column_when_blank(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps({"email_column": 2})
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.post(
+            self._save_url(event, integration),
+            data={"header_row": "1", "email_column": ""},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        assert settings.email_column is None
+
+    def test_post_rejects_non_positive_email_column(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            self._save_url(event, integration),
+            data={"header_row": "1", "email_column": "0"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[(messages.ERROR, "Email column must be 1 or greater.")],
         )
 
 
@@ -2531,3 +2600,302 @@ class TestEventImportApplyFieldLayoutView:
         ).exists()
         # Orphan SessionField pruned.
         assert not SessionField.objects.filter(event=event, slug="system").exists()
+
+    def test_post_fills_missing_contact_email_from_cached_row(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # A session imported before the operator mapped session.contact_email.
+        # The cached row carries the email; the recipe now maps it. Apply
+        # field layout should fill the empty contact_email without touching
+        # other built-in fields.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps(
+                {"Email": "anna@example.com", "Title": "Talk"}, ensure_ascii=False
+            ),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title"},
+                    "Email": {"to": "session.contact_email"},
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.post(
+            _apply_field_layout_url(event, integration)
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        session.refresh_from_db()
+        assert session.contact_email == "anna@example.com"
+        # Title stays untouched.
+        assert session.title == "Talk"
+
+    def test_post_does_not_overwrite_existing_contact_email(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+            contact_email="existing@example.com",
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps({"Email": "new@example.com"}, ensure_ascii=False),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Email": {"to": "session.contact_email"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        authenticated_client.post(_apply_field_layout_url(event, integration))
+
+        session.refresh_from_db()
+        assert session.contact_email == "existing@example.com"
+
+    def test_post_adds_facilitator_when_session_has_none(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps({"Nick": "GM Bob"}, ensure_ascii=False),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Nick": {"to": "facilitator.display_name"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        authenticated_client.post(_apply_field_layout_url(event, integration))
+
+        facilitators = list(session.facilitators.all())
+        assert [f.display_name for f in facilitators] == ["GM Bob"]
+
+    def test_post_does_not_replace_existing_facilitator(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        existing = Facilitator.objects.create(
+            event=event, display_name="Existing Host", slug="existing-host"
+        )
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        session.facilitators.add(existing)
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps({"Nick": "GM Bob"}, ensure_ascii=False),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Nick": {"to": "facilitator.display_name"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        authenticated_client.post(_apply_field_layout_url(event, integration))
+
+        assert [f.pk for f in session.facilitators.all()] == [existing.pk]
+
+    def test_post_sets_category_when_session_has_none(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=None,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps({"Kind": "RPG"}, ensure_ascii=False),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Kind": {
+                        "to": "category",
+                        "values": {
+                            "RPG": EntityRef(name="RPG", slug="rpg").model_dump()
+                        },
+                    }
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        authenticated_client.post(_apply_field_layout_url(event, integration))
+
+        session.refresh_from_db()
+        assert session.category is not None
+        assert session.category.slug == "rpg"
+
+    def test_post_adds_preferred_time_slots_when_session_has_none(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps({"Slots": "Saturday"}, ensure_ascii=False),
+            title="Talk",
+            session=session,
+        )
+        slot_spec = TimeSlotSpec(
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Slots": {
+                        "to": "session.time_slots",
+                        "values": {"Saturday": slot_spec.model_dump(mode="json")},
+                    }
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        authenticated_client.post(_apply_field_layout_url(event, integration))
+
+        time_slots = list(session.time_slots.all())
+        assert len(time_slots) == 1
+        # The slot was provisioned on the event.
+        assert TimeSlot.objects.filter(event=event).count() == 1
+
+    def test_post_adds_tracks_when_session_has_none(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps({"Track": "Indie"}, ensure_ascii=False),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Track": {
+                        "to": "track",
+                        "values": {
+                            "Indie": EntityRef(name="Indie", slug="indie").model_dump()
+                        },
+                    }
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        authenticated_client.post(_apply_field_layout_url(event, integration))
+
+        tracks = list(session.tracks.all())
+        assert [t.slug for t in tracks] == ["indie"]
+        # The track was provisioned on the event.
+        assert Track.objects.filter(event=event, slug="indie").exists()

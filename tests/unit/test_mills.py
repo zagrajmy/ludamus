@@ -1145,6 +1145,60 @@ class TestProposalImportService:
             facilitator_ids=[7],
         )
 
+    def test_run_maps_session_contact_email(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "session.contact_email"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Email": "anna@example.com"}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "My Talk",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 0,
+                "slug": "my-talk",
+                "contact_email": "anna@example.com",
+            },
+            tag_ids=[],
+            time_slot_ids=[],
+            track_ids=[],
+            facilitator_ids=[],
+        )
+
+    def test_run_does_not_set_contact_email_when_cell_is_blank(
+        self, service, event_integrations, sessions
+    ):
+        # An empty email cell leaves contact_email out of SessionData; the
+        # model column defaults to "" on the DB side.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "session.contact_email"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Email": ""}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        kwargs = sessions.create.call_args
+        assert "contact_email" not in kwargs.args[0]
+
     def test_run_maps_session_duration_via_per_option_iso_lookup(
         self, service, event_integrations, sessions
     ):

@@ -158,10 +158,15 @@ class ImportSettings(BaseModel):
     # `unique_key_columns` names the column headers whose values together
     # identify a row across re-fetches; retry uses them to locate the row
     # again even after the operator deletes or rearranges rows in the source.
+    # `email_column` is the 1-indexed sheet column where Google Forms drops
+    # the auto-collected responder email (only present when the form has
+    # email collection on). With it set, the importer synthesizes a question
+    # the recipe can map to session.contact_email.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
+    email_column: int | None = None
 
 
 class ImportLogStatus(StrEnum):
@@ -225,6 +230,8 @@ class ApplyFieldLayoutResult:
     personal_entries_removed: int = 0
     session_fields_pruned: int = 0
     personal_fields_pruned: int = 0
+    session_builtins_filled: int = 0
+    session_links_filled: int = 0
 
 
 @dataclass(frozen=True)

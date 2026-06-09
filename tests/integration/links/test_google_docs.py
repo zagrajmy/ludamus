@@ -254,6 +254,91 @@ class TestGoogleDocsProposalImporterFetchQuestions:
 
         assert [q.title for q in result] == ["Imię", "Wiek"]
 
+    def test_synthesizes_email_question_from_sheet_header_at_configured_column(
+        self, google
+    ):
+        # The auto-collected email column doesn't appear in items[]; the Forms
+        # API surfaces collection state on settings.emailCollectionType. With
+        # an email_column set, the importer reads the sheet header at that
+        # 1-indexed column and synthesizes a SourceQuestion the recipe can map
+        # to session.contact_email.
+        form_response = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {
+                        "title": "Title",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    }
+                ],
+                "settings": {"emailCollectionType": "RESPONDER_INPUT"},
+            },
+        )
+        sheet_meta = MagicMock(
+            ok=True,
+            json=lambda: {"sheets": [{"properties": {"title": "Form Responses 1"}}]},
+        )
+        sheet_values = MagicMock(
+            ok=True, json=lambda: {"values": [["Timestamp", "email-header", "Title"]]}
+        )
+
+        def get(url: str, **_kwargs: object) -> MagicMock:
+            if "forms.googleapis.com" in url:
+                return form_response
+            if "/values/" in url:
+                return sheet_values
+            return sheet_meta
+
+        google.session.get.side_effect = get
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            SECRET, CONFIG, header_row=1, email_column=2
+        )
+
+        assert [q.title for q in result] == ["Title", "email-header"]
+        email_question = result[-1]
+        assert email_question.field_type == "text"
+        assert email_question.is_multiple is False
+        assert email_question.allow_custom is False
+
+    def test_does_not_synthesize_email_when_column_not_configured(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {
+                        "title": "Title",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    }
+                ],
+                "settings": {"emailCollectionType": "RESPONDER_INPUT"},
+            },
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+
+        assert [q.title for q in result] == ["Title"]
+
+    def test_does_not_synthesize_email_when_form_does_not_collect_email(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {
+                        "title": "Title",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    }
+                ],
+                "settings": {"emailCollectionType": "DO_NOT_COLLECT"},
+            },
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            SECRET, CONFIG, header_row=1, email_column=2
+        )
+
+        assert [q.title for q in result] == ["Title"]
+
     def test_wrong_config_type_returns_empty(self):
         assert (
             GoogleDocsProposalImporter().fetch_questions(SECRET, _OtherConfig()) == []

@@ -156,6 +156,33 @@ class TestProposalDetailPageView:
         )
         assert session.cover_image_url.encode() in response.content
 
+
+    def test_renders_contact_email_as_mailto_link_when_set(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Session With Email",
+            slug="session-with-email",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+            contact_email="anna@example.com",
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        body = response.content.decode()
+        assert "Contact Email" in body
+        assert 'href="mailto:anna@example.com"' in body
+        assert "anna@example.com" in body
+
+
+
     def test_renders_preferred_time_slots_when_attached(
         self, authenticated_client, active_user, sphere, event
     ):

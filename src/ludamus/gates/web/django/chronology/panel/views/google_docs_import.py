@@ -47,7 +47,13 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
 
-SESSION_COLUMNS = ("title", "description", "duration", "participants_limit")
+SESSION_COLUMNS = (
+    "title",
+    "description",
+    "duration",
+    "participants_limit",
+    "contact_email",
+)
 TIME_SLOTS_TARGET = "session.time_slots"
 ENTITY_TARGETS = ("track", "category")
 FieldType = Literal["text", "select", "checkbox"]
@@ -626,6 +632,7 @@ class EventImportProposalView(_ImportTabView):
                 )
                 for index, q in enumerate(questions)
             ]
+            context["email_column_missing"] = settings.email_column is None
         return TemplateResponse(self.request, "panel/import.html", context)
 
 
@@ -799,6 +806,7 @@ class EventImportRunPageView(_ImportTabView):
                     seen.add(col)
                     available.append(col)
             context["header_row"] = settings.header_row
+            context["email_column"] = settings.email_column
             context["unique_key_columns"] = settings.unique_key_columns
             context["available_columns"] = available
             context["fields_imported"] = bool(cached)
@@ -892,11 +900,21 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
         settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+        previous_email_column = settings.email_column
+        previous_header_row = settings.header_row
         raw_row = (self.request.POST.get("header_row") or "").strip()
         if not raw_row.isdigit() or int(raw_row) < 1:
             messages.error(self.request, _("Header row must be 1 or greater."))
             return redirect("panel:import-run", slug=slug, pk=active.pk)
         settings.header_row = int(raw_row)
+        raw_email_column = (self.request.POST.get("email_column") or "").strip()
+        if not raw_email_column:
+            settings.email_column = None
+        elif raw_email_column.isdigit() and int(raw_email_column) >= 1:
+            settings.email_column = int(raw_email_column)
+        else:
+            messages.error(self.request, _("Email column must be 1 or greater."))
+            return redirect("panel:import-run", slug=slug, pk=active.pk)
         # Trust the operator: any non-empty column name is a valid unique-key
         # candidate. Sheet metadata columns (Timestamp, Email Address) aren't
         # in settings.questions, so we can't filter against the recipe.
@@ -908,6 +926,18 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
         self.request.services.event_integrations.save_settings(
             current_event.pk, active.pk, settings.model_dump_json()
         )
+        # The cached snapshot's synthesized email question depends on header_row
+        # and email_column; refresh it when either changed so the operator sees
+        # the question immediately on the Proposal / Review tabs without
+        # clicking "Reimport fields" or "Import missing fields" separately.
+        if (
+            settings.email_column != previous_email_column
+            or settings.header_row != previous_header_row
+        ):
+            sphere_id = self.request.context.current_sphere_id
+            self.request.services.event_integrations.populate_questions_snapshot(
+                sphere_id, current_event.pk, active.pk
+            )
         messages.success(self.request, _("Sheet settings saved."))
         return redirect("panel:import-run", slug=slug, pk=active.pk)
 
@@ -1119,6 +1149,8 @@ class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View)
                 "Field layout applied to %(sessions)d proposals: "
                 "+%(added)d / -%(removed)d session fields, "
                 "+%(p_added)d / -%(p_removed)d personal entries, "
+                "filled %(builtins)d missing built-in fields, "
+                "linked %(links)d missing facilitators / time slots / tracks, "
                 "pruned %(pruned)d orphan field definitions."
             )
             % {
@@ -1127,6 +1159,8 @@ class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View)
                 "removed": result.session_field_values_removed,
                 "p_added": result.personal_entries_added,
                 "p_removed": result.personal_entries_removed,
+                "builtins": result.session_builtins_filled,
+                "links": result.session_links_filled,
                 "pruned": result.session_fields_pruned + result.personal_fields_pruned,
             },
         )

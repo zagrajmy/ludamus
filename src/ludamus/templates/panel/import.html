@@ -15,14 +15,26 @@
         {% if active_integration %}
             {% include "panel/parts/import-tabs.html" %}
         {% endif %}
-        <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
+        <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6 space-y-4">
             {% if not active_integration %}
                 <div class="card p-8 text-center">
                     <p class="text-foreground-muted">
                         {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
                     </p>
                 </div>
-            {% elif summary_rows %}
+            {% else %}
+                {% if email_column_missing %}
+                    <div class="card max-w-4xl border border-warning bg-warning-bg p-4">
+                        <p class="text-sm font-medium text-warning-text">
+                            {% translate "Email column not set." %}
+                        </p>
+                        <p class="mt-1 text-sm text-foreground-secondary">
+                            {% translate "When the form collects respondent email, set the 1-indexed sheet column number on the Run tab so the importer can map it to the proposal's contact email." %}
+                        </p>
+                    </div>
+                {% endif %}
+            {% endif %}
+            {% if active_integration and summary_rows %}
                 <div class="card max-w-4xl overflow-x-auto">
                     <table class="min-w-full divide-y divide-border">
                         <thead class="bg-bg-tertiary">
@@ -91,7 +103,7 @@
                         </tbody>
                     </table>
                 </div>
-            {% else %}
+            {% elif active_integration %}
                 <div class="card p-8 text-center">
                     <p class="mb-4 text-foreground-muted">
                         {% translate "No source questions found yet. Open the Import run tab to fetch the form." %}

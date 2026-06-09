@@ -79,6 +79,7 @@ _BUILTIN_PROPOSAL_TARGETS = frozenset(
         "session.description",
         "session.duration",
         "session.participants_limit",
+        "session.contact_email",
         "facilitator.display_name",
     }
 )
@@ -93,6 +94,7 @@ class _ResolvedBuiltins:
     duration: str = ""
     participants_limit: int = 0
     display_name: str = ""
+    contact_email: str = ""
 
 
 def _resolve_builtins(
@@ -109,6 +111,7 @@ def _resolve_builtins(
     duration = ""
     participants_limit = 0
     display_name = ""
+    contact_email = ""
     for header, target in settings.questions.items():
         if target.to not in _BUILTIN_PROPOSAL_TARGETS:
             continue
@@ -123,6 +126,8 @@ def _resolve_builtins(
             duration = _duration_iso(target, header, cell)
         elif target.to == "session.participants_limit" and not participants_limit:
             participants_limit = _parse_int(header, cell)
+        elif target.to == "session.contact_email" and not contact_email:
+            contact_email = cell
         elif target.to == "facilitator.display_name" and not display_name:
             display_name = cell
     return _ResolvedBuiltins(
@@ -131,6 +136,7 @@ def _resolve_builtins(
         duration=duration,
         participants_limit=participants_limit,
         display_name=display_name,
+        contact_email=contact_email,
     )
 
 
@@ -558,6 +564,21 @@ class ProposalImportService:
                 if entry.session_id is None:
                     continue
                 row = self._decode_response(entry.response_json)
+                result.session_builtins_filled += self._fill_missing_builtins(
+                    entry.session_id, settings, row
+                )
+                result.session_builtins_filled += self._fill_missing_category(
+                    event_id, entry.session_id, settings, row
+                )
+                result.session_links_filled += self._fill_missing_facilitators(
+                    event_id, entry.session_id, settings, row
+                )
+                result.session_links_filled += self._fill_missing_time_slots(
+                    event_id, entry.session_id, settings, row
+                )
+                result.session_links_filled += self._fill_missing_tracks(
+                    event_id, entry.session_id, settings, row
+                )
                 result.session_field_values_added += self._add_missing_session_values(
                     entry.session_id, settings, row, field_ids.session
                 )
@@ -583,6 +604,101 @@ class ProposalImportService:
                 self._repos.personal_fields.delete_orphans_for_event(event_id)
             )
         return result
+
+    def _fill_missing_builtins(
+        self, session_id: int, settings: ImportSettings, row: ImportRow
+    ) -> int:
+        # Apply-field-layout extension for session built-in columns: when the
+        # recipe now maps a built-in target that wasn't populated on this
+        # session yet, fill it from the cached row. Never overwrites an
+        # existing value — this stays a layout-style diff. Today only
+        # contact_email is reconciled (the column added after the initial
+        # import surfaced the gap); add other simple columns here if a
+        # similar need arises.
+        try:
+            builtins = _resolve_builtins(settings, row)
+        except _RowSkippedError:
+            return 0
+        session = self._repos.sessions.read(session_id)
+        update_data: SessionUpdateData = {}
+        if builtins.contact_email and not session.contact_email:
+            update_data["contact_email"] = builtins.contact_email
+        if not update_data:
+            return 0
+        self._repos.sessions.update(session_id, update_data)
+        return len(update_data)
+
+    def _fill_missing_facilitators(
+        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+    ) -> int:
+        # Apply-field-layout extension for the facilitator link: when the
+        # session has no facilitators yet AND the recipe now maps
+        # facilitator.display_name with a non-empty cell, provision the
+        # facilitator (deduped by slug) and link it. Sessions that already
+        # carry facilitators are left alone — we don't second-guess what the
+        # operator (or a prior import) wired up.
+        if self._repos.sessions.read_facilitators(session_id):
+            return 0
+        try:
+            builtins = _resolve_builtins(settings, row)
+        except _RowSkippedError:
+            return 0
+        facilitator_id = self._facilitator_id(event_id, builtins.display_name)
+        if facilitator_id is None:
+            return 0
+        self._repos.sessions.set_facilitators(session_id, [facilitator_id])
+        return 1
+
+    def _fill_missing_category(
+        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+    ) -> int:
+        # Apply-field-layout extension for the category FK: only set it when
+        # the session has no category yet, the row resolves one, and the
+        # recipe maps it.
+        session = self._repos.sessions.read(session_id)
+        if session.category_id is not None:
+            return 0
+        try:
+            category_id = self._category_id(event_id, settings, row)
+        except _RowSkippedError:
+            return 0
+        if category_id is None:
+            return 0
+        self._repos.sessions.update(session_id, {"category_id": category_id})
+        return 1
+
+    def _fill_missing_time_slots(
+        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+    ) -> int:
+        # Apply-field-layout extension for preferred time slots: only fill
+        # when the session has none yet and the row resolves at least one
+        # window.
+        if self._repos.sessions.read_preferred_time_slot_ids(session_id):
+            return 0
+        try:
+            ids = self._time_slot_ids(event_id, settings, row)
+        except _RowSkippedError:
+            return 0
+        if not ids:
+            return 0
+        self._repos.sessions.set_time_slots(session_id, ids)
+        return len(ids)
+
+    def _fill_missing_tracks(
+        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+    ) -> int:
+        # Apply-field-layout extension for tracks: only fill when the
+        # session has none yet and the row resolves at least one track.
+        if self._repos.sessions.read_track_ids(session_id):
+            return 0
+        try:
+            ids = self._track_ids(event_id, settings, row)
+        except _RowSkippedError:
+            return 0
+        if not ids:
+            return 0
+        self._repos.sessions.set_session_tracks(session_id, ids)
+        return len(ids)
 
     def _add_missing_session_values(
         self,
@@ -884,6 +1000,8 @@ class ProposalImportService:
         }
         if builtins.duration:
             session_data["duration"] = builtins.duration
+        if builtins.contact_email:
+            session_data["contact_email"] = builtins.contact_email
         if (category_id := self._category_id(event_id, settings, row)) is not None:
             session_data["category_id"] = category_id
         facilitator_id = self._facilitator_id(event_id, builtins.display_name)
@@ -935,6 +1053,8 @@ class ProposalImportService:
             "duration": builtins.duration,
             "category_id": self._category_id(event_id, settings, row),
         }
+        if builtins.contact_email:
+            update_data["contact_email"] = builtins.contact_email
         self._repos.sessions.update(session_id, update_data)
         self._repos.sessions.set_time_slots(
             session_id, self._time_slot_ids(event_id, settings, row)

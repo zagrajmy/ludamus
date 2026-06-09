@@ -112,8 +112,23 @@ class _FormItem(BaseModel):
     question_item: _QuestionItem | None = Field(default=None, alias="questionItem")
 
 
+class _FormSettings(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    email_collection_type: str = Field(default="", alias="emailCollectionType")
+
+
 class _FormSchema(BaseModel):
     items: list[_FormItem] = []
+    settings: _FormSettings = Field(default_factory=_FormSettings)
+
+
+# Forms with email collection enabled get an auto-added email column in the
+# linked sheet that doesn't appear in the Forms API items[]. The operator names
+# the column position (1-indexed) via ImportSettings.email_column; the importer
+# reads the sheet header at that position and synthesizes a SourceQuestion the
+# recipe can map to session.contact_email.
+_EMAIL_COLLECTION_VALUES = frozenset({"RESPONDER_INPUT", "VERIFIED"})
 
 
 def _source_question(item: _FormItem) -> SourceQuestion | None:
@@ -167,7 +182,12 @@ class GoogleDocsProposalImporter:
         )
 
     def fetch_questions(
-        self, secret: bytes, config: GoogleDocsProposalConfig
+        self,
+        secret: bytes,
+        config: GoogleDocsProposalConfig,
+        *,
+        header_row: int = 1,
+        email_column: int | None = None,
     ) -> list[SourceQuestion]:
         try:
             session = self._session(secret)
@@ -200,8 +220,48 @@ class GoogleDocsProposalImporter:
                     existing_question.options = list(
                         set(existing_question.options + question.options)
                     )
+        if (
+            schema.settings.email_collection_type in _EMAIL_COLLECTION_VALUES
+            and email_column is not None
+            and (
+                email_title := self._fetch_sheet_header(
+                    session, config.sheet_id, header_row=header_row, column=email_column
+                )
+            )
+            and email_title not in dedup_questions
+        ):
+            dedup_questions[email_title] = SourceQuestion(title=email_title)
 
         return list(dedup_questions.values())
+
+    def _fetch_sheet_header(
+        self, session: AuthorizedSession, sheet_id: str, *, header_row: int, column: int
+    ) -> str:
+        # Read the cell at (header_row, column), both 1-indexed, from the
+        # responses tab so the email column's actual label drives the recipe.
+        # Fetches the whole header row via A1 range notation and picks the
+        # column out by index — Sheets API is picky about R1C1 mixed with a
+        # sheet prefix, but a plain row range is universally supported.
+        if column < 1 or header_row < 1:
+            return ""
+        if not (title := self._responses_tab_title(session, sheet_id)):
+            return ""
+        row_range = f"{title}!{header_row}:{header_row}"
+        response: requests.Response | None = None
+        with suppress(requests.RequestException, GoogleAuthError):
+            response = session.get(
+                SHEETS_VALUES_URL.format(sheet_id=sheet_id, range=quote(row_range)),
+                timeout=10,
+            )
+        if response is None or not response.ok:
+            return ""
+        values = response.json().get("values") or []
+        if not values:
+            return ""
+        row = values[0]
+        if column > len(row):
+            return ""
+        return str(row[column - 1])
 
     def fetch_responses(
         self, secret: bytes, config: BaseModel, header_row: int = 1

@@ -1034,9 +1034,15 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         if (impl := self._registry.get(integration.implementation)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
-        return impl.fetch_questions(plaintext, config)
+        return impl.fetch_questions(
+            plaintext,
+            config,
+            header_row=settings.header_row,
+            email_column=settings.email_column,
+        )
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
