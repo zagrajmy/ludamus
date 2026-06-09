@@ -83,10 +83,12 @@ class _RowSkippedError(Exception):
 
 class _DuplicateRowError(Exception):
     # Raised inside `_create_proposal` when settings.unique_key_columns matches
-    # a row already imported into this event. Counted separately from skips so
-    # the operator sees idempotency at work instead of a stack of "failure"
-    # entries — no log entry is added.
-    pass
+    # a row already imported into this event. Carries the existing session id
+    # so retry/run can link the log entry back to it instead of leaving a
+    # stale skip reason.
+    def __init__(self, existing_session_id: int) -> None:
+        super().__init__()
+        self.existing_session_id = existing_session_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -378,7 +380,9 @@ class ProposalImportService:
         result = self._import_rows(
             sphere_id, event_id, integration.pk, settings, [(target_idx, target_row)]
         )
-        return result.created == 1
+        # A duplicate counts as "reconciled": the log entry now points at the
+        # existing session and no skip reason remains.
+        return result.created + result.duplicates == 1
 
     def reimport_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool:
         # Reassert the source row over the existing session: refetch live
@@ -487,7 +491,22 @@ class ProposalImportService:
                     session_id = self._create_proposal(
                         sphere_id, event_id, settings, row, field_ids
                     )
-                except _DuplicateRowError:
+                except _DuplicateRowError as exc:
+                    # The row's unique key matches an existing session — link
+                    # the log entry to it so the operator can navigate and so
+                    # a stale skip reason from a prior attempt is cleared.
+                    self._repos.log_entries.upsert(
+                        ImportLogEntryCreateData(
+                            integration_id=integration_pk,
+                            row_index=row_index,
+                            status=ImportLogStatus.SUCCESS,
+                            reason="",
+                            response_json=json.dumps(row, ensure_ascii=False),
+                            title=title,
+                            display_name=display_name,
+                            session_id=exc.existing_session_id,
+                        )
+                    )
                     duplicates += 1
                     continue
                 except _RowSkippedError as exc:
@@ -790,8 +809,10 @@ class ProposalImportService:
             )
         identity = "-".join(row.get(col, "") for col in settings.unique_key_columns)
         slug = slugify(f"e{event_id}-{identity}") or f"e{event_id}-row"
-        if self._repos.sessions.slug_exists(sphere_id, slug):
-            raise _DuplicateRowError
+        if (
+            existing_id := self._repos.sessions.find_id_by_slug(sphere_id, slug)
+        ) is not None:
+            raise _DuplicateRowError(existing_id)
         return slug
 
     def _facilitator_id(self, event_id: int, display_name: str) -> int | None:

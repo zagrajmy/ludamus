@@ -483,6 +483,14 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return Session.objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
+    def find_id_by_slug(sphere_id: int, slug: str) -> int | None:
+        return (
+            Session.objects.filter(sphere_id=sphere_id, slug=slug)
+            .values_list("id", flat=True)
+            .first()
+        )
+
+    @staticmethod
     def save_field_values(session_id: int, values: list[SessionFieldValueData]) -> None:
         SessionFieldValue.objects.bulk_create(
             [

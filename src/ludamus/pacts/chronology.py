@@ -155,6 +155,9 @@ class EventIntegrationsServiceProtocol(Protocol):
     def refetch_questions(
         self, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]: ...
+    def import_missing_questions(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> tuple[list[SourceQuestion], int]: ...
     def fetch_responses(
         self, sphere_id: int, event_id: int, pk: int
     ) -> list[dict[str, str]]: ...

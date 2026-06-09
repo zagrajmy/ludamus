@@ -1081,6 +1081,20 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
             self._integrations.update_settings(event_id, pk, settings.model_dump_json())
         return questions
 
+    def import_missing_questions(
+        self, sphere_id: int, event_id: int, pk: int
+    ) -> tuple[list[SourceQuestion], int]:
+        # Refresh the snapshot but leave settings.questions untouched: existing
+        # mappings (and their confirmations) survive, questions that disappeared
+        # from the form stay in settings until the operator explicitly refetches.
+        # Returns the fresh snapshot plus the count of questions that were not
+        # yet present in settings.questions.
+        integration = self._integrations.get(event_id, pk)
+        before = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        questions = self.populate_questions_snapshot(sphere_id, event_id, pk)
+        missing = sum(1 for q in questions if q.title not in before.questions)
+        return questions, missing
+
     def fetch_responses(
         self, sphere_id: int, event_id: int, pk: int
     ) -> list[dict[str, str]]:

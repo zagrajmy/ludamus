@@ -930,6 +930,7 @@ class TestProposalImportService:
     def sessions(self):
         mock = MagicMock()
         mock.slug_exists.return_value = False
+        mock.find_id_by_slug.return_value = None
         return mock
 
     @pytest.fixture
@@ -1132,6 +1133,44 @@ class TestProposalImportService:
             facilitator_ids=[],
         )
 
+    def test_run_overrides_substitute_raw_duration_answer_before_values_lookup(
+        self, service, event_integrations, sessions
+    ):
+        # Mirrors the operator's real JSON: free-text "105" is substituted to
+        # the canonical option text "105 minut" which is then resolved to ISO.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Len": {"to": "session.duration",'
+                ' "values": {"105 minut": {"to": "duration", "iso": "PT1H45M"}},'
+                ' "overrides": {"105": "105 minut"}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Len": "105"}
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.skipped == 0
+        sessions.create.assert_called_once_with(
+            {
+                "sphere_id": 1,
+                "status": SessionStatus.PENDING,
+                "title": "Talk",
+                "description": "",
+                "display_name": "",
+                "participants_limit": 0,
+                "slug": "talk",
+                "duration": "PT1H45M",
+            },
+            tag_ids=[],
+            time_slot_ids=[],
+            track_ids=[],
+            facilitator_ids=[],
+        )
+
     def test_run_skips_duplicate_rows_when_unique_key_columns_are_set(
         self, service, event_integrations, sessions
     ):
@@ -1141,17 +1180,18 @@ class TestProposalImportService:
                 ' "questions": {"Title": {"to": "session.title"}}}'
             )
         )
-        # First two rows hit slug_exists=False → created. Third row repeats the
-        # first row's Timestamp+Email and hits slug_exists=True → counted as a
-        # duplicate, not a failure.
+        # First two rows hit no existing session → created. Third row repeats
+        # the first row's Timestamp+Email and finds the first row's session →
+        # counted as a duplicate, not a failure.
         event_integrations.fetch_responses.return_value = [
             {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
             {"Timestamp": "2026-06-04T10:30", "Email": "b@x.z", "Title": "Talk B"},
             {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
         ]
-        # slug_exists answers False for the first two rows' identity slugs,
-        # then True for the third (same as the first).
-        sessions.slug_exists.side_effect = [False, False, True]
+        existing_session_pk = 42
+        # find_id_by_slug returns None for the first two rows' identity slugs,
+        # then the first row's session id for the third.
+        sessions.find_id_by_slug.side_effect = [None, None, existing_session_pk]
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1160,6 +1200,14 @@ class TestProposalImportService:
         assert result.created == expected_created
         assert result.duplicates == expected_duplicates
         assert result.skipped == 0
+        # The duplicate row writes a SUCCESS log entry pointing at the
+        # existing session, so the operator no longer sees a stale skip.
+        upserts = service._repos.log_entries.upsert.call_args_list  # noqa: SLF001
+        duplicate_upsert = next(
+            call for call in upserts if call.args[0].session_id == existing_session_pk
+        )
+        assert duplicate_upsert.args[0].status == ImportLogStatus.SUCCESS
+        assert not duplicate_upsert.args[0].reason
 
     def test_run_creates_row_with_empty_duration_when_respondent_left_it_blank(
         self, service, event_integrations
@@ -1459,6 +1507,47 @@ class TestProposalImportService:
         created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SKIPPED
         assert created.reason == "Cap: 'loads' is not an integer"
+
+    def test_retry_entry_resolves_to_existing_session_when_slug_already_taken(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # Operator fixed the override that originally skipped this row, but a
+        # sibling row with the same unique key has since been imported. Retry
+        # links the log entry to the existing session instead of leaving the
+        # stale skip reason in place.
+        existing_session_pk = 99
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "ignore", "ignore": true}}}'
+            ),
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SKIPPED,
+            reason="Len: unmapped duration answer '105'",
+            response_json='{"Title": "Talk", "Email": "a@x.z"}',
+            title="Talk",
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Email": "a@x.z"}
+        ]
+        sessions.find_id_by_slug.return_value = existing_session_pk
+
+        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        sessions.create.assert_not_called()
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert created.status == ImportLogStatus.SUCCESS
+        assert created.session_id == existing_session_pk
+        assert not created.reason
 
     def test_reimport_entry_updates_existing_session_and_writes_success_entry(
         self, service, event_integrations, sessions, log_entries

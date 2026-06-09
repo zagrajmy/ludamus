@@ -1053,3 +1053,34 @@ class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):
             _("Form refetched: %(count)d questions.") % {"count": len(questions)},
         )
         return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+
+class EventImportMissingFieldsView(PanelAccessMixin, EventContextMixin, View):
+    """Refresh the snapshot, keep existing mappings; surface only new questions."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+        integrations = _import_integrations(self.request, current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        sphere_id = self.request.context.current_sphere_id
+        _questions, missing = (
+            self.request.services.event_integrations.import_missing_questions(
+                sphere_id, current_event.pk, active.pk
+            )
+        )
+        if missing:
+            messages.success(
+                self.request, _("Imported %(count)d new field(s).") % {"count": missing}
+            )
+        else:
+            messages.info(
+                self.request,
+                _("No new fields to import; every form question is already mapped."),
+            )
+        return redirect("panel:import-run", slug=slug, pk=active.pk)

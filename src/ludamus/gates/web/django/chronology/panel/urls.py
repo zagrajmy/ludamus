@@ -402,6 +402,11 @@ urlpatterns = [
         name="import-refetch",
     ),
     path(
+        "event/<slug:slug>/import/<int:pk>/do/import-missing-fields/",
+        google_docs_import.EventImportMissingFieldsView.as_view(),
+        name="import-missing-fields",
+    ),
+    path(
         "event/<slug:slug>/import/<int:pk>/json/",
         google_docs_import.EventImportJsonView.as_view(),
         name="import-json",

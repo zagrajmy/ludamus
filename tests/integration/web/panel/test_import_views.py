@@ -1195,6 +1195,118 @@ class TestEventImportRefetchView:
 
 
 @pytest.mark.django_db
+class TestEventImportMissingFieldsView:
+    def _url(self, event, integration) -> str:
+        return reverse(
+            "panel:import-missing-fields",
+            kwargs={"slug": event.slug, "pk": integration.pk},
+        )
+
+    def test_post_redirects_non_manager(
+        self, authenticated_client, event, connection_with_secret
+    ):
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(self._url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_post_adds_new_questions_and_keeps_existing_confirmations(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "confirmed": True},
+                    "Gone": {"to": "session.description", "confirmed": True},
+                },
+                "definitions": {
+                    "session_fields": {"existing": {"name": "Existing", "type": "text"}}
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [
+                        {"title": "Title", "questionItem": {"question": {}}},
+                        {"title": "Fresh", "questionItem": {"question": {}}},
+                    ]
+                },
+            )
+            response = authenticated_client.post(self._url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[(messages.SUCCESS, "Imported 1 new field(s).")],
+        )
+        integration.refresh_from_db()
+        snapshot = json.loads(integration.questions_snapshot_json)
+        assert [q["title"] for q in snapshot] == ["Title", "Fresh"]
+        # Existing mappings and confirmations are preserved; "Gone" stays since
+        # we don't drop questions that disappeared from the form.
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        assert set(settings.questions) == {"Title", "Gone"}
+        assert settings.questions["Title"].confirmed is True
+        assert settings.definitions.session_fields["existing"].name == "Existing"
+
+    def test_post_no_new_fields_emits_info_message(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title", "confirmed": True}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [{"title": "Title", "questionItem": {"question": {}}}]
+                },
+            )
+            response = authenticated_client.post(self._url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.INFO,
+                    "No new fields to import; every form question is already mapped.",
+                )
+            ],
+        )
+
+
+@pytest.mark.django_db
 class TestEventImportRunActionView:
     def test_post_redirects_non_manager(self, authenticated_client, event, connection):
         integration = _make_import_integration(event, connection, display_name="Puller")

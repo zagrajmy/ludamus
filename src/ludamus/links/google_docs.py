@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections import defaultdict
 from contextlib import suppress
 from typing import TYPE_CHECKING
 from urllib.parse import quote
@@ -40,6 +42,7 @@ ERROR_HINT_LIMIT = 200
 HTTP_UNAUTHORIZED = 401
 HTTP_FORBIDDEN = 403
 HTTP_NOT_FOUND = 404
+HEADER_REGEX = re.compile(r"(.*) \([0-9]+\)$")
 
 
 class _CredentialsError(Exception):
@@ -61,7 +64,19 @@ def _disambiguate(titles: list[str]) -> list[str]:
 
 def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
     # Sheets omits trailing empty cells, so a row may be shorter than headers.
-    return {header: row[i] if i < len(row) else "" for i, header in enumerate(headers)}
+    row_dict = defaultdict(str)
+    for i, header in enumerate(headers):
+        true_header = header
+        header_match = HEADER_REGEX.match(header)
+        if header_match:
+            true_header = header_match.groups()[0]
+        if i < len(row):
+            if not row_dict[true_header]:
+                row_dict[true_header] = row[i]
+            else:
+                raise ValueError("Duplicate column value!")
+
+    return row_dict
 
 
 class _SheetProperties(BaseModel):
@@ -181,7 +196,7 @@ class GoogleDocsProposalImporter:
             for item in schema.items
             if (question := _source_question(item)) is not None
         ]
-        dedup_questions = {}
+        dedup_questions: dict[str, SourceQuestion] = {}
         for question in questions:
             if question.title not in dedup_questions:
                 dedup_questions[question.title] = question
@@ -196,7 +211,7 @@ class GoogleDocsProposalImporter:
                         set(existing_question.options + question.options)
                     )
 
-        return dedup_questions
+        return list(dedup_questions.values())
 
     def fetch_responses(
         self, secret: bytes, config: BaseModel, header_row: int = 1
@@ -225,8 +240,9 @@ class GoogleDocsProposalImporter:
             return []
         if not 1 <= header_row <= len(values):
             return []
-        headers = _disambiguate([str(cell) for cell in values[header_row - 1]])
-        return [_row_to_dict(headers, row) for row in values[header_row:]]
+        return [
+            _row_to_dict(values[header_row - 1], row) for row in values[header_row:]
+        ]
 
     @staticmethod
     def _responses_tab_title(session: AuthorizedSession, sheet_id: str) -> str:
