@@ -871,6 +871,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "user_enrolled_sessions": [
                     s for s in sessions_data.values() if s.user_enrolled
                 ],
+                "user_enrolled_session_titles": [
+                    s.session.title for s in sessions_data.values() if s.user_enrolled
+                ],
             }
         )
 

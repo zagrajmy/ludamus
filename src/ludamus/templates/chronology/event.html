@@ -193,14 +193,7 @@
                                 You're signed up for {{ counter }} sessions!
                             {% endblocktranslate %}
                         </h3>
-                        <p class="text-sm text-foreground-muted">
-                            {% for s in user_enrolled_sessions %}
-                                {{ s.session.title }}
-                                {% if not forloop.last %}
-                                    ,
-                                {% endif %}
-                            {% endfor %}
-                        </p>
+                        <p class="text-sm text-foreground-muted">{{ user_enrolled_session_titles|join:", " }}</p>
                     </div>
                 </div>
             </div>
@@ -680,7 +673,9 @@
                             {% if pending.time_slots %}
                                 <div>
                                     <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Preferred Time Slots" %}</h4>
-                                    {% for slot in pending.time_slots %}<div class="text-sm">{{ slot }}</div>{% endfor %}
+                                    {% for slot in pending.time_slots %}
+                                        <div class="text-sm">{{ slot }}</div>
+                                    {% endfor %}
                                 </div>
                             {% endif %}
                         </div>

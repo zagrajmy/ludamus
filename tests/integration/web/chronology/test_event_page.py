@@ -46,7 +46,7 @@ from tests.integration.conftest import (
     SessionFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import assert_response
 
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
@@ -81,6 +81,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -113,6 +114,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -144,6 +146,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -175,6 +178,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -231,6 +235,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -270,6 +275,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -377,6 +383,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -421,6 +428,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -509,6 +517,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
+                "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -562,6 +571,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -617,6 +627,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -682,6 +693,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -732,6 +744,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -782,6 +795,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -813,6 +827,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -854,6 +869,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -886,6 +902,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -922,6 +939,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -957,6 +975,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -995,6 +1014,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -1075,6 +1095,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
+                "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -1129,6 +1150,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -1213,6 +1235,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
                 ),
@@ -1289,6 +1312,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
                 ),
@@ -1368,6 +1392,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
                 ),
@@ -1444,6 +1469,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
                     has_domain_config=True,
@@ -1523,6 +1549,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -1597,6 +1624,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -1682,6 +1710,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
                 ),
@@ -1763,6 +1792,7 @@ class TestEventPageView:
                 ),
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -1847,6 +1877,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
@@ -1928,6 +1959,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
@@ -2013,6 +2045,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -2122,6 +2155,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -2202,6 +2236,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
@@ -2283,26 +2318,31 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "user_enrolled_session_titles": [],
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
         )
 
-    def test_unpublished_event_returns_404_for_anonymous(self, client, sphere):
+    # Unpublished events are not 404s but redirects to the sphere home: the 404
+    # fallback routes missing and unpublished events identically so a response
+    # never reveals whether an unannounced event exists. See
+    # TestSemantic404Recovery in tests/integration/web/test_error_views.py.
+    def test_unpublished_event_redirects_anonymous_to_home(self, client, sphere):
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = client.get(self._get_url(event.slug))
 
-        assert_response_404(response)
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
-    def test_unpublished_event_returns_404_for_regular_user(
+    def test_unpublished_event_redirects_regular_user_to_home(
         self, authenticated_client, sphere
     ):
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        assert_response_404(response)
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
 
     def test_unpublished_event_visible_for_manager(
         self, authenticated_client, active_user, sphere

@@ -10,7 +10,7 @@ node = "v25.6.1"
 poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 "ast-grep" = "0.42.1"
 markdownlint-cli2 = "0.22.1"
-aube = "latest"
+"github:endevco/aube" = "latest"
 
 [env]
 _.python.venv = { path = ".venv", create = true }

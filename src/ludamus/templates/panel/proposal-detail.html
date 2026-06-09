@@ -126,7 +126,9 @@
                 <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitators" %}</h3>
                 {% if facilitators %}
                     <ul class="space-y-1">
-                        {% for f in facilitators %}<li class="text-foreground text-sm">{{ f.display_name }}</li>{% endfor %}
+                        {% for f in facilitators %}
+                            <li class="text-foreground text-sm">{{ f.display_name }}</li>
+                        {% endfor %}
                     </ul>
                 {% else %}
                     <p class="text-foreground-muted text-sm">{% translate "No facilitators assigned." %}</p>

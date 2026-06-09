@@ -31,6 +31,9 @@ const basePr = {
   state: "open",
 };
 
+process.env.GITHUB_RUN_ID = "run-id";
+process.env.GITHUB_SERVER_URL = "https://github.com";
+
 const makeArgs = ({
   action = "labeled",
   currentPr = basePr,
@@ -44,7 +47,8 @@ const makeArgs = ({
   const calls: Call[] = [];
   const core = {
     info: (message: string) => calls.push(["info", message]),
-    setOutput: (name: string, value: string) => calls.push(["output", name, value]),
+    setOutput: (name: string, value: string) =>
+      calls.push(["output", name, value]),
   };
   const github: ActionArgs["github"] = {
     paginate: async (
@@ -77,6 +81,12 @@ const makeArgs = ({
         get: async () => ({ data: currentPr }),
       },
       repos: {
+        createDeployment: async (params: Record<string, unknown>) => {
+          calls.push(["create-deployment", params]);
+          return { data: { id: 42 } };
+        },
+        createDeploymentStatus: async (params: Record<string, unknown>) =>
+          calls.push(["deployment-status", params]),
         listPullRequestsAssociatedWithCommit: async () => prsForSha,
       },
     },
@@ -180,7 +190,9 @@ test("does not redeploy a fork PR on synchronize", async () => {
 
   await staging.handlePullRequest(args);
 
-  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
+  assert.deepEqual(args.calls, [
+    ["info", "Skipping staging deploy for fork PR #3"],
+  ]);
 });
 
 test("stale explicit dispatch does not remove another PR staging label", async () => {
@@ -200,7 +212,10 @@ test("stale explicit dispatch does not remove another PR staging label", async (
   assert.deepEqual(args.calls, [
     ["output", "sha", "old-head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #1 is no longer the current staging target for old-head-sha"],
+    [
+      "info",
+      "PR #1 head new-head-sha no longer matches requested old-head-sha",
+    ],
   ]);
 });
 
@@ -212,6 +227,24 @@ test("current explicit dispatch deploys and clears other staging labels", async 
       { number: 1, pull_request: {}, state: "open" },
       { number: 2, pull_request: {}, state: "open" },
     ],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["remove", 1],
+    ["info", "Removed staging from PR #1"],
+    ["output", "should_deploy", "true"],
+    ["info", "Deploying PR #2 at head-sha"],
+  ]);
+});
+
+test("explicit dispatch deploys an unlabeled PR and rips staging from others", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, labels: [] },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
   });
 
   await staging.resolveDeploy(args);
@@ -246,6 +279,27 @@ test("explicit dispatch does not deploy fork pull requests", async () => {
   ]);
 });
 
+test("explicit dispatch does not deploy an unlabeled fork PR", async () => {
+  const args = makeArgs({
+    currentPr: {
+      head: { repo: { full_name: "contributor/repo" }, sha: "head-sha" },
+      labels: [],
+      number: 2,
+      state: "open",
+    },
+    inputs: { pr_number: "2", sha: "head-sha" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "head-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "Skipping staging deploy for fork PR #2"],
+  ]);
+});
+
 test("explicit dispatch does not deploy draft pull requests", async () => {
   const args = makeArgs({
     currentPr: { ...basePr, draft: true },
@@ -258,7 +312,7 @@ test("explicit dispatch does not deploy draft pull requests", async () => {
   assert.deepEqual(args.calls, [
     ["output", "sha", "head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #2 is no longer the current staging target for head-sha"],
+    ["info", "PR #2 is not an open, non-draft pull request"],
   ]);
 });
 
@@ -274,7 +328,7 @@ test("explicit dispatch on closed pull request does not deploy or mutate labels"
   assert.deepEqual(args.calls, [
     ["output", "sha", "head-sha"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #2 is no longer the current staging target for head-sha"],
+    ["info", "PR #2 is not an open, non-draft pull request"],
   ]);
 });
 
@@ -356,6 +410,21 @@ test("manual dispatch with invalid PR number is non-mutating", async () => {
   ]);
 });
 
+test("dispatch with non-positive PR number is non-mutating", async () => {
+  const args = makeArgs({
+    inputs: { pr_number: "-1", sha: "manual-sha" },
+    stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "manual-sha"],
+    ["output", "should_deploy", "false"],
+    ["info", "Invalid pull request number: -1"],
+  ]);
+});
+
 test("ignores non-staging labels", async () => {
   const args = makeArgs({ labelName: "bug" });
 
@@ -379,7 +448,9 @@ test("does not dispatch staging deploys for fork pull requests", async () => {
 
   await staging.handlePullRequest(args);
 
-  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
+  assert.deepEqual(args.calls, [
+    ["info", "Skipping staging deploy for fork PR #3"],
+  ]);
 });
 
 test("does not dispatch or mutate labels for closed pull requests", async () => {
@@ -402,4 +473,120 @@ test("does not dispatch or mutate labels for draft pull requests", async () => {
   await staging.handlePullRequest(args);
 
   assert.deepEqual(args.calls, [["info", "PR #2 is a draft"]]);
+});
+
+test("creates staging deployment for the resolved SHA", async () => {
+  const args = makeArgs();
+
+  await staging.createStagingDeployment({
+    ...args,
+    sha: "head-sha",
+    environmentUrl: "https://test.zagrajmy.net",
+  });
+
+  assert.deepEqual(args.calls, [
+    [
+      "create-deployment",
+      {
+        owner: "owner",
+        repo: "repo",
+        ref: "head-sha",
+        environment: "staging",
+        auto_merge: false,
+        required_contexts: [],
+        transient_environment: false,
+        production_environment: false,
+      },
+    ],
+    ["output", "id", "42"],
+    [
+      "deployment-status",
+      {
+        owner: "owner",
+        repo: "repo",
+        deployment_id: 42,
+        state: "in_progress",
+        environment_url: "https://test.zagrajmy.net",
+        log_url: "https://github.com/owner/repo/actions/runs/run-id",
+      },
+    ],
+  ]);
+});
+
+test("marks successful staging deployments successful", async () => {
+  const args = makeArgs();
+
+  await staging.finishStagingDeployment({
+    ...args,
+    deploymentId: 42,
+    environmentUrl: "https://test.zagrajmy.net",
+    jobStatus: "success",
+  });
+
+  assert.deepEqual(args.calls, [
+    [
+      "deployment-status",
+      {
+        owner: "owner",
+        repo: "repo",
+        deployment_id: 42,
+        state: "success",
+        environment_url: "https://test.zagrajmy.net",
+        log_url: "https://github.com/owner/repo/actions/runs/run-id",
+      },
+    ],
+    ["info", "Marked staging deployment 42 as success"],
+  ]);
+});
+
+test("marks failed staging deployments failed", async () => {
+  const args = makeArgs();
+
+  await staging.finishStagingDeployment({
+    ...args,
+    deploymentId: 42,
+    environmentUrl: "https://test.zagrajmy.net",
+    jobStatus: "failure",
+  });
+
+  assert.deepEqual(args.calls, [
+    [
+      "deployment-status",
+      {
+        owner: "owner",
+        repo: "repo",
+        deployment_id: 42,
+        state: "failure",
+        environment_url: "https://test.zagrajmy.net",
+        log_url: "https://github.com/owner/repo/actions/runs/run-id",
+      },
+    ],
+    ["info", "Marked staging deployment 42 as failure"],
+  ]);
+});
+
+test("marks canceled staging deployments as error", async () => {
+  const args = makeArgs();
+
+  await staging.finishStagingDeployment({
+    ...args,
+    deploymentId: 42,
+    environmentUrl: "https://test.zagrajmy.net",
+    jobStatus: "cancelled",
+  });
+
+  assert.deepEqual(args.calls, [
+    [
+      "deployment-status",
+      {
+        owner: "owner",
+        repo: "repo",
+        deployment_id: 42,
+        state: "error",
+        environment_url: "https://test.zagrajmy.net",
+        log_url: "https://github.com/owner/repo/actions/runs/run-id",
+      },
+    ],
+    ["info", "Marked staging deployment 42 as error"],
+  ]);
 });
