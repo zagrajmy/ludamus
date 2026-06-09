@@ -117,6 +117,20 @@
                 </dl>
             </div>
         </div>
+        {% if preferred_time_slots %}
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Preferred time slots" %}</h3>
+                    <ul class="space-y-1">
+                        {% for ts in preferred_time_slots %}
+                            <li class="text-foreground text-sm">
+                                {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
         {% if field_values %}
             <div class="card mb-6">
                 <div class="card-body">

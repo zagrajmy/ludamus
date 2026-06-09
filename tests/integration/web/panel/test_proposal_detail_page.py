@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -11,6 +12,7 @@ from ludamus.adapters.db.django.models import (
     ImportLogEntry,
     ProposalCategory,
     Session,
+    TimeSlot,
 )
 from ludamus.pacts import EventDTO, SessionDTO
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
@@ -120,6 +122,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
+                "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
             },
@@ -153,6 +156,34 @@ class TestProposalDetailPageView:
         )
         assert session.cover_image_url.encode() in response.content
 
+    def test_renders_preferred_time_slots_when_attached(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Session With Slots",
+            slug="session-with-slots",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        session.time_slots.add(slot)
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        attached = response.context_data["preferred_time_slots"]
+        assert [ts.pk for ts in attached] == [slot.pk]
+        body = response.content.decode()
+        assert "Preferred time slots" in body
 
     def test_imported_proposal_renders_back_link_to_log(
         self, authenticated_client, active_user, sphere, event

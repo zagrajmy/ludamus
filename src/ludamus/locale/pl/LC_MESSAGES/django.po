@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 22:53+0200\n"
+"POT-Creation-Date: 2026-06-09 23:00+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1300,6 +1300,15 @@ msgstr "Ponowny import nie powiódł się."
 #, python-format
 msgid "Form refetched: %(count)d questions."
 msgstr "Pobrano formularz ponownie: %(count)d pytań."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Imported %(count)d new field(s)."
+msgstr "Zaimportowano %(count)d nowych pól."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "No new fields to import; every form question is already mapped."
+msgstr ""
 
 #: src/ludamus/gates/web/django/chronology/panel/views/index.py
 msgid "No events available for this sphere."
@@ -2965,6 +2974,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -4726,6 +4736,10 @@ msgid "%(confirmed)s of %(total)s mapped questions confirmed."
 msgstr "Potwierdzono %(confirmed)s z %(total)s przypisanych pytań."
 
 #: src/ludamus/templates/panel/import-run.html
+msgid "Import missing fields"
+msgstr "Pobierz breakujące pola"
+
+#: src/ludamus/templates/panel/import-run.html
 #, python-format
 msgid ""
 "Reimport the form? This drops every confirmation (%(confirmed)s of "
@@ -5427,6 +5441,10 @@ msgstr "Zobacz dziennik importu"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Facilitator"
 msgstr "Prowadzący"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Preferred time slots"
+msgstr "Preferowane przedziały czasowe"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."
