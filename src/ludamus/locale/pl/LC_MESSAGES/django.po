@@ -1116,20 +1116,20 @@ msgstr ""
 msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Time slots"
 msgstr "Przedziały czasowe"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track"
 msgstr "Blok programowy"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -1138,52 +1138,52 @@ msgstr "Blok programowy"
 msgid "Category"
 msgstr "Kategoria"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Facilitator — Display name"
 msgstr "Twórca programu — nazwa wyświetlana"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Don't import"
 msgstr "Nie importuj"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Proposal — %(col)s"
 msgstr "Zgłoszenie — %(col)s"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Facilitator — %(part)s"
 msgstr "Twórca programu — %(part)s"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Personal field — %(name)s"
 msgstr "Pole danych osobowych — %(name)s"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Session field — %(name)s"
 msgstr "Pole punktu programu — %(name)s"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "%(count)d windows"
 msgstr "Okien: %(count)d"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "%(count)d mappings"
 msgstr "Powiązań: %(count)d"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Select — %(count)d options"
 msgstr "Lista wyboru — opcji: %(count)d"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -1195,7 +1195,7 @@ msgstr "Lista wyboru — opcji: %(count)d"
 msgid "Checkbox"
 msgstr "Potwierdzenie"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -1207,56 +1207,56 @@ msgstr "Potwierdzenie"
 msgid "Text"
 msgstr "Tekst"
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Import integration not found."
 msgstr "Nie znaleziono integracji importu."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Invalid row submission."
 msgstr "Nieprawidłowe dane wiersza."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Question saved."
 msgstr "Pytanie zapisane."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Invalid import settings JSON."
 msgstr "Nieprawidłowy JSON ustawień importu."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Import settings saved."
 msgstr "Zapisano ustawienia importu."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/panel/import-run.html
 msgid "No columns selected."
 msgstr "Nie wybrano żadnych kolumn."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Header row must be 1 or greater."
 msgstr "Wiersz nagłówka musi mieć wartość co najmniej 1."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Sheet settings saved."
 msgstr "Zapisano ustawienia arkusza."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Created %(count)d proposals."
 msgstr "Utworzono zgłoszenia: %(count)d."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Skipped %(count)d responses already imported."
 msgstr "Pominięto %(count)d odpowiedzi już zaimportowanych."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Skipped %(count)d responses with an invalid or unmapped answer."
 msgstr ""
 "Pominięto %(count)d odpowiedzi z nieprawidłową lub niezmapowaną wartością."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid ""
 "Test import created one proposal from a random row. Review it, then delete "
 "it before running the full import."
@@ -1264,7 +1264,7 @@ msgstr ""
 "Import próbny utworzył jedno zgłoszenie z losowego wiersza. Sprawdź je, a "
 "następnie usuń przed uruchomieniem pełnego importu."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid ""
 "Test row was skipped because one of its mapped answers is invalid or has no "
 "mapping."
@@ -1272,31 +1272,31 @@ msgstr ""
 "Wiersz testowy został pominięty, ponieważ jedna z jego zmapowanych "
 "odpowiedzi jest nieprawidłowa lub nie ma mapowania."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "No responses found to test."
 msgstr "Nie znaleziono odpowiedzi do przetestowania."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Invalid log entry."
 msgstr "Nieprawidłowy wpis dziennika."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Row imported."
 msgstr "Wiersz zaimportowany."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Row still cannot be imported."
 msgstr "Wiersz nadal nie może zostać zaimportowany."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Proposal reimported from source."
 msgstr "Zgłoszenie ponownie zaimportowane ze źródła."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Reimport failed."
 msgstr "Ponowny import nie powiódł się."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/import_export.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid "Form refetched: %(count)d questions."
 msgstr "Pobrano formularz ponownie: %(count)d pytań."
@@ -4052,8 +4052,13 @@ msgid "Facilitators"
 msgstr "Twórcy programu"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Import / Export"
-msgstr "Import / Eksport"
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/import-review.html
+#: src/ludamus/templates/panel/import-run.html
+#: src/ludamus/templates/panel/import.html
+msgid "Google Docs Import"
+msgstr "Import z Google Docs"
 
 #: src/ludamus/templates/panel/base.html
 msgctxt "Sidebar category"
@@ -4493,14 +4498,6 @@ msgstr "Scal zaznaczonych twórców"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
-
-#: src/ludamus/templates/panel/import-json.html
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/import-review.html
-#: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/import.html
-msgid "Google Docs Import"
-msgstr "Import z Google Docs"
 
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-run.html

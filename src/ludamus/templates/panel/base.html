@@ -218,12 +218,12 @@
                                         {% icon "user-group" class="size-4.5 mr-2" %}
                                         <span class="sidebar-label">{{ t_facilitators }}</span>
                                     </a>
-                                    {% translate "Import / Export" as t_import_export %}
+                                    {% translate "Google Docs Import" as t_google_docs_import %}
                                     <a href="{% url 'panel:import' slug=current_event.slug %}"
-                                       title="{{ t_import_export }}"
+                                       title="{{ t_google_docs_import }}"
                                        class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'import' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
                                         {% icon "arrow-down-tray" class="size-4.5 mr-2" %}
-                                        <span class="sidebar-label">{{ t_import_export }}</span>
+                                        <span class="sidebar-label">{{ t_google_docs_import }}</span>
                                     </a>
                                 </div>
                             </div>

@@ -1,4 +1,4 @@
-"""Import / Export panel section.
+"""Google Docs Import panel section.
 
 An import integration is a dumb connection + capability owned by Chronology;
 this section is where the (hardcoded) Google Docs import is configured
