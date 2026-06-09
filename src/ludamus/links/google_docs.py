@@ -161,13 +161,9 @@ class GoogleDocsProposalImporter:
             session, FORMS_API_URL.format(form_id=config.form_id), "form"
         )
 
-    def fetch_questions(self, secret: bytes, config: BaseModel) -> list[SourceQuestion]:
-        # Questions come from the form schema (authoritative prompts and answer
-        # setup, in form order, free of the sheet's timestamp/email metadata
-        # columns); the response rows are read from the sheet separately by
-        # fetch_responses.
-        if not isinstance(config, GoogleDocsProposalConfig):
-            return []
+    def fetch_questions(
+        self, secret: bytes, config: GoogleDocsProposalConfig
+    ) -> list[SourceQuestion]:
         try:
             session = self._session(secret)
         except _CredentialsError:
@@ -185,11 +181,22 @@ class GoogleDocsProposalImporter:
             for item in schema.items
             if (question := _source_question(item)) is not None
         ]
-        titles = _disambiguate([q.title for q in questions])
-        return [
-            q.model_copy(update={"title": title})
-            for q, title in zip(questions, titles, strict=True)
-        ]
+        dedup_questions = {}
+        for question in questions:
+            if question.title not in dedup_questions:
+                dedup_questions[question.title] = question
+            else:
+                existing_question = dedup_questions[question.title]
+                if existing_question.field_type != question.field_type:
+                    raise ValueError("Duplicate questions!")
+                if existing_question.field_type == "select":
+                    existing_question.is_multiple |= question.is_multiple
+                    existing_question.allow_custom |= question.allow_custom
+                    existing_question.options = list(
+                        set(existing_question.options + question.options)
+                    )
+
+        return dedup_questions
 
     def fetch_responses(
         self, secret: bytes, config: BaseModel, header_row: int = 1
