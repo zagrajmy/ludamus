@@ -1,101 +1,104 @@
+{% extends "base.html" %}
 {% load i18n %}
-{% get_current_language as LANGUAGE_CODE %}
-<!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="description"
-              content="{{ document.event_description|default:document.event_name }}">
-        <title>{{ document.event_name }}</title>
-        <style>
-            @page {
-                size: A4;
-                margin: 14mm;
-            }
+{% block title %}
+    {{ document.event_name }}
+{% endblock title %}
+{% block meta_description %}
+    {{ document.event_description|default:document.event_name }}
+{% endblock meta_description %}
+{% block extra_head %}
+    <style>
+        @page {
+            size: A4;
+            margin: 14mm;
+        }
 
-            * {
-                box-sizing: border-box;
-            }
+        /* Document typography + white paper are scoped to the sheet so they
+           never touch the site navbar/footer that now wrap this page, and so
+           the sheet prints white regardless of the active light/dark theme. */
+        .sheet {
+            font-family: sans-serif;
+            color: #111827;
+            font-size: 10pt;
+            background: #fff;
+        }
 
+        .doc-header {
+            border-bottom: 1.5pt solid #111827;
+            padding-bottom: 4mm;
+            margin-bottom: 6mm;
+        }
+
+        .doc-header .event-name {
+            font-size: 16pt;
+            font-weight: 700;
+        }
+
+        .doc-header .event-dates {
+            font-size: 9pt;
+            color: #6b7280;
+            margin-top: 1mm;
+        }
+
+        .doc-header .scope-name {
+            font-size: 11pt;
+            font-weight: 600;
+            margin-top: 1mm;
+        }
+
+        .empty {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .toolbar {
+            margin: 0 0 12px;
+        }
+
+        .print-btn {
+            font: 600 14px sans-serif;
+            padding: 8px 16px;
+            border: 1px solid #111827;
+            border-radius: 8px;
+            background: #111827;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .print-hint {
+            margin-left: 10px;
+            font: 14px sans-serif;
+            color: #6b7280;
+        }
+
+        @media screen {
+            .sheet {
+                max-width: 210mm;
+                margin: 16px auto;
+                padding: 14mm;
+                box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+            }
+        }
+
+        /* Print only the document: drop the site chrome and the toolbar, and
+           keep the page white even if the user is in dark mode. */
+        @media print {
             body {
-                font-family: sans-serif;
-                color: #111827;
-                font-size: 10pt;
-                margin: 0;
+                background: #fff;
             }
 
-            .doc-header {
-                border-bottom: 1.5pt solid #111827;
-                padding-bottom: 4mm;
-                margin-bottom: 6mm;
+            body>nav,
+            body>footer,
+            .no-print {
+                display: none !important;
             }
-
-            .doc-header .event-name {
-                font-size: 16pt;
-                font-weight: 700;
-            }
-
-            .doc-header .event-dates {
-                font-size: 9pt;
-                color: #6b7280;
-                margin-top: 1mm;
-            }
-
-            .empty {
-                color: #9ca3af;
-                font-style: italic;
-            }
-
-            .toolbar {
-                margin: 0 0 12px;
-            }
-
-            .print-btn {
-                font: 600 14px sans-serif;
-                padding: 8px 16px;
-                border: 1px solid #111827;
-                border-radius: 8px;
-                background: #111827;
-                color: #fff;
-                cursor: pointer;
-            }
-
-            .print-hint {
-                margin-left: 10px;
-                font: 14px sans-serif;
-                color: #6b7280;
-            }
-
-            .doc-header .scope-name {
-                font-size: 11pt;
-                font-weight: 600;
-                margin-top: 1mm;
-            }
-
-            @media screen {
-                body {
-                    background: #e5e7eb;
-                }
-
-                .sheet {
-                    max-width: 210mm;
-                    margin: 16px auto;
-                    padding: 14mm;
-                    background: #fff;
-                    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
-                }
-            }
-
-            @media print {
-                .no-print {
-                    display: none !important;
-                }
-            }
-        </style>
-        {% block extra_style %}
-        {% endblock extra_style %}
-    </head>
-    <body>
+        }
+    </style>
+    {% block extra_style %}
+    {% endblock extra_style %}
+{% endblock extra_head %}
+{% block main_region %}
+    <main class="grow w-full">
         <div class="sheet">
             <div class="toolbar no-print">
                 <button type="button" class="print-btn" onclick="window.print()">{% translate "Print" %}</button>
@@ -104,5 +107,5 @@
             {% block body %}
             {% endblock body %}
         </div>
-    </body>
-</html>
+    </main>
+{% endblock main_region %}
