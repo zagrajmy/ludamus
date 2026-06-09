@@ -138,6 +138,18 @@ def _skip(reason: str) -> Never:
     raise _RowSkippedError(reason)
 
 
+def _cell(target: QuestionTarget | None, row: dict[str, str], header: str) -> str:
+    # Single read point for a row cell that a target consumes: applies the
+    # operator-configured `overrides` substitution (raw cell text -> cleaned
+    # cell text) before any parser, `values` lookup, or pass-through copy.
+    # Lets a "maybe 8, maybe 10" answer become "10" for a numeric target, or a
+    # typoed choice become the canonical option that the `values` map keys on.
+    raw = row.get(header, "")
+    if target is None or not target.overrides:
+        return raw
+    return target.overrides.get(raw, raw)
+
+
 def _locate_row(
     rows: list[dict[str, str]],
     response: dict[str, str],
@@ -520,9 +532,9 @@ class ProposalImportService:
         display_name = ""
         for header, target in settings.questions.items():
             if target.to == "session.title":
-                title = row.get(header, "")
+                title = _cell(target, row, header)
             elif target.to == "facilitator.display_name":
-                display_name = row.get(header, "")
+                display_name = _cell(target, row, header)
         return title, display_name
 
     def _provision_fields(
@@ -631,15 +643,15 @@ class ProposalImportService:
         display_name = ""
         for header, target in settings.questions.items():
             if target.to == "session.title":
-                title = row.get(header, "")
+                title = _cell(target, row, header)
             elif target.to == "session.description":
-                description = row.get(header, "")
+                description = _cell(target, row, header)
             elif target.to == "session.duration":
-                duration = _duration_iso(target, header, row.get(header, ""))
+                duration = _duration_iso(target, header, _cell(target, row, header))
             elif target.to == "session.participants_limit":
-                participants_limit = _parse_int(header, row.get(header, ""))
+                participants_limit = _parse_int(header, _cell(target, row, header))
             elif target.to == "facilitator.display_name":
-                display_name = row.get(header, "")
+                display_name = _cell(target, row, header)
         slug = self._resolve_slug(
             sphere_id=sphere_id,
             event_id=event_id,
@@ -670,7 +682,9 @@ class ProposalImportService:
         )
         values = [
             SessionFieldValueData(
-                session_id=session_id, field_id=field_id, value=row.get(header, "")
+                session_id=session_id,
+                field_id=field_id,
+                value=_cell(settings.questions.get(header), row, header),
             )
             for header, field_id in field_ids.session.items()
         ]
@@ -679,6 +693,7 @@ class ProposalImportService:
         self._save_personal_data(
             event_id=event_id,
             facilitator_id=facilitator_id,
+            settings=settings,
             row=row,
             personal_field_ids=field_ids.personal,
         )
@@ -704,15 +719,15 @@ class ProposalImportService:
         display_name = ""
         for header, target in settings.questions.items():
             if target.to == "session.title":
-                title = row.get(header, "")
+                title = _cell(target, row, header)
             elif target.to == "session.description":
-                description = row.get(header, "")
+                description = _cell(target, row, header)
             elif target.to == "session.duration":
-                duration = _duration_iso(target, header, row.get(header, ""))
+                duration = _duration_iso(target, header, _cell(target, row, header))
             elif target.to == "session.participants_limit":
-                participants_limit = _parse_int(header, row.get(header, ""))
+                participants_limit = _parse_int(header, _cell(target, row, header))
             elif target.to == "facilitator.display_name":
-                display_name = row.get(header, "")
+                display_name = _cell(target, row, header)
         update_data: SessionUpdateData = {
             "title": title,
             "description": description,
@@ -735,7 +750,9 @@ class ProposalImportService:
         self._repos.sessions.clear_field_values(session_id)
         values = [
             SessionFieldValueData(
-                session_id=session_id, field_id=field_id, value=row.get(header, "")
+                session_id=session_id,
+                field_id=field_id,
+                value=_cell(settings.questions.get(header), row, header),
             )
             for header, field_id in field_ids.session.items()
         ]
@@ -744,6 +761,7 @@ class ProposalImportService:
         self._save_personal_data(
             event_id=event_id,
             facilitator_id=facilitator_id,
+            settings=settings,
             row=row,
             personal_field_ids=field_ids.personal,
         )
@@ -803,6 +821,7 @@ class ProposalImportService:
         *,
         event_id: int,
         facilitator_id: int | None,
+        settings: ImportSettings,
         row: dict[str, str],
         personal_field_ids: dict[str, int],
     ) -> None:
@@ -818,7 +837,7 @@ class ProposalImportService:
                 facilitator_id=facilitator_id,
                 event_id=event_id,
                 field_id=field_id,
-                value=row.get(header, ""),
+                value=_cell(settings.questions.get(header), row, header),
             )
             for header, field_id in personal_field_ids.items()
         ]
@@ -836,7 +855,7 @@ class ProposalImportService:
         for header, target in settings.questions.items():
             if target.to != "session.time_slots":
                 continue
-            chosen = {part.strip() for part in row.get(header, "").split(",")}
+            chosen = {part.strip() for part in _cell(target, row, header).split(",")}
             for option, spec in target.values.items():
                 if option not in chosen:
                     continue
@@ -877,7 +896,7 @@ class ProposalImportService:
         for header, target in settings.questions.items():
             if target.to != "track":
                 continue
-            for ref in self._chosen_entities(target, row.get(header, "")):
+            for ref in self._chosen_entities(target, _cell(target, row, header)):
                 track_id = self._repos.tracks.get_or_create_by_slug(
                     event_id, ref.name, ref.slug
                 )
@@ -893,7 +912,7 @@ class ProposalImportService:
         for header, target in settings.questions.items():
             if target.to != "category":
                 continue
-            for ref in self._chosen_entities(target, row.get(header, "")):
+            for ref in self._chosen_entities(target, _cell(target, row, header)):
                 return self._repos.categories.get_or_create_by_slug(
                     event_id, ref.name, ref.slug
                 )

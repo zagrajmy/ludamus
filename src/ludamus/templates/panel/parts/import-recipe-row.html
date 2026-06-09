@@ -212,4 +212,39 @@
             </div>
         {% endfor %}
     </div>
+    <div class="recipe-overrides mt-3 max-w-xl space-y-2 sm:ml-20 {% if row.selected == "ignore" %}hidden{% endif %}"
+         data-row="{{ row.index }}">
+        <p class="text-xs text-foreground-muted">
+            {% translate "Substitute raw cell answers before mapping or parsing — useful for cleaning up noisy free-text into a value the field accepts, or fixing a typo so it matches the value mapping above." %}
+        </p>
+        <div class="ov-rows space-y-2">
+            {% for ov in row.overrides %}
+                <div class="ov-row flex items-center gap-2">
+                    <input type="text"
+                           name="ovraw_{{ row.index }}"
+                           value="{{ ov.raw }}"
+                           aria-label="{% translate "Raw answer" %}"
+                           placeholder="{% translate "Raw answer" %}"
+                           class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                    <span class="shrink-0 text-foreground-muted">→</span>
+                    <input type="text"
+                           name="ovreplacement_{{ row.index }}"
+                           value="{{ ov.replacement }}"
+                           aria-label="{% translate "Replacement" %}"
+                           placeholder="{% translate "Replacement" %}"
+                           class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                    <button type="button"
+                            class="ov-remove shrink-0 text-foreground-muted hover:text-foreground"
+                            aria-label="{% translate "Remove override" %}">
+                        {% icon "x-mark" class="w-4 h-4" %}
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button"
+                class="ov-add inline-flex items-center text-sm text-primary hover:underline">
+            {% icon "plus" class="w-4 h-4 mr-1" %}
+            {% translate "Add override" %}
+        </button>
+    </div>
 </div>

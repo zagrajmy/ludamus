@@ -315,6 +315,7 @@ class TestEventImportProposalView:
                     {"option": "do 16", "iso": ""},
                     {"option": "18+", "iso": ""},
                 ],
+                "overrides": [{"raw": "", "replacement": ""}],
                 "catchall_name": "",
                 "catchall_slug": "",
             }
@@ -944,6 +945,38 @@ class TestEventImportRowSaveView:
             "LARP": EntityRef(name="LARP", slug="larp"),
         }
         assert target.catchall == EntityRef(name="Other", slug="other")
+
+    def test_post_saves_overrides_for_any_target(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Cap",
+                "target_0": "session.participants_limit",
+                "ovraw_0": ["maybe 8, maybe 10", "lots", ""],
+                "ovreplacement_0": ["10", "20", "ignored-because-no-key"],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Cap"]
+        assert target.to == "session.participants_limit"
+        assert target.overrides == {"maybe 8, maybe 10": "10", "lots": "20"}
 
     def test_post_preserves_other_questions_and_definitions(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

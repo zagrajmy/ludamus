@@ -4922,6 +4922,33 @@ msgstr ""
 msgid "ISO 8601 duration"
 msgstr "Czas trwania ISO 8601"
 
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid ""
+"Substitute raw cell answers before mapping or parsing — useful for cleaning "
+"up noisy free-text into a value the field accepts, or fixing a typo so it "
+"matches the value mapping above."
+msgstr ""
+"Podmień surowe odpowiedzi z komórek przed mapowaniem lub parsowaniem — "
+"przydatne do oczyszczania zaszumionego tekstu na wartość akceptowaną przez "
+"pole lub do naprawienia literówki, by odpowiedź trafiała w mapowanie "
+"wartości powyżej."
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Raw answer"
+msgstr "Surowa odpowiedź"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Replacement"
+msgstr "Zamiennik"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Remove override"
+msgstr "Usuń podmianę"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Add override"
+msgstr "Dodaj podmianę"
+
 #: src/ludamus/templates/panel/parts/import-review-region.html
 msgid "Discards any unsaved changes"
 msgstr "Odrzuca niezapisane zmiany"

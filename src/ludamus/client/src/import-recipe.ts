@@ -80,6 +80,10 @@ function syncTarget(select: HTMLSelectElement): void {
     "hidden",
     select.value !== DURATION_TARGET,
   );
+  rowElement(".recipe-overrides", row)?.classList.toggle(
+    "hidden",
+    select.value === "ignore",
+  );
 }
 
 function syncFieldType(select: HTMLSelectElement): void {
@@ -115,6 +119,32 @@ function removeWindow(button: HTMLElement): void {
   }
 }
 
+function addOverride(button: HTMLElement): void {
+  const rows = button
+    .closest<HTMLElement>(".recipe-overrides")
+    ?.querySelector<HTMLElement>(".ov-rows");
+  const last = rows?.querySelector<HTMLElement>(".ov-row:last-child");
+  if (!rows || !last) return;
+  const clone = last.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
+    input.value = "";
+  });
+  rows.appendChild(clone);
+}
+
+function removeOverride(button: HTMLElement): void {
+  const row = button.closest<HTMLElement>(".ov-row");
+  const rows = row?.parentElement;
+  if (!row || !rows) return;
+  if (rows.querySelectorAll(".ov-row").length > 1) {
+    row.remove();
+  } else {
+    row.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
+      input.value = "";
+    });
+  }
+}
+
 document.addEventListener("change", (e) => {
   const select = e.target;
   if (!(select instanceof HTMLSelectElement)) return;
@@ -132,16 +162,28 @@ document.addEventListener("input", (e) => {
 
 document.addEventListener("click", (e) => {
   if (!(e.target instanceof HTMLElement)) return;
-  const add = e.target.closest<HTMLElement>(".ts-add");
-  if (add) {
+  const tsAdd = e.target.closest<HTMLElement>(".ts-add");
+  if (tsAdd) {
     e.preventDefault();
-    addWindow(add);
+    addWindow(tsAdd);
     return;
   }
-  const remove = e.target.closest<HTMLElement>(".ts-remove");
-  if (remove) {
+  const tsRemove = e.target.closest<HTMLElement>(".ts-remove");
+  if (tsRemove) {
     e.preventDefault();
-    removeWindow(remove);
+    removeWindow(tsRemove);
+    return;
+  }
+  const ovAdd = e.target.closest<HTMLElement>(".ov-add");
+  if (ovAdd) {
+    e.preventDefault();
+    addOverride(ovAdd);
+    return;
+  }
+  const ovRemove = e.target.closest<HTMLElement>(".ov-remove");
+  if (ovRemove) {
+    e.preventDefault();
+    removeOverride(ovRemove);
   }
 });
 

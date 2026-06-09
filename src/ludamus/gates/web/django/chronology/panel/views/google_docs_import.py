@@ -75,6 +75,11 @@ class OptionDuration(TypedDict):
     iso: str
 
 
+class OverrideRow(TypedDict):
+    raw: str
+    replacement: str
+
+
 class RecipeRow(TypedDict):
     index: int
     question: str
@@ -89,6 +94,7 @@ class RecipeRow(TypedDict):
     option_windows: list[OptionWindows]
     option_entities: list[OptionEntity]
     option_durations: list[OptionDuration]
+    overrides: list[OverrideRow]
     catchall_name: str
     catchall_slug: str
 
@@ -192,6 +198,7 @@ def _row(
         "option_windows": _option_windows(question, target),
         "option_entities": _option_entities(question, target),
         "option_durations": _option_durations(question, target),
+        "overrides": _override_rows(target),
         "catchall_name": target.catchall.name if target and target.catchall else "",
         "catchall_slug": target.catchall.slug if target and target.catchall else "",
     }
@@ -384,6 +391,37 @@ def _option_durations(
     return rows
 
 
+def _override_rows(target: QuestionTarget | None) -> list[OverrideRow]:
+    # One row per saved override, plus a single blank row so the (hidden)
+    # editor is ready to fill the moment the operator opens it. Overrides are
+    # generic across every target type — applied to the raw cell text before
+    # any parser, `values` lookup, or pass-through copy.
+    rows: list[OverrideRow] = [
+        {"raw": raw, "replacement": replacement}
+        for raw, replacement in (target.overrides.items() if target else ())
+    ]
+    if not rows:
+        rows.append({"raw": "", "replacement": ""})
+    return rows
+
+
+def _overrides_from_post(post: QueryDict, index: int) -> dict[str, str]:
+    # Parallel arrays (raw / replacement) — drop rows with a blank raw key. A
+    # blank replacement is allowed: it substitutes the raw answer with an
+    # empty string, useful for clearing noise out of a free-text cell.
+    overrides: dict[str, str] = {}
+    rows = zip(
+        post.getlist(f"ovraw_{index}"),
+        post.getlist(f"ovreplacement_{index}"),
+        strict=False,
+    )
+    for raw, replacement in rows:
+        if not raw:
+            continue
+        overrides[raw] = replacement
+    return overrides
+
+
 def _field_type_from_post(post: QueryDict, index: int) -> FieldType:
     match (post.get(f"fieldtype_{index}") or "text").strip():
         case "select":
@@ -484,23 +522,32 @@ def _entity_map_from_post(
 
 def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     choice = (post.get(f"target_{index}") or "ignore").strip()
+    overrides = _overrides_from_post(post, index)
     if choice == TIME_SLOTS_TARGET:
         return QuestionTarget(
-            to=choice, values=_time_slot_values_from_post(post, index)
+            to=choice,
+            values=_time_slot_values_from_post(post, index),
+            overrides=overrides,
         )
     if choice in ENTITY_TARGETS:
         values, catchall = _entity_map_from_post(post, index)
-        return QuestionTarget(to=choice, values=values, catchall=catchall)
+        return QuestionTarget(
+            to=choice, values=values, catchall=catchall, overrides=overrides
+        )
     if choice == "session.duration":
-        return QuestionTarget(to=choice, values=_duration_values_from_post(post, index))
+        return QuestionTarget(
+            to=choice,
+            values=_duration_values_from_post(post, index),
+            overrides=overrides,
+        )
     if choice.startswith("session.") or choice == "facilitator.display_name":
-        return QuestionTarget(to=choice)
+        return QuestionTarget(to=choice, overrides=overrides)
     name = (post.get(f"newname_{index}") or "").strip()
     slug = (post.get(f"newslug_{index}") or "").strip() or slugify(name)
     if choice == "personal-field" and slug:
-        return QuestionTarget(to=f"personal.{slug}")
+        return QuestionTarget(to=f"personal.{slug}", overrides=overrides)
     if choice == "session-field" and slug:
-        return QuestionTarget(to=f"field.{slug}")
+        return QuestionTarget(to=f"field.{slug}", overrides=overrides)
     return QuestionTarget(ignore=True)
 
 

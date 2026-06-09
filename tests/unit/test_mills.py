@@ -1317,6 +1317,62 @@ class TestProposalImportService:
         assert _json.loads(created.response_json) == {"Title": "Talk", "Cap": "loads"}
         assert created.session_id is None
 
+    def test_run_applies_overrides_before_parsing_participants_limit(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit",'
+                ' "overrides": {"maybe 8, maybe 10": "10"}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [
+            {"Title": "Talk", "Cap": "maybe 8, maybe 10"}
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.skipped == 0
+        kwargs = sessions.create.call_args
+        ten = 10
+        assert kwargs.args[0]["participants_limit"] == ten
+
+    def test_run_overrides_replace_title_pass_through(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title",'
+                ' "overrides": {"old": "new"}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "old"}]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        kwargs = sessions.create.call_args
+        assert kwargs.args[0]["title"] == "new"
+
+    def test_run_overrides_dont_touch_unmatched_cells(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title",'
+                ' "overrides": {"foo": "bar"}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = [{"Title": "untouched"}]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        kwargs = sessions.create.call_args
+        assert kwargs.args[0]["title"] == "untouched"
+
     def test_run_writes_success_log_entry_with_session_fk(
         self, service, event_integrations, sessions, log_entries
     ):
