@@ -673,7 +673,9 @@
                             {% if pending.time_slots %}
                                 <div>
                                     <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Preferred Time Slots" %}</h4>
-                                    {% for slot in pending.time_slots %}<div class="text-sm">{{ slot }}</div>{% endfor %}
+                                    {% for slot in pending.time_slots %}
+                                        <div class="text-sm">{{ slot }}</div>
+                                    {% endfor %}
                                 </div>
                             {% endif %}
                         </div>
