@@ -225,11 +225,11 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             FORMS_API_URL.format(form_id="form-1"), timeout=10
         )
 
-    def test_duplicate_titles_get_occurrence_suffixes_so_recipe_keys_are_unique(
-        self, google
-    ):
-        # Two form questions with the same title would otherwise collapse into
-        # one ImportSettings.questions entry (dict[title, target]).
+    def test_duplicate_titles_collapse_to_a_single_recipe_entry(self, google):
+        # Two form questions with the same title produce a single recipe entry —
+        # ImportSettings.questions is dict[title, target] and the mill maps the
+        # cell at the title-level. ImportRow.get_value re-collapses the sheet
+        # columns the same way.
         google.session.get.return_value = MagicMock(
             ok=True,
             json=lambda: {
@@ -252,7 +252,7 @@ class TestGoogleDocsProposalImporterFetchQuestions:
 
         result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
 
-        assert [q.title for q in result] == ["Imię", "Imię (2)", "Wiek"]
+        assert [q.title for q in result] == ["Imię", "Wiek"]
 
     def test_wrong_config_type_returns_empty(self):
         assert (
@@ -292,7 +292,7 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
         result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
 
-        assert result == [{"Timestamp": "t1", "Title": "My Talk"}]
+        assert [r.data for r in result] == [{"Timestamp": "t1", "Title": "My Talk"}]
         google.session.get.assert_any_call(
             SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
         )
@@ -311,7 +311,7 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
         result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
 
-        assert result == [{f"Q{i}": str(i) for i in range(30)}]
+        assert [r.data for r in result] == [{f"Q{i}": str(i) for i in range(30)}]
 
     def test_uses_the_first_tab_when_several_exist(self, google):
         meta = MagicMock(
@@ -330,7 +330,7 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
         result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
 
-        assert result == [{"Title": "My Talk"}]
+        assert [r.data for r in result] == [{"Title": "My Talk"}]
         google.session.get.assert_any_call(
             SHEETS_VALUES_URL.format(sheet_id="sheet-1", range="First"), timeout=30
         )
@@ -369,7 +369,7 @@ class TestGoogleDocsProposalImporterFetchResponses:
             SECRET, CONFIG, header_row=3
         )
 
-        assert result == [
+        assert [r.data for r in result] == [
             {"Timestamp": "t1", "Imię": "Anna", "Wiek": "30"},
             {"Timestamp": "t2", "Imię": "Bartek", "Wiek": "25"},
         ]
@@ -396,11 +396,15 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
     def test_duplicate_header_columns_get_occurrence_suffixes(self, google):
         # Sheet header "Imię" twice: without disambiguation the second column
-        # silently overwrites the first in _row_to_dict.
+        # silently overwrites the first; the operator-facing recipe entry for
+        # "Imię" then disagrees with the actual data. The link uniquifies the
+        # column keys; `ImportRow.get_value` re-collapses them downstream.
         google.session.get.side_effect = _route_get(
             values=[["Timestamp", "Imię", "Imię"], ["t1", "Anna", "Bartek"]]
         )
 
         result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
 
-        assert result == [{"Timestamp": "t1", "Imię": "Anna", "Imię (2)": "Bartek"}]
+        assert [r.data for r in result] == [
+            {"Timestamp": "t1", "Imię": "Anna", "Imię (2)": "Bartek"}
+        ]

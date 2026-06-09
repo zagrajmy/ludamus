@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
-from collections import defaultdict
 from contextlib import suppress
 from typing import TYPE_CHECKING
 from urllib.parse import quote
@@ -21,6 +19,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     SourceQuestion,
 )
+from ludamus.pacts.submissions import ImportRow
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -42,7 +41,6 @@ ERROR_HINT_LIMIT = 200
 HTTP_UNAUTHORIZED = 401
 HTTP_FORBIDDEN = 403
 HTTP_NOT_FOUND = 404
-HEADER_REGEX = re.compile(r"(.*) \([0-9]+\)$")
 
 
 class _CredentialsError(Exception):
@@ -50,10 +48,12 @@ class _CredentialsError(Exception):
 
 
 def _disambiguate(titles: list[str]) -> list[str]:
-    # Google Forms permits two questions with the same title; the recipe
-    # (dict[title, QuestionTarget]) and the response row (dict[header, str])
-    # would silently collapse them into one. Suffix the 2nd, 3rd, ...
-    # occurrences so each column ends up with a unique key on both sides.
+    # Two sheet columns with the same header would collapse to a single dict
+    # key, losing one column's value. Suffix the 2nd, 3rd, ... occurrences so
+    # each column survives. `ImportRow.get_value` re-collapses these at the
+    # mill's value-access call site (the form question they belong to is the
+    # same), surfacing conflicting non-empty values as `DuplicateValueError`
+    # for the mill to convert into a per-row skip.
     seen: dict[str, int] = {}
     result: list[str] = []
     for title in titles:
@@ -62,21 +62,11 @@ def _disambiguate(titles: list[str]) -> list[str]:
     return result
 
 
-def _row_to_dict(headers: list[str], row: list[str]) -> dict[str, str]:
+def _row_to_import_row(headers: list[str], row: list[str]) -> ImportRow:
     # Sheets omits trailing empty cells, so a row may be shorter than headers.
-    row_dict = defaultdict(str)
-    for i, header in enumerate(headers):
-        true_header = header
-        header_match = HEADER_REGEX.match(header)
-        if header_match:
-            true_header = header_match.groups()[0]
-        if i < len(row):
-            if not row_dict[true_header]:
-                row_dict[true_header] = row[i]
-            else:
-                raise ValueError("Duplicate column value!")
-
-    return row_dict
+    return ImportRow(
+        {header: row[i] if i < len(row) else "" for i, header in enumerate(headers)}
+    )
 
 
 class _SheetProperties(BaseModel):
@@ -215,7 +205,7 @@ class GoogleDocsProposalImporter:
 
     def fetch_responses(
         self, secret: bytes, config: BaseModel, header_row: int = 1
-    ) -> list[dict[str, str]]:
+    ) -> list[ImportRow]:
         # `header_row` is 1-indexed to match the row numbers the operator sees
         # in the browser; the first data row is `header_row + 1`.
         if not isinstance(config, GoogleDocsProposalConfig):
@@ -240,9 +230,8 @@ class GoogleDocsProposalImporter:
             return []
         if not 1 <= header_row <= len(values):
             return []
-        return [
-            _row_to_dict(values[header_row - 1], row) for row in values[header_row:]
-        ]
+        headers = _disambiguate([str(cell) for cell in values[header_row - 1]])
+        return [_row_to_import_row(headers, row) for row in values[header_row:]]
 
     @staticmethod
     def _responses_tab_title(session: AuthorizedSession, sheet_id: str) -> str:

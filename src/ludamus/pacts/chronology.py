@@ -8,7 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -20,6 +20,9 @@ from ludamus.pacts.legacy import (
     SessionSelfEditContext,
     SpaceDTO,
 )
+
+if TYPE_CHECKING:
+    from ludamus.pacts.submissions import ImportRow
 
 
 class IntegrationKind(StrEnum):
@@ -66,7 +69,7 @@ class IntegrationImplementation(Protocol):
     ) -> list[SourceQuestion]: ...
     def fetch_responses(
         self, secret: bytes, config: BaseModel, header_row: int = 1
-    ) -> list[dict[str, str]]: ...
+    ) -> list[ImportRow]: ...
 
 
 class EventIntegrationDTO(BaseModel):
@@ -160,7 +163,7 @@ class EventIntegrationsServiceProtocol(Protocol):
     ) -> tuple[list[SourceQuestion], int]: ...
     def fetch_responses(
         self, sphere_id: int, event_id: int, pk: int
-    ) -> list[dict[str, str]]: ...
+    ) -> list[ImportRow]: ...
     def save_settings(self, event_id: int, pk: int, settings_json: str) -> None: ...
     def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
     def list_implementations(

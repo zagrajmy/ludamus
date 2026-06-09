@@ -31,13 +31,19 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.submissions import (
+    DuplicateValueError,
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogStatus,
     ImportRepos,
+    ImportRow,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
+
+
+def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
+    return [ImportRow(raw) for raw in raws]
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
@@ -917,6 +923,47 @@ class TestRenderMarkdown:
         assert "<img" not in result
 
 
+class TestImportRow:
+    def test_get_value_returns_the_exact_match_when_no_duplicates(self):
+        row = ImportRow({"Title": "Talk", "Wiek": "30"})
+
+        assert row.get_value("Title") == "Talk"
+
+    def test_get_value_returns_default_when_header_missing(self):
+        row = ImportRow({"Title": "Talk"})
+
+        assert row.get_value("Missing", "fallback") == "fallback"
+
+    def test_get_value_collapses_suffixed_columns_when_one_is_empty(self):
+        # The form had two "Imię" questions; one respondent filled the second
+        # one. The mill keys the recipe by "Imię" — both columns belong there.
+        row = ImportRow({"Imię": "", "Imię (2)": "Anna"})
+
+        assert row.get_value("Imię") == "Anna"
+
+    def test_get_value_returns_one_when_suffixed_columns_agree(self):
+        row = ImportRow({"Imię": "Anna", "Imię (2)": "Anna"})
+
+        assert row.get_value("Imię") == "Anna"
+
+    def test_get_value_raises_duplicate_value_error_on_conflict(self):
+        row = ImportRow({"Imię": "Anna", "Imię (2)": "Bartek"})
+
+        with pytest.raises(DuplicateValueError) as exc_info:
+            row.get_value("Imię")
+
+        assert exc_info.value.header == "Imię"
+        assert exc_info.value.values == ["Anna", "Bartek"]
+
+    def test_data_returns_a_copy_so_external_writes_do_not_leak(self):
+        row = ImportRow({"Title": "Talk"})
+
+        snapshot = row.data
+        snapshot["Title"] = "Mutated"
+
+        assert row.get_value("Title") == "Talk"
+
+
 class TestProposalImportService:
     @pytest.fixture
     def transaction(self):
@@ -1013,7 +1060,7 @@ class TestProposalImportService:
             settings_json='{"questions": {"Title": {"to": "session.title"}}}'
         )
         responses = [{"Title": "My Talk"}, {"Title": "Another"}]
-        event_integrations.fetch_responses.return_value = responses
+        event_integrations.fetch_responses.return_value = _rows(responses)
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1045,7 +1092,7 @@ class TestProposalImportService:
                 ' "Q2": {"to": "session.description"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Q1": "Talk"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Q1": "Talk"}])
 
         result = service.run(sphere_id=5, event_id=6, integration_pk=7)
 
@@ -1075,9 +1122,9 @@ class TestProposalImportService:
                 ' "Nick": {"to": "facilitator.display_name"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "My Talk", "Nick": "GM Bob"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1108,9 +1155,9 @@ class TestProposalImportService:
                 ' "values": {"long": {"to": "duration", "iso": "PT1H30M"}}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Len": "long"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Len": "long"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1146,9 +1193,9 @@ class TestProposalImportService:
                 ' "overrides": {"105": "105 minut"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Len": "105"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Len": "105"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1183,11 +1230,13 @@ class TestProposalImportService:
         # First two rows hit no existing session → created. Third row repeats
         # the first row's Timestamp+Email and finds the first row's session →
         # counted as a duplicate, not a failure.
-        event_integrations.fetch_responses.return_value = [
-            {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
-            {"Timestamp": "2026-06-04T10:30", "Email": "b@x.z", "Title": "Talk B"},
-            {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [
+                {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
+                {"Timestamp": "2026-06-04T10:30", "Email": "b@x.z", "Title": "Talk B"},
+                {"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "Talk A"},
+            ]
+        )
         existing_session_pk = 42
         # find_id_by_slug returns None for the first two rows' identity slugs,
         # then the first row's session id for the third.
@@ -1223,7 +1272,7 @@ class TestProposalImportService:
         # not fill this in", not an operator misconfiguration, so the row goes
         # in with an empty duration instead of being skipped.
         rows = [{"Title": "Talk", "Len": ""}, {"Title": "Padded", "Len": "   "}]
-        event_integrations.fetch_responses.return_value = rows
+        event_integrations.fetch_responses.return_value = _rows(rows)
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1240,10 +1289,9 @@ class TestProposalImportService:
                 ' "values": {"short": {"to": "duration", "iso": "PT30M"}}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Len": "long"},
-            {"Title": "Other", "Len": "short"},
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Len": "long"}, {"Title": "Other", "Len": "short"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1266,6 +1314,34 @@ class TestProposalImportService:
             facilitator_ids=[],
         )
 
+    def test_run_skips_row_when_duplicate_columns_carry_conflicting_values(
+        self, service, event_integrations, log_entries
+    ):
+        # The form had two "Genre" questions; the sheet exposes them as
+        # "Genre" and "Genre (2)". This respondent filled both — and with
+        # different values, so the importer cannot decide which to keep.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Genre": {"to": "field.genre"}}}'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = [
+            ImportRow({"Title": "Talk", "Genre": "Fantasy", "Genre (2)": "Sci-Fi"})
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.skipped == 1
+        log_entries.upsert.assert_called_once()
+        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert upserted.status == ImportLogStatus.SKIPPED
+        assert "Genre" in upserted.reason
+        assert "Fantasy" in upserted.reason
+        assert "Sci-Fi" in upserted.reason
+
     def test_run_maps_participants_limit_passing_an_integer_through(
         self, service, event_integrations, sessions
     ):
@@ -1275,9 +1351,9 @@ class TestProposalImportService:
                 ' "Cap": {"to": "session.participants_limit"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Cap": "8"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "8"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1308,7 +1384,9 @@ class TestProposalImportService:
                 ' "Cap": {"to": "session.participants_limit"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "Talk", "Cap": ""}]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": ""}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1327,9 +1405,9 @@ class TestProposalImportService:
                 ' "Cap": {"to": "session.participants_limit"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Cap": "lots"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "lots"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1346,9 +1424,9 @@ class TestProposalImportService:
                 ' "Cap": {"to": "session.participants_limit"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Cap": "loads"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "loads"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1375,9 +1453,9 @@ class TestProposalImportService:
                 ' "overrides": {"maybe 8, maybe 10": "10"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Cap": "maybe 8, maybe 10"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "maybe 8, maybe 10"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1396,7 +1474,7 @@ class TestProposalImportService:
                 ' "overrides": {"old": "new"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "old"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "old"}])
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1413,7 +1491,9 @@ class TestProposalImportService:
                 ' "overrides": {"foo": "bar"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "untouched"}]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "untouched"}]
+        )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1427,7 +1507,7 @@ class TestProposalImportService:
         event_integrations.get.return_value = MagicMock(
             settings_json='{"questions": {"Title": {"to": "session.title"}}}'
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "My Talk"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "My Talk"}])
         session_pk = 42
         sessions.create.return_value = session_pk
 
@@ -1458,7 +1538,7 @@ class TestProposalImportService:
             title="Talk",
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
         retry_session_pk = 77
         sessions.create.return_value = retry_session_pk
 
@@ -1494,9 +1574,9 @@ class TestProposalImportService:
             title="Talk",
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Cap": "loads"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "loads"}]
+        )
 
         succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
 
@@ -1534,9 +1614,9 @@ class TestProposalImportService:
             title="Talk",
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Email": "a@x.z"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Email": "a@x.z"}]
+        )
         sessions.find_id_by_slug.return_value = existing_session_pk
 
         succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
@@ -1566,7 +1646,7 @@ class TestProposalImportService:
             session_id=existing_session_pk,
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
 
         succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
 
@@ -1598,7 +1678,7 @@ class TestProposalImportService:
             session_id=None,
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        event_integrations.fetch_responses.return_value = [{"Title": "Talk"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
         fresh_session_pk = 99
         sessions.create.return_value = fresh_session_pk
 
@@ -1620,9 +1700,9 @@ class TestProposalImportService:
                 ' "Cap": {"to": "session.participants_limit"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "Talk", "Cap": "loads"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "loads"}]
+        )
 
         result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1636,7 +1716,7 @@ class TestProposalImportService:
         self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(settings_json="{}")
-        event_integrations.fetch_responses.return_value = []
+        event_integrations.fetch_responses.return_value = _rows([])
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1649,11 +1729,9 @@ class TestProposalImportService:
         event_integrations.get.return_value = MagicMock(
             settings_json='{"questions": {"Title": {"to": "session.title"}}}'
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "One"},
-            {"Title": "Two"},
-            {"Title": "Three"},
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "One"}, {"Title": "Two"}, {"Title": "Three"}]
+        )
 
         result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1664,7 +1742,7 @@ class TestProposalImportService:
         self, service, event_integrations, sessions
     ):
         event_integrations.get.return_value = MagicMock(settings_json="{}")
-        event_integrations.fetch_responses.return_value = []
+        event_integrations.fetch_responses.return_value = _rows([])
 
         result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1685,7 +1763,7 @@ class TestProposalImportService:
                 ' "end_time": "2025-09-20T14:00:00+02:00"}}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"When": "Fri, Sat"}]
+        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri, Sat"}])
         time_slots.get_or_create.side_effect = [101, 102]
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1719,7 +1797,7 @@ class TestProposalImportService:
                 ' "end_time": "2025-09-20T14:00:00+02:00"}]}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"When": "All"}]
+        event_integrations.fetch_responses.return_value = _rows([{"When": "All"}])
         time_slots.get_or_create.side_effect = [201, 202]
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1747,7 +1825,7 @@ class TestProposalImportService:
                 '"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Suggested": "RPG"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Suggested": "RPG"}])
         tracks.get_or_create_by_slug.return_value = 301
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1766,7 +1844,9 @@ class TestProposalImportService:
                 '"LARP": {"name": "LARP", "slug": "larp"}}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Suggested": "RPG, LARP"}]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Suggested": "RPG, LARP"}]
+        )
         tracks.get_or_create_by_slug.side_effect = [301, 302]
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1787,9 +1867,9 @@ class TestProposalImportService:
                 ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Suggested": "Something custom"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Suggested": "Something custom"}]
+        )
         tracks.get_or_create_by_slug.return_value = 399
 
         service.run(sphere_id=1, event_id=2, integration_pk=3)
@@ -1806,7 +1886,7 @@ class TestProposalImportService:
                 '"RPG": {"name": "RPG session", "slug": "rpg"}}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Kind": "RPG"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Kind": "RPG"}])
         category_pk = 401
         categories.get_or_create_by_slug.return_value = category_pk
 
@@ -1827,7 +1907,7 @@ class TestProposalImportService:
                 ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"Kind": "Mystery"}]
+        event_integrations.fetch_responses.return_value = _rows([{"Kind": "Mystery"}])
         category_pk = 499
         categories.get_or_create_by_slug.return_value = category_pk
 
@@ -1847,9 +1927,9 @@ class TestProposalImportService:
                 ' {"system": {"name": "System", "type": "text"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "My Talk", "RPG system": "D&D"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "RPG system": "D&D"}]
+        )
         session_fields.read_by_slug.side_effect = NotFoundError
         session_fields.create.return_value = MagicMock(pk=55)
         session_id = 7
@@ -1886,7 +1966,7 @@ class TestProposalImportService:
         event_integrations.get.return_value = MagicMock(
             settings_json='{"questions": {"RPG system": {"to": "field.system"}}}'
         )
-        event_integrations.fetch_responses.return_value = [{"RPG system": "D&D"}]
+        event_integrations.fetch_responses.return_value = _rows([{"RPG system": "D&D"}])
         session_fields.read_by_slug.return_value = MagicMock(pk=55)
         session_id = 7
         sessions.create.return_value = session_id
@@ -1911,7 +1991,7 @@ class TestProposalImportService:
                 ' "allow_custom": true, "options": ["D&D", "Warhammer"]}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [{"System": "D&D"}]
+        event_integrations.fetch_responses.return_value = _rows([{"System": "D&D"}])
         session_fields.read_by_slug.side_effect = NotFoundError
         session_fields.create.return_value = MagicMock(pk=55)
         sessions.create.return_value = 7
@@ -1946,9 +2026,9 @@ class TestProposalImportService:
                 ' {"telefon": {"name": "Telefon", "type": "text"}}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = [
-            {"Title": "My Talk", "Phone": "555"}
-        ]
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Phone": "555"}]
+        )
         personal_fields.read_by_slug.side_effect = NotFoundError
         personal_fields.create.return_value = MagicMock(pk=99)
         sessions.create.return_value = 7

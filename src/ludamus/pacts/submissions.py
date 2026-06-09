@@ -4,6 +4,7 @@ Owns proposal intake: the CFP configuration (personal-data fields) bounded
 context today, with the Session lifecycle and proposal import to follow.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -30,6 +31,54 @@ if TYPE_CHECKING:
 
 
 # --- Proposal import (mapping recipe stored as the integration's settings) ---
+
+_DUPLICATE_HEADER_SUFFIX = re.compile(r"^(.*) \([0-9]+\)$")
+
+
+class DuplicateValueError(Exception):
+    # Raised at value-access time when a row carries conflicting non-empty
+    # values across columns that collapse to the same form question. The mill
+    # catches it inside `_cell` and turns it into a per-row skip — the row's
+    # other targets stay intact, the import flow proceeds with the next row.
+    def __init__(self, header: str, values: list[str]) -> None:
+        super().__init__()
+        self.header = header
+        self.values = values
+
+
+class ImportRow:
+    # A single response row read from the source spreadsheet. Form-linked
+    # sheets suffix duplicate question columns with " (2)", " (3)", ... and
+    # the mill's question dedup has already collapsed those source questions
+    # to one entry — so `get_value` collapses the matching columns the same
+    # way at value-access time. Conflicting non-empty values surface as
+    # `DuplicateValueError` so the caller (the mill) can decide what a skip
+    # means; the link stays a dumb header→cell mapping.
+    def __init__(self, data: dict[str, str]) -> None:
+        self._data = dict(data)
+
+    @property
+    def data(self) -> dict[str, str]:
+        # Read-only snapshot of the raw header→cell mapping, used to serialize
+        # the row into the log entry's response_json.
+        return dict(self._data)
+
+    def get_value(self, header: str, default: str = "") -> str:
+        candidates = {
+            value
+            for key, value in self._data.items()
+            if value and _row_header_matches(key, header)
+        }
+        if len(candidates) > 1:
+            raise DuplicateValueError(header, sorted(candidates))
+        return next(iter(candidates), default)
+
+
+def _row_header_matches(key: str, header: str) -> bool:
+    if key == header:
+        return True
+    match = _DUPLICATE_HEADER_SUFFIX.match(key)
+    return match is not None and match.group(1) == header
 
 
 class TimeSlotSpec(BaseModel):

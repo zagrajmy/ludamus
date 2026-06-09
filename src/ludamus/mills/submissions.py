@@ -25,6 +25,7 @@ from ludamus.pacts import (
     SessionUpdateData,
 )
 from ludamus.pacts.submissions import (
+    DuplicateValueError,
     DurationSpec,
     EntityRef,
     FieldDefinition,
@@ -32,6 +33,7 @@ from ludamus.pacts.submissions import (
     ImportLogEntryDTO,
     ImportLogStatus,
     ImportRepos,
+    ImportRow,
     ImportSettings,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -140,33 +142,44 @@ def _skip(reason: str) -> Never:
     raise _RowSkippedError(reason)
 
 
-def _cell(target: QuestionTarget | None, row: dict[str, str], header: str) -> str:
+def _cell(target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     # Single read point for a row cell that a target consumes: applies the
     # operator-configured `overrides` substitution (raw cell text -> cleaned
     # cell text) before any parser, `values` lookup, or pass-through copy.
     # Lets a "maybe 8, maybe 10" answer become "10" for a numeric target, or a
     # typoed choice become the canonical option that the `values` map keys on.
-    raw = row.get(header, "")
+    # `ImportRow.get_value` collapses sheet columns whose form questions were
+    # already deduped (e.g. "Genre" + "Genre (2)") and raises on conflicting
+    # non-empty values — surface that as a per-row skip.
+    try:
+        raw = row.get_value(header, "")
+    except DuplicateValueError as exc:
+        return _skip(
+            f"{header}: duplicate values for column "
+            f"({', '.join(repr(v) for v in exc.values)})"
+        )
     if target is None or not target.overrides:
         return raw
     return target.overrides.get(raw, raw)
 
 
 def _locate_row(
-    rows: list[dict[str, str]],
-    response: dict[str, str],
+    rows: list[ImportRow],
+    response: ImportRow,
     settings: ImportSettings,
     fallback_index: int,
-) -> tuple[int, dict[str, str]] | None:
+) -> tuple[int, ImportRow] | None:
     # Settings.unique_key_columns names the columns whose values jointly
     # identify a row across re-fetches. Without it, fall back to the position
     # at the original attempt time — fine for sheets where the operator
     # doesn't shuffle rows between runs.
     if settings.unique_key_columns:
-        target_key = {col: response.get(col, "") for col in settings.unique_key_columns}
+        target_key = {
+            col: response.get_value(col, "") for col in settings.unique_key_columns
+        }
         for idx, row in enumerate(rows):
             if all(
-                row.get(col, "") == target_key[col]
+                row.get_value(col, "") == target_key[col]
                 for col in settings.unique_key_columns
             ):
                 return idx, row
@@ -441,7 +454,7 @@ class ProposalImportService:
                         row_index=target_idx,
                         status=ImportLogStatus.SKIPPED,
                         reason=exc.reason,
-                        response_json=json.dumps(target_row, ensure_ascii=False),
+                        response_json=json.dumps(target_row.data, ensure_ascii=False),
                         title=title,
                         display_name=display_name,
                         session_id=entry.session_id,
@@ -453,7 +466,7 @@ class ProposalImportService:
                     integration_id=integration.pk,
                     row_index=target_idx,
                     status=ImportLogStatus.SUCCESS,
-                    response_json=json.dumps(target_row, ensure_ascii=False),
+                    response_json=json.dumps(target_row.data, ensure_ascii=False),
                     title=title,
                     display_name=display_name,
                     session_id=entry.session_id,
@@ -462,11 +475,12 @@ class ProposalImportService:
         return True
 
     @staticmethod
-    def _decode_response(response_json: str) -> dict[str, str]:
+    def _decode_response(response_json: str) -> ImportRow:
         try:
-            return _RESPONSE_ADAPTER.validate_json(response_json or "{}")
+            data = _RESPONSE_ADAPTER.validate_json(response_json or "{}")
         except ValidationError:
-            return {}
+            data = {}
+        return ImportRow(data)
 
     def _settings(self, event_id: int, integration_pk: int) -> ImportSettings:
         integration = self._event_integrations.get(event_id, integration_pk)
@@ -478,7 +492,7 @@ class ProposalImportService:
         event_id: int,
         integration_pk: int,
         settings: ImportSettings,
-        indexed_rows: list[tuple[int, dict[str, str]]],
+        indexed_rows: list[tuple[int, ImportRow]],
     ) -> ProposalImportResult:
         created = 0
         skipped = 0
@@ -501,7 +515,7 @@ class ProposalImportService:
                             row_index=row_index,
                             status=ImportLogStatus.SUCCESS,
                             reason="",
-                            response_json=json.dumps(row, ensure_ascii=False),
+                            response_json=json.dumps(row.data, ensure_ascii=False),
                             title=title,
                             display_name=display_name,
                             session_id=exc.existing_session_id,
@@ -516,7 +530,7 @@ class ProposalImportService:
                             row_index=row_index,
                             status=ImportLogStatus.SKIPPED,
                             reason=exc.reason,
-                            response_json=json.dumps(row, ensure_ascii=False),
+                            response_json=json.dumps(row.data, ensure_ascii=False),
                             title=title,
                             display_name=display_name,
                         )
@@ -529,7 +543,7 @@ class ProposalImportService:
                         row_index=row_index,
                         status=ImportLogStatus.SUCCESS,
                         reason="",
-                        response_json=json.dumps(row, ensure_ascii=False),
+                        response_json=json.dumps(row.data, ensure_ascii=False),
                         title=title,
                         display_name=display_name,
                         session_id=session_id,
@@ -544,9 +558,7 @@ class ProposalImportService:
         )
 
     @staticmethod
-    def _extract_identity(
-        settings: ImportSettings, row: dict[str, str]
-    ) -> tuple[str, str]:
+    def _extract_identity(settings: ImportSettings, row: ImportRow) -> tuple[str, str]:
         title = ""
         display_name = ""
         for header, target in settings.questions.items():
@@ -652,7 +664,7 @@ class ProposalImportService:
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         field_ids: _FieldIdsByHeader,
     ) -> int:
         title = ""
@@ -724,7 +736,7 @@ class ProposalImportService:
         event_id: int,
         session_id: int,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         field_ids: _FieldIdsByHeader,
     ) -> None:
         # Mirrors `_create_proposal` but targets the existing session: keeps
@@ -791,7 +803,7 @@ class ProposalImportService:
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         title: str,
     ) -> str:
         # Idempotent re-runs: when the operator has named unique-key columns
@@ -807,7 +819,9 @@ class ProposalImportService:
                 lambda s: self._repos.sessions.slug_exists(sphere_id, s),
                 fallback="proposal",
             )
-        identity = "-".join(row.get(col, "") for col in settings.unique_key_columns)
+        identity = "-".join(
+            row.get_value(col, "") for col in settings.unique_key_columns
+        )
         slug = slugify(f"e{event_id}-{identity}") or f"e{event_id}-row"
         if (
             existing_id := self._repos.sessions.find_id_by_slug(sphere_id, slug)
@@ -843,7 +857,7 @@ class ProposalImportService:
         event_id: int,
         facilitator_id: int | None,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
@@ -866,7 +880,7 @@ class ProposalImportService:
             self._repos.host_personal_data.save(entries)
 
     def _time_slot_ids(
-        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+        self, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> list[int]:
         # For each `session.time_slots` question, the chosen options' windows
         # are provisioned (deduped by start+end) and their ids collected. The
@@ -909,7 +923,7 @@ class ProposalImportService:
         return refs
 
     def _track_ids(
-        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+        self, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> list[int]:
         # Each `track` question's chosen options resolve to tracks, provisioned
         # (deduped by slug) and collected as the session's preferred tracks.
@@ -926,7 +940,7 @@ class ProposalImportService:
         return ids
 
     def _category_id(
-        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+        self, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> int | None:
         # A `category` question's chosen option resolves to one category (the
         # single FK), provisioned by slug; a custom answer falls to the catchall.
