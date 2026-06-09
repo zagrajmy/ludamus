@@ -57,39 +57,38 @@ jobs:
       url: https://test.zagrajmy.net
       deployment: false
     steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .workflow
+          persist-credentials: false
+
       - name: Create GitHub deployment
         id: deployment
+        uses: actions/github-script@v8
         env:
-          GH_TOKEN: ${{ github.token }}
           STAGING_URL: https://test.zagrajmy.net
           TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
-        run: |
-          set -eu
-          deployment_id="$(
-            jq -n --arg ref "$TARGET_SHA" '{
-              ref: $ref,
-              environment: "staging",
-              auto_merge: false,
-              required_contexts: [],
-              transient_environment: false,
-              production_environment: false
-            }' |
-              gh api "repos/$GITHUB_REPOSITORY/deployments" \
-                --method POST \
-                --input - \
-                --jq .id
-          )"
-          echo "id=$deployment_id" >> "$GITHUB_OUTPUT"
-          gh api "repos/$GITHUB_REPOSITORY/deployments/$deployment_id/statuses" \
-            --method POST \
-            --field state=in_progress \
-            --field environment_url="$STAGING_URL" \
-            --field log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.workflow/scripts/github-staging.mts`)
+            );
+            await staging.createStagingDeployment({
+              github,
+              context,
+              core,
+              sha: process.env.TARGET_SHA,
+              environmentUrl: process.env.STAGING_URL,
+            });
 
       - name: Checkout (provides .env.schema for varlock validation)
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.resolve-staging.outputs.sha }}
+          clean: false
           persist-credentials: false
 
       - name: Materialize .env.local from environment variables and secrets
@@ -186,26 +185,24 @@ jobs:
             docker compose --env-file .env.local -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
             docker image prune -f
 
-      - name: Mark GitHub deployment successful
-        if: success()
+      - name: Mark GitHub deployment complete
+        if: always() && steps.deployment.outputs.id != ''
+        uses: actions/github-script@v8
         env:
-          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+          JOB_STATUS: ${{ job.status }}
           STAGING_URL: https://test.zagrajmy.net
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/deployments/${{ steps.deployment.outputs.id }}/statuses" \
-            --method POST \
-            --field state=success \
-            --field environment_url="$STAGING_URL" \
-            --field log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-
-      - name: Mark GitHub deployment failed
-        if: failure() && steps.deployment.outputs.id != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          STAGING_URL: https://test.zagrajmy.net
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/deployments/${{ steps.deployment.outputs.id }}/statuses" \
-            --method POST \
-            --field state=failure \
-            --field environment_url="$STAGING_URL" \
-            --field log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.workflow/scripts/github-staging.mts`)
+            );
+            await staging.finishStagingDeployment({
+              github,
+              context,
+              core,
+              deploymentId: Number(process.env.DEPLOYMENT_ID),
+              environmentUrl: process.env.STAGING_URL,
+              jobStatus: process.env.JOB_STATUS,
+            });
