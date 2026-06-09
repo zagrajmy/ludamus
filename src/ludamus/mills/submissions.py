@@ -72,6 +72,66 @@ def _field_setup(
 
 _RESPONSE_ADAPTER = TypeAdapter(dict[str, str])
 
+_BUILTIN_PROPOSAL_TARGETS = frozenset(
+    {
+        "session.title",
+        "session.description",
+        "session.duration",
+        "session.participants_limit",
+        "facilitator.display_name",
+    }
+)
+
+_IDENTITY_TARGETS = frozenset({"session.title", "facilitator.display_name"})
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedBuiltins:
+    title: str = ""
+    description: str = ""
+    duration: str = ""
+    participants_limit: int = 0
+    display_name: str = ""
+
+
+def _resolve_builtins(
+    settings: ImportSettings, row: dict[str, str]
+) -> _ResolvedBuiltins:
+    # First non-empty wins per built-in target: a later mapping with an empty
+    # cell doesn't clobber an earlier resolved value (the parsers default to
+    # 0 / "" on empty, which legacy duplicate mappings would otherwise spread
+    # back across already-filled fields). Non-built-in targets are skipped so
+    # `field.*` / `personal.*` conflicts surface during field-value population
+    # with a more accurate per-row reason.
+    title = ""
+    description = ""
+    duration = ""
+    participants_limit = 0
+    display_name = ""
+    for header, target in settings.questions.items():
+        if target.to not in _BUILTIN_PROPOSAL_TARGETS:
+            continue
+        cell = _cell(target, row, header)
+        if not cell:
+            continue
+        if target.to == "session.title" and not title:
+            title = cell
+        elif target.to == "session.description" and not description:
+            description = cell
+        elif target.to == "session.duration" and not duration:
+            duration = _duration_iso(target, header, cell)
+        elif target.to == "session.participants_limit" and not participants_limit:
+            participants_limit = _parse_int(header, cell)
+        elif target.to == "facilitator.display_name" and not display_name:
+            display_name = cell
+    return _ResolvedBuiltins(
+        title=title,
+        description=description,
+        duration=duration,
+        participants_limit=participants_limit,
+        display_name=display_name,
+    )
+
 
 class _RowSkippedError(Exception):
     # Raised inside `_create_proposal` to signal that this single row should be
@@ -558,14 +618,27 @@ class ProposalImportService:
         )
 
     @staticmethod
-    def _extract_identity(settings: ImportSettings, row: ImportRow) -> tuple[str, str]:
+    def _extract_identity(
+        settings: ImportSettings, row: dict[str, str]
+    ) -> tuple[str, str]:
+        # Empty cells don't overwrite an earlier resolved value — a second
+        # mapping to the same built-in target (e.g. legacy duplicates from
+        # before the form-question dedup) would otherwise silently clobber it.
+        # Only consult cells for the two targets this method consumes; an
+        # unrelated question's conflicting columns would raise here otherwise
+        # and the caller isn't inside the per-row try/except.
         title = ""
         display_name = ""
         for header, target in settings.questions.items():
-            if target.to == "session.title":
-                title = _cell(target, row, header)
-            elif target.to == "facilitator.display_name":
-                display_name = _cell(target, row, header)
+            if target.to not in _IDENTITY_TARGETS:
+                continue
+            cell = _cell(target, row, header)
+            if not cell:
+                continue
+            if target.to == "session.title" and not title:
+                title = cell
+            elif target.to == "facilitator.display_name" and not display_name:
+                display_name = cell
         return title, display_name
 
     def _provision_fields(
@@ -664,46 +737,31 @@ class ProposalImportService:
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
-        row: ImportRow,
+        row: dict[str, str],
         field_ids: _FieldIdsByHeader,
     ) -> int:
-        title = ""
-        description = ""
-        duration = ""
-        participants_limit = 0
-        display_name = ""
-        for header, target in settings.questions.items():
-            if target.to == "session.title":
-                title = _cell(target, row, header)
-            elif target.to == "session.description":
-                description = _cell(target, row, header)
-            elif target.to == "session.duration":
-                duration = _duration_iso(target, header, _cell(target, row, header))
-            elif target.to == "session.participants_limit":
-                participants_limit = _parse_int(header, _cell(target, row, header))
-            elif target.to == "facilitator.display_name":
-                display_name = _cell(target, row, header)
+        builtins = _resolve_builtins(settings, row)
         slug = self._resolve_slug(
             sphere_id=sphere_id,
             event_id=event_id,
             settings=settings,
             row=row,
-            title=title,
+            title=builtins.title,
         )
         session_data: SessionData = {
             "sphere_id": sphere_id,
             "status": SessionStatus.PENDING,
-            "title": title,
-            "description": description,
-            "display_name": display_name,
-            "participants_limit": participants_limit,
+            "title": builtins.title,
+            "description": builtins.description,
+            "display_name": builtins.display_name,
+            "participants_limit": builtins.participants_limit,
             "slug": slug,
         }
-        if duration:
-            session_data["duration"] = duration
+        if builtins.duration:
+            session_data["duration"] = builtins.duration
         if (category_id := self._category_id(event_id, settings, row)) is not None:
             session_data["category_id"] = category_id
-        facilitator_id = self._facilitator_id(event_id, display_name)
+        facilitator_id = self._facilitator_id(event_id, builtins.display_name)
         session_id = self._repos.sessions.create(
             session_data,
             tag_ids=[],
@@ -736,35 +794,20 @@ class ProposalImportService:
         event_id: int,
         session_id: int,
         settings: ImportSettings,
-        row: ImportRow,
+        row: dict[str, str],
         field_ids: _FieldIdsByHeader,
     ) -> None:
         # Mirrors `_create_proposal` but targets the existing session: keeps
         # slug/sphere/status, overwrites mapped session.<col> fields, and
         # fully replaces time-slot / track / facilitator links plus the
         # session field values.
-        title = ""
-        description = ""
-        duration = ""
-        participants_limit = 0
-        display_name = ""
-        for header, target in settings.questions.items():
-            if target.to == "session.title":
-                title = _cell(target, row, header)
-            elif target.to == "session.description":
-                description = _cell(target, row, header)
-            elif target.to == "session.duration":
-                duration = _duration_iso(target, header, _cell(target, row, header))
-            elif target.to == "session.participants_limit":
-                participants_limit = _parse_int(header, _cell(target, row, header))
-            elif target.to == "facilitator.display_name":
-                display_name = _cell(target, row, header)
+        builtins = _resolve_builtins(settings, row)
         update_data: SessionUpdateData = {
-            "title": title,
-            "description": description,
-            "display_name": display_name,
-            "participants_limit": participants_limit,
-            "duration": duration,
+            "title": builtins.title,
+            "description": builtins.description,
+            "display_name": builtins.display_name,
+            "participants_limit": builtins.participants_limit,
+            "duration": builtins.duration,
             "category_id": self._category_id(event_id, settings, row),
         }
         self._repos.sessions.update(session_id, update_data)
@@ -774,7 +817,7 @@ class ProposalImportService:
         self._repos.sessions.set_session_tracks(
             session_id, self._track_ids(event_id, settings, row)
         )
-        facilitator_id = self._facilitator_id(event_id, display_name)
+        facilitator_id = self._facilitator_id(event_id, builtins.display_name)
         self._repos.sessions.set_facilitators(
             session_id, [facilitator_id] if facilitator_id is not None else []
         )
@@ -803,7 +846,7 @@ class ProposalImportService:
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
-        row: ImportRow,
+        row: dict[str, str],
         title: str,
     ) -> str:
         # Idempotent re-runs: when the operator has named unique-key columns
@@ -857,7 +900,7 @@ class ProposalImportService:
         event_id: int,
         facilitator_id: int | None,
         settings: ImportSettings,
-        row: ImportRow,
+        row: dict[str, str],
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
@@ -880,7 +923,7 @@ class ProposalImportService:
             self._repos.host_personal_data.save(entries)
 
     def _time_slot_ids(
-        self, event_id: int, settings: ImportSettings, row: ImportRow
+        self, event_id: int, settings: ImportSettings, row: dict[str, str]
     ) -> list[int]:
         # For each `session.time_slots` question, the chosen options' windows
         # are provisioned (deduped by start+end) and their ids collected. The
@@ -923,7 +966,7 @@ class ProposalImportService:
         return refs
 
     def _track_ids(
-        self, event_id: int, settings: ImportSettings, row: ImportRow
+        self, event_id: int, settings: ImportSettings, row: dict[str, str]
     ) -> list[int]:
         # Each `track` question's chosen options resolve to tracks, provisioned
         # (deduped by slug) and collected as the session's preferred tracks.
@@ -940,7 +983,7 @@ class ProposalImportService:
         return ids
 
     def _category_id(
-        self, event_id: int, settings: ImportSettings, row: ImportRow
+        self, event_id: int, settings: ImportSettings, row: dict[str, str]
     ) -> int | None:
         # A `category` question's chosen option resolves to one category (the
         # single FK), provisioned by slug; a custom answer falls to the catchall.

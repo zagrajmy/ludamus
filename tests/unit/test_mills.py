@@ -1342,6 +1342,33 @@ class TestProposalImportService:
         assert "Fantasy" in upserted.reason
         assert "Sci-Fi" in upserted.reason
 
+    def test_run_does_not_let_an_empty_cell_overwrite_a_resolved_built_in(
+        self, service, event_integrations, sessions
+    ):
+        # Two settings entries map to session.participants_limit — a legacy
+        # leftover from before the form-question dedup. The first holds the
+        # answer; the second's cell is empty. The empty cell must not reset
+        # participants_limit to 0 (the parser's "respondent left it blank"
+        # default).
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Limit": {"to": "session.participants_limit"},'
+                ' "Limit (2)": {"to": "session.participants_limit"}}}'
+            )
+        )
+        resolved_limit = 11
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Limit": str(resolved_limit), "Limit (2)": ""}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        sessions.create.assert_called_once()
+        created_data = sessions.create.call_args.args[0]
+        assert created_data["participants_limit"] == resolved_limit
+
     def test_run_maps_participants_limit_passing_an_integer_through(
         self, service, event_integrations, sessions
     ):
