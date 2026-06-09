@@ -1075,7 +1075,10 @@ test.describe('Backoffice Panel', () => {
       test('creates session type for proposal flow', async ({
         page,
       }, testInfo) => {
-        const suffix = testInfo.project.name;
+        const suffix =
+          testInfo.retry > 0
+            ? `${testInfo.project.name}-r${testInfo.retry}`
+            : testInfo.project.name;
         proposalCategoryName = `Tabletop RPG ${suffix}`;
         proposalTitle = `Dragon's Lair ${suffix}: A Beginner Adventure`;
         cityName = `City ${suffix}`;

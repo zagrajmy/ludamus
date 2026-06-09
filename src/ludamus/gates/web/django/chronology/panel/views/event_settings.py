@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import messages
@@ -39,10 +39,46 @@ def _choice_to_override(value: str) -> bool | None:
     return None
 
 
+def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
+    data: EventUpdateData = {
+        "name": cd["name"],
+        "slug": slug,
+        "description": cd.get("description") or "",
+        "start_time": cd["start_time"],
+        "end_time": cd["end_time"],
+        "publication_time": cd.get("publication_time"),
+        "allow_facilitator_session_edit": _choice_to_override(
+            cd.get("allow_facilitator_session_edit") or ""
+        ),
+    }
+    # ClearableFileInput yields a file on upload, False when cleared, or None
+    # when left untouched (keep the current cover).
+    if cover_image := cd.get("cover_image"):
+        data["cover_image"] = cover_image
+    elif cover_image is False:
+        data["cover_image"] = ""
+    return data
+
+
 class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
     """Event settings page view."""
 
     request: PanelRequest
+
+    def _apply_facilitator_choices(self, form: EventSettingsForm) -> None:
+        sphere = self.request.services.sphere_panel.read(
+            self.request.context.current_sphere_id
+        )
+        resolved = (
+            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        )
+        edit_field = form.fields["allow_facilitator_session_edit"]
+        if isinstance(edit_field, forms.ChoiceField):
+            edit_field.choices = [
+                ("", _("Use sphere default (currently: {})").format(resolved)),
+                ("true", _("Allow")),
+                ("false", _("Disallow")),
+            ]
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -58,6 +94,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "name": current_event.name,
                 "slug": current_event.slug,
                 "description": current_event.description,
+                "cover_image": current_event.cover_image_url or None,
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (
@@ -68,19 +105,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
             }
         )
-        sphere = self.request.services.sphere_panel.read(
-            self.request.context.current_sphere_id
-        )
-        resolved = (
-            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
-        )
-        edit_field = form.fields["allow_facilitator_session_edit"]
-        if isinstance(edit_field, forms.ChoiceField):
-            edit_field.choices = [
-                ("", _("Use sphere default (currently: {})").format(resolved)),
-                ("true", _("Allow")),
-                ("false", _("Disallow")),
-            ]
+        self._apply_facilitator_choices(form)
         context["form"] = form
         return TemplateResponse(self.request, "panel/settings.html", context)
 
@@ -93,11 +118,9 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
 
-        form = EventSettingsForm(self.request.POST)
+        form = EventSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            for field_errors in form.errors.values():
-                messages.error(self.request, str(field_errors[0]))
-            return redirect("panel:event-settings", slug=slug)
+            return self._render_with_form(slug, form)
 
         cd = form.cleaned_data
 
@@ -112,17 +135,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             except NotFoundError:
                 pass  # Slug is available
 
-        data: EventUpdateData = {
-            "name": cd["name"],
-            "slug": new_slug,
-            "description": cd.get("description") or "",
-            "start_time": cd["start_time"],
-            "end_time": cd["end_time"],
-            "publication_time": cd.get("publication_time"),
-            "allow_facilitator_session_edit": _choice_to_override(
-                cd.get("allow_facilitator_session_edit") or ""
-            ),
-        }
+        data = _event_update_data(cd, new_slug)
 
         try:
             self.request.di.uow.events.update(current_event.pk, data)
@@ -132,6 +145,15 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Event settings saved successfully."))
         return redirect("panel:event-settings", slug=new_slug)
+
+    def _render_with_form(self, slug: str, form: EventSettingsForm) -> HttpResponse:
+        context, _current_event = self.get_event_context(slug)
+        context["active_nav"] = "settings"
+        context["active_tab"] = "general"
+        context["tab_urls"] = settings_tab_urls(slug)
+        self._apply_facilitator_choices(form)
+        context["form"] = form
+        return TemplateResponse(self.request, "panel/settings.html", context)
 
 
 class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):

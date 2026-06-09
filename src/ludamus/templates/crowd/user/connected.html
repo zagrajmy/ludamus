@@ -26,7 +26,7 @@
             </div>
             {# Add form #}
             {% if connected_users|length < max_connected_users %}
-                <div class="rounded-lg bg-[var(--theme-bg-secondary)] p-4 mb-6">
+                <div class="rounded-lg bg-bg-secondary p-4 mb-6">
                     <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
                         {% icon "plus-circle" class="w-4 h-4" %}
                         {% translate "Add connected user" %}
@@ -46,7 +46,7 @@
                 </div>
             {% endif %}
             {# Connected users list #}
-            <div class="border-t border-[var(--theme-border)] pt-4">
+            <div class="border-t border-border pt-4">
                 <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
                     {% icon "rectangle-stack" class="w-4 h-4" %}
                     {% translate "Your connected users" %} (<span id="itemCount">{{ connected_users|length }}</span>/{{ max_connected_users }})

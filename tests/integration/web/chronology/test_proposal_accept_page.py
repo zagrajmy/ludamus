@@ -68,6 +68,29 @@ class TestProposalAcceptPageView:
             template_name="chronology/accept_proposal.html",
         )
 
+    def test_get_shows_preferred_time_slots(
+        self, event, pending_session, space, staff_client, time_slot
+    ):
+        pending_session.time_slots.add(time_slot)
+
+        response = staff_client.get(self._get_url(pending_session.id))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "spaces": [SpaceDTO.model_validate(space)],
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [time_slot.pk],
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+        assert "Preferred Time Slots" in response.content.decode()
+
     @pytest.mark.usefixtures("event", "time_slot")
     def test_get_shows_spaces_grouped_by_venue_area(
         self, pending_session, venue, area, space, staff_client

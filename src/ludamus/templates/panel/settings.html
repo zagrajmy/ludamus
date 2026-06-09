@@ -1,6 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
-{% load tessera %}
+{% load tessera django_vite %}
 {% block title_prefix %}
     {% translate "Event Settings" %} -
 {% endblock title_prefix %}
@@ -38,6 +38,7 @@
     <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
         <form id="settings-form"
               method="post"
+              enctype="multipart/form-data"
               action="{% url 'panel:event-settings' slug=current_event.slug %}"
               class="max-w-2xl">
             {% csrf_token %}
@@ -57,6 +58,7 @@
                                        class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                                        required>
                             </div>
+                            {% tessera_field form.cover_image %}
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_slug">{% translate "URL Slug" %}</label>
@@ -138,3 +140,7 @@
     </div>
 {% endif %}
 {% endblock content %}
+{% block extra_scripts %}
+    {{ block.super }}
+    {% vite_asset 'src/encounter-form.ts' %}
+{% endblock extra_scripts %}

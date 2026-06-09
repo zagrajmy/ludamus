@@ -4,12 +4,12 @@ import time
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.db import connection
 from django.http import JsonResponse
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.views.decorators.cache import never_cache
+from django.views.static import serve
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -23,7 +23,7 @@ handler500 = (  # pylint: disable=invalid-name
     "ludamus.adapters.web.django.error_views.custom_500"
 )
 
-_HEALTHZ_INTERVAL = 5  # seconds between actual DB checks (per worker)
+_HEALTHZ_INTERVAL = 5
 _healthz_cache: dict[str, object] = {"time": 0.0, "ok": True}
 
 
@@ -61,11 +61,14 @@ urlpatterns: list[URLResolver | URLPattern] = [
 ]
 
 
-if settings.DEBUG:  # pragma: no cover
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if not settings.IS_PRODUCTION:
+    urlpatterns += [
+        re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT})
+    ]
+
+if settings.DEBUG:
     urlpatterns += [path("__reload__/", include("django_browser_reload.urls"))]
 
-    # Debug URLs to test error pages
     def _trigger_500(_: HttpRequest) -> HttpResponse:
         raise ValueError
 

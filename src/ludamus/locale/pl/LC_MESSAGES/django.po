@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-04 15:44+0200\n"
+"POT-Creation-Date: 2026-06-05 03:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2153,6 +2153,10 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Enrollment Open"
+msgstr "Zapisy otwarte"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
@@ -2515,6 +2519,10 @@ msgid "Tags"
 msgstr "Tagi"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Could not open the editor. Please try again."
+msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Information"
 msgstr "Informacje"
 
@@ -2584,10 +2592,6 @@ msgstr "Zaloguj się aby się zapisać"
 #: src/ludamus/templates/chronology/event.html
 msgid "Back to Events"
 msgstr "Powrót do wydarzeń"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Could not open the editor. Please try again."
-msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
 
 #: src/ludamus/templates/chronology/panel/integrations/_check_result.html
 msgid "Check passed."
@@ -3746,7 +3750,6 @@ msgid "Harmonogram"
 msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/print-materials.html
 msgid "Print Materials"
 msgstr "Materiały do druku"
@@ -4186,13 +4189,13 @@ msgstr ""
 "Nie ma jeszcze żadnych integracji. Dodaj jedną, aby to wydarzenie mogło "
 "komunikować się przez zewnętrzny system."
 
+#: src/ludamus/templates/panel/parts/_print-scope-control.html
+msgid "Venue / area…"
+msgstr "Lokalizacja / strefa…"
+
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print timetable for a venue or area"
 msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
-
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Venue / area…"
-msgstr "Lokalizacja / strefa…"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards for a venue or area"
@@ -5368,6 +5371,27 @@ msgstr "Kopiuj"
 #: src/ludamus/templates/panel/venues.html
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Cover image"
+msgstr "Obraz okładki"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Max 2 MB. JPG, PNG, WebP, or AVIF."
+msgstr "Maks. 2 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Optional. Max 2 MB. JPG, PNG, WebP, or AVIF."
+msgstr "Opcjonalnie. Maks. 2 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Image dimensions are too large."
+msgstr "Wymiary obrazu są zbyt duże."
 
 #~ msgid "promoted from waiting list"
 #~ msgstr "przeniesiony z listy oczekujących"

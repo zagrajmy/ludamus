@@ -222,7 +222,10 @@ src/ludamus/media/
 
 tests/e2e/.auth-state-empty.json
 
+# TBD
 .tbd
+
 .local
+
 !.claude/
-test-results
+test-results/
