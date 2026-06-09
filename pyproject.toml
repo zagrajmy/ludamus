@@ -71,7 +71,7 @@ types-authlib = "^1.5.0.20250516"
 types-requests = "^2.32.4.20250809"
 
 # BLACK
-diff-cover = "^10.2.0"
+diff-cover = "^10.3.0"
 import-linter = "^2.11"
 vulture = "^2.16"
 pytest-gremlins = "^1.8.1"
