@@ -1,4 +1,4 @@
-"""Integration tests for the Import / Export panel section.
+"""Integration tests for the Google Docs Import panel section.
 
 Import lives in its own section, not under integrations settings; the
 integration is just the connection it pulls through.
@@ -1347,6 +1347,57 @@ class TestEventImportRunActionView:
         assert fields.count() == 1
         assert fields.get().field_type == "text"
         assert not HostPersonalData.objects.filter(field=fields.get()).exists()
+
+    def test_post_writes_personal_field_value_against_row_facilitator(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "Nick": {"to": "facilitator.display_name", "ignore": False},
+                    "Phone": {"to": "personal.telefon", "ignore": False},
+                },
+                "definitions": {
+                    "personal_fields": {
+                        "telefon": {
+                            "name": "Telefon",
+                            "type": "text",
+                            "multiple": False,
+                            "allow_custom": False,
+                            "options": [],
+                        }
+                    },
+                    "session_fields": {},
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+            # Re-run: HostPersonalData upserts on (facilitator, event, field) —
+            # the row's value overwrites rather than duplicating.
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-9999"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        field = PersonalDataField.objects.get(event=event, slug="telefon")
+        rows = list(HostPersonalData.objects.filter(field=field))
+        assert len(rows) == 1
+        assert rows[0].value == "555-9999"
+        assert rows[0].facilitator.display_name == "GM Bob"
 
     def test_post_provisions_and_attaches_time_slots(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

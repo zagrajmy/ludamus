@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         FacilitatorRepositoryProtocol,
         FieldUsageSummary,
+        HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
@@ -169,6 +170,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     sessions: SessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
+    host_personal_data: HostPersonalDataRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol

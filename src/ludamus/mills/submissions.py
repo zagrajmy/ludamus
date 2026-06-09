@@ -6,6 +6,7 @@ Owns proposal intake: CFP personal-data field management and proposal import
 
 import json
 import re
+from dataclasses import dataclass
 from secrets import choice, token_urlsafe
 from typing import TYPE_CHECKING, Literal, Never
 
@@ -14,6 +15,7 @@ from unidecode import unidecode
 
 from ludamus.pacts import (
     FieldUsageSummary,
+    HostPersonalDataEntry,
     NotFoundError,
     PersonalDataFieldCreateData,
     SessionData,
@@ -85,6 +87,16 @@ class _DuplicateRowError(Exception):
     # the operator sees idempotency at work instead of a stack of "failure"
     # entries — no log entry is added.
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class _FieldIdsByHeader:
+    # Header->pk maps the provisioning step builds once per import and the
+    # per-row create/update steps consume. Two flavours: session fields drive
+    # SessionFieldValue writes; personal fields drive HostPersonalData writes
+    # against the row's facilitator.
+    session: dict[str, int]
+    personal: dict[str, int]
 
 
 def _field_name(definition: FieldDefinition | None, slug: str) -> str:
@@ -397,14 +409,14 @@ class ProposalImportService:
         target_idx, target_row = located
         title, display_name = self._extract_identity(settings, target_row)
         with self._transaction.atomic():
-            field_ids_by_header, _ = self._provision_fields(event_id, settings)
+            field_ids, _ = self._provision_fields(event_id, settings)
             try:
                 self._update_proposal(
                     event_id=event_id,
                     session_id=entry.session_id,
                     settings=settings,
                     row=target_row,
-                    field_ids_by_header=field_ids_by_header,
+                    field_ids=field_ids,
                 )
             except _RowSkippedError as exc:
                 self._repos.log_entries.upsert(
@@ -456,14 +468,12 @@ class ProposalImportService:
         skipped = 0
         duplicates = 0
         with self._transaction.atomic():
-            field_ids_by_header, fields_created = self._provision_fields(
-                event_id, settings
-            )
+            field_ids, fields_created = self._provision_fields(event_id, settings)
             for row_index, row in indexed_rows:
                 title, display_name = self._extract_identity(settings, row)
                 try:
                     session_id = self._create_proposal(
-                        sphere_id, event_id, settings, row, field_ids_by_header
+                        sphere_id, event_id, settings, row, field_ids
                     )
                 except _DuplicateRowError:
                     duplicates += 1
@@ -517,12 +527,14 @@ class ProposalImportService:
 
     def _provision_fields(
         self, event_id: int, settings: ImportSettings
-    ) -> tuple[dict[str, int], int]:
+    ) -> tuple[_FieldIdsByHeader, int]:
         # Materialise each new-field target, honouring its definition's setup.
         # Match by slug-of-name so re-runs reuse the same field instead of
-        # spawning suffixed duplicates. Session fields keep a header->pk map for
-        # value filling; personal fields are provisioned only (no host yet).
-        field_ids_by_header: dict[str, int] = {}
+        # spawning suffixed duplicates. Both session and personal fields keep a
+        # header->pk map so per-row value filling can fan out to SessionField
+        # values and HostPersonalData entries respectively.
+        session_ids: dict[str, int] = {}
+        personal_ids: dict[str, int] = {}
         created = 0
         for header, target in settings.questions.items():
             if not target.to:
@@ -533,15 +545,17 @@ class ProposalImportService:
                 field_id, new = self._provision_session_field(
                     event_id, slug, header, definition
                 )
-                field_ids_by_header[header] = field_id
+                session_ids[header] = field_id
                 created += new
             elif target.to.startswith("personal."):
                 slug = target.to.removeprefix("personal.")
                 definition = settings.definitions.personal_fields.get(slug)
-                created += self._provision_personal_field(
+                field_id, new = self._provision_personal_field(
                     event_id, slug, header, definition
                 )
-        return field_ids_by_header, created
+                personal_ids[header] = field_id
+                created += new
+        return _FieldIdsByHeader(session=session_ids, personal=personal_ids), created
 
     def _provision_session_field(
         self,
@@ -579,12 +593,12 @@ class ProposalImportService:
         slug: str,
         question: str,
         definition: FieldDefinition | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         try:
-            self._repos.personal_fields.read_by_slug(event_id, slug)
+            field = self._repos.personal_fields.read_by_slug(event_id, slug)
         except NotFoundError:
             field_type, options, is_multiple, allow_custom = _field_setup(definition)
-            self._repos.personal_fields.create(
+            field = self._repos.personal_fields.create(
                 event_id,
                 PersonalDataFieldCreateData(
                     name=_field_name(definition, slug),
@@ -599,8 +613,8 @@ class ProposalImportService:
                     is_public=False,
                 ),
             )
-            return 1
-        return 0
+            return field.pk, 1
+        return field.pk, 0
 
     def _create_proposal(
         self,
@@ -608,7 +622,7 @@ class ProposalImportService:
         event_id: int,
         settings: ImportSettings,
         row: dict[str, str],
-        field_ids_by_header: dict[str, int],
+        field_ids: _FieldIdsByHeader,
     ) -> int:
         title = ""
         description = ""
@@ -646,21 +660,28 @@ class ProposalImportService:
             session_data["duration"] = duration
         if (category_id := self._category_id(event_id, settings, row)) is not None:
             session_data["category_id"] = category_id
+        facilitator_id = self._facilitator_id(event_id, display_name)
         session_id = self._repos.sessions.create(
             session_data,
             tag_ids=[],
             time_slot_ids=self._time_slot_ids(event_id, settings, row),
             track_ids=self._track_ids(event_id, settings, row),
-            facilitator_ids=self._facilitator_ids(event_id, display_name),
+            facilitator_ids=[facilitator_id] if facilitator_id is not None else [],
         )
         values = [
             SessionFieldValueData(
                 session_id=session_id, field_id=field_id, value=row.get(header, "")
             )
-            for header, field_id in field_ids_by_header.items()
+            for header, field_id in field_ids.session.items()
         ]
         if values:
             self._repos.sessions.save_field_values(session_id, values)
+        self._save_personal_data(
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            row=row,
+            personal_field_ids=field_ids.personal,
+        )
         return session_id
 
     def _update_proposal(
@@ -670,7 +691,7 @@ class ProposalImportService:
         session_id: int,
         settings: ImportSettings,
         row: dict[str, str],
-        field_ids_by_header: dict[str, int],
+        field_ids: _FieldIdsByHeader,
     ) -> None:
         # Mirrors `_create_proposal` but targets the existing session: keeps
         # slug/sphere/status, overwrites mapped session.<col> fields, and
@@ -707,18 +728,25 @@ class ProposalImportService:
         self._repos.sessions.set_session_tracks(
             session_id, self._track_ids(event_id, settings, row)
         )
+        facilitator_id = self._facilitator_id(event_id, display_name)
         self._repos.sessions.set_facilitators(
-            session_id, self._facilitator_ids(event_id, display_name)
+            session_id, [facilitator_id] if facilitator_id is not None else []
         )
         self._repos.sessions.clear_field_values(session_id)
         values = [
             SessionFieldValueData(
                 session_id=session_id, field_id=field_id, value=row.get(header, "")
             )
-            for header, field_id in field_ids_by_header.items()
+            for header, field_id in field_ids.session.items()
         ]
         if values:
             self._repos.sessions.save_field_values(session_id, values)
+        self._save_personal_data(
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            row=row,
+            personal_field_ids=field_ids.personal,
+        )
 
     def _resolve_slug(
         self,
@@ -748,7 +776,7 @@ class ProposalImportService:
             raise _DuplicateRowError
         return slug
 
-    def _facilitator_ids(self, event_id: int, display_name: str) -> list[int]:
+    def _facilitator_id(self, event_id: int, display_name: str) -> int | None:
         # Per-row provisioning: a non-empty `facilitator.display_name` answer
         # becomes a Facilitator on the event (deduped by slug — repeated names
         # across rows resolve to the same record); empty answers mean
@@ -756,21 +784,46 @@ class ProposalImportService:
         # The facilitator carries no `user` — it's a placeholder the operator
         # can later merge with a real account.
         if not (clean := display_name.strip()):
-            return []
+            return None
         slug = slugify(clean) or "facilitator"
         try:
-            existing = self._repos.facilitators.read_by_event_and_slug(event_id, slug)
+            return self._repos.facilitators.read_by_event_and_slug(event_id, slug).pk
         except NotFoundError:
-            created = self._repos.facilitators.create(
+            return self._repos.facilitators.create(
                 {
                     "display_name": clean,
                     "event_id": event_id,
                     "slug": slug,
                     "user_id": None,
                 }
+            ).pk
+
+    def _save_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int | None,
+        row: dict[str, str],
+        personal_field_ids: dict[str, int],
+    ) -> None:
+        # Each provisioned personal field's header maps to a cell value that
+        # gets stamped onto HostPersonalData (upserted by the repo, so re-runs
+        # of the same row overwrite rather than duplicate). Without a
+        # facilitator nothing is saved — personal data is per-facilitator,
+        # there's no orphan bucket to land it in.
+        if facilitator_id is None:
+            return
+        entries = [
+            HostPersonalDataEntry(
+                facilitator_id=facilitator_id,
+                event_id=event_id,
+                field_id=field_id,
+                value=row.get(header, ""),
             )
-            return [created.pk]
-        return [existing.pk]
+            for header, field_id in personal_field_ids.items()
+        ]
+        if entries:
+            self._repos.host_personal_data.save(entries)
 
     def _time_slot_ids(
         self, event_id: int, settings: ImportSettings, row: dict[str, str]

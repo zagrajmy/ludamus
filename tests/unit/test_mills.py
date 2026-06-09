@@ -938,6 +938,15 @@ class TestProposalImportService:
 
     @pytest.fixture
     def personal_fields(self):
+        mock = MagicMock()
+        mock.read_by_slug.side_effect = NotFoundError
+        mock.create.side_effect = lambda _event_id, data: MagicMock(
+            pk=11, slug=data["slug"], name=data["name"]
+        )
+        return mock
+
+    @pytest.fixture
+    def host_personal_data(self):
         return MagicMock()
 
     @pytest.fixture
@@ -973,6 +982,7 @@ class TestProposalImportService:
         sessions,
         session_fields,
         personal_fields,
+        host_personal_data,
         time_slots,
         tracks,
         categories,
@@ -986,6 +996,7 @@ class TestProposalImportService:
                 sessions,
                 session_fields,
                 personal_fields,
+                host_personal_data,
                 time_slots,
                 tracks,
                 categories,
