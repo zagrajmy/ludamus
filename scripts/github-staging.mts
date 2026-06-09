@@ -62,6 +62,10 @@ export interface Github {
       get(params: Record<string, unknown>): Promise<{ data: PullRequestLike }>;
     };
     repos: {
+      createDeployment(
+        params: Record<string, unknown>,
+      ): Promise<{ data: { id: number } }>;
+      createDeploymentStatus(params: Record<string, unknown>): Promise<unknown>;
       listPullRequestsAssociatedWithCommit: PaginatedEndpoint;
     };
   };
@@ -108,6 +112,19 @@ interface ResolveManualDeployArgs extends ActionArgs {
   sha: string;
 }
 
+interface CreateDeploymentArgs extends ActionArgs {
+  environmentUrl: string;
+  sha: string;
+}
+
+interface FinishDeploymentArgs extends ActionArgs {
+  deploymentId: number;
+  environmentUrl: string;
+  jobStatus: string;
+}
+
+type DeploymentState = "error" | "failure" | "success";
+
 const STAGING_LABEL = "staging";
 const DEPLOY_WORKFLOW_ID = "deploy-staging.yml";
 
@@ -128,6 +145,35 @@ const hasStagingLabel = (pr: PullRequestLike) =>
 const setShouldDeploy = (core: Core, deploy: boolean, message: string) => {
   core.setOutput("should_deploy", deploy ? "true" : "false");
   core.info(message);
+};
+
+const workflowLogUrl = (context: Context) =>
+  `${process.env.GITHUB_SERVER_URL}/${repoFullName(context)}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+const deploymentStateFor = (jobStatus: string): DeploymentState => {
+  if (jobStatus === "success") return "success";
+  if (jobStatus === "failure") return "failure";
+  return "error";
+};
+
+const createDeploymentStatus = async ({
+  github,
+  context,
+  deploymentId,
+  environmentUrl,
+  state,
+}: ActionArgs & {
+  deploymentId: number;
+  environmentUrl: string;
+  state: "in_progress" | DeploymentState;
+}) => {
+  await github.rest.repos.createDeploymentStatus({
+    ...repoParams(context),
+    deployment_id: deploymentId,
+    state,
+    environment_url: environmentUrl,
+    log_url: workflowLogUrl(context),
+  });
 };
 
 const listStagingPrIssues = async ({
@@ -272,6 +318,55 @@ export const handlePullRequest = async ({
   }
 
   await dispatchDeploy({ github, context, pr, core });
+};
+
+export const createStagingDeployment = async ({
+  github,
+  context,
+  core,
+  sha,
+  environmentUrl,
+}: CreateDeploymentArgs) => {
+  const response = await github.rest.repos.createDeployment({
+    ...repoParams(context),
+    ref: sha,
+    environment: STAGING_LABEL,
+    auto_merge: false,
+    required_contexts: [],
+    transient_environment: false,
+    production_environment: false,
+  });
+  const deploymentId = response.data.id;
+
+  core.setOutput("id", String(deploymentId));
+  await createDeploymentStatus({
+    github,
+    context,
+    core,
+    deploymentId,
+    environmentUrl,
+    state: "in_progress",
+  });
+};
+
+export const finishStagingDeployment = async ({
+  github,
+  context,
+  core,
+  deploymentId,
+  environmentUrl,
+  jobStatus,
+}: FinishDeploymentArgs) => {
+  const state = deploymentStateFor(jobStatus);
+  await createDeploymentStatus({
+    github,
+    context,
+    core,
+    deploymentId,
+    environmentUrl,
+    state,
+  });
+  core.info(`Marked ${STAGING_LABEL} deployment ${deploymentId} as ${state}`);
 };
 
 const listPullRequestsForSha = async ({

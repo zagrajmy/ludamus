@@ -193,14 +193,7 @@
                                 You're signed up for {{ counter }} sessions!
                             {% endblocktranslate %}
                         </h3>
-                        <p class="text-sm text-foreground-muted">
-                            {% for s in user_enrolled_sessions %}
-                                {{ s.session.title }}
-                                {% if not forloop.last %}
-                                    ,
-                                {% endif %}
-                            {% endfor %}
-                        </p>
+                        <p class="text-sm text-foreground-muted">{{ user_enrolled_session_titles|join:", " }}</p>
                     </div>
                 </div>
             </div>

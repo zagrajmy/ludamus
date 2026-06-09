@@ -49,14 +49,46 @@ jobs:
     needs: resolve-staging
     if: needs.resolve-staging.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     environment:
       name: staging
       url: https://test.zagrajmy.net
+      deployment: false
     steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .workflow
+          persist-credentials: false
+
+      - name: Create GitHub deployment
+        id: deployment
+        uses: actions/github-script@v8
+        env:
+          STAGING_URL: https://test.zagrajmy.net
+          TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.workflow/scripts/github-staging.mts`)
+            );
+            await staging.createStagingDeployment({
+              github,
+              context,
+              core,
+              sha: process.env.TARGET_SHA,
+              environmentUrl: process.env.STAGING_URL,
+            });
+
       - name: Checkout (provides .env.schema for varlock validation)
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.resolve-staging.outputs.sha }}
+          clean: false
           persist-credentials: false
 
       - name: Materialize .env.local from environment variables and secrets
@@ -152,3 +184,25 @@ jobs:
             # and prod.yaml's `env_file:` injects it into the containers.
             docker compose --env-file .env.local -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
             docker image prune -f
+
+      - name: Mark GitHub deployment complete
+        if: always() && steps.deployment.outputs.id != ''
+        uses: actions/github-script@v8
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+          JOB_STATUS: ${{ job.status }}
+          STAGING_URL: https://test.zagrajmy.net
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.workflow/scripts/github-staging.mts`)
+            );
+            await staging.finishStagingDeployment({
+              github,
+              context,
+              core,
+              deploymentId: Number(process.env.DEPLOYMENT_ID),
+              environmentUrl: process.env.STAGING_URL,
+              jobStatus: process.env.JOB_STATUS,
+            });
