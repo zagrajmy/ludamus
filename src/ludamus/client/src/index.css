@@ -257,6 +257,15 @@ select:focus-visible {
   border-color: var(--color-border-focus) !important;
 }
 
+/* Prevent iOS Safari from zooming into inputs on focus (requires font-size >= 16px) */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+}
+
 button:active {
   @apply scale-97;
 }
