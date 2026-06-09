@@ -528,6 +528,15 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         ]
 
     @staticmethod
+    def delete_field_values_for_fields(session_id: int, field_ids: list[int]) -> int:
+        if not field_ids:
+            return 0
+        deleted, _ = SessionFieldValue.objects.filter(
+            session_id=session_id, field_id__in=field_ids
+        ).delete()
+        return deleted
+
+    @staticmethod
     def list_sessions_by_event(
         event_id: int,
         *,
@@ -2044,6 +2053,20 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         PersonalDataField.objects.filter(pk=pk).delete()
 
     @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int:
+        # A PersonalDataField is orphan when no facilitator on this event has
+        # a HostPersonalData entry that points at it. Used by the importer's
+        # "Apply field layout" action after removing values for unmapped
+        # fields.
+        deleted, _ = (
+            PersonalDataField.objects.filter(event_id=event_id)
+            .annotate(usage=Count("values"))
+            .filter(usage=0)
+            .delete()
+        )
+        return deleted
+
+    @staticmethod
     def has_requirements(pk: int) -> bool:
         """Check if a personal data field is used in any category requirements.
 
@@ -2186,6 +2209,19 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
     @staticmethod
     def delete(pk: int) -> None:
         SessionField.objects.filter(pk=pk).delete()
+
+    @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int:
+        # A SessionField is orphan when no session on this event has a
+        # SessionFieldValue pointing at it. Used by the importer's "Apply
+        # field layout" action.
+        deleted, _ = (
+            SessionField.objects.filter(event_id=event_id)
+            .annotate(usage=Count("values"))
+            .filter(usage=0)
+            .delete()
+        )
+        return deleted
 
     @staticmethod
     def has_requirements(pk: int) -> bool:
@@ -2370,8 +2406,27 @@ class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
         return {hpd.field.slug: hpd.value for hpd in records}
 
     @staticmethod
+    def list_field_ids_for_facilitator_event(
+        facilitator_id: int, event_id: int
+    ) -> list[int]:
+        return list(
+            HostPersonalData.objects.filter(
+                facilitator_id=facilitator_id, event_id=event_id
+            ).values_list("field_id", flat=True)
+        )
+
+    @staticmethod
     def delete_by_facilitators(facilitator_ids: list[int]) -> None:
         HostPersonalData.objects.filter(facilitator_id__in=facilitator_ids).delete()
+
+    @staticmethod
+    def delete_for_facilitator_fields(facilitator_id: int, field_ids: list[int]) -> int:
+        if not field_ids:
+            return 0
+        deleted, _ = HostPersonalData.objects.filter(
+            facilitator_id=facilitator_id, field_id__in=field_ids
+        ).delete()
+        return deleted
 
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):

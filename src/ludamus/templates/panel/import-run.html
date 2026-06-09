@@ -163,6 +163,24 @@
                             </button>
                         </form>
                     </div>
+                    <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                        <div>
+                            <p class="text-sm font-medium text-foreground">{% translate "Apply field layout" %}</p>
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "Add newly mapped fields and drop values for fields removed from the recipe across every imported proposal. Existing values for retained fields are left untouched. Orphan field definitions on the event are pruned at the end." %}
+                            </p>
+                        </div>
+                        <form method="post"
+                              action="{% url 'panel:import-apply-field-layout' slug=current_event.slug pk=active_integration.pk %}"
+                              onsubmit="return confirm('{% translate "Apply the current field layout to every imported proposal? Values for fields no longer mapped will be deleted." %}');"
+                              class="shrink-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary flex items-center">
+                                {% icon "arrow-path" class="w-4 h-4 mr-2" %}
+                                {% translate "Apply field layout" %}
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         {% else %}

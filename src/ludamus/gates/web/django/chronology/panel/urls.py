@@ -407,6 +407,11 @@ urlpatterns = [
         name="import-missing-fields",
     ),
     path(
+        "event/<slug:slug>/import/<int:pk>/do/apply-field-layout/",
+        google_docs_import.EventImportApplyFieldLayoutView.as_view(),
+        name="import-apply-field-layout",
+    ),
+    path(
         "event/<slug:slug>/import/<int:pk>/json/",
         google_docs_import.EventImportJsonView.as_view(),
         name="import-json",

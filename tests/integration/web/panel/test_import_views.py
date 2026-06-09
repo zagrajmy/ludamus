@@ -2421,3 +2421,113 @@ class TestEventImportLogReimport:
         assert "onsubmit=" in body
         assert "Reimport will overwrite" in body
         assert _log_reimport_url(event, integration) in body
+
+
+def _apply_field_layout_url(event, integration) -> str:
+    return reverse(
+        "panel:import-apply-field-layout",
+        kwargs={"slug": event.slug, "pk": integration.pk},
+    )
+
+
+@pytest.mark.django_db
+class TestEventImportApplyFieldLayoutView:
+    def test_post_redirects_non_manager(
+        self, authenticated_client, event, connection_with_secret
+    ):
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _apply_field_layout_url(event, integration)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_post_adds_new_field_values_drops_removed_and_prunes_orphans(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # Initial state: a session imported earlier with two session fields
+        # ("system", "genre"). Operator has since changed the recipe — only
+        # "genre" remains mapped, and "audience" is freshly mapped. Apply
+        # field layout should: add an audience value from the cached row,
+        # drop the system value, leave the genre value alone, and prune the
+        # now-orphan "system" SessionField.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            category=category,
+            display_name="Host",
+            title="Talk",
+            slug="talk",
+            sphere=sphere,
+            participants_limit=4,
+            status="pending",
+        )
+        old_system = SessionField.objects.create(
+            event=event, name="System", question="System?", slug="system"
+        )
+        kept_genre = SessionField.objects.create(
+            event=event, name="Genre", question="Genre?", slug="genre"
+        )
+        SessionFieldValue.objects.create(session=session, field=old_system, value="D&D")
+        SessionFieldValue.objects.create(
+            session=session, field=kept_genre, value="Fantasy"
+        )
+        ImportLogEntry.objects.create(
+            integration=integration,
+            row_index=0,
+            status="success",
+            response_json=json.dumps(
+                {"Genre": "Fantasy", "Audience": "Adults"}, ensure_ascii=False
+            ),
+            title="Talk",
+            session=session,
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Genre": {"to": "field.genre"},
+                    "Audience": {"to": "field.audience"},
+                },
+                "definitions": {
+                    "session_fields": {
+                        "genre": {"name": "Genre", "type": "text"},
+                        "audience": {"name": "Audience", "type": "text"},
+                    }
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.post(
+            _apply_field_layout_url(event, integration)
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        # Retained mapping kept its existing value untouched.
+        assert (
+            SessionFieldValue.objects.get(session=session, field=kept_genre).value
+            == "Fantasy"
+        )
+        # Newly mapped field provisioned + value added from the cached row.
+        audience = SessionField.objects.get(event=event, slug="audience")
+        assert (
+            SessionFieldValue.objects.get(session=session, field=audience).value
+            == "Adults"
+        )
+        # Value for the unmapped field dropped.
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=old_system
+        ).exists()
+        # Orphan SessionField pruned.
+        assert not SessionField.objects.filter(event=event, slug="system").exists()

@@ -216,6 +216,17 @@ class ProposalImportResult:
     duplicates: int = 0
 
 
+@dataclass
+class ApplyFieldLayoutResult:
+    sessions_processed: int = 0
+    session_field_values_added: int = 0
+    session_field_values_removed: int = 0
+    personal_entries_added: int = 0
+    personal_entries_removed: int = 0
+    session_fields_pruned: int = 0
+    personal_fields_pruned: int = 0
+
+
 @dataclass(frozen=True)
 class ImportRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the proposal importer creates proposals and provisions into."""
@@ -248,6 +259,9 @@ class ProposalImportServiceProtocol(Protocol):
     ) -> list[ImportLogEntryDTO]: ...
     def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
     def reimport_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
+    def apply_field_layout(
+        self, event_id: int, integration_pk: int
+    ) -> ApplyFieldLayoutResult: ...
     def log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None: ...
 
 

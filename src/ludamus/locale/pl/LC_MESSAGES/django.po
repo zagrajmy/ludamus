@@ -1309,6 +1309,18 @@ msgstr "Zaimportowano %(count)d nowych pól."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "No new fields to import; every form question is already mapped."
 msgstr ""
+"Brak nowych pól do importu; każde pytanie z formularza jest już zmapowane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid ""
+"Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
+"session fields, +%(p_added)d / -%(p_removed)d personal entries, pruned "
+"%(pruned)d orphan field definitions."
+msgstr ""
+"Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
+"%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów danych "
+"osobowych, usunięto %(pruned)d osieroconych definicji pól."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/index.py
 msgid "No events available for this sphere."
@@ -4737,7 +4749,7 @@ msgstr "Potwierdzono %(confirmed)s z %(total)s przypisanych pytań."
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Import missing fields"
-msgstr "Pobierz breakujące pola"
+msgstr "Pobierz brakujące pola"
 
 #: src/ludamus/templates/panel/import-run.html
 #, python-format
@@ -4777,6 +4789,29 @@ msgstr "Uruchom import"
 #: src/ludamus/templates/panel/import-run.html
 msgid "Create a proposal from every response using the saved recipe."
 msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Apply field layout"
+msgstr "Zastosuj układ pól"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Add newly mapped fields and drop values for fields removed from the recipe "
+"across every imported proposal. Existing values for retained fields are left "
+"untouched. Orphan field definitions on the event are pruned at the end."
+msgstr ""
+"Dodaje wartości nowo zmapowanych pól i usuwa wartości pól wycofanych z "
+"przepisu we wszystkich zaimportowanych zgłoszeniach. Wartości pól, które "
+"pozostają w przepisie, nie są zmieniane. Na końcu usuwane są osierocone "
+"definicje pól w wydarzeniu."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Apply the current field layout to every imported proposal? Values for fields "
+"no longer mapped will be deleted."
+msgstr ""
+"Zastosować bieżący układ pól do wszystkich zaimportowanych zgłoszeń? "
+"Wartości pól, które nie są już zmapowane, zostaną usunięte."
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html

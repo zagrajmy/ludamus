@@ -25,6 +25,7 @@ from ludamus.pacts import (
     SessionUpdateData,
 )
 from ludamus.pacts.submissions import (
+    ApplyFieldLayoutResult,
     DuplicateValueError,
     DurationSpec,
     EntityRef,
@@ -533,6 +534,130 @@ class ProposalImportService:
                 )
             )
         return True
+
+    def apply_field_layout(
+        self, event_id: int, integration_pk: int
+    ) -> ApplyFieldLayoutResult:
+        # Reconcile every successful import's SessionFieldValue / HostPersonalData
+        # rows against the current recipe — add values for newly mapped
+        # `field.*` / `personal.*` targets (read from the row cached on the
+        # log entry), drop values for targets no longer mapped. Existing
+        # values for retained mappings are left untouched (this is a *layout*
+        # diff, not a value rewrite). Then prune SessionField /
+        # PersonalDataField records on the event that no session/facilitator
+        # references anymore.
+        settings = self._settings(event_id, integration_pk)
+        entries = self._repos.log_entries.list_for_integration(
+            integration_pk, status=ImportLogStatus.SUCCESS
+        )
+        result = ApplyFieldLayoutResult()
+        with self._transaction.atomic():
+            field_ids, _fields_created = self._provision_fields(event_id, settings)
+            desired_session_field_ids = set(field_ids.session.values())
+            for entry in entries:
+                if entry.session_id is None:
+                    continue
+                row = self._decode_response(entry.response_json)
+                result.session_field_values_added += self._add_missing_session_values(
+                    entry.session_id, settings, row, field_ids.session
+                )
+                result.session_field_values_removed += (
+                    self._remove_unmapped_session_values(
+                        entry.session_id, desired_session_field_ids
+                    )
+                )
+                added, removed = self._reconcile_personal_for_session(
+                    event_id=event_id,
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=row,
+                    personal_field_ids=field_ids.personal,
+                )
+                result.personal_entries_added += added
+                result.personal_entries_removed += removed
+                result.sessions_processed += 1
+            result.session_fields_pruned = (
+                self._repos.session_fields.delete_orphans_for_event(event_id)
+            )
+            result.personal_fields_pruned = (
+                self._repos.personal_fields.delete_orphans_for_event(event_id)
+            )
+        return result
+
+    def _add_missing_session_values(
+        self,
+        session_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
+        session_field_ids: dict[str, int],
+    ) -> int:
+        existing = {
+            fv.field_id for fv in self._repos.sessions.read_field_values(session_id)
+        }
+        to_add = [
+            SessionFieldValueData(
+                session_id=session_id,
+                field_id=field_id,
+                value=_cell(settings.questions.get(header), row, header),
+            )
+            for header, field_id in session_field_ids.items()
+            if field_id not in existing
+        ]
+        if to_add:
+            self._repos.sessions.save_field_values(session_id, to_add)
+        return len(to_add)
+
+    def _remove_unmapped_session_values(
+        self, session_id: int, desired_field_ids: set[int]
+    ) -> int:
+        existing = self._repos.sessions.read_field_values(session_id)
+        to_remove = [
+            fv.field_id for fv in existing if fv.field_id not in desired_field_ids
+        ]
+        return self._repos.sessions.delete_field_values_for_fields(
+            session_id, to_remove
+        )
+
+    def _reconcile_personal_for_session(
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
+        personal_field_ids: dict[str, int],
+    ) -> tuple[int, int]:
+        # Personal data is per-facilitator; a session can carry several. The
+        # row's cell values are the same across them — we add the gaps each
+        # facilitator is still missing, and drop entries pointing at fields
+        # the recipe no longer maps. Existing values stay put.
+        desired = set(personal_field_ids.values())
+        added = 0
+        removed = 0
+        for facilitator in self._repos.sessions.read_facilitators(session_id):
+            existing_field_ids = set(
+                self._repos.host_personal_data.list_field_ids_for_facilitator_event(
+                    facilitator.pk, event_id
+                )
+            )
+            missing = [
+                HostPersonalDataEntry(
+                    facilitator_id=facilitator.pk,
+                    event_id=event_id,
+                    field_id=field_id,
+                    value=_cell(settings.questions.get(header), row, header),
+                )
+                for header, field_id in personal_field_ids.items()
+                if field_id not in existing_field_ids
+            ]
+            if missing:
+                self._repos.host_personal_data.save(missing)
+                added += len(missing)
+            to_remove = [fid for fid in existing_field_ids if fid not in desired]
+            removed += self._repos.host_personal_data.delete_for_facilitator_fields(
+                facilitator.pk, to_remove
+            )
+        return added, removed
 
     @staticmethod
     def _decode_response(response_json: str) -> ImportRow:

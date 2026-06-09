@@ -1089,3 +1089,45 @@ class EventImportMissingFieldsView(PanelAccessMixin, EventContextMixin, View):
                 _("No new fields to import; every form question is already mapped."),
             )
         return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+
+class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View):
+    """Reconcile imported sessions' field values against the current recipe.
+
+    Adds values for newly mapped session/personal fields (read from the row
+    cached on each success log entry), drops values for fields no longer
+    mapped. Retained mappings keep their existing values untouched. Prunes
+    orphan SessionField / PersonalDataField records on the event.
+    """
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+        integrations = _import_integrations(self.request, current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        result = self.request.services.proposals_import.apply_field_layout(
+            current_event.pk, active.pk
+        )
+        messages.success(
+            self.request,
+            _(
+                "Field layout applied to %(sessions)d proposals: "
+                "+%(added)d / -%(removed)d session fields, "
+                "+%(p_added)d / -%(p_removed)d personal entries, "
+                "pruned %(pruned)d orphan field definitions."
+            )
+            % {
+                "sessions": result.sessions_processed,
+                "added": result.session_field_values_added,
+                "removed": result.session_field_values_removed,
+                "p_added": result.personal_entries_added,
+                "p_removed": result.personal_entries_removed,
+                "pruned": result.session_fields_pruned + result.personal_fields_pruned,
+            },
+        )
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
