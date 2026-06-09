@@ -1484,81 +1484,31 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         for req in enrollment_requests:
-            # Handle cancellation
-            if req.choice == "cancel" and (
-                existing_participation := next(
-                    p for p in participations if p.user.id == req.user.pk
+            if req.choice == "cancel":
+                existing_participation = next(
+                    (p for p in participations if p.user.id == req.user.pk), None
                 )
-            ):
+                if existing_participation is None:
+                    enrollments.skipped_users.append(
+                        f"{req.name} ({_('no enrollment to cancel')!s})"
+                    )
+                    continue
+
+                was_confirmed = (
+                    existing_participation.status
+                    == SessionParticipationStatus.CONFIRMED.value
+                )
                 existing_participation.delete()
                 enrollments.cancelled_users.append(req.name)
 
-                # If this was a confirmed enrollment, promote from waiting list
-                self._promote_from_waitlist(
-                    existing_participation, participations, req, session, enrollments
-                )
+                if was_confirmed:
+                    _try_promote_from_waitlist(
+                        self.request, session, enrollments=enrollments
+                    )
                 continue
 
             self._check_and_create_enrollment(req, session, enrollments)
         return enrollments
-
-    def _promote_from_waitlist(
-        self,
-        existing_participation: SessionParticipation,
-        participations: QuerySet[SessionParticipation],
-        req: EnrollmentRequest,
-        session: Session,
-        enrollments: Enrollments,
-    ) -> None:
-        if existing_participation.status == SessionParticipationStatus.CONFIRMED:
-            for participation in participations:
-                if (
-                    participation.user.id != req.user.pk
-                    and participation.status == SessionParticipationStatus.WAITING
-                ) and not Session.objects.has_conflicts(
-                    session, UserDTO.model_validate(participation.user)
-                ):
-
-                    can_be_promoted = True
-                    if participation.user.email:
-                        manager_user = participation.user
-                        if participation.user.manager:
-                            manager_user = participation.user.manager
-
-                        event = session.agenda_item.space.area.venue.event
-                        user_config = get_user_enrollment_config(
-                            event=EventDTO.model_validate(event),
-                            user_email=manager_user.email,
-                            enrollment_config_repo=self.request.di.uow.enrollment_configs,
-                            ticket_api=self.request.di.ticket_api,
-                            check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
-                        )
-                        if user_config and not can_enroll_users(
-                            users=[
-                                UserDTO.model_validate(manager_user),
-                                *[
-                                    UserDTO.model_validate(c)
-                                    for c in manager_user.connected.all()
-                                ],
-                            ],
-                            event=EventDTO.model_validate(event),
-                            virtual_config=user_config,
-                            users_to_enroll=[
-                                UserDTO.model_validate(participation.user)
-                            ],
-                        ):
-                            can_be_promoted = False
-
-                    if can_be_promoted:
-                        participation.status = SessionParticipationStatus.CONFIRMED
-                        participation.save()
-                        enrollments.users_by_status[
-                            SessionParticipationStatus.CONFIRMED
-                        ].append(
-                            f"{participation.user.get_full_name()} "
-                            f"({_("promoted from waiting list")})"
-                        )
-                        break
 
     @staticmethod
     def _check_and_create_enrollment(
@@ -1905,21 +1855,88 @@ def _validate_anonymous_enrollment_request(
     return session, anonymous_user
 
 
+def _try_promote_from_waitlist(
+    request: RootRequest | AuthenticatedRootRequest,
+    session: Session,
+    *,
+    enrollments: Enrollments | None = None,
+) -> None:
+    participations = SessionParticipation.objects.filter(session=session).order_by(
+        "creation_time"
+    )
+    for participation in participations:
+        if participation.status != SessionParticipationStatus.WAITING:
+            continue
+        if Session.objects.has_conflicts(
+            session, UserDTO.model_validate(participation.user)
+        ):
+            continue
+
+        can_be_promoted = True
+        if participation.user.email:
+            manager_user = participation.user
+            if participation.user.manager:
+                manager_user = participation.user.manager
+
+            event = session.agenda_item.space.area.venue.event
+            user_config = get_user_enrollment_config(
+                event=EventDTO.model_validate(event),
+                user_email=manager_user.email,
+                enrollment_config_repo=request.di.uow.enrollment_configs,
+                ticket_api=request.di.ticket_api,
+                check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+            )
+            if user_config and not can_enroll_users(
+                users=[
+                    UserDTO.model_validate(manager_user),
+                    *[UserDTO.model_validate(c) for c in manager_user.connected.all()],
+                ],
+                event=EventDTO.model_validate(event),
+                virtual_config=user_config,
+                users_to_enroll=[UserDTO.model_validate(participation.user)],
+            ):
+                can_be_promoted = False
+
+        if not can_be_promoted:
+            continue
+
+        participation.status = SessionParticipationStatus.CONFIRMED
+        participation.save()
+        promoted_name = (
+            f"{participation.user.get_full_name()} "
+            f"({_('promoted from waiting list')})"
+        )
+        if enrollments is not None:
+            enrollments.users_by_status[SessionParticipationStatus.CONFIRMED].append(
+                promoted_name
+            )
+        else:
+            messages.success(request, _("Enrolled: {}").format(promoted_name))
+        break
+
+
 def _cancel_anonymous_enrollment(
     request: RootRequest, session: Session, anonymous_user: UserDTO
 ) -> None:
-    try:
-        enrollment = SessionParticipation.objects.get(
-            session=session, user_id=anonymous_user.pk
-        )
+    with transaction.atomic():
+        session = Session.objects.select_for_update().get(id=session.id)
+        try:
+            enrollment = SessionParticipation.objects.get(
+                session=session, user_id=anonymous_user.pk
+            )
+        except SessionParticipation.DoesNotExist:
+            messages.warning(request, _("No enrollment found to cancel."))
+            return
+
+        was_confirmed = enrollment.status == SessionParticipationStatus.CONFIRMED.value
         enrollment.delete()
         messages.success(
             request,
             _("Successfully cancelled enrollment in session: %(title)s")
             % {"title": session.title},
         )
-    except SessionParticipation.DoesNotExist:
-        messages.warning(request, _("No enrollment found to cancel."))
+        if was_confirmed:
+            _try_promote_from_waitlist(request, session)
 
 
 def _enroll_anonymous_user(
@@ -1937,36 +1954,39 @@ def _enroll_anonymous_user(
             "web:chronology:session-enrollment-anonymous", session_id=session_id
         )
 
-    if session.is_full:
-        SessionParticipation.objects.get_or_create(
-            session=session,
-            user_id=anonymous_user.pk,
-            defaults={"status": SessionParticipationStatus.WAITING.value},
-        )
-        messages.success(
-            request,
-            _(
-                "Session is full. You have been added to the waiting list "
-                "for: %(title)s"
+    with transaction.atomic():
+        session = Session.objects.select_for_update().get(id=session.id)
+        if session.is_full:
+            SessionParticipation.objects.get_or_create(
+                session=session,
+                user_id=anonymous_user.pk,
+                defaults={"status": SessionParticipationStatus.WAITING.value},
             )
-            % {"title": session.title},
-        )
-    else:
-        enrollment, created = SessionParticipation.objects.get_or_create(
-            session=session,
-            user_id=anonymous_user.pk,
-            defaults={"status": SessionParticipationStatus.CONFIRMED.value},
-        )
-        if (
-            not created
-            and enrollment.status != SessionParticipationStatus.CONFIRMED.value
-        ):
-            enrollment.status = SessionParticipationStatus.CONFIRMED.value
-            enrollment.save()
-        messages.success(
-            request,
-            _("Successfully enrolled in session: %(title)s") % {"title": session.title},
-        )
+            messages.success(
+                request,
+                _(
+                    "Session is full. You have been added to the waiting list "
+                    "for: %(title)s"
+                )
+                % {"title": session.title},
+            )
+        else:
+            enrollment, created = SessionParticipation.objects.get_or_create(
+                session=session,
+                user_id=anonymous_user.pk,
+                defaults={"status": SessionParticipationStatus.CONFIRMED.value},
+            )
+            if (
+                not created
+                and enrollment.status != SessionParticipationStatus.CONFIRMED.value
+            ):
+                enrollment.status = SessionParticipationStatus.CONFIRMED.value
+                enrollment.save()
+            messages.success(
+                request,
+                _("Successfully enrolled in session: %(title)s")
+                % {"title": session.title},
+            )
 
     return None
 
