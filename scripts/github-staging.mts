@@ -116,7 +116,8 @@ const repoParams = (context: Context) => ({
   repo: context.repo.repo,
 });
 
-const repoFullName = (context: Context) => `${context.repo.owner}/${context.repo.repo}`;
+const repoFullName = (context: Context) =>
+  `${context.repo.owner}/${context.repo.repo}`;
 
 const isSameRepositoryPullRequest = (context: Context, pr: PullRequestLike) =>
   pr.head?.repo?.full_name === repoFullName(context);
@@ -223,10 +224,16 @@ const dispatchDeploy = async ({
       sha: pr.head.sha,
     },
   });
-  core.info(`Dispatched ${DEPLOY_WORKFLOW_ID} for PR #${pr.number} at ${pr.head.sha}`);
+  core.info(
+    `Dispatched ${DEPLOY_WORKFLOW_ID} for PR #${pr.number} at ${pr.head.sha}`,
+  );
 };
 
-export const handlePullRequest = async ({ github, context, core }: ActionArgs) => {
+export const handlePullRequest = async ({
+  github,
+  context,
+  core,
+}: ActionArgs) => {
   const eventPr = context.payload.pull_request;
   if (!eventPr) throw new Error("Expected pull_request payload");
 
@@ -238,7 +245,11 @@ export const handlePullRequest = async ({ github, context, core }: ActionArgs) =
     return;
   }
 
-  const pr = await fetchPullRequest({ github, context, number: eventPr.number });
+  const pr = await fetchPullRequest({
+    github,
+    context,
+    number: eventPr.number,
+  });
 
   if (pr.draft) {
     core.info(`PR #${pr.number} is a draft`);
@@ -295,11 +306,25 @@ const resolveExplicitDeploy = async ({
 }: ResolveExplicitDeployArgs) => {
   const pr = await fetchPullRequest({ github, context, number: prNumber });
 
-  if (pr.state !== "open" || pr.draft || !hasStagingLabel(pr) || pr.head?.sha !== sha) {
+  // An explicit dispatch is itself the authorization to deploy, so we do NOT
+  // require the staging label here (that gate is only for the auto-flow). We
+  // still refuse closed/draft PRs and stale commits, and claimStagingTarget
+  // strips the label from any other PR so only the explicit target is on
+  // staging.
+  if (pr.state !== "open" || pr.draft) {
     setShouldDeploy(
       core,
       false,
-      `PR #${prNumber} is no longer the current ${STAGING_LABEL} target for ${sha}`,
+      `PR #${prNumber} is not an open, non-draft pull request`,
+    );
+    return;
+  }
+
+  if (pr.head?.sha !== sha) {
+    setShouldDeploy(
+      core,
+      false,
+      `PR #${prNumber} head ${pr.head?.sha} no longer matches requested ${sha}`,
     );
     return;
   }
@@ -333,7 +358,11 @@ const resolveManualDeploy = async ({
   );
 
   if (matchingStagingPrs.length !== 1) {
-    setShouldDeploy(core, false, `No unique open PR with ${STAGING_LABEL} for ${sha}`);
+    setShouldDeploy(
+      core,
+      false,
+      `No unique open PR with ${STAGING_LABEL} for ${sha}`,
+    );
     return;
   }
 
@@ -349,7 +378,11 @@ const resolveManualDeploy = async ({
     !hasStagingLabel(winner) ||
     !isSameRepositoryPullRequest(context, winner)
   ) {
-    setShouldDeploy(core, false, `No unique open PR with ${STAGING_LABEL} for ${sha}`);
+    setShouldDeploy(
+      core,
+      false,
+      `No unique open PR with ${STAGING_LABEL} for ${sha}`,
+    );
     return;
   }
 
@@ -361,12 +394,24 @@ export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {
   const inputSha = context.payload.inputs?.sha?.trim();
   const sha = inputSha || context.sha;
   const prNumberInput = context.payload.inputs?.pr_number?.trim();
-  const prNumber = prNumberInput ? Number.parseInt(prNumberInput, 10) : undefined;
+  const prNumber = prNumberInput
+    ? Number.parseInt(prNumberInput, 10)
+    : undefined;
+  const isValidPrNumber =
+    !prNumberInput ||
+    (prNumber !== undefined &&
+      Number.isSafeInteger(prNumber) &&
+      prNumber > 0 &&
+      String(prNumber) === prNumberInput);
 
   core.setOutput("sha", sha);
 
-  if (prNumberInput && (!prNumber || String(prNumber) !== prNumberInput)) {
-    setShouldDeploy(core, false, `Invalid pull request number: ${prNumberInput}`);
+  if (!isValidPrNumber) {
+    setShouldDeploy(
+      core,
+      false,
+      `Invalid pull request number: ${prNumberInput}`,
+    );
     return;
   }
 
