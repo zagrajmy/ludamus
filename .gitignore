@@ -222,11 +222,7 @@ src/ludamus/media/
 
 tests/e2e/.auth-state-empty.json
 
-# TBD
 .tbd
-
 .local
-
-
-# Un-ignore .claude (global ~/.gitignore ignores it); .claude/.gitignore manages the rest
 !.claude/
+test-results
