@@ -706,18 +706,23 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, active.pk, settings.model_dump_json()
         )
         messages.success(self.request, _("Question saved."))
-        cached = self.request.services.event_integrations.get_cached_questions(
-            current_event.pk, active.pk
+        review_url = reverse(
+            "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
         )
-        if (next_index := index + 1) < len(cached):
-            review_url = reverse(
-                "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
-            )
-            target_url = f"{review_url}?edit={next_index}"
+        if self.request.POST.get("stay"):
+            # "Just save" — operator is iterating on this question (typically
+            # overrides) and wants to land back on the same edit view.
+            target_url = f"{review_url}?edit={index}"
         else:
-            target_url = reverse(
-                "panel:import-integration", kwargs={"slug": slug, "pk": active.pk}
+            cached = self.request.services.event_integrations.get_cached_questions(
+                current_event.pk, active.pk
             )
+            if (next_index := index + 1) < len(cached):
+                target_url = f"{review_url}?edit={next_index}"
+            else:
+                target_url = reverse(
+                    "panel:import-integration", kwargs={"slug": slug, "pk": active.pk}
+                )
         if self.request.headers.get("HX-Request"):
             response = HttpResponse(status=204)
             response["HX-Redirect"] = target_url

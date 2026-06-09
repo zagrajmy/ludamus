@@ -42,6 +42,14 @@
             </button>
             <button type="submit"
                     form="review-row-form"
+                    name="stay"
+                    value="1"
+                    class="btn btn-secondary inline-flex items-center">
+                {% icon "check" class="w-4 h-4 mr-1" %}
+                {% translate "Save" %}
+            </button>
+            <button type="submit"
+                    form="review-row-form"
                     class="btn btn-primary inline-flex items-center">
                 {% icon "check" class="w-4 h-4 mr-1" %}
                 {% if edit_nav.next_index is None %}

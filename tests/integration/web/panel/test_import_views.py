@@ -852,6 +852,37 @@ class TestEventImportRowSaveView:
         assert definition.allow_custom is True
         assert definition.options == ["D&D", "Warhammer"]
 
+    def test_post_with_stay_redirects_back_to_the_same_edit_view(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # Operator is iterating on overrides for one question and wants to
+        # stay on the same edit view after saving instead of jumping to the
+        # next one.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "2",
+                "question_2": "Title",
+                "target_2": "session.title",
+                "stay": "1",
+            },
+        )
+
+        review_url = reverse(
+            "panel:import-review", kwargs={"slug": event.slug, "pk": integration.pk}
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"{review_url}?edit=2",
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
+
     def test_post_saves_time_slot_windows_for_one_row(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
