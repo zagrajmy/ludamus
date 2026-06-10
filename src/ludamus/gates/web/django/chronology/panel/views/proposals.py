@@ -26,7 +26,7 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
-from ludamus.pacts.legacy import parse_uploaded_file
+from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
     from django import forms
@@ -251,13 +251,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             "min_age": form.cleaned_data.get("min_age") or 0,
             "duration": form.cleaned_data.get("duration") or "",
         }
-        # File on upload, False when cleared, unchanged value otherwise; only
-        # send the key when it changes so the stored cover is left intact.
-        raw_cover_image = form.cleaned_data.get("cover_image")
-        if uploaded_cover := parse_uploaded_file(raw_cover_image):
-            update_data["cover_image"] = uploaded_cover
-        elif raw_cover_image is False:
-            update_data["cover_image"] = ""
+        cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
+        if cover is not None:
+            update_data["cover_image"] = cover
         self.request.di.uow.sessions.update(proposal_id, update_data)
 
         self._update_facilitators(session.pk, current_event.pk)
