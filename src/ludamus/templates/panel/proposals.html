@@ -15,16 +15,12 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:proposal-create' slug=current_event.slug %}"
-           class="btn btn-primary">
-            {% icon "plus" class="w-4 h-4 mr-2" %}
-            {% translate "Create Session" %}
-        </a>
-        <a href="{% url 'panel:content-log' slug=current_event.slug %}"
-           class="btn btn-secondary">
-            {% icon "clock" class="w-4 h-4 mr-2" %}
-            {% translate "Activity Log" %}
-        </a>
+        {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+        {% translate "Create Session" as t_create %}
+        {% tessera_button t_create href=create_url icon="plus" %}
+        {% url 'panel:content-log' slug=current_event.slug as log_url %}
+        {% translate "Activity Log" as t_log %}
+        {% tessera_button t_log href=log_url variant="secondary" icon="clock" %}
     {% endif %}
     {% if all_tracks %}
         <form method="get" class="flex items-center gap-2 flex-shrink-0">

@@ -897,11 +897,8 @@ def diff_session_content(
 
 
 class SessionContentEditService:
-    """Persist a session content edit and record it in the audit log.
-
-    Shared by the facilitator self-edit and the organizer panel edit so both
-    paths write the same `ContentChangeLog`. Owns the transactional boundary.
-    """
+    # Shared by the facilitator self-edit and organizer panel edit so both
+    # paths write the same ContentChangeLog; owns the transactional boundary.
 
     def __init__(
         self,
@@ -930,8 +927,7 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
-            if data.field_values:
-                self._sessions.save_field_values(session_id, data.field_values)
+            self._sessions.save_field_values(session_id, data.field_values)
             if data.facilitator_ids is not None:
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
             changes = diff_session_content(
