@@ -52,7 +52,7 @@ env = environ.Env(
     # local Mailpit inbox, filemail:///path for file capture, or
     # smtp://user:pass@host:587/?tls=True in production.
     EMAIL_URL=(str, "consolemail://"),
-    DEFAULT_FROM_EMAIL=(str, "Ludamus <noreply@ludamus.local>"),
+    DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
     # Waiting-list offer-expiry trigger: "cron" (default; the expire_offers
     # sweep) or "dbos" (durable in-process workflow timer).
     OFFER_EXPIRY_SCHEDULER=(str, "cron"),
