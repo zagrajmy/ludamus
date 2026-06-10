@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        ImportFieldLayoutServiceProtocol,
+        ImportLogServiceProtocol,
         ProposalImportServiceProtocol,
     )
     from ludamus.pacts.venues import VenuesServiceProtocol
@@ -62,3 +64,7 @@ class ServicesProtocol(Protocol):
     def venues(self) -> VenuesServiceProtocol: ...
     @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
+    @property
+    def import_log(self) -> ImportLogServiceProtocol: ...
+    @property
+    def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...

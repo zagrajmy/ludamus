@@ -854,7 +854,7 @@ class EventImportLogPageView(_ImportTabView):
         # The repo filter already narrows by status when set; for grouping we
         # always read both buckets so the counts stay accurate even when only
         # one section renders.
-        entries = self.request.services.proposals_import.list_log_entries(
+        entries = self.request.services.import_log.list_log_entries(
             current_event.pk, active.pk, search=search
         )
         # Each (integration, row_index) is unique now, so a simple split by
@@ -1044,7 +1044,7 @@ class EventImportLogRetryActionView(_EventImportLogActionView):
     """Retry a single skipped log entry against the current recipe."""
 
     def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
-        succeeded = self.request.services.proposals_import.retry_entry(
+        succeeded = self.request.services.import_log.retry_entry(
             sphere_id, event_pk, entry_pk
         )
         if succeeded:
@@ -1057,7 +1057,7 @@ class EventImportLogReimportActionView(_EventImportLogActionView):
     """Reapply the source row to the existing session for a success entry."""
 
     def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
-        succeeded = self.request.services.proposals_import.reimport_entry(
+        succeeded = self.request.services.import_log.reimport_entry(
             sphere_id, event_pk, entry_pk
         )
         if succeeded:
@@ -1140,7 +1140,7 @@ class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View)
         if (active := _active_integration(integrations, pk)) is None:
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
-        result = self.request.services.proposals_import.apply_field_layout(
+        result = self.request.services.import_field_layout.apply_field_layout(
             current_event.pk, active.pk
         )
         messages.success(

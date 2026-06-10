@@ -260,6 +260,9 @@ class ProposalImportServiceProtocol(Protocol):
     def run_sample(
         self, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult: ...
+
+
+class ImportLogServiceProtocol(Protocol):
     def list_log_entries(
         self,
         event_id: int,
@@ -268,12 +271,15 @@ class ProposalImportServiceProtocol(Protocol):
         status: ImportLogStatus | None = None,
         search: str = "",
     ) -> list[ImportLogEntryDTO]: ...
+    def log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None: ...
     def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
     def reimport_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
+
+
+class ImportFieldLayoutServiceProtocol(Protocol):
     def apply_field_layout(
         self, event_id: int, integration_pk: int
     ) -> ApplyFieldLayoutResult: ...
-    def log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None: ...
 
 
 # --- CFP (personal-data field management) ---

@@ -24,6 +24,8 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
+from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.mills.venues import VenuesService
@@ -138,22 +140,36 @@ class Services:
         )
 
     @cached_property
+    def _import_repos(self) -> ImportRepos:
+        return ImportRepos(
+            self._repos.sessions,
+            self._repos.session_fields,
+            self._repos.personal_data_fields,
+            self._repos.host_personal_data,
+            self._repos.time_slots,
+            self._repos.tracks,
+            self._repos.proposal_categories,
+            self._repos.facilitators,
+            self._repos.import_log_entries,
+        )
+
+    @cached_property
     def proposals_import(self) -> ProposalImportService:
         # The Chronology integrations service supplies both the saved recipe
         # (settings_json) and the raw source rows; Submissions interprets them
         # into proposals.
         return ProposalImportService(
-            self._transaction,
-            self.event_integrations,
-            ImportRepos(
-                self._repos.sessions,
-                self._repos.session_fields,
-                self._repos.personal_data_fields,
-                self._repos.host_personal_data,
-                self._repos.time_slots,
-                self._repos.tracks,
-                self._repos.proposal_categories,
-                self._repos.facilitators,
-                self._repos.import_log_entries,
-            ),
+            self._transaction, self.event_integrations, self._import_repos
+        )
+
+    @cached_property
+    def import_log(self) -> ImportLogService:
+        return ImportLogService(
+            self._transaction, self.event_integrations, self._import_repos
+        )
+
+    @cached_property
+    def import_field_layout(self) -> ImportFieldLayoutService:
+        return ImportFieldLayoutService(
+            self._transaction, self.event_integrations, self._import_repos
         )
