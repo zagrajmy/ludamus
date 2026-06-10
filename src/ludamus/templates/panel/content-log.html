@@ -1,5 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
+{% load cfp_tags %}
+{% load tessera %}
 {% block title_prefix %}
     {% translate "Content Activity Log" %} —
 {% endblock title_prefix %}
@@ -7,43 +9,60 @@
     {% translate "Content Activity Log" %}
 {% endblock page_title %}
 {% block content %}
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    <div class="p-4">
         {% if logs %}
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm border-collapse">
-                    <thead>
-                        <tr class="border-b border-neutral-200 text-left">
-                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Time" %}</th>
-                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "User" %}</th>
-                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Session" context "table column" %}</th>
-                            <th class="py-2 font-medium text-foreground-secondary">{% translate "Changes" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        {% for log in logs %}
-                            <tr class="hover:bg-neutral-50 align-top">
-                                <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
-                                <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
-                                <td class="py-2 pr-4">{{ log.session_title }}</td>
-                                <td class="py-2 text-foreground-secondary">
-                                    <ul class="space-y-1">
-                                        {% for change in log.changes %}
-                                            <li>
-                                                <span class="font-medium text-foreground">{{ change.label }}:</span>
-                                                <span class="text-foreground-muted">{{ change.old|default:"—" }}</span>
-                                                <span aria-hidden="true">→</span>
-                                                <span>{{ change.new|default:"—" }}</span>
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
-        {% endif %}
-    </div>
+            {% tessera_table %}
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Time" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "User" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Session" context "table column" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Changes" %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-bg-secondary divide-y divide-border">
+                {% translate "Field" as field_fallback %}
+                {% for log in logs %}
+                    <tr class="align-top">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ log.creation_time|date:"d.m H:i:s" }}</td>
+                        <td class="px-6 py-4 text-sm text-foreground">{{ log.user_name|default:"—" }}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-foreground">{{ log.session_title }}</td>
+                        <td class="px-6 py-4 text-sm text-foreground-secondary">
+                            <ul class="space-y-1">
+                                {% for change in log.changes %}
+                                    <li>
+                                        <span class="font-medium text-foreground">
+                                            {% if change.field_id %}
+                                                {{ field_names|get_item:change.field_id|default:field_fallback }}
+                                            {% else %}
+                                                {{ change.field|content_field_label }}
+                                            {% endif %}
+                                        :</span>
+                                        <span class="text-foreground-muted">{{ change.old|default:"—" }}</span>
+                                        <span aria-hidden="true">→</span>
+                                        <span>{{ change.new|default:"—" }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% end_tessera_table %}
+    {% else %}
+        <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
+    {% endif %}
+</div>
 {% endblock content %}

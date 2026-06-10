@@ -20,9 +20,9 @@ from ludamus.pacts.legacy import (
     PersonalDataFieldDTO,
     PersonalDataFieldUpdateData,
     ProposalCategoryDTO,
+    SessionContentEditData,
     SessionFieldValueData,
     SessionSelfEditContext,
-    SessionUpdateData,
     SpaceDTO,
 )
 
@@ -152,10 +152,10 @@ class SessionContentEditServiceProtocol(Protocol):
         session_id: int,
         event_id: int,
         user_id: int | None,
-        update: SessionUpdateData,
-        field_values: list[SessionFieldValueData],
+        data: SessionContentEditData,
     ) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
+    def list_field_names(self, event_id: int) -> dict[int, str]: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

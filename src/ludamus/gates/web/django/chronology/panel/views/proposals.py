@@ -21,6 +21,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import SessionEditForm, create_proposal_form
 from ludamus.pacts import (
     NotFoundError,
+    SessionContentEditData,
     SessionData,
     SessionFieldValueData,
     SessionStatus,
@@ -130,14 +131,12 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
 
-    def _update_facilitators(self, session_pk: int, event_pk: int) -> None:
+    def _submitted_facilitator_ids(self, event_pk: int) -> list[int]:
         raw_ids = self.request.POST.getlist("facilitator_ids")
         submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
         all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
         valid_pks = {f.pk for f in all_facilitators}
-        self.request.di.uow.sessions.set_facilitators(
-            session_pk, list(submitted_ids & valid_pks)
-        )
+        return list(submitted_ids & valid_pks)
 
     def _collect_session_field_values(
         self, session_pk: int, event_pk: int
@@ -263,10 +262,12 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             session_id=proposal_id,
             event_id=current_event.pk,
             user_id=self.request.context.current_user_id,
-            update=update_data,
-            field_values=field_values,
+            data=SessionContentEditData(
+                update=update_data,
+                field_values=field_values,
+                facilitator_ids=self._submitted_facilitator_ids(current_event.pk),
+            ),
         )
-        self._update_facilitators(session.pk, current_event.pk)
 
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
@@ -413,7 +414,7 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "proposals"
         context["slug"] = slug
-        context["logs"] = self.request.services.session_content_edit.list_log(
-            current_event.pk
-        )
+        service = self.request.services.session_content_edit
+        context["logs"] = service.list_log(current_event.pk)
+        context["field_names"] = service.list_field_names(current_event.pk)
         return TemplateResponse(self.request, "panel/content-log.html", context)

@@ -1,5 +1,5 @@
 from ludamus.mills.chronology import diff_session_content
-from ludamus.pacts import SessionDTO, SessionFieldDTO, SessionFieldValueDTO
+from ludamus.pacts import SessionDTO, SessionFieldValueDTO
 
 
 def _session(**overrides):
@@ -19,121 +19,95 @@ def _session(**overrides):
     return SessionDTO.model_construct(**base)
 
 
-def _field(pk, slug, name):
-    return SessionFieldDTO.model_construct(
-        pk=pk, slug=slug, name=name, field_type="text", order=0, question="?"
-    )
-
-
-def _value(field_id, value, slug="", name=""):
+def _value(field_id, value):
     return SessionFieldValueDTO.model_construct(
-        field_id=field_id, value=value, field_slug=slug, field_name=name
+        field_id=field_id, value=value, field_name=""
     )
 
 
 class TestCoreColumns:
     def test_changed_title_is_logged(self):
-        changes = diff_session_content(_session(), {"title": "New title"}, [], [], [])
+        changes = diff_session_content(_session(), {"title": "New title"}, [], [])
 
         assert changes == [
-            {"field": "title", "label": "Title", "old": "Old title", "new": "New title"}
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New title"}
         ]
 
     def test_unchanged_value_is_not_logged(self):
-        changes = diff_session_content(_session(), {"title": "Old title"}, [], [], [])
+        changes = diff_session_content(_session(), {"title": "Old title"}, [], [])
 
         assert changes == []
 
     def test_key_absent_from_update_is_ignored(self):
-        changes = diff_session_content(_session(), {}, [], [], [])
+        changes = diff_session_content(_session(), {}, [], [])
 
         assert changes == []
 
     def test_numeric_change_is_logged(self):
-        changes = diff_session_content(
-            _session(), {"participants_limit": 12}, [], [], []
-        )
+        changes = diff_session_content(_session(), {"participants_limit": 12}, [], [])
 
         assert changes == [
-            {
-                "field": "participants_limit",
-                "label": "Participants limit",
-                "old": 5,
-                "new": 12,
-            }
+            {"field": "participants_limit", "field_id": None, "old": 5, "new": 12}
         ]
 
 
 class TestCoverImage:
     def test_clearing_existing_cover_is_logged(self):
         changes = diff_session_content(
-            _session(cover_image_url="/media/old.png"), {"cover_image": ""}, [], [], []
+            _session(cover_image_url="/media/old.png"), {"cover_image": ""}, [], []
         )
 
         assert changes == [
             {
                 "field": "cover_image",
-                "label": "Cover image",
+                "field_id": None,
                 "old": "/media/old.png",
                 "new": "",
             }
         ]
 
     def test_clearing_absent_cover_is_not_logged(self):
-        changes = diff_session_content(_session(), {"cover_image": ""}, [], [], [])
+        changes = diff_session_content(_session(), {"cover_image": ""}, [], [])
 
         assert changes == []
 
     def test_uploading_cover_is_logged(self):
-        changes = diff_session_content(
-            _session(), {"cover_image": object()}, [], [], []
-        )
+        changes = diff_session_content(_session(), {"cover_image": object()}, [], [])
 
         assert changes == [
-            {
-                "field": "cover_image",
-                "label": "Cover image",
-                "old": "",
-                "new": "(updated)",
-            }
+            {"field": "cover_image", "field_id": None, "old": "", "new": "(updated)"}
         ]
 
 
 class TestSessionFields:
     def test_changed_field_value_is_logged(self):
-        fields = [_field(1, "system", "System")]
-        old = [_value(1, "D&D", "system", "System")]
+        old = [_value(1, "D&D")]
         new = [{"session_id": 9, "field_id": 1, "value": "Pathfinder"}]
 
-        changes = diff_session_content(_session(), {}, old, new, fields)
+        changes = diff_session_content(_session(), {}, old, new)
 
         assert changes == [
-            {"field": "system", "label": "System", "old": "D&D", "new": "Pathfinder"}
+            {"field": "", "field_id": 1, "old": "D&D", "new": "Pathfinder"}
         ]
 
     def test_unchanged_field_value_is_not_logged(self):
-        fields = [_field(1, "system", "System")]
-        old = [_value(1, "D&D", "system", "System")]
+        old = [_value(1, "D&D")]
         new = [{"session_id": 9, "field_id": 1, "value": "D&D"}]
 
-        changes = diff_session_content(_session(), {}, old, new, fields)
+        changes = diff_session_content(_session(), {}, old, new)
 
         assert changes == []
 
     def test_blank_unanswered_field_is_not_logged(self):
-        fields = [_field(1, "system", "System")]
         new = [{"session_id": 9, "field_id": 1, "value": ""}]
 
-        changes = diff_session_content(_session(), {}, [], new, fields)
+        changes = diff_session_content(_session(), {}, [], new)
 
         assert changes == []
 
     def test_first_answer_is_logged(self):
-        fields = [_field(1, "system", "System")]
         new = [{"session_id": 9, "field_id": 1, "value": "D&D"}]
 
-        changes = diff_session_content(_session(), {}, [], new, fields)
+        changes = diff_session_content(_session(), {}, [], new)
 
-        assert changes == [
-            {"field": "system", "label": "System", "old": None, "new": "D&D"}
-        ]
+        assert changes == [{"field": "", "field_id": 1, "old": None, "new": "D&D"}]

@@ -1384,8 +1384,11 @@ ContentFieldValue = str | int | bool | list[str] | None
 
 
 class ContentFieldChange(TypedDict):
+    # Identity only — no display text. `field` is the core-column key
+    # (e.g. "title"); for dynamic session fields it is "" and `field_id`
+    # holds the SessionField id. Labels are resolved per-request at render.
     field: str
-    label: str
+    field_id: int | None
     old: ContentFieldValue
     new: ContentFieldValue
 
@@ -1395,6 +1398,15 @@ class ContentChangeLogData(TypedDict):
     session_id: int
     user_id: int | None
     changes: list[ContentFieldChange]
+
+
+@dataclass(frozen=True)
+class SessionContentEditData:
+    # The write payload for a single session content edit. `facilitator_ids`
+    # None leaves the assignment untouched; a list (possibly empty) replaces it.
+    update: SessionUpdateData
+    field_values: list[SessionFieldValueData]
+    facilitator_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):

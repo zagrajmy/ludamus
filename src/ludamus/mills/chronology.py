@@ -19,6 +19,7 @@ from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
     ScheduleChangeLogData,
+    SessionContentEditData,
     SessionDTO,
     SessionSelfEditContext,
     SessionStatus,
@@ -58,7 +59,6 @@ from ludamus.pacts.chronology import (
     VenueGroupDTO,
 )
 from ludamus.specs.chronology import resolve_facilitator_session_edit
-from ludamus.specs.proposal import SESSION_CONTENT_FIELD_LABELS
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
@@ -74,7 +74,6 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
-        SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionFieldValueData,
         SessionFieldValueDTO,
@@ -801,24 +800,23 @@ def _normalize(value: ContentFieldValue) -> ContentFieldValue:
     return "" if value is None else value
 
 
-def _diff_cover_image(
-    old_url: str, new_value: object, label: str
-) -> ContentFieldChange | None:
+def _diff_cover_image(old_url: str, new_value: object) -> ContentFieldChange | None:
     # new_value is "" when the cover was cleared, or a file object on upload.
     if not new_value:
         if old_url:
-            return {"field": "cover_image", "label": label, "old": old_url, "new": ""}
+            return {"field": "cover_image", "field_id": None, "old": old_url, "new": ""}
         return None
-    return {"field": "cover_image", "label": label, "old": old_url, "new": "(updated)"}
+    return {
+        "field": "cover_image",
+        "field_id": None,
+        "old": old_url,
+        "new": "(updated)",
+    }
 
 
 def _diff_field_values(
-    old_values: list[SessionFieldValueDTO],
-    new_values: list[SessionFieldValueData],
-    fields: list[SessionFieldDTO],
+    old_values: list[SessionFieldValueDTO], new_values: list[SessionFieldValueData]
 ) -> list[ContentFieldChange]:
-    slug_by_id = {f.pk: f.slug for f in fields}
-    label_by_id = {f.pk: f.name for f in fields}
     old_by_id = {v.field_id: v.value for v in old_values}
     changes: list[ContentFieldChange] = []
     for new in new_values:
@@ -828,12 +826,7 @@ def _diff_field_values(
         if _normalize(old_value) == _normalize(new_value):
             continue
         changes.append(
-            {
-                "field": slug_by_id.get(field_id, str(field_id)),
-                "label": label_by_id.get(field_id, ""),
-                "old": old_value,
-                "new": new_value,
-            }
+            {"field": "", "field_id": field_id, "old": old_value, "new": new_value}
         )
     return changes
 
@@ -884,30 +877,22 @@ def diff_session_content(
     update: SessionUpdateData,
     old_values: list[SessionFieldValueDTO],
     new_values: list[SessionFieldValueData],
-    fields: list[SessionFieldDTO],
 ) -> list[ContentFieldChange]:
     # Field-by-field diff of a session edit, as a flat list of changes: core
-    # session columns plus dynamic session-field answers. Pure — mirrors
-    # exactly what the edit persists.
+    # session columns plus dynamic session-field answers. Pure, identity-only
+    # (no display text) — mirrors exactly what the edit persists.
     changes: list[ContentFieldChange] = [
-        {
-            "field": key,
-            "label": SESSION_CONTENT_FIELD_LABELS[key],
-            "old": old_value,
-            "new": new_value,
-        }
+        {"field": key, "field_id": None, "old": old_value, "new": new_value}
         for key, old_value, new_value in _core_comparisons(old_session, update)
         if old_value != new_value
     ]
     if "cover_image" in update:
         cover_change = _diff_cover_image(
-            old_session.cover_image_url,
-            update["cover_image"],
-            SESSION_CONTENT_FIELD_LABELS["cover_image"],
+            old_session.cover_image_url, update["cover_image"]
         )
         if cover_change is not None:
             changes.append(cover_change)
-    changes.extend(_diff_field_values(old_values, new_values, fields))
+    changes.extend(_diff_field_values(old_values, new_values))
     return changes
 
 
@@ -936,18 +921,21 @@ class SessionContentEditService:
         session_id: int,
         event_id: int,
         user_id: int | None,
-        update: SessionUpdateData,
-        field_values: list[SessionFieldValueData],
+        data: SessionContentEditData,
     ) -> None:
+        # All writes share one transaction so a partial edit can never be
+        # committed. data.facilitator_ids None leaves the assignment untouched
+        # (self-edit); a list (possibly empty) replaces it.
         with self._transaction.atomic():
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
-            fields = self._session_fields.list_by_event(event_id)
-            self._sessions.update(session_id, update)
-            if field_values:
-                self._sessions.save_field_values(session_id, field_values)
+            self._sessions.update(session_id, data.update)
+            if data.field_values:
+                self._sessions.save_field_values(session_id, data.field_values)
+            if data.facilitator_ids is not None:
+                self._sessions.set_facilitators(session_id, data.facilitator_ids)
             changes = diff_session_content(
-                old_session, update, old_values, field_values, fields
+                old_session, data.update, old_values, data.field_values
             )
             if changes:
                 log_data: ContentChangeLogData = {
@@ -960,6 +948,11 @@ class SessionContentEditService:
 
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
         return self._content_change_logs.list_by_event(event_id)
+
+    def list_field_names(self, event_id: int) -> dict[int, str]:
+        # Render-time resolution of dynamic session-field labels (user content,
+        # not UI text) so the log shows the field's current name.
+        return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
 
 
 class SessionSelfEditService:
@@ -1060,8 +1053,7 @@ class SessionSelfEditService:
             session_id=session_id,
             event_id=event.pk,
             user_id=user_id,
-            update=update,
-            field_values=field_values,
+            data=SessionContentEditData(update=update, field_values=field_values),
         )
 
 

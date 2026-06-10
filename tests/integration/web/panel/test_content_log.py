@@ -108,7 +108,7 @@ class TestContentLogRecordsEdits:
         assert log.user_id == active_user.pk
         assert {
             "field": "title",
-            "label": "Title",
+            "field_id": None,
             "old": "Original title",
             "new": "Updated title",
         } in log.changes
@@ -118,7 +118,7 @@ class TestContentLogRecordsEdits:
     ):
         sphere.managers.add(active_user)
         session = _make_session(sphere, proposal_category)
-        SessionField.objects.create(
+        field = SessionField.objects.create(
             event=event,
             name="System",
             question="Which system?",
@@ -143,8 +143,8 @@ class TestContentLogRecordsEdits:
 
         log = ContentChangeLog.objects.get(session=session)
         assert {
-            "field": "system",
-            "label": "System",
+            "field": "",
+            "field_id": field.pk,
             "old": None,
             "new": "Pathfinder",
         } in log.changes
