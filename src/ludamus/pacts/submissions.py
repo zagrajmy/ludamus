@@ -5,7 +5,7 @@ context today, with the Session lifecycle and proposal import to follow.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal, Protocol
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 # --- Proposal import (mapping recipe stored as the integration's settings) ---
 
-_DUPLICATE_HEADER_SUFFIX = re.compile(r"^(.*) \([0-9]+\)$")
+_DUPLICATE_HEADER_SUFFIX = re.compile(r" \([0-9]+\)")
 
 
 class DuplicateValueError(Exception):
@@ -77,8 +77,8 @@ class ImportRow:
 def _row_header_matches(key: str, header: str) -> bool:
     if key == header:
         return True
-    match = _DUPLICATE_HEADER_SUFFIX.match(key)
-    return match is not None and match.group(1) == header
+    suffix = key.removeprefix(header)
+    return suffix != key and _DUPLICATE_HEADER_SUFFIX.fullmatch(suffix) is not None
 
 
 class TimeSlotSpec(BaseModel):
@@ -222,12 +222,16 @@ class ProposalImportResult:
 
 
 @dataclass
+class ValueDelta:
+    added: int = 0
+    removed: int = 0
+
+
+@dataclass
 class ApplyFieldLayoutResult:
     sessions_processed: int = 0
-    session_field_values_added: int = 0
-    session_field_values_removed: int = 0
-    personal_entries_added: int = 0
-    personal_entries_removed: int = 0
+    session_field_values: ValueDelta = field(default_factory=ValueDelta)
+    personal_entries: ValueDelta = field(default_factory=ValueDelta)
     session_fields_pruned: int = 0
     personal_fields_pruned: int = 0
     session_builtins_filled: int = 0

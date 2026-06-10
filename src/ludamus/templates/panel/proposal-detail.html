@@ -118,7 +118,9 @@
                     {% if proposal.duration %}
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
-                            <dd class="text-foreground">{{ proposal.duration|format_duration }}</dd>
+                            <dd class="text-foreground">
+                                {{ proposal.duration|format_duration }}
+                            </dd>
                         </div>
                     {% endif %}
                     {% if proposal.min_age %}

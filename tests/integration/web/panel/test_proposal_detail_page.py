@@ -156,7 +156,6 @@ class TestProposalDetailPageView:
         )
         assert session.cover_image_url.encode() in response.content
 
-
     def test_renders_contact_email_as_mailto_link_when_set(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -180,8 +179,6 @@ class TestProposalDetailPageView:
         assert "Contact Email" in body
         assert 'href="mailto:anna@example.com"' in body
         assert "anna@example.com" in body
-
-
 
     def test_renders_preferred_time_slots_when_attached(
         self, authenticated_client, active_user, sphere, event

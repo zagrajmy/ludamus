@@ -1155,10 +1155,10 @@ class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View)
             )
             % {
                 "sessions": result.sessions_processed,
-                "added": result.session_field_values_added,
-                "removed": result.session_field_values_removed,
-                "p_added": result.personal_entries_added,
-                "p_removed": result.personal_entries_removed,
+                "added": result.session_field_values.added,
+                "removed": result.session_field_values.removed,
+                "p_added": result.personal_entries.added,
+                "p_removed": result.personal_entries.removed,
                 "builtins": result.session_builtins_filled,
                 "links": result.session_links_filled,
                 "pruned": result.session_fields_pruned + result.personal_fields_pruned,

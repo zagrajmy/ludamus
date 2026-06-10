@@ -97,9 +97,7 @@ class _ResolvedBuiltins:
     contact_email: str = ""
 
 
-def _resolve_builtins(
-    settings: ImportSettings, row: dict[str, str]
-) -> _ResolvedBuiltins:
+def _resolve_builtins(settings: ImportSettings, row: ImportRow) -> _ResolvedBuiltins:
     # First non-empty wins per built-in target: a later mapping with an empty
     # cell doesn't clobber an earlier resolved value (the parsers default to
     # 0 / "" on empty, which legacy duplicate mappings would otherwise spread
@@ -115,8 +113,7 @@ def _resolve_builtins(
     for header, target in settings.questions.items():
         if target.to not in _BUILTIN_PROPOSAL_TARGETS:
             continue
-        cell = _cell(target, row, header)
-        if not cell:
+        if not (cell := _cell(target, row, header)):
             continue
         if target.to == "session.title" and not title:
             title = cell
@@ -579,10 +576,10 @@ class ProposalImportService:
                 result.session_links_filled += self._fill_missing_tracks(
                     event_id, entry.session_id, settings, row
                 )
-                result.session_field_values_added += self._add_missing_session_values(
+                result.session_field_values.added += self._add_missing_session_values(
                     entry.session_id, settings, row, field_ids.session
                 )
-                result.session_field_values_removed += (
+                result.session_field_values.removed += (
                     self._remove_unmapped_session_values(
                         entry.session_id, desired_session_field_ids
                     )
@@ -594,8 +591,8 @@ class ProposalImportService:
                     row=row,
                     personal_field_ids=field_ids.personal,
                 )
-                result.personal_entries_added += added
-                result.personal_entries_removed += removed
+                result.personal_entries.added += added
+                result.personal_entries.removed += removed
                 result.sessions_processed += 1
             result.session_fields_pruned = (
                 self._repos.session_fields.delete_orphans_for_event(event_id)
@@ -859,9 +856,7 @@ class ProposalImportService:
         )
 
     @staticmethod
-    def _extract_identity(
-        settings: ImportSettings, row: dict[str, str]
-    ) -> tuple[str, str]:
+    def _extract_identity(settings: ImportSettings, row: ImportRow) -> tuple[str, str]:
         # Empty cells don't overwrite an earlier resolved value — a second
         # mapping to the same built-in target (e.g. legacy duplicates from
         # before the form-question dedup) would otherwise silently clobber it.
@@ -873,8 +868,7 @@ class ProposalImportService:
         for header, target in settings.questions.items():
             if target.to not in _IDENTITY_TARGETS:
                 continue
-            cell = _cell(target, row, header)
-            if not cell:
+            if not (cell := _cell(target, row, header)):
                 continue
             if target.to == "session.title" and not title:
                 title = cell
@@ -978,7 +972,7 @@ class ProposalImportService:
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         field_ids: _FieldIdsByHeader,
     ) -> int:
         builtins = _resolve_builtins(settings, row)
@@ -1037,7 +1031,7 @@ class ProposalImportService:
         event_id: int,
         session_id: int,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         field_ids: _FieldIdsByHeader,
     ) -> None:
         # Mirrors `_create_proposal` but targets the existing session: keeps
@@ -1091,7 +1085,7 @@ class ProposalImportService:
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         title: str,
     ) -> str:
         # Idempotent re-runs: when the operator has named unique-key columns
@@ -1145,7 +1139,7 @@ class ProposalImportService:
         event_id: int,
         facilitator_id: int | None,
         settings: ImportSettings,
-        row: dict[str, str],
+        row: ImportRow,
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
@@ -1168,7 +1162,7 @@ class ProposalImportService:
             self._repos.host_personal_data.save(entries)
 
     def _time_slot_ids(
-        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+        self, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> list[int]:
         # For each `session.time_slots` question, the chosen options' windows
         # are provisioned (deduped by start+end) and their ids collected. The
@@ -1211,7 +1205,7 @@ class ProposalImportService:
         return refs
 
     def _track_ids(
-        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+        self, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> list[int]:
         # Each `track` question's chosen options resolve to tracks, provisioned
         # (deduped by slug) and collected as the session's preferred tracks.
@@ -1228,7 +1222,7 @@ class ProposalImportService:
         return ids
 
     def _category_id(
-        self, event_id: int, settings: ImportSettings, row: dict[str, str]
+        self, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> int | None:
         # A `category` question's chosen option resolves to one category (the
         # single FK), provisioned by slug; a custom answer falls to the catchall.

@@ -340,19 +340,17 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         assert [q.title for q in result] == ["Title"]
 
     def test_wrong_config_type_returns_empty(self):
-        assert (
-            GoogleDocsProposalImporter().fetch_questions(SECRET, _OtherConfig()) == []
-        )
+        assert not GoogleDocsProposalImporter().fetch_questions(SECRET, _OtherConfig())
 
     def test_non_ok_response_returns_empty(self, google):
         google.session.get.return_value = MagicMock(ok=False)
 
-        assert GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG) == []
+        assert not GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
 
     def test_request_exception_returns_empty(self, google):
         google.session.get.side_effect = requests.RequestException("timeout")
 
-        assert GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG) == []
+        assert not GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
 
 
 def _route_get(*, values: list[list[str]], title: str = "Form Responses 1"):

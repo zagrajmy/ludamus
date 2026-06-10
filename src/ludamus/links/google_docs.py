@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
+    IntegrationImplementation,
     IntegrationKind,
     SourceQuestion,
 )
@@ -152,7 +153,7 @@ class GoogleDocsProposalConfig(BaseModel):
     form_id: str
 
 
-class GoogleDocsProposalImporter:
+class GoogleDocsProposalImporter(IntegrationImplementation):
     """Pulls proposals from a Google Sheets responses tab linked to a Form."""
 
     kind: IntegrationKind = IntegrationKind.IMPORT
@@ -184,11 +185,13 @@ class GoogleDocsProposalImporter:
     def fetch_questions(
         self,
         secret: bytes,
-        config: GoogleDocsProposalConfig,
+        config: BaseModel,
         *,
         header_row: int = 1,
         email_column: int | None = None,
     ) -> list[SourceQuestion]:
+        if not isinstance(config, GoogleDocsProposalConfig):
+            return []
         try:
             session = self._session(secret)
         except _CredentialsError:
@@ -255,8 +258,7 @@ class GoogleDocsProposalImporter:
             )
         if response is None or not response.ok:
             return ""
-        values = response.json().get("values") or []
-        if not values:
+        if not (values := response.json().get("values") or []):
             return ""
         row = values[0]
         if column > len(row):

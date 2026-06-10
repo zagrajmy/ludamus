@@ -58,7 +58,7 @@ from ludamus.pacts.chronology import (
     VenueGroupDTO,
 )
 from ludamus.pacts.legacy import resolve_cover_image
-from ludamus.pacts.submissions import ImportSettings, QuestionTarget
+from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
@@ -1103,7 +1103,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
 
     def fetch_responses(
         self, sphere_id: int, event_id: int, pk: int
-    ) -> list[dict[str, str]]:
+    ) -> list[ImportRow]:
         integration = self._integrations.get(event_id, pk)
         if (impl := self._registry.get(integration.implementation)) is None:
             return []

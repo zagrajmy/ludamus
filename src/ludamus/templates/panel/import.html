@@ -25,9 +25,7 @@
             {% else %}
                 {% if email_column_missing %}
                     <div class="card max-w-4xl border border-warning bg-warning-bg p-4">
-                        <p class="text-sm font-medium text-warning-text">
-                            {% translate "Email column not set." %}
-                        </p>
+                        <p class="text-sm font-medium text-warning-text">{% translate "Email column not set." %}</p>
                         <p class="mt-1 text-sm text-foreground-secondary">
                             {% translate "When the form collects respondent email, set the 1-indexed sheet column number on the Run tab so the importer can map it to the proposal's contact email." %}
                         </p>
