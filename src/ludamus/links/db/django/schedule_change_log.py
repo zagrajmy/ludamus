@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.db.models import Q
 
 from ludamus.adapters.db.django.models import ScheduleChangeLog
+from ludamus.links.db.django.change_log_base import base_log_fields
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
@@ -15,23 +16,20 @@ _SELECT_RELATED = ("session", "user", "old_space", "new_space")
 
 
 def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
-    return ScheduleChangeLogDTO(
-        pk=log.pk,
-        event_id=log.event_id,
-        session_id=log.session_id,
-        session_title=log.session.title,
-        user_id=log.user_id,
-        user_name=log.user.name if log.user else "",
-        action=ScheduleChangeAction(log.action),
-        old_space_id=log.old_space_id,
-        old_space_name=log.old_space.name if log.old_space else None,
-        new_space_id=log.new_space_id,
-        new_space_name=log.new_space.name if log.new_space else None,
-        old_start_time=log.old_start_time,
-        old_end_time=log.old_end_time,
-        new_start_time=log.new_start_time,
-        new_end_time=log.new_end_time,
-        creation_time=log.creation_time,
+    return ScheduleChangeLogDTO.model_validate(
+        {
+            **base_log_fields(log),
+            "action": ScheduleChangeAction(log.action),
+            "old_space_id": log.old_space_id,
+            "old_space_name": log.old_space.name if log.old_space else None,
+            "new_space_id": log.new_space_id,
+            "new_space_name": log.new_space.name if log.new_space else None,
+            "old_start_time": log.old_start_time,
+            "old_end_time": log.old_end_time,
+            "new_start_time": log.new_start_time,
+            "new_end_time": log.new_end_time,
+            "creation_time": log.creation_time,
+        }
     )
 
 

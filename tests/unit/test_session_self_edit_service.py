@@ -3,7 +3,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
+from ludamus.mills.chronology import (
+    SessionContentEditService,
+    SessionEditNotAllowedError,
+    SessionSelfEditService,
+)
 from ludamus.pacts import NotFoundError
 
 
@@ -26,7 +30,10 @@ def _build(*, presenter_id, event_override, sphere_default):
     session_fields.list_by_event.return_value = []
     spheres = MagicMock()
     spheres.read.return_value = MagicMock(allow_facilitator_session_edit=sphere_default)
-    service = SessionSelfEditService(transaction, sessions, session_fields, spheres)
+    content_edit = SessionContentEditService(
+        transaction, sessions, session_fields, MagicMock()
+    )
+    service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
     return service, sessions, transaction
 
 

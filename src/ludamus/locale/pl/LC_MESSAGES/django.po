@@ -4951,6 +4951,22 @@ msgstr "Dziennik zmian"
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
+#: src/ludamus/templates/panel/content-log.html
+msgid "Content Activity Log"
+msgstr "Dziennik zmian treści"
+
+#: src/ludamus/templates/panel/content-log.html
+msgid "Changes"
+msgstr "Zmiany"
+
+#: src/ludamus/templates/panel/content-log.html
+msgid "Field"
+msgstr "Pole"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Participants limit"
+msgstr "Limit uczestników"
+
 #: src/ludamus/templates/panel/timetable-log.html
 #: src/ludamus/templates/panel/timetable-overview.html
 #: src/ludamus/templates/panel/timetable-problems.html
