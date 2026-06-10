@@ -58,18 +58,26 @@ from ludamus.pacts.chronology import (
     VenueGroupDTO,
 )
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+from ludamus.specs.proposal import SESSION_CONTENT_FIELD_LABELS
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
         AreaDTO,
+        ContentChangeLogData,
+        ContentChangeLogDTO,
+        ContentChangeLogRepositoryProtocol,
+        ContentFieldChange,
+        ContentFieldValue,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionFieldValueData,
+        SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SpaceDTO,
@@ -789,20 +797,185 @@ class SessionEditNotAllowedError(Exception):
     """Raised when a user may not self-edit the requested session."""
 
 
-class SessionSelfEditService:
-    """Facilitator self-service editing of their own session."""
+def _normalize(value: ContentFieldValue) -> ContentFieldValue:
+    return "" if value is None else value
+
+
+def _diff_cover_image(
+    old_url: str, new_value: object, label: str
+) -> ContentFieldChange | None:
+    # new_value is "" when the cover was cleared, or a file object on upload.
+    if not new_value:
+        if old_url:
+            return {"field": "cover_image", "label": label, "old": old_url, "new": ""}
+        return None
+    return {"field": "cover_image", "label": label, "old": old_url, "new": "(updated)"}
+
+
+def _diff_field_values(
+    old_values: list[SessionFieldValueDTO],
+    new_values: list[SessionFieldValueData],
+    fields: list[SessionFieldDTO],
+) -> list[ContentFieldChange]:
+    slug_by_id = {f.pk: f.slug for f in fields}
+    label_by_id = {f.pk: f.name for f in fields}
+    old_by_id = {v.field_id: v.value for v in old_values}
+    changes: list[ContentFieldChange] = []
+    for new in new_values:
+        field_id = new["field_id"]
+        old_value = old_by_id.get(field_id)
+        new_value = new["value"]
+        if _normalize(old_value) == _normalize(new_value):
+            continue
+        changes.append(
+            {
+                "field": slug_by_id.get(field_id, str(field_id)),
+                "label": label_by_id.get(field_id, ""),
+                "old": old_value,
+                "new": new_value,
+            }
+        )
+    return changes
+
+
+def _core_comparisons(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
+    # Keys are accessed literally (not in a loop) so the TypedDict / DTO field
+    # types stay statically known. cover_image is handled separately.
+    comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
+    if "title" in update:
+        comparisons.append(("title", old_session.title, update["title"]))
+    if "display_name" in update:
+        comparisons.append(
+            ("display_name", old_session.display_name, update["display_name"])
+        )
+    if "description" in update:
+        comparisons.append(
+            ("description", old_session.description, update["description"])
+        )
+    if "requirements" in update:
+        comparisons.append(
+            ("requirements", old_session.requirements, update["requirements"])
+        )
+    if "needs" in update:
+        comparisons.append(("needs", old_session.needs, update["needs"]))
+    if "contact_email" in update:
+        comparisons.append(
+            ("contact_email", old_session.contact_email, update["contact_email"])
+        )
+    if "participants_limit" in update:
+        comparisons.append(
+            (
+                "participants_limit",
+                old_session.participants_limit,
+                update["participants_limit"],
+            )
+        )
+    if "min_age" in update:
+        comparisons.append(("min_age", old_session.min_age, update["min_age"]))
+    if "duration" in update:
+        comparisons.append(("duration", old_session.duration, update["duration"]))
+    return comparisons
+
+
+def diff_session_content(
+    old_session: SessionDTO,
+    update: SessionUpdateData,
+    old_values: list[SessionFieldValueDTO],
+    new_values: list[SessionFieldValueData],
+    fields: list[SessionFieldDTO],
+) -> list[ContentFieldChange]:
+    # Field-by-field diff of a session edit, as a flat list of changes: core
+    # session columns plus dynamic session-field answers. Pure — mirrors
+    # exactly what the edit persists.
+    changes: list[ContentFieldChange] = [
+        {
+            "field": key,
+            "label": SESSION_CONTENT_FIELD_LABELS[key],
+            "old": old_value,
+            "new": new_value,
+        }
+        for key, old_value, new_value in _core_comparisons(old_session, update)
+        if old_value != new_value
+    ]
+    if "cover_image" in update:
+        cover_change = _diff_cover_image(
+            old_session.cover_image_url,
+            update["cover_image"],
+            SESSION_CONTENT_FIELD_LABELS["cover_image"],
+        )
+        if cover_change is not None:
+            changes.append(cover_change)
+    changes.extend(_diff_field_values(old_values, new_values, fields))
+    return changes
+
+
+class SessionContentEditService:
+    """Persist a session content edit and record it in the audit log.
+
+    Shared by the facilitator self-edit and the organizer panel edit so both
+    paths write the same `ContentChangeLog`. Owns the transactional boundary.
+    """
 
     def __init__(
         self,
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         session_fields: SessionFieldRepositoryProtocol,
-        spheres: SphereRepositoryProtocol,
+        content_change_logs: ContentChangeLogRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._session_fields = session_fields
+        self._content_change_logs = content_change_logs
+
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        update: SessionUpdateData,
+        field_values: list[SessionFieldValueData],
+    ) -> None:
+        with self._transaction.atomic():
+            old_session = self._sessions.read(session_id)
+            old_values = self._sessions.read_field_values(session_id)
+            fields = self._session_fields.list_by_event(event_id)
+            self._sessions.update(session_id, update)
+            if field_values:
+                self._sessions.save_field_values(session_id, field_values)
+            changes = diff_session_content(
+                old_session, update, old_values, field_values, fields
+            )
+            if changes:
+                log_data: ContentChangeLogData = {
+                    "event_id": event_id,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "changes": changes,
+                }
+                self._content_change_logs.create(log_data)
+
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
+        return self._content_change_logs.list_by_event(event_id)
+
+
+class SessionSelfEditService:
+    """Facilitator self-service editing of their own session."""
+
+    def __init__(
+        self,
+        sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+        content_edit: SessionContentEditService,
+    ) -> None:
+        self._sessions = sessions
+        self._session_fields = session_fields
         self._spheres = spheres
+        self._content_edit = content_edit
 
     def _gate(
         self, session_id: int, user_id: int | None
@@ -853,7 +1026,8 @@ class SessionSelfEditService:
         cleaned_data: dict[str, object],
         field_values: list[SessionFieldValueData],
     ) -> None:
-        if not self.can_edit(session_id, user_id):
+        allowed, _session, event = self._gate(session_id, user_id)
+        if not allowed or event is None:
             raise SessionEditNotAllowedError
 
         def _str(key: str) -> str:
@@ -882,10 +1056,13 @@ class SessionSelfEditService:
             update["cover_image"] = cover_image
         elif cover_image is False:
             update["cover_image"] = ""
-        with self._transaction.atomic():
-            self._sessions.update(session_id, update)
-            if field_values:
-                self._sessions.save_field_values(session_id, field_values)
+        self._content_edit.apply(
+            session_id=session_id,
+            event_id=event.pk,
+            user_id=user_id,
+            update=update,
+            field_values=field_values,
+        )
 
 
 class IntegrationImplementationNotFoundError(Exception):

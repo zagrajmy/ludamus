@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
+    ContentChangeLogDTO,
     FieldUsageSummary,
     PersonalDataFieldCreateData,
     PersonalDataFieldDTO,
@@ -21,6 +22,7 @@ from ludamus.pacts.legacy import (
     ProposalCategoryDTO,
     SessionFieldValueData,
     SessionSelfEditContext,
+    SessionUpdateData,
     SpaceDTO,
 )
 
@@ -141,6 +143,19 @@ class SessionSelfEditServiceProtocol(Protocol):
         cleaned_data: dict[str, object],
         field_values: list[SessionFieldValueData],
     ) -> None: ...
+
+
+class SessionContentEditServiceProtocol(Protocol):
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        update: SessionUpdateData,
+        field_values: list[SessionFieldValueData],
+    ) -> None: ...
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

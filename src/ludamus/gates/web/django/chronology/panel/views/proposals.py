@@ -139,7 +139,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             session_pk, list(submitted_ids & valid_pks)
         )
 
-    def _save_session_fields(self, session_pk: int, event_pk: int) -> None:
+    def _collect_session_field_values(
+        self, session_pk: int, event_pk: int
+    ) -> list[SessionFieldValueData]:
         event_fields = self.request.di.uow.session_fields.list_by_event(event_pk)
         field_entries: list[SessionFieldValueData] = []
         for field in event_fields:
@@ -157,8 +159,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                     session_id=session_pk, field_id=field.pk, value=value
                 )
             )
-        if field_entries:
-            self.request.di.uow.sessions.save_field_values(session_pk, field_entries)
+        return field_entries
 
     def _get_session_fields(
         self, event_pk: int, proposal_id: int
@@ -256,10 +257,16 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             update_data["cover_image"] = cover_image
         elif cover_image is False:
             update_data["cover_image"] = ""
-        self.request.di.uow.sessions.update(proposal_id, update_data)
 
+        field_values = self._collect_session_field_values(session.pk, current_event.pk)
+        self.request.services.session_content_edit.apply(
+            session_id=proposal_id,
+            event_id=current_event.pk,
+            user_id=self.request.context.current_user_id,
+            update=update_data,
+            field_values=field_values,
+        )
         self._update_facilitators(session.pk, current_event.pk)
-        self._save_session_fields(session.pk, current_event.pk)
 
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
@@ -392,3 +399,21 @@ class ProposalSetFacilitatorsActionView(PanelAccessMixin, EventContextMixin, Vie
         self.request.di.uow.sessions.set_facilitators(session.pk, facilitator_ids)
         messages.success(self.request, _("Facilitators updated."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+
+class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
+    """Read-only activity log of session content edits for an event."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        context["active_nav"] = "proposals"
+        context["slug"] = slug
+        context["logs"] = self.request.services.session_content_edit.list_log(
+            current_event.pk
+        )
+        return TemplateResponse(self.request, "panel/content-log.html", context)

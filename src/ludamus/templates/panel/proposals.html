@@ -20,6 +20,11 @@
             {% icon "plus" class="w-4 h-4 mr-2" %}
             {% translate "Create Session" %}
         </a>
+        <a href="{% url 'panel:content-log' slug=current_event.slug %}"
+           class="btn btn-secondary">
+            {% icon "clock" class="w-4 h-4 mr-2" %}
+            {% translate "Activity Log" %}
+        </a>
     {% endif %}
     {% if all_tracks %}
         <form method="get" class="flex items-center gap-2 flex-shrink-0">

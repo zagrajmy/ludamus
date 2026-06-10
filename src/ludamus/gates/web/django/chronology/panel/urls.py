@@ -223,6 +223,11 @@ urlpatterns = [
         name="proposal-create",
     ),
     path(
+        "event/<slug:slug>/proposals/log/",
+        proposals.ContentLogPageView.as_view(),
+        name="content-log",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/",
         proposals.ProposalDetailPageView.as_view(),
         name="proposal-detail",

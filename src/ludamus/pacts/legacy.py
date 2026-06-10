@@ -1380,6 +1380,44 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     ) -> list[ScheduleChangeLogDTO]: ...
 
 
+ContentFieldValue = str | int | bool | list[str] | None
+
+
+class ContentFieldChange(TypedDict):
+    field: str
+    label: str
+    old: ContentFieldValue
+    new: ContentFieldValue
+
+
+class ContentChangeLogData(TypedDict):
+    event_id: int
+    session_id: int
+    user_id: int | None
+    changes: list[ContentFieldChange]
+
+
+class ContentChangeLogDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    session_id: int
+    session_title: str
+    user_id: int | None
+    user_name: str
+    changes: list[ContentFieldChange]
+    creation_time: datetime
+
+
+class ContentChangeLogRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: ContentChangeLogData) -> None: ...
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...

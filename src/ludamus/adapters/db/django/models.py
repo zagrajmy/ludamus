@@ -1331,6 +1331,27 @@ class ScheduleChangeLog(models.Model):
         return f"{self.action} {self.session} by {self.user}"
 
 
+class ContentChangeLog(models.Model):
+    """Audit trail for session content edits."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="content_change_logs"
+    )
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="content_change_logs"
+    )
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=list)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "content_change_log"
+        ordering: ClassVar = ["-creation_time"]
+
+    def __str__(self) -> str:
+        return f"edit {self.session} by {self.user}"
+
+
 def can_enroll_users(
     *,
     users: list[UserDTO],
