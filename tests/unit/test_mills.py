@@ -16,7 +16,8 @@ from ludamus.mills import (
     render_markdown,
 )
 from ludamus.mills.multiverse import ConnectionsService
-from ludamus.mills.submissions import CFPPersonalDataFieldService, ProposalImportService
+from ludamus.mills.submissions.importing import ProposalImportService
+from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.pacts import (
     EncounterDTO,
     EventDTO,

@@ -24,7 +24,8 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
-from ludamus.mills.submissions import CFPPersonalDataFieldService, ProposalImportService
+from ludamus.mills.submissions.importing import ProposalImportService
+from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.submissions import ImportRepos

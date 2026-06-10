@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 import markdown as _md
 import nh3
 
-from ludamus.mills.submissions import generate_unique_slug
+from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts import (
     AgendaItemData,
     AuthenticatedRequestContext,

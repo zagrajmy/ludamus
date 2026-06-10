@@ -27,7 +27,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     import_tab_urls,
 )
-from ludamus.mills.submissions import slugify
+from ludamus.mills.submissions.mapping import slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
     DurationSpec,
