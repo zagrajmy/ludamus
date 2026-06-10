@@ -20,7 +20,8 @@ mise tasks          # list all tasks with descriptions
   - are we asking for needless clicks? like showing a form with one selectable
     option?
 - Use agent-browser to take screenshots of affected pages and include
-  before/after images in the PR description
+  before/after images in the PR description. Run tools/binaries via `aubx`
+  (e.g. `aubx agent-browser`).
 - Don't ignore lint rules globally.
 
 ## Architecture

@@ -419,6 +419,28 @@ class TestProposalEditPageView:
         assert not session.cover_image
         assert not storage.exists(old_name)
 
+    def test_post_assigns_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitator_ids": [alice.pk],
+            },
+        )
+
+        assert list(session.facilitators.values_list("pk", flat=True)) == [alice.pk]
+
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):

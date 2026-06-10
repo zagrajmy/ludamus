@@ -21,6 +21,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import SessionEditForm, create_proposal_form
 from ludamus.pacts import (
     NotFoundError,
+    SessionContentEditData,
     SessionData,
     SessionFieldValueData,
     SessionStatus,
@@ -131,16 +132,16 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
 
-    def _update_facilitators(self, session_pk: int, event_pk: int) -> None:
+    def _submitted_facilitator_ids(self, event_pk: int) -> list[int]:
         raw_ids = self.request.POST.getlist("facilitator_ids")
         submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
         all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
         valid_pks = {f.pk for f in all_facilitators}
-        self.request.di.uow.sessions.set_facilitators(
-            session_pk, list(submitted_ids & valid_pks)
-        )
+        return list(submitted_ids & valid_pks)
 
-    def _save_session_fields(self, session_pk: int, event_pk: int) -> None:
+    def _collect_session_field_values(
+        self, session_pk: int, event_pk: int
+    ) -> list[SessionFieldValueData]:
         event_fields = self.request.di.uow.session_fields.list_by_event(event_pk)
         field_entries: list[SessionFieldValueData] = []
         for field in event_fields:
@@ -158,8 +159,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                     session_id=session_pk, field_id=field.pk, value=value
                 )
             )
-        if field_entries:
-            self.request.di.uow.sessions.save_field_values(session_pk, field_entries)
+        return field_entries
 
     def _get_session_fields(
         self, event_pk: int, proposal_id: int
@@ -254,10 +254,18 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
         if cover is not None:
             update_data["cover_image"] = cover
-        self.request.di.uow.sessions.update(proposal_id, update_data)
 
-        self._update_facilitators(session.pk, current_event.pk)
-        self._save_session_fields(session.pk, current_event.pk)
+        field_values = self._collect_session_field_values(session.pk, current_event.pk)
+        self.request.services.session_content_edit.apply(
+            session_id=proposal_id,
+            event_id=current_event.pk,
+            user_id=self.request.context.current_user_id,
+            data=SessionContentEditData(
+                update=update_data,
+                field_values=field_values,
+                facilitator_ids=self._submitted_facilitator_ids(current_event.pk),
+            ),
+        )
 
         # T2: raising (or unlimiting) capacity frees seats — promote waiters.
         new_limit = form.cleaned_data.get("participants_limit") or 0
@@ -397,3 +405,21 @@ class ProposalSetFacilitatorsActionView(PanelAccessMixin, EventContextMixin, Vie
         self.request.di.uow.sessions.set_facilitators(session.pk, facilitator_ids)
         messages.success(self.request, _("Facilitators updated."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+
+class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
+    """Read-only activity log of session content edits for an event."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        context["active_nav"] = "proposals"
+        context["slug"] = slug
+        service = self.request.services.session_content_edit
+        context["logs"] = service.list_log(current_event.pk)
+        context["field_names"] = service.list_field_names(current_event.pk)
+        return TemplateResponse(self.request, "panel/content-log.html", context)

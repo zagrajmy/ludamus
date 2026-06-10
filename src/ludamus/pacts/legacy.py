@@ -1424,6 +1424,56 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     ) -> list[ScheduleChangeLogDTO]: ...
 
 
+ContentFieldValue = str | int | bool | list[str] | None
+
+
+class ContentFieldChange(TypedDict):
+    # Identity only — no display text. `field` is the core-column key
+    # (e.g. "title"); for dynamic session fields it is "" and `field_id`
+    # holds the SessionField id. Labels are resolved per-request at render.
+    field: str
+    field_id: int | None
+    old: ContentFieldValue
+    new: ContentFieldValue
+
+
+class ContentChangeLogData(TypedDict):
+    event_id: int
+    session_id: int
+    user_id: int | None
+    changes: list[ContentFieldChange]
+
+
+@dataclass(frozen=True)
+class SessionContentEditData:
+    # The write payload for a single session content edit. `facilitator_ids`
+    # None leaves the assignment untouched; a list (possibly empty) replaces it.
+    update: SessionUpdateData
+    field_values: list[SessionFieldValueData]
+    facilitator_ids: list[int] | None = None
+
+
+class ContentChangeLogDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    session_id: int
+    session_title: str
+    user_id: int | None
+    user_name: str
+    changes: list[ContentFieldChange]
+    creation_time: datetime
+
+
+class ContentChangeLogRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: ContentChangeLogData) -> None: ...
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...

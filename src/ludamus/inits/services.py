@@ -15,6 +15,7 @@ from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
     CFPPersonalDataFieldService,
     EventIntegrationsService,
+    SessionContentEditService,
     SessionSelfEditService,
 )
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
@@ -79,12 +80,21 @@ class Services:
         return SpherePanelService(self._repos.spheres, self._repos.events)
 
     @cached_property
-    def session_self_edit(self) -> SessionSelfEditService:
-        return SessionSelfEditService(
+    def session_content_edit(self) -> SessionContentEditService:
+        return SessionContentEditService(
             self._transaction,
             self._repos.sessions,
             self._repos.session_fields,
+            self._repos.content_change_logs,
+        )
+
+    @cached_property
+    def session_self_edit(self) -> SessionSelfEditService:
+        return SessionSelfEditService(
+            self._repos.sessions,
+            self._repos.session_fields,
             self._repos.spheres,
+            self.session_content_edit,
         )
 
     @cached_property

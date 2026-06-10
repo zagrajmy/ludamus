@@ -2,6 +2,7 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
 
@@ -57,6 +58,10 @@ class Repositories:
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:
         return AgendaItemRepository()
+
+    @cached_property
+    def content_change_logs(self) -> ContentChangeLogRepository:
+        return ContentChangeLogRepository()
 
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:
