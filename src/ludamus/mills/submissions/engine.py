@@ -68,6 +68,7 @@ class ImportEngine:
 
     def import_rows(
         self,
+        *,
         sphere_id: int,
         event_id: int,
         integration_pk: int,
@@ -82,7 +83,11 @@ class ImportEngine:
             title, display_name = extract_identity(settings, row)
             try:
                 session_id = self._create_proposal(
-                    sphere_id, event_id, settings, row, field_ids
+                    sphere_id=sphere_id,
+                    event_id=event_id,
+                    settings=settings,
+                    row=row,
+                    field_ids=field_ids,
                 )
             except DuplicateRowError as exc:
                 # The row's unique key matches an existing session — link
@@ -154,7 +159,7 @@ class ImportEngine:
                 slug = target.to.removeprefix("field.")
                 definition = settings.definitions.session_fields.get(slug)
                 field_id, new = self._provision_session_field(
-                    event_id, slug, header, definition
+                    event_id=event_id, slug=slug, question=header, definition=definition
                 )
                 session_ids[header] = field_id
                 created += new
@@ -162,7 +167,7 @@ class ImportEngine:
                 slug = target.to.removeprefix("personal.")
                 definition = settings.definitions.personal_fields.get(slug)
                 field_id, new = self._provision_personal_field(
-                    event_id, slug, header, definition
+                    event_id=event_id, slug=slug, question=header, definition=definition
                 )
                 personal_ids[header] = field_id
                 created += new
@@ -170,6 +175,7 @@ class ImportEngine:
 
     def _provision_session_field(
         self,
+        *,
         event_id: int,
         slug: str,
         question: str,
@@ -200,6 +206,7 @@ class ImportEngine:
 
     def _provision_personal_field(
         self,
+        *,
         event_id: int,
         slug: str,
         question: str,
@@ -229,6 +236,7 @@ class ImportEngine:
 
     def _create_proposal(
         self,
+        *,
         sphere_id: int,
         event_id: int,
         settings: ImportSettings,
@@ -256,14 +264,20 @@ class ImportEngine:
             session_data["duration"] = builtins.duration
         if builtins.contact_email:
             session_data["contact_email"] = builtins.contact_email
-        if (category_id := self.category_id(event_id, settings, row)) is not None:
+        if (
+            category_id := self.category_id(
+                event_id=event_id, settings=settings, row=row
+            )
+        ) is not None:
             session_data["category_id"] = category_id
         facilitator_id = self.facilitator_id(event_id, builtins.display_name)
         session_id = self._repos.sessions.create(
             session_data,
             tag_ids=[],
-            time_slot_ids=self.time_slot_ids(event_id, settings, row),
-            track_ids=self.track_ids(event_id, settings, row),
+            time_slot_ids=self.time_slot_ids(
+                event_id=event_id, settings=settings, row=row
+            ),
+            track_ids=self.track_ids(event_id=event_id, settings=settings, row=row),
             facilitator_ids=[facilitator_id] if facilitator_id is not None else [],
         )
         values = [
@@ -305,16 +319,19 @@ class ImportEngine:
             "display_name": builtins.display_name,
             "participants_limit": builtins.participants_limit,
             "duration": builtins.duration,
-            "category_id": self.category_id(event_id, settings, row),
+            "category_id": self.category_id(
+                event_id=event_id, settings=settings, row=row
+            ),
         }
         if builtins.contact_email:
             update_data["contact_email"] = builtins.contact_email
         self._repos.sessions.update(session_id, update_data)
         self._repos.sessions.set_time_slots(
-            session_id, self.time_slot_ids(event_id, settings, row)
+            session_id,
+            self.time_slot_ids(event_id=event_id, settings=settings, row=row),
         )
         self._repos.sessions.set_session_tracks(
-            session_id, self.track_ids(event_id, settings, row)
+            session_id, self.track_ids(event_id=event_id, settings=settings, row=row)
         )
         facilitator_id = self.facilitator_id(event_id, builtins.display_name)
         self._repos.sessions.set_facilitators(
@@ -422,7 +439,7 @@ class ImportEngine:
             self._repos.host_personal_data.save(entries)
 
     def time_slot_ids(
-        self, event_id: int, settings: ImportSettings, row: ImportRow
+        self, *, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> list[int]:
         # For each `session.time_slots` question, the chosen options' windows
         # are provisioned (deduped by start+end) and their ids collected. The
@@ -448,7 +465,7 @@ class ImportEngine:
         return ids
 
     def track_ids(
-        self, event_id: int, settings: ImportSettings, row: ImportRow
+        self, *, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> list[int]:
         # Each `track` question's chosen options resolve to tracks, provisioned
         # (deduped by slug) and collected as the session's preferred tracks.
@@ -465,7 +482,7 @@ class ImportEngine:
         return ids
 
     def category_id(
-        self, event_id: int, settings: ImportSettings, row: ImportRow
+        self, *, event_id: int, settings: ImportSettings, row: ImportRow
     ) -> int | None:
         # A `category` question's chosen option resolves to one category (the
         # single FK), provisioned by slug; a custom answer falls to the catchall.

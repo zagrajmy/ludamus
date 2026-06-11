@@ -184,9 +184,9 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
 
     def fetch_questions(
         self,
+        *,
         secret: bytes,
         config: BaseModel,
-        *,
         header_row: int = 1,
         email_column: int | None = None,
     ) -> list[SourceQuestion]:
@@ -228,7 +228,10 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
             and email_column is not None
             and (
                 email_title := self._fetch_sheet_header(
-                    session, config.sheet_id, header_row=header_row, column=email_column
+                    session=session,
+                    sheet_id=config.sheet_id,
+                    header_row=header_row,
+                    column=email_column,
                 )
             )
             and email_title not in dedup_questions
@@ -238,7 +241,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         return list(dedup_questions.values())
 
     def _fetch_sheet_header(
-        self, session: AuthorizedSession, sheet_id: str, *, header_row: int, column: int
+        self, *, session: AuthorizedSession, sheet_id: str, header_row: int, column: int
     ) -> str:
         # Read the cell at (header_row, column), both 1-indexed, from the
         # responses tab so the email column's actual label drives the recipe.
@@ -266,7 +269,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         return str(row[column - 1])
 
     def fetch_responses(
-        self, secret: bytes, config: BaseModel, header_row: int = 1
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]:
         # `header_row` is 1-indexed to match the row numbers the operator sees
         # in the browser; the first data row is `header_row + 1`.

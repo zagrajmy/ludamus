@@ -66,14 +66,14 @@ class IntegrationImplementation(Protocol):
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
     def fetch_questions(
         self,
+        *,
         secret: bytes,
         config: BaseModel,
-        *,
         header_row: int = 1,
         email_column: int | None = None,
     ) -> list[SourceQuestion]: ...
     def fetch_responses(
-        self, secret: bytes, config: BaseModel, header_row: int = 1
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
 
 
@@ -131,11 +131,11 @@ class EventIntegrationsRepositoryProtocol(Protocol):
     ) -> EventIntegrationDTO: ...
     @staticmethod
     def update_settings(
-        event_id: int, pk: int, settings_json: str
+        *, event_id: int, pk: int, settings_json: str
     ) -> EventIntegrationDTO: ...
     @staticmethod
     def update_questions_snapshot(
-        event_id: int, pk: int, questions_snapshot_json: str
+        *, event_id: int, pk: int, questions_snapshot_json: str
     ) -> EventIntegrationDTO: ...
     @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
@@ -154,22 +154,22 @@ class EventIntegrationsServiceProtocol(Protocol):
     ) -> EventIntegrationDTO: ...
     def delete(self, event_id: int, pk: int) -> None: ...
     def fetch_questions(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]: ...
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]: ...
     def populate_questions_snapshot(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]: ...
     def refetch_questions(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]: ...
     def import_missing_questions(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> tuple[list[SourceQuestion], int]: ...
     def fetch_responses(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[ImportRow]: ...
-    def save_settings(self, event_id: int, pk: int, settings_json: str) -> None: ...
+    def save_settings(self, *, event_id: int, pk: int, settings_json: str) -> None: ...
     def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
     def list_implementations(
         self, kind: IntegrationKind

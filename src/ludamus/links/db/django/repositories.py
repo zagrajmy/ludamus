@@ -2954,7 +2954,7 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
 
     @staticmethod
     def update_settings(
-        event_id: int, pk: int, settings_json: str
+        *, event_id: int, pk: int, settings_json: str
     ) -> EventIntegrationDTO:
         try:
             integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
@@ -2969,7 +2969,7 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
 
     @staticmethod
     def update_questions_snapshot(
-        event_id: int, pk: int, questions_snapshot_json: str
+        *, event_id: int, pk: int, questions_snapshot_json: str
     ) -> EventIntegrationDTO:
         try:
             integration = EventIntegration.objects.get(pk=pk, event_id=event_id)

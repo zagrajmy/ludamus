@@ -1028,7 +1028,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
             self._integrations.delete(event_id, pk)
 
     def fetch_questions(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
         if (impl := self._registry.get(integration.implementation)) is None:
@@ -1038,8 +1038,8 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.fetch_questions(
-            plaintext,
-            config,
+            secret=plaintext,
+            config=config,
             header_row=settings.header_row,
             email_column=settings.email_column,
         )
@@ -1053,27 +1053,31 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
             return []
 
     def populate_questions_snapshot(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]:
         # Transparent first-load cache fill: live-fetches and writes the
         # snapshot, but leaves `settings.questions` (including confirmed
         # flags) untouched. Use `refetch_questions` for the operator-driven
         # action that also resets confirmations.
-        questions = self.fetch_questions(sphere_id, event_id, pk)
+        questions = self.fetch_questions(sphere_id=sphere_id, event_id=event_id, pk=pk)
         snapshot = _SOURCE_QUESTIONS_ADAPTER.dump_json(questions).decode()
         with self._transaction.atomic():
-            self._integrations.update_questions_snapshot(event_id, pk, snapshot)
+            self._integrations.update_questions_snapshot(
+                event_id=event_id, pk=pk, questions_snapshot_json=snapshot
+            )
         return questions
 
     def refetch_questions(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]:
         # Per shape: regenerate question entries against the freshly fetched
         # form, drop every `confirmed` flag, preserve definitions untouched.
         # Questions that no longer exist in the form are dropped from
         # `settings.questions`; new ones land as missing entries (rendered
         # as unconfirmed by the summary).
-        questions = self.populate_questions_snapshot(sphere_id, event_id, pk)
+        questions = self.populate_questions_snapshot(
+            sphere_id=sphere_id, event_id=event_id, pk=pk
+        )
         integration = self._integrations.get(event_id, pk)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
         seen = {q.title for q in questions}
@@ -1084,11 +1088,13 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
                 rebuilt[title] = target
         settings.questions = rebuilt
         with self._transaction.atomic():
-            self._integrations.update_settings(event_id, pk, settings.model_dump_json())
+            self._integrations.update_settings(
+                event_id=event_id, pk=pk, settings_json=settings.model_dump_json()
+            )
         return questions
 
     def import_missing_questions(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> tuple[list[SourceQuestion], int]:
         # Refresh the snapshot but leave settings.questions untouched: existing
         # mappings (and their confirmations) survive, questions that disappeared
@@ -1097,12 +1103,14 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         # yet present in settings.questions.
         integration = self._integrations.get(event_id, pk)
         before = ImportSettings.model_validate_json(integration.settings_json or "{}")
-        questions = self.populate_questions_snapshot(sphere_id, event_id, pk)
+        questions = self.populate_questions_snapshot(
+            sphere_id=sphere_id, event_id=event_id, pk=pk
+        )
         missing = sum(1 for q in questions if q.title not in before.questions)
         return questions, missing
 
     def fetch_responses(
-        self, sphere_id: int, event_id: int, pk: int
+        self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[ImportRow]:
         integration = self._integrations.get(event_id, pk)
         if (impl := self._registry.get(integration.implementation)) is None:
@@ -1111,11 +1119,15 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
-        return impl.fetch_responses(plaintext, config, header_row=settings.header_row)
+        return impl.fetch_responses(
+            secret=plaintext, config=config, header_row=settings.header_row
+        )
 
-    def save_settings(self, event_id: int, pk: int, settings_json: str) -> None:
+    def save_settings(self, *, event_id: int, pk: int, settings_json: str) -> None:
         with self._transaction.atomic():
-            self._integrations.update_settings(event_id, pk, settings_json)
+            self._integrations.update_settings(
+                event_id=event_id, pk=pk, settings_json=settings_json
+            )
 
     def check(self, request: IntegrationCheckRequest) -> CheckResult:
         if (impl := self._registry.get(request.implementation)) is None:

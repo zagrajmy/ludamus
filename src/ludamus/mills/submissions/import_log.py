@@ -39,9 +39,9 @@ class ImportLogService:
 
     def list_log_entries(
         self,
+        *,
         event_id: int,
         pk: int,
-        *,
         status: ImportLogStatus | None = None,
         search: str = "",
     ) -> list[ImportLogEntryDTO]:
@@ -54,7 +54,7 @@ class ImportLogService:
     def log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None:
         return self._repos.log_entries.for_session(session_pk)
 
-    def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool:
+    def retry_entry(self, *, sphere_id: int, event_id: int, entry_pk: int) -> bool:
         # Refetch the live responses (operator may have updated the recipe);
         # locate the row via the unique-key columns when set, otherwise by the
         # original row_index. Write a fresh log entry for the new attempt;
@@ -72,7 +72,7 @@ class ImportLogService:
             return False
         settings = self._engine.settings(event_id, integration.pk)
         rows = self._event_integrations.fetch_responses(
-            sphere_id, event_id, integration.pk
+            sphere_id=sphere_id, event_id=event_id, pk=integration.pk
         )
         original_response = decode_response(entry.response_json)
         if (
@@ -93,17 +93,17 @@ class ImportLogService:
         target_idx, target_row = located
         with self._transaction.atomic():
             result = self._engine.import_rows(
-                sphere_id,
-                event_id,
-                integration.pk,
-                settings,
-                [(target_idx, target_row)],
+                sphere_id=sphere_id,
+                event_id=event_id,
+                integration_pk=integration.pk,
+                settings=settings,
+                indexed_rows=[(target_idx, target_row)],
             )
         # A duplicate counts as "reconciled": the log entry now points at the
         # existing session and no skip reason remains.
         return result.created + result.duplicates == 1
 
-    def reimport_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool:
+    def reimport_entry(self, *, sphere_id: int, event_id: int, entry_pk: int) -> bool:
         # Reassert the source row over the existing session: refetch live
         # responses, locate the row, update mapped fields + replace m2m links.
         # If the linked session was deleted (session_id = None from SET_NULL),
@@ -119,10 +119,12 @@ class ImportLogService:
         if integration.pk != entry.integration_id:
             return False
         if entry.session_id is None:
-            return self.retry_entry(sphere_id, event_id, entry_pk)
+            return self.retry_entry(
+                sphere_id=sphere_id, event_id=event_id, entry_pk=entry_pk
+            )
         settings = self._engine.settings(event_id, integration.pk)
         rows = self._event_integrations.fetch_responses(
-            sphere_id, event_id, integration.pk
+            sphere_id=sphere_id, event_id=event_id, pk=integration.pk
         )
         original_response = decode_response(entry.response_json)
         if (

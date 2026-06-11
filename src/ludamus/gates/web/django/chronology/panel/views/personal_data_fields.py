@@ -111,7 +111,11 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
                 self.request, "panel/personal-data-field-create.html", context
             )
 
-        service.create(current_event.pk, parse_field_form_data(form), cat_reqs)
+        service.create(
+            event_pk=current_event.pk,
+            data=parse_field_form_data(form),
+            category_requirements=cat_reqs,
+        )
 
         messages.success(self.request, _("Personal data field created successfully."))
         return redirect("panel:personal-data-fields", slug=slug)
@@ -204,9 +208,9 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
 
         service.update(
-            current_event.pk,
-            field_slug,
-            {
+            event_pk=current_event.pk,
+            field_slug=field_slug,
+            data={
                 "name": form.cleaned_data["name"],
                 "question": form.cleaned_data["question"],
                 "max_length": form.cleaned_data.get("max_length") or 0,
@@ -214,7 +218,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "is_public": form.cleaned_data.get("is_public", False),
                 "options": options,
             },
-            cat_reqs,
+            category_requirements=cat_reqs,
         )
 
         messages.success(self.request, _("Personal data field updated successfully."))

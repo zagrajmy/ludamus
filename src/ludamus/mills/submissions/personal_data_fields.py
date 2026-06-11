@@ -72,6 +72,7 @@ class CFPPersonalDataFieldService:
 
     def create(
         self,
+        *,
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: dict[int, bool],
@@ -84,6 +85,7 @@ class CFPPersonalDataFieldService:
 
     def update(
         self,
+        *,
         event_pk: int,
         field_slug: str,
         data: PersonalDataFieldUpdateData,

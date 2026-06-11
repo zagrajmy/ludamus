@@ -66,22 +66,37 @@ class ImportFieldLayoutService:
                     continue
                 row = decode_response(entry.response_json)
                 result.session_builtins_filled += self._fill_missing_builtins(
-                    entry.session_id, settings, row
+                    session_id=entry.session_id, settings=settings, row=row
                 )
                 result.session_builtins_filled += self._fill_missing_category(
-                    event_id, entry.session_id, settings, row
+                    event_id=event_id,
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=row,
                 )
                 result.session_links_filled += self._fill_missing_facilitators(
-                    event_id, entry.session_id, settings, row
+                    event_id=event_id,
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=row,
                 )
                 result.session_links_filled += self._fill_missing_time_slots(
-                    event_id, entry.session_id, settings, row
+                    event_id=event_id,
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=row,
                 )
                 result.session_links_filled += self._fill_missing_tracks(
-                    event_id, entry.session_id, settings, row
+                    event_id=event_id,
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=row,
                 )
                 result.session_field_values.added += self._add_missing_session_values(
-                    entry.session_id, settings, row, field_ids.session
+                    session_id=entry.session_id,
+                    settings=settings,
+                    row=row,
+                    session_field_ids=field_ids.session,
                 )
                 result.session_field_values.removed += (
                     self._remove_unmapped_session_values(
@@ -107,7 +122,7 @@ class ImportFieldLayoutService:
         return result
 
     def _fill_missing_builtins(
-        self, session_id: int, settings: ImportSettings, row: ImportRow
+        self, *, session_id: int, settings: ImportSettings, row: ImportRow
     ) -> int:
         # Apply-field-layout extension for session built-in columns: when the
         # recipe now maps a built-in target that wasn't populated on this
@@ -130,7 +145,12 @@ class ImportFieldLayoutService:
         return len(update_data)
 
     def _fill_missing_facilitators(
-        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
     ) -> int:
         # Apply-field-layout extension for the facilitator link: when the
         # session has no facilitators yet AND the recipe now maps
@@ -151,7 +171,12 @@ class ImportFieldLayoutService:
         return 1
 
     def _fill_missing_category(
-        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
     ) -> int:
         # Apply-field-layout extension for the category FK: only set it when
         # the session has no category yet, the row resolves one, and the
@@ -160,7 +185,9 @@ class ImportFieldLayoutService:
         if session.category_id is not None:
             return 0
         try:
-            category_id = self._engine.category_id(event_id, settings, row)
+            category_id = self._engine.category_id(
+                event_id=event_id, settings=settings, row=row
+            )
         except RowSkippedError:
             return 0
         if category_id is None:
@@ -169,7 +196,12 @@ class ImportFieldLayoutService:
         return 1
 
     def _fill_missing_time_slots(
-        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
     ) -> int:
         # Apply-field-layout extension for preferred time slots: only fill
         # when the session has none yet and the row resolves at least one
@@ -177,7 +209,9 @@ class ImportFieldLayoutService:
         if self._repos.sessions.read_preferred_time_slot_ids(session_id):
             return 0
         try:
-            ids = self._engine.time_slot_ids(event_id, settings, row)
+            ids = self._engine.time_slot_ids(
+                event_id=event_id, settings=settings, row=row
+            )
         except RowSkippedError:
             return 0
         if not ids:
@@ -186,14 +220,19 @@ class ImportFieldLayoutService:
         return len(ids)
 
     def _fill_missing_tracks(
-        self, event_id: int, session_id: int, settings: ImportSettings, row: ImportRow
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
     ) -> int:
         # Apply-field-layout extension for tracks: only fill when the
         # session has none yet and the row resolves at least one track.
         if self._repos.sessions.read_track_ids(session_id):
             return 0
         try:
-            ids = self._engine.track_ids(event_id, settings, row)
+            ids = self._engine.track_ids(event_id=event_id, settings=settings, row=row)
         except RowSkippedError:
             return 0
         if not ids:
@@ -203,6 +242,7 @@ class ImportFieldLayoutService:
 
     def _add_missing_session_values(
         self,
+        *,
         session_id: int,
         settings: ImportSettings,
         row: ImportRow,

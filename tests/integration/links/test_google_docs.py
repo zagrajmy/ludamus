@@ -202,7 +202,9 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             },
         )
 
-        result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
 
         assert result == [
             SourceQuestion(title="Imię", field_type="text"),
@@ -250,7 +252,9 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             },
         )
 
-        result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
 
         assert [q.title for q in result] == ["Imię", "Wiek"]
 
@@ -292,7 +296,7 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         google.session.get.side_effect = get
 
         result = GoogleDocsProposalImporter().fetch_questions(
-            SECRET, CONFIG, header_row=1, email_column=2
+            secret=SECRET, config=CONFIG, header_row=1, email_column=2
         )
 
         assert [q.title for q in result] == ["Title", "email-header"]
@@ -315,7 +319,9 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             },
         )
 
-        result = GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
 
         assert [q.title for q in result] == ["Title"]
 
@@ -334,23 +340,29 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         )
 
         result = GoogleDocsProposalImporter().fetch_questions(
-            SECRET, CONFIG, header_row=1, email_column=2
+            secret=SECRET, config=CONFIG, header_row=1, email_column=2
         )
 
         assert [q.title for q in result] == ["Title"]
 
     def test_wrong_config_type_returns_empty(self):
-        assert not GoogleDocsProposalImporter().fetch_questions(SECRET, _OtherConfig())
+        assert not GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=_OtherConfig()
+        )
 
     def test_non_ok_response_returns_empty(self, google):
         google.session.get.return_value = MagicMock(ok=False)
 
-        assert not GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+        assert not GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
 
     def test_request_exception_returns_empty(self, google):
         google.session.get.side_effect = requests.RequestException("timeout")
 
-        assert not GoogleDocsProposalImporter().fetch_questions(SECRET, CONFIG)
+        assert not GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
 
 
 def _route_get(*, values: list[list[str]], title: str = "Form Responses 1"):
@@ -373,7 +385,9 @@ class TestGoogleDocsProposalImporterFetchResponses:
             values=[["Timestamp", "Title"], ["t1", "My Talk"]]
         )
 
-        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_responses(
+            secret=SECRET, config=CONFIG
+        )
 
         assert [r.data for r in result] == [{"Timestamp": "t1", "Title": "My Talk"}]
         google.session.get.assert_any_call(
@@ -392,7 +406,9 @@ class TestGoogleDocsProposalImporterFetchResponses:
             values=[headers, [str(i) for i in range(30)]]
         )
 
-        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_responses(
+            secret=SECRET, config=CONFIG
+        )
 
         assert [r.data for r in result] == [{f"Q{i}": str(i) for i in range(30)}]
 
@@ -411,7 +427,9 @@ class TestGoogleDocsProposalImporterFetchResponses:
             vals if "/values/" in url else meta
         )
 
-        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_responses(
+            secret=SECRET, config=CONFIG
+        )
 
         assert [r.data for r in result] == [{"Title": "My Talk"}]
         google.session.get.assert_any_call(
@@ -420,7 +438,10 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
     def test_wrong_config_returns_empty(self):
         assert (
-            GoogleDocsProposalImporter().fetch_responses(SECRET, _OtherConfig()) == []
+            GoogleDocsProposalImporter().fetch_responses(
+                secret=SECRET, config=_OtherConfig()
+            )
+            == []
         )
 
     def test_no_sheets_returns_empty(self, google):
@@ -428,12 +449,18 @@ class TestGoogleDocsProposalImporterFetchResponses:
             ok=True, json=lambda: {"sheets": []}
         )
 
-        assert GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG) == []
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(secret=SECRET, config=CONFIG)
+            == []
+        )
 
     def test_empty_values_returns_empty(self, google):
         google.session.get.side_effect = _route_get(values=[])
 
-        assert GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG) == []
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(secret=SECRET, config=CONFIG)
+            == []
+        )
 
     def test_header_row_skips_leading_rows_and_uses_named_row_as_headers(self, google):
         # Sheet has 2 banner rows before the real header. With header_row=3,
@@ -449,7 +476,7 @@ class TestGoogleDocsProposalImporterFetchResponses:
         )
 
         result = GoogleDocsProposalImporter().fetch_responses(
-            SECRET, CONFIG, header_row=3
+            secret=SECRET, config=CONFIG, header_row=3
         )
 
         assert [r.data for r in result] == [
@@ -463,7 +490,9 @@ class TestGoogleDocsProposalImporterFetchResponses:
         )
 
         assert (
-            GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG, header_row=5)
+            GoogleDocsProposalImporter().fetch_responses(
+                secret=SECRET, config=CONFIG, header_row=5
+            )
             == []
         )
 
@@ -473,7 +502,9 @@ class TestGoogleDocsProposalImporterFetchResponses:
         )
 
         assert (
-            GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG, header_row=0)
+            GoogleDocsProposalImporter().fetch_responses(
+                secret=SECRET, config=CONFIG, header_row=0
+            )
             == []
         )
 
@@ -486,7 +517,9 @@ class TestGoogleDocsProposalImporterFetchResponses:
             values=[["Timestamp", "Imię", "Imię"], ["t1", "Anna", "Bartek"]]
         )
 
-        result = GoogleDocsProposalImporter().fetch_responses(SECRET, CONFIG)
+        result = GoogleDocsProposalImporter().fetch_responses(
+            secret=SECRET, config=CONFIG
+        )
 
         assert [r.data for r in result] == [
             {"Timestamp": "t1", "Imię": "Anna", "Imię (2)": "Bartek"}

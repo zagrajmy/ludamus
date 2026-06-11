@@ -255,25 +255,27 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
 
 class ProposalImportServiceProtocol(Protocol):
     def run(
-        self, sphere_id: int, event_id: int, integration_pk: int
+        self, *, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult: ...
     def run_sample(
-        self, sphere_id: int, event_id: int, integration_pk: int
+        self, *, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult: ...
 
 
 class ImportLogServiceProtocol(Protocol):
     def list_log_entries(
         self,
+        *,
         event_id: int,
         pk: int,
-        *,
         status: ImportLogStatus | None = None,
         search: str = "",
     ) -> list[ImportLogEntryDTO]: ...
     def log_entry_for_session(self, session_pk: int) -> ImportLogEntryDTO | None: ...
-    def retry_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
-    def reimport_entry(self, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
+    def retry_entry(self, *, sphere_id: int, event_id: int, entry_pk: int) -> bool: ...
+    def reimport_entry(
+        self, *, sphere_id: int, event_id: int, entry_pk: int
+    ) -> bool: ...
 
 
 class ImportFieldLayoutServiceProtocol(Protocol):
@@ -312,12 +314,14 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
     ) -> PersonalDataFieldEditContextDTO: ...
     def create(
         self,
+        *,
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: dict[int, bool],
     ) -> PersonalDataFieldDTO: ...
     def update(
         self,
+        *,
         event_pk: int,
         field_slug: str,
         data: PersonalDataFieldUpdateData,

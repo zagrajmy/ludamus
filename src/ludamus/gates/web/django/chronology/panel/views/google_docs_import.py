@@ -148,6 +148,7 @@ def _import_integrations(
 
 
 def _row(
+    *,
     index: int,
     question: SourceQuestion,
     target: QuestionTarget | None,
@@ -176,13 +177,17 @@ def _row(
         selected = "personal-field"
         field_slug = target.to.removeprefix("personal.")
         setup, field_name = _field_row_setup(
-            definitions.personal_fields.get(field_slug), field_slug, question
+            definition=definitions.personal_fields.get(field_slug),
+            slug=field_slug,
+            question=question,
         )
     elif target.to and target.to.startswith("field."):
         selected = "session-field"
         field_slug = target.to.removeprefix("field.")
         setup, field_name = _field_row_setup(
-            definitions.session_fields.get(field_slug), field_slug, question
+            definition=definitions.session_fields.get(field_slug),
+            slug=field_slug,
+            question=question,
         )
     else:
         selected = "ignore"
@@ -234,6 +239,7 @@ def _edit_row(raw: str | None, rows: list[RecipeRow]) -> RecipeRow | None:
 
 
 def _summary_row(
+    *,
     index: int,
     question: SourceQuestion,
     target: QuestionTarget | None,
@@ -325,7 +331,7 @@ def _definition_name(definition: FieldDefinition | None, slug: str) -> str:
 
 
 def _field_row_setup(
-    definition: FieldDefinition | None, slug: str, question: SourceQuestion
+    *, definition: FieldDefinition | None, slug: str, question: SourceQuestion
 ) -> tuple[FieldDefinition | SourceQuestion, str]:
     # A saved definition supplies both the form setup and the display name; with
     # none, mirror the source question and fall back to the slug for the name.
@@ -570,7 +576,7 @@ def _pretty_json(raw: str | None) -> str:
 
 
 def _load_questions(
-    request: PanelRequest, event_pk: int, active: EventIntegrationDTO
+    *, request: PanelRequest, event_pk: int, active: EventIntegrationDTO
 ) -> list[SourceQuestion]:
     # Cached snapshot keeps the Proposal / Review tabs off the Google Forms
     # API on every request; the operator triggers an explicit reset via the
@@ -586,7 +592,7 @@ def _load_questions(
         return cached
     sphere_id = request.context.current_sphere_id
     return request.services.event_integrations.populate_questions_snapshot(
-        sphere_id, event_pk, active.pk
+        sphere_id=sphere_id, event_id=event_pk, pk=active.pk
     )
 
 
@@ -621,18 +627,23 @@ class EventImportProposalView(_ImportTabView):
     active_tab = "proposal"
 
     def get(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
             return loaded
         context, current_event, active = loaded
         if active is not None:
-            questions = _load_questions(self.request, current_event.pk, active)
+            questions = _load_questions(
+                request=self.request, event_pk=current_event.pk, active=active
+            )
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["summary_rows"] = [
                 _summary_row(
-                    index, q, settings.questions.get(q.title), settings.definitions
+                    index=index,
+                    question=q,
+                    target=settings.questions.get(q.title),
+                    definitions=settings.definitions,
                 )
                 for index, q in enumerate(questions)
             ]
@@ -646,18 +657,25 @@ class EventImportReviewView(_ImportTabView):
     active_tab = "review"
 
     def get(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
             return loaded
         context, current_event, active = loaded
         if active is not None:
-            questions = _load_questions(self.request, current_event.pk, active)
+            questions = _load_questions(
+                request=self.request, event_pk=current_event.pk, active=active
+            )
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["session_columns"] = SESSION_COLUMNS
             context["rows"] = [
-                _row(index, q, settings.questions.get(q.title), settings.definitions)
+                _row(
+                    index=index,
+                    question=q,
+                    target=settings.questions.get(q.title),
+                    definitions=settings.definitions,
+                )
                 for index, q in enumerate(questions)
             ]
             # Default to the first question when no ?edit is supplied or the
@@ -685,7 +703,7 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -714,7 +732,9 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
                 self.request.POST, index
             )
         self.request.services.event_integrations.save_settings(
-            current_event.pk, active.pk, settings.model_dump_json()
+            event_id=current_event.pk,
+            pk=active.pk,
+            settings_json=settings.model_dump_json(),
         )
         messages.success(self.request, _("Question saved."))
         review_url = reverse(
@@ -747,7 +767,7 @@ class EventImportJsonView(_ImportTabView):
     active_tab = "json"
 
     def get(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
@@ -758,7 +778,7 @@ class EventImportJsonView(_ImportTabView):
         return TemplateResponse(self.request, "panel/import-json.html", context)
 
     def post(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
@@ -775,7 +795,7 @@ class EventImportJsonView(_ImportTabView):
             context["settings_json"] = raw
             return TemplateResponse(self.request, "panel/import-json.html", context)
         self.request.services.event_integrations.save_settings(
-            current_event.pk, active.pk, raw
+            event_id=current_event.pk, pk=active.pk, settings_json=raw
         )
         messages.success(self.request, _("Import settings saved."))
         return redirect("panel:import-json", slug=slug, pk=active.pk)
@@ -787,7 +807,7 @@ class EventImportRunPageView(_ImportTabView):
     active_tab = "run"
 
     def get(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
@@ -829,7 +849,7 @@ _LOG_STATUS_FILTERS = {
 }
 
 
-def _log_pill_urls(slug: str, pk: int, *, search: str) -> dict[str, str]:
+def _log_pill_urls(*, slug: str, pk: int, search: str) -> dict[str, str]:
     base = reverse("panel:import-log", kwargs={"slug": slug, "pk": pk})
     suffix = f"&search={search}" if search else ""
     return {key: f"{base}?status={key}{suffix}" for key in _LOG_STATUS_FILTERS}
@@ -841,7 +861,7 @@ class EventImportLogPageView(_ImportTabView):
     active_tab = "log"
 
     def get(
-        self, _request: PanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, tuple):
@@ -859,7 +879,7 @@ class EventImportLogPageView(_ImportTabView):
         # always read both buckets so the counts stay accurate even when only
         # one section renders.
         entries = self.request.services.import_log.list_log_entries(
-            current_event.pk, active.pk, search=search
+            event_id=current_event.pk, pk=active.pk, search=search
         )
         # Each (integration, row_index) is unique now, so a simple split by
         # status covers it — no per-row dedupe needed.
@@ -874,7 +894,7 @@ class EventImportLogPageView(_ImportTabView):
         context["log_search"] = search
         context["log_focus_pk"] = focus_pk
         context["log_filter_urls"] = _log_pill_urls(
-            current_event.slug, active.pk, search=search
+            slug=current_event.slug, pk=active.pk, search=search
         )
         context["log_show_errors"] = status_filter != ImportLogStatus.SUCCESS
         context["log_show_successes"] = status_filter != ImportLogStatus.SKIPPED
@@ -895,7 +915,7 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -928,7 +948,9 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
             if (stripped := col.strip())
         ]
         self.request.services.event_integrations.save_settings(
-            current_event.pk, active.pk, settings.model_dump_json()
+            event_id=current_event.pk,
+            pk=active.pk,
+            settings_json=settings.model_dump_json(),
         )
         # The cached snapshot's synthesized email question depends on header_row
         # and email_column; refresh it when either changed so the operator sees
@@ -940,7 +962,7 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
         ):
             sphere_id = self.request.context.current_sphere_id
             self.request.services.event_integrations.populate_questions_snapshot(
-                sphere_id, current_event.pk, active.pk
+                sphere_id=sphere_id, event_id=current_event.pk, pk=active.pk
             )
         messages.success(self.request, _("Sheet settings saved."))
         return redirect("panel:import-run", slug=slug, pk=active.pk)
@@ -951,7 +973,7 @@ class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -960,19 +982,21 @@ class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
         sphere_id = self.request.context.current_sphere_id
-        self._act(sphere_id, current_event.pk, active.pk)
+        self._act(
+            sphere_id=sphere_id, event_pk=current_event.pk, integration_pk=active.pk
+        )
         return redirect("panel:import-run", slug=slug, pk=active.pk)
 
-    def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+    def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
         raise NotImplementedError
 
 
 class EventImportRunActionView(_ImportActionView):
     """Run the saved import recipe: create a proposal per source response."""
 
-    def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+    def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
         result = self.request.services.proposals_import.run(
-            sphere_id, event_pk, integration_pk
+            sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
         )
         messages.success(
             self.request, _("Created %(count)d proposals.") % {"count": result.created}
@@ -994,9 +1018,9 @@ class EventImportRunActionView(_ImportActionView):
 class EventImportTestRowActionView(_ImportActionView):
     """Import one random response so the recipe can be eyeballed before a run."""
 
-    def _act(self, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+    def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
         result = self.request.services.proposals_import.run_sample(
-            sphere_id, event_pk, integration_pk
+            sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
         )
         if result.created:
             messages.success(
@@ -1023,7 +1047,7 @@ class _EventImportLogActionView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -1037,19 +1061,19 @@ class _EventImportLogActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import-log", slug=slug, pk=active.pk)
         entry_pk = int(raw)
         sphere_id = self.request.context.current_sphere_id
-        self._act(sphere_id, current_event.pk, entry_pk)
+        self._act(sphere_id=sphere_id, event_pk=current_event.pk, entry_pk=entry_pk)
         return redirect("panel:import-log", slug=slug, pk=active.pk)
 
-    def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+    def _act(self, *, sphere_id: int, event_pk: int, entry_pk: int) -> None:
         raise NotImplementedError
 
 
 class EventImportLogRetryActionView(_EventImportLogActionView):
     """Retry a single skipped log entry against the current recipe."""
 
-    def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+    def _act(self, *, sphere_id: int, event_pk: int, entry_pk: int) -> None:
         succeeded = self.request.services.import_log.retry_entry(
-            sphere_id, event_pk, entry_pk
+            sphere_id=sphere_id, event_id=event_pk, entry_pk=entry_pk
         )
         if succeeded:
             messages.success(self.request, _("Row imported."))
@@ -1060,9 +1084,9 @@ class EventImportLogRetryActionView(_EventImportLogActionView):
 class EventImportLogReimportActionView(_EventImportLogActionView):
     """Reapply the source row to the existing session for a success entry."""
 
-    def _act(self, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+    def _act(self, *, sphere_id: int, event_pk: int, entry_pk: int) -> None:
         succeeded = self.request.services.import_log.reimport_entry(
-            sphere_id, event_pk, entry_pk
+            sphere_id=sphere_id, event_id=event_pk, entry_pk=entry_pk
         )
         if succeeded:
             messages.success(self.request, _("Proposal reimported from source."))
@@ -1075,7 +1099,7 @@ class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -1085,7 +1109,7 @@ class EventImportRefetchView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import", slug=slug)
         sphere_id = self.request.context.current_sphere_id
         questions = self.request.services.event_integrations.refetch_questions(
-            sphere_id, current_event.pk, active.pk
+            sphere_id=sphere_id, event_id=current_event.pk, pk=active.pk
         )
         messages.success(
             self.request,
@@ -1099,7 +1123,7 @@ class EventImportMissingFieldsView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -1110,7 +1134,7 @@ class EventImportMissingFieldsView(PanelAccessMixin, EventContextMixin, View):
         sphere_id = self.request.context.current_sphere_id
         _questions, missing = (
             self.request.services.event_integrations.import_missing_questions(
-                sphere_id, current_event.pk, active.pk
+                sphere_id=sphere_id, event_id=current_event.pk, pk=active.pk
             )
         )
         if missing:
@@ -1136,7 +1160,7 @@ class EventImportApplyFieldLayoutView(PanelAccessMixin, EventContextMixin, View)
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")

@@ -1068,7 +1068,9 @@ class TestProposalImportService(_ImportServiceMocks):
 
         assert result.created == len(responses)
         assert result.fields_created == 0
-        event_integrations.fetch_responses.assert_called_once_with(1, 2, 3)
+        event_integrations.fetch_responses.assert_called_once_with(
+            sphere_id=1, event_id=2, pk=3
+        )
         sessions.create.assert_any_call(
             {
                 "sphere_id": 1,

@@ -25,31 +25,39 @@ class ProposalImportService:
         self._engine = ImportEngine(event_integrations, repos)
 
     def run(
-        self, sphere_id: int, event_id: int, integration_pk: int
+        self, *, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult:
         settings = self._engine.settings(event_id, integration_pk)
         rows = self._event_integrations.fetch_responses(
-            sphere_id, event_id, integration_pk
+            sphere_id=sphere_id, event_id=event_id, pk=integration_pk
         )
         indexed = list(enumerate(rows))
         with self._transaction.atomic():
             return self._engine.import_rows(
-                sphere_id, event_id, integration_pk, settings, indexed
+                sphere_id=sphere_id,
+                event_id=event_id,
+                integration_pk=integration_pk,
+                settings=settings,
+                indexed_rows=indexed,
             )
 
     def run_sample(
-        self, sphere_id: int, event_id: int, integration_pk: int
+        self, *, sphere_id: int, event_id: int, integration_pk: int
     ) -> ProposalImportResult:
         # Import a single random response so the operator can eyeball one real
         # proposal before a full run floods the event with mismapped sessions.
         settings = self._engine.settings(event_id, integration_pk)
         rows = self._event_integrations.fetch_responses(
-            sphere_id, event_id, integration_pk
+            sphere_id=sphere_id, event_id=event_id, pk=integration_pk
         )
         if not rows:
             return ProposalImportResult(created=0, fields_created=0)
         idx = choice(range(len(rows)))
         with self._transaction.atomic():
             return self._engine.import_rows(
-                sphere_id, event_id, integration_pk, settings, [(idx, rows[idx])]
+                sphere_id=sphere_id,
+                event_id=event_id,
+                integration_pk=integration_pk,
+                settings=settings,
+                indexed_rows=[(idx, rows[idx])],
             )
