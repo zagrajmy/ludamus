@@ -16,9 +16,9 @@ skill's default. More plans can be cut from the findings table on request.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Eliminate event-page N+1 queries (issue #323) | P1 | S | — | TODO |
-| 002 | Validate OAuth `next` redirect (open redirect) | P1 | S–M | — | TODO |
-| 003 | Deterministic factory slugs (flaky CI) | P2 | S | — | TODO |
+| 001 | Eliminate event-page N+1 queries (issue #323) | P1 | S | — | PR #366 |
+| 002 | Validate OAuth `next` redirect (open redirect) | P1 | S–M | — | PR #367 |
+| 003 | Deterministic factory slugs (flaky CI) | P2 | S | — | PR #365 |
 | 004 | Investigate mills missing from coverage | P2 | S | — | TODO |
 | 005 | Extract panel-view boilerplate | P2 | M | — | TODO |
 | 006 | Regression guardrails: N+1 detector in tests (#306) + Faker("slug") lint rule | P1 | M | 001, 003 | TODO |
