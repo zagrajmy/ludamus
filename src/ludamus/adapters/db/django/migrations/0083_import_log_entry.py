@@ -25,7 +25,13 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("row_index", models.IntegerField()),
-                ("status", models.CharField(max_length=16)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[("success", "success"), ("skipped", "skipped")],
+                        max_length=16,
+                    ),
+                ),
                 ("reason", models.TextField(blank=True, default="")),
                 ("response_json", models.TextField(default="{}")),
                 ("title", models.CharField(blank=True, default="", max_length=255)),

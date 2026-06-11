@@ -25,6 +25,7 @@ from ludamus.pacts import (
     UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -1530,7 +1531,9 @@ class ImportLogEntry(models.Model):
         EventIntegration, on_delete=models.CASCADE, related_name="log_entries"
     )
     row_index = models.IntegerField()
-    status = models.CharField(max_length=16)
+    status = models.CharField(
+        max_length=16, choices=[(s.value, s.value) for s in ImportLogStatus]
+    )
     reason = models.TextField(blank=True, default="")
     response_json = models.TextField(default="{}")
     title = models.CharField(max_length=255, blank=True, default="")
