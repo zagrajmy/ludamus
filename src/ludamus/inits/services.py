@@ -165,7 +165,9 @@ class Services:
     @cached_property
     def import_log(self) -> ImportLogService:
         return ImportLogService(
-            self._transaction, self.event_integrations, self._import_repos
+            transaction=self._transaction,
+            event_integrations=self.event_integrations,
+            repos=self._import_repos,
         )
 
     @cached_property

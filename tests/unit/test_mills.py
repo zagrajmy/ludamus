@@ -1977,7 +1977,11 @@ class TestProposalImportService(_ImportServiceMocks):
 class TestImportLogService(_ImportServiceMocks):
     @pytest.fixture
     def service(self, transaction, event_integrations, import_repos):
-        return ImportLogService(transaction, event_integrations, import_repos)
+        return ImportLogService(
+            transaction=transaction,
+            event_integrations=event_integrations,
+            repos=import_repos,
+        )
 
     def test_retry_entry_writes_a_fresh_entry_when_row_now_succeeds(
         self, service, event_integrations, sessions, log_entries
