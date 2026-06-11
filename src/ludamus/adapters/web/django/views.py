@@ -1483,7 +1483,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "creation_time"
         )
 
-        for req in enrollment_requests:
+        ordered_requests = sorted(
+            enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1
+        )
+
+        for req in ordered_requests:
             # Handle cancellation
             if req.choice == "cancel" and (
                 existing_participation := next(
@@ -1612,13 +1616,24 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session: Session,
         enrollment_config: EnrollmentConfig,
     ) -> bool:
-        confirmed_requests = [
-            req for req in enrollment_requests if req.choice == "enroll"
-        ]
+        enroll_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        if enroll_count == 0:
+            return False
 
-        available_spots = enrollment_config.get_available_slots(session)
+        cancelling_user_ids = {
+            req.user.pk for req in enrollment_requests if req.choice == "cancel"
+        }
+        freed_spots = 0
+        if cancelling_user_ids:
+            freed_spots = SessionParticipation.objects.filter(
+                session=session,
+                user_id__in=cancelling_user_ids,
+                status=SessionParticipationStatus.CONFIRMED,
+            ).count()
 
-        if len(confirmed_requests) > available_spots:
+        available_spots = enrollment_config.get_available_slots(session) + freed_spots
+
+        if enroll_count > available_spots:
             messages.error(
                 self.request,
                 str(
@@ -1626,7 +1641,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         "Not enough spots available. {} spots requested, {} available. "
                         "Please use waiting list for some users."
                     )
-                ).format(len(confirmed_requests), available_spots),
+                ).format(enroll_count, available_spots),
             )
             return True
 

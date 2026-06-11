@@ -371,6 +371,50 @@ class TestSessionEnrollPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_and_enroll_on_full_session(
+        self,
+        active_user,
+        agenda_item,
+        authenticated_client,
+        session,
+        connected_user,
+        event,
+    ):
+        session.participants_limit = 1
+        session.save()
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk),
+            data={
+                f"user_{active_user.id}": "cancel",
+                f"user_{connected_user.id}": "enroll",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, f"Enrolled: {connected_user.name}"),
+                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
+        ).exists()
+        SessionParticipation.objects.get(
+            user=connected_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
     def test_post_connected_user_inactive(
         self, agenda_item, authenticated_client, session, connected_user
     ):
