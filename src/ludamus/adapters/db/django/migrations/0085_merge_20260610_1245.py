@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("db_main", "0081_event_session_cover_images"),
+        ("db_main", "0082_contentchangelog"),
         ("db_main", "0084_remove_importlogentry_ile_int_row_idx_and_more"),
     ]
 
