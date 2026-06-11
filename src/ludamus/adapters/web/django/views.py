@@ -24,6 +24,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
@@ -107,6 +108,16 @@ MINIMUM_ALLOWED_USER_AGE = 16
 CACHE_TIMEOUT = 600  # 10 minutes
 
 
+def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
+    host = urlparse(url).netloc
+    allowed = {root_domain}
+    if host and (host == root_domain or host.endswith(f".{root_domain}")):
+        allowed.add(host)
+    return url_has_allowed_host_and_scheme(
+        url, allowed_hosts=allowed, require_https=require_https
+    )
+
+
 class LoginRequiredPageView(TemplateView):
     template_name = "crowd/login_required.html"
 
@@ -135,6 +146,10 @@ class Auth0LoginActionView(View):
             request.context.root_sphere_id
         ).domain
         next_path = request.GET.get("next")
+        if next_path and not _is_safe_login_redirect(
+            next_path, root_domain, require_https=request.is_secure()
+        ):
+            next_path = None
         if request.get_host() != root_domain:
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
@@ -227,6 +242,14 @@ class Auth0LoginCallbackActionView(RedirectView):
 
         if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
             return index_url
+
+        root_domain = self.request.di.uow.spheres.read_site(
+            self.request.context.root_sphere_id
+        ).domain
+        if redirect_to and not _is_safe_login_redirect(
+            redirect_to, root_domain, require_https=self.request.is_secure()
+        ):
+            redirect_to = ""
 
         if self.request.context.current_user_slug:
             return redirect_to or index_url
