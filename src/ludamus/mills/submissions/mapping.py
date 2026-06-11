@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal, Never
 from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
+from ludamus.pacts import HostPersonalDataEntry, SessionFieldValueData
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,
@@ -79,7 +80,7 @@ def resolve_builtins(settings: ImportSettings, row: ImportRow) -> ResolvedBuilti
     for header, target in settings.questions.items():
         if target.to not in _BUILTIN_PROPOSAL_TARGETS:
             continue
-        if not (value := cell(target, row, header)):
+        if not (value := cell(target=target, row=row, header=header)):
             continue
         if target.to == "session.title" and not title:
             title = value
@@ -115,7 +116,7 @@ def extract_identity(settings: ImportSettings, row: ImportRow) -> tuple[str, str
     for header, target in settings.questions.items():
         if target.to not in _IDENTITY_TARGETS:
             continue
-        if not (value := cell(target, row, header)):
+        if not (value := cell(target=target, row=row, header=header)):
             continue
         if target.to == "session.title" and not title:
             title = value
@@ -182,7 +183,7 @@ def _skip(reason: str) -> Never:
     raise RowSkippedError(reason)
 
 
-def cell(target: QuestionTarget | None, row: ImportRow, header: str) -> str:
+def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     # Single read point for a row cell that a target consumes: applies the
     # operator-configured `overrides` substitution (raw cell text -> cleaned
     # cell text) before any parser, `values` lookup, or pass-through copy.
@@ -201,6 +202,42 @@ def cell(target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     if target is None or not target.overrides:
         return raw
     return target.overrides.get(raw, raw)
+
+
+def session_field_values(
+    *,
+    field_ids: dict[str, int],
+    settings: ImportSettings,
+    row: ImportRow,
+    session_id: int,
+) -> list[SessionFieldValueData]:
+    return [
+        SessionFieldValueData(
+            session_id=session_id,
+            field_id=field_id,
+            value=cell(target=settings.questions.get(header), row=row, header=header),
+        )
+        for header, field_id in field_ids.items()
+    ]
+
+
+def host_personal_data_entries(
+    *,
+    field_ids: dict[str, int],
+    settings: ImportSettings,
+    row: ImportRow,
+    facilitator_id: int,
+    event_id: int,
+) -> list[HostPersonalDataEntry]:
+    return [
+        HostPersonalDataEntry(
+            facilitator_id=facilitator_id,
+            event_id=event_id,
+            field_id=field_id,
+            value=cell(target=settings.questions.get(header), row=row, header=header),
+        )
+        for header, field_id in field_ids.items()
+    ]
 
 
 def chosen_entities(target: QuestionTarget, value: str) -> list[EntityRef]:

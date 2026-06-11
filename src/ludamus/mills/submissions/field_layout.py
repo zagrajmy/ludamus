@@ -5,14 +5,10 @@ from typing import TYPE_CHECKING
 from ludamus.mills.submissions.engine import ImportEngine
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
-    cell,
     decode_response,
+    host_personal_data_entries,
     resolve_builtins,
-)
-from ludamus.pacts import (
-    HostPersonalDataEntry,
-    SessionFieldValueData,
-    SessionUpdateData,
+    session_field_values,
 )
 from ludamus.pacts.submissions import (
     ApplyFieldLayoutResult,
@@ -23,6 +19,7 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
+    from ludamus.pacts import SessionUpdateData
     from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
@@ -252,15 +249,16 @@ class ImportFieldLayoutService:
         existing = {
             fv.field_id for fv in self._repos.sessions.read_field_values(session_id)
         }
-        to_add = [
-            SessionFieldValueData(
-                session_id=session_id,
-                field_id=field_id,
-                value=cell(settings.questions.get(header), row, header),
-            )
-            for header, field_id in session_field_ids.items()
-            if field_id not in existing
-        ]
+        to_add = session_field_values(
+            field_ids={
+                header: field_id
+                for header, field_id in session_field_ids.items()
+                if field_id not in existing
+            },
+            settings=settings,
+            row=row,
+            session_id=session_id,
+        )
         if to_add:
             self._repos.sessions.save_field_values(session_id, to_add)
         return len(to_add)
@@ -298,16 +296,17 @@ class ImportFieldLayoutService:
                     facilitator.pk, event_id
                 )
             )
-            missing = [
-                HostPersonalDataEntry(
-                    facilitator_id=facilitator.pk,
-                    event_id=event_id,
-                    field_id=field_id,
-                    value=cell(settings.questions.get(header), row, header),
-                )
-                for header, field_id in personal_field_ids.items()
-                if field_id not in existing_field_ids
-            ]
+            missing = host_personal_data_entries(
+                field_ids={
+                    header: field_id
+                    for header, field_id in personal_field_ids.items()
+                    if field_id not in existing_field_ids
+                },
+                settings=settings,
+                row=row,
+                facilitator_id=facilitator.pk,
+                event_id=event_id,
+            )
             if missing:
                 self._repos.host_personal_data.save(missing)
                 added += len(missing)

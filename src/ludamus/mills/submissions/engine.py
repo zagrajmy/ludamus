@@ -17,16 +17,16 @@ from ludamus.mills.submissions.mapping import (
     field_name,
     field_setup,
     generate_unique_slug,
+    host_personal_data_entries,
     resolve_builtins,
+    session_field_values,
     slugify,
 )
 from ludamus.pacts import (
-    HostPersonalDataEntry,
     NotFoundError,
     PersonalDataFieldCreateData,
     SessionData,
     SessionFieldCreateData,
-    SessionFieldValueData,
     SessionStatus,
     SessionUpdateData,
 )
@@ -280,14 +280,12 @@ class ImportEngine:
             track_ids=self.track_ids(event_id=event_id, settings=settings, row=row),
             facilitator_ids=[facilitator_id] if facilitator_id is not None else [],
         )
-        values = [
-            SessionFieldValueData(
-                session_id=session_id,
-                field_id=field_id,
-                value=cell(settings.questions.get(header), row, header),
-            )
-            for header, field_id in field_ids.session.items()
-        ]
+        values = session_field_values(
+            field_ids=field_ids.session,
+            settings=settings,
+            row=row,
+            session_id=session_id,
+        )
         if values:
             self._repos.sessions.save_field_values(session_id, values)
         self._save_personal_data(
@@ -338,14 +336,12 @@ class ImportEngine:
             session_id, [facilitator_id] if facilitator_id is not None else []
         )
         self._repos.sessions.clear_field_values(session_id)
-        values = [
-            SessionFieldValueData(
-                session_id=session_id,
-                field_id=field_id,
-                value=cell(settings.questions.get(header), row, header),
-            )
-            for header, field_id in field_ids.session.items()
-        ]
+        values = session_field_values(
+            field_ids=field_ids.session,
+            settings=settings,
+            row=row,
+            session_id=session_id,
+        )
         if values:
             self._repos.sessions.save_field_values(session_id, values)
         self._save_personal_data(
@@ -426,15 +422,13 @@ class ImportEngine:
         # there's no orphan bucket to land it in.
         if facilitator_id is None:
             return
-        entries = [
-            HostPersonalDataEntry(
-                facilitator_id=facilitator_id,
-                event_id=event_id,
-                field_id=field_id,
-                value=cell(settings.questions.get(header), row, header),
-            )
-            for header, field_id in personal_field_ids.items()
-        ]
+        entries = host_personal_data_entries(
+            field_ids=personal_field_ids,
+            settings=settings,
+            row=row,
+            facilitator_id=facilitator_id,
+            event_id=event_id,
+        )
         if entries:
             self._repos.host_personal_data.save(entries)
 
@@ -449,7 +443,10 @@ class ImportEngine:
         for header, target in settings.questions.items():
             if target.to != "session.time_slots":
                 continue
-            chosen = {part.strip() for part in cell(target, row, header).split(",")}
+            chosen = {
+                part.strip()
+                for part in cell(target=target, row=row, header=header).split(",")
+            }
             for option, spec in target.values.items():
                 if option not in chosen:
                     continue
@@ -473,7 +470,9 @@ class ImportEngine:
         for header, target in settings.questions.items():
             if target.to != "track":
                 continue
-            for ref in chosen_entities(target, cell(target, row, header)):
+            for ref in chosen_entities(
+                target, cell(target=target, row=row, header=header)
+            ):
                 track_id = self._repos.tracks.get_or_create_by_slug(
                     event_id, ref.name, ref.slug
                 )
@@ -489,7 +488,9 @@ class ImportEngine:
         for header, target in settings.questions.items():
             if target.to != "category":
                 continue
-            for ref in chosen_entities(target, cell(target, row, header)):
+            for ref in chosen_entities(
+                target, cell(target=target, row=row, header=header)
+            ):
                 return self._repos.categories.get_or_create_by_slug(
                     event_id, ref.name, ref.slug
                 )
