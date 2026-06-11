@@ -14,8 +14,13 @@ from ludamus.adapters.db.django.models import (
     Session,
     TimeSlot,
 )
-from ludamus.pacts import EventDTO, SessionDTO
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts import EventDTO, SessionDTO, TimeSlotDTO
+from ludamus.pacts.chronology import (
+    EventIntegrationDTO,
+    IntegrationImplementationId,
+    IntegrationKind,
+)
+from ludamus.pacts.submissions import ImportLogEntryDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
@@ -174,11 +179,30 @@ class TestProposalDetailPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        body = response.content.decode()
-        assert "Contact Email" in body
-        assert 'href="mailto:anna@example.com"' in body
-        assert "anna@example.com" in body
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
+            contains=["Contact Email", 'href="mailto:anna@example.com"'],
+        )
 
     def test_renders_preferred_time_slots_when_attached(
         self, authenticated_client, active_user, sphere, event
@@ -203,11 +227,30 @@ class TestProposalDetailPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        attached = response.context_data["preferred_time_slots"]
-        assert [ts.pk for ts in attached] == [slot.pk]
-        body = response.content.decode()
-        assert "Preferred time slots" in body
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
+            contains="Preferred time slots",
+        )
 
     def test_imported_proposal_renders_back_link_to_log(
         self, authenticated_client, active_user, sphere, event
@@ -242,15 +285,44 @@ class TestProposalDetailPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["import_log_entry"].pk == entry.pk
-        assert response.context_data["import_log_integration"].pk == integration.pk
-        body = response.content.decode()
         log_url = reverse(
             "panel:import-log", kwargs={"slug": event.slug, "pk": integration.pk}
         )
-        assert f'href="{log_url}?focus={entry.pk}"' in body
-        assert "Imported via Puller" in body
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": ImportLogEntryDTO.model_validate(entry),
+                "import_log_integration": EventIntegrationDTO(
+                    pk=integration.pk,
+                    event_id=event.pk,
+                    kind=IntegrationKind.IMPORT,
+                    implementation=(IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER),
+                    connection_id=connection.pk,
+                    connection_display_name="API key",
+                    display_name="Puller",
+                    config_json="{}",
+                    settings_json="{}",
+                    questions_snapshot_json="[]",
+                ),
+            },
+            contains=[f'href="{log_url}?focus={entry.pk}"', "Imported via Puller"],
+        )
 
     def test_log_view_highlights_focused_entry_and_opens_successes(
         self, authenticated_client, active_user, sphere, event
@@ -285,10 +357,63 @@ class TestProposalDetailPageView:
         )
         response = authenticated_client.get(f"{log_url}?focus={entry.pk}")
 
-        assert response.status_code == HTTPStatus.OK
-        # Forced open: focused success entry forces the <details> open.
-        assert response.context_data["log_successes_open"] is True
-        body = response.content.decode()
-        assert f'id="entry-{entry.pk}"' in body
-        # CSS highlight applied to the focused entry.
-        assert "ring-2 ring-primary" in body
+        # Forced open: the focused success entry forces the <details> open and
+        # gets the CSS highlight in the body.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-log.html",
+            context_data={
+                **_base_context(event),
+                "active_nav": "import",
+                "active_integration": EventIntegrationDTO(
+                    pk=integration.pk,
+                    event_id=event.pk,
+                    kind=IntegrationKind.IMPORT,
+                    implementation=(IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER),
+                    connection_id=connection.pk,
+                    connection_display_name="API key",
+                    display_name="Puller",
+                    config_json="{}",
+                    settings_json="{}",
+                    questions_snapshot_json="[]",
+                ),
+                "active_tab": "log",
+                "tab_urls": {
+                    "proposal": reverse(
+                        "panel:import-integration",
+                        kwargs={"slug": event.slug, "pk": integration.pk},
+                    ),
+                    "review": reverse(
+                        "panel:import-review",
+                        kwargs={"slug": event.slug, "pk": integration.pk},
+                    ),
+                    "json": reverse(
+                        "panel:import-json",
+                        kwargs={"slug": event.slug, "pk": integration.pk},
+                    ),
+                    "run": reverse(
+                        "panel:import-run",
+                        kwargs={"slug": event.slug, "pk": integration.pk},
+                    ),
+                    "log": log_url,
+                },
+                "log_status": "all",
+                "log_search": "",
+                "log_focus_pk": entry.pk,
+                "log_filter_urls": {
+                    "all": f"{log_url}?status=all",
+                    "skipped": f"{log_url}?status=skipped",
+                    "success": f"{log_url}?status=success",
+                },
+                "log_show_errors": True,
+                "log_show_successes": True,
+                "log_successes_open": True,
+                "log_errors": [],
+                "log_successes": [ImportLogEntryDTO.model_validate(entry)],
+                "log_total_attempts": 1,
+                "log_success_count": 1,
+                "log_error_count": 0,
+            },
+            contains=[f'id="entry-{entry.pk}"', "ring-2 ring-primary"],
+        )
