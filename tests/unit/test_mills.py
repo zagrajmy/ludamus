@@ -1055,7 +1055,11 @@ class _ImportServiceMocks:
 class TestProposalImportService(_ImportServiceMocks):
     @pytest.fixture
     def service(self, transaction, event_integrations, import_repos):
-        return ProposalImportService(transaction, event_integrations, import_repos)
+        return ProposalImportService(
+            transaction=transaction,
+            event_integrations=event_integrations,
+            repos=import_repos,
+        )
 
     def test_run_creates_one_proposal_per_response(
         self, service, event_integrations, sessions
