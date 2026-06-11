@@ -320,9 +320,10 @@ class ImportEngine:
             "category_id": self.category_id(
                 event_id=event_id, settings=settings, row=row
             ),
+            # Always overwrite (even with a blank) so a now-empty source row
+            # clears stale personal data — reimport is a faithful overwrite.
+            "contact_email": builtins.contact_email,
         }
-        if builtins.contact_email:
-            update_data["contact_email"] = builtins.contact_email
         self._repos.sessions.update(session_id, update_data)
         self._repos.sessions.set_time_slots(
             session_id,

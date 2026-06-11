@@ -1884,6 +1884,62 @@ class TestEventImportJsonView:
         integration.refresh_from_db()
         assert integration.settings_json == blob
 
+    def test_post_refreshes_snapshot_when_header_row_changes(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps({"header_row": 1})
+        integration.questions_snapshot_json = json.dumps([{"title": "Stale"}])
+        integration.save(update_fields=["settings_json", "questions_snapshot_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True,
+                json=lambda: {
+                    "items": [{"title": "Fresh", "questionItem": {"question": {}}}]
+                },
+            )
+            response = authenticated_client.post(
+                _json_url(event, integration),
+                data={"settings_json": json.dumps({"header_row": 2})},
+            )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        snapshot = json.loads(integration.questions_snapshot_json)
+        assert [q["title"] for q in snapshot] == ["Fresh"]
+
+    def test_post_keeps_snapshot_when_parsing_fields_unchanged(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps({"header_row": 1})
+        integration.questions_snapshot_json = json.dumps([{"title": "Kept"}])
+        integration.save(update_fields=["settings_json", "questions_snapshot_json"])
+
+        response = authenticated_client.post(
+            _json_url(event, integration),
+            data={
+                "settings_json": json.dumps(
+                    {"header_row": 1, "questions": {"Title": {"to": "session.title"}}}
+                )
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        snapshot = json.loads(integration.questions_snapshot_json)
+        assert [q["title"] for q in snapshot] == ["Kept"]
+
     def test_post_rejects_invalid_json(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
@@ -2418,6 +2474,25 @@ class TestEventImportLogFilters:
         ]
         assert response.context_data["log_errors"] == []
 
+    def test_status_pill_urls_url_encode_the_search_term(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        self._seed(integration, sphere=sphere)
+
+        response = authenticated_client.get(
+            _log_url(event, integration) + "?search=A%26B%3Dc"
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["log_search"] == "A&B=c"
+        all_url = response.context_data["log_filter_urls"]["all"]
+        assert "search=A%26B%3Dc" in all_url
+        assert "&search=A&B=c" not in all_url
+
     def test_search_and_status_combine(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
@@ -2528,6 +2603,53 @@ class TestEventImportLogReimport:
         assert "onsubmit=" in body
         assert "Reimport will overwrite" in body
         assert _log_reimport_url(event, integration) in body
+
+    def test_post_clears_contact_email_when_source_row_blanks_it(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title"},
+                    "Email": {"to": "session.contact_email"},
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        # Initial run imports a contact email.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Email"], ["Original", "host@example.com"]]
+            )
+            authenticated_client.post(_run_url(event, integration))
+
+        entry = ImportLogEntry.objects.get(integration=integration, status="success")
+        assert Session.objects.get(pk=entry.session_id).contact_email == (
+            "host@example.com"
+        )
+
+        # Reimport: the source row no longer carries an email.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Email"], ["Original", ""]]
+            )
+            authenticated_client.post(
+                _log_reimport_url(event, integration), data={"entry_id": str(entry.pk)}
+            )
+
+        reimported = Session.objects.get(pk=entry.session_id)
+        assert not reimported.contact_email
 
 
 def _apply_field_layout_url(event, integration) -> str:

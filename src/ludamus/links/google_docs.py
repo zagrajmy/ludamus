@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import suppress
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 from urllib.parse import quote
 
 import requests
@@ -23,7 +23,14 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.submissions import ImportRow
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Mapping, Sequence
+
+
+class _CredentialsFactory(Protocol):
+    def __call__(
+        self, info: Mapping[str, object], *, scopes: list[str]
+    ) -> Credentials: ...
+
 
 GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -174,12 +181,16 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
             return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
 
         sheet_outcome = self._probe(
-            session, SHEETS_API_URL.format(sheet_id=config.sheet_id), "spreadsheet"
+            session=session,
+            url=SHEETS_API_URL.format(sheet_id=config.sheet_id),
+            what="spreadsheet",
         )
         if sheet_outcome.outcome != CheckOutcome.OK:
             return sheet_outcome
         return self._probe(
-            session, FORMS_API_URL.format(form_id=config.form_id), "form"
+            session=session,
+            url=FORMS_API_URL.format(form_id=config.form_id),
+            what="form",
         )
 
     def fetch_questions(
@@ -221,7 +232,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
                     existing_question.is_multiple |= question.is_multiple
                     existing_question.allow_custom |= question.allow_custom
                     existing_question.options = list(
-                        set(existing_question.options + question.options)
+                        dict.fromkeys([*existing_question.options, *question.options])
                     )
         if (
             schema.settings.email_collection_type in _EMAIL_COLLECTION_VALUES
@@ -256,7 +267,9 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
             response = session.get(
-                SHEETS_VALUES_URL.format(sheet_id=sheet_id, range=quote(row_range)),
+                SHEETS_VALUES_URL.format(
+                    sheet_id=sheet_id, range=quote(row_range, safe="")
+                ),
                 timeout=10,
             )
         if response is None or not response.ok:
@@ -286,7 +299,9 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
             # A bare tab name (no A1 column bounds) returns the tab's whole data
             # region — every column and row — so a wide form is not capped at Z.
             response = session.get(
-                SHEETS_VALUES_URL.format(sheet_id=config.sheet_id, range=quote(title)),
+                SHEETS_VALUES_URL.format(
+                    sheet_id=config.sheet_id, range=quote(title, safe="")
+                ),
                 timeout=30,
             )
         if response is None or not response.ok:
@@ -324,19 +339,23 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         if not isinstance(info, dict):
             msg = "Connection secret must be a JSON object (service-account key)."
             raise _CredentialsError(msg)
+        # google-auth ships no type stubs, so its callables read as untyped.
+        # Bind them to typed locals (binding, unlike calling, doesn't trip
+        # no-untyped-call) so the call sites stay typed without inline ignores.
+        # Resolved per-call so test patches on these symbols still apply.
+        make_credentials: _CredentialsFactory = Credentials.from_service_account_info
+        authorized_session: Callable[[Credentials], AuthorizedSession] = (
+            AuthorizedSession
+        )
         try:
-            credentials: Credentials = (
-                Credentials.from_service_account_info(  # type: ignore[no-untyped-call]
-                    info, scopes=list(self._scopes)
-                )
-            )
+            credentials = make_credentials(info, scopes=list(self._scopes))
         except (ValueError, GoogleAuthError) as exc:
             msg = f"Invalid service-account credentials: {exc}"
             raise _CredentialsError(msg) from exc
-        return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
+        return authorized_session(credentials)
 
     @staticmethod
-    def _probe(session: AuthorizedSession, url: str, what: str) -> CheckResult:
+    def _probe(*, session: AuthorizedSession, url: str, what: str) -> CheckResult:
         try:
             response = session.get(url, timeout=10)
         except (requests.RequestException, GoogleAuthError) as exc:

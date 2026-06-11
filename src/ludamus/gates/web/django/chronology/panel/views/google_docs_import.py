@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.http import HttpResponse
@@ -788,8 +789,9 @@ class EventImportJsonView(_ImportTabView):
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
         raw = (self.request.POST.get("settings_json") or "").strip() or "{}"
+        previous = ImportSettings.model_validate_json(active.settings_json or "{}")
         try:
-            ImportSettings.model_validate_json(raw)
+            new_settings = ImportSettings.model_validate_json(raw)
         except ValidationError:
             messages.error(self.request, _("Invalid import settings JSON."))
             context["settings_json"] = raw
@@ -797,6 +799,18 @@ class EventImportJsonView(_ImportTabView):
         self.request.services.event_integrations.save_settings(
             event_id=current_event.pk, pk=active.pk, settings_json=raw
         )
+        # The cached snapshot's synthesized email question depends on header_row
+        # and email_column; mirror EventImportSettingsSaveView and refresh it when
+        # a raw JSON edit changes either, so Proposal / Review render the new set.
+        if (
+            new_settings.header_row != previous.header_row
+            or new_settings.email_column != previous.email_column
+        ):
+            self.request.services.event_integrations.populate_questions_snapshot(
+                sphere_id=self.request.context.current_sphere_id,
+                event_id=current_event.pk,
+                pk=active.pk,
+            )
         messages.success(self.request, _("Import settings saved."))
         return redirect("panel:import-json", slug=slug, pk=active.pk)
 
@@ -823,9 +837,13 @@ class EventImportRunPageView(_ImportTabView):
             # candidates without a live sheet fetch. Operators uncheck them if
             # the form doesn't collect email.
             forms_metadata = ("Timestamp", "Email Address")
+            # Unique-key columns name real sheet headers used to identify rows
+            # across refetches, so offer every snapshot question title — not
+            # just the headers the operator has already mapped.
+            snapshot_columns = [question.title for question in cached]
             seen: set[str] = set()
             available: list[str] = []
-            for col in (*forms_metadata, *settings.questions.keys()):
+            for col in (*forms_metadata, *snapshot_columns):
                 if col and col not in seen:
                     seen.add(col)
                     available.append(col)
@@ -851,8 +869,13 @@ _LOG_STATUS_FILTERS = {
 
 def _log_pill_urls(*, slug: str, pk: int, search: str) -> dict[str, str]:
     base = reverse("panel:import-log", kwargs={"slug": slug, "pk": pk})
-    suffix = f"&search={search}" if search else ""
-    return {key: f"{base}?status={key}{suffix}" for key in _LOG_STATUS_FILTERS}
+    urls: dict[str, str] = {}
+    for key in _LOG_STATUS_FILTERS:
+        query = {"status": key}
+        if search:
+            query["search"] = search
+        urls[key] = f"{base}?{urlencode(query)}"
+    return urls
 
 
 class EventImportLogPageView(_ImportTabView):

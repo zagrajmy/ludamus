@@ -77,7 +77,12 @@ class ImportLogService:
         )
         original_response = decode_response(entry.response_json)
         if (
-            located := locate_row(rows, original_response, settings, entry.row_index)
+            located := locate_row(
+                rows=rows,
+                response=original_response,
+                settings=settings,
+                fallback_index=entry.row_index,
+            )
         ) is None:
             self._repos.log_entries.upsert(
                 ImportLogEntryCreateData(
@@ -129,7 +134,12 @@ class ImportLogService:
         )
         original_response = decode_response(entry.response_json)
         if (
-            located := locate_row(rows, original_response, settings, entry.row_index)
+            located := locate_row(
+                rows=rows,
+                response=original_response,
+                settings=settings,
+                fallback_index=entry.row_index,
+            )
         ) is None:
             self._repos.log_entries.upsert(
                 ImportLogEntryCreateData(

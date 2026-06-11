@@ -266,6 +266,7 @@ def decode_response(response_json: str) -> ImportRow:
 
 
 def locate_row(
+    *,
     rows: list[ImportRow],
     response: ImportRow,
     settings: ImportSettings,
@@ -301,13 +302,25 @@ def slugify(value: str) -> str:
     return re.sub(r"[-\s]+", "-", slug).strip("-")
 
 
+class SlugCollisionError(Exception):
+    # Raised when a unique slug can't be found within the retry budget, so the
+    # caller fails loudly instead of handing a colliding slug to the DB.
+    def __init__(self, base_slug: str) -> None:
+        super().__init__(f"Could not generate a unique slug for {base_slug!r}.")
+        self.base_slug = base_slug
+
+
 def generate_unique_slug(
-    title: str, exists: Callable[[str], bool], *, fallback: str = ""
+    title: str,
+    exists: Callable[[str], bool],
+    *,
+    fallback: str = "",
+    max_attempts: int = 8,
 ) -> str:
     base_slug = slugify(title) or fallback
     slug = base_slug
-    for _ in range(4):
+    for _ in range(max_attempts):
         if not exists(slug):
-            break
+            return slug
         slug = f"{base_slug}-{token_urlsafe(3)}"
-    return slug
+    raise SlugCollisionError(base_slug)

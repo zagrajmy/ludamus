@@ -18,6 +18,7 @@ from ludamus.mills import (
 from ludamus.mills.multiverse import ConnectionsService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
+from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.pacts import (
     EncounterDTO,
@@ -711,6 +712,7 @@ class TestProposeSessionService:
             start_time=now + timedelta(days=5),
         )
         mock_uow.sessions.slug_exists.return_value = False
+        mock_uow.facilitators.slug_exists.return_value = False
         facilitator = FacilitatorDTO(
             display_name="Anon Host", event_id=1, pk=10, slug="anon-host", user_id=None
         )
@@ -2155,3 +2157,22 @@ class TestImportLogService(_ImportServiceMocks):
         log_entries.upsert.assert_called_once()
         created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.session_id == fresh_session_pk
+
+
+class TestGenerateUniqueSlug:
+    def test_returns_base_slug_when_free(self):
+        slug = generate_unique_slug("My Talk", lambda _s: False)
+
+        assert slug == "my-talk"
+
+    def test_appends_suffix_until_free(self):
+        taken = {"my-talk"}
+
+        slug = generate_unique_slug("My Talk", lambda s: s in taken)
+
+        assert slug.startswith("my-talk-")
+        assert slug != "my-talk"
+
+    def test_raises_when_retry_budget_exhausted(self):
+        with pytest.raises(SlugCollisionError):
+            generate_unique_slug("My Talk", lambda _s: True, max_attempts=3)
