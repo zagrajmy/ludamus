@@ -5,7 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
-from factory import Faker, LazyAttribute, SubFactory
+from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
@@ -80,7 +80,7 @@ class EventFactory(DjangoModelFactory):
         model = Event
 
     name = Faker("sentence", nb_words=4)
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"event-{n}")
     description = Faker("text")
     sphere = SubFactory(SphereFactory)
     start_time = LazyAttribute(lambda __: datetime.now(UTC) + timedelta(days=7))
@@ -105,7 +105,7 @@ class VenueFactory(DjangoModelFactory):
         model = Venue
 
     name = Faker("company")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"venue-{n}")
     event = SubFactory(EventFactory)
     order = 0
 
@@ -115,7 +115,7 @@ class AreaFactory(DjangoModelFactory):
         model = Area
 
     name = Faker("word")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"area-{n}")
     venue = SubFactory(VenueFactory)
     order = 0
 
@@ -125,7 +125,7 @@ class SpaceFactory(DjangoModelFactory):
         model = Space
 
     name = Faker("word")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"space-{n}")
     area = SubFactory(AreaFactory)
 
 
@@ -143,7 +143,7 @@ class TagCategoryFactory(DjangoModelFactory):
         model = TagCategory
 
     name = Faker("word")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"tag-category-{n}")
     event = SubFactory(EventFactory)
     category_type = "SELECT"
     icon = "dice"
@@ -154,7 +154,7 @@ class TagFactory(DjangoModelFactory):
         model = Tag
 
     name = Faker("word")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"tag-{n}")
     category = SubFactory(TagCategoryFactory)
 
 
@@ -163,7 +163,7 @@ class SessionFactory(DjangoModelFactory):
         model = Session
 
     title = Faker("sentence", nb_words=5)
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"session-{n}")
     description = Faker("text")
     presenter = SubFactory(UserFactory)
     display_name = Faker("name")
@@ -189,7 +189,7 @@ class ProposalCategoryFactory(DjangoModelFactory):
         model = ProposalCategory
 
     name = Faker("word")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"proposal-category-{n}")
     event = SubFactory(EventFactory)
     max_participants_limit = 20
     min_participants_limit = 2
