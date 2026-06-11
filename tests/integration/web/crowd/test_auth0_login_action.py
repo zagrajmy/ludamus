@@ -32,6 +32,19 @@ class TestAuth0LoginActionView:
             "csrf_token": "",
         }
 
+    @patch("ludamus.adapters.web.django.views.oauth")
+    def test_ok_redirect_drops_external_next(self, oauth_mock, client):
+        oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
+
+        response = client.get(f"{self.URL}?next=https://evil.example.com/")
+
+        assert_response(response, HTTPStatus.OK)
+        cache_key = (
+            f"oauth_state:{oauth_mock.auth0.authorize_redirect.call_args[1]['state']}"
+        )
+        cached_data = json.loads(cache.get(cache_key))
+        assert cached_data["redirect_to"] is None
+
     def test_error_non_root_domain(self, client, non_root_sphere):
         response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
