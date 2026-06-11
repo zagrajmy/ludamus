@@ -468,10 +468,14 @@ def _time_slot_values_from_post(
     for option, start, end in rows:
         if not (option and start and end):
             continue
+        try:
+            start_dt = datetime.fromisoformat(start)
+            end_dt = datetime.fromisoformat(end)
+        except ValueError:
+            continue
         grouped.setdefault(option, []).append(
             TimeSlotSpec(
-                start_time=make_aware(datetime.fromisoformat(start), tz),
-                end_time=make_aware(datetime.fromisoformat(end), tz),
+                start_time=make_aware(start_dt, tz), end_time=make_aware(end_dt, tz)
             )
         )
     result: dict[str, QuestionValue] = {

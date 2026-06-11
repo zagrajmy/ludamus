@@ -940,6 +940,44 @@ class TestEventImportRowSaveView:
             ],
         }
 
+    def test_post_skips_time_slot_rows_with_malformed_datetimes(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "When",
+                "target_0": "session.time_slots",
+                "tsoption_0": ["Fri", "Sat"],
+                "tsstart_0": ["not-a-date", "2025-09-20T10:00"],
+                "tsend_0": ["2025-09-19T22:00", "2025-09-20T14:00"],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
+        tz = get_current_timezone()
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["When"]
+        assert target.values == {
+            "Sat": TimeSlotSpec(
+                start_time=datetime(2025, 9, 20, 10, 0, tzinfo=tz),
+                end_time=datetime(2025, 9, 20, 14, 0, tzinfo=tz),
+            )
+        }
+
     def test_post_saves_track_target_with_catchall(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
