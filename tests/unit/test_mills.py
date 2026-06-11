@@ -89,7 +89,9 @@ class TestCFPPersonalDataFieldService:
 
     @pytest.fixture
     def service(self, transaction, fields, categories):
-        return CFPPersonalDataFieldService(transaction, fields, categories)
+        return CFPPersonalDataFieldService(
+            transaction=transaction, fields=fields, categories=categories
+        )
 
     def test_list_summaries_combines_fields_with_usage_counts(self, service, fields):
         field_a = _personal_data_field(pk=1, slug="a")

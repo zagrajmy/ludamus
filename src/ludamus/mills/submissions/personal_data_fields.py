@@ -24,6 +24,7 @@ class CFPPersonalDataFieldService:
 
     def __init__(
         self,
+        *,
         transaction: TransactionProtocol,
         fields: PersonalDataFieldRepositoryProtocol,
         categories: ProposalCategoryRepositoryProtocol,

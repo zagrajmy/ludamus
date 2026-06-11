@@ -50,9 +50,9 @@ class Services:
     @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
         return CFPPersonalDataFieldService(
-            self._transaction,
-            self._repos.personal_data_fields,
-            self._repos.proposal_categories,
+            transaction=self._transaction,
+            fields=self._repos.personal_data_fields,
+            categories=self._repos.proposal_categories,
         )
 
     @cached_property
