@@ -283,7 +283,7 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         )
 
         def get(url: str, **_kwargs: object) -> MagicMock:
-            if "forms.googleapis.com" in url:
+            if url.startswith("https://forms.googleapis.com/"):
                 return form_response
             if "/values/" in url:
                 return sheet_values
