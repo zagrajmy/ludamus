@@ -813,6 +813,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "tags__category",
                 "session_participations__user__manager",
                 "session_participations__user__connected",
+                "field_values__field",
                 "agenda_item__space__area__venue__event__enrollment_configs",
             )
             .annotate(
@@ -1155,9 +1156,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         status=sp.status,
                         creation_time=sp.creation_time,
                     )
-                    for sp in session.session_participations.select_related(
-                        "user"
-                    ).all()
+                    for sp in session.session_participations.all()
                 ],
             )
 
