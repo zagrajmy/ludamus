@@ -3059,3 +3059,597 @@ class TestEventImportApplyFieldLayoutView:
         assert [t.slug for t in tracks] == ["indie"]
         # The track was provisioned on the event.
         assert Track.objects.filter(event=event, slug="indie").exists()
+
+
+# A cached snapshot serves the Proposal / Review tabs without touching the
+# Google Forms API, so these label / row tests need no Google mocking.
+def _cache_snapshot(integration, titles) -> None:
+    integration.questions_snapshot_json = json.dumps(
+        [{"title": t, "field_type": "text"} for t in titles]
+    )
+    integration.save(update_fields=["questions_snapshot_json"])
+
+
+@pytest.mark.django_db
+class TestImportSummaryLabels:
+    def test_summary_covers_every_mapping_and_detail_branch(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        _cache_snapshot(
+            integration, ["Dur", "Slots", "Fac", "Weird", "SF", "PF", "CB", "Ghost"]
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Dur": {
+                        "to": "session.duration",
+                        "values": {"30 min": {"to": "duration", "iso": "PT30M"}},
+                    },
+                    "Slots": {
+                        "to": "session.time_slots",
+                        "values": {
+                            "Fri": {
+                                "to": "time_slot",
+                                "start_time": "2025-09-19T16:00:00+02:00",
+                                "end_time": "2025-09-19T22:00:00+02:00",
+                            }
+                        },
+                    },
+                    "Fac": {"to": "facilitator.bio"},
+                    "Weird": {"to": "custom.x"},
+                    "SF": {"to": "field.system"},
+                    "PF": {"to": "personal.phone"},
+                    "CB": {"to": "field.flag"},
+                    "Ghost": {"to": "personal.ghost"},
+                },
+                "definitions": {
+                    "personal_fields": {"phone": {"name": "Phone", "type": "text"}},
+                    "session_fields": {
+                        "system": {
+                            "name": "System",
+                            "type": "select",
+                            "options": ["a", "b"],
+                        },
+                        "flag": {"name": "", "type": "checkbox"},
+                    },
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.get(_tab_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["summary_rows"] == [
+            {
+                "index": 0,
+                "status": "unconfirmed",
+                "question": "Dur",
+                "mapping": "Proposal — Duration",
+                "details": "1 mappings",
+            },
+            {
+                "index": 1,
+                "status": "unconfirmed",
+                "question": "Slots",
+                "mapping": "Time slots",
+                "details": "1 windows",
+            },
+            {
+                "index": 2,
+                "status": "unconfirmed",
+                "question": "Fac",
+                "mapping": "Facilitator — Bio",
+                "details": "",
+            },
+            {
+                "index": 3,
+                "status": "unconfirmed",
+                "question": "Weird",
+                "mapping": "",
+                "details": "",
+            },
+            {
+                "index": 4,
+                "status": "unconfirmed",
+                "question": "SF",
+                "mapping": "Session field — System",
+                "details": "Select — 2 options",
+            },
+            {
+                "index": 5,
+                "status": "unconfirmed",
+                "question": "PF",
+                "mapping": "Personal field — Phone",
+                "details": "Text",
+            },
+            {
+                "index": 6,
+                "status": "unconfirmed",
+                "question": "CB",
+                "mapping": "Session field — flag",
+                "details": "Checkbox",
+            },
+            {
+                "index": 7,
+                "status": "unconfirmed",
+                "question": "Ghost",
+                "mapping": "Personal field — ghost",
+                "details": "",
+            },
+        ]
+
+
+@pytest.mark.django_db
+class TestImportReviewRowBranches:
+    def test_rows_cover_personal_session_field_and_ignore_branches(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        _cache_snapshot(integration, ["PF", "PFnodef", "SF", "Ign"])
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "PF": {"to": "personal.phone"},
+                    "PFnodef": {"to": "personal.ghost"},
+                    "SF": {"to": "field.system"},
+                    "Ign": {"ignore": True},
+                },
+                "definitions": {
+                    "personal_fields": {"phone": {"name": "Phone", "type": "text"}},
+                    "session_fields": {
+                        "system": {
+                            "name": "System",
+                            "type": "select",
+                            "multiple": True,
+                            "allow_custom": True,
+                            "options": ["a", "b"],
+                        }
+                    },
+                },
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.get(_review_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        rows = response.context_data["rows"]
+        # Personal field with a saved definition: setup + name come from it.
+        assert (rows[0]["selected"], rows[0]["field_slug"]) == (
+            "personal-field",
+            "phone",
+        )
+        assert rows[0]["field_name"] == "Phone"
+        assert (rows[0]["field_type"], rows[0]["is_multiple"]) == ("text", False)
+        # Personal field without a definition: mirror the source question, slug
+        # falls back to the target slug for the name.
+        assert (rows[1]["selected"], rows[1]["field_slug"]) == (
+            "personal-field",
+            "ghost",
+        )
+        assert rows[1]["field_name"] == "ghost"
+        # Session field with a definition: type/multiple/options come from it.
+        assert (rows[2]["selected"], rows[2]["field_slug"]) == (
+            "session-field",
+            "system",
+        )
+        assert rows[2]["field_name"] == "System"
+        assert (rows[2]["field_type"], rows[2]["is_multiple"]) == ("select", True)
+        assert rows[2]["allow_custom"] is True
+        assert rows[2]["options"] == "a\nb"
+        # An ignore target lands on the "ignore" selection.
+        assert rows[3]["selected"] == "ignore"
+        assert (rows[3]["field_name"], rows[3]["field_slug"]) == ("", "")
+
+
+@pytest.mark.django_db
+class TestImportRowSavePostHelpers:
+    def test_post_saves_checkbox_session_field(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Online",
+                "target_0": "session-field",
+                "newname_0": "Online",
+                "fieldtype_0": "checkbox",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        definition = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).definitions.session_fields["online"]
+        assert definition.type == "checkbox"
+
+    def test_post_saves_personal_field_defaulting_to_text(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Phone",
+                "target_0": "personal-field",
+                "newname_0": "Phone",
+                "newslug_0": "phone",
+                "fieldtype_0": "weird-value",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        settings = ImportSettings.model_validate_json(integration.settings_json)
+        assert settings.questions["Phone"].to == "personal.phone"
+        # An unrecognised field type falls back to text.
+        assert settings.definitions.personal_fields["phone"].type == "text"
+
+    def test_post_saves_duration_target_and_skips_blank_iso(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Length",
+                "target_0": "session.duration",
+                "droption_0": ["30 min", "blank"],
+                "driso_0": ["PT30M", "  "],
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Length"]
+        assert target.to == "session.duration"
+        # The blank-ISO option is dropped; only the mapped one survives.
+        assert set(target.values) == {"30 min"}
+
+    def test_post_skips_blank_time_slot_row(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "When",
+                "target_0": "session.time_slots",
+                "tsoption_0": ["Fri", ""],
+                "tsstart_0": ["2025-09-19T16:00", ""],
+                "tsend_0": ["2025-09-19T22:00", ""],
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["When"]
+        # The trailing blank window row is ignored.
+        assert set(target.values) == {"Fri"}
+
+    def test_post_skips_entity_row_with_blank_name(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Suggested",
+                "target_0": "category",
+                "entoption_0": ["RPG", "Blank"],
+                "entname_0": ["RPG", ""],
+                "entslug_0": ["rpg", ""],
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Suggested"]
+        # The blank-name option is dropped.
+        assert target.values == {"RPG": EntityRef(name="RPG", slug="rpg")}
+
+    def test_post_ignores_when_field_target_has_no_slug(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = authenticated_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Nope",
+                "target_0": "session-field",
+                "newname_0": "",
+                "newslug_0": "",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Nope"]
+        # A field target without a slug falls through to a deliberate ignore.
+        assert target.to is None
+        assert target.ignore is True
+
+
+@pytest.mark.django_db
+class TestImportJsonInvalidStored:
+    def test_get_returns_raw_text_when_stored_json_is_invalid(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = "{not valid json"
+        integration.save(update_fields=["settings_json"])
+
+        response = authenticated_client.get(_json_url(event, integration))
+
+        assert response.status_code == HTTPStatus.OK
+        # Un-parseable stored settings are echoed back verbatim for the operator.
+        assert response.context_data["settings_json"] == "{not valid json"
+
+
+@pytest.mark.django_db
+class TestImportActionResultMessages:
+    def test_run_reports_responses_already_imported(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {"Title": {"to": "session.title"}},
+                "unique_key_columns": ["Title"],
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["My Talk"], ["Another"]]
+            )
+            # follow=True so the first run's success message is consumed.
+            authenticated_client.post(_run_url(event, integration), follow=True)
+
+        # Second run finds both rows already imported via the unique key.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["My Talk"], ["Another"]]
+            )
+            response = authenticated_client.post(_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (messages.SUCCESS, "Created 0 proposals."),
+                (messages.INFO, "Skipped 2 responses already imported."),
+            ],
+        )
+
+    def test_test_row_reports_skip_for_invalid_answer(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title"},
+                    "Cap": {"to": "session.participants_limit"},
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Cap"], ["My Talk", "loads"]]
+            )
+            response = authenticated_client.post(_test_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.WARNING,
+                    (
+                        "Test row was skipped because one of its mapped answers "
+                        "is invalid or has no mapping."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(sphere=sphere).exists()
+
+    def test_reimport_warns_when_source_row_is_gone(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {"questions": {"Title": {"to": "session.title"}}}
+        )
+        integration.save(update_fields=["settings_json"])
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title"], ["Original"]]
+            )
+            # follow=True so the initial run's success message is consumed.
+            authenticated_client.post(_run_url(event, integration), follow=True)
+
+        entry = ImportLogEntry.objects.get(integration=integration, status="success")
+
+        # Reimport against a source that no longer carries the row.
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get([])
+            response = authenticated_client.post(
+                _log_reimport_url(event, integration), data={"entry_id": str(entry.pk)}
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_log_url(event, integration),
+            messages=[(messages.WARNING, "Reimport failed.")],
+        )
+
+
+_EVENT_NOT_FOUND_GET = (
+    "panel:import-review",
+    "panel:import-json",
+    "panel:import-run",
+    "panel:import-log",
+)
+_EVENT_NOT_FOUND_POST = (
+    "panel:import-row-save",
+    "panel:import-json",
+    "panel:import-settings-save",
+    "panel:import-run-do",
+    "panel:import-test-do",
+    "panel:import-log-retry",
+    "panel:import-log-reimport",
+    "panel:import-refetch",
+    "panel:import-missing-fields",
+    "panel:import-apply-field-layout",
+)
+
+
+@pytest.mark.django_db
+class TestImportViewsEventNotFound:
+    @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_GET)
+    def test_get_tabs_redirect_to_index_for_unknown_event(
+        self, authenticated_client, active_user, sphere, name
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(name, kwargs={"slug": "no-such-event", "pk": 1})
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("panel:index"),
+            messages=[(messages.ERROR, "Event not found.")],
+        )
+
+    @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_POST)
+    def test_post_actions_redirect_to_index_for_unknown_event(
+        self, authenticated_client, active_user, sphere, name
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(name, kwargs={"slug": "no-such-event", "pk": 1})
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("panel:index"),
+            messages=[(messages.ERROR, "Event not found.")],
+        )
+
+
+@pytest.mark.django_db
+class TestImportViewsIntegrationNotFound:
+    @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_POST)
+    def test_post_actions_redirect_to_section_for_unknown_integration(
+        self, authenticated_client, active_user, sphere, event, name
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(name, kwargs={"slug": event.slug, "pk": 99999})
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_import_url(event),
+            messages=[(messages.ERROR, "Import integration not found.")],
+        )
+
+    def test_log_tab_renders_empty_for_unknown_integration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(
+            reverse("panel:import-log", kwargs={"slug": event.slug, "pk": 99999})
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "panel/import-log.html"
+        assert response.context_data["active_integration"] is None
