@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -36,10 +36,27 @@ class DateTimeRangeProtocol(Protocol):
     end_time: datetime
 
 
+@runtime_checkable
 class UploadedFileProtocol(Protocol):
     name: str | None
 
     def read(self, size: int = -1) -> bytes: ...
+
+
+def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
+    # Boundary parser: recover a typed upload from the untyped form-data value
+    # (a file on upload, "" / False / None otherwise), so callers narrow once
+    # here instead of casting.
+    return value if isinstance(value, UploadedFileProtocol) else None
+
+
+def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+    # ClearableFileInput's tri-state in one place: a file on upload becomes the
+    # new cover, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored cover untouched.
+    if uploaded := parse_uploaded_file(raw):
+        return uploaded
+    return "" if raw is False else None
 
 
 class FacilitatorDTO(BaseModel):
@@ -213,6 +230,33 @@ class SessionStatus(StrEnum):
 class SessionParticipationStatus(StrEnum):
     CONFIRMED = auto()
     WAITING = auto()
+    OFFERED = auto()
+
+
+# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
+# seat is held so the same seat is never offered to two waiters at once.
+OCCUPYING_PARTICIPATION_STATUSES = (
+    SessionParticipationStatus.CONFIRMED,
+    SessionParticipationStatus.OFFERED,
+)
+
+
+class PromotionMode(StrEnum):
+    """How a freed seat is filled from the waiting list, per ProposalCategory.
+
+    AUTO: the next eligible waiter is moved straight to CONFIRMED.
+    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
+    bounded window; they must actively claim it or it rolls to the next party.
+    """
+
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
+class NotificationKind(StrEnum):
+    WAITLIST_PROMOTED = auto()
+    WAITLIST_OFFER = auto()
+    OFFER_EXPIRED = auto()
 
 
 class SpherePage(StrEnum):
@@ -339,7 +383,7 @@ class TagDTO(BaseModel):
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol
     description: str
     duration: str
     min_age: int
@@ -357,7 +401,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     description: str
     display_name: str
     duration: str
@@ -679,7 +723,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None

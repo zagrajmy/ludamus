@@ -269,6 +269,16 @@ def staff_user_fixture():
 
 
 @pytest.fixture
+def waiter():
+    return UserFactory(
+        username="waiter",
+        email="waiter@example.com",
+        name="Wendy Waiter",
+        password=make_password(None),
+    )
+
+
+@pytest.fixture
 def non_root_sphere(settings, faker):
     name = faker.word()
     site = Site.objects.create(

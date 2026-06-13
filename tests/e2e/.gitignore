@@ -1,3 +1,7 @@
 node_modules
 playwright-report
 test-results
+
+# Promotion e2e artifacts
+.e2e-mail/
+.promotion-scenario.json

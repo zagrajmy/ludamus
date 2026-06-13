@@ -5,16 +5,20 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
+from ludamus.inits.dbos_offer_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
+from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
+from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
     CFPPersonalDataFieldService,
     EventIntegrationsService,
     SessionContentEditService,
     SessionSelfEditService,
 )
+from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
     ConnectionsService,
     EventsService,
@@ -26,6 +30,7 @@ from ludamus.pacts.chronology import IntegrationImplementationId
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
+    from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
 class Services:
@@ -91,6 +96,28 @@ class Services:
             self._repos.spheres,
             self.session_content_edit,
         )
+
+    @cached_property
+    def waitlist_promotion(self) -> WaitlistPromotionService:
+        return WaitlistPromotionService(
+            self._transaction,
+            self._repos.participation_promotion,
+            DjangoUserNotifier(),
+            self._offer_expiry_scheduler(),
+        )
+
+    @staticmethod
+    def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
+        scheduler_kind: str = settings.OFFER_EXPIRY_SCHEDULER
+        return (
+            DBOSOfferExpiryScheduler()
+            if scheduler_kind == "dbos"
+            else CronSweepOfferScheduler()
+        )
+
+    @cached_property
+    def notifications(self) -> NotificationsService:
+        return NotificationsService(self._transaction, self._repos.notifications)
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

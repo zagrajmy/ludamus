@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 time:
+  '@axe-core/playwright@4.10.2': 2025-06-03T17:58:10.358Z
   '@fluejs/noscroll@1.0.0': 2024-11-24T12:26:28.338Z
   '@hasparus/tailwind@1.1.8': 2026-05-02T09:04:18.665Z
   '@playwright/test@1.58.2': 2026-02-06T16:42:52.725Z
@@ -80,7 +81,14 @@ importers:
         version: 8.0.10(@types/node@24.10.1)(jiti@2.7.0)
 
   tests/e2e:
+    dependencies:
+      playwright-core:
+        specifier: '>= 1.0.0'
+        version: 1.58.2
     optionalDependencies:
+      '@axe-core/playwright':
+        specifier: 4.10.2
+        version: 4.10.2(playwright-core@1.58.2)
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
@@ -96,6 +104,11 @@ packages:
   '@apidevtools/json-schema-ref-parser@11.9.3':
     resolution: {integrity: sha512-60vepv88RwcJtSHrD6MjIL6Ta3SOYbgfnkHb+ppAVK+o9mXprRtulx7VlRl3lN3bbvysAfCS7WMVfhUYemB0IQ==}
     engines: {node: '>= 16'}
+
+  '@axe-core/playwright@4.10.2':
+    resolution: {integrity: sha512-6/b5BJjG6hDaRNtgzLIfKr5DfwyiLHO4+ByTLB0cJgWSM8Ll7KqtdblIS6bEkwSF642/Ex91vNqIl3GLXGlceg==}
+    peerDependencies:
+      playwright-core: '>= 1.0.0'
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -377,6 +390,10 @@ packages:
 
   assert-ts@0.3.4:
     resolution: {integrity: sha512-CQtNOdOCzzZfE3TF9a1vFTcz4ZfJYM6iHoWYCkpFY3wdk6CkFvevuLwpOFVL/KMJ9vCNIbeidWH5uo/Y8sLVWg==}
+
+  axe-core@4.10.3:
+    resolution: {integrity: sha512-Xm7bpRXnDSX2YE2YFfBk2FnF0ep6tmG7xPh8iHee8MIcrgq762Nkce856dYtJYLkuIoYZvGfTs/PbZhideTcEg==}
+    engines: {node: '>=4'}
 
   base64-url@2.3.3:
     resolution: {integrity: sha512-dLMhIsK7OplcDauDH/tZLvK7JmUZK3A7KiQpjNzsBrM6Etw7hzNI1tLEywqJk9NnwkgWuFKSlx/IUO7vF6Mo8Q==}
@@ -1207,6 +1224,11 @@ snapshots:
       '@types/json-schema': 7.0.15
       js-yaml: 4.1.1
 
+  '@axe-core/playwright@4.10.2(playwright-core@1.58.2)':
+    dependencies:
+      axe-core: 4.10.3
+      playwright-core: 1.58.2
+
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -1384,6 +1406,8 @@ snapshots:
   argparse@2.0.1: {}
 
   assert-ts@0.3.4: {}
+
+  axe-core@4.10.3: {}
 
   base64-url@2.3.3: {}
 

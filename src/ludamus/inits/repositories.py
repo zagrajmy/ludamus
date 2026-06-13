@@ -3,6 +3,8 @@ from functools import cached_property
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
+from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.links.db.django.notifications import NotificationReadRepository
 
 
 class Repositories:
@@ -44,6 +46,14 @@ class Repositories:
     @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
         return repositories.SessionFieldRepository()
+
+    @cached_property
+    def participation_promotion(self) -> ParticipationPromotionRepository:
+        return ParticipationPromotionRepository()
+
+    @cached_property
+    def notifications(self) -> NotificationReadRepository:
+        return NotificationReadRepository()
 
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:

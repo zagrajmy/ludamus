@@ -58,6 +58,7 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     VenueGroupDTO,
 )
+from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 if TYPE_CHECKING:
@@ -1038,13 +1039,8 @@ class SessionSelfEditService:
             "min_age": _int("min_age"),
             "duration": _str("duration"),
         }
-        # ClearableFileInput yields a file on upload, False when cleared, or the
-        # unchanged value otherwise. Only set the key when it actually changes so
-        # the repository keeps the current cover untouched.
-        if cover_image := cleaned_data.get("cover_image"):
-            update["cover_image"] = cover_image
-        elif cover_image is False:
-            update["cover_image"] = ""
+        if (cover := resolve_cover_image(cleaned_data.get("cover_image"))) is not None:
+            update["cover_image"] = cover
         self._content_edit.apply(
             session_id=session_id,
             event_id=event.pk,

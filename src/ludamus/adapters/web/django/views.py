@@ -24,6 +24,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
@@ -42,7 +43,6 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
-    can_enroll_users,
 )
 from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
@@ -63,6 +63,7 @@ from ludamus.mills import (
     get_user_enrollment_config,
 )
 from ludamus.pacts import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     AreaDTO,
     EventDTO,
@@ -1219,6 +1220,9 @@ class Enrollments:
         self.cancelled_users = []
         self.skipped_users = []
         self.users_by_status = defaultdict(list)
+        # Set when a cancellation frees a held (confirmed) seat, so the caller
+        # can run waiting-list promotion after the transaction commits.
+        self.freed_seat = False
         super().__init__()
 
 
@@ -1245,6 +1249,53 @@ _status_by_choice = {
     "enroll": SessionParticipationStatus.CONFIRMED,
     "waitlist": SessionParticipationStatus.WAITING,
 }
+
+
+class SessionOfferClaimView(View):
+    """Login-free claim of an offered waiting-list spot via its token link.
+
+    Works for anonymous waiters (the token is the credential). GET shows the
+    offer; POST claims the whole party.
+    """
+
+    @staticmethod
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        offer = request.services.waitlist_promotion.peek_offer(token=token)
+        if offer is None:
+            messages.error(
+                request, _("This offer is no longer available or has expired.")
+            )
+            return redirect("web:events")
+        return TemplateResponse(
+            request, "chronology/offer_claim.html", {"offer": offer, "token": token}
+        )
+
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        result = request.services.waitlist_promotion.claim_offer(token=token)
+        if result.success and result.event_slug:
+            messages.success(
+                request, _("Spot claimed — you are now confirmed for this session.")
+            )
+            return redirect("web:chronology:event", slug=result.event_slug)
+        messages.error(request, _("This offer has expired or was already claimed."))
+        return redirect("web:events")
+
+
+class NotificationsMarkReadView(LoginRequiredMixin, View):
+    """POST: mark all of the current user's notifications as read."""
+
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        request.services.notifications.mark_all_read(request.context.current_user_id)
+        next_url = request.POST.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}
+        ):
+            return redirect(next_url)
+        return redirect("web:index")
 
 
 class SessionEnrollPageView(LoginRequiredMixin, View):
@@ -1490,75 +1541,16 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     p for p in participations if p.user.id == req.user.pk
                 )
             ):
+                # A freed confirmed (or held offered) seat triggers waiting-list
+                # promotion after the transaction commits, via the service.
+                if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
+                    enrollments.freed_seat = True
                 existing_participation.delete()
                 enrollments.cancelled_users.append(req.name)
-
-                # If this was a confirmed enrollment, promote from waiting list
-                self._promote_from_waitlist(
-                    existing_participation, participations, req, session, enrollments
-                )
                 continue
 
             self._check_and_create_enrollment(req, session, enrollments)
         return enrollments
-
-    def _promote_from_waitlist(
-        self,
-        existing_participation: SessionParticipation,
-        participations: QuerySet[SessionParticipation],
-        req: EnrollmentRequest,
-        session: Session,
-        enrollments: Enrollments,
-    ) -> None:
-        if existing_participation.status == SessionParticipationStatus.CONFIRMED:
-            for participation in participations:
-                if (
-                    participation.user.id != req.user.pk
-                    and participation.status == SessionParticipationStatus.WAITING
-                ) and not Session.objects.has_conflicts(
-                    session, UserDTO.model_validate(participation.user)
-                ):
-
-                    can_be_promoted = True
-                    if participation.user.email:
-                        manager_user = participation.user
-                        if participation.user.manager:
-                            manager_user = participation.user.manager
-
-                        event = session.agenda_item.space.area.venue.event
-                        user_config = get_user_enrollment_config(
-                            event=EventDTO.model_validate(event),
-                            user_email=manager_user.email,
-                            enrollment_config_repo=self.request.di.uow.enrollment_configs,
-                            ticket_api=self.request.di.ticket_api,
-                            check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
-                        )
-                        if user_config and not can_enroll_users(
-                            users=[
-                                UserDTO.model_validate(manager_user),
-                                *[
-                                    UserDTO.model_validate(c)
-                                    for c in manager_user.connected.all()
-                                ],
-                            ],
-                            event=EventDTO.model_validate(event),
-                            virtual_config=user_config,
-                            users_to_enroll=[
-                                UserDTO.model_validate(participation.user)
-                            ],
-                        ):
-                            can_be_promoted = False
-
-                    if can_be_promoted:
-                        participation.status = SessionParticipationStatus.CONFIRMED
-                        participation.save()
-                        enrollments.users_by_status[
-                            SessionParticipationStatus.CONFIRMED
-                        ].append(
-                            f"{participation.user.get_full_name()} "
-                            f"({_("promoted from waiting list")})"
-                        )
-                        break
 
     @staticmethod
     def _check_and_create_enrollment(
@@ -1639,6 +1631,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             with transaction.atomic():
                 enrollments = self._process_enrollments(
                     enrollment_requests, session, enrollment_config
+                )
+
+            # T1: a freed seat promotes/offers the next waiter (who is notified
+            # directly), instead of the canceller stealing the message.
+            if enrollments.freed_seat:
+                self.request.services.waitlist_promotion.fill_freed_seats(
+                    session_id=session.id
                 )
 
             # Send message outside transaction

@@ -16,6 +16,10 @@ if TYPE_CHECKING:
         SessionContentEditServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
+    from ludamus.pacts.enrollment import (
+        NotificationsServiceProtocol,
+        WaitlistPromotionServiceProtocol,
+    )
     from ludamus.pacts.multiverse import (
         ConnectionsServiceProtocol,
         EventsServiceProtocol,
@@ -45,6 +49,10 @@ class ServicesProtocol(Protocol):
     def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...
     @property
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
+    @property
+    def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
+    @property
+    def notifications(self) -> NotificationsServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property

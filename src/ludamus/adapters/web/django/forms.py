@@ -114,6 +114,10 @@ def _build_user_choices(
             choices.append(("cancel", _("Cancel enrollment")))
             if user_can_enroll:
                 choices.append(("enroll", _("Enroll (if spots available)")))
+        case SessionParticipationStatus.OFFERED:
+            # The seat is held for this user; claiming happens via the offer
+            # link. Here they may only decline it (which frees the held seat).
+            choices.append(("cancel", _("Decline offer")))
         case _:
             choices, help_text = _build_default_choices(
                 user_can_enroll=user_can_enroll,

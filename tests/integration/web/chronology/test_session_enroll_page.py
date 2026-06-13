@@ -13,12 +13,14 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
+    Notification,
     SessionParticipation,
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
 from ludamus.adapters.web.django.entities import SessionUserParticipationData
 from ludamus.pacts import UserDTO
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     AreaFactory,
@@ -58,6 +60,42 @@ class TestSessionEnrollPageView:
             },
             template_name="chronology/enroll_select.html",
         )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_get_offered_participation_only_offers_decline(
+        self, active_user, authenticated_client, agenda_item
+    ):
+        # A held offer lets the user only decline it; the page surfaces the
+        # "Decline offer" choice instead of enroll/waitlist actions.
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = authenticated_client.get(self._get_url(agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "connected_users": [],
+                "event": agenda_item.space.area.venue.event,
+                "form": ANY,
+                "session": agenda_item.session,
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    )
+                ],
+            },
+            template_name="chronology/enroll_select.html",
+        )
+        field = response.context_data["form"].fields[f"user_{active_user.pk}"]
+        assert ("cancel", "Decline offer") in list(field.choices)
 
     def test_get_error_404(self, authenticated_client):
         response = authenticated_client.get(self._get_url(17))
@@ -262,16 +300,12 @@ class TestSessionEnrollPageView:
             data={f"user_{active_user.id}": "cancel"},
         )
 
+        # The promotee is notified directly now; the canceller only sees their
+        # own cancellation (no "stolen" promotion message).
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {connected_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -281,6 +315,10 @@ class TestSessionEnrollPageView:
             user=connected_user,
             session=agenda_item.session,
             status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+        # The manager of the promoted minor is notified directly.
+        assert Notification.objects.filter(
+            recipient=active_user, kind=NotificationKind.WAITLIST_PROMOTED.value
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -804,13 +842,7 @@ class TestSessionEnrollPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {connected_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -845,13 +877,7 @@ class TestSessionEnrollPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {staff_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
