@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-09 23:00+0200\n"
+"POT-Creation-Date: 2026-06-13 19:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3985,11 +3985,8 @@ msgstr ""
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/import-review.html
 #: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-settings.html
@@ -4880,6 +4877,11 @@ msgstr "Pomijane"
 #: src/ludamus/templates/panel/import.html
 msgid "Unconfirmed"
 msgstr "Niepotwierdzone"
+
+#: src/ludamus/templates/panel/import.html
+#, python-format
+msgid "Edit mapping for %(question)s"
+msgstr "Edytuj przypisanie dla %(question)s"
 
 #: src/ludamus/templates/panel/import.html
 msgid ""

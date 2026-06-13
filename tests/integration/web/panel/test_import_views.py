@@ -2017,7 +2017,12 @@ class TestEventImportJsonView:
                 data={"settings_json": json.dumps({"header_row": 2})},
             )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_json_url(event, integration),
+            messages=[(messages.SUCCESS, "Import settings saved.")],
+        )
         integration.refresh_from_db()
         snapshot = json.loads(integration.questions_snapshot_json)
         assert [q["title"] for q in snapshot] == ["Fresh"]
@@ -2042,7 +2047,12 @@ class TestEventImportJsonView:
             },
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_json_url(event, integration),
+            messages=[(messages.SUCCESS, "Import settings saved.")],
+        )
         integration.refresh_from_db()
         snapshot = json.loads(integration.questions_snapshot_json)
         assert [q["title"] for q in snapshot] == ["Kept"]

@@ -93,6 +93,7 @@
                                 <td class="px-4 py-3 text-sm text-foreground-secondary">{{ srow.details }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium">
                                     <a href="{% url 'panel:import-review' slug=current_event.slug pk=active_integration.pk %}?edit={{ srow.index }}"
+                                       aria-label="{% blocktranslate with question=srow.question %}Edit mapping for {{ question }}{% endblocktranslate %}"
                                        class="text-primary hover:text-primary/80">{% translate "Edit" %}</a>
                                 </td>
                             </tr>
