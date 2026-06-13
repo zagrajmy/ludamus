@@ -12,28 +12,20 @@
     {% if current_event %}{{ current_event.name }}{% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if current_event %}
-        {% if active_integration %}
-            {% include "panel/parts/import-tabs.html" %}
-        {% endif %}
-        <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
-            {% if not active_integration %}
-                <div class="card p-8 text-center">
-                    <p class="text-foreground-muted">
-                        {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
-                    </p>
-                </div>
-            {% else %}
-                <div id="import-review-region">{% include "panel/parts/import-review-region.html" %}</div>
-            {% endif %}
-        </div>
-    {% else %}
-        <div class="px-3 sm:px-4 lg:px-8 py-6">
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-            </div>
-        </div>
+    {% if active_integration %}
+        {% include "panel/parts/import-tabs.html" %}
     {% endif %}
+    <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
+        {% if not active_integration %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">
+                    {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
+                </p>
+            </div>
+        {% else %}
+            <div id="import-review-region">{% include "panel/parts/import-review-region.html" %}</div>
+        {% endif %}
+    </div>
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/import-recipe.ts' %}

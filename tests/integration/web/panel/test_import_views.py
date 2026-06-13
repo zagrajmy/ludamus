@@ -31,6 +31,9 @@ from ludamus.adapters.db.django.models import (
     Track,
 )
 from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
+from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
+    SESSION_COLUMNS,
+)
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
@@ -197,6 +200,39 @@ class TestEventImportProposalView:
             template_name="panel/import.html",
             context_data=_event_context(event)
             | {"active_nav": "import", "active_integration": None},
+        )
+
+    def test_get_renders_no_questions_state_with_an_active_integration(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True, json=lambda: {"items": []}
+            )
+            response = authenticated_client.get(_tab_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "proposal",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "summary_rows": [],
+                "email_column_missing": True,
+            },
+            contains="No source questions found yet.",
         )
 
     def test_get_renders_summary_table(
@@ -791,6 +827,59 @@ class TestEventImportProposalView:
             HTTPStatus.FOUND,
             url=_import_url(event),
             messages=[(messages.ERROR, "Import integration not found.")],
+        )
+
+    def test_review_renders_empty_state_without_an_integration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(
+            reverse("panel:import-review", kwargs={"slug": event.slug, "pk": 99999})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-review.html",
+            context_data=_event_context(event)
+            | {"active_nav": "import", "active_integration": None},
+            contains="No import integrations yet.",
+        )
+
+    def test_review_renders_no_questions_state_with_an_active_integration(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.return_value = MagicMock(
+                ok=True, json=lambda: {"items": []}
+            )
+            response = authenticated_client.get(_review_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-review.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "review",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "session_columns": SESSION_COLUMNS,
+                "rows": [],
+                "edit_row": None,
+                "edit_nav": None,
+            },
+            contains="No source questions found.",
         )
 
 
@@ -1829,6 +1918,24 @@ class TestEventImportJsonView:
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, PERMISSION_ERROR)],
             url="/",
+        )
+
+    def test_get_renders_empty_state_without_an_integration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(
+            reverse("panel:import-json", kwargs={"slug": event.slug, "pk": 99999})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-json.html",
+            context_data=_event_context(event)
+            | {"active_nav": "import", "active_integration": None},
+            contains="No import integrations yet.",
         )
 
     def test_get_prettifies_the_stored_settings(
