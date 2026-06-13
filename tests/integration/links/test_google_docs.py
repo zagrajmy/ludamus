@@ -40,6 +40,41 @@ def _resp(*, ok: bool, status_code: int = 200, text: str = "") -> MagicMock:
     return response
 
 
+def _email_form_response() -> MagicMock:
+    # A form that collects respondent email and carries one mapped question, so
+    # fetch_questions runs the sheet-header email-synthesis path.
+    return MagicMock(
+        ok=True,
+        json=lambda: {
+            "items": [
+                {"title": "Title", "questionItem": {"question": {"textQuestion": {}}}}
+            ],
+            "settings": {"emailCollectionType": "RESPONDER_INPUT"},
+        },
+    )
+
+
+def _meta_with_title(title: str = "Form Responses 1") -> MagicMock:
+    return MagicMock(
+        ok=True, json=lambda: {"sheets": [{"properties": {"title": title}}]}
+    )
+
+
+def _route_email_synthesis(*, meta: MagicMock, values: MagicMock):
+    # Route the three fetch_questions calls (Forms API, sheet metadata, sheet
+    # values) so the email-synthesis path's sheet-header read can be steered.
+    form = _email_form_response()
+
+    def get(url: str, **_kwargs: object) -> MagicMock:
+        if url.startswith("https://forms.googleapis.com/"):
+            return form
+        if "/values/" in url:
+            return values
+        return meta
+
+    return get
+
+
 @pytest.fixture(name="google")
 def google_fixture():
     with (
@@ -350,6 +385,12 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             secret=SECRET, config=_OtherConfig()
         )
 
+    def test_invalid_credentials_returns_empty(self):
+        # An empty secret trips _CredentialsError inside _session.
+        assert not GoogleDocsProposalImporter().fetch_questions(
+            secret=b"", config=CONFIG
+        )
+
     def test_non_ok_response_returns_empty(self, google):
         google.session.get.return_value = MagicMock(ok=False)
 
@@ -363,6 +404,137 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         assert not GoogleDocsProposalImporter().fetch_questions(
             secret=SECRET, config=CONFIG
         )
+
+    def test_duplicate_titles_with_different_types_raise(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {"title": "Q", "questionItem": {"question": {"textQuestion": {}}}},
+                    {
+                        "title": "Q",
+                        "questionItem": {
+                            "question": {
+                                "choiceQuestion": {
+                                    "type": "RADIO",
+                                    "options": [{"value": "a"}],
+                                }
+                            }
+                        },
+                    },
+                ]
+            },
+        )
+
+        with pytest.raises(ValueError, match="Duplicate questions!"):
+            GoogleDocsProposalImporter().fetch_questions(secret=SECRET, config=CONFIG)
+
+    def test_duplicate_select_titles_merge_their_setup(self, google):
+        # Same title, both select: the second occurrence folds into the first —
+        # multiple/allow_custom OR together, options become the deduped union.
+        google.session.get.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "items": [
+                    {
+                        "title": "Q",
+                        "questionItem": {
+                            "question": {
+                                "choiceQuestion": {
+                                    "type": "RADIO",
+                                    "options": [{"value": "a"}, {"value": "b"}],
+                                }
+                            }
+                        },
+                    },
+                    {
+                        "title": "Q",
+                        "questionItem": {
+                            "question": {
+                                "choiceQuestion": {
+                                    "type": "CHECKBOX",
+                                    "options": [
+                                        {"value": "b"},
+                                        {"value": "c"},
+                                        {"isOther": True},
+                                    ],
+                                }
+                            }
+                        },
+                    },
+                ]
+            },
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
+
+        assert result == [
+            SourceQuestion(
+                title="Q",
+                field_type="select",
+                is_multiple=True,
+                allow_custom=True,
+                options=["a", "b", "c"],
+            )
+        ]
+
+    def test_email_header_skipped_when_column_below_one(self, google):
+        google.session.get.return_value = _email_form_response()
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG, header_row=1, email_column=0
+        )
+
+        # An out-of-range column yields no header, so no email question.
+        assert [q.title for q in result] == ["Title"]
+
+    def test_email_header_skipped_when_responses_tab_has_no_title(self, google):
+        google.session.get.side_effect = _route_email_synthesis(
+            meta=MagicMock(ok=True, json=lambda: {"sheets": []}), values=MagicMock()
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG, header_row=1, email_column=2
+        )
+
+        assert [q.title for q in result] == ["Title"]
+
+    def test_email_header_skipped_when_values_request_fails(self, google):
+        google.session.get.side_effect = _route_email_synthesis(
+            meta=_meta_with_title(), values=MagicMock(ok=False)
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG, header_row=1, email_column=2
+        )
+
+        assert [q.title for q in result] == ["Title"]
+
+    def test_email_header_skipped_when_values_are_empty(self, google):
+        google.session.get.side_effect = _route_email_synthesis(
+            meta=_meta_with_title(),
+            values=MagicMock(ok=True, json=lambda: {"values": []}),
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG, header_row=1, email_column=2
+        )
+
+        assert [q.title for q in result] == ["Title"]
+
+    def test_email_header_skipped_when_column_exceeds_row_width(self, google):
+        google.session.get.side_effect = _route_email_synthesis(
+            meta=_meta_with_title(),
+            values=MagicMock(ok=True, json=lambda: {"values": [["A"]]}),
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG, header_row=1, email_column=5
+        )
+
+        assert [q.title for q in result] == ["Title"]
 
 
 def _route_get(*, values: list[list[str]], title: str = "Form Responses 1"):
@@ -524,3 +696,31 @@ class TestGoogleDocsProposalImporterFetchResponses:
         assert [r.data for r in result] == [
             {"Timestamp": "t1", "Imię": "Anna", "Imię (2)": "Bartek"}
         ]
+
+    def test_invalid_credentials_returns_empty(self):
+        # An empty secret trips _CredentialsError inside _session.
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(secret=b"", config=CONFIG)
+            == []
+        )
+
+    def test_non_ok_values_response_returns_empty(self, google):
+        def get(url: str, **_kwargs: object) -> MagicMock:
+            if "/values/" in url:
+                return MagicMock(ok=False)
+            return _meta_with_title()
+
+        google.session.get.side_effect = get
+
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(secret=SECRET, config=CONFIG)
+            == []
+        )
+
+    def test_non_ok_metadata_response_returns_empty(self, google):
+        google.session.get.return_value = MagicMock(ok=False)
+
+        assert (
+            GoogleDocsProposalImporter().fetch_responses(secret=SECRET, config=CONFIG)
+            == []
+        )

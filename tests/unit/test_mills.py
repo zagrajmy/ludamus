@@ -16,9 +16,20 @@ from ludamus.mills import (
     render_markdown,
 )
 from ludamus.mills.multiverse import ConnectionsService
+from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
+from ludamus.mills.submissions.mapping import (
+    RowSkippedError,
+    SlugCollisionError,
+    chosen_entities,
+    decode_response,
+    extract_identity,
+    field_setup,
+    generate_unique_slug,
+    locate_row,
+    resolve_builtins,
+)
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.pacts import (
     EncounterDTO,
@@ -35,13 +46,18 @@ from ludamus.pacts import (
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.submissions import (
     DuplicateValueError,
+    EntityRef,
+    FieldDefinition,
+    FieldDefinitions,
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogStatus,
     ImportRepos,
     ImportRow,
+    ImportSettings,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
+    QuestionTarget,
 )
 
 
@@ -1979,6 +1995,73 @@ class TestProposalImportService(_ImportServiceMocks):
         session_fields.create.assert_not_called()
         sessions.save_field_values.assert_not_called()
 
+    def test_run_skips_unmapped_question_when_provisioning_fields(
+        self, service, event_integrations, session_fields, personal_fields
+    ):
+        # A question left unmapped (no `to`) is passed over by provisioning —
+        # it provisions neither a session nor a personal field.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Notes": {"ignore": true}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Notes": "ignored"}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.fields_created == 0
+        session_fields.create.assert_not_called()
+        personal_fields.create.assert_not_called()
+
+    def test_run_skips_time_slot_options_the_respondent_did_not_choose(
+        self, service, event_integrations, sessions, time_slots
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"When": {"to": "session.time_slots", "values": {'
+                '"Fri": {"to": "time_slot",'
+                ' "start_time": "2025-09-19T16:00:00+02:00",'
+                ' "end_time": "2025-09-19T22:00:00+02:00"},'
+                '"Sat": {"to": "time_slot",'
+                ' "start_time": "2025-09-20T10:00:00+02:00",'
+                ' "end_time": "2025-09-20T14:00:00+02:00"}}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
+        time_slots.get_or_create.return_value = 101
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        # Only the chosen "Fri" window is provisioned; "Sat" is skipped.
+        time_slots.get_or_create.assert_called_once_with(
+            2,
+            datetime.fromisoformat("2025-09-19T16:00:00+02:00"),
+            datetime.fromisoformat("2025-09-19T22:00:00+02:00"),
+        )
+        assert sessions.create.call_args.kwargs["time_slot_ids"] == [101]
+
+    def test_run_ignores_a_non_time_slot_spec_in_time_slot_values(
+        self, service, event_integrations, sessions, time_slots
+    ):
+        # Defensive: a value that isn't a TimeSlotSpec (here an EntityRef-shaped
+        # blob) under a time-slots target is passed over, not provisioned.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"When": {"to": "session.time_slots", "values": {'
+                '"Fri": {"name": "Not a slot", "slug": "nope"}}}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        time_slots.get_or_create.assert_not_called()
+        assert sessions.create.call_args.kwargs["time_slot_ids"] == []
+
 
 class TestImportLogService(_ImportServiceMocks):
     @pytest.fixture
@@ -2157,6 +2240,378 @@ class TestImportLogService(_ImportServiceMocks):
         log_entries.upsert.assert_called_once()
         created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.session_id == fresh_session_pk
+
+    def test_reimport_saves_session_field_values_onto_existing_session(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # A field.* mapping makes update_proposal write the session field
+        # value back onto the existing session.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "System": {"to": "field.system"}},'
+                ' "definitions": {"session_fields":'
+                ' {"system": {"name": "System", "type": "text"}}}}'
+            ),
+        )
+        session_pk = 42
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk", "System": "D&D"}',
+            title="Talk",
+            session_id=session_pk,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "System": "D&D"}]
+        )
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        sessions.save_field_values.assert_called_once()
+        assert sessions.save_field_values.call_args.args[0] == session_pk
+
+    def test_retry_returns_false_when_the_entry_is_missing(self, service, log_entries):
+        log_entries.read.side_effect = NotFoundError
+
+        assert service.retry_entry(sphere_id=1, event_id=2, entry_pk=10) is False
+
+    def test_retry_returns_false_when_integration_does_not_match_entry(
+        self, service, event_integrations, log_entries
+    ):
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SKIPPED,
+            reason="x",
+            response_json="{}",
+            title="Talk",
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        # The integration the repo returns is a different one than the entry's.
+        event_integrations.get.return_value = MagicMock(pk=999)
+
+        assert service.retry_entry(sphere_id=1, event_id=2, entry_pk=10) is False
+
+    def test_retry_writes_skipped_entry_when_row_no_longer_in_source(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(
+            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SKIPPED,
+            reason="old",
+            response_json='{"Title": "Gone"}',
+            title="Gone",
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        # The source no longer carries the row.
+        event_integrations.fetch_responses.return_value = []
+
+        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is False
+        sessions.create.assert_not_called()
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert created.status == ImportLogStatus.SKIPPED
+        assert created.reason == "row no longer present in source"
+
+    def test_reimport_returns_false_when_the_entry_is_missing(
+        self, service, log_entries
+    ):
+        log_entries.read.side_effect = NotFoundError
+
+        assert service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10) is False
+
+    def test_reimport_returns_false_when_the_integration_is_missing(
+        self, service, event_integrations, log_entries
+    ):
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json="{}",
+            title="Talk",
+            session_id=42,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.get.side_effect = NotFoundError
+
+        assert service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10) is False
+
+    def test_reimport_returns_false_when_integration_does_not_match_entry(
+        self, service, event_integrations, log_entries
+    ):
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json="{}",
+            title="Talk",
+            session_id=42,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.get.return_value = MagicMock(pk=999)
+
+        assert service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10) is False
+
+    def test_reimport_writes_skipped_entry_when_the_update_skips_the_row(
+        self, service, event_integrations, log_entries
+    ):
+        # A now-invalid mapped answer makes update_proposal skip the row; the
+        # existing session FK is preserved on the skipped log entry.
+        session_pk = 42
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Cap": {"to": "session.participants_limit"}}}'
+            ),
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk", "Cap": "loads"}',
+            title="Talk",
+            session_id=session_pk,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Cap": "loads"}]
+        )
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is False
+        log_entries.upsert.assert_called_once()
+        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert created.status == ImportLogStatus.SKIPPED
+        assert created.reason == "Cap: 'loads' is not an integer"
+        assert created.session_id == session_pk
+
+
+class TestImportFieldLayoutService(_ImportServiceMocks):
+    @pytest.fixture
+    def service(self, transaction, event_integrations, import_repos):
+        return ImportFieldLayoutService(
+            transaction=transaction,
+            event_integrations=event_integrations,
+            repos=import_repos,
+        )
+
+    @pytest.fixture(autouse=True)
+    def _layout_defaults(
+        self, sessions, session_fields, personal_fields, host_personal_data
+    ):
+        # Sane no-op returns for the reconciliation reads so each test only sets
+        # the handful of repo answers that steer the branch under test.
+        sessions.read_field_values.return_value = []
+        sessions.delete_field_values_for_fields.return_value = 0
+        sessions.read_facilitators.return_value = []
+        host_personal_data.list_field_ids_for_facilitator_event.return_value = []
+        host_personal_data.delete_for_facilitator_fields.return_value = 0
+        session_fields.delete_orphans_for_event.return_value = 0
+        personal_fields.delete_orphans_for_event.return_value = 0
+
+    def _entry(self, *, session_id, response_json="{}"):
+        return ImportLogEntryDTO(
+            pk=1,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json=response_json,
+            title="Talk",
+            session_id=session_id,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+    def test_apply_skips_entries_without_a_session(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(settings_json="{}")
+        log_entries.list_for_integration.return_value = [self._entry(session_id=None)]
+
+        result = service.apply_field_layout(2, 3)
+
+        assert result.sessions_processed == 0
+        sessions.read.assert_not_called()
+
+    def test_apply_swallows_row_skip_in_builtins_and_keeps_present_links(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # The cached row's participants_limit is now invalid, so resolving
+        # built-ins (and facilitators) raises and is swallowed; category
+        # resolves to nothing; time slots and tracks are already present.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=ImportSettings(
+                questions={
+                    "Cap": QuestionTarget(to="session.participants_limit"),
+                    "Cat": QuestionTarget(to="category"),
+                }
+            ).model_dump_json()
+        )
+        log_entries.list_for_integration.return_value = [
+            self._entry(session_id=5, response_json='{"Cap": "loads", "Cat": "Foo"}')
+        ]
+        sessions.read.return_value = MagicMock(category_id=None, contact_email="")
+        sessions.read_preferred_time_slot_ids.return_value = [99]
+        sessions.read_track_ids.return_value = [88]
+
+        result = service.apply_field_layout(2, 3)
+
+        assert result.sessions_processed == 1
+        assert result.session_builtins_filled == 0
+        assert result.session_links_filled == 0
+        sessions.set_facilitators.assert_not_called()
+
+    def test_apply_swallows_row_skips_resolving_category_slots_and_tracks(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # Conflicting duplicate columns make every entity resolution raise a
+        # row skip; each is swallowed and the session is still processed.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=ImportSettings(
+                questions={
+                    "Cat": QuestionTarget(to="category"),
+                    "When": QuestionTarget(to="session.time_slots"),
+                    "Track": QuestionTarget(to="track"),
+                }
+            ).model_dump_json()
+        )
+        log_entries.list_for_integration.return_value = [
+            self._entry(
+                session_id=5,
+                response_json=_json.dumps(
+                    {
+                        "Cat": "A",
+                        "Cat (2)": "B",
+                        "When": "X",
+                        "When (2)": "Y",
+                        "Track": "M",
+                        "Track (2)": "N",
+                    }
+                ),
+            )
+        ]
+        sessions.read.return_value = MagicMock(category_id=None, contact_email="")
+        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_track_ids.return_value = []
+
+        result = service.apply_field_layout(2, 3)
+
+        assert result.sessions_processed == 1
+        assert result.session_links_filled == 0
+        sessions.update.assert_not_called()
+        sessions.set_time_slots.assert_not_called()
+        sessions.set_session_tracks.assert_not_called()
+
+    def test_apply_adds_missing_personal_entries_for_a_facilitator(
+        self, service, event_integrations, sessions, host_personal_data, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=ImportSettings(
+                questions={"Phone": QuestionTarget(to="personal.phone")},
+                definitions=FieldDefinitions(
+                    personal_fields={"phone": FieldDefinition(name="Phone")}
+                ),
+            ).model_dump_json()
+        )
+        log_entries.list_for_integration.return_value = [
+            self._entry(session_id=5, response_json='{"Phone": "555"}')
+        ]
+        sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
+        sessions.read_preferred_time_slot_ids.return_value = [1]
+        sessions.read_track_ids.return_value = [1]
+        sessions.read_facilitators.return_value = [MagicMock(pk=7)]
+
+        result = service.apply_field_layout(2, 3)
+
+        assert result.personal_entries.added == 1
+        host_personal_data.save.assert_called_once()
+
+
+class TestMappingHelpers:
+    def test_field_setup_defaults_to_a_text_field_without_a_definition(self):
+        assert field_setup(None) == ("text", None, False, False)
+
+    def test_resolve_builtins_maps_the_description_target(self):
+        settings = ImportSettings(
+            questions={"Desc": QuestionTarget(to="session.description")}
+        )
+
+        builtins = resolve_builtins(settings, ImportRow({"Desc": "Hello"}))
+
+        assert builtins.description == "Hello"
+
+    def test_resolve_builtins_treats_whitespace_participants_limit_as_zero(self):
+        settings = ImportSettings(
+            questions={"Cap": QuestionTarget(to="session.participants_limit")}
+        )
+
+        builtins = resolve_builtins(settings, ImportRow({"Cap": "   "}))
+
+        assert builtins.participants_limit == 0
+
+    def test_resolve_builtins_skips_row_on_negative_participants_limit(self):
+        settings = ImportSettings(
+            questions={"Cap": QuestionTarget(to="session.participants_limit")}
+        )
+
+        with pytest.raises(RowSkippedError):
+            resolve_builtins(settings, ImportRow({"Cap": "-5"}))
+
+    def test_extract_identity_skips_a_blank_identity_cell(self):
+        settings = ImportSettings(
+            questions={
+                "T": QuestionTarget(to="session.title"),
+                "F": QuestionTarget(to="facilitator.display_name"),
+            }
+        )
+
+        title, display_name = extract_identity(
+            settings, ImportRow({"T": "", "F": "Bob"})
+        )
+
+        assert (title, display_name) == ("", "Bob")
+
+    def test_chosen_entities_skips_empty_parts(self):
+        target = QuestionTarget(
+            to="track", values={"RPG": EntityRef(name="RPG", slug="rpg")}
+        )
+
+        refs = chosen_entities(target, "RPG,,LARP")
+
+        assert refs == [EntityRef(name="RPG", slug="rpg")]
+
+    def test_decode_response_returns_an_empty_row_for_invalid_json(self):
+        assert not decode_response("not valid json").data
+
+    def test_locate_row_returns_none_when_unique_key_has_no_match(self):
+        settings = ImportSettings(unique_key_columns=["Email"])
+
+        located = locate_row(
+            rows=[ImportRow({"Email": "x@a.z"})],
+            response=ImportRow({"Email": "y@a.z"}),
+            settings=settings,
+            fallback_index=0,
+        )
+
+        assert located is None
 
 
 class TestGenerateUniqueSlug:
