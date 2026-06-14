@@ -43,6 +43,7 @@ segno = "^1.6.6"
 whitenoise = "^6.12.0"
 django-storages = {extras = ["google"], version = "^1.14.6"}
 dbos = ">=2.23.0"
+unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -87,7 +88,7 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'
 ignore-words-list = 'fallow'
 
@@ -239,6 +240,7 @@ ignore = [
     "PLR1702", # Too many nested blocks
     "EM101",   # Exception must not use a string literal, assign to variable first
     "TRY003",  # Avoid specifying long messages outside the exception class
+    "RUF076",  # Avoid using `autouse=True` in `pytest.fixture` decorators
 ]
 
 [tool.ruff.lint.per-file-ignores]

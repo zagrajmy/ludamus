@@ -70,6 +70,19 @@ Strict rules:
 ## Rules
 
 - Views return DTOs to templates, never models
+- A class that implements a `Protocol` must declare it as a base class, so the
+  intent is explicit and the type checker verifies conformance. Exception: very
+  generic protocols (e.g. `TransactionProtocol`, structural callbacks) where
+  multiple unrelated implementations exist by duck-typing.
+- Functions/methods with 3+ parameters (excluding `self`) must take them as
+  keyword-only with `*,`:
+
+  ```python
+  def fun(a: int, b: str) -> int: ...
+  def method(self, a: int, b: str) -> int: ...
+  def fun(*, a: int, b: str, precision: int) -> int: ...
+  ```
+
 - Avoid docstrings unless absolutely unavoidable. Code should be
   self-explanatory; the Arrange-Act-Assert structure in tests should be obvious
   from the code itself. Docstrings are stale the day they're committed. Keep

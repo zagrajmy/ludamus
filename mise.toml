@@ -148,7 +148,7 @@ run = "mise run _pytest -- tests/unit --cov=tests.unit --cov=ludamus"
 
 [tasks.test]
 description = "Run all tests"
-run = "mise run _pytest -- tests tests/integration tests/unit"
+run = "mise run _pytest -- tests/integration tests/unit"
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 
 [tasks."test:postgres"]
@@ -243,7 +243,7 @@ env.ENV = "local"
 env.MEMBERSHIP_API_BASE_URL = ""
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 env.PYTHONPATH = "src"
-env.ROOT_DOMAIN = "localhost:8000"
+env.ROOT_DOMAIN = "localhost:1355"
 env.SECRET_KEY = "e2e-secret-key"
 env.SESSION_COOKIE_DOMAIN = ".localhost"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
@@ -278,6 +278,10 @@ mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
 aubr -C src/ludamus/client build
 """
 
+[tasks."e2e:kill"]
+description = "Kill the e2e dev server (Django on :8000)"
+run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
+
 [tasks."e2e:serve"]
 description = "Run the e2e dev server (assumes `e2e:prep` has run)"
 run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload"
@@ -299,8 +303,8 @@ aubr varlock \
 '''
 
 [tasks.kill]
-description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
-run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
+description = "Kill dev servers (Django on :1355, Vite on :5173, auth0-simulator on :4400)"
+run = "lsof -ti :1355 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
 
 [tasks.ts-check]
@@ -319,12 +323,25 @@ dir = "src/ludamus/client"
 
 
 [tasks.shitcheck]
-description = "Flag suspicious additions vs main: noqa, type: ignore, Any, cast"
-run = "git diff main '*.py'|grep -E '^\\+.*(noqa|type: ignore|Any|ANY|pylint|pragma|\\bobject\\b|cast\\()'"
+description = "Flag suspicious additions vs main (file:line; tests skip Any): noqa, Any, cast"
+run = [
+  "scripts/shitcheck.sh 'request.di.uow|nosec|noqa|type: ignore|Any|pylint|pragma|cast\\(|(^|[^[:alnum:]_])object([^[:alnum:]_]|$)' ':(glob)src/**/*.py'",
+  "scripts/shitcheck.sh 'nosec|noqa|pylint|pragma|\\.skip$|\\.xfail$|ANY' ':(glob)tests/**/*.py'"
+]
 
 [tasks.coverage]
 description = "Run all tests, collect coverage, enforce 93% threshold"
-depends = ["test --cov", "e2e", "coverage:combine"]
+depends = ["test --cov", "e2e:kill", "e2e", "coverage:combine"]
+
+[tasks.devcheck]
+run = [
+  { task = "check" },
+  { task = "test", args = [
+    "-xvv",
+  ] },
+  { task = "shitcheck" },
+]
+
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"

@@ -20,6 +20,10 @@ class Repositories:
         return repositories.PersonalDataFieldRepository()
 
     @cached_property
+    def host_personal_data(self) -> repositories.HostPersonalDataRepository:
+        return repositories.HostPersonalDataRepository()
+
+    @cached_property
     def proposal_categories(self) -> repositories.ProposalCategoryRepository:
         return repositories.ProposalCategoryRepository()
 
@@ -78,3 +82,15 @@ class Repositories:
     @cached_property
     def areas(self) -> repositories.AreaRepository:
         return repositories.AreaRepository()
+
+    @cached_property
+    def tracks(self) -> repositories.TrackRepository:
+        return repositories.TrackRepository()
+
+    @cached_property
+    def facilitators(self) -> repositories.FacilitatorRepository:
+        return repositories.FacilitatorRepository()
+
+    @cached_property
+    def import_log_entries(self) -> repositories.ImportLogEntryRepository:
+        return repositories.ImportLogEntryRepository()

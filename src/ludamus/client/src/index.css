@@ -6,6 +6,7 @@
 @import "./filters.css";
 @import "./tabs.css";
 @import "./timetable.css";
+@import "./import-recipe.css";
 
 @plugin "@tailwindcss/typography";
 @plugin "@hasparus/tailwind/scrollview-fade";

@@ -1,0 +1,56 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Google Docs Import" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Google Docs Import" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if active_integration %}
+        <button type="submit"
+                form="import-json-form"
+                class="btn btn-primary flex items-center">
+            {% icon "check" class="w-4 h-4 mr-2" %}
+            {% translate "Save settings" %}
+        </button>
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if active_integration %}
+        {% include "panel/parts/import-tabs.html" %}
+        <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
+            <form id="import-json-form"
+                  method="post"
+                  action="{% url 'panel:import-json' slug=current_event.slug pk=active_integration.pk %}"
+                  class="max-w-3xl">
+                {% csrf_token %}
+                <div class="card space-y-3 p-4 sm:p-5">
+                    <label for="settings_json" class="block text-sm font-medium text-foreground">
+                        {% translate "Import settings (JSON)" %}
+                    </label>
+                    <textarea id="settings_json"
+                              name="settings_json"
+                              rows="24"
+                              spellcheck="false"
+                              class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 font-mono text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ settings_json }}</textarea>
+                    <p class="text-xs text-foreground-muted">
+                        {% translate "Edit the raw mapping the Proposal tab produces. Invalid JSON is rejected." %}
+                    </p>
+                </div>
+            </form>
+        </div>
+    {% else %}
+        <div class="px-3 sm:px-4 lg:px-8 py-6">
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">
+                    {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
+                </p>
+            </div>
+        </div>
+    {% endif %}
+{% endblock content %}

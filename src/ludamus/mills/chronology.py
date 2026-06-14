@@ -10,12 +10,11 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
     EventDTO,
-    FieldUsageSummary,
     NotFoundError,
     ScheduleChangeAction,
     ScheduleChangeLogData,
@@ -36,6 +35,7 @@ from ludamus.pacts.chronology import (
     EventIntegrationCreateData,
     EventIntegrationDTO,
     EventIntegrationsRepositoryProtocol,
+    EventIntegrationsServiceProtocol,
     EventIntegrationUpdateData,
     HeatmapCellDTO,
     HeatmapCellStatus,
@@ -46,12 +46,11 @@ from ludamus.pacts.chronology import (
     IntegrationImplementation,
     IntegrationImplementationId,
     IntegrationKind,
-    PersonalDataFieldEditContextDTO,
-    PersonalDataFieldFormContextDTO,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
+    SourceQuestion,
     SpaceColumnDTO,
     TimeLabelDTO,
     TimetableGridDTO,
@@ -59,7 +58,10 @@ from ludamus.pacts.chronology import (
     VenueGroupDTO,
 )
 from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+
+_SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
@@ -70,11 +72,6 @@ if TYPE_CHECKING:
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
-        PersonalDataFieldCreateData,
-        PersonalDataFieldDTO,
-        PersonalDataFieldRepositoryProtocol,
-        PersonalDataFieldUpdateData,
-        ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionFieldValueData,
         SessionFieldValueDTO,
@@ -707,92 +704,6 @@ class TimetableOverviewService:
         return result
 
 
-class CFPPersonalDataFieldService:
-    """Backoffice operations for an event's personal-data fields."""
-
-    def __init__(
-        self,
-        transaction: TransactionProtocol,
-        fields: PersonalDataFieldRepositoryProtocol,
-        categories: ProposalCategoryRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._fields = fields
-        self._categories = categories
-
-    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
-        fields = self._fields.list_by_event(event_pk)
-        usage_counts = self._fields.get_usage_counts(event_pk)
-        return [
-            FieldUsageSummary(
-                field=f,
-                required_count=usage_counts.get(f.pk, {}).get("required", 0),
-                optional_count=usage_counts.get(f.pk, {}).get("optional", 0),
-            )
-            for f in fields
-        ]
-
-    def get_create_form_context(self, event_pk: int) -> PersonalDataFieldFormContextDTO:
-        return PersonalDataFieldFormContextDTO(
-            categories=self._categories.list_by_event(event_pk)
-        )
-
-    def get_edit_form_context(
-        self, event_pk: int, field_slug: str
-    ) -> PersonalDataFieldEditContextDTO:
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        categories = self._categories.list_by_event(event_pk)
-        field_cats = self._categories.get_personal_field_categories(field.pk)
-        return PersonalDataFieldEditContextDTO(
-            field=field,
-            categories=categories,
-            required_category_pks={pk for pk, req in field_cats.items() if req},
-            optional_category_pks={pk for pk, req in field_cats.items() if not req},
-        )
-
-    def _scope_to_event(
-        self, event_pk: int, category_requirements: dict[int, bool]
-    ) -> dict[int, bool]:
-        # Drop category pks that belong to another event so a tampered
-        # request cannot link this field to a foreign event's categories.
-        valid_pks = {c.pk for c in self._categories.list_by_event(event_pk)}
-        return {pk: req for pk, req in category_requirements.items() if pk in valid_pks}
-
-    def create(
-        self,
-        event_pk: int,
-        data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
-    ) -> PersonalDataFieldDTO:
-        with self._transaction.atomic():
-            field = self._fields.create(event_pk, data)
-            if scoped := self._scope_to_event(event_pk, category_requirements):
-                self._categories.add_field_to_categories(field.pk, scoped)
-        return field
-
-    def update(
-        self,
-        event_pk: int,
-        field_slug: str,
-        data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
-    ) -> None:
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        scoped = self._scope_to_event(event_pk, category_requirements)
-        with self._transaction.atomic():
-            self._fields.update(field.pk, data)
-            self._categories.set_personal_field_categories(field.pk, scoped)
-
-    def delete(self, event_pk: int, field_slug: str) -> bool:
-        # Returns False when the field is in use by session types.
-        # NotFoundError on bad slug surfaces to the caller for distinct messaging.
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        if self._fields.has_requirements(field.pk):
-            return False
-        self._fields.delete(field.pk)
-        return True
-
-
 class SessionEditNotAllowedError(Exception):
     """Raised when a user may not self-edit the requested session."""
 
@@ -1053,7 +964,7 @@ class IntegrationImplementationNotFoundError(Exception):
     """Raised when the registry has no implementation for an identifier."""
 
 
-class EventIntegrationsService:
+class EventIntegrationsService(EventIntegrationsServiceProtocol):
     """CRUD + check dispatch for per-event integrations.
 
     The registry of `IntegrationImplementation`s is composition-time data
@@ -1115,6 +1026,108 @@ class EventIntegrationsService:
     def delete(self, event_id: int, pk: int) -> None:
         with self._transaction.atomic():
             self._integrations.delete(event_id, pk)
+
+    def fetch_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]:
+        integration = self._integrations.get(event_id, pk)
+        if (impl := self._registry.get(integration.implementation)) is None:
+            return []
+        config = impl.config_model.model_validate_json(integration.config_json)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        plaintext = self._decryptor.decrypt(blob) if blob else b""
+        return impl.fetch_questions(
+            secret=plaintext,
+            config=config,
+            header_row=settings.header_row,
+            email_column=settings.email_column,
+        )
+
+    def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
+        integration = self._integrations.get(event_id, pk)
+        raw = integration.questions_snapshot_json or "[]"
+        try:
+            return _SOURCE_QUESTIONS_ADAPTER.validate_json(raw)
+        except ValidationError:
+            return []
+
+    def populate_questions_snapshot(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]:
+        # Transparent first-load cache fill: live-fetches and writes the
+        # snapshot, but leaves `settings.questions` (including confirmed
+        # flags) untouched. Use `refetch_questions` for the operator-driven
+        # action that also resets confirmations.
+        questions = self.fetch_questions(sphere_id=sphere_id, event_id=event_id, pk=pk)
+        snapshot = _SOURCE_QUESTIONS_ADAPTER.dump_json(questions).decode()
+        with self._transaction.atomic():
+            self._integrations.update_questions_snapshot(
+                event_id=event_id, pk=pk, questions_snapshot_json=snapshot
+            )
+        return questions
+
+    def refetch_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]:
+        # Per shape: regenerate question entries against the freshly fetched
+        # form, drop every `confirmed` flag, preserve definitions untouched.
+        # Questions that no longer exist in the form are dropped from
+        # `settings.questions`; new ones land as missing entries (rendered
+        # as unconfirmed by the summary).
+        questions = self.populate_questions_snapshot(
+            sphere_id=sphere_id, event_id=event_id, pk=pk
+        )
+        integration = self._integrations.get(event_id, pk)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        seen = {q.title for q in questions}
+        rebuilt: dict[str, QuestionTarget] = {}
+        for title, target in settings.questions.items():
+            if title in seen:
+                target.confirmed = False
+                rebuilt[title] = target
+        settings.questions = rebuilt
+        with self._transaction.atomic():
+            self._integrations.update_settings(
+                event_id=event_id, pk=pk, settings_json=settings.model_dump_json()
+            )
+        return questions
+
+    def import_missing_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> tuple[list[SourceQuestion], int]:
+        # Refresh the snapshot but leave settings.questions untouched: existing
+        # mappings (and their confirmations) survive, questions that disappeared
+        # from the form stay in settings until the operator explicitly refetches.
+        # Returns the fresh snapshot plus the count of questions that were not
+        # yet present in settings.questions.
+        integration = self._integrations.get(event_id, pk)
+        before = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        questions = self.populate_questions_snapshot(
+            sphere_id=sphere_id, event_id=event_id, pk=pk
+        )
+        missing = sum(1 for q in questions if q.title not in before.questions)
+        return questions, missing
+
+    def fetch_responses(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[ImportRow]:
+        integration = self._integrations.get(event_id, pk)
+        if (impl := self._registry.get(integration.implementation)) is None:
+            return []
+        config = impl.config_model.model_validate_json(integration.config_json)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        plaintext = self._decryptor.decrypt(blob) if blob else b""
+        return impl.fetch_responses(
+            secret=plaintext, config=config, header_row=settings.header_row
+        )
+
+    def save_settings(self, *, event_id: int, pk: int, settings_json: str) -> None:
+        with self._transaction.atomic():
+            self._integrations.update_settings(
+                event_id=event_id, pk=pk, settings_json=settings_json
+            )
 
     def check(self, request: IntegrationCheckRequest) -> CheckResult:
         if (impl := self._registry.get(request.implementation)) is None:

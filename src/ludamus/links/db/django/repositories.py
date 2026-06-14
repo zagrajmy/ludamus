@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 from django.db import IntegrityError, transaction
 from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
+from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
@@ -24,6 +25,7 @@ from ludamus.adapters.db.django.models import (
     EventSettings,
     Facilitator,
     HostPersonalData,
+    ImportLogEntry,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
@@ -136,6 +138,12 @@ from ludamus.pacts.multiverse import (
     ConnectionDTO,
     ConnectionsRepositoryProtocol,
     DuplicateConnectionDisplayNameError,
+)
+from ludamus.pacts.submissions import (
+    ImportLogEntryCreateData,
+    ImportLogEntryDTO,
+    ImportLogEntryRepositoryProtocol,
+    ImportLogStatus,
 )
 
 if TYPE_CHECKING:
@@ -272,6 +280,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         tag_ids: Iterable[int],
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
+        track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
         session.tags.set(tag_ids)
@@ -279,6 +288,8 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             session.time_slots.set(time_slot_ids)
         if facilitator_ids:
             session.facilitators.set(facilitator_ids)
+        if track_ids:
+            session.tracks.set(track_ids)
         return session.pk
 
     @staticmethod
@@ -472,6 +483,14 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return Session.objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
+    def find_id_by_slug(sphere_id: int, slug: str) -> int | None:
+        return (
+            Session.objects.filter(sphere_id=sphere_id, slug=slug)
+            .values_list("id", flat=True)
+            .first()
+        )
+
+    @staticmethod
     def save_field_values(session_id: int, values: list[SessionFieldValueData]) -> None:
         SessionFieldValue.objects.bulk_create(
             [
@@ -507,6 +526,15 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             )
             for v in values
         ]
+
+    @staticmethod
+    def delete_field_values_for_fields(session_id: int, field_ids: list[int]) -> int:
+        if not field_ids:
+            return 0
+        deleted, _ = SessionFieldValue.objects.filter(
+            session_id=session_id, field_id__in=field_ids
+        ).delete()
+        return deleted
 
     @staticmethod
     def list_sessions_by_event(
@@ -551,6 +579,12 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         ]
 
     @staticmethod
+    def read_track_ids(session_id: int) -> list[int]:
+        return list(
+            Track.objects.filter(sessions__id=session_id).values_list("id", flat=True)
+        )
+
+    @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None:
         try:
             session = Session.objects.get(pk=session_pk)
@@ -558,6 +592,19 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             msg = f"Session with pk '{session_pk}' not found"
             raise NotFoundError(msg) from err
         session.tracks.set(track_pks)
+
+    @staticmethod
+    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None:
+        try:
+            session = Session.objects.get(pk=session_id)
+        except Session.DoesNotExist as err:
+            msg = f"Session with pk '{session_id}' not found"
+            raise NotFoundError(msg) from err
+        session.time_slots.set(time_slot_ids)
+
+    @staticmethod
+    def clear_field_values(session_id: int) -> None:
+        SessionFieldValue.objects.filter(session_id=session_id).delete()
 
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
@@ -1534,6 +1581,13 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
 
         return ProposalCategoryDTO.model_validate(category)
 
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int:
+        category, _ = ProposalCategory.objects.get_or_create(
+            event_id=event_id, slug=slug, defaults={"name": name}
+        )
+        return category.pk
+
     _SIMPLE_UPDATE_FIELDS = (
         "description",
         "start_time",
@@ -1972,7 +2026,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     ) -> PersonalDataFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
-        base_slug = slugify(data["name"])
+        base_slug = data.get("slug") or slugify(data["name"])
         slug = self.generate_unique_slug(event_id, base_slug)
 
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
@@ -2003,6 +2057,20 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     @staticmethod
     def delete(pk: int) -> None:
         PersonalDataField.objects.filter(pk=pk).delete()
+
+    @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int:
+        # A PersonalDataField is orphan when no facilitator on this event has
+        # a HostPersonalData entry that points at it. Used by the importer's
+        # "Apply field layout" action after removing values for unmapped
+        # fields.
+        deleted, _ = (
+            PersonalDataField.objects.filter(event_id=event_id)
+            .annotate(usage=Count("values"))
+            .filter(usage=0)
+            .delete()
+        )
+        return deleted
 
     @staticmethod
     def has_requirements(pk: int) -> bool:
@@ -2115,7 +2183,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
     def create(self, event_id: int, data: SessionFieldCreateData) -> SessionFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
-        base_slug = slugify(data["name"])
+        base_slug = data.get("slug") or slugify(data["name"])
         slug = self.generate_unique_slug(event_id, base_slug)
 
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
@@ -2147,6 +2215,19 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
     @staticmethod
     def delete(pk: int) -> None:
         SessionField.objects.filter(pk=pk).delete()
+
+    @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int:
+        # A SessionField is orphan when no session on this event has a
+        # SessionFieldValue pointing at it. Used by the importer's "Apply
+        # field layout" action.
+        deleted, _ = (
+            SessionField.objects.filter(event_id=event_id)
+            .annotate(usage=Count("values"))
+            .filter(usage=0)
+            .delete()
+        )
+        return deleted
 
     @staticmethod
     def has_requirements(pk: int) -> bool:
@@ -2331,8 +2412,27 @@ class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
         return {hpd.field.slug: hpd.value for hpd in records}
 
     @staticmethod
+    def list_field_ids_for_facilitator_event(
+        facilitator_id: int, event_id: int
+    ) -> list[int]:
+        return list(
+            HostPersonalData.objects.filter(
+                facilitator_id=facilitator_id, event_id=event_id
+            ).values_list("field_id", flat=True)
+        )
+
+    @staticmethod
     def delete_by_facilitators(facilitator_ids: list[int]) -> None:
         HostPersonalData.objects.filter(facilitator_id__in=facilitator_ids).delete()
+
+    @staticmethod
+    def delete_for_facilitator_fields(facilitator_id: int, field_ids: list[int]) -> int:
+        if not field_ids:
+            return 0
+        deleted, _ = HostPersonalData.objects.filter(
+            facilitator_id=facilitator_id, field_id__in=field_ids
+        ).delete()
+        return deleted
 
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
@@ -2394,6 +2494,15 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
             event_id=event_id, start_time=start_time, end_time=end_time
         )
         return TimeSlotDTO.model_validate(time_slot)
+
+    @staticmethod
+    def get_or_create(event_id: int, start_time: datetime, end_time: datetime) -> int:
+        # Reuse a window the event already has (deduped by exact start+end) so
+        # the importer can attach it without spawning duplicates on re-runs.
+        time_slot, _ = TimeSlot.objects.get_or_create(
+            event_id=event_id, start_time=start_time, end_time=end_time
+        )
+        return time_slot.pk
 
     @staticmethod
     def delete(pk: int) -> None:
@@ -2591,6 +2700,13 @@ class TrackRepository(TrackRepositoryProtocol):
             raise NotFoundError(msg) from err
         return TrackDTO.model_validate(track)
 
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int:
+        track, _ = Track.objects.get_or_create(
+            event_id=event_id, slug=slug, defaults={"name": name}
+        )
+        return track.pk
+
     @transaction.atomic
     def update(self, pk: int, data: TrackUpdateData) -> TrackDTO:
         try:
@@ -2777,6 +2893,8 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         connection_display_name=integration.connection.display_name,
         display_name=integration.display_name,
         config_json=integration.config_json or "{}",
+        settings_json=integration.settings_json or "{}",
+        questions_snapshot_json=integration.questions_snapshot_json or "[]",
     )
 
 
@@ -2835,7 +2953,104 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
         return _event_integration_dto(integration)
 
     @staticmethod
+    def update_settings(
+        *, event_id: int, pk: int, settings_json: str
+    ) -> EventIntegrationDTO:
+        try:
+            integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        integration.settings_json = settings_json
+        integration.save(update_fields=("settings_json",))
+        integration = EventIntegration.objects.select_related("connection").get(
+            pk=integration.pk
+        )
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def update_questions_snapshot(
+        *, event_id: int, pk: int, questions_snapshot_json: str
+    ) -> EventIntegrationDTO:
+        try:
+            integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        integration.questions_snapshot_json = questions_snapshot_json
+        integration.save(update_fields=("questions_snapshot_json",))
+        integration = EventIntegration.objects.select_related("connection").get(
+            pk=integration.pk
+        )
+        return _event_integration_dto(integration)
+
+    @staticmethod
     def delete(event_id: int, pk: int) -> None:
         deleted, _ = EventIntegration.objects.filter(pk=pk, event_id=event_id).delete()
         if not deleted:
             raise NotFoundError
+
+
+def _import_log_entry_dto(entry: ImportLogEntry) -> ImportLogEntryDTO:
+    return ImportLogEntryDTO(
+        pk=entry.pk,
+        integration_id=entry.integration_id,
+        row_index=entry.row_index,
+        status=ImportLogStatus(entry.status),
+        reason=entry.reason or "",
+        response_json=entry.response_json or "{}",
+        title=entry.title or "",
+        display_name=entry.display_name or "",
+        session_id=entry.session_id,
+        attempted_at=entry.attempted_at,
+    )
+
+
+class ImportLogEntryRepository(ImportLogEntryRepositoryProtocol):
+    @staticmethod
+    def upsert(data: ImportLogEntryCreateData) -> ImportLogEntryDTO:
+        # One log entry per (integration, row_index): each attempt overwrites
+        # the prior entry for that row, preserving the row's identity but
+        # reflecting the latest status, reason, response snapshot, and
+        # session FK. `attempted_at` resets to "now" on every upsert.
+        defaults = {
+            "status": data.status.value,
+            "reason": data.reason,
+            "response_json": data.response_json,
+            "title": data.title,
+            "display_name": data.display_name,
+            "session_id": data.session_id,
+            "attempted_at": django_timezone.now(),
+        }
+        entry, _ = ImportLogEntry.objects.update_or_create(
+            integration_id=data.integration_id,
+            row_index=data.row_index,
+            defaults=defaults,
+        )
+        return _import_log_entry_dto(entry)
+
+    @staticmethod
+    def list_for_integration(
+        integration_pk: int, *, status: ImportLogStatus | None = None, search: str = ""
+    ) -> list[ImportLogEntryDTO]:
+        qs = ImportLogEntry.objects.filter(integration_id=integration_pk)
+        if status is not None:
+            qs = qs.filter(status=status.value)
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search) | Q(display_name__icontains=search)
+            )
+        return [_import_log_entry_dto(e) for e in qs.order_by("-attempted_at", "-pk")]
+
+    @staticmethod
+    def for_session(session_pk: int) -> ImportLogEntryDTO | None:
+        # Each session has at most one log entry — the row that produced it.
+        # Returns None if no log entry points at this session.
+        entry = ImportLogEntry.objects.filter(session_id=session_pk).first()
+        return _import_log_entry_dto(entry) if entry is not None else None
+
+    @staticmethod
+    def read(pk: int) -> ImportLogEntryDTO:
+        try:
+            entry = ImportLogEntry.objects.get(pk=pk)
+        except ImportLogEntry.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return _import_log_entry_dto(entry)

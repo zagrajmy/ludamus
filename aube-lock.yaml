@@ -15,6 +15,7 @@ time:
   fallow@2.73.0: 2026-05-12T23:20:25.262Z
   portless@0.13.0: 2026-05-08T00:23:25.359Z
   prettier-plugin-tailwindcss@0.8.0: 2026-04-27T13:57:20.483Z
+  slugify@1.6.6: 2023-03-26T12:33:10.935Z
   tailwindcss@4.1.16: 2025-10-23T11:03:25.175Z
   typescript@5.9.3: 2025-09-30T21:19:38.784Z
   varlock@1.1.0: 2026-05-02T03:58:22.288Z
@@ -48,6 +49,9 @@ importers:
       postcss:
         specifier: ^8.2.14
         version: 8.5.15
+      slugify:
+        specifier: 1.6.6
+        version: 1.6.6
     devDependencies:
       '@hasparus/tailwind':
         specifier: 1.1.8
@@ -1091,6 +1095,10 @@ packages:
     resolution: {integrity: sha512-ZX99e6tRweoUXqR+VBrslhda51Nh5MTQwou5tnUDgbtyM0dBgmhEDtWGP/xbKn6hqfPRHujUNwz5fy/wbbhnpw==}
     engines: {node: '>= 0.4'}
 
+  slugify@1.6.6:
+    resolution: {integrity: sha512-h+z7HKHYXj6wJU+AnS/+IH8Uh9fdcX1Lrhg1/VMdf9PwoBQXFcXiAdsy2tSK0P6gKwJLXp02r90ahUCqHk9rrw==}
+    engines: {node: '>=8.0.0'}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -2015,6 +2023,8 @@ snapshots:
       side-channel-list: 1.0.1
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
+
+  slugify@1.6.6: {}
 
   source-map-js@1.2.1: {}
 

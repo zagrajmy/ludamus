@@ -8,23 +8,21 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
-    FieldUsageSummary,
-    PersonalDataFieldCreateData,
-    PersonalDataFieldDTO,
-    PersonalDataFieldUpdateData,
-    ProposalCategoryDTO,
     SessionContentEditData,
     SessionFieldValueData,
     SessionSelfEditContext,
     SpaceDTO,
 )
+
+if TYPE_CHECKING:
+    from ludamus.pacts.submissions import ImportRow
 
 
 class IntegrationKind(StrEnum):
@@ -49,11 +47,34 @@ class CheckResult:
     hint: str = ""
 
 
+class SourceQuestion(BaseModel):
+    # A source-form question described in the importer's own vocabulary: the
+    # prompt plus the field setup a new target field would inherit. Multi-choice
+    # maps to `select` + `is_multiple` (the domain has no multi `checkbox`); an
+    # "other"/free-text option sets `allow_custom` and is dropped from `options`.
+    title: str
+    field_type: Literal["text", "select", "checkbox"] = "text"
+    is_multiple: bool = False
+    allow_custom: bool = False
+    options: list[str] = []
+
+
 class IntegrationImplementation(Protocol):
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+    def fetch_questions(
+        self,
+        *,
+        secret: bytes,
+        config: BaseModel,
+        header_row: int = 1,
+        email_column: int | None = None,
+    ) -> list[SourceQuestion]: ...
+    def fetch_responses(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[ImportRow]: ...
 
 
 class EventIntegrationDTO(BaseModel):
@@ -67,6 +88,8 @@ class EventIntegrationDTO(BaseModel):
     connection_display_name: str
     display_name: str
     config_json: str
+    settings_json: str
+    questions_snapshot_json: str = "[]"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -107,6 +130,14 @@ class EventIntegrationsRepositoryProtocol(Protocol):
         event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     @staticmethod
+    def update_settings(
+        *, event_id: int, pk: int, settings_json: str
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def update_questions_snapshot(
+        *, event_id: int, pk: int, questions_snapshot_json: str
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
 
@@ -122,6 +153,23 @@ class EventIntegrationsServiceProtocol(Protocol):
         self, sphere_id: int, event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     def delete(self, event_id: int, pk: int) -> None: ...
+    def fetch_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]: ...
+    def populate_questions_snapshot(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def refetch_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def import_missing_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> tuple[list[SourceQuestion], int]: ...
+    def fetch_responses(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[ImportRow]: ...
+    def save_settings(self, *, event_id: int, pk: int, settings_json: str) -> None: ...
     def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
     def list_implementations(
         self, kind: IntegrationKind
@@ -289,47 +337,3 @@ class TrackProgressDTO(BaseModel):
     accepted_count: int
     scheduled_count: int
     progress_pct: int
-
-
-# --- CFP (personal-data field management) ---
-
-
-@dataclass
-class PersonalDataFieldFormContextDTO:
-    """Read aggregate for the personal-data-field create form."""
-
-    categories: list[ProposalCategoryDTO]
-
-
-@dataclass
-class PersonalDataFieldEditContextDTO:
-    """Read aggregate for the personal-data-field edit form."""
-
-    field: PersonalDataFieldDTO
-    categories: list[ProposalCategoryDTO]
-    required_category_pks: set[int]
-    optional_category_pks: set[int]
-
-
-class CFPPersonalDataFieldServiceProtocol(Protocol):
-    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
-    def get_create_form_context(
-        self, event_pk: int
-    ) -> PersonalDataFieldFormContextDTO: ...
-    def get_edit_form_context(
-        self, event_pk: int, field_slug: str
-    ) -> PersonalDataFieldEditContextDTO: ...
-    def create(
-        self,
-        event_pk: int,
-        data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
-    ) -> PersonalDataFieldDTO: ...
-    def update(
-        self,
-        event_pk: int,
-        field_slug: str,
-        data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
-    ) -> None: ...
-    def delete(self, event_pk: int, field_slug: str) -> bool: ...

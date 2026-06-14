@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-05 03:03+0200\n"
+"POT-Creation-Date: 2026-06-13 19:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -525,6 +525,7 @@ msgid "No change"
 msgstr "Bez zmian"
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Cancel enrollment"
 msgstr "Anuluj zapis"
 
@@ -537,10 +538,15 @@ msgid "Enroll (if spots available)"
 msgstr "Zapisz się (jeśli są miejsca)"
 
 #: src/ludamus/adapters/web/django/forms.py
+msgid "Decline offer"
+msgstr "Odrzuć ofertę"
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "No change (time conflict)"
 msgstr "Bez zmian (konflikt czasowy)"
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join waiting list"
 msgstr "Dołącz do listy oczekujących"
 
@@ -575,6 +581,7 @@ msgstr "Brak dostępnych opcji zapisu"
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "User"
 msgstr "Nazwa użytkownika"
@@ -723,6 +730,19 @@ msgid "No enrollment configuration is available for this session."
 msgstr "Brak dostępnej konfiguracji zapisów dla tego punktu programu."
 
 #: src/ludamus/adapters/web/django/views.py
+msgid "This offer is no longer available or has expired."
+msgstr "Ta oferta jest już niedostępna lub wygasła."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Spot claimed — you are now confirmed for this session."
+msgstr ""
+"Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "This offer has expired or was already claimed."
+msgstr "Ta oferta wygasła lub została już zajęta."
+
+#: src/ludamus/adapters/web/django/views.py
 msgid "Email address is required for enrollment in this session."
 msgstr "Do zapisu na ten punkt programu wymagany jest adres email."
 
@@ -737,6 +757,14 @@ msgstr ""
 #: src/ludamus/adapters/web/django/views.py
 msgid "Please review the enrollment options below."
 msgstr "Proszę przejrzeć opcje zapisu poniżej."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "session host"
+msgstr "twórca programu"
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "time conflict"
+msgstr "konflikt czasowy"
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Enrolled: {}"
@@ -870,6 +898,7 @@ msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Contact email"
 msgstr "Email kontaktowy"
 
@@ -885,6 +914,7 @@ msgid "0 = no limit"
 msgstr "0 = bez limitu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
@@ -895,6 +925,7 @@ msgid "Title"
 msgstr "Tytuł"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
@@ -915,6 +946,7 @@ msgid "Description"
 msgstr "Opis"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/chronology/session_tags.html
@@ -932,16 +964,19 @@ msgid "Presenter name"
 msgstr "Nazwa prowadzącego"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
 msgstr "Czas trwania"
 
 #: src/ludamus/gates/web/django/chronology/panel/forms.py
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Display name"
 msgstr "Nazwa wyświetlana"
@@ -1081,6 +1116,220 @@ msgstr ""
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Time slots"
+msgstr "Przedziały czasowe"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Track"
+msgstr "Blok programowy"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Category"
+msgstr "Kategoria"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Facilitator — Display name"
+msgstr "Twórca programu — nazwa wyświetlana"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Don't import"
+msgstr "Nie importuj"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Proposal — %(col)s"
+msgstr "Zgłoszenie — %(col)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Facilitator — %(part)s"
+msgstr "Twórca programu — %(part)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Personal field — %(name)s"
+msgstr "Pole danych osobowych — %(name)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Session field — %(name)s"
+msgstr "Pole punktu programu — %(name)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "%(count)d windows"
+msgstr "Okien: %(count)d"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "%(count)d mappings"
+msgstr "Powiązań: %(count)d"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Select — %(count)d options"
+msgstr "Lista wyboru — opcji: %(count)d"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Checkbox"
+msgstr "Potwierdzenie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Text"
+msgstr "Tekst"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Import integration not found."
+msgstr "Nie znaleziono integracji importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Invalid row submission."
+msgstr "Nieprawidłowe dane wiersza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Question saved."
+msgstr "Pytanie zapisane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Invalid import settings JSON."
+msgstr "Nieprawidłowy JSON ustawień importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Import settings saved."
+msgstr "Zapisano ustawienia importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/panel/import-run.html
+msgid "No columns selected."
+msgstr "Nie wybrano żadnych kolumn."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Header row must be 1 or greater."
+msgstr "Wiersz nagłówka musi mieć wartość co najmniej 1."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Email column must be 1 or greater."
+msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Sheet settings saved."
+msgstr "Zapisano ustawienia arkusza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Created %(count)d proposals."
+msgstr "Utworzono zgłoszenia: %(count)d."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Skipped %(count)d responses already imported."
+msgstr "Pominięto %(count)d odpowiedzi już zaimportowanych."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Skipped %(count)d responses with an invalid or unmapped answer."
+msgstr ""
+"Pominięto %(count)d odpowiedzi z nieprawidłową lub niezmapowaną wartością."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid ""
+"Test import created one proposal from a random row. Review it, then delete "
+"it before running the full import."
+msgstr ""
+"Import próbny utworzył jedno zgłoszenie z losowego wiersza. Sprawdź je, a "
+"następnie usuń przed uruchomieniem pełnego importu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid ""
+"Test row was skipped because one of its mapped answers is invalid or has no "
+"mapping."
+msgstr ""
+"Wiersz testowy został pominięty, ponieważ jedna z jego zmapowanych "
+"odpowiedzi jest nieprawidłowa lub nie ma mapowania."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "No responses found to test."
+msgstr "Nie znaleziono odpowiedzi do przetestowania."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Invalid log entry."
+msgstr "Nieprawidłowy wpis dziennika."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Row imported."
+msgstr "Wiersz zaimportowany."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Row still cannot be imported."
+msgstr "Wiersz nadal nie może zostać zaimportowany."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Proposal reimported from source."
+msgstr "Zgłoszenie ponownie zaimportowane ze źródła."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Reimport failed."
+msgstr "Ponowny import nie powiódł się."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Form refetched: %(count)d questions."
+msgstr "Pobrano formularz ponownie: %(count)d pytań."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid "Imported %(count)d new field(s)."
+msgstr "Zaimportowano %(count)d nowych pól."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "No new fields to import; every form question is already mapped."
+msgstr ""
+"Brak nowych pól do importu; każde pytanie z formularza jest już zmapowane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid ""
+"Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
+"session fields, +%(p_added)d / -%(p_removed)d personal entries, filled "
+"%(builtins)d missing built-in fields, linked %(links)d missing "
+"facilitators / time slots / tracks, pruned %(pruned)d orphan field "
+"definitions."
+msgstr ""
+"Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
+"%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów danych "
+"osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, dowiązano "
+"%(links)d brakujących twórców programu / przedziałów czasowych / bloków, "
+"usunięto %(pruned)d osieroconych definicji pól."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/index.py
 msgid "No events available for this sphere."
@@ -1319,6 +1568,15 @@ msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Max 2 MB. JPG, PNG, WebP, or AVIF."
+msgstr "Maks. 2 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Cover image"
+msgstr "Obraz okładki"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Event name is too long (max 255 characters)."
 msgstr "Nazwa wydarzenia jest za długa (max 255 znaków)."
 
@@ -1367,16 +1625,7 @@ msgid "Minimum participants limit cannot exceed maximum."
 msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Text"
-msgstr "Tekst"
-
-#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -1385,16 +1634,6 @@ msgstr "Tekst"
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Select"
 msgstr "Wybór z listy"
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Checkbox"
-msgstr "Potwierdzenie"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Field name is too long (max 255 characters)."
@@ -1589,10 +1828,6 @@ msgid "Sphere settings saved successfully."
 msgstr "Ustawienia sfery zostały zapisane."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "Image too large. Maximum size is 2 MB."
-msgstr "Obraz jest za duży. Maksymalny rozmiar to 2 MB."
-
-#: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "End time must be after start time."
 msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
@@ -1763,6 +1998,29 @@ msgid "Active"
 msgstr "Aktywne"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Requirements"
+msgstr "Wymagania"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Needs"
+msgstr "Potrzeby"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Participants limit"
+msgstr "Limit uczestników"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Yes"
 msgstr "Tak"
@@ -1770,6 +2028,44 @@ msgstr "Tak"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "No"
 msgstr "Nie"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "You're in: a spot opened in %(session)s"
+msgstr "Masz miejsce: zwolniło się miejsce w %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "A confirmed spot opened up and you have been enrolled automatically."
+msgstr "Zwolniło się potwierdzone miejsce i zostałeś automatycznie zapisany."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "A spot opened in %(session)s — claim it by %(deadline)s"
+msgstr "Zwolniło się miejsce w %(session)s — zajmij je do %(deadline)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"A spot opened up — claim it before %(deadline)s using the link below, or it "
+"will go to the next person on the waiting list."
+msgstr ""
+"Zwolniło się miejsce — zajmij je przed %(deadline)s, korzystając z "
+"poniższego linku, w przeciwnym razie trafi do następnej osoby na liście "
+"oczekujących."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Your offer for %(session)s expired"
+msgstr "Twoja oferta dla %(session)s wygasła"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid ""
+"Your offered spot was not claimed in time and has gone to the next person. "
+"You can join the waiting list again if you are still interested."
+msgstr ""
+"Zaproponowane miejsce nie zostało zajęte na czas i trafiło do następnej "
+"osoby. Jeśli nadal jesteś zainteresowany, możesz ponownie zapisać się na "
+"listę oczekujących."
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"
@@ -1862,6 +2158,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Contact Email"
 msgstr "Email kontaktowy"
@@ -1874,15 +2171,6 @@ msgstr "Przesłane"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Session fields"
 msgstr "Pola punktu programu"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Requirements"
-msgstr "Wymagania"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/event.html
@@ -1949,6 +2237,7 @@ msgstr "Uczestnicy"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Time"
@@ -2147,14 +2436,14 @@ msgid "Completed"
 msgstr "Ukończone"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Enrollment Open"
+msgstr "Zapisy otwarte"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Enrollment Open"
-msgstr "Zapisy otwarte"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Session"
@@ -2339,6 +2628,7 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
 msgstr "Status"
@@ -2408,6 +2698,7 @@ msgid "All hours"
 msgstr "Wszystkie godziny"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "All"
@@ -2489,6 +2780,7 @@ msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Proposal"
 msgstr "Zgłoszenie"
 
@@ -2511,8 +2803,9 @@ msgstr "Zaakceptuj"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Review"
-msgstr "Podejrzyj"
+msgstr "Przeglądaj"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Tags"
@@ -2592,6 +2885,30 @@ msgstr "Zaloguj się aby się zapisać"
 #: src/ludamus/templates/chronology/event.html
 msgid "Back to Events"
 msgstr "Powrót do wydarzeń"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Claim your spot"
+msgstr "Zajmij swoje miejsce"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "A spot opened up for you"
+msgstr "Zwolniło się dla Ciebie miejsce"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid ""
+"A spot opened up. Claim it before the deadline below or it will be offered "
+"to the next person on the waiting list."
+msgstr ""
+"Zwolniło się miejsce. Zajmij je przed poniższym terminem, w przeciwnym razie "
+"zostanie zaproponowane następnej osobie na liście oczekujących."
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Claim by:"
+msgstr "Zajmij do:"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Claim my spot"
+msgstr "Zajmij moje miejsce"
 
 #: src/ludamus/templates/chronology/panel/integrations/_check_result.html
 msgid "Check passed."
@@ -2679,6 +2996,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -2701,14 +3019,6 @@ msgstr "Nazwa wyświetlana"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Needs"
-msgstr "Potrzeby"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
@@ -2762,19 +3072,8 @@ msgid "Proposal progress"
 msgstr "Postęp zgłoszenia"
 
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Category"
-msgstr "Kategoria"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
 msgid "Your info"
 msgstr "Twoje dane"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-msgid "Time slots"
-msgstr "Przedziały czasowe"
 
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 msgctxt "wizard step"
@@ -2960,6 +3259,10 @@ msgid "or drag and drop"
 msgstr "lub przeciągnij i upuść"
 
 #: src/ludamus/templates/components/file-dropzone.html
+msgid "Remove image"
+msgstr "Usuń obraz"
+
+#: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
 
@@ -2971,14 +3274,8 @@ msgid "required"
 msgstr "wymagane"
 
 #: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/index.html
-msgid "Events"
-msgstr "Wydarzenia"
-
-#: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/notice_board/index.html
-msgid "Encounters"
-msgstr "Spotkania"
+msgid "Account menu"
+msgstr "Menu konta"
 
 #: src/ludamus/templates/components/navbar.html
 msgid "Panel"
@@ -2992,6 +3289,32 @@ msgstr "Edycja profilu"
 #: src/ludamus/templates/components/navbar.html
 msgid "Log out"
 msgstr "Wyloguj się"
+
+#: src/ludamus/templates/components/navbar_pages.html
+#: src/ludamus/templates/index.html
+msgid "Events"
+msgstr "Wydarzenia"
+
+#: src/ludamus/templates/components/navbar_pages.html
+#: src/ludamus/templates/notice_board/index.html
+msgid "Encounters"
+msgstr "Spotkania"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "Notifications"
+msgstr "Powiadomienia"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "unread"
+msgstr "nieprzeczytane"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "Mark all read"
+msgstr "Oznacz wszystkie jako przeczytane"
+
+#: src/ludamus/templates/components/notifications.html
+msgid "No notifications yet."
+msgstr "Brak powiadomień."
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"
@@ -3145,6 +3468,7 @@ msgstr "Powiązane osoby"
 #: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -3284,6 +3608,7 @@ msgstr "Połączenia importu dla tej sfery"
 #: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -3660,6 +3985,8 @@ msgstr ""
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-settings.html
@@ -3710,9 +4037,17 @@ msgstr "Przełącz pasek boczny"
 msgid "Event"
 msgstr "Wydarzenie"
 
+#: src/ludamus/templates/panel/base.html
+msgid "Toggle category"
+msgstr "Przełącz kategorię"
+
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
 msgstr "Pulpit"
+
+#: src/ludamus/templates/panel/base.html
+msgid "Program"
+msgstr "Program"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/cfp-create.html
@@ -3746,6 +4081,20 @@ msgid "Facilitators"
 msgstr "Twórcy programu"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/import-review.html
+#: src/ludamus/templates/panel/import-run.html
+#: src/ludamus/templates/panel/import.html
+msgid "Google Docs Import"
+msgstr "Import z Google Docs"
+
+#: src/ludamus/templates/panel/base.html
+msgctxt "Sidebar category"
+msgid "Schedule"
+msgstr "Plan"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Harmonogram"
 msgstr "Harmonogram"
 
@@ -3753,6 +4102,10 @@ msgstr "Harmonogram"
 #: src/ludamus/templates/panel/print-materials.html
 msgid "Print Materials"
 msgstr "Materiały do druku"
+
+#: src/ludamus/templates/panel/base.html
+msgid "Settings"
+msgstr "Ustawienia"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -3850,6 +4203,7 @@ msgid "min"
 msgstr "min"
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Add"
 msgstr "Dodaj"
@@ -4008,6 +4362,29 @@ msgid ""
 msgstr ""
 "Brak typów punktów programu. Dodaj typ, aby twórcy mogli składać zgłoszenia."
 
+#: src/ludamus/templates/panel/content-log.html
+msgid "Content Activity Log"
+msgstr "Dziennik zmian treści"
+
+#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgctxt "table column"
+msgid "Session"
+msgstr "Punkt programu"
+
+#: src/ludamus/templates/panel/content-log.html
+msgid "Changes"
+msgstr "Zmiany"
+
+#: src/ludamus/templates/panel/content-log.html
+msgid "Field"
+msgstr "Pole"
+
+#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "No entries in the log."
+msgstr "Brak wpisów w dzienniku."
+
 #: src/ludamus/templates/panel/display-settings.html
 msgid "Display Settings"
 msgstr "Ustawienia wyświetlania"
@@ -4151,6 +4528,372 @@ msgstr "Scal zaznaczonych twórców"
 msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-run.html
+msgid "Save settings"
+msgstr "Zapisz ustawienia"
+
+#: src/ludamus/templates/panel/import-json.html
+msgid "Import settings (JSON)"
+msgstr "Ustawienia importu (JSON)"
+
+#: src/ludamus/templates/panel/import-json.html
+msgid ""
+"Edit the raw mapping the Proposal tab produces. Invalid JSON is rejected."
+msgstr ""
+"Edytuj surowe mapowanie generowane przez zakładkę Zgłoszenie. Nieprawidłowy "
+"JSON jest odrzucany."
+
+#: src/ludamus/templates/panel/import-json.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/import-review.html
+#: src/ludamus/templates/panel/import-run.html
+#: src/ludamus/templates/panel/import.html
+msgid ""
+"No import integrations yet. Add one in Settings → Integrations to import "
+"proposals from an external form."
+msgstr ""
+"Nie ma jeszcze żadnych integracji importu. Dodaj jedną w sekcji Ustawienia → "
+"Integracje, aby importować zgłoszenia z zewnętrznego formularza."
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "No import attempts logged yet."
+msgstr "Brak zapisanych prób importu."
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid ""
+"\n"
+"                        %(total)s attempts · %(successes)s successful · "
+"%(errors)s errors\n"
+"                    "
+msgstr ""
+"\n"
+"                        %(total)s prób · %(successes)s udanych · %(errors)s "
+"błędów\n"
+"                    "
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Status filter"
+msgstr "Filtr statusu"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Errors"
+msgstr "Błędy"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Successes"
+msgstr "Sukcesy"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Search by title or display name"
+msgstr "Szukaj po tytule lub nazwie wyświetlanej"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Search title or display name"
+msgstr "Szukaj tytułu lub nazwy wyświetlanej"
+
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Search"
+msgstr "Szukaj"
+
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Clear"
+msgstr "Wyczyść"
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid ""
+"\n"
+"                                %(count)s error\n"
+"                            "
+msgid_plural ""
+"\n"
+"                                %(count)s errors\n"
+"                            "
+msgstr[0] ""
+"\n"
+"                                %(count)s błąd\n"
+"                            "
+msgstr[1] ""
+"\n"
+"                                %(count)s błędy\n"
+"                            "
+msgstr[2] ""
+"\n"
+"                                %(count)s błędów\n"
+"                            "
+msgstr[3] ""
+"\n"
+"                                %(count)s błędów\n"
+"                            "
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid "Row %(index)s · %(at)s"
+msgstr "Wiersz %(index)s · %(at)s"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Response"
+msgstr "Odpowiedź"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Retry"
+msgstr "Ponów"
+
+#: src/ludamus/templates/panel/import-log.html
+#, python-format
+msgid ""
+"\n"
+"                                %(count)s successful import\n"
+"                            "
+msgid_plural ""
+"\n"
+"                                %(count)s successful imports\n"
+"                            "
+msgstr[0] ""
+"\n"
+"                                %(count)s udany import\n"
+"                            "
+msgstr[1] ""
+"\n"
+"                                %(count)s udane importy\n"
+"                            "
+msgstr[2] ""
+"\n"
+"                                %(count)s udanych importów\n"
+"                            "
+msgstr[3] ""
+"\n"
+"                                %(count)s udanych importów\n"
+"                            "
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "View proposal"
+msgstr "Zobacz zgłoszenie"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid ""
+"Reimport will overwrite any manual edits to the imported fields on this "
+"proposal. Continue?"
+msgstr ""
+"Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w tym "
+"zgłoszeniu. Kontynuować?"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "Reimport"
+msgstr "Ponów import"
+
+#: src/ludamus/templates/panel/import-log.html
+msgid "No entries match the current filter."
+msgstr "Żadne wpisy nie pasują do bieżącego filtra."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Header row"
+msgstr "Wiersz nagłówka"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"The 1-indexed sheet row whose cells become the column keys. Row 1 is the "
+"first row in the sheet; everything above this row is ignored."
+msgstr ""
+"Wiersz arkusza (liczony od 1), którego komórki stają się kluczami kolumn. "
+"Wiersz 1 to pierwszy wiersz arkusza; wszystko powyżej jest pomijane."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Email column"
+msgstr "Kolumna e-maila"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"The 1-indexed sheet column that holds the auto-collected respondent email. "
+"Leave blank if the form does not collect email; otherwise set it so the "
+"importer can synthesize a question that maps to the proposal's contact email."
+msgstr ""
+"Kolumna arkusza (liczona od 1), w której zapisywany jest adres e-mail "
+"odpowiadającego pobrany automatycznie. Pozostaw puste, jeśli formularz nie "
+"zbiera adresów e-mail; w przeciwnym razie ustaw ją, aby importer mógł "
+"wygenerować pytanie powiązane z e-mailem kontaktowym propozycji."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Unique key columns"
+msgstr "Kolumny klucza unikalnego"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Columns whose values together identify a row uniquely. Retry uses them to "
+"find the same row again after the sheet shifts."
+msgstr ""
+"Kolumny, których wartości razem jednoznacznie identyfikują wiersz. "
+"Ponawianie używa ich do odnalezienia tego samego wiersza po przesunięciu "
+"arkusza."
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid "Remove %(col)s"
+msgstr "Usuń %(col)s"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Add column…"
+msgstr "Dodaj kolumnę…"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Map the form's questions first — the saved columns will appear here as "
+"unique-key candidates."
+msgstr ""
+"Najpierw przypisz pytania formularza — zapisane kolumny pojawią się tu jako "
+"kandydaci na klucze unikalności."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Form fields"
+msgstr "Pola formularza"
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid "Imported: %(count)s question."
+msgid_plural "Imported: %(count)s questions."
+msgstr[0] "Zaimportowano: %(count)s pytanie."
+msgstr[1] "Zaimportowano: %(count)s pytania."
+msgstr[2] "Zaimportowano: %(count)s pytań."
+msgstr[3] "Zaimportowano: %(count)s pytania."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Not imported yet."
+msgstr "Jeszcze nie zaimportowano."
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid "%(confirmed)s of %(total)s mapped questions confirmed."
+msgstr "Potwierdzono %(confirmed)s z %(total)s przypisanych pytań."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Import missing fields"
+msgstr "Pobierz brakujące pola"
+
+#: src/ludamus/templates/panel/import-run.html
+#, python-format
+msgid ""
+"Reimport the form? This drops every confirmation (%(confirmed)s of "
+"%(mappings)s confirmed) and rebuilds the question list. Mappings and field "
+"definitions are preserved."
+msgstr ""
+"Pobrać formularz ponownie? Spowoduje to wyczyszczenie wszystkich potwierdzeń "
+"(%(confirmed)s z %(mappings)s potwierdzonych) i odbudowanie listy pytań. "
+"Powiązania i definicje pól zostaną zachowane."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Reimport fields"
+msgstr "Pobierz pola ponownie"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Import fields"
+msgstr "Pobierz pola"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Test import (one row)"
+msgstr "Import próbny (jeden wiersz)"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Import one random response so you can eyeball the recipe. Delete it before "
+"the full run."
+msgstr ""
+"Zaimportuj jedną losową odpowiedź, aby ocenić przepis. Usuń ją przed pełnym "
+"importem."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Run import"
+msgstr "Uruchom import"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Create a proposal from every response using the saved recipe."
+msgstr "Utwórz zgłoszenie z każdej odpowiedzi według zapisanego przepisu."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Apply field layout"
+msgstr "Zastosuj układ pól"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Add newly mapped fields and drop values for fields removed from the recipe "
+"across every imported proposal. Existing values for retained fields are left "
+"untouched. Orphan field definitions on the event are pruned at the end."
+msgstr ""
+"Dodaje wartości nowo zmapowanych pól i usuwa wartości pól wycofanych z "
+"przepisu we wszystkich zaimportowanych zgłoszeniach. Wartości pól, które "
+"pozostają w przepisie, nie są zmieniane. Na końcu usuwane są osierocone "
+"definicje pól w wydarzeniu."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Apply the current field layout to every imported proposal? Values for fields "
+"no longer mapped will be deleted."
+msgstr ""
+"Zastosować bieżący układ pól do wszystkich zaimportowanych zgłoszeń? "
+"Wartości pól, które nie są już zmapowane, zostaną usunięte."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Email column not set."
+msgstr "Kolumna e-maila nie jest ustawiona."
+
+#: src/ludamus/templates/panel/import.html
+msgid ""
+"When the form collects respondent email, set the 1-indexed sheet column "
+"number on the Run tab so the importer can map it to the proposal's contact "
+"email."
+msgstr ""
+"Jeśli formularz zbiera adresy e-mail odpowiadających, ustaw numer kolumny "
+"arkusza (liczony od 1) na zakładce „Uruchom import”, aby importer mógł "
+"powiązać go z e-mailem kontaktowym propozycji."
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Question"
+msgstr "Pytanie"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Mapping"
+msgstr "Powiązanie"
+
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Details"
+msgstr "Szczegóły"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Confirmed"
+msgstr "Potwierdzone"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Ignored"
+msgstr "Pomijane"
+
+#: src/ludamus/templates/panel/import.html
+msgid "Unconfirmed"
+msgstr "Niepotwierdzone"
+
+#: src/ludamus/templates/panel/import.html
+#, python-format
+msgid "Edit mapping for %(question)s"
+msgstr "Edytuj przypisanie dla %(question)s"
+
+#: src/ludamus/templates/panel/import.html
+msgid ""
+"No source questions found yet. Open the Import run tab to fetch the form."
+msgstr ""
+"Nie znaleziono jeszcze pytań źródłowych. Otwórz zakładkę Uruchomienie "
+"importu, aby pobrać formularz."
+
+#: src/ludamus/templates/panel/import.html
+msgid "Go to Import run"
+msgstr "Przejdź do uruchomienia importu"
+
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/venues-structure.html
 msgid "Overview"
@@ -4192,6 +4935,170 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
 msgid "Venue / area…"
 msgstr "Lokalizacja / strefa…"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Maps to"
+msgstr "Mapuje na"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "New personal field…"
+msgstr "Nowe pole danych osobowych…"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "New session field…"
+msgstr "Nowe pole punktu programu…"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Field name"
+msgstr "Nazwa pola"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Slug"
+msgstr "Slug"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Field type"
+msgstr "Typ pola"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "One option per line"
+msgstr "Jedna opcja na linię"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+msgid "Allow multiple selections"
+msgstr "Zezwól na wielokrotny wybór"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+msgid "Allow custom values"
+msgstr "Zezwól na własne wartości"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Start"
+msgstr "Początek"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "End"
+msgstr "Koniec"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Remove window"
+msgstr "Usuń przedział"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Add window"
+msgstr "Dodaj przedział"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Catch-all for custom answers"
+msgstr "Domyślny dla odpowiedzi własnych"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid ""
+"Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
+"min). Answers without a mapping are skipped at import time."
+msgstr ""
+"Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla 1 "
+"g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "ISO 8601 duration"
+msgstr "Czas trwania ISO 8601"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid ""
+"Substitute raw cell answers before mapping or parsing — useful for cleaning "
+"up noisy free-text into a value the field accepts, or fixing a typo so it "
+"matches the value mapping above."
+msgstr ""
+"Podmień surowe odpowiedzi z komórek przed mapowaniem lub parsowaniem — "
+"przydatne do oczyszczania zaszumionego tekstu na wartość akceptowaną przez "
+"pole lub do naprawienia literówki, by odpowiedź trafiała w mapowanie "
+"wartości powyżej."
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Raw answer"
+msgstr "Surowa odpowiedź"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Replacement"
+msgstr "Zamiennik"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Remove override"
+msgstr "Usuń podmianę"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Add override"
+msgstr "Dodaj podmianę"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Discards any unsaved changes"
+msgstr "Odrzuca niezapisane zmiany"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Back to summary"
+msgstr "Powrót do podsumowania"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Jump to question"
+msgstr "Przejdź do pytania"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#, python-format
+msgid "Question %(position)s of %(total)s — %(question)s"
+msgstr "Pytanie %(position)s z %(total)s — %(question)s"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Save and finish"
+msgstr "Zapisz i zakończ"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid "Save and next"
+msgstr "Zapisz i przejdź dalej"
+
+#: src/ludamus/templates/panel/parts/import-review-region.html
+msgid ""
+"No source questions found. Check this integration's connection in Settings → "
+"Integrations."
+msgstr ""
+"Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
+"Ustawienia → Integracje."
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "Summary"
+msgstr "Podsumowanie"
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "JSON"
+msgstr "JSON"
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "Import run"
+msgstr "Uruchomienie importu"
+
+#: src/ludamus/templates/panel/parts/import-tabs.html
+msgid "Log"
+msgstr "Dziennik"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print timetable for a venue or area"
@@ -4295,16 +5202,6 @@ msgstr "Dodaj przedziały czasowe, aby zobaczyć siatkę harmonogramu."
 msgid "total"
 msgstr "łącznie"
 
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
-
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Session details"
 msgstr "Szczegóły punktu programu"
@@ -4388,13 +5285,6 @@ msgstr "np. Email, Telefon, Bio"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Question"
-msgstr "Pytanie"
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
 msgid "e.g., What is your email address?"
 msgstr "np. Jaki jest Twój adres email?"
 
@@ -4421,26 +5311,9 @@ msgid "Options"
 msgstr "Opcje"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "One option per line"
-msgstr "Jedna opcja na linię"
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/session-field-create.html
 msgid "Enter one option per line (for Select fields only)."
 msgstr "Wprowadź jedną opcję na linię (tylko dla pól typu Wybór)."
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-msgid "Allow multiple selections"
-msgstr "Zezwól na wielokrotny wybór"
-
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-msgid "Allow custom values"
-msgstr "Zezwól na własne wartości"
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
@@ -4626,13 +5499,28 @@ msgid "Reject"
 msgstr "Odrzuć"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#, python-format
+msgid ""
+"\n"
+"                            Imported via %(name)s on %(at)s\n"
+"                        "
+msgstr ""
+"\n"
+"                            Zaimportowano przez %(name)s — %(at)s\n"
+"                        "
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "View import log"
+msgstr "Zobacz dziennik importu"
+
+#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Facilitator"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposal-detail.html
-msgid "Details"
-msgstr "Szczegóły"
+msgid "Preferred time slots"
+msgstr "Preferowane przedziały czasowe"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."
@@ -4680,18 +5568,17 @@ msgid "Submitted Proposals"
 msgstr "Przesłane zgłoszenia"
 
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-log.html
 #: src/ludamus/templates/panel/timetable-overview.html
-msgid "Track"
-msgstr "Blok programowy"
+#: src/ludamus/templates/panel/timetable-problems.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "Activity Log"
+msgstr "Dziennik zmian"
 
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable.html
 msgid "All tracks"
 msgstr "Wszystkie bloki"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Search"
-msgstr "Szukaj"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Search by facilitator or field values"
@@ -4700,10 +5587,6 @@ msgstr "Szukaj po prowadzącym lub wartościach pól"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Clear"
-msgstr "Wyczyść"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Created"
@@ -4941,31 +5824,8 @@ msgstr ""
 "skonfigurować harmonogram wydarzenia."
 
 #: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Activity Log"
-msgstr "Dziennik zmian"
-
-#: src/ludamus/templates/panel/timetable-log.html
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
-
-#: src/ludamus/templates/panel/content-log.html
-msgid "Content Activity Log"
-msgstr "Dziennik zmian treści"
-
-#: src/ludamus/templates/panel/content-log.html
-msgid "Changes"
-msgstr "Zmiany"
-
-#: src/ludamus/templates/panel/content-log.html
-msgid "Field"
-msgstr "Pole"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "Participants limit"
-msgstr "Limit uczestników"
 
 #: src/ludamus/templates/panel/timetable-log.html
 #: src/ludamus/templates/panel/timetable-overview.html
@@ -4993,11 +5853,6 @@ msgid "Clear filters"
 msgstr "Wyczyść filtry"
 
 #: src/ludamus/templates/panel/timetable-log.html
-msgctxt "table column"
-msgid "Session"
-msgstr "Punkt programu"
-
-#: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
 
@@ -5020,10 +5875,6 @@ msgstr "Czy na pewno cofnąć tę zmianę?"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Revert"
 msgstr "Cofnij"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "No entries in the log."
-msgstr "Brak wpisów w dzienniku."
 
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Occupancy map"
@@ -5388,35 +6239,17 @@ msgstr "Kopiuj"
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
 
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Cover image"
-msgstr "Obraz okładki"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Max 2 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Maks. 2 MB. JPG, PNG, WebP lub AVIF."
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-msgid "Optional. Max 2 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Opcjonalnie. Maks. 2 MB. JPG, PNG, WebP lub AVIF."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
-msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Image dimensions are too large."
-msgstr "Wymiary obrazu są zbyt duże."
-
 #~ msgid "promoted from waiting list"
 #~ msgstr "przeniesiony z listy oczekujących"
 
-#~ msgid "session host"
-#~ msgstr "twórca punktu programu"
+#~ msgid "Optional. Max 2 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Opcjonalnie. Maks. 2 MB. JPG, PNG, WebP lub AVIF."
 
-#~ msgid "time conflict"
-#~ msgstr "konflikt czasowy"
+#~ msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+#~ msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
+
+#~ msgid "Image dimensions are too large."
+#~ msgstr "Wymiary obrazu są zbyt duże."
 
 #~ msgid "Connected Users"
 #~ msgstr "Powiązani użytkownicy"
@@ -5484,96 +6317,3 @@ msgstr "Wymiary obrazu są zbyt duże."
 
 #~ msgid "Organizer"
 #~ msgstr "Organizator"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Decline offer"
-msgstr "Odrzuć ofertę"
-
-#: src/ludamus/links/db/django/notifications.py
-msgid "You're in: a spot opened in %(session)s"
-msgstr "Masz miejsce: zwolniło się miejsce w %(session)s"
-
-#: src/ludamus/links/db/django/notifications.py
-msgid "A confirmed spot opened up and you have been enrolled automatically."
-msgstr "Zwolniło się potwierdzone miejsce i zostałeś automatycznie zapisany."
-
-#: src/ludamus/links/db/django/notifications.py
-msgid "A spot opened in %(session)s — claim it by %(deadline)s"
-msgstr "Zwolniło się miejsce w %(session)s — zajmij je do %(deadline)s"
-
-#: src/ludamus/links/db/django/notifications.py
-msgid ""
-"A spot opened up — claim it before %(deadline)s using the link below, or it "
-"will go to the next person on the waiting list."
-msgstr ""
-"Zwolniło się miejsce — zajmij je przed %(deadline)s, korzystając z poniższego "
-"linku, w przeciwnym razie trafi do następnej osoby na liście oczekujących."
-
-#: src/ludamus/links/db/django/notifications.py
-msgid "Your offer for %(session)s expired"
-msgstr "Twoja oferta dla %(session)s wygasła"
-
-#: src/ludamus/links/db/django/notifications.py
-msgid ""
-"Your offered spot was not claimed in time and has gone to the next person. "
-"You can join the waiting list again if you are still interested."
-msgstr ""
-"Zaproponowane miejsce nie zostało zajęte na czas i trafiło do następnej "
-"osoby. Jeśli nadal jesteś zainteresowany, możesz ponownie zapisać się na "
-"listę oczekujących."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This offer is no longer available or has expired."
-msgstr "Ta oferta jest już niedostępna lub wygasła."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Spot claimed — you are now confirmed for this session."
-msgstr "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This offer has expired or was already claimed."
-msgstr "Ta oferta wygasła lub została już zajęta."
-
-#: src/ludamus/templates/chronology/offer_claim.html
-msgid "Claim your spot"
-msgstr "Zajmij swoje miejsce"
-
-#: src/ludamus/templates/chronology/offer_claim.html
-msgid "A spot opened up for you"
-msgstr "Zwolniło się dla Ciebie miejsce"
-
-#: src/ludamus/templates/chronology/offer_claim.html
-msgid ""
-"A spot opened up. Claim it before the deadline below or it will be offered "
-"to the next person on the waiting list."
-msgstr ""
-"Zwolniło się miejsce. Zajmij je przed poniższym terminem, w przeciwnym razie "
-"zostanie zaproponowane następnej osobie na liście oczekujących."
-
-#: src/ludamus/templates/chronology/offer_claim.html
-msgid "Claim by:"
-msgstr "Zajmij do:"
-
-#: src/ludamus/templates/chronology/offer_claim.html
-msgid "Claim my spot"
-msgstr "Zajmij moje miejsce"
-
-#: src/ludamus/templates/components/notifications.html
-msgid "Notifications"
-msgstr "Powiadomienia"
-
-#: src/ludamus/templates/components/notifications.html
-msgid "unread"
-msgstr "nieprzeczytane"
-
-#: src/ludamus/templates/components/notifications.html
-msgid "Mark all read"
-msgstr "Oznacz wszystkie jako przeczytane"
-
-#: src/ludamus/templates/components/notifications.html
-msgid "No notifications yet."
-msgstr "Brak powiadomień."
-
-#: src/ludamus/templates/components/navbar.html
-msgid "Account menu"
-msgstr "Menu konta"
