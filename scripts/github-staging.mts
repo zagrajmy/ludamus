@@ -229,7 +229,7 @@ const removeStagingFrom = async ({
   );
 };
 
-const exclusiveStagingFor = async (args: ActionArgs, exceptNumber: number) => {
+const exclusiveStagingFor = async (args: ActionArgs, exceptNumber?: number) => {
   const stagingPrs = await listStagingPrIssues(args);
   await removeStagingFrom({
     ...args,
@@ -439,50 +439,49 @@ const resolveManualDeploy = async ({
   core,
   sha,
 }: ResolveManualDeployArgs) => {
-  const [stagingPrs, prsForSha] = await Promise.all([
-    listStagingPrIssues({ github, context, core }),
-    listPullRequestsForSha({ github, context, sha }),
-  ]);
-  const prNumbersForSha = new Set(
-    prsForSha
-      .filter((pr) => isSameRepositoryPullRequest(context, pr))
-      .map((pr) => pr.number),
-  );
-  const matchingStagingPrs = stagingPrs.filter(
-    (pr) => pr.state === "open" && prNumbersForSha.has(pr.number),
-  );
+  const openPrsForSha = (
+    await listPullRequestsForSha({ github, context, sha })
+  ).filter((pr) => pr.state === "open");
 
-  if (matchingStagingPrs.length !== 1) {
+  // A manual dispatch is itself the authorization to deploy `sha`, so we do NOT
+  // require the staging label, and (unlike the explicit/label paths) we accept
+  // drafts — a human asking for a draft preview is intentional. Whatever we
+  // deploy takes over staging, so we strip the label off every other PR
+  // (claimStagingTarget semantics).
+  if (openPrsForSha.length > 1) {
     setShouldDeploy(
       core,
       false,
-      `No unique open PR with ${STAGING_LABEL} for ${sha}`,
+      `Multiple open PRs for ${sha}; pass pr_number to disambiguate`,
     );
     return;
   }
 
-  const winner = await fetchPullRequest({
+  if (openPrsForSha.length === 0) {
+    await exclusiveStagingFor({ github, context, core });
+    setShouldDeploy(core, true, `Deploying ${sha}`);
+    return;
+  }
+
+  // Re-fetch the single PR for an authoritative head repo: the associated-
+  // commits payload can carry a null/sparse head (e.g. a deleted fork) that
+  // would misclassify a real PR. Fork PRs stay off staging.
+  const pr = await fetchPullRequest({
     github,
     context,
-    number: matchingStagingPrs[0].number,
+    number: openPrsForSha[0].number,
   });
-
-  if (
-    winner.state !== "open" ||
-    winner.draft ||
-    !hasStagingLabel(winner) ||
-    !isSameRepositoryPullRequest(context, winner)
-  ) {
+  if (!isSameRepositoryPullRequest(context, pr)) {
     setShouldDeploy(
       core,
       false,
-      `No unique open PR with ${STAGING_LABEL} for ${sha}`,
+      `Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`,
     );
     return;
   }
 
-  await exclusiveStagingFor({ github, context, core }, winner.number);
-  setShouldDeploy(core, true, `Deploying PR #${winner.number} at ${sha}`);
+  await exclusiveStagingFor({ github, context, core }, pr.number);
+  setShouldDeploy(core, true, `Deploying PR #${pr.number} at ${sha}`);
 };
 
 export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {
