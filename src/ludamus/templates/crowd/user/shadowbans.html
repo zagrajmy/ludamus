@@ -19,6 +19,8 @@
             {% end_tabs %}
         </div>
         <div class="card-body">
+            {% translate "Username or email" as identifier_label %}
+            {% translate "Shadowban" as t_shadowban %}
             {# Info banner #}
             <div class="alert alert-info flex items-center gap-3 mb-4">
                 {% icon "information-circle" class="w-5 h-5 shrink-0" %}
@@ -32,17 +34,14 @@
                     {% icon "user-minus" class="w-4 h-4" %}
                     {% translate "Shadowban a player" %}
                 </h6>
-                {% translate "Username or email" as identifier_label %}
                 <form action="{% url 'web:crowd:profile-shadowbans' %}" method="post">
                     {% csrf_token %}
-                    <div class="flex flex-col sm:flex-row gap-2">
-                        <input type="text"
-                               name="identifier"
-                               class="form-input grow"
-                               placeholder="{{ identifier_label }}"
-                               aria-label="{{ identifier_label }}"
-                               required>
-                        <button type="submit" class="btn btn-primary">{% translate "Shadowban" %}</button>
+                    <div class="flex flex-col sm:flex-row sm:items-start gap-2">
+                        <div class="grow w-full">
+                            <label for="identifier" class="sr-only">{{ identifier_label }}</label>
+                            {% include "components/text-field.html" with name="identifier" id="identifier" placeholder=identifier_label required=True only %}
+                        </div>
+                        {% tessera_button t_shadowban %}
                     </div>
                 </form>
             </div>
@@ -60,18 +59,22 @@
                                     <h6 class="font-semibold text-sm flex items-center gap-2">
                                         {{ candidate.name }}
                                         {% if candidate.is_shadowbanned %}
-                                            <span class="badge badge-danger">{% translate "Shadowbanned" %}</span>
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
+                                                {% icon "shield-exclamation" class="w-3.5 h-3.5" %}
+                                                {% translate "Shadowbanned" %}
+                                            </span>
                                         {% endif %}
                                     </h6>
                                     <form action="{% url 'web:crowd:profile-shadowbans' %}" method="post">
                                         {% csrf_token %}
                                         <input type="hidden" name="slug" value="{{ candidate.slug }}">
                                         {% if candidate.is_shadowbanned %}
+                                            {% translate "Remove shadowban" as t_remove %}
                                             <input type="hidden" name="banned" value="false">
-                                            <button type="submit" class="btn btn-secondary btn-sm">{% translate "Remove shadowban" %}</button>
+                                            {% tessera_button t_remove variant="secondary" size="sm" full_width_mobile=False %}
                                         {% else %}
                                             <input type="hidden" name="banned" value="true">
-                                            <button type="submit" class="btn btn-danger btn-sm">{% translate "Shadowban" %}</button>
+                                            {% tessera_button t_shadowban variant="danger" size="sm" full_width_mobile=False %}
                                         {% endif %}
                                     </form>
                                 </div>
