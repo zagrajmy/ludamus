@@ -1,8 +1,11 @@
 """Protocols and DTOs for the shadowban (Safety & Comfort) feature."""
 
+from datetime import datetime
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
+
+from ludamus.pacts.legacy import UserDTO
 
 
 class ShadowbanCandidateDTO(BaseModel):
@@ -12,6 +15,13 @@ class ShadowbanCandidateDTO(BaseModel):
     name: str
     slug: str
     is_shadowbanned: bool
+
+
+class SessionShadowbanWarningDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user: UserDTO
+    shadowbanned_at: datetime
 
 
 class ShadowbanHitDTO(BaseModel):
@@ -49,6 +59,10 @@ class ShadowbanRepositoryProtocol(Protocol):
     def read_event_signup(
         *, session_id: int, signed_up_ids: list[int]
     ) -> ShadowbanEventSignupDTO | None: ...
+    @staticmethod
+    def list_session_shadowbanned(
+        *, viewer_id: int, session_id: int
+    ) -> list[SessionShadowbanWarningDTO]: ...
 
 
 class ShadowbanNotifierProtocol(Protocol):
@@ -63,6 +77,9 @@ class ShadowbanServiceProtocol(Protocol):
         self, *, owner_id: int, target_slug: str, banned: bool
     ) -> None: ...
     def add_by_identifier(self, *, owner_id: int, identifier: str) -> bool: ...
+    def list_session_warnings(
+        self, *, viewer_id: int, session_id: int
+    ) -> list[SessionShadowbanWarningDTO]: ...
     def notify_signups(
         self, *, session_id: int, signed_up: list[tuple[int, str]]
     ) -> None: ...

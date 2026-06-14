@@ -2,6 +2,7 @@ from contextlib import contextmanager
 
 from ludamus.mills.safety import ShadowbanService
 from ludamus.pacts.safety import (
+    SessionShadowbanWarningDTO,
     ShadowbanCandidateDTO,
     ShadowbanEventSignupDTO,
     ShadowbanHitDTO,
@@ -24,9 +25,10 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, *, candidates=None, signup=None):
+    def __init__(self, *, candidates=None, signup=None, warnings=None):
         self._candidates = list(candidates or [])
         self._signup = signup
+        self._warnings = list(warnings or [])
         self.set_calls: list[tuple[int, str, bool]] = []
         self.identifier_calls: list[tuple[int, str]] = []
         self.found = True
@@ -49,6 +51,9 @@ class FakeRepo:
             event_name=self._signup.event_name,
             hits=[h for h in self._signup.hits if h.banned_user_id in signed_up_ids],
         )
+
+    def list_session_shadowbanned(self, **_kwargs):
+        return self._warnings
 
 
 class FakeNotifier:
@@ -87,6 +92,20 @@ def test_list_candidates_passes_through():
 
     # Assert
     assert result == [candidate]
+
+
+def test_list_session_warnings_passes_through():
+    # Arrange
+    warning = SessionShadowbanWarningDTO.model_construct(
+        user=None, shadowbanned_at=None
+    )
+    service = _service(FakeRepo(warnings=[warning]))
+
+    # Act
+    result = service.list_session_warnings(viewer_id=_PRESENTER_ID, session_id=1)
+
+    # Assert
+    assert result == [warning]
 
 
 def test_set_shadowban_delegates_to_repo():

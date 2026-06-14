@@ -43,6 +43,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Shadowban,
 )
 from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
@@ -872,10 +873,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             .order_by("agenda_item__start_time")
         )
 
-        # Shadowban: hide a presenter's sessions from players they shadowbanned.
+        # Shadowban: hide a presenter's sessions from players they shadowbanned,
+        # and collect the viewer's shadowbans to red-ring their avatars.
+        shadowbanned_ids: set[int] = set()
         if current_user_id := self.request.context.current_user_id:
             event_sessions = event_sessions.exclude(
                 presenter__shadowbanned__id=current_user_id
+            )
+            shadowbanned_ids = set(
+                Shadowban.objects.filter(owner_id=current_user_id).values_list(
+                    "target_id", flat=True
+                )
             )
 
         hour_data = dict(self._get_hour_data(event_sessions))
@@ -919,6 +927,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "user_enrolled_session_titles": [
                     s.session.title for s in sessions_data.values() if s.user_enrolled
                 ],
+                "shadowbanned_ids": shadowbanned_ids,
             }
         )
 
@@ -1369,6 +1378,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.context.current_user_slug
             ),
             "user_data": self._get_user_participation_data(session),
+            # Frontload the decision: warn the viewer up top if players they
+            # shadowbanned are already signed up to this session.
+            "shadowban_warnings": request.services.shadowban.list_session_warnings(
+                viewer_id=request.context.current_user_id, session_id=session.pk
+            ),
             "form": create_enrollment_form(
                 session=session,
                 current_user=self.request.di.uow.active_users.read(
@@ -1535,6 +1549,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         self.request.context.current_user_slug
                     ),
                     "user_data": self._get_user_participation_data(session),
+                    "shadowban_warnings": (
+                        request.services.shadowban.list_session_warnings(
+                            viewer_id=request.context.current_user_id,
+                            session_id=session.pk,
+                        )
+                    ),
                     "form": form,
                 },
             )

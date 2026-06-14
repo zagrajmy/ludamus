@@ -98,8 +98,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
-    shadowbanned = models.ManyToManyField(
-        "self", symmetrical=False, related_name="shadowbanned_by", blank=True
+    shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        through="Shadowban",
+        through_fields=("owner", "target"),
+        related_name="shadowbanned_by",
+        blank=True,
     )
 
     objects = UserManager()
@@ -132,6 +137,27 @@ class User(AbstractBaseUser, PermissionsMixin):
                 condition=~Q(email=""),
             ),
         )
+
+
+class Shadowban(models.Model):
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="shadowbans_made"
+    )
+    target = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="shadowbans_received"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shadowban"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("owner", "target"), name="shadowban_unique_owner_target"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.owner_id} shadowbanned {self.target_id}"
 
 
 class Sphere(models.Model):

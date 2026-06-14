@@ -881,7 +881,11 @@
                                         {% if participation.status == 'confirmed' %}
                                             <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
                                                 <div class="flex items-center gap-3">
-                                                    {% include "components/avatar.html" with user=participation.user size="size-8" %}
+                                                    {% if participation.user.pk in shadowbanned_ids %}
+                                                        {% include "components/avatar.html" with user=participation.user size="size-8" ring_class="ring-2 ring-danger" %}
+                                                    {% else %}
+                                                        {% include "components/avatar.html" with user=participation.user size="size-8" %}
+                                                    {% endif %}
                                                     <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                                 </div>
                                                 <div class="flex items-center gap-2">

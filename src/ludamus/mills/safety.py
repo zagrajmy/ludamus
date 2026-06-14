@@ -8,6 +8,7 @@ from ludamus.pacts.safety import ShadowbanSignupNotification
 
 if TYPE_CHECKING:
     from ludamus.pacts.safety import (
+        SessionShadowbanWarningDTO,
         ShadowbanCandidateDTO,
         ShadowbanNotifierProtocol,
         ShadowbanRepositoryProtocol,
@@ -42,6 +43,13 @@ class ShadowbanService:
             return self._repo.shadowban_by_identifier(
                 owner_id=owner_id, identifier=identifier
             )
+
+    def list_session_warnings(
+        self, *, viewer_id: int, session_id: int
+    ) -> list[SessionShadowbanWarningDTO]:
+        return self._repo.list_session_shadowbanned(
+            viewer_id=viewer_id, session_id=session_id
+        )
 
     def notify_signups(
         self, *, session_id: int, signed_up: list[tuple[int, str]]

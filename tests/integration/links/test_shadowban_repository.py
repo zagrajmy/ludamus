@@ -1,5 +1,9 @@
 import pytest
 
+from ludamus.adapters.db.django.models import (
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.links.db.django.repositories import ShadowbanRepository
 from ludamus.pacts import NotFoundError
 from tests.integration.conftest import SessionFactory, UserFactory
@@ -49,4 +53,47 @@ class TestReadEventSignup:
                 session_id=session.pk, signed_up_ids=[1]
             )
             is None
+        )
+
+
+class TestListSessionShadowbanned:
+    def test_returns_banned_participants_with_ban_date(self, active_user, sphere):
+        player = UserFactory(
+            username="bp", email="bp@example.com", name="Banned Player"
+        )
+        other = UserFactory(username="op", email="op@example.com", name="Other Player")
+        active_user.shadowbanned.add(player)
+        session = SessionFactory(sphere=sphere)
+        SessionParticipation.objects.create(
+            session=session,
+            user=player,
+            status=SessionParticipationStatus.CONFIRMED.value,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=other,
+            status=SessionParticipationStatus.CONFIRMED.value,
+        )
+
+        warnings = ShadowbanRepository.list_session_shadowbanned(
+            viewer_id=active_user.pk, session_id=session.pk
+        )
+
+        assert [w.user.pk for w in warnings] == [player.pk]
+        assert warnings[0].shadowbanned_at is not None
+
+    def test_empty_when_no_banned_participants(self, active_user, sphere):
+        player = UserFactory(username="np", email="np@example.com", name="Nice Player")
+        session = SessionFactory(sphere=sphere)
+        SessionParticipation.objects.create(
+            session=session,
+            user=player,
+            status=SessionParticipationStatus.CONFIRMED.value,
+        )
+
+        assert (
+            ShadowbanRepository.list_session_shadowbanned(
+                viewer_id=active_user.pk, session_id=session.pk
+            )
+            == []
         )

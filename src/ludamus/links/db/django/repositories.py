@@ -33,6 +33,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldOption,
     SessionFieldRequirement,
     SessionFieldValue,
+    Shadowban,
     Space,
     Sphere,
     Tag,
@@ -96,6 +97,7 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionFieldValueDTO,
     SessionListItemDTO,
+    SessionParticipationStatus,
     SessionRepositoryProtocol,
     SessionStatus,
     SessionUpdateData,
@@ -138,6 +140,7 @@ from ludamus.pacts.multiverse import (
     DuplicateConnectionDisplayNameError,
 )
 from ludamus.pacts.safety import (
+    SessionShadowbanWarningDTO,
     ShadowbanCandidateDTO,
     ShadowbanEventSignupDTO,
     ShadowbanHitDTO,
@@ -2884,11 +2887,10 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             raise NotFoundError from exception
         if target.pk == owner_id:
             return
-        owner = User.objects.get(pk=owner_id)
         if banned:
-            owner.shadowbanned.add(target)
+            Shadowban.objects.get_or_create(owner_id=owner_id, target=target)
         else:
-            owner.shadowbanned.remove(target)
+            Shadowban.objects.filter(owner_id=owner_id, target=target).delete()
 
     @staticmethod
     def shadowban_by_identifier(*, owner_id: int, identifier: str) -> bool:
@@ -2901,8 +2903,34 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         )
         if target is None:
             return False
-        User.objects.get(pk=owner_id).shadowbanned.add(target)
+        Shadowban.objects.get_or_create(owner_id=owner_id, target=target)
         return True
+
+    @staticmethod
+    def list_session_shadowbanned(
+        *, viewer_id: int, session_id: int
+    ) -> list[SessionShadowbanWarningDTO]:
+        occupying = (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.WAITING,
+            SessionParticipationStatus.OFFERED,
+        )
+        rows = (
+            Shadowban.objects.filter(
+                owner_id=viewer_id,
+                target__session_participations__session_id=session_id,
+                target__session_participations__status__in=occupying,
+            )
+            .select_related("target")
+            .distinct()
+            .order_by("target__name")
+        )
+        return [
+            SessionShadowbanWarningDTO(
+                user=UserDTO.model_validate(row.target), shadowbanned_at=row.created_at
+            )
+            for row in rows
+        ]
 
     @staticmethod
     def read_event_signup(

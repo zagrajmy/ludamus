@@ -41,7 +41,11 @@
                         <span class="shrink-0 flex justify-end grow -space-x-2">
                             {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
                                 {% if p.status == 'confirmed' %}
-                                    {% include "components/avatar.html" with user=p.user size="w-7 h-7" %}
+                                    {% if p.user.pk in shadowbanned_ids %}
+                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" ring_class="ring-2 ring-danger" %}
+                                    {% else %}
+                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" %}
+                                    {% endif %}
                                 {% endif %}
                             {% endfor %}
                         </span>

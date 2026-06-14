@@ -49,6 +49,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -83,6 +84,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -164,6 +166,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -363,6 +366,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -571,6 +575,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -613,6 +618,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -652,6 +658,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -710,6 +717,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [UserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -798,6 +806,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [UserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -992,6 +1001,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1043,6 +1053,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1096,6 +1107,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1175,6 +1187,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1225,6 +1238,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1300,6 +1314,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1356,6 +1371,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1401,6 +1417,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1453,6 +1470,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1508,6 +1526,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [UserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(connected_user.manager),
@@ -1549,6 +1568,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
