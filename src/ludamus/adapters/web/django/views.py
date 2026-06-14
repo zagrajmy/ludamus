@@ -67,6 +67,7 @@ from ludamus.pacts import (
     AgendaItemDTO,
     AreaDTO,
     EventDTO,
+    EventListItemDTO,
     LocationData,
     NotFoundError,
     RedirectError,
@@ -488,8 +489,25 @@ class EventsPageView(TemplateView):
             self.request.context.current_sphere_id,
             include_unpublished=_is_manager(self.request),
         )
-        # Uploaded cover when present, otherwise a placeholder assigned by index.
-        event_datas = [
+        context["upcoming_events"] = self._with_covers(
+            sorted(
+                (item for item in items if not item.is_ended),
+                key=lambda item: item.start_time,
+            )
+        )
+        context["past_events"] = self._with_covers(
+            sorted(
+                (item for item in items if item.is_ended),
+                key=lambda item: item.start_time,
+                reverse=True,
+            )
+        )
+        return context
+
+    @staticmethod
+    def _with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
+        # Uploaded cover when present, otherwise a placeholder cycled by position.
+        return [
             EventInfo.from_list_item(
                 item,
                 cover_image_url=item.cover_image_url
@@ -499,9 +517,6 @@ class EventsPageView(TemplateView):
             )
             for i, item in enumerate(items)
         ]
-        context["upcoming_events"] = [e for e in event_datas if not e.is_ended]
-        context["past_events"] = [e for e in event_datas if e.is_ended]
-        return context
 
 
 class ProfilePageView(
