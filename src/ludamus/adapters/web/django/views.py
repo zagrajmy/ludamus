@@ -43,6 +43,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Shadowban,
 )
 from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
@@ -725,6 +726,45 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         return redirect("web:crowd:profile-avatar")
 
 
+class ProfileShadowbanPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        candidates = request.services.shadowban.list_candidates(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request, "crowd/user/shadowbans.html", {"candidates": candidates}
+        )
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        if identifier := request.POST.get("identifier", "").strip():
+            # Neutral message either way: never confirm whether an account with
+            # this username/email exists (no enumeration of the user base).
+            request.services.shadowban.add_by_identifier(
+                owner_id=request.context.current_user_id, identifier=identifier
+            )
+            messages.success(
+                request, _("If a matching player exists, they have been shadowbanned.")
+            )
+            return redirect("web:crowd:profile-shadowbans")
+
+        if slug := request.POST.get("slug", ""):
+            banned = request.POST.get("banned") == "true"
+            request.services.shadowban.set_shadowban(
+                owner_id=request.context.current_user_id,
+                target_slug=slug,
+                banned=banned,
+            )
+            messages.success(
+                request,
+                _("Player shadowbanned.") if banned else _("Shadowban removed."),
+            )
+        return redirect("web:crowd:profile-shadowbans")
+
+
 class UserDiscordUsernameComponentView(View):
     """Return Discord username HTML fragment via htmx."""
 
@@ -833,6 +873,19 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             .order_by("agenda_item__start_time")
         )
 
+        # Shadowban: hide a presenter's sessions from players they shadowbanned,
+        # and collect the viewer's shadowbans to red-ring their avatars.
+        shadowbanned_ids: set[int] = set()
+        if current_user_id := self.request.context.current_user_id:
+            event_sessions = event_sessions.exclude(
+                presenter__shadowbanned__id=current_user_id
+            )
+            shadowbanned_ids = set(
+                Shadowban.objects.filter(owner_id=current_user_id).values_list(
+                    "target_id", flat=True
+                )
+            )
+
         hour_data = dict(self._get_hour_data(event_sessions))
         # Get session data objects that include enrollment status
         sessions_data = self._get_session_data(event_sessions)
@@ -874,6 +927,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "user_enrolled_session_titles": [
                     s.session.title for s in sessions_data.values() if s.user_enrolled
                 ],
+                "shadowbanned_ids": shadowbanned_ids,
             }
         )
 
@@ -1223,6 +1277,9 @@ class Enrollments:
         # Set when a cancellation frees a held (confirmed) seat, so the caller
         # can run waiting-list promotion after the transaction commits.
         self.freed_seat = False
+        # (user_id, name) of fresh enrol/waitlist sign-ups, so the caller can
+        # warn the presenter about shadowbanned players after commit.
+        self.signed_up_users: list[tuple[int, str]] = []
         super().__init__()
 
 
@@ -1234,6 +1291,16 @@ def _get_session_or_redirect(
             sphere_id=request.context.current_sphere_id, id=session_id
         )
     except Session.DoesNotExist:
+        raise RedirectError(
+            reverse("web:index"), error=_("Session not found.")
+        ) from None
+    # Shadowban: a player the presenter shadowbanned cannot reach the session.
+    if (
+        session.presenter_id
+        and Session.objects.filter(
+            id=session.pk, presenter__shadowbanned__id=request.context.current_user_id
+        ).exists()
+    ):
         raise RedirectError(
             reverse("web:index"), error=_("Session not found.")
         ) from None
@@ -1311,6 +1378,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.context.current_user_slug
             ),
             "user_data": self._get_user_participation_data(session),
+            # Frontload the decision: warn the viewer up top if players they
+            # shadowbanned are already signed up to this session.
+            "shadowban_warnings": request.services.shadowban.list_session_warnings(
+                viewer_id=request.context.current_user_id, session_id=session.pk
+            ),
             "form": create_enrollment_form(
                 session=session,
                 current_user=self.request.di.uow.active_users.read(
@@ -1477,6 +1549,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         self.request.context.current_user_slug
                     ),
                     "user_data": self._get_user_participation_data(session),
+                    "shadowban_warnings": (
+                        request.services.shadowban.list_session_warnings(
+                            viewer_id=request.context.current_user_id,
+                            session_id=session.pk,
+                        )
+                    ),
                     "form": form,
                 },
             )
@@ -1534,6 +1612,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "creation_time"
         )
 
+        # Players the presenter shadowbanned must not be seated — even when an
+        # unbanned manager tries to enroll a banned connected sub-user.
+        presenter = session.presenter
+        shadowbanned_ids = (
+            set(presenter.shadowbanned.values_list("pk", flat=True))
+            if presenter
+            else set()
+        )
+
         for req in enrollment_requests:
             # Handle cancellation
             if req.choice == "cancel" and (
@@ -1549,16 +1636,26 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 enrollments.cancelled_users.append(req.name)
                 continue
 
-            self._check_and_create_enrollment(req, session, enrollments)
+            self._check_and_create_enrollment(
+                req, session, enrollments, shadowbanned_ids
+            )
         return enrollments
 
     @staticmethod
     def _check_and_create_enrollment(
-        req: EnrollmentRequest, session: Session, enrollments: Enrollments
+        req: EnrollmentRequest,
+        session: Session,
+        enrollments: Enrollments,
+        shadowbanned_ids: set[int],
     ) -> None:
         # Check if user is the session presenter
         if session.presenter_id and req.user.pk == session.presenter_id:
             enrollments.skipped_users.append(f"{req.name} ({_('session host')!s})")
+            return
+
+        # Shadowban: skip without revealing the ban (neutral reason).
+        if req.user.pk in shadowbanned_ids:
+            enrollments.skipped_users.append(f"{req.name} ({_('not available')!s})")
             return
 
         # Check for time conflicts for confirmed enrollment
@@ -1578,6 +1675,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation.save()
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
+        enrollments.signed_up_users.append((req.user.pk, req.name))
 
     def _send_message(self, enrollments: Enrollments) -> None:
         for users, message in (
@@ -1639,6 +1737,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.services.waitlist_promotion.fill_freed_seats(
                     session_id=session.id
                 )
+
+            # Warn the presenter (by email) if a shadowbanned player signed up.
+            self.request.services.shadowban.notify_signups(
+                session_id=session.id, signed_up=enrollments.signed_up_users
+            )
 
             # Send message outside transaction
             self._send_message(enrollments)

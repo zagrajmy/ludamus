@@ -23,6 +23,8 @@ mise tasks          # list all tasks with descriptions
   before/after images in the PR description. Run tools/binaries via `aubx`
   (e.g. `aubx agent-browser`).
 - Don't ignore lint rules globally.
+- Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
+  for UI; don't hand-roll components.
 
 ## Architecture
 

@@ -78,3 +78,7 @@ class Repositories:
     @cached_property
     def areas(self) -> repositories.AreaRepository:
         return repositories.AreaRepository()
+
+    @cached_property
+    def shadowban(self) -> repositories.ShadowbanRepository:
+        return repositories.ShadowbanRepository()
