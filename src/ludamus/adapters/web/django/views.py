@@ -499,8 +499,14 @@ class EventsPageView(TemplateView):
             )
             for i, item in enumerate(items)
         ]
-        context["upcoming_events"] = [e for e in event_datas if not e.is_ended]
-        context["past_events"] = [e for e in event_datas if e.is_ended]
+        context["upcoming_events"] = sorted(
+            (e for e in event_datas if not e.is_ended), key=lambda e: e.start_time
+        )
+        context["past_events"] = sorted(
+            (e for e in event_datas if e.is_ended),
+            key=lambda e: e.start_time,
+            reverse=True,
+        )
         return context
 
 
