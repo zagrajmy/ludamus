@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Shadowbanned players" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-3xl mx-auto">
+        <div class="card">
+            {% url 'web:crowd:profile' as profile_url %}
+            {% url 'web:crowd:profile-connected-users' as connected_url %}
+            {% url 'web:crowd:profile-avatar' as avatar_url %}
+            {% url 'web:crowd:profile-shadowbans' as shadowbans_url %}
+            <div class="bg-warm-200 rounded-t-2xl px-6 pt-4 border-b dark:bg-bg-tertiary border-border [&>nav>[aria-selected=true]]:border-border [&>nav>[aria-selected=true]]:border-b-0 [&>nav>[aria-selected=true]]:border">
+                {% tabs %}
+                {% tab "profile" icon="user" href=profile_url %}{% translate "Personal Information" %}{% end_tab %}
+                {% tab "connected" icon="users" href=connected_url %}{% translate "Connected users" %}{% end_tab %}
+                {% tab "avatar" icon="photo" href=avatar_url %}{% translate "Avatar" %}{% end_tab %}
+                {% tab "shadowbans" icon="shield-exclamation" href=shadowbans_url active=True %}{% translate "Safety" %}{% end_tab %}
+            {% end_tabs %}
+        </div>
+        <div class="card-body">
+            {# Info banner #}
+            <div class="alert alert-info flex items-center gap-3 mb-4">
+                {% icon "information-circle" class="w-5 h-5 shrink-0" %}
+                <p>
+                    {% translate "Shadowbanned players can still sign up to your sessions, but they are never told they are banned. You get an email whenever one of them signs up to a session you run." %}
+                </p>
+            </div>
+            {# Add by username or email #}
+            <div class="rounded-lg bg-bg-secondary p-4 mb-6">
+                <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
+                    {% icon "user-minus" class="w-4 h-4" %}
+                    {% translate "Shadowban a player" %}
+                </h6>
+                {% translate "Username or email" as identifier_label %}
+                <form action="{% url 'web:crowd:profile-shadowbans' %}" method="post">
+                    {% csrf_token %}
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text"
+                               name="identifier"
+                               class="form-input grow"
+                               placeholder="{{ identifier_label }}"
+                               aria-label="{{ identifier_label }}"
+                               required>
+                        <button type="submit" class="btn btn-primary">{% translate "Shadowban" %}</button>
+                    </div>
+                </form>
+            </div>
+            {# Players list #}
+            <div class="border-t border-border pt-4">
+                <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
+                    {% icon "rectangle-stack" class="w-4 h-4" %}
+                    {% translate "Players you have met" %}
+                </h6>
+                <div class="flex flex-col gap-3">
+                    {% for candidate in candidates %}
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <h6 class="font-semibold text-sm flex items-center gap-2">
+                                        {{ candidate.name }}
+                                        {% if candidate.is_shadowbanned %}
+                                            <span class="badge badge-danger">{% translate "Shadowbanned" %}</span>
+                                        {% endif %}
+                                    </h6>
+                                    <form action="{% url 'web:crowd:profile-shadowbans' %}" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="slug" value="{{ candidate.slug }}">
+                                        {% if candidate.is_shadowbanned %}
+                                            <input type="hidden" name="banned" value="false">
+                                            <button type="submit" class="btn btn-secondary btn-sm">{% translate "Remove shadowban" %}</button>
+                                        {% else %}
+                                            <input type="hidden" name="banned" value="true">
+                                            <button type="submit" class="btn btn-danger btn-sm">{% translate "Shadowban" %}</button>
+                                        {% endif %}
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="text-center py-8">
+                            {% icon "shield-exclamation" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                            <h5 class="text-foreground-muted font-medium">{% translate "No players yet" %}</h5>
+                            <p class="text-sm text-foreground-muted">{% translate "Players you have run sessions for will appear here, and anyone you shadowban by username or email." %}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}

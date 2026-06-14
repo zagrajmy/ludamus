@@ -725,6 +725,45 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         return redirect("web:crowd:profile-avatar")
 
 
+class ProfileShadowbanPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        candidates = request.services.shadowban.list_candidates(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request, "crowd/user/shadowbans.html", {"candidates": candidates}
+        )
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        if identifier := request.POST.get("identifier", "").strip():
+            if request.services.shadowban.add_by_identifier(
+                owner_id=request.context.current_user_id, identifier=identifier
+            ):
+                messages.success(request, _("Player shadowbanned."))
+            else:
+                messages.error(
+                    request, _("No player found with that username or email.")
+                )
+            return redirect("web:crowd:profile-shadowbans")
+
+        if slug := request.POST.get("slug", ""):
+            banned = request.POST.get("banned") == "true"
+            request.services.shadowban.set_shadowban(
+                owner_id=request.context.current_user_id,
+                target_slug=slug,
+                banned=banned,
+            )
+            messages.success(
+                request,
+                _("Player shadowbanned.") if banned else _("Shadowban removed."),
+            )
+        return redirect("web:crowd:profile-shadowbans")
+
+
 class UserDiscordUsernameComponentView(View):
     """Return Discord username HTML fragment via htmx."""
 
@@ -1223,6 +1262,9 @@ class Enrollments:
         # Set when a cancellation frees a held (confirmed) seat, so the caller
         # can run waiting-list promotion after the transaction commits.
         self.freed_seat = False
+        # (user_id, name) of fresh enrol/waitlist sign-ups, so the caller can
+        # warn the presenter about shadowbanned players after commit.
+        self.signed_up_users: list[tuple[int, str]] = []
         super().__init__()
 
 
@@ -1578,6 +1620,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation.save()
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
+        enrollments.signed_up_users.append((req.user.pk, req.name))
 
     def _send_message(self, enrollments: Enrollments) -> None:
         for users, message in (
@@ -1639,6 +1682,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.services.waitlist_promotion.fill_freed_seats(
                     session_id=session.id
                 )
+
+            # Warn the presenter (by email) if a shadowbanned player signed up.
+            self.request.services.shadowban.notify_signups(
+                session_id=session.id, signed_up=enrollments.signed_up_users
+            )
 
             # Send message outside transaction
             self._send_message(enrollments)

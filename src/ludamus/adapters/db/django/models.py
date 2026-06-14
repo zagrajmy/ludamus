@@ -98,6 +98,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    shadowbanned = models.ManyToManyField(
+        "self", symmetrical=False, related_name="shadowbanned_by", blank=True
+    )
 
     objects = UserManager()
 

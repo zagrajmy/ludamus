@@ -137,6 +137,11 @@ from ludamus.pacts.multiverse import (
     ConnectionsRepositoryProtocol,
     DuplicateConnectionDisplayNameError,
 )
+from ludamus.pacts.safety import (
+    ShadowbanCandidateDTO,
+    ShadowbanRepositoryProtocol,
+    ShadowbanSignupTargetDTO,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -2839,3 +2844,84 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
         deleted, _ = EventIntegration.objects.filter(pk=pk, event_id=event_id).delete()
         if not deleted:
             raise NotFoundError
+
+
+class ShadowbanRepository(ShadowbanRepositoryProtocol):
+    @staticmethod
+    def list_candidates(owner_id: int) -> list[ShadowbanCandidateDTO]:
+        banned_ids = set(
+            User.objects.filter(shadowbanned_by__id=owner_id).values_list(
+                "pk", flat=True
+            )
+        )
+        # Players the proposer has met (participated in a session they run) plus
+        # anyone already shadowbanned, so a ban can always be lifted.
+        players = (
+            User.objects.filter(
+                Q(session_participations__session__presenter_id=owner_id)
+                | Q(shadowbanned_by__id=owner_id)
+            )
+            .exclude(pk=owner_id)
+            .distinct()
+            .order_by("name")
+        )
+        return [
+            ShadowbanCandidateDTO(
+                pk=player.pk,
+                name=player.full_name,
+                slug=player.slug,
+                is_shadowbanned=player.pk in banned_ids,
+            )
+            for player in players
+        ]
+
+    @staticmethod
+    def set_shadowban(*, owner_id: int, target_slug: str, banned: bool) -> None:
+        try:
+            target = User.objects.get(slug=target_slug)
+        except User.DoesNotExist as exception:
+            raise NotFoundError from exception
+        if target.pk == owner_id:
+            return
+        owner = User.objects.get(pk=owner_id)
+        if banned:
+            owner.shadowbanned.add(target)
+        else:
+            owner.shadowbanned.remove(target)
+
+    @staticmethod
+    def shadowban_by_identifier(*, owner_id: int, identifier: str) -> bool:
+        target = (
+            User.objects.filter(
+                Q(username__iexact=identifier) | Q(email__iexact=identifier)
+            )
+            .exclude(pk=owner_id)
+            .first()
+        )
+        if target is None:
+            return False
+        User.objects.get(pk=owner_id).shadowbanned.add(target)
+        return True
+
+    @staticmethod
+    def shadowbanned_user_ids(owner_id: int) -> set[int]:
+        return set(
+            User.objects.filter(shadowbanned_by__id=owner_id).values_list(
+                "pk", flat=True
+            )
+        )
+
+    @staticmethod
+    def read_signup_target(session_id: int) -> ShadowbanSignupTargetDTO | None:
+        session = (
+            Session.objects.select_related("presenter")
+            .filter(pk=session_id, presenter__isnull=False)
+            .first()
+        )
+        if session is None or session.presenter is None:
+            return None
+        return ShadowbanSignupTargetDTO(
+            presenter_id=session.presenter.pk,
+            presenter_email=session.presenter.email,
+            session_title=session.title,
+        )
