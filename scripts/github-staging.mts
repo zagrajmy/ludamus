@@ -229,7 +229,7 @@ const removeStagingFrom = async ({
   );
 };
 
-const exclusiveStagingFor = async (args: ActionArgs, exceptNumber: number) => {
+const exclusiveStagingFor = async (args: ActionArgs, exceptNumber?: number) => {
   const stagingPrs = await listStagingPrIssues(args);
   await removeStagingFrom({
     ...args,
@@ -439,50 +439,43 @@ const resolveManualDeploy = async ({
   core,
   sha,
 }: ResolveManualDeployArgs) => {
-  const [stagingPrs, prsForSha] = await Promise.all([
-    listStagingPrIssues({ github, context, core }),
-    listPullRequestsForSha({ github, context, sha }),
-  ]);
-  const prNumbersForSha = new Set(
-    prsForSha
-      .filter((pr) => isSameRepositoryPullRequest(context, pr))
-      .map((pr) => pr.number),
-  );
-  const matchingStagingPrs = stagingPrs.filter(
-    (pr) => pr.state === "open" && prNumbersForSha.has(pr.number),
+  const openPrsForSha = (
+    await listPullRequestsForSha({ github, context, sha })
+  ).filter((pr) => pr.state === "open");
+  const candidates = openPrsForSha.filter((pr) =>
+    isSameRepositoryPullRequest(context, pr),
   );
 
-  if (matchingStagingPrs.length !== 1) {
+  // A manual dispatch is itself the authorization to deploy `sha`, so we do NOT
+  // require the staging label. Whatever we deploy takes over staging, so we
+  // strip the label off every other PR (claimStagingTarget semantics). Fork
+  // commits never reach staging — we won't run untrusted code on the host.
+  if (candidates.length > 1) {
     setShouldDeploy(
       core,
       false,
-      `No unique open PR with ${STAGING_LABEL} for ${sha}`,
+      `Multiple open PRs for ${sha}; pass pr_number to disambiguate`,
     );
     return;
   }
 
-  const winner = await fetchPullRequest({
-    github,
-    context,
-    number: matchingStagingPrs[0].number,
-  });
-
-  if (
-    winner.state !== "open" ||
-    winner.draft ||
-    !hasStagingLabel(winner) ||
-    !isSameRepositoryPullRequest(context, winner)
-  ) {
-    setShouldDeploy(
-      core,
-      false,
-      `No unique open PR with ${STAGING_LABEL} for ${sha}`,
-    );
+  if (candidates.length === 0) {
+    if (openPrsForSha.length > 0) {
+      setShouldDeploy(
+        core,
+        false,
+        `Skipping ${STAGING_LABEL} deploy for fork PR #${openPrsForSha[0].number}`,
+      );
+      return;
+    }
+    await exclusiveStagingFor({ github, context, core });
+    setShouldDeploy(core, true, `Deploying ${sha}`);
     return;
   }
 
-  await exclusiveStagingFor({ github, context, core }, winner.number);
-  setShouldDeploy(core, true, `Deploying PR #${winner.number} at ${sha}`);
+  const target = candidates[0];
+  await exclusiveStagingFor({ github, context, core }, target.number);
+  setShouldDeploy(core, true, `Deploying PR #${target.number} at ${sha}`);
 };
 
 export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {

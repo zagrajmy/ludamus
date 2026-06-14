@@ -57,6 +57,16 @@ jobs:
       url: https://test.zagrajmy.net
       deployment: false
     steps:
+      # Order matters: the deploy-SHA checkout lands in the workspace root, and
+      # actions/checkout wipes the root's existing contents on init. It must run
+      # BEFORE the workflow-helpers checkout, otherwise it deletes .workflow/ and
+      # the github-script steps below fail with ERR_MODULE_NOT_FOUND.
+      - name: Checkout (provides .env.schema for varlock validation)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-staging.outputs.sha }}
+          persist-credentials: false
+
       - name: Checkout workflow helpers
         uses: actions/checkout@v4
         with:
@@ -83,13 +93,6 @@ jobs:
               sha: process.env.TARGET_SHA,
               environmentUrl: process.env.STAGING_URL,
             });
-
-      - name: Checkout (provides .env.schema for varlock validation)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve-staging.outputs.sha }}
-          clean: false
-          persist-credentials: false
 
       - name: Materialize .env.local from environment variables and secrets
         env:
