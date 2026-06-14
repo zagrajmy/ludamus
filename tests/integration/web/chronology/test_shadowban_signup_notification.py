@@ -7,6 +7,7 @@ from ludamus.adapters.db.django.models import Notification
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
+    ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
     UserFactory,
@@ -71,5 +72,36 @@ class TestShadowbanSignupNotification:
         assert response.status_code == HTTPStatus.FOUND
         assert not Notification.objects.filter(
             kind=NotificationKind.SHADOWBANNED_SIGNUP.value
+        ).exists()
+        assert not mailoutbox
+
+    def test_unscheduled_banner_not_notified(
+        self, authenticated_client, agenda_item, active_user, event, mailoutbox
+    ):
+        # A banner whose only session in the event is unscheduled (no agenda
+        # item) is not "on the event" and is not notified.
+        banner = UserFactory(username="gm5", email="gm5@example.com", name="GM")
+        SessionFactory(
+            category=ProposalCategoryFactory(event=event),
+            presenter=banner,
+            sphere=event.sphere,
+            participants_limit=10,
+            min_age=0,
+            status="pending",
+        )
+        banner.shadowbanned.add(active_user)
+        # The player joins a scheduled session run by someone else.
+        host = UserFactory(username="host3", email="host3@example.com", name="Host")
+        agenda_item.session.presenter = host
+        agenda_item.session.save()
+
+        response = authenticated_client.post(
+            _enroll_url(agenda_item.session.pk),
+            data={f"user_{active_user.id}": "enroll"},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert not Notification.objects.filter(
+            recipient=banner, kind=NotificationKind.SHADOWBANNED_SIGNUP.value
         ).exists()
         assert not mailoutbox

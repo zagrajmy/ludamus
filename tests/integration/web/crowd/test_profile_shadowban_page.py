@@ -40,7 +40,12 @@ class TestProfileShadowbanPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Player shadowbanned.")],
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "If a matching player exists, they have been shadowbanned.",
+                )
+            ],
             url=self.URL,
         )
         assert list(active_user.shadowbanned.all()) == [player]
@@ -57,20 +62,41 @@ class TestProfileShadowbanPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Player shadowbanned.")],
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "If a matching player exists, they have been shadowbanned.",
+                )
+            ],
             url=self.URL,
         )
         assert list(active_user.shadowbanned.all()) == [player]
 
-    def test_add_by_identifier_not_found(self, authenticated_client, active_user):
+    def test_add_by_identifier_not_found_is_neutral(
+        self, authenticated_client, active_user
+    ):
+        # No account enumeration: a miss looks exactly like a hit.
         response = authenticated_client.post(self.URL, data={"identifier": "ghost"})
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "No player found with that username or email.")],
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "If a matching player exists, they have been shadowbanned.",
+                )
+            ],
             url=self.URL,
         )
+        assert not active_user.shadowbanned.exists()
+
+    def test_cannot_shadowban_self(self, authenticated_client, active_user):
+        response = authenticated_client.post(
+            self.URL, data={"identifier": active_user.username}
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
         assert not active_user.shadowbanned.exists()
 
     def test_get_lists_shadowbanned_player(self, authenticated_client, active_user):

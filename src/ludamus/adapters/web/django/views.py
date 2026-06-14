@@ -740,14 +740,14 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
         if identifier := request.POST.get("identifier", "").strip():
-            if request.services.shadowban.add_by_identifier(
+            # Neutral message either way: never confirm whether an account with
+            # this username/email exists (no enumeration of the user base).
+            request.services.shadowban.add_by_identifier(
                 owner_id=request.context.current_user_id, identifier=identifier
-            ):
-                messages.success(request, _("Player shadowbanned."))
-            else:
-                messages.error(
-                    request, _("No player found with that username or email.")
-                )
+            )
+            messages.success(
+                request, _("If a matching player exists, they have been shadowbanned.")
+            )
             return redirect("web:crowd:profile-shadowbans")
 
         if slug := request.POST.get("slug", ""):
@@ -1592,6 +1592,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "creation_time"
         )
 
+        # Players the presenter shadowbanned must not be seated — even when an
+        # unbanned manager tries to enroll a banned connected sub-user.
+        presenter = session.presenter
+        shadowbanned_ids = (
+            set(presenter.shadowbanned.values_list("pk", flat=True))
+            if presenter
+            else set()
+        )
+
         for req in enrollment_requests:
             # Handle cancellation
             if req.choice == "cancel" and (
@@ -1607,16 +1616,26 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 enrollments.cancelled_users.append(req.name)
                 continue
 
-            self._check_and_create_enrollment(req, session, enrollments)
+            self._check_and_create_enrollment(
+                req, session, enrollments, shadowbanned_ids
+            )
         return enrollments
 
     @staticmethod
     def _check_and_create_enrollment(
-        req: EnrollmentRequest, session: Session, enrollments: Enrollments
+        req: EnrollmentRequest,
+        session: Session,
+        enrollments: Enrollments,
+        shadowbanned_ids: set[int],
     ) -> None:
         # Check if user is the session presenter
         if session.presenter_id and req.user.pk == session.presenter_id:
             enrollments.skipped_users.append(f"{req.name} ({_('session host')!s})")
+            return
+
+        # Shadowban: skip without revealing the ban (neutral reason).
+        if req.user.pk in shadowbanned_ids:
+            enrollments.skipped_users.append(f"{req.name} ({_('not available')!s})")
             return
 
         # Check for time conflicts for confirmed enrollment

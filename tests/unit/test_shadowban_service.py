@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from ludamus.mills.safety import ShadowbanService
 from ludamus.pacts.safety import (
     ShadowbanCandidateDTO,
-    ShadowbanEventContextDTO,
+    ShadowbanEventSignupDTO,
     ShadowbanHitDTO,
 )
 
@@ -24,10 +24,9 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, *, candidates=None, context=None, hits=None):
+    def __init__(self, *, candidates=None, signup=None):
         self._candidates = list(candidates or [])
-        self._context = context
-        self._hits = list(hits or [])
+        self._signup = signup
         self.set_calls: list[tuple[int, str, bool]] = []
         self.identifier_calls: list[tuple[int, str]] = []
         self.found = True
@@ -42,11 +41,14 @@ class FakeRepo:
         self.identifier_calls.append((owner_id, identifier))
         return self.found
 
-    def read_event_context(self, _session_id):
-        return self._context
-
-    def event_shadowban_hits(self, *, signed_up_ids, **_kwargs):
-        return [h for h in self._hits if h.banned_user_id in signed_up_ids]
+    def read_event_signup(self, *, signed_up_ids, **_kwargs):
+        if self._signup is None:
+            return None
+        return ShadowbanEventSignupDTO(
+            event_slug=self._signup.event_slug,
+            event_name=self._signup.event_name,
+            hits=[h for h in self._signup.hits if h.banned_user_id in signed_up_ids],
+        )
 
 
 class FakeNotifier:
@@ -61,13 +63,15 @@ def _service(repo, notifier=None):
     return ShadowbanService(FakeTransaction(), repo, notifier or FakeNotifier())
 
 
-def _context():
-    return ShadowbanEventContextDTO(event_slug="con-2026", event_name="Con 2026")
-
-
 def _hit(presenter_id, email, banned_user_id):
     return ShadowbanHitDTO(
         presenter_id=presenter_id, presenter_email=email, banned_user_id=banned_user_id
+    )
+
+
+def _signup(*hits):
+    return ShadowbanEventSignupDTO(
+        event_slug="con-2026", event_name="Con 2026", hits=list(hits)
     )
 
 
@@ -125,7 +129,7 @@ def test_add_by_identifier_rejects_blank():
 
 def test_notify_signups_emails_presenter_about_banned_players():
     # Arrange
-    repo = FakeRepo(context=_context(), hits=[_hit(_PRESENTER_ID, "gm@example.com", 2)])
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -144,11 +148,10 @@ def test_notify_signups_emails_presenter_about_banned_players():
 def test_notify_signups_notifies_every_banner_in_the_event():
     # Arrange: two presenters in the event each shadowbanned a different player.
     repo = FakeRepo(
-        context=_context(),
-        hits=[
+        signup=_signup(
             _hit(_PRESENTER_ID, "gm@example.com", 2),
             _hit(_OTHER_PRESENTER_ID, "other@example.com", 3),
-        ],
+        )
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -165,7 +168,7 @@ def test_notify_signups_notifies_every_banner_in_the_event():
 
 def test_notify_signups_silent_when_no_banned_players():
     # Arrange
-    repo = FakeRepo(context=_context(), hits=[])
+    repo = FakeRepo(signup=_signup())
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -178,7 +181,7 @@ def test_notify_signups_silent_when_no_banned_players():
 
 def test_notify_signups_silent_when_no_signups():
     # Arrange
-    repo = FakeRepo(context=_context(), hits=[_hit(_PRESENTER_ID, "gm@example.com", 2)])
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -191,7 +194,7 @@ def test_notify_signups_silent_when_no_signups():
 
 def test_notify_signups_silent_when_session_has_no_event():
     # Arrange
-    repo = FakeRepo(context=None, hits=[_hit(_PRESENTER_ID, "gm@example.com", 2)])
+    repo = FakeRepo(signup=None)
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 

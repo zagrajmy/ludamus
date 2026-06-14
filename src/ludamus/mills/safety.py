@@ -1,10 +1,4 @@
-"""Shadowban service (Safety & Comfort).
-
-Owns the proposer's personal shadowban list and the decision to warn them when
-a shadowbanned player joins an event the proposer runs a session at. IO is
-delegated to the injected repository and notifier ports so the logic stays
-unit-testable.
-"""
+"""Shadowban service (Safety & Comfort): the shadowban list + signup warnings."""
 
 from __future__ import annotations
 
@@ -54,17 +48,15 @@ class ShadowbanService:
     ) -> None:
         if not signed_up:
             return
-        if (context := self._repo.read_event_context(session_id)) is None:
-            return
-        hits = self._repo.event_shadowban_hits(
+        data = self._repo.read_event_signup(
             session_id=session_id, signed_up_ids=[user_id for user_id, _ in signed_up]
         )
-        if not hits:
+        if data is None or not data.hits:
             return
 
         name_by_id = dict(signed_up)
         names_by_presenter: dict[int, tuple[str, list[str]]] = {}
-        for hit in hits:
+        for hit in data.hits:
             _email, names = names_by_presenter.setdefault(
                 hit.presenter_id, (hit.presenter_email, [])
             )
@@ -77,8 +69,8 @@ class ShadowbanService:
                 ShadowbanSignupNotification(
                     recipient_user_id=presenter_id,
                     recipient_email=email,
-                    event_slug=context.event_slug,
-                    event_name=context.event_name,
+                    event_slug=data.event_slug,
+                    event_name=data.event_name,
                     player_names=names,
                 )
             )

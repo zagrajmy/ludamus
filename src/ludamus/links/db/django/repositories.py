@@ -139,7 +139,7 @@ from ludamus.pacts.multiverse import (
 )
 from ludamus.pacts.safety import (
     ShadowbanCandidateDTO,
-    ShadowbanEventContextDTO,
+    ShadowbanEventSignupDTO,
     ShadowbanHitDTO,
     ShadowbanRepositoryProtocol,
 )
@@ -2905,45 +2905,39 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         return True
 
     @staticmethod
-    def read_event_context(session_id: int) -> ShadowbanEventContextDTO | None:
+    def read_event_signup(
+        *, session_id: int, signed_up_ids: list[int]
+    ) -> ShadowbanEventSignupDTO | None:
+        if not signed_up_ids:
+            return None
         agenda_item = (
             AgendaItem.objects.select_related("space__area__venue__event")
             .filter(session_id=session_id)
+            .order_by("pk")
             .first()
         )
         if agenda_item is None:
             return None
         event = agenda_item.space.area.venue.event
-        return ShadowbanEventContextDTO(event_slug=event.slug, event_name=event.name)
-
-    @staticmethod
-    def event_shadowban_hits(
-        *, session_id: int, signed_up_ids: list[int]
-    ) -> list[ShadowbanHitDTO]:
-        if not signed_up_ids:
-            return []
-        event_id = (
-            AgendaItem.objects.filter(session_id=session_id)
-            .values_list("space__area__venue__event_id", flat=True)
-            .first()
-        )
-        if event_id is None:
-            return []
         # Presenters with a scheduled session in this event who shadowbanned any
         # of the players that just signed up.
         rows = (
             User.objects.filter(
-                presented_sessions__agenda_item__space__area__venue__event_id=event_id,
+                presented_sessions__agenda_item__space__area__venue__event_id=event.pk,
                 shadowbanned__id__in=signed_up_ids,
             )
             .values_list("pk", "email", "shadowbanned__id")
             .distinct()
         )
-        return [
-            ShadowbanHitDTO(
-                presenter_id=presenter_id,
-                presenter_email=email,
-                banned_user_id=banned_user_id,
-            )
-            for presenter_id, email, banned_user_id in rows
-        ]
+        return ShadowbanEventSignupDTO(
+            event_slug=event.slug,
+            event_name=event.name,
+            hits=[
+                ShadowbanHitDTO(
+                    presenter_id=presenter_id,
+                    presenter_email=email,
+                    banned_user_id=banned_user_id,
+                )
+                for presenter_id, email, banned_user_id in rows
+            ],
+        )

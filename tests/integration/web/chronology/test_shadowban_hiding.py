@@ -91,3 +91,24 @@ class TestShadowbanHidesSessions:
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session
         ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_shadowbanned_connected_user_not_seated(
+        self, authenticated_client, agenda_item, connected_user
+    ):
+        # The manager is not banned (so the guard passes), but their connected
+        # sub-user is — and must not get a seat in the banner's session.
+        banner = UserFactory(username="gm4", email="gm4@example.com", name="GM")
+        session = agenda_item.session
+        session.presenter = banner
+        session.save()
+        banner.shadowbanned.add(connected_user)
+
+        response = authenticated_client.post(
+            _enroll_url(session.pk), data={f"user_{connected_user.id}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert not SessionParticipation.objects.filter(
+            user=connected_user, session=session
+        ).exists()
