@@ -166,6 +166,23 @@ def test_notify_signups_notifies_every_banner_in_the_event():
     assert recipients == {(_PRESENTER_ID, ("Bob",)), (_OTHER_PRESENTER_ID, ("Alice",))}
 
 
+def test_notify_signups_dedupes_repeated_player_name():
+    # One presenter, two hits resolving to the same display name -> listed once.
+    repo = FakeRepo(
+        signup=_signup(
+            _hit(_PRESENTER_ID, "gm@example.com", 2),
+            _hit(_PRESENTER_ID, "gm@example.com", 3),
+        )
+    )
+    notifier = FakeNotifier()
+    service = _service(repo, notifier)
+
+    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Bob")])
+
+    assert len(notifier.signups) == 1
+    assert notifier.signups[0].player_names == ["Bob"]
+
+
 def test_notify_signups_silent_when_no_banned_players():
     # Arrange
     repo = FakeRepo(signup=_signup())

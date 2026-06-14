@@ -154,6 +154,31 @@ class TestProfileShadowbanPageView:
             template_name="crowd/user/shadowbans.html",
         )
 
+    def test_shadowban_by_slug(self, authenticated_client, active_user):
+        player = UserFactory(
+            username="player6", email="player6@example.com", name="Player Six"
+        )
+
+        response = authenticated_client.post(
+            self.URL, data={"slug": player.slug, "banned": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Player shadowbanned.")],
+            url=self.URL,
+        )
+        assert list(active_user.shadowbanned.all()) == [player]
+
+    def test_post_without_identifier_or_slug_is_noop(
+        self, authenticated_client, active_user
+    ):
+        response = authenticated_client.post(self.URL, data={})
+
+        assert_response(response, HTTPStatus.FOUND, url=self.URL)
+        assert not active_user.shadowbanned.exists()
+
     def test_remove_shadowban(self, authenticated_client, active_user):
         player = UserFactory(
             username="player4", email="player4@example.com", name="Player Four"
