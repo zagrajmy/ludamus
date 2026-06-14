@@ -31,10 +31,10 @@ jobs:
       sha: ${{ steps.resolve.outputs.sha }}
       should_deploy: ${{ steps.resolve.outputs.should_deploy }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         id: resolve
         with:
           script: |
@@ -62,13 +62,13 @@ jobs:
       # BEFORE the workflow-helpers checkout, otherwise it deletes .workflow/ and
       # the github-script steps below fail with ERR_MODULE_NOT_FOUND.
       - name: Checkout (provides .env.schema for varlock validation)
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.resolve-staging.outputs.sha }}
           persist-credentials: false
 
       - name: Checkout workflow helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.sha }}
           path: .workflow
@@ -76,7 +76,7 @@ jobs:
 
       - name: Create GitHub deployment
         id: deployment
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           STAGING_URL: https://test.zagrajmy.net
           TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
@@ -159,7 +159,7 @@ jobs:
           npx -y varlock@1.1.0 load > /dev/null
 
       - name: Upload .env.local to host
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
@@ -168,7 +168,7 @@ jobs:
           target: ludamus/
 
       - name: Deploy
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
           GITHUB_COMMIT_SHA: ${{ needs.resolve-staging.outputs.sha }}
         with:
@@ -191,7 +191,7 @@ jobs:
 
       - name: Mark GitHub deployment complete
         if: always() && steps.deployment.outputs.id != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
           JOB_STATUS: ${{ job.status }}
