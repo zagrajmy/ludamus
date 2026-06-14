@@ -442,15 +442,13 @@ const resolveManualDeploy = async ({
   const openPrsForSha = (
     await listPullRequestsForSha({ github, context, sha })
   ).filter((pr) => pr.state === "open");
-  const candidates = openPrsForSha.filter((pr) =>
-    isSameRepositoryPullRequest(context, pr),
-  );
 
   // A manual dispatch is itself the authorization to deploy `sha`, so we do NOT
-  // require the staging label. Whatever we deploy takes over staging, so we
-  // strip the label off every other PR (claimStagingTarget semantics). Fork
-  // commits never reach staging — we won't run untrusted code on the host.
-  if (candidates.length > 1) {
+  // require the staging label, and (unlike the explicit/label paths) we accept
+  // drafts — a human asking for a draft preview is intentional. Whatever we
+  // deploy takes over staging, so we strip the label off every other PR
+  // (claimStagingTarget semantics).
+  if (openPrsForSha.length > 1) {
     setShouldDeploy(
       core,
       false,
@@ -459,23 +457,31 @@ const resolveManualDeploy = async ({
     return;
   }
 
-  if (candidates.length === 0) {
-    if (openPrsForSha.length > 0) {
-      setShouldDeploy(
-        core,
-        false,
-        `Skipping ${STAGING_LABEL} deploy for fork PR #${openPrsForSha[0].number}`,
-      );
-      return;
-    }
+  if (openPrsForSha.length === 0) {
     await exclusiveStagingFor({ github, context, core });
     setShouldDeploy(core, true, `Deploying ${sha}`);
     return;
   }
 
-  const target = candidates[0];
-  await exclusiveStagingFor({ github, context, core }, target.number);
-  setShouldDeploy(core, true, `Deploying PR #${target.number} at ${sha}`);
+  // Re-fetch the single PR for an authoritative head repo: the associated-
+  // commits payload can carry a null/sparse head (e.g. a deleted fork) that
+  // would misclassify a real PR. Fork PRs stay off staging.
+  const pr = await fetchPullRequest({
+    github,
+    context,
+    number: openPrsForSha[0].number,
+  });
+  if (!isSameRepositoryPullRequest(context, pr)) {
+    setShouldDeploy(
+      core,
+      false,
+      `Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`,
+    );
+    return;
+  }
+
+  await exclusiveStagingFor({ github, context, core }, pr.number);
+  setShouldDeploy(core, true, `Deploying PR #${pr.number} at ${sha}`);
 };
 
 export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {

@@ -362,6 +362,7 @@ test("manual dispatch deploys the associated PR and clears other staging labels"
 test("manual dispatch deploys an unlabeled PR and rips staging from the labeled one", async () => {
   const args = makeArgs({
     inputs: { sha: "manual-sha" },
+    currentPr: { ...basePr, labels: [] },
     prsForSha: [
       {
         head: { repo: { full_name: "owner/repo" }, sha: "manual-sha" },
@@ -438,15 +439,15 @@ test("manual dispatch with several associated PRs refuses without mutating label
 });
 
 test("manual dispatch ignores fork pull requests", async () => {
+  const forkPr = {
+    head: { repo: { full_name: "contributor/repo" }, sha: "manual-sha" },
+    number: 1,
+    state: "open",
+  };
   const args = makeArgs({
     inputs: { sha: "manual-sha" },
-    prsForSha: [
-      {
-        head: { repo: { full_name: "contributor/repo" }, sha: "manual-sha" },
-        number: 1,
-        state: "open",
-      },
-    ],
+    currentPr: forkPr,
+    prsForSha: [forkPr],
     stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
   });
 
@@ -456,6 +457,30 @@ test("manual dispatch ignores fork pull requests", async () => {
     ["output", "sha", "manual-sha"],
     ["output", "should_deploy", "false"],
     ["info", "Skipping staging deploy for fork PR #1"],
+  ]);
+});
+
+test("manual dispatch deploys a draft PR", async () => {
+  const args = makeArgs({
+    inputs: { sha: "manual-sha" },
+    currentPr: { ...basePr, draft: true },
+    prsForSha: [
+      {
+        head: { repo: { full_name: "owner/repo" }, sha: "manual-sha" },
+        draft: true,
+        number: 2,
+        state: "open",
+      },
+    ],
+    stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  assert.deepEqual(args.calls, [
+    ["output", "sha", "manual-sha"],
+    ["output", "should_deploy", "true"],
+    ["info", "Deploying PR #2 at manual-sha"],
   ]);
 });
 
