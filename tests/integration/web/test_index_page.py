@@ -244,8 +244,8 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "past_events": [
-                    _expected_event_info(recent, cover_index=1),
-                    _expected_event_info(older, cover_index=0),
+                    _expected_event_info(recent, cover_index=0),
+                    _expected_event_info(older, cover_index=1),
                 ],
                 "upcoming_events": [],
                 "view": ANY,
