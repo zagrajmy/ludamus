@@ -872,6 +872,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             .order_by("agenda_item__start_time")
         )
 
+        # Shadowban: hide a presenter's sessions from players they shadowbanned.
+        if current_user_id := self.request.context.current_user_id:
+            event_sessions = event_sessions.exclude(
+                presenter__shadowbanned__id=current_user_id
+            )
+
         hour_data = dict(self._get_hour_data(event_sessions))
         # Get session data objects that include enrollment status
         sessions_data = self._get_session_data(event_sessions)
@@ -1276,6 +1282,16 @@ def _get_session_or_redirect(
             sphere_id=request.context.current_sphere_id, id=session_id
         )
     except Session.DoesNotExist:
+        raise RedirectError(
+            reverse("web:index"), error=_("Session not found.")
+        ) from None
+    # Shadowban: a player the presenter shadowbanned cannot reach the session.
+    if (
+        session.presenter_id
+        and Session.objects.filter(
+            id=session.pk, presenter__shadowbanned__id=request.context.current_user_id
+        ).exists()
+    ):
         raise RedirectError(
             reverse("web:index"), error=_("Session not found.")
         ) from None

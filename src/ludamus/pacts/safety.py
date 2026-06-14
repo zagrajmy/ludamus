@@ -1,8 +1,9 @@
 """Protocols and DTOs for the shadowban (Safety & Comfort) feature.
 
 A proposer keeps a personal shadowban list in their settings. Shadowbanned
-players are never blocked — they enrol as usual — but the proposer is emailed
-when one of them signs up to a session they run. Bottom-layer contracts
+players never see the proposer's sessions, but they are not told they are
+banned. The proposer is emailed whenever a shadowbanned player joins any
+session in an event the proposer runs a session at. Bottom-layer contracts
 consumed by the `ShadowbanService` mill.
 """
 
@@ -20,19 +21,26 @@ class ShadowbanCandidateDTO(BaseModel):
     is_shadowbanned: bool
 
 
-class ShadowbanSignupTargetDTO(BaseModel):
+class ShadowbanEventContextDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    event_slug: str
+    event_name: str
+
+
+class ShadowbanHitDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     presenter_id: int
     presenter_email: str
-    session_title: str
+    banned_user_id: int
 
 
 class ShadowbanSignupNotification(BaseModel):
     recipient_user_id: int
     recipient_email: str
-    session_id: int
-    session_title: str
+    event_slug: str
+    event_name: str
     player_names: list[str]
 
 
@@ -44,9 +52,11 @@ class ShadowbanRepositoryProtocol(Protocol):
     @staticmethod
     def shadowban_by_identifier(*, owner_id: int, identifier: str) -> bool: ...
     @staticmethod
-    def shadowbanned_user_ids(owner_id: int) -> set[int]: ...
+    def read_event_context(session_id: int) -> ShadowbanEventContextDTO | None: ...
     @staticmethod
-    def read_signup_target(session_id: int) -> ShadowbanSignupTargetDTO | None: ...
+    def event_shadowban_hits(
+        *, session_id: int, signed_up_ids: list[int]
+    ) -> list[ShadowbanHitDTO]: ...
 
 
 class ShadowbanNotifierProtocol(Protocol):

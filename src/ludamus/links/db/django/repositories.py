@@ -139,8 +139,9 @@ from ludamus.pacts.multiverse import (
 )
 from ludamus.pacts.safety import (
     ShadowbanCandidateDTO,
+    ShadowbanEventContextDTO,
+    ShadowbanHitDTO,
     ShadowbanRepositoryProtocol,
-    ShadowbanSignupTargetDTO,
 )
 
 if TYPE_CHECKING:
@@ -2904,24 +2905,45 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         return True
 
     @staticmethod
-    def shadowbanned_user_ids(owner_id: int) -> set[int]:
-        return set(
-            User.objects.filter(shadowbanned_by__id=owner_id).values_list(
-                "pk", flat=True
-            )
-        )
-
-    @staticmethod
-    def read_signup_target(session_id: int) -> ShadowbanSignupTargetDTO | None:
-        session = (
-            Session.objects.select_related("presenter")
-            .filter(pk=session_id, presenter__isnull=False)
+    def read_event_context(session_id: int) -> ShadowbanEventContextDTO | None:
+        agenda_item = (
+            AgendaItem.objects.select_related("space__area__venue__event")
+            .filter(session_id=session_id)
             .first()
         )
-        if session is None or session.presenter is None:
+        if agenda_item is None:
             return None
-        return ShadowbanSignupTargetDTO(
-            presenter_id=session.presenter.pk,
-            presenter_email=session.presenter.email,
-            session_title=session.title,
+        event = agenda_item.space.area.venue.event
+        return ShadowbanEventContextDTO(event_slug=event.slug, event_name=event.name)
+
+    @staticmethod
+    def event_shadowban_hits(
+        *, session_id: int, signed_up_ids: list[int]
+    ) -> list[ShadowbanHitDTO]:
+        if not signed_up_ids:
+            return []
+        event_id = (
+            AgendaItem.objects.filter(session_id=session_id)
+            .values_list("space__area__venue__event_id", flat=True)
+            .first()
         )
+        if event_id is None:
+            return []
+        # Presenters with a scheduled session in this event who shadowbanned any
+        # of the players that just signed up.
+        rows = (
+            User.objects.filter(
+                presented_sessions__agenda_item__space__area__venue__event_id=event_id,
+                shadowbanned__id__in=signed_up_ids,
+            )
+            .values_list("pk", "email", "shadowbanned__id")
+            .distinct()
+        )
+        return [
+            ShadowbanHitDTO(
+                presenter_id=presenter_id,
+                presenter_email=email,
+                banned_user_id=banned_user_id,
+            )
+            for presenter_id, email, banned_user_id in rows
+        ]

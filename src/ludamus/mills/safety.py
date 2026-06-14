@@ -1,8 +1,9 @@
 """Shadowban service (Safety & Comfort).
 
 Owns the proposer's personal shadowban list and the decision to warn them when
-a shadowbanned player signs up to one of their sessions. IO is delegated to the
-injected repository and notifier ports so the logic stays unit-testable.
+a shadowbanned player joins an event the proposer runs a session at. IO is
+delegated to the injected repository and notifier ports so the logic stays
+unit-testable.
 """
 
 from __future__ import annotations
@@ -53,18 +54,31 @@ class ShadowbanService:
     ) -> None:
         if not signed_up:
             return
-        if (target := self._repo.read_signup_target(session_id)) is None:
+        if (context := self._repo.read_event_context(session_id)) is None:
             return
-        banned = self._repo.shadowbanned_user_ids(target.presenter_id)
-        offenders = [name for user_id, name in signed_up if user_id in banned]
-        if not offenders:
-            return
-        self._notifier.notify_shadowbanned_signup(
-            ShadowbanSignupNotification(
-                recipient_user_id=target.presenter_id,
-                recipient_email=target.presenter_email,
-                session_id=session_id,
-                session_title=target.session_title,
-                player_names=offenders,
-            )
+        hits = self._repo.event_shadowban_hits(
+            session_id=session_id, signed_up_ids=[user_id for user_id, _ in signed_up]
         )
+        if not hits:
+            return
+
+        name_by_id = dict(signed_up)
+        names_by_presenter: dict[int, tuple[str, list[str]]] = {}
+        for hit in hits:
+            _email, names = names_by_presenter.setdefault(
+                hit.presenter_id, (hit.presenter_email, [])
+            )
+            name = name_by_id.get(hit.banned_user_id)
+            if name and name not in names:
+                names.append(name)
+
+        for presenter_id, (email, names) in names_by_presenter.items():
+            self._notifier.notify_shadowbanned_signup(
+                ShadowbanSignupNotification(
+                    recipient_user_id=presenter_id,
+                    recipient_email=email,
+                    event_slug=context.event_slug,
+                    event_name=context.event_name,
+                    player_names=names,
+                )
+            )

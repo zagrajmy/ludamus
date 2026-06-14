@@ -107,13 +107,13 @@ class DjangoUserNotifier:
         self, notification: ShadowbanSignupNotification
     ) -> None:
         players = ", ".join(notification.player_names)
-        title = _("A shadowbanned player signed up to %(session)s") % {
-            "session": notification.session_title
+        title = _("A shadowbanned player joined %(event)s") % {
+            "event": notification.event_name
         }
         body = _(
-            "Someone you shadowbanned signed up to %(session)s: %(players)s. "
-            "They have not been notified. Review the enrolment if you need to."
-        ) % {"session": notification.session_title, "players": players}
+            "Someone you shadowbanned signed up to %(event)s: %(players)s. "
+            "They have not been notified. Review the event if you need to."
+        ) % {"event": notification.event_name, "players": players}
         self._deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
@@ -121,10 +121,9 @@ class DjangoUserNotifier:
                 title=title,
                 body=body,
                 url=reverse(
-                    "web:chronology:session-enrollment",
-                    kwargs={"session_id": notification.session_id},
+                    "web:chronology:event", kwargs={"slug": notification.event_slug}
                 ),
-                payload={"session_id": notification.session_id},
+                payload={"event_slug": notification.event_slug},
             ),
             notification.recipient_email,
         )
