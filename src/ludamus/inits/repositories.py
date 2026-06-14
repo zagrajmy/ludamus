@@ -82,3 +82,7 @@ class Repositories:
     @cached_property
     def shadowban(self) -> repositories.ShadowbanRepository:
         return repositories.ShadowbanRepository()
+
+    @cached_property
+    def event_bans(self) -> repositories.EventBanRepository:
+        return repositories.EventBanRepository()

@@ -8,6 +8,8 @@ from ludamus.pacts.safety import ShadowbanSignupNotification
 
 if TYPE_CHECKING:
     from ludamus.pacts.safety import (
+        EventBanDTO,
+        EventBanRepositoryProtocol,
         SessionShadowbanWarningDTO,
         ShadowbanCandidateDTO,
         ShadowbanNotifierProtocol,
@@ -82,3 +84,26 @@ class ShadowbanService:
                     player_names=names,
                 )
             )
+
+
+class EventBanService:
+    def __init__(
+        self, transaction: TransactionProtocol, repo: EventBanRepositoryProtocol
+    ) -> None:
+        self._transaction = transaction
+        self._repo = repo
+
+    def list_for_event(self, event_id: int) -> list[EventBanDTO]:
+        return self._repo.list_by_event(event_id)
+
+    def ban(self, *, event_id: int, identifier: str, reason: str) -> bool:
+        if not (identifier := identifier.strip()):
+            return False
+        with self._transaction.atomic():
+            return self._repo.ban(
+                event_id=event_id, identifier=identifier, reason=reason.strip()
+            )
+
+    def unban(self, *, event_id: int, ban_id: int) -> None:
+        with self._transaction.atomic():
+            self._repo.unban(event_id=event_id, ban_id=ban_id)

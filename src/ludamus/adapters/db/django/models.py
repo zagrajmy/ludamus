@@ -160,6 +160,26 @@ class Shadowban(models.Model):
         return f"{self.owner_id} shadowbanned {self.target_id}"
 
 
+class EventBan(models.Model):
+    """Organizer-level hard ban: a banned user cannot enrol in the event."""
+
+    event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
+    reason = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_ban"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_ban_unique_event_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} banned from event {self.event_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 

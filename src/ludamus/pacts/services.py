@@ -26,7 +26,7 @@ if TYPE_CHECKING:
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
-    from ludamus.pacts.safety import ShadowbanServiceProtocol
+    from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.venues import VenuesServiceProtocol
 
 
@@ -60,3 +60,5 @@ class ServicesProtocol(Protocol):
     def venues(self) -> VenuesServiceProtocol: ...
     @property
     def shadowban(self) -> ShadowbanServiceProtocol: ...
+    @property
+    def event_bans(self) -> EventBanServiceProtocol: ...

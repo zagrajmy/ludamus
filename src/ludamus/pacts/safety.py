@@ -24,6 +24,16 @@ class SessionShadowbanWarningDTO(BaseModel):
     shadowbanned_at: datetime
 
 
+class EventBanDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    user_name: str
+    user_slug: str
+    reason: str
+    created_at: datetime
+
+
 class ShadowbanHitDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,6 +73,21 @@ class ShadowbanRepositoryProtocol(Protocol):
     def list_session_shadowbanned(
         *, viewer_id: int, session_id: int
     ) -> list[SessionShadowbanWarningDTO]: ...
+
+
+class EventBanRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_by_event(event_id: int) -> list[EventBanDTO]: ...
+    @staticmethod
+    def ban(*, event_id: int, identifier: str, reason: str) -> bool: ...
+    @staticmethod
+    def unban(*, event_id: int, ban_id: int) -> None: ...
+
+
+class EventBanServiceProtocol(Protocol):
+    def list_for_event(self, event_id: int) -> list[EventBanDTO]: ...
+    def ban(self, *, event_id: int, identifier: str, reason: str) -> bool: ...
+    def unban(self, *, event_id: int, ban_id: int) -> None: ...
 
 
 class ShadowbanNotifierProtocol(Protocol):

@@ -19,6 +19,7 @@ from ludamus.adapters.db.django.models import (
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    EventBan,
     EventIntegration,
     EventProposalSettings,
     EventSettings,
@@ -140,6 +141,8 @@ from ludamus.pacts.multiverse import (
     DuplicateConnectionDisplayNameError,
 )
 from ludamus.pacts.safety import (
+    EventBanDTO,
+    EventBanRepositoryProtocol,
     SessionShadowbanWarningDTO,
     ShadowbanCandidateDTO,
     ShadowbanEventSignupDTO,
@@ -2969,3 +2972,43 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 for presenter_id, email, banned_user_id in rows
             ],
         )
+
+
+class EventBanRepository(EventBanRepositoryProtocol):
+    @staticmethod
+    def list_by_event(event_id: int) -> list[EventBanDTO]:
+        rows = (
+            EventBan.objects.filter(event_id=event_id)
+            .select_related("user")
+            .order_by("user__name")
+        )
+        return [
+            EventBanDTO(
+                pk=ban.pk,
+                user_name=ban.user.full_name,
+                user_slug=ban.user.slug,
+                reason=ban.reason,
+                created_at=ban.created_at,
+            )
+            for ban in rows
+        ]
+
+    @staticmethod
+    def ban(*, event_id: int, identifier: str, reason: str) -> bool:
+        user = (
+            User.objects.filter(
+                Q(username__iexact=identifier) | Q(email__iexact=identifier)
+            )
+            .order_by("pk")
+            .first()
+        )
+        if user is None:
+            return False
+        EventBan.objects.update_or_create(
+            event_id=event_id, user=user, defaults={"reason": reason}
+        )
+        return True
+
+    @staticmethod
+    def unban(*, event_id: int, ban_id: int) -> None:
+        EventBan.objects.filter(event_id=event_id, pk=ban_id).delete()

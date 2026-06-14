@@ -38,6 +38,7 @@ from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Event,
+    EventBan,
     EventSettings,
     Session,
     SessionFieldValue,
@@ -823,6 +824,50 @@ def _field_value_dtos_from_models(
     )
 
 
+_SIMULACRA_FILL = 8
+_SIMULACRA_NAMES = (
+    "Aleksandra Nowak",
+    "Piotr Kowalski",
+    "Maria Wiśniewska",
+    "Jan Lewandowski",
+    "Anna Zielińska",
+)
+
+
+def _simulacra_participations(count: int) -> list[ParticipationInfo]:
+    now = datetime.now(tz=UTC)
+    return [
+        ParticipationInfo(
+            user=UserInfo(
+                avatar_url=None,
+                discord_username="",
+                full_name=name,
+                name=name,
+                pk=0,
+                slug="",
+                username="",
+            ),
+            status=SessionParticipationStatus.CONFIRMED.value,
+            creation_time=now,
+        )
+        for name in _SIMULACRA_NAMES[:count]
+    ]
+
+
+def _apply_event_ban_simulacra(session_data: SessionData) -> None:
+    fill = session_data.effective_participants_limit or _SIMULACRA_FILL
+    session_data.effective_participants_limit = fill
+    session_data.enrolled_count = fill
+    session_data.waiting_count = 0
+    session_data.is_full = True
+    session_data.is_enrollment_available = True
+    session_data.has_any_enrollments = True
+    session_data.full_participant_info = f"{fill}/{fill}"
+    session_data.user_enrolled = False
+    session_data.user_waiting = False
+    session_data.session_participations = _simulacra_participations(min(3, fill))
+
+
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -890,6 +935,19 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Get session data objects that include enrollment status
         sessions_data = self._get_session_data(event_sessions)
 
+        # Hard event ban: a banned viewer sees every session as full (with
+        # simulacra participants) and gets no Enroll action, so the event looks
+        # full and they are never told they are banned.
+        event_banned = (
+            current_user_id is not None
+            and EventBan.objects.filter(
+                event=self.object, user_id=current_user_id
+            ).exists()
+        )
+        if event_banned:
+            for session_data in sessions_data.values():
+                _apply_event_ban_simulacra(session_data)
+
         current_time = datetime.now(tz=UTC)
         ended_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
         current_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
@@ -928,6 +986,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     s.session.title for s in sessions_data.values() if s.user_enrolled
                 ],
                 "shadowbanned_ids": shadowbanned_ids,
+                "event_banned": event_banned,
             }
         )
 
@@ -1309,6 +1368,18 @@ def _get_session_or_redirect(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),
         )
+    # Hard event ban: a banned user cannot enrol; bounce them back to the
+    # (fake-full) event page without revealing the ban.
+    event = session.agenda_item.space.area.venue.event
+    if (
+        request.context.current_user_id
+        and EventBan.objects.filter(
+            event=event, user_id=request.context.current_user_id
+        ).exists()
+    ):
+        raise RedirectError(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        ) from None
     return session
 
 
