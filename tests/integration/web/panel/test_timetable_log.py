@@ -77,6 +77,7 @@ class TestTimetableLogPageView:
                 },
                 "active_nav": "timetable",
                 "logs": [],
+                "revertible_pks": set(),
                 "spaces": [],
                 "space_pk": None,
                 "slug": event.slug,

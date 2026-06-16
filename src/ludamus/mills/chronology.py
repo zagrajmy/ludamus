@@ -364,6 +364,14 @@ class TimetableService:
         if log.event_id != event_pk:
             # The log belongs to another event — reject before reverting.
             raise NotFoundError
+        latest_pk = self._uow.schedule_change_logs.latest_pks_by_session(event_pk).get(
+            log.session_id
+        )
+        if latest_pk != log_pk:
+            # Only the most recent change for a session may be undone, so reverts
+            # always unwind history in order.
+            msg = "Only the latest change for a session can be reverted"
+            raise ValueError(msg)
         if log.action == ScheduleChangeAction.ASSIGN:
             agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
             if agenda_item is None:

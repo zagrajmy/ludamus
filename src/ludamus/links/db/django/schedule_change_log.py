@@ -57,3 +57,14 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
         if space_pk is not None:
             qs = qs.filter(Q(old_space_id=space_pk) | Q(new_space_id=space_pk))
         return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]:
+        latest: dict[int, int] = {}
+        for session_id, pk in (
+            ScheduleChangeLog.objects.filter(event_id=event_pk)
+            .order_by("session_id", "-creation_time", "-pk")
+            .values_list("session_id", "pk")
+        ):
+            latest.setdefault(session_id, pk)
+        return latest

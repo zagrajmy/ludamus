@@ -1423,6 +1423,9 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
 
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
 
 ContentFieldValue = str | int | bool | list[str] | None
 
