@@ -89,10 +89,8 @@
                                               data-confirm-action="{% translate "Revert" %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="log_pk" value="{{ log.pk }}">
-                                            <button type="submit"
-                                                    class="inline-flex items-center px-2 py-2 min-h-11 text-xs font-medium text-danger-text hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                                                {% translate "Revert" %}
-                                            </button>
+                                            {% translate "Revert" as t_revert %}
+                                            {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
                                         </form>
                                     {% endif %}
                                 {% endif %}

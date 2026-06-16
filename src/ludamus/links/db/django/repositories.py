@@ -290,13 +290,6 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return SessionDTO.model_validate(session)
 
     @staticmethod
-    def lock(pk: int) -> None:
-        try:
-            Session.objects.select_for_update().get(pk=pk)
-        except Session.DoesNotExist as exception:
-            raise NotFoundError from exception
-
-    @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None:
         if "cover_image" not in data:
             Session.objects.filter(id=pk).update(**data)
