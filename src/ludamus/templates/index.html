@@ -8,9 +8,10 @@
 {% endblock header %}
 {% block body %}
     {% if announcements %}
+        {% translate "Organization announcements" as t_announcements_label %}
         <section id="announcements"
                  class="mb-12"
-                 aria-label="{% translate 'Organization announcements' %}">
+                 aria-label="{{ t_announcements_label }}">
             <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Organization announcements" %}</h2>
             <div class="space-y-4">
                 {% for announcement in announcements %}

@@ -10,7 +10,9 @@ class AnnouncementForm(forms.Form):
     """Form for creating/editing organization announcements."""
 
     title = forms.CharField(label=_("Title"), max_length=255, strip=True)
-    content = forms.CharField(label=_("Content"), widget=forms.Textarea(attrs={"rows": 8}))
+    content = forms.CharField(
+        label=_("Content"), widget=forms.Textarea(attrs={"rows": 8})
+    )
     is_published = forms.BooleanField(
         label=_("Published"),
         required=False,

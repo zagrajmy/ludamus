@@ -310,9 +310,7 @@ class TestEventsPageView:
         assert response.context["announcements"] == []
         assert "Secret" not in response.content.decode()
 
-    def test_announcement_scoped_to_current_sphere(
-        self, client, sphere, non_root_sphere
-    ):
+    def test_announcement_scoped_to_current_sphere(self, client, non_root_sphere):
         Announcement.objects.create(
             sphere=non_root_sphere, title="Elsewhere", content="body"
         )

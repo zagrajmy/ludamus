@@ -2713,9 +2713,7 @@ class AnnouncementsRepository(AnnouncementsRepositoryProtocol):
     def list_published(sphere_id: int) -> list[AnnouncementDTO]:
         return [
             AnnouncementDTO.model_validate(a)
-            for a in Announcement.objects.filter(
-                sphere_id=sphere_id, is_published=True
-            )
+            for a in Announcement.objects.filter(sphere_id=sphere_id, is_published=True)
         ]
 
     @staticmethod

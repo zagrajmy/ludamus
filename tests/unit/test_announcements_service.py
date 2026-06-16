@@ -78,14 +78,16 @@ class TestAnnouncementsService:
         assert [d.pk for d in result] == [1]
 
     def test_get_delegates(self):
-        repo = FakeRepo(all_items=[_dto(7)])
+        pk = 7
+        repo = FakeRepo(all_items=[_dto(pk)])
         service = AnnouncementsService(FakeTransaction(), repo)
 
-        result = service.get(1, 7)
+        result = service.get(1, pk)
 
-        assert result.pk == 7
+        assert result.pk == pk
 
     def test_create_runs_in_transaction(self):
+        created_pk = 99
         repo = FakeRepo()
         transaction = FakeTransaction()
         service = AnnouncementsService(transaction, repo)
@@ -95,19 +97,20 @@ class TestAnnouncementsService:
 
         assert transaction.entered == 1
         assert repo.created == [(1, data)]
-        assert result.pk == 99
+        assert result.pk == created_pk
 
     def test_update_runs_in_transaction(self):
+        pk = 5
         repo = FakeRepo()
         transaction = FakeTransaction()
         service = AnnouncementsService(transaction, repo)
         data = AnnouncementData(title="t", content="c", is_published=False)
 
-        result = service.update(1, 5, data)
+        result = service.update(1, pk, data)
 
         assert transaction.entered == 1
-        assert repo.updated == [(1, 5, data)]
-        assert result.pk == 5
+        assert repo.updated == [(1, pk, data)]
+        assert result.pk == pk
 
     def test_delete_runs_in_transaction(self):
         repo = FakeRepo()

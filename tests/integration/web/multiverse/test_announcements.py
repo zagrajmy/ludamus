@@ -143,8 +143,7 @@ class TestAnnouncementCreatePageView:
         sphere.managers.add(active_user)
 
         response = authenticated_client.post(
-            self.url,
-            data={"title": "Hello", "content": "Body", "is_published": "on"},
+            self.url, data={"title": "Hello", "content": "Body", "is_published": "on"}
         )
 
         assert_response(
@@ -163,9 +162,7 @@ class TestAnnouncementCreatePageView:
     ):
         sphere.managers.add(active_user)
 
-        authenticated_client.post(
-            self.url, data={"title": "Hello", "content": "Body"}
-        )
+        authenticated_client.post(self.url, data={"title": "Hello", "content": "Body"})
 
         announcement = Announcement.objects.get(sphere=sphere)
         assert announcement.is_published is False
@@ -214,17 +211,14 @@ class TestAnnouncementEditPageView:
             url="/multiverse/panel/announcements/",
         )
 
-    def test_post_updates_announcement(
-        self, authenticated_client, active_user, sphere
-    ):
+    def test_post_updates_announcement(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
         announcement = Announcement.objects.create(
             sphere=sphere, title="Old", content="Old", is_published=True
         )
 
         response = authenticated_client.post(
-            self.get_url(announcement),
-            data={"title": "New", "content": "New body"},
+            self.get_url(announcement), data={"title": "New", "content": "New body"}
         )
 
         assert_response(
@@ -292,9 +286,7 @@ class TestAnnouncementDeletePageView:
             },
         )
 
-    def test_post_deletes_announcement(
-        self, authenticated_client, active_user, sphere
-    ):
+    def test_post_deletes_announcement(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
         announcement = Announcement.objects.create(
             sphere=sphere, title="Goner", content="C"

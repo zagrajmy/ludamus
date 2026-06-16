@@ -8,9 +8,7 @@ from ludamus.pacts.multiverse import AnnouncementData, AnnouncementDTO
 
 class TestAnnouncementsRepositoryList:
     def test_list_for_sphere_scopes_to_sphere(self, sphere, non_root_sphere):
-        mine = Announcement.objects.create(
-            sphere=sphere, title="Mine", content="body"
-        )
+        mine = Announcement.objects.create(sphere=sphere, title="Mine", content="body")
         Announcement.objects.create(
             sphere=non_root_sphere, title="Other", content="body"
         )
