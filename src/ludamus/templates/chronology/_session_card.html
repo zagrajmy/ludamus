@@ -36,7 +36,8 @@
                 <h3 class="text-3xl font-bold leading-tight tracking-tight text-foreground-primary">{{ data.session.title }}</h3>
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-hidden">
                     <span class="shrink-0">{% include "components/avatar.html" with user=data.presenter size="size-8" %}</span>
-                    <span class="shrink-0 text-base font-medium text-foreground-secondary">{{ data.session.display_name }}</span>
+                    <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
+                          title="{{ data.session.display_name }}">{{ data.session.display_name }}</span>
                     {% if data.enrolled_count > 0 %}
                         <span class="shrink-0 flex justify-end grow -space-x-2"
                               role="img"

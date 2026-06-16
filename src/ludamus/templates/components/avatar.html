@@ -1,5 +1,6 @@
 {% load avatar_tags i18n %}
-{# Reusable avatar: expects "user" (UserDTO/User) and optional "size", "danger_ring" #}
+{# Reusable avatar: expects "user" (UserDTO/User) and optional "size", "danger_ring". #}
+{# For interactive use (link/button), pass size="size-11" (44px) or wrap with padding to meet the touch-target minimum. #}
 {% with size_class=size|default:"size-8" border_class="border border-white/80 dark:border-neutral-900" %}
     {% if user %}
         {% with name_value=user.full_name|default:user.name|default:user.username|default:"" %}
