@@ -7,6 +7,21 @@
 {% block header %}
 {% endblock header %}
 {% block body %}
+    {% if announcements %}
+        <section id="announcements"
+                 class="mb-12"
+                 aria-label="{% translate 'Organization announcements' %}">
+            <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Organization announcements" %}</h2>
+            <div class="space-y-4">
+                {% for announcement in announcements %}
+                    <article class="card p-6">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{{ announcement.title }}</h3>
+                        <p class="text-foreground-secondary whitespace-pre-line">{{ announcement.content }}</p>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
     <div id="events">
         {% if upcoming_events or past_events %}
             {% if upcoming_events %}

@@ -1,0 +1,27 @@
+{% load i18n %}
+{% load tessera %}
+{% tessera_errors form %}
+<div class="space-y-1">
+    <label class="block text-sm font-medium text-foreground"
+           for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+    {% include "components/text-field.html" with name=form.title.html_name id=form.title.id_for_label value=form.title.value|default:"" required=True maxlength="255" has_errors=form.title.errors aria_describedby="id_title_errors" only %}
+    {% if form.title.errors %}
+        <div id="id_title_errors" role="alert" aria-live="polite">
+            {% for error in form.title.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+</div>
+<div class="space-y-1">
+    <label class="block text-sm font-medium text-foreground"
+           for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>
+    {% include "components/textarea.html" with name=form.content.html_name id=form.content.id_for_label value=form.content.value|default:"" rows=8 required=True has_errors=form.content.errors aria_describedby="id_content_errors" only %}
+    {% if form.content.errors %}
+        <div id="id_content_errors" role="alert" aria-live="polite">
+            {% for error in form.content.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+</div>
+<div class="space-y-1 pt-2 border-t border-border">
+    {% include "components/checkbox-field.html" with name=form.is_published.html_name id=form.is_published.id_for_label label=form.is_published.label checked=form.is_published.value only %}
+    <p class="text-xs text-foreground-muted">{{ form.is_published.help_text }}</p>
+</div>

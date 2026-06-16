@@ -1,0 +1,26 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% block title_prefix %}
+    {% translate "Edit announcement" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Edit announcement" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ announcement.title }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="card p-6 max-w-xl">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% include "multiverse/panel/announcements/_form.html" %}
+            <div class="flex justify-end gap-2 pt-4 border-t border-border">
+                <a href="{% url 'multiverse:panel:announcements' %}"
+                   class="btn btn-secondary">{% translate "Cancel" %}</a>
+                <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
+            </div>
+        </form>
+    </div>
+{% endblock content %}
