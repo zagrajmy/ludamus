@@ -141,7 +141,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _collect_session_field_values(
         self, session_pk: int, event_pk: int
-    ) -> list[SessionFieldValueData]:
+    ) -> list[SessionFieldValueData] | None:
+        if self.request.POST.get("session_fields_submitted") != "1":
+            return None
         event_fields = self.request.di.uow.session_fields.list_by_event(event_pk)
         field_entries: list[SessionFieldValueData] = []
         for field in event_fields:
