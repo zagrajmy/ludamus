@@ -1,13 +1,8 @@
-"""Shadowban service (Safety & Comfort): the shadowban list + signup warnings."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.safety import ShadowbanSignupNotification
-
-# Matches EventBan.reason's column width.
-_MAX_BAN_REASON_LENGTH = 255
 
 if TYPE_CHECKING:
     from ludamus.pacts.safety import (
@@ -40,9 +35,9 @@ class ShadowbanService:
         # enrolment skip (a presenter can't have banned players seated).
         return self._repo.banned_user_ids(owner_id)
 
-    def banning_presenter_ids(self, viewer_id: int) -> set[int]:
-        # Presenters who shadowbanned this viewer — their sessions are hidden.
-        return self._repo.banning_owner_ids(viewer_id)
+    def banning_owner_ids(self, target_id: int) -> set[int]:
+        # Users who shadowbanned this target — the view hides their sessions.
+        return self._repo.banning_owner_ids(target_id)
 
     def set_shadowban(self, *, owner_id: int, target_slug: str, banned: bool) -> None:
         with self._transaction.atomic():
@@ -120,12 +115,9 @@ class EventBanService:
     def ban(self, *, event_id: int, identifier: str, reason: str) -> bool:
         if not (identifier := identifier.strip()):
             return False
-        # Bound the reason to the column width so a long note can't crash the
-        # write on backends that enforce max_length (e.g. Postgres).
-        reason = reason.strip()[:_MAX_BAN_REASON_LENGTH]
         with self._transaction.atomic():
             return self._repo.ban(
-                event_id=event_id, identifier=identifier, reason=reason
+                event_id=event_id, identifier=identifier, reason=reason.strip()
             )
 
     def unban(self, *, event_id: int, ban_id: int) -> None:

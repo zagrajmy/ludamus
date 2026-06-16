@@ -1,5 +1,3 @@
-"""Repositories for the shadowban + event-ban (Safety & Comfort) feature."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -24,6 +22,9 @@ else:
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
+
+# Mirrors EventBan.reason's max_length (both live in this links layer).
+_REASON_MAX_LENGTH = 255
 
 
 def _resolve_user(identifier: str) -> User | None:
@@ -196,8 +197,12 @@ class EventBanRepository(EventBanRepositoryProtocol):
     def ban(*, event_id: int, identifier: str, reason: str) -> bool:
         if (user := _resolve_user(identifier)) is None:
             return False
+        # Bound to the column width so a long note can't crash the write on
+        # backends that enforce max_length (e.g. Postgres).
         EventBan.objects.update_or_create(
-            event_id=event_id, user=user, defaults={"reason": reason}
+            event_id=event_id,
+            user=user,
+            defaults={"reason": reason[:_REASON_MAX_LENGTH]},
         )
         return True
 

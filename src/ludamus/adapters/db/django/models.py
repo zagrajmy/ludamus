@@ -140,12 +140,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Shadowban(models.Model):
-    owner = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="shadowbans_made"
-    )
-    target = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="shadowbans_received"
-    )
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -164,8 +160,6 @@ class Shadowban(models.Model):
 
 
 class EventBan(models.Model):
-    """Organizer-level hard ban: a banned user cannot enrol in the event."""
-
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
     reason = models.CharField(max_length=255, blank=True, default="")

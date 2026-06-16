@@ -1,10 +1,6 @@
-"""Presentation helper for the organizer event-ban "fake-full" illusion.
-
-A banned viewer must see every session as full, with no Enroll action and no
-real participant data. Rather than mutating the real ``SessionData`` in place,
-we build a fresh "full" copy from it so the read path stays immutable.
-"""
-
+# Builds the organizer event-ban "fake-full" illusion: a banned viewer sees
+# every session as full with simulacra players and no Enroll action. We build a
+# fresh "full" copy of each SessionData rather than mutating the read path.
 from __future__ import annotations
 
 from dataclasses import replace

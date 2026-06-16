@@ -915,7 +915,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # and collect the viewer's shadowbans to red-ring their avatars.
         shadowbanned_ids: set[int] = set()
         if current_user_id := self.request.context.current_user_id:
-            if hidden := self.request.services.shadowban.banning_presenter_ids(
+            if hidden := self.request.services.shadowban.banning_owner_ids(
                 current_user_id
             ):
                 event_sessions = event_sessions.exclude(presenter_id__in=hidden)
@@ -1345,9 +1345,7 @@ def _get_session_or_redirect(
         ) from None
     viewer_id = request.context.current_user_id
     # Shadowban: a player the presenter shadowbanned cannot reach the session.
-    if session.presenter_id in request.services.shadowban.banning_presenter_ids(
-        viewer_id
-    ):
+    if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         raise RedirectError(
             reverse("web:index"), error=_("Session not found.")
         ) from None
