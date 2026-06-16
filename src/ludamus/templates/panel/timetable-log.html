@@ -89,7 +89,7 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="log_pk" value="{{ log.pk }}">
                                             <button type="submit"
-                                                    class="text-xs text-foreground-muted hover:text-danger-text underline">
+                                                    class="inline-flex items-center px-2 py-2 min-h-[44px] text-xs font-medium text-danger-text hover:underline">
                                                 {% translate "Revert" %}
                                             </button>
                                         </form>
