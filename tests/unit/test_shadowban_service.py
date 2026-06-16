@@ -218,6 +218,18 @@ def test_notify_signups_reports_distinct_users_sharing_a_name():
     assert notifier.signups[0].player_names == ["Bob", "Bob"]
 
 
+def test_notify_signups_skips_presenter_with_no_resolvable_names():
+    # A hit whose player resolves to an empty name yields nothing to report,
+    # so that presenter is not notified with an empty list.
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
+    notifier = FakeNotifier()
+    service = _service(repo, notifier)
+
+    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "")])
+
+    assert not notifier.signups
+
+
 def test_notify_signups_silent_when_no_banned_players():
     # Arrange
     repo = FakeRepo(signup=_signup())

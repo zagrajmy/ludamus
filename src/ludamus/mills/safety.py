@@ -88,6 +88,8 @@ class ShadowbanService:
                 names.append(name)
 
         for presenter_id, (email, names) in names_by_presenter.items():
+            if not names:
+                continue
             self._notifier.notify_shadowbanned_signup(
                 ShadowbanSignupNotification(
                     recipient_user_id=presenter_id,
