@@ -117,6 +117,7 @@ class TestAnnouncementCreatePageView:
             HTTPStatus.OK,
             template_name="multiverse/panel/announcements/create.html",
             context_data={**ANNOUNCEMENTS_PANEL_CONTEXT, "form": ANY},
+            not_contains='aria-describedby="id_title_errors"',
         )
 
     def test_post_rerenders_form_on_invalid_data(
@@ -134,6 +135,7 @@ class TestAnnouncementCreatePageView:
             HTTPStatus.OK,
             template_name="multiverse/panel/announcements/create.html",
             context_data={**ANNOUNCEMENTS_PANEL_CONTEXT, "form": ANY},
+            contains=['aria-describedby="id_title_errors"', 'id="id_title_errors"'],
         )
         assert not Announcement.objects.filter(sphere=sphere).exists()
 
@@ -284,6 +286,7 @@ class TestAnnouncementDeletePageView:
                 **ANNOUNCEMENTS_PANEL_CONTEXT,
                 "announcement": AnnouncementDTO.model_validate(announcement),
             },
+            contains="this.querySelector('button[type=submit]').disabled = true",
         )
 
     def test_post_deletes_announcement(self, authenticated_client, active_user, sphere):

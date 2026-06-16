@@ -19,7 +19,8 @@
             {% endblocktranslate %}
         </p>
         <form method="post"
-              action="{% url 'multiverse:panel:announcement-delete' pk=announcement.pk %}">
+              action="{% url 'multiverse:panel:announcement-delete' pk=announcement.pk %}"
+              onsubmit="this.querySelector('button[type=submit]').disabled = true">
             {% csrf_token %}
             <div class="flex justify-end gap-2">
                 <a href="{% url 'multiverse:panel:announcements' %}"
