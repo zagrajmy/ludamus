@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.multiverse import (
+        AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
         EventsServiceProtocol,
         SitesServiceProtocol,
@@ -40,6 +41,8 @@ class ServicesProtocol(Protocol):
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
     def connections(self) -> ConnectionsServiceProtocol: ...
+    @property
+    def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
     def events(self) -> EventsServiceProtocol: ...
     @property

@@ -20,6 +20,7 @@ from ludamus.mills.chronology import (
 )
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
+    AnnouncementsService,
     ConnectionsService,
     EventsService,
     SitesService,
@@ -58,6 +59,10 @@ class Services:
         return ConnectionsService(
             self._transaction, self._repos.connections, FernetEncryptor(key)
         )
+
+    @cached_property
+    def announcements(self) -> AnnouncementsService:
+        return AnnouncementsService(self._transaction, self._repos.announcements)
 
     @cached_property
     def events(self) -> EventsService:

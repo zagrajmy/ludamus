@@ -28,6 +28,10 @@ class Repositories:
         return repositories.ConnectionsRepository()
 
     @cached_property
+    def announcements(self) -> repositories.AnnouncementsRepository:
+        return repositories.AnnouncementsRepository()
+
+    @cached_property
     def event_integrations(self) -> repositories.EventIntegrationsRepository:
         return repositories.EventIntegrationsRepository()
 

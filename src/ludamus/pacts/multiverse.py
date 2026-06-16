@@ -10,11 +10,57 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SiteDTO, SphereDTO
 
 
 class DuplicateConnectionDisplayNameError(Exception):
     pass
+
+
+class AnnouncementDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    sphere_id: int
+    title: str
+    content: str
+    is_published: bool
+    creation_time: datetime
+    modification_time: datetime
+
+
+class AnnouncementData(BaseModel):
+    title: str
+    content: str
+    is_published: bool
+
+
+class AnnouncementsRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_for_sphere(sphere_id: int) -> list[AnnouncementDTO]: ...
+    @staticmethod
+    def list_published(sphere_id: int) -> list[AnnouncementDTO]: ...
+    @staticmethod
+    def get(sphere_id: int, pk: int) -> AnnouncementDTO: ...
+    @staticmethod
+    def create(sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    @staticmethod
+    def update(sphere_id: int, pk: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    @staticmethod
+    def delete(sphere_id: int, pk: int) -> None: ...
+
+
+class AnnouncementsServiceProtocol(Protocol):
+    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]: ...
+    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]: ...
+    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO: ...
+    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    def update(
+        self, sphere_id: int, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO: ...
+    def delete(self, sphere_id: int, pk: int) -> None: ...
 
 
 class ConnectionDTO(BaseModel):
