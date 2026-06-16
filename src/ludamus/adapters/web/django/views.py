@@ -142,7 +142,7 @@ class Auth0LoginActionView(View):
         Raises:
             RedirectError: If the request is not from the root domain.
         """
-        root_domain = request.di.uow.spheres.read_site(
+        root_domain = request.services.sites.read_site(
             request.context.root_sphere_id
         ).domain
         next_path = request.GET.get("next")
@@ -243,7 +243,7 @@ class Auth0LoginCallbackActionView(RedirectView):
         if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
             return index_url
 
-        root_domain = self.request.di.uow.spheres.read_site(
+        root_domain = self.request.services.sites.read_site(
             self.request.context.root_sphere_id
         ).domain
         if redirect_to and not _is_safe_login_redirect(
