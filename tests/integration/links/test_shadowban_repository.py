@@ -1,12 +1,20 @@
 import pytest
+from django.db import IntegrityError
 
 from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
+    Shadowban,
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.pacts import NotFoundError
 from tests.integration.conftest import SessionFactory, UserFactory
+
+
+class TestShadowbanConstraints:
+    def test_self_shadowban_rejected_by_db(self, active_user):
+        with pytest.raises(IntegrityError):
+            Shadowban.objects.create(owner=active_user, target=active_user)
 
 
 class TestSetShadowban:

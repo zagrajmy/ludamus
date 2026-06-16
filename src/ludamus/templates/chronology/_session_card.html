@@ -38,7 +38,9 @@
                     <span class="shrink-0">{% include "components/avatar.html" with user=data.presenter size="size-8" %}</span>
                     <span class="shrink-0 text-base font-medium text-foreground-secondary">{{ data.session.display_name }}</span>
                     {% if data.enrolled_count > 0 %}
-                        <span class="shrink-0 flex justify-end grow -space-x-2">
+                        <span class="shrink-0 flex justify-end grow -space-x-2"
+                              role="img"
+                              aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
                             {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
                                 {% if p.status == 'confirmed' %}
                                     {% if p.user.pk in shadowbanned_ids %}

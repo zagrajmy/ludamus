@@ -1,5 +1,3 @@
-"""Protocols and DTOs for the shadowban (Safety & Comfort) feature."""
-
 from datetime import datetime
 from typing import Protocol
 

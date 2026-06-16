@@ -151,6 +151,9 @@ class Shadowban(models.Model):
     class Meta:
         db_table = "shadowban"
         constraints = (
+            models.CheckConstraint(
+                condition=~Q(owner=F("target")), name="shadowban_owner_not_target"
+            ),
             models.UniqueConstraint(
                 fields=("owner", "target"), name="shadowban_unique_owner_target"
             ),

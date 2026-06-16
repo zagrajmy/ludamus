@@ -1684,6 +1684,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation = SessionParticipation.objects.filter(
             session=session, user_id=req.user.pk
         ).first()
+        is_fresh_signup = participation is None
 
         if not participation:
             participation = SessionParticipation(session=session, user_id=req.user.pk)
@@ -1692,7 +1693,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation.save()
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
-        enrollments.signed_up_users.append((req.user.pk, req.name))
+        # Only a brand-new participation is a "signup" worth warning a banner
+        # about — re-confirming or status changes must not re-alert.
+        if is_fresh_signup:
+            enrollments.signed_up_users.append((req.user.pk, req.name))
 
     def _send_message(self, enrollments: Enrollments) -> None:
         for users, message in (

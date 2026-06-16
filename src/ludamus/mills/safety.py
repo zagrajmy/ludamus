@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.safety import ShadowbanSignupNotification
 
+# Matches EventBan.reason's column width.
+_MAX_BAN_REASON_LENGTH = 255
+
 if TYPE_CHECKING:
     from ludamus.pacts.safety import (
         EventBanDTO,
@@ -75,12 +78,18 @@ class ShadowbanService:
 
         name_by_id = dict(signed_up)
         names_by_presenter: dict[int, tuple[str, list[str]]] = {}
+        seen_by_presenter: dict[int, set[int]] = {}
         for hit in data.hits:
             _email, names = names_by_presenter.setdefault(
                 hit.presenter_id, (hit.presenter_email, [])
             )
-            name = name_by_id.get(hit.banned_user_id)
-            if name and name not in names:
+            seen = seen_by_presenter.setdefault(hit.presenter_id, set())
+            # Dedupe by banned user id, not name: two distinct players sharing
+            # a display name must both be reported.
+            if hit.banned_user_id in seen:
+                continue
+            seen.add(hit.banned_user_id)
+            if name := name_by_id.get(hit.banned_user_id):
                 names.append(name)
 
         for presenter_id, (email, names) in names_by_presenter.items():
@@ -111,9 +120,12 @@ class EventBanService:
     def ban(self, *, event_id: int, identifier: str, reason: str) -> bool:
         if not (identifier := identifier.strip()):
             return False
+        # Bound the reason to the column width so a long note can't crash the
+        # write on backends that enforce max_length (e.g. Postgres).
+        reason = reason.strip()[:_MAX_BAN_REASON_LENGTH]
         with self._transaction.atomic():
             return self._repo.ban(
-                event_id=event_id, identifier=identifier, reason=reason.strip()
+                event_id=event_id, identifier=identifier, reason=reason
             )
 
     def unban(self, *, event_id: int, ban_id: int) -> None:

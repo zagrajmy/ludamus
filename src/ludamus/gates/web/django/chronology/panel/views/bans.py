@@ -1,5 +1,3 @@
-"""Event ban panel views (organizer-level hard bans)."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -21,8 +19,6 @@ if TYPE_CHECKING:
 
 
 class BansPageView(PanelAccessMixin, EventContextMixin, View):
-    """List and add event bans."""
-
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -51,8 +47,6 @@ class BansPageView(PanelAccessMixin, EventContextMixin, View):
 
 
 class BanDeleteActionView(PanelAccessMixin, EventContextMixin, View):
-    """Remove an event ban."""
-
     request: PanelRequest
 
     def post(self, request: PanelRequest, slug: str, pk: int) -> HttpResponse:

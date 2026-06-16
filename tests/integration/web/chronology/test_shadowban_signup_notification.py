@@ -3,7 +3,11 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Notification
+from ludamus.adapters.db.django.models import (
+    Notification,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -49,6 +53,39 @@ class TestShadowbanSignupNotification:
         assert len(mailoutbox) == 1
         assert mailoutbox[0].to == ["gm@example.com"]
         assert "Test User" in mailoutbox[0].body
+
+    def test_reconfirming_existing_signup_does_not_renotify(
+        self, authenticated_client, agenda_item, active_user, event, space, mailoutbox
+    ):
+        # Re-submitting enroll for an already-existing participation is not a
+        # fresh signup, so the banner must not be alerted again.
+        banner = UserFactory(username="gm3", email="gm3@example.com", name="GM")
+        banner_session = agenda_item.session
+        banner_session.presenter = banner
+        banner_session.save()
+        banner.shadowbanned.add(active_user)
+        host = UserFactory(username="host3", email="host3@example.com", name="Host")
+        joined_session = SessionFactory(
+            sphere=event.sphere, presenter=host, participants_limit=10, min_age=0
+        )
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        # Already on the waiting list -> promoting to enrolled is not a fresh
+        # signup, so no new alert.
+        SessionParticipation.objects.create(
+            session=joined_session,
+            user=active_user,
+            status=SessionParticipationStatus.WAITING.value,
+        )
+
+        response = authenticated_client.post(
+            _enroll_url(joined_session.pk), data={f"user_{active_user.id}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert not Notification.objects.filter(
+            kind=NotificationKind.SHADOWBANNED_SIGNUP.value
+        ).exists()
+        assert not mailoutbox
 
     def test_no_email_when_player_not_shadowbanned(
         self, authenticated_client, agenda_item, active_user, event, space, mailoutbox
