@@ -42,7 +42,7 @@
                             {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
                                 {% if p.status == 'confirmed' %}
                                     {% if p.user.pk in shadowbanned_ids %}
-                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" ring_class="ring-2 ring-danger" %}
+                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=True %}
                                     {% else %}
                                         {% include "components/avatar.html" with user=p.user size="w-7 h-7" %}
                                     {% endif %}

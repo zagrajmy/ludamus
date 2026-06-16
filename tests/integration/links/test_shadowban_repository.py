@@ -4,7 +4,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories import ShadowbanRepository
+from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.pacts import NotFoundError
 from tests.integration.conftest import SessionFactory, UserFactory
 

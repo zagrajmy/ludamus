@@ -32,6 +32,15 @@ class ShadowbanService:
     def list_candidates(self, owner_id: int) -> list[ShadowbanCandidateDTO]:
         return self._repo.list_candidates(owner_id)
 
+    def banned_user_ids(self, owner_id: int) -> set[int]:
+        # Players this user shadowbanned — for red-ring avatars and the
+        # enrolment skip (a presenter can't have banned players seated).
+        return self._repo.banned_user_ids(owner_id)
+
+    def banning_presenter_ids(self, viewer_id: int) -> set[int]:
+        # Presenters who shadowbanned this viewer — their sessions are hidden.
+        return self._repo.banning_owner_ids(viewer_id)
+
     def set_shadowban(self, *, owner_id: int, target_slug: str, banned: bool) -> None:
         with self._transaction.atomic():
             self._repo.set_shadowban(
@@ -95,6 +104,9 @@ class EventBanService:
 
     def list_for_event(self, event_id: int) -> list[EventBanDTO]:
         return self._repo.list_by_event(event_id)
+
+    def is_banned(self, *, event_id: int, user_id: int) -> bool:
+        return self._repo.is_banned(event_id=event_id, user_id=user_id)
 
     def ban(self, *, event_id: int, identifier: str, reason: str) -> bool:
         if not (identifier := identifier.strip()):

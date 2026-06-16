@@ -22,7 +22,7 @@
                 <ul class="flex flex-col gap-2">
                     {% for warning in shadowban_warnings %}
                         <li class="flex items-center gap-2">
-                            {% include "components/avatar.html" with user=warning.user size="size-8" ring_class="ring-2 ring-danger" %}
+                            {% include "components/avatar.html" with user=warning.user size="size-8" danger_ring=True %}
                             <span class="font-medium">{{ warning.user.full_name }}</span>
                             <span class="text-sm text-foreground-muted">
                                 {% blocktranslate with date=warning.shadowbanned_at|date:"SHORT_DATE_FORMAT" %}shadowbanned on {{ date }}{% endblocktranslate %}

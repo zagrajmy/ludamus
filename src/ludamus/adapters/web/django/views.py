@@ -38,13 +38,11 @@ from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Event,
-    EventBan,
     EventSettings,
     Session,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
-    Shadowban,
 )
 from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
@@ -54,6 +52,7 @@ from ludamus.adapters.web.django.entities import (
     SessionUserParticipationData,
     build_display_field_row,
 )
+from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -824,50 +823,6 @@ def _field_value_dtos_from_models(
     )
 
 
-_SIMULACRA_FILL = 8
-_SIMULACRA_NAMES = (
-    "Aleksandra Nowak",
-    "Piotr Kowalski",
-    "Maria Wiśniewska",
-    "Jan Lewandowski",
-    "Anna Zielińska",
-)
-
-
-def _simulacra_participations(count: int) -> list[ParticipationInfo]:
-    now = datetime.now(tz=UTC)
-    return [
-        ParticipationInfo(
-            user=UserInfo(
-                avatar_url=None,
-                discord_username="",
-                full_name=name,
-                name=name,
-                pk=0,
-                slug="",
-                username="",
-            ),
-            status=SessionParticipationStatus.CONFIRMED.value,
-            creation_time=now,
-        )
-        for name in _SIMULACRA_NAMES[:count]
-    ]
-
-
-def _apply_event_ban_simulacra(session_data: SessionData) -> None:
-    fill = session_data.effective_participants_limit or _SIMULACRA_FILL
-    session_data.effective_participants_limit = fill
-    session_data.enrolled_count = fill
-    session_data.waiting_count = 0
-    session_data.is_full = True
-    session_data.is_enrollment_available = True
-    session_data.has_any_enrollments = True
-    session_data.full_participant_info = f"{fill}/{fill}"
-    session_data.user_enrolled = False
-    session_data.user_waiting = False
-    session_data.session_participations = _simulacra_participations(min(3, fill))
-
-
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -922,13 +877,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # and collect the viewer's shadowbans to red-ring their avatars.
         shadowbanned_ids: set[int] = set()
         if current_user_id := self.request.context.current_user_id:
-            event_sessions = event_sessions.exclude(
-                presenter__shadowbanned__id=current_user_id
-            )
-            shadowbanned_ids = set(
-                Shadowban.objects.filter(owner_id=current_user_id).values_list(
-                    "target_id", flat=True
-                )
+            if hidden := self.request.services.shadowban.banning_presenter_ids(
+                current_user_id
+            ):
+                event_sessions = event_sessions.exclude(presenter_id__in=hidden)
+            shadowbanned_ids = self.request.services.shadowban.banned_user_ids(
+                current_user_id
             )
 
         hour_data = dict(self._get_hour_data(event_sessions))
@@ -938,15 +892,15 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
         # full and they are never told they are banned.
-        event_banned = (
-            current_user_id is not None
-            and EventBan.objects.filter(
-                event=self.object, user_id=current_user_id
-            ).exists()
+        event_banned = current_user_id is not None and (
+            self.request.services.event_bans.is_banned(
+                event_id=self.object.pk, user_id=current_user_id
+            )
         )
         if event_banned:
-            for session_data in sessions_data.values():
-                _apply_event_ban_simulacra(session_data)
+            sessions_data = {
+                sid: fake_full_card(data) for sid, data in sessions_data.items()
+            }
 
         current_time = datetime.now(tz=UTC)
         ended_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
@@ -1353,12 +1307,10 @@ def _get_session_or_redirect(
         raise RedirectError(
             reverse("web:index"), error=_("Session not found.")
         ) from None
+    viewer_id = request.context.current_user_id
     # Shadowban: a player the presenter shadowbanned cannot reach the session.
-    if (
-        session.presenter_id
-        and Session.objects.filter(
-            id=session.pk, presenter__shadowbanned__id=request.context.current_user_id
-        ).exists()
+    if session.presenter_id in request.services.shadowban.banning_presenter_ids(
+        viewer_id
     ):
         raise RedirectError(
             reverse("web:index"), error=_("Session not found.")
@@ -1371,12 +1323,7 @@ def _get_session_or_redirect(
     # Hard event ban: a banned user cannot enrol; bounce them back to the
     # (fake-full) event page without revealing the ban.
     event = session.agenda_item.space.area.venue.event
-    if (
-        request.context.current_user_id
-        and EventBan.objects.filter(
-            event=event, user_id=request.context.current_user_id
-        ).exists()
-    ):
+    if request.services.event_bans.is_banned(event_id=event.pk, user_id=viewer_id):
         raise RedirectError(
             reverse("web:chronology:event", kwargs={"slug": event.slug})
         ) from None
@@ -1685,10 +1632,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         # Players the presenter shadowbanned must not be seated — even when an
         # unbanned manager tries to enroll a banned connected sub-user.
-        presenter = session.presenter
         shadowbanned_ids = (
-            set(presenter.shadowbanned.values_list("pk", flat=True))
-            if presenter
+            self.request.services.shadowban.banned_user_ids(session.presenter_id)
+            if session.presenter_id
             else set()
         )
 
