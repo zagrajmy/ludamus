@@ -10,6 +10,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
@@ -86,6 +87,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
+        context["accreditation_type_display"] = AccreditationType(
+            facilitator.accreditation_type
+        ).label
         context["personal_data_items"] = personal_data_items
         context["has_personal_data"] = has_personal_data
         return TemplateResponse(self.request, "panel/facilitator-detail.html", context)

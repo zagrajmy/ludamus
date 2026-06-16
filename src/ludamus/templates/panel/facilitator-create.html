@@ -48,7 +48,7 @@
                                    for="id_accreditation_type">{% translate "Accreditation type" %}</label>
                             <select name="accreditation_type"
                                     id="id_accreditation_type"
-                                    class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    class="w-full border {% if form.accreditation_type.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                                 {% for value, label in form.accreditation_type.field.choices %}
                                     <option value="{{ value }}"
                                             {% if form.accreditation_type.value|default:"none" == value %}selected{% endif %}>
@@ -56,6 +56,9 @@
                                     </option>
                                 {% endfor %}
                             </select>
+                            {% if form.accreditation_type.errors %}
+                                <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

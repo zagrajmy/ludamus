@@ -123,6 +123,7 @@ class TestFacilitatorDetailPageView:
             context_data={
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
             },
@@ -166,6 +167,7 @@ class TestFacilitatorDetailPageView:
             context_data={
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "accreditation_type_display": "None",
                 "personal_data_items": [(field_dto, None)],
                 "has_personal_data": False,
             },

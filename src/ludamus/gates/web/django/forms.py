@@ -7,6 +7,8 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.adapters.db.django.models import AccreditationType
+
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # Image-upload invariants (business rules, not gate trivia): every cover/header
 # upload across the app is held to these same limits via validate_uploaded_image.
@@ -481,13 +483,6 @@ def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditF
 class FacilitatorForm(forms.Form):
     """Form for creating/editing a facilitator."""
 
-    ACCREDITATION_TYPE_CHOICES: ClassVar = [
-        ("none", _("None")),
-        ("standard", _("Standard")),
-        ("guest", _("Guest")),
-        ("honorary", _("Honorary")),
-    ]
-
     display_name = forms.CharField(
         max_length=255,
         strip=True,
@@ -497,11 +492,11 @@ class FacilitatorForm(forms.Form):
         },
     )
     accreditation_type = forms.ChoiceField(
-        choices=ACCREDITATION_TYPE_CHOICES,
-        initial="none",
+        choices=AccreditationType.choices,
+        initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
     )
 
     def clean_accreditation_type(self) -> str:
-        return self.cleaned_data.get("accreditation_type") or "none"
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
