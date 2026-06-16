@@ -128,6 +128,19 @@ class TestFacilitatorDetailPageView:
             },
         )
 
+    def test_get_shows_accreditation_type(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, accreditation_type="honorary")
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        html = response.content.decode()
+        assert "Accreditation type" in html
+        assert "Honorary" in html
+
     def test_get_shows_personal_data_fields(
         self, authenticated_client, active_user, sphere, event
     ):

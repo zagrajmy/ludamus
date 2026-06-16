@@ -44,6 +44,20 @@
                         </dd>
                     </div>
                     <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Accreditation type" %}</dt>
+                        <dd class="text-foreground">
+                            {% if facilitator.accreditation_type == "standard" %}
+                                {% translate "Standard" %}
+                            {% elif facilitator.accreditation_type == "guest" %}
+                                {% translate "Guest" %}
+                            {% elif facilitator.accreditation_type == "honorary" %}
+                                {% translate "Honorary" %}
+                            {% else %}
+                                {% translate "None" %}
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div>
                         <dt class="text-xs text-foreground-muted">{% translate "Linked User" %}</dt>
                         <dd class="text-foreground">
                             {% if facilitator.user_id %}

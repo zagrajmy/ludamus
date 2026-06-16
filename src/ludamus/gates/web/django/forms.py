@@ -481,6 +481,13 @@ def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditF
 class FacilitatorForm(forms.Form):
     """Form for creating/editing a facilitator."""
 
+    ACCREDITATION_TYPE_CHOICES: ClassVar = [
+        ("none", _("None")),
+        ("standard", _("Standard")),
+        ("guest", _("Guest")),
+        ("honorary", _("Honorary")),
+    ]
+
     display_name = forms.CharField(
         max_length=255,
         strip=True,
@@ -489,3 +496,12 @@ class FacilitatorForm(forms.Form):
             "required": _("Display name is required."),
         },
     )
+    accreditation_type = forms.ChoiceField(
+        choices=ACCREDITATION_TYPE_CHOICES,
+        initial="none",
+        required=False,
+        label=_("Accreditation type"),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or "none"

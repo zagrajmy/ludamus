@@ -152,3 +152,26 @@ class TestFacilitatorCreatePageView:
             context_data={**_base_context(event), "form": ANY},
         )
         assert response.context["form"].errors
+
+    def test_post_creates_facilitator_with_default_accreditation(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        authenticated_client.post(self.get_url(event), data={"display_name": "Bob"})
+
+        facilitator = Facilitator.objects.get(event=event, display_name="Bob")
+        assert facilitator.accreditation_type == "none"
+
+    def test_post_creates_facilitator_with_chosen_accreditation(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={"display_name": "Guest", "accreditation_type": "guest"},
+        )
+
+        facilitator = Facilitator.objects.get(event=event, display_name="Guest")
+        assert facilitator.accreditation_type == "guest"
