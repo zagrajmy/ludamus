@@ -68,6 +68,7 @@ from ludamus.pacts import (
     AgendaItemDTO,
     AreaDTO,
     EventDTO,
+    EventListItemDTO,
     LocationData,
     NotFoundError,
     RedirectError,
@@ -109,6 +110,16 @@ MINIMUM_ALLOWED_USER_AGE = 16
 CACHE_TIMEOUT = 600  # 10 minutes
 
 
+def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
+    host = urlparse(url).netloc
+    allowed = {root_domain}
+    if host and (host == root_domain or host.endswith(f".{root_domain}")):
+        allowed.add(host)
+    return url_has_allowed_host_and_scheme(
+        url, allowed_hosts=allowed, require_https=require_https
+    )
+
+
 class LoginRequiredPageView(TemplateView):
     template_name = "crowd/login_required.html"
 
@@ -133,10 +144,14 @@ class Auth0LoginActionView(View):
         Raises:
             RedirectError: If the request is not from the root domain.
         """
-        root_domain = request.di.uow.spheres.read_site(
+        root_domain = request.services.sites.read_site(
             request.context.root_sphere_id
         ).domain
         next_path = request.GET.get("next")
+        if next_path and not _is_safe_login_redirect(
+            next_path, root_domain, require_https=request.is_secure()
+        ):
+            next_path = None
         if request.get_host() != root_domain:
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
@@ -229,6 +244,14 @@ class Auth0LoginCallbackActionView(RedirectView):
 
         if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
             return index_url
+
+        root_domain = self.request.services.sites.read_site(
+            self.request.context.root_sphere_id
+        ).domain
+        if redirect_to and not _is_safe_login_redirect(
+            redirect_to, root_domain, require_https=self.request.is_secure()
+        ):
+            redirect_to = ""
 
         if self.request.context.current_user_slug:
             return redirect_to or index_url
@@ -489,8 +512,25 @@ class EventsPageView(TemplateView):
             self.request.context.current_sphere_id,
             include_unpublished=_is_manager(self.request),
         )
-        # Uploaded cover when present, otherwise a placeholder assigned by index.
-        event_datas = [
+        context["upcoming_events"] = self._with_covers(
+            sorted(
+                (item for item in items if not item.is_ended),
+                key=lambda item: item.start_time,
+            )
+        )
+        context["past_events"] = self._with_covers(
+            sorted(
+                (item for item in items if item.is_ended),
+                key=lambda item: item.start_time,
+                reverse=True,
+            )
+        )
+        return context
+
+    @staticmethod
+    def _with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
+        # Uploaded cover when present, otherwise a placeholder cycled by position.
+        return [
             EventInfo.from_list_item(
                 item,
                 cover_image_url=item.cover_image_url
@@ -500,9 +540,6 @@ class EventsPageView(TemplateView):
             )
             for i, item in enumerate(items)
         ]
-        context["upcoming_events"] = [e for e in event_datas if not e.is_ended]
-        context["past_events"] = [e for e in event_datas if e.is_ended]
-        return context
 
 
 class ProfilePageView(
@@ -854,6 +891,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "tags__category",
                 "session_participations__user__manager",
                 "session_participations__user__connected",
+                "field_values__field",
                 "agenda_item__space__area__venue__event__enrollment_configs",
             )
             .annotate(
@@ -1223,9 +1261,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         status=sp.status,
                         creation_time=sp.creation_time,
                     )
-                    for sp in session.session_participations.select_related(
-                        "user"
-                    ).all()
+                    for sp in session.session_participations.all()
                 ],
             )
 

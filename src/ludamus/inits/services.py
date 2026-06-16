@@ -22,6 +22,7 @@ from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionServ
 from ludamus.mills.multiverse import (
     ConnectionsService,
     EventsService,
+    SitesService,
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
@@ -79,6 +80,10 @@ class Services:
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
         return SpherePanelService(self._repos.spheres, self._repos.events)
+
+    @cached_property
+    def sites(self) -> SitesService:
+        return SitesService(self._repos.spheres)
 
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import (
         ConnectionsServiceProtocol,
         EventsServiceProtocol,
+        SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
@@ -44,6 +45,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
+    @property
+    def sites(self) -> SitesServiceProtocol: ...
     @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -188,6 +188,66 @@ class TestEventsPageView:
             context_data={
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event)],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_upcoming_events_sorted_soonest_first(self, client, sphere):
+        now = datetime.now(UTC)
+        far = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=30),
+            end_time=now + timedelta(days=31),
+        )
+        soon = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=2),
+            end_time=now + timedelta(days=3),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "past_events": [],
+                "upcoming_events": [
+                    _expected_event_info(soon, cover_index=0),
+                    _expected_event_info(far, cover_index=1),
+                ],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_past_events_sorted_most_recent_first(self, client, sphere):
+        now = datetime.now(UTC)
+        older = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=30),
+            end_time=now - timedelta(days=29),
+            publication_time=now - timedelta(days=31),
+        )
+        recent = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=3),
+            end_time=now - timedelta(days=2),
+            publication_time=now - timedelta(days=4),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "past_events": [
+                    _expected_event_info(recent, cover_index=0),
+                    _expected_event_info(older, cover_index=1),
+                ],
+                "upcoming_events": [],
                 "view": ANY,
             },
             template_name=["index.html"],
