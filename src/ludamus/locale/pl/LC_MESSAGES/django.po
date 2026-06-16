@@ -5577,3 +5577,72 @@ msgstr "Brak powiadomień."
 #: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
 msgstr "Menu konta"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Content"
+msgstr "Treść"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Published"
+msgstr "Opublikowane"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Visible on the public page. Uncheck to keep it as a draft."
+msgstr "Widoczne na stronie publicznej. Odznacz, aby zostawić jako szkic."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
+msgid "Announcement not found."
+msgstr "Ogłoszenie nie zostało znalezione."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
+msgid "Announcement created successfully."
+msgstr "Ogłoszenie zostało utworzone."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
+msgid "Announcement updated successfully."
+msgstr "Ogłoszenie zostało zaktualizowane."
+
+#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
+msgid "Announcement deleted successfully."
+msgstr "Ogłoszenie zostało usunięte."
+
+#: src/ludamus/templates/index.html
+#: src/ludamus/templates/multiverse/panel/_tabs.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Organization announcements"
+msgstr "Ogłoszenia organizacji"
+
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Organization announcements for this sphere"
+msgstr "Ogłoszenia organizacji dla tej sfery"
+
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "New announcement"
+msgstr "Nowe ogłoszenie"
+
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Draft"
+msgstr "Szkic"
+
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "No announcements yet."
+msgstr "Brak ogłoszeń."
+
+#: src/ludamus/templates/multiverse/panel/announcements/edit.html
+msgid "Edit announcement"
+msgstr "Edytuj ogłoszenie"
+
+#: src/ludamus/templates/multiverse/panel/announcements/delete.html
+msgid "Delete announcement"
+msgstr "Usuń ogłoszenie"
+
+#: src/ludamus/templates/multiverse/panel/announcements/delete.html
+#, python-format
+msgid ""
+"\n"
+"                Are you sure you want to delete announcement \"%(title)s\"?\n"
+"            "
+msgstr ""
+"\n"
+"                Czy na pewno chcesz usunąć ogłoszenie „%(title)s”?\n"
+"            "

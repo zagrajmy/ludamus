@@ -5,13 +5,12 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 ~12 top-level members or 1000 lines.
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SiteDTO, SphereDTO
 
 
