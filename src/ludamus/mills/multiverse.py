@@ -12,6 +12,7 @@ if TYPE_CHECKING:
         EventDTO,
         EventListItemDTO,
         EventRepositoryProtocol,
+        SiteDTO,
         SphereDTO,
         SphereRepositoryProtocol,
     )
@@ -113,3 +114,13 @@ class SpherePanelService:
             sphere_id,
             {"allow_facilitator_session_edit": allow_facilitator_session_edit},
         )
+
+
+class SitesService:
+    """Read-side loader for a sphere's site (domain lookup)."""
+
+    def __init__(self, spheres: SphereRepositoryProtocol) -> None:
+        self._spheres = spheres
+
+    def read_site(self, sphere_id: int) -> SiteDTO:
+        return self._spheres.read_site(sphere_id)
