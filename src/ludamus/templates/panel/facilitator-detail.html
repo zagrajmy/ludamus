@@ -44,6 +44,12 @@
                         </dd>
                     </div>
                     <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Accreditation type" %}</dt>
+                        <dd class="text-foreground">
+                            {{ accreditation_type_display }}
+                        </dd>
+                    </div>
+                    <div>
                         <dt class="text-xs text-foreground-muted">{% translate "Linked User" %}</dt>
                         <dd class="text-foreground">
                             {% if facilitator.user_id %}

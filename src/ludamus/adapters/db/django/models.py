@@ -647,6 +647,13 @@ class Tag(models.Model):
         return self.name
 
 
+class AccreditationType(models.TextChoices):
+    NONE = "none", _("None")
+    STANDARD = "standard", _("Standard")
+    GUEST = "guest", _("Guest")
+    HONORARY = "honorary", _("Honorary")
+
+
 class Facilitator(models.Model):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -662,6 +669,9 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    accreditation_type = models.CharField(
+        max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
+    )
 
     class Meta:
         db_table = "facilitator"

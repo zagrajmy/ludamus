@@ -126,8 +126,8 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(Facilitator)
 class FacilitatorAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("display_name", "event", "user")
-    list_filter = ("event",)
+    list_display = ("display_name", "event", "user", "accreditation_type")
+    list_filter = ("event", "accreditation_type")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {
         "slug": ("display_name",)
     }
