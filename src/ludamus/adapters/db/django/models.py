@@ -1556,6 +1556,29 @@ class Connection(models.Model):
         return bool(self.secret)
 
 
+class Announcement(models.Model):
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="announcements"
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    is_published = models.BooleanField(default=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "announcement"
+        ordering = ("-creation_time",)
+        indexes = (
+            models.Index(
+                fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.title
+
+
 class EventIntegration(models.Model):
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="integrations"

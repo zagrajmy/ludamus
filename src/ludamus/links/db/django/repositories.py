@@ -12,6 +12,7 @@ from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
+    Announcement,
     Area,
     Connection,
     DomainEnrollmentConfig,
@@ -133,6 +134,9 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
 )
 from ludamus.pacts.multiverse import (
+    AnnouncementData,
+    AnnouncementDTO,
+    AnnouncementsRepositoryProtocol,
     ConnectionDTO,
     ConnectionsRepositoryProtocol,
     DuplicateConnectionDisplayNameError,
@@ -2702,6 +2706,60 @@ def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
         _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
         or _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
     )
+
+
+class AnnouncementsRepository(AnnouncementsRepositoryProtocol):
+    @staticmethod
+    def list_for_sphere(sphere_id: int) -> list[AnnouncementDTO]:
+        return [
+            AnnouncementDTO.model_validate(a)
+            for a in Announcement.objects.filter(sphere_id=sphere_id)
+        ]
+
+    @staticmethod
+    def list_published(sphere_id: int) -> list[AnnouncementDTO]:
+        return [
+            AnnouncementDTO.model_validate(a)
+            for a in Announcement.objects.filter(sphere_id=sphere_id, is_published=True)
+        ]
+
+    @staticmethod
+    def get(sphere_id: int, pk: int) -> AnnouncementDTO:
+        try:
+            announcement = Announcement.objects.get(pk=pk, sphere_id=sphere_id)
+        except Announcement.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return AnnouncementDTO.model_validate(announcement)
+
+    @staticmethod
+    def create(sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
+        announcement = Announcement.objects.create(
+            sphere_id=sphere_id,
+            title=data.title,
+            content=data.content,
+            is_published=data.is_published,
+        )
+        return AnnouncementDTO.model_validate(announcement)
+
+    @staticmethod
+    def update(sphere_id: int, pk: int, data: AnnouncementData) -> AnnouncementDTO:
+        try:
+            announcement = Announcement.objects.get(pk=pk, sphere_id=sphere_id)
+        except Announcement.DoesNotExist as exc:
+            raise NotFoundError from exc
+        announcement.title = data.title
+        announcement.content = data.content
+        announcement.is_published = data.is_published
+        announcement.save(
+            update_fields=["title", "content", "is_published", "modification_time"]
+        )
+        return AnnouncementDTO.model_validate(announcement)
+
+    @staticmethod
+    def delete(sphere_id: int, pk: int) -> None:
+        deleted, _ = Announcement.objects.filter(pk=pk, sphere_id=sphere_id).delete()
+        if not deleted:
+            raise NotFoundError
 
 
 class ConnectionsRepository(ConnectionsRepositoryProtocol):

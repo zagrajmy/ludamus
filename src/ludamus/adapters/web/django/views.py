@@ -508,9 +508,12 @@ class EventsPageView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
+        sphere_id = self.request.context.current_sphere_id
+        context["announcements"] = self.request.services.announcements.list_published(
+            sphere_id
+        )
         items = self.request.services.events.list_for_sphere(
-            self.request.context.current_sphere_id,
-            include_unpublished=_is_manager(self.request),
+            sphere_id, include_unpublished=_is_manager(self.request)
         )
         context["upcoming_events"] = self._with_covers(
             sorted(
