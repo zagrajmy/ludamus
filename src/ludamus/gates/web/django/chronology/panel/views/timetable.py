@@ -453,6 +453,9 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         spaces = uow.spaces.list_by_event(current_event.pk)
 
         context["logs"] = logs
+        context["revertible_pks"] = set(
+            uow.schedule_change_logs.latest_pks_by_session(current_event.pk).values()
+        )
         context["spaces"] = spaces
         context["space_pk"] = space_pk
         context["slug"] = slug
