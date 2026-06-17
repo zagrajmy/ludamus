@@ -7,8 +7,6 @@ from django.utils.translation import gettext_lazy as _
 
 
 class AnnouncementForm(forms.Form):
-    """Form for creating/editing organization announcements."""
-
     title = forms.CharField(label=_("Title"), max_length=255, strip=True)
     content = forms.CharField(
         label=_("Content"), widget=forms.Textarea(attrs={"rows": 8})

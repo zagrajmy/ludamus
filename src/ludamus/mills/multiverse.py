@@ -28,8 +28,6 @@ if TYPE_CHECKING:
 
 
 class AnnouncementsService:
-    """CRUD for sphere-scoped announcements."""
-
     def __init__(
         self,
         transaction: TransactionProtocol,

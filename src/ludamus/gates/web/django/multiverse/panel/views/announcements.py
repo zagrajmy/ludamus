@@ -1,5 +1,3 @@
-"""Announcement CRUD views for the sphere panel."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -39,8 +37,6 @@ def _form_data(form: AnnouncementForm) -> AnnouncementData:
 
 
 class AnnouncementsPageView(SphereAccessMixin, View):
-    """List organization announcements for the current sphere."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
@@ -57,8 +53,6 @@ class AnnouncementsPageView(SphereAccessMixin, View):
 
 
 class AnnouncementCreatePageView(SphereAccessMixin, View):
-    """Create a new organization announcement."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
@@ -90,8 +84,6 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
 
 
 class AnnouncementEditPageView(SphereAccessMixin, View):
-    """Edit an existing organization announcement."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
@@ -143,8 +135,6 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
 
 
 class AnnouncementDeletePageView(SphereAccessMixin, View):
-    """Confirm-and-delete page for an announcement."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
