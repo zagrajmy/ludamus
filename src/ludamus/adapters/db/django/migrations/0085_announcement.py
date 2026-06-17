@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0083_proposalcategory_offer_claim_window_and_more")]
+    dependencies = [("db_main", "0084_facilitator_accreditation_type")]
 
     operations = [
         migrations.CreateModel(

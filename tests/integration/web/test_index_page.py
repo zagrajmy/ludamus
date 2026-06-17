@@ -307,6 +307,7 @@ class TestEventsPageView:
                     _expected_event_info(recent, cover_index=0),
                     _expected_event_info(older, cover_index=1),
                 ],
+                "announcements": [],
                 "view": ANY,
             },
             template_name=["index.html"],
