@@ -1451,8 +1451,9 @@ class ContentChangeLogData(TypedDict):
 class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
+    # `field_values` None leaves dynamic answers untouched (partial POST guard).
     update: SessionUpdateData
-    field_values: list[SessionFieldValueData]
+    field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
 
 

@@ -21,6 +21,7 @@ from ludamus.pacts import (
     ScheduleChangeLogData,
     SessionContentEditData,
     SessionDTO,
+    SessionFieldValueData,
     SessionSelfEditContext,
     SessionStatus,
 )
@@ -76,7 +77,6 @@ if TYPE_CHECKING:
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
-        SessionFieldValueData,
         SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
@@ -928,11 +928,22 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
-            self._sessions.save_field_values(session_id, data.field_values)
+            if data.field_values is not None:
+                self._sessions.save_field_values(session_id, data.field_values)
+            values_for_diff = (
+                data.field_values
+                if data.field_values is not None
+                else [
+                    SessionFieldValueData(
+                        session_id=session_id, field_id=fv.field_id, value=fv.value
+                    )
+                    for fv in old_values
+                ]
+            )
             if data.facilitator_ids is not None:
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
             changes = diff_session_content(
-                old_session, data.update, old_values, data.field_values
+                old_session, data.update, old_values, values_for_diff
             )
             if changes:
                 log_data: ContentChangeLogData = {
@@ -1014,7 +1025,7 @@ class SessionSelfEditService:
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None:
         allowed, _session, event = self._gate(session_id, user_id)
         if not allowed or event is None:

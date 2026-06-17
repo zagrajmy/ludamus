@@ -141,7 +141,7 @@ class SessionSelfEditServiceProtocol(Protocol):
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None: ...
 
 

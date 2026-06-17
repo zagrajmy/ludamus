@@ -26,6 +26,7 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
             "display_name": "Host",
             "participants_limit": 5,
             "min_age": 0,
+            "session_fields_submitted": "1",
             "session_field_adult": "true",
         }
         url = self.get_url(event, session.pk)

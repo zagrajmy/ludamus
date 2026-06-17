@@ -865,7 +865,9 @@ def _collect_session_field_values(
     request: SessionEditRequest,
     session_id: int,
     session_fields: Sequence[tuple[SessionFieldDTO, object]],
-) -> list[SessionFieldValueData]:
+) -> list[SessionFieldValueData] | None:
+    if request.POST.get("session_fields_submitted") != "1":
+        return None
     entries: list[SessionFieldValueData] = []
     for field, _current in session_fields:
         key = f"session_field_{field.slug}"
