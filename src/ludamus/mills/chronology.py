@@ -370,9 +370,9 @@ class TimetableService:
         # is rejected instead of racing past the check (TOCTOU).
         with self._uow.atomic():
             self._uow.sessions.lock(log.session_id)
-            latest_pk = self._uow.schedule_change_logs.latest_pks_by_session(
-                event_pk
-            ).get(log.session_id)
+            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
+            )
             if latest_pk != log_pk:
                 # Only the most recent change for a session may be undone, so
                 # reverts always unwind history in order.

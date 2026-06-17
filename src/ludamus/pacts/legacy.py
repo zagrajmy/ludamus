@@ -1428,6 +1428,9 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     @staticmethod
     def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
 
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
 
 ContentFieldValue = str | int | bool | list[str] | None
 

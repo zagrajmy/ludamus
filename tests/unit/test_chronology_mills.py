@@ -132,7 +132,7 @@ class TestRevertChange:
     def mock_uow(self):
         uow = MagicMock()
         # By default the log under test (pk 1, session 1) is the latest change.
-        uow.schedule_change_logs.latest_pks_by_session.return_value = {1: 1}
+        uow.schedule_change_logs.latest_pk_for_session.return_value = 1
         return uow
 
     @pytest.fixture
@@ -147,7 +147,7 @@ class TestRevertChange:
         log.session_id = 1
         mock_uow.schedule_change_logs.read.return_value = log
         # A newer change (pk 2) exists for the same session.
-        mock_uow.schedule_change_logs.latest_pks_by_session.return_value = {1: 2}
+        mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 2
 
         with pytest.raises(ValueError, match="latest change"):
             service.revert_change(log_pk=1, event_pk=1)
