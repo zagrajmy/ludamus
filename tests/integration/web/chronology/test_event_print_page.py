@@ -366,6 +366,39 @@ class TestPublicEventPrintView:
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["selected_track"] == "focused-track"
 
+    def test_space_timetable_scoped_to_selected_space(
+        self, client, event, session, space
+    ):
+        _confirmed_item(event, session, space)
+
+        response = client.get(
+            self._url(event.slug), {"material": "space-timetable", "space": space.pk}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["material"] == "space-timetable"
+        assert response.context_data["selected_space"] == str(space.pk)
+        assert session.title in response.content.decode()
+
+    def test_track_timetable_scoped_to_selected_track(
+        self, client, event, session, space
+    ):
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session.tracks.add(track)
+        space.tracks.add(track)
+        _confirmed_item(event, session, space)
+
+        response = client.get(
+            self._url(event.slug), {"material": "track-timetable", "track": track.slug}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["material"] == "track-timetable"
+        assert response.context_data["selected_track"] == "main-track"
+        assert session.title in response.content.decode()
+
 
 class TestEventPagePrintHijack:
     def test_event_page_points_to_print_page(self, client, event):

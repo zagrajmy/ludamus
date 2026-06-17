@@ -79,6 +79,18 @@ class TestEventSettingsPageViewGet:
             },
         )
 
+    def test_shows_existing_logo_preview(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/brand.png"
+        event.save()
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert "events/brand.png" in response.content.decode()
+
     def test_inherit_label_reflects_sphere_default_disallowed(
         self, authenticated_client, active_user, sphere, event
     ):

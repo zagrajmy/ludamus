@@ -14,7 +14,10 @@
         </div>
         {% if scope_name %}<div class="mt-[1mm] text-[11pt] font-semibold">{{ scope_name }}</div>{% endif %}
     </div>
-    <div class="shrink-0 text-center [&_svg]:h-[26mm] [&_svg]:w-[26mm]">
+    {% translate "QR code linking to the full schedule" as qr_label %}
+    <div class="shrink-0 text-center [&_svg]:h-[26mm] [&_svg]:w-[26mm]"
+         role="img"
+         aria-label="{{ qr_label }}">
         {% if show_full_schedule_label %}
             <div class="mb-[1mm] text-[8pt] font-semibold tracking-wide">{% translate "Full schedule" %}</div>
         {% endif %}
