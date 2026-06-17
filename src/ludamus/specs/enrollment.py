@@ -40,7 +40,7 @@ def select_promotable_parties(
     state: PromotionStateDTO,
 ) -> list[list[WaitingParticipantDTO]]:
     # Walks parties front-to-back filling `available_seats`. A party with no
-    # still-eligible members (conflict / inactive / presenter) or no remaining
+    # still-eligible members (conflict / presenter) or no remaining
     # membership slots is skipped — it can never be promoted now, so it does not
     # hold the line. Otherwise the party is promoted only if all its eligible
     # members fit the remaining seats *and* membership allowance at once; the

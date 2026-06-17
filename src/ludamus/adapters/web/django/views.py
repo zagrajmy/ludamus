@@ -1688,29 +1688,37 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         for req in ordered_requests:
-            # Handle cancellation
             if req.choice == "cancel":
-                existing_participation = next(
-                    (p for p in participations if p.user.id == req.user.pk), None
+                self._handle_cancellation(req, participations, enrollments)
+            else:
+                self._check_and_create_enrollment(
+                    req, session, enrollments, shadowbanned_ids
                 )
-                if existing_participation is None:
-                    enrollments.skipped_users.append(
-                        f"{req.name} ({_('no enrollment to cancel')!s})"
-                    )
-                    continue
-
-                # A freed confirmed (or held offered) seat triggers waiting-list
-                # promotion after the transaction commits, via the service.
-                if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
-                    enrollments.freed_seat = True
-                existing_participation.delete()
-                enrollments.cancelled_users.append(req.name)
-                continue
-
-            self._check_and_create_enrollment(
-                req, session, enrollments, shadowbanned_ids
-            )
         return enrollments
+
+    @staticmethod
+    def _handle_cancellation(
+        req: EnrollmentRequest,
+        participations: Iterable[SessionParticipation],
+        enrollments: Enrollments,
+    ) -> None:
+        # A racing request may have already deleted the row (the form would
+        # otherwise reject "cancel"); skip gracefully instead of raising.
+        existing_participation = next(
+            (p for p in participations if p.user.id == req.user.pk), None
+        )
+        if existing_participation is None:
+            enrollments.skipped_users.append(
+                f"{req.name} ({_('no enrollment to cancel')!s})"
+            )
+            return
+
+        # A freed confirmed (or held offered) seat triggers waiting-list
+        # promotion after the transaction commits, via the service.
+        if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
+            enrollments.freed_seat = True
+        existing_participation.delete()
+        enrollments.cancelled_users.append(req.name)
 
     @staticmethod
     def _check_and_create_enrollment(
