@@ -4,7 +4,12 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q
 
-from ludamus.adapters.db.django.models import AgendaItem, EventBan, Shadowban
+from ludamus.adapters.db.django.models import (
+    REASON_MAX_LENGTH,
+    AgendaItem,
+    EventBan,
+    Shadowban,
+)
 from ludamus.pacts import NotFoundError, SessionParticipationStatus, UserDTO
 from ludamus.pacts.safety import (
     EventBanDTO,
@@ -22,9 +27,6 @@ else:
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
-
-# Mirrors EventBan.reason's max_length (both live in this links layer).
-_REASON_MAX_LENGTH = 255
 
 
 def _resolve_user(identifier: str) -> User | None:
@@ -202,7 +204,7 @@ class EventBanRepository(EventBanRepositoryProtocol):
         EventBan.objects.update_or_create(
             event_id=event_id,
             user=user,
-            defaults={"reason": reason[:_REASON_MAX_LENGTH]},
+            defaults={"reason": reason[:REASON_MAX_LENGTH]},
         )
         return True
 

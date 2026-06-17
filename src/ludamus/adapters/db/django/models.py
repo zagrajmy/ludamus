@@ -159,10 +159,13 @@ class Shadowban(models.Model):
         return f"{self.owner_id} shadowbanned {self.target_id}"
 
 
+REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
+
+
 class EventBan(models.Model):
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
-    reason = models.CharField(max_length=255, blank=True, default="")
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
