@@ -355,7 +355,7 @@ class TestEventSettingsPageViewPost:
         sphere.managers.add(active_user)
         image = SimpleUploadedFile(
             "cover.png",
-            PNG_BYTES + b"0" * (2 * 1024 * 1024 + 1),
+            PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
             content_type="image/png",
         )
 
@@ -370,7 +370,7 @@ class TestEventSettingsPageViewPost:
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["cover_image"] == [
-            "Image too large. Maximum size is 2 MB."
+            "Image too large. Maximum size is 8 MB."
         ]
         event.refresh_from_db()
         assert not event.cover_image
@@ -421,7 +421,7 @@ class TestEventSettingsPageViewPost:
         sphere.managers.add(active_user)
         logo = SimpleUploadedFile(
             "logo.png",
-            PNG_BYTES + b"0" * (2 * 1024 * 1024 + 1),
+            PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
             content_type="image/png",
         )
 
@@ -436,7 +436,7 @@ class TestEventSettingsPageViewPost:
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["logo"] == [
-            "Image too large. Maximum size is 2 MB."
+            "Image too large. Maximum size is 8 MB."
         ]
         event.refresh_from_db()
         assert not event.logo

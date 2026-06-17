@@ -1529,7 +1529,7 @@ class TestProposeSessionPageView:
         self._set_wizard_category(authenticated_client, event, proposal_category)
         image = SimpleUploadedFile(
             "cover.png",
-            PNG_BYTES + b"0" * (2 * 1024 * 1024 + 1),
+            PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
             content_type="image/png",
         )
 

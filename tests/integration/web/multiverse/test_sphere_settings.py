@@ -134,7 +134,7 @@ class TestSphereSettingsPageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        oversized = _PNG_BYTES + b"\x00" * (2 * 1024 * 1024 + 1)
+        oversized = _PNG_BYTES + b"\x00" * (8 * 1024 * 1024 + 1)
         logo = SimpleUploadedFile("big.png", oversized, content_type="image/png")
 
         response = authenticated_client.post(self.url, data={"logo": logo})
@@ -142,7 +142,7 @@ class TestSphereSettingsPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Image too large. Maximum size is 2 MB.")],
+            messages=[(messages.ERROR, "Image too large. Maximum size is 8 MB.")],
             url=self.url,
         )
 

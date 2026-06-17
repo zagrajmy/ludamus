@@ -95,7 +95,7 @@ test.describe('Event cover image upload', () => {
 
     const oversize = Buffer.concat([
       PNG_BYTES,
-      Buffer.alloc(2 * 1024 * 1024 + 1, 0),
+      Buffer.alloc(8 * 1024 * 1024 + 1, 0),
     ]);
     await page.getByLabel('Cover image').setInputFiles({
       name: 'huge.png',
