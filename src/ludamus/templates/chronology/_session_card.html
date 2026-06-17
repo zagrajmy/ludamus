@@ -44,11 +44,7 @@
                               aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
                             {% for p in data.session_participations|dictsort:"status"|slice:":3" %}
                                 {% if p.status == 'confirmed' %}
-                                    {% if p.user.pk in shadowbanned_ids %}
-                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=True %}
-                                    {% else %}
-                                        {% include "components/avatar.html" with user=p.user size="w-7 h-7" %}
-                                    {% endif %}
+                                    {% include "components/avatar.html" with user=p.user size="w-7 h-7" danger_ring=p.is_shadowbanned %}
                                 {% endif %}
                             {% endfor %}
                         </span>

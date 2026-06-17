@@ -56,6 +56,7 @@ class ParticipationInfo:
     user: UserInfo
     status: str
     creation_time: datetime
+    is_shadowbanned: bool = False
 
 
 @dataclass

@@ -912,20 +912,21 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         )
 
         # Shadowban: hide a presenter's sessions from players they shadowbanned,
-        # and collect the viewer's shadowbans to red-ring their avatars.
-        shadowbanned_ids: set[int] = set()
+        # and collect the viewer's shadowbans to red-ring their avatars (the
+        # ring is carried per-participation on the DTO, not via template logic).
+        shadowbanned_ids: frozenset[int] = frozenset()
         if current_user_id := self.request.context.current_user_id:
             if hidden := self.request.services.shadowban.banning_owner_ids(
                 current_user_id
             ):
                 event_sessions = event_sessions.exclude(presenter_id__in=hidden)
-            shadowbanned_ids = self.request.services.shadowban.banned_user_ids(
-                current_user_id
+            shadowbanned_ids = frozenset(
+                self.request.services.shadowban.banned_user_ids(current_user_id)
             )
 
-        hour_data = dict(self._get_hour_data(event_sessions))
+        hour_data = dict(self._get_hour_data(event_sessions, shadowbanned_ids))
         # Get session data objects that include enrollment status
-        sessions_data = self._get_session_data(event_sessions)
+        sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
 
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
@@ -977,7 +978,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "user_enrolled_session_titles": [
                     s.session.title for s in sessions_data.values() if s.user_enrolled
                 ],
-                "shadowbanned_ids": shadowbanned_ids,
                 "event_banned": event_banned,
             }
         )
@@ -1186,9 +1186,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         )
 
     def _get_hour_data(
-        self, event_sessions: QuerySet[Session]
+        self,
+        event_sessions: QuerySet[Session],
+        shadowbanned_ids: frozenset[int] = frozenset(),
     ) -> dict[datetime, list[SessionData]]:
-        sessions_data = self._get_session_data(event_sessions)
+        sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
 
         sessions_by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
         for session in event_sessions:
@@ -1199,7 +1201,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         return sessions_by_hour
 
     def _get_session_data(
-        self, event_sessions: QuerySet[Session]
+        self,
+        event_sessions: QuerySet[Session],
+        shadowbanned_ids: frozenset[int] = frozenset(),
     ) -> dict[int, SessionData]:
         event_override = self.object.allow_facilitator_session_edit
         sphere_default = self.object.sphere.allow_facilitator_session_edit
@@ -1260,6 +1264,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         ),
                         status=sp.status,
                         creation_time=sp.creation_time,
+                        is_shadowbanned=sp.user_id in shadowbanned_ids,
                     )
                     for sp in session.session_participations.all()
                 ],
