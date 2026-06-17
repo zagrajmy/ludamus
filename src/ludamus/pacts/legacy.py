@@ -413,6 +413,7 @@ class SiteDTO(BaseModel):
 class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
     name: str
@@ -420,9 +421,22 @@ class SphereDTO(BaseModel):
     site_id: int
 
 
+class SphereUpdateData(TypedDict, total=False):
+    allow_facilitator_session_edit: bool
+
+
+@dataclass
+class SessionSelfEditContext:
+    session: SessionDTO
+    event: EventDTO
+    session_fields: list[tuple[SessionFieldDTO, str | list[str] | bool | None]]
+    facilitators: list[FacilitatorDTO]
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    allow_facilitator_session_edit: bool | None = None
     description: str
     end_time: datetime
     name: str
@@ -432,6 +446,21 @@ class EventDTO(BaseModel):
     publication_time: datetime | None
     slug: str
     sphere_id: int
+    start_time: datetime
+
+
+class EventListItemDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    description: str
+    end_time: datetime
+    is_ended: bool
+    is_live: bool
+    is_proposal_active: bool
+    is_published: bool
+    name: str
+    session_count: int
+    slug: str
     start_time: datetime
 
 
@@ -642,6 +671,7 @@ class EventUpdateData(TypedDict, total=False):
     publication_time: datetime | None
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
+    allow_facilitator_session_edit: bool | None
 
 
 @dataclass
@@ -772,6 +802,8 @@ class SphereRepositoryProtocol(Protocol):
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
+    @staticmethod
+    def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
 class UserRepositoryProtocol(Protocol):
@@ -942,6 +974,10 @@ class EventRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
     @staticmethod
+    def list_for_events_page(
+        sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]: ...
+    @staticmethod
     def read(pk: int) -> EventDTO: ...
     @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO: ...
@@ -974,6 +1010,8 @@ class AreaRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def list_by_venue(venue_pk: int) -> list[AreaDTO]: ...
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[AreaDTO]: ...
     @staticmethod
     def read_by_slug(venue_pk: int, slug: str) -> AreaDTO: ...
     @staticmethod
