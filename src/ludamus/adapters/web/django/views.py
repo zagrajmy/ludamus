@@ -1680,7 +1680,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             else set()
         )
 
-        for req in enrollment_requests:
+        # Cancellations first: a seat freed in this batch must be available to a
+        # connected user enrolling in the same submit (e.g. swapping a seat on a
+        # full session).
+        ordered_requests = sorted(
+            enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1
+        )
+
+        for req in ordered_requests:
+            # Handle cancellation
             if req.choice == "cancel":
                 existing_participation = next(
                     (p for p in participations if p.user.id == req.user.pk), None
@@ -1769,13 +1777,27 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session: Session,
         enrollment_config: EnrollmentConfig,
     ) -> bool:
-        confirmed_requests = [
-            req for req in enrollment_requests if req.choice == "enroll"
-        ]
+        enroll_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        if enroll_count == 0:
+            return False
 
-        available_spots = enrollment_config.get_available_slots(session)
+        # A cancellation in the same batch frees its held seat (CONFIRMED or
+        # OFFERED) — exactly the statuses get_available_slots already counts as
+        # occupied — so credit it back before checking capacity.
+        cancelling_user_ids = {
+            req.user.pk for req in enrollment_requests if req.choice == "cancel"
+        }
+        freed_spots = 0
+        if cancelling_user_ids:
+            freed_spots = SessionParticipation.objects.filter(
+                session=session,
+                user_id__in=cancelling_user_ids,
+                status__in=OCCUPYING_PARTICIPATION_STATUSES,
+            ).count()
 
-        if len(confirmed_requests) > available_spots:
+        available_spots = enrollment_config.get_available_slots(session) + freed_spots
+
+        if enroll_count > available_spots:
             messages.error(
                 self.request,
                 str(
@@ -1783,7 +1805,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         "Not enough spots available. {} spots requested, {} available. "
                         "Please use waiting list for some users."
                     )
-                ).format(len(confirmed_requests), available_spots),
+                ).format(enroll_count, available_spots),
             )
             return True
 
