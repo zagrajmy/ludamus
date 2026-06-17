@@ -27,6 +27,7 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
     from django import forms
@@ -140,7 +141,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _collect_session_field_values(
         self, session_pk: int, event_pk: int
-    ) -> list[SessionFieldValueData]:
+    ) -> list[SessionFieldValueData] | None:
+        if self.request.POST.get("session_fields_submitted") != "1":
+            return None
         event_fields = self.request.di.uow.session_fields.list_by_event(event_pk)
         field_entries: list[SessionFieldValueData] = []
         for field in event_fields:
@@ -250,12 +253,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             "min_age": form.cleaned_data.get("min_age") or 0,
             "duration": form.cleaned_data.get("duration") or "",
         }
-        # File on upload, False when cleared, unchanged value otherwise; only
-        # send the key when it changes so the stored cover is left intact.
-        if cover_image := form.cleaned_data.get("cover_image"):
-            update_data["cover_image"] = cover_image
-        elif cover_image is False:
-            update_data["cover_image"] = ""
+        cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
+        if cover is not None:
+            update_data["cover_image"] = cover
 
         field_values = self._collect_session_field_values(session.pk, current_event.pk)
         self.request.services.session_content_edit.apply(
@@ -268,6 +268,13 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 facilitator_ids=self._submitted_facilitator_ids(current_event.pk),
             ),
         )
+
+        # T2: raising (or unlimiting) capacity frees seats — promote waiters.
+        new_limit = form.cleaned_data.get("participants_limit") or 0
+        if new_limit == 0 or new_limit > session.participants_limit:
+            self.request.services.waitlist_promotion.fill_freed_seats(
+                session_id=proposal_id
+            )
 
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)

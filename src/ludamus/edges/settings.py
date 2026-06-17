@@ -48,6 +48,17 @@ env = environ.Env(
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
+    # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
+    # local Mailpit inbox, filemail:///path for file capture, or
+    # smtp://user:pass@host:587/?tls=True in production.
+    EMAIL_URL=(str, "consolemail://"),
+    DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
+    # Waiting-list offer-expiry trigger: "cron" (default; the expire_offers
+    # sweep) or "dbos" (durable in-process workflow timer).
+    OFFER_EXPIRY_SCHEDULER=(str, "cron"),
+    # DBOS system database (separate from the app DB). SQLite in dev, set to a
+    # Postgres URL in production.
+    DBOS_SYSTEM_DATABASE_URL=(str, "sqlite:///dbos_sys.sqlite"),
     ENV=str,
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
@@ -372,14 +383,31 @@ if IS_PRODUCTION:
         },
     }
 else:
-    # Development email backend
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     STORAGES = {
         "default": default_storage_backend,
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
         },
     }
+
+# Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
+# for the local inbox UI, smtp://… in production). Wired the same way in every
+# environment so prod only needs the env var set.
+_EMAIL_CONFIG = env.email_url("EMAIL_URL")
+EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
+EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")
+EMAIL_PORT = _EMAIL_CONFIG.get("EMAIL_PORT", 25)
+EMAIL_HOST_USER = _EMAIL_CONFIG.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _EMAIL_CONFIG.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
+# Set only by the filemail:// (file-based) dev transport; ignored otherwise.
+EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Waiting-list offer-expiry scheduler (see inits/services.py).
+OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
+DBOS_SYSTEM_DATABASE_URL = env("DBOS_SYSTEM_DATABASE_URL")
 
 # Cache configuration
 CACHES = (

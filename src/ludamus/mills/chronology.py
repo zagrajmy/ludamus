@@ -21,6 +21,7 @@ from ludamus.pacts import (
     ScheduleChangeLogData,
     SessionContentEditData,
     SessionDTO,
+    SessionFieldValueData,
     SessionSelfEditContext,
     SessionStatus,
 )
@@ -58,6 +59,7 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     VenueGroupDTO,
 )
+from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 if TYPE_CHECKING:
@@ -75,7 +77,6 @@ if TYPE_CHECKING:
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
-        SessionFieldValueData,
         SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
@@ -363,55 +364,71 @@ class TimetableService:
         if log.event_id != event_pk:
             # The log belongs to another event — reject before reverting.
             raise NotFoundError
-        if log.action == ScheduleChangeAction.ASSIGN:
-            agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
-            if agenda_item is None:
-                raise NotFoundError
-            self._uow.agenda_items.delete(agenda_item.pk)
-            self._uow.sessions.update(log.session_id, {"status": SessionStatus.PENDING})
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            if (
-                log.old_space_id is None
-                or log.old_start_time is None
-                or log.old_end_time is None
-            ):
-                msg = "Cannot revert UNASSIGN: missing original placement data"
-                raise ValueError(msg)
-            session = self._uow.sessions.read(log.session_id)
-            if session.status != SessionStatus.PENDING:
-                msg = f"Session {log.session_id} is not in PENDING status"
-                raise ValueError(msg)
-            self._uow.agenda_items.create(
-                {
-                    "session_id": log.session_id,
-                    "space_id": log.old_space_id,
-                    "start_time": log.old_start_time,
-                    "end_time": log.old_end_time,
-                    "session_confirmed": False,
-                }
+        # Lock the session row so concurrent reverts (and assign/unassign)
+        # serialize: the latest-pk check and all mutations run under one
+        # transaction, so a second revert re-reads a now-stale latest_pk and
+        # is rejected instead of racing past the check (TOCTOU).
+        with self._uow.atomic():
+            self._uow.sessions.lock(log.session_id)
+            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
             )
-            self._uow.sessions.update(
-                log.session_id, {"status": SessionStatus.SCHEDULED}
-            )
-        else:
-            msg = f"Cannot revert action: {log.action}"
-            raise ValueError(msg)
-        event = self._uow.sessions.read_event(log.session_id)
-        revert_log: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": log.session_id,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.REVERT,
-        }
-        if log.action == ScheduleChangeAction.ASSIGN:
-            revert_log["old_space_id"] = log.new_space_id
-            revert_log["old_start_time"] = log.new_start_time
-            revert_log["old_end_time"] = log.new_end_time
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            revert_log["new_space_id"] = log.old_space_id
-            revert_log["new_start_time"] = log.old_start_time
-            revert_log["new_end_time"] = log.old_end_time
-        self._uow.schedule_change_logs.create(revert_log)
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                msg = "Only the latest change for a session can be reverted"
+                raise ValueError(msg)
+            if log.action == ScheduleChangeAction.ASSIGN:
+                agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
+                if agenda_item is None:
+                    raise NotFoundError
+                self._uow.agenda_items.delete(agenda_item.pk)
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.PENDING}
+                )
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                if (
+                    log.old_space_id is None
+                    or log.old_start_time is None
+                    or log.old_end_time is None
+                ):
+                    msg = "Cannot revert UNASSIGN: missing original placement data"
+                    raise ValueError(msg)
+                session = self._uow.sessions.read(log.session_id)
+                if session.status != SessionStatus.PENDING:
+                    msg = f"Session {log.session_id} is not in PENDING status"
+                    raise ValueError(msg)
+                self._uow.agenda_items.create(
+                    {
+                        "session_id": log.session_id,
+                        "space_id": log.old_space_id,
+                        "start_time": log.old_start_time,
+                        "end_time": log.old_end_time,
+                        "session_confirmed": False,
+                    }
+                )
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.SCHEDULED}
+                )
+            else:
+                msg = f"Cannot revert action: {log.action}"
+                raise ValueError(msg)
+            event = self._uow.sessions.read_event(log.session_id)
+            revert_log: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": log.session_id,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.REVERT,
+            }
+            if log.action == ScheduleChangeAction.ASSIGN:
+                revert_log["old_space_id"] = log.new_space_id
+                revert_log["old_start_time"] = log.new_start_time
+                revert_log["old_end_time"] = log.new_end_time
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                revert_log["new_space_id"] = log.old_space_id
+                revert_log["new_start_time"] = log.old_start_time
+                revert_log["new_end_time"] = log.old_end_time
+            self._uow.schedule_change_logs.create(revert_log)
 
 
 class ConflictDetectionService:
@@ -927,11 +944,22 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
-            self._sessions.save_field_values(session_id, data.field_values)
+            if data.field_values is not None:
+                self._sessions.save_field_values(session_id, data.field_values)
+            values_for_diff = (
+                data.field_values
+                if data.field_values is not None
+                else [
+                    SessionFieldValueData(
+                        session_id=session_id, field_id=fv.field_id, value=fv.value
+                    )
+                    for fv in old_values
+                ]
+            )
             if data.facilitator_ids is not None:
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
             changes = diff_session_content(
-                old_session, data.update, old_values, data.field_values
+                old_session, data.update, old_values, values_for_diff
             )
             if changes:
                 log_data: ContentChangeLogData = {
@@ -1013,7 +1041,7 @@ class SessionSelfEditService:
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None:
         allowed, _session, event = self._gate(session_id, user_id)
         if not allowed or event is None:
@@ -1038,13 +1066,8 @@ class SessionSelfEditService:
             "min_age": _int("min_age"),
             "duration": _str("duration"),
         }
-        # ClearableFileInput yields a file on upload, False when cleared, or the
-        # unchanged value otherwise. Only set the key when it actually changes so
-        # the repository keeps the current cover untouched.
-        if cover_image := cleaned_data.get("cover_image"):
-            update["cover_image"] = cover_image
-        elif cover_image is False:
-            update["cover_image"] = ""
+        if (cover := resolve_cover_image(cleaned_data.get("cover_image"))) is not None:
+            update["cover_image"] = cover
         self._content_edit.apply(
             session_id=session_id,
             event_id=event.pk,

@@ -30,7 +30,7 @@ django = "~6.0.6"
 django-environ = "^0.13.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
-google-auth = "^2.52.0"
+google-auth = "^2.54.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
@@ -42,6 +42,7 @@ requests = "^2.32.5"
 segno = "^1.6.6"
 whitenoise = "^6.12.0"
 django-storages = {extras = ["google"], version = "^1.14.6"}
+dbos = ">=2.23.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -190,6 +191,7 @@ module = [
     "ludamus.adapters.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
     "ludamus.links.ticket_api",
@@ -200,6 +202,13 @@ disallow_any_expr = false
 [[tool.mypy.overrides]]
 module = ["ludamus.adapters.web.django.*", "ludamus.gates.web.django.*"]
 disallow_any_explicit = false
+
+# DBOS's class-method calls surface as Any (like Django's ORM elsewhere);
+# relaxed only for the thin scheduler adapter that wraps them, the same way
+# links.db.django.* is relaxed for the ORM.
+[[tool.mypy.overrides]]
+module = ["ludamus.inits.dbos_offer_scheduler"]
+disallow_any_expr = false
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -286,6 +295,11 @@ name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
 forbidden_modules = ["ludamus.links", "ludamus.inits", "ludamus.edges"]
+# Management commands are composition entrypoints (like manage.py/wsgi): the
+# expire_offers cron job must build the service via the inits root.
+ignore_imports = [
+    "ludamus.gates.cli.django.management.commands.expire_offers -> ludamus.inits.services",
+]
 
 
 [[tool.importlinter.contracts]]

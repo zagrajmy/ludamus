@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -36,15 +36,33 @@ class DateTimeRangeProtocol(Protocol):
     end_time: datetime
 
 
+@runtime_checkable
 class UploadedFileProtocol(Protocol):
     name: str | None
 
     def read(self, size: int = -1) -> bytes: ...
 
 
+def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
+    # Boundary parser: recover a typed upload from the untyped form-data value
+    # (a file on upload, "" / False / None otherwise), so callers narrow once
+    # here instead of casting.
+    return value if isinstance(value, UploadedFileProtocol) else None
+
+
+def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+    # ClearableFileInput's tri-state in one place: a file on upload becomes the
+    # new cover, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored cover untouched.
+    if uploaded := parse_uploaded_file(raw):
+        return uploaded
+    return "" if raw is False else None
+
+
 class FacilitatorDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     event_id: int
     pk: int
@@ -53,6 +71,7 @@ class FacilitatorDTO(BaseModel):
 
 
 class FacilitatorData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
     event_id: int
     slug: str
@@ -60,6 +79,7 @@ class FacilitatorData(TypedDict, total=False):
 
 
 class FacilitatorUpdateData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
 
 
@@ -213,6 +233,34 @@ class SessionStatus(StrEnum):
 class SessionParticipationStatus(StrEnum):
     CONFIRMED = auto()
     WAITING = auto()
+    OFFERED = auto()
+
+
+# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
+# seat is held so the same seat is never offered to two waiters at once.
+OCCUPYING_PARTICIPATION_STATUSES = (
+    SessionParticipationStatus.CONFIRMED,
+    SessionParticipationStatus.OFFERED,
+)
+
+
+class PromotionMode(StrEnum):
+    """How a freed seat is filled from the waiting list, per ProposalCategory.
+
+    AUTO: the next eligible waiter is moved straight to CONFIRMED.
+    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
+    bounded window; they must actively claim it or it rolls to the next party.
+    """
+
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
+class NotificationKind(StrEnum):
+    WAITLIST_PROMOTED = auto()
+    WAITLIST_OFFER = auto()
+    OFFER_EXPIRED = auto()
+    SHADOWBANNED_SIGNUP = auto()
 
 
 class SpherePage(StrEnum):
@@ -339,7 +387,7 @@ class TagDTO(BaseModel):
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol
     description: str
     duration: str
     min_age: int
@@ -357,7 +405,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     description: str
     display_name: str
     duration: str
@@ -679,7 +727,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None
@@ -842,6 +890,8 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> int: ...
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
+    @staticmethod
+    def lock(pk: int) -> None: ...
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
     @staticmethod
@@ -1379,6 +1429,12 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
 
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
 
 ContentFieldValue = str | int | bool | list[str] | None
 
@@ -1404,8 +1460,9 @@ class ContentChangeLogData(TypedDict):
 class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
+    # `field_values` None leaves dynamic answers untouched (partial POST guard).
     update: SessionUpdateData
-    field_values: list[SessionFieldValueData]
+    field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
 
 

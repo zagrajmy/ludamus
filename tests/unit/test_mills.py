@@ -696,7 +696,12 @@ class TestProposeSessionService:
         )
         mock_uow.sessions.slug_exists.return_value = False
         facilitator = FacilitatorDTO(
-            display_name="Anon Host", event_id=1, pk=10, slug="anon-host", user_id=None
+            accreditation_type="none",
+            display_name="Anon Host",
+            event_id=1,
+            pk=10,
+            slug="anon-host",
+            user_id=None,
         )
         mock_uow.facilitators.create.return_value = facilitator
         expected_session_id = 99

@@ -137,6 +137,7 @@ class TestContentLogRecordsEdits:
                 "display_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_system": "Pathfinder",
             },
         )

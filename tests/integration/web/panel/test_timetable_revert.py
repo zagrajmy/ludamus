@@ -214,3 +214,77 @@ class TestTimetableRevertView:
         log_response = authenticated_client.get(self.get_log_url(event))
         logs = log_response.context["logs"]
         assert logs[0].action == "revert"
+
+    def test_revert_non_latest_change_returns_422(
+        self, authenticated_client, active_user, sphere, event, proposal_category, area
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(area=area)
+        session = SessionFactory(
+            category=proposal_category,
+            sphere=sphere,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        authenticated_client.post(
+            self.get_assign_url(event),
+            data={
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": start.isoformat(),
+                "end_time": end.isoformat(),
+            },
+        )
+        # The assign log is now superseded by an unassign on the same session.
+        authenticated_client.post(
+            self.get_unassign_url(event), data={"session_pk": session.pk}
+        )
+        logs = authenticated_client.get(self.get_log_url(event)).context["logs"]
+        assign_log = next(log for log in logs if log.action == "assign")
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"log_pk": assign_log.pk}
+        )
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        session.refresh_from_db()
+        assert session.status == "pending"
+
+    def test_log_page_marks_only_latest_change_revertible(
+        self, authenticated_client, active_user, sphere, event, proposal_category, area
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(area=area)
+        session = SessionFactory(
+            category=proposal_category,
+            sphere=sphere,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        authenticated_client.post(
+            self.get_assign_url(event),
+            data={
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": start.isoformat(),
+                "end_time": end.isoformat(),
+            },
+        )
+        authenticated_client.post(
+            self.get_unassign_url(event), data={"session_pk": session.pk}
+        )
+
+        log_response = authenticated_client.get(self.get_log_url(event))
+        logs = log_response.context["logs"]
+        revertible_pks = log_response.context["revertible_pks"]
+        assign_log = next(log for log in logs if log.action == "assign")
+        unassign_log = next(log for log in logs if log.action == "unassign")
+
+        assert unassign_log.pk in revertible_pks
+        assert assign_log.pk not in revertible_pks

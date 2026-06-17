@@ -3,20 +3,32 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     Facilitator,
+    Notification,
     ProposalCategory,
     Session,
     SessionField,
     SessionFieldOption,
     SessionFieldValue,
+    SessionParticipation,
+    SessionParticipationStatus,
 )
 from ludamus.pacts import EventDTO, SessionDTO
-from tests.integration.conftest import EventFactory
+from ludamus.pacts.legacy import NotificationKind
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    AreaFactory,
+    EventFactory,
+    SpaceFactory,
+    UserFactory,
+    VenueFactory,
+)
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -295,6 +307,55 @@ class TestProposalEditPageView:
         assert session.min_age == new_min_age
         assert session.duration == "2h"
 
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_raising_capacity_promotes_waiter(
+        self, authenticated_client, active_user, sphere, event, waiter
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere, participants_limit=1)
+        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        AgendaItemFactory(session=session, space=space)
+        filler = UserFactory(username="filler", email="filler@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=filler, status=SessionParticipationStatus.CONFIRMED
+        )
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        raised_limit = 2
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "requirements": "",
+                "needs": "",
+                "contact_email": "",
+                "participants_limit": raised_limit,
+                "min_age": 0,
+                "duration": "2h",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == raised_limit
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
+        assert Notification.objects.filter(
+            recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
+
     def test_post_uploads_cover_image(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -434,6 +495,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_adult": "true",
             },
         )
@@ -463,6 +525,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_genres": ["horror", "comedy"],
             },
         )
@@ -492,6 +555,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_system": "",
                 "session_field_system_custom": "Homebrew",
             },
@@ -578,7 +642,38 @@ class TestProposalEditPageView:
         assert 'name="session_field_notes"' in html
         assert 'maxlength="99"' in html
         assert 'name="session_field_notes_custom"' in html
-        assert "Free text" in html
+
+    def test_partial_post_without_session_fields_marker_preserves_field_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Updated title only",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        sfv = SessionFieldValue.objects.get(session=session, field=field)
+        assert sfv.value == "Pathfinder"
+        session.refresh_from_db()
+        assert session.title == "Updated title only"
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
         self, authenticated_client, active_user, sphere, event
