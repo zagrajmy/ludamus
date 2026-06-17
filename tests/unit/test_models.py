@@ -13,6 +13,7 @@ from ludamus.adapters.db.django.models import (
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    EventBan,
     EventIntegration,
     EventProposalSettings,
     EventSettings,
@@ -29,6 +30,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Shadowban,
     Space,
     Sphere,
     Tag,
@@ -449,3 +451,13 @@ class TestTrack:
         name = faker.word()
 
         assert str(Track(name=name)) == name
+
+
+class TestShadowban:
+    def test_str(self):
+        assert str(Shadowban(owner_id=1, target_id=2)) == "1 shadowbanned 2"
+
+
+class TestEventBan:
+    def test_str(self):
+        assert str(EventBan(user_id=3, event_id=4)) == "3 banned from event 4"

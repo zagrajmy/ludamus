@@ -12,6 +12,26 @@
 {% endblock description %}
 {% block body %}
     <div class="max-w-4xl mx-auto">
+        {# Shadowban warning: players the viewer shadowbanned are already here. #}
+        {% if shadowban_warnings %}
+            <div class="alert alert-warning flex flex-col gap-3 mb-4">
+                <div class="flex items-center gap-2 font-semibold">
+                    {% icon "shield-exclamation" class="w-5 h-5 shrink-0" %}
+                    {% translate "Players you shadowbanned are already signed up here" %}
+                </div>
+                <ul class="flex flex-col gap-2">
+                    {% for warning in shadowban_warnings %}
+                        <li class="flex items-center gap-2">
+                            {% include "components/avatar.html" with user=warning.user size="size-8" danger_ring=True %}
+                            <span class="font-medium">{{ warning.user.full_name }}</span>
+                            <span class="text-sm text-foreground-muted">
+                                {% blocktranslate with date=warning.shadowbanned_at|date:"SHORT_DATE_FORMAT" %}shadowbanned on {{ date }}{% endblocktranslate %}
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
         {# Session Details Card #}
         <div class="card mb-4">
             <div class="card-header bg-primary text-white flex items-center gap-2">

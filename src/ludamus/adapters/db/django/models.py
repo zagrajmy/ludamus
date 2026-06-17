@@ -98,6 +98,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        through="Shadowban",
+        through_fields=("owner", "target"),
+        related_name="shadowbanned_by",
+        blank=True,
+    )
 
     objects = UserManager()
 
@@ -129,6 +137,47 @@ class User(AbstractBaseUser, PermissionsMixin):
                 condition=~Q(email=""),
             ),
         )
+
+
+class Shadowban(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shadowban"
+        constraints = (
+            models.CheckConstraint(
+                condition=~Q(owner=F("target")), name="shadowban_owner_not_target"
+            ),
+            models.UniqueConstraint(
+                fields=("owner", "target"), name="shadowban_unique_owner_target"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.owner_id} shadowbanned {self.target_id}"
+
+
+REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
+
+
+class EventBan(models.Model):
+    event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_ban"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_ban_unique_event_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} banned from event {self.event_id}"
 
 
 class Sphere(models.Model):

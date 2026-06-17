@@ -260,6 +260,7 @@ class NotificationKind(StrEnum):
     WAITLIST_PROMOTED = auto()
     WAITLIST_OFFER = auto()
     OFFER_EXPIRED = auto()
+    SHADOWBANNED_SIGNUP = auto()
 
 
 class SpherePage(StrEnum):

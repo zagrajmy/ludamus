@@ -39,6 +39,11 @@ crowd_urls: list[URLPattern | URLResolver] = [
         "profile/avatar/", views.ProfileAvatarPageView.as_view(), name="profile-avatar"
     ),
     path(
+        "profile/shadowbans/",
+        views.ProfileShadowbanPageView.as_view(),
+        name="profile-shadowbans",
+    ),
+    path(
         "profile/connected-users/",
         views.ProfileConnectedUsersPageView.as_view(),
         name="profile-connected-users",

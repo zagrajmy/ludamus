@@ -26,6 +26,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 
@@ -123,6 +124,16 @@ class Services:
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def shadowban(self) -> ShadowbanService:
+        return ShadowbanService(
+            self._transaction, self._repos.shadowban, DjangoUserNotifier()
+        )
+
+    @cached_property
+    def event_bans(self) -> EventBanService:
+        return EventBanService(self._transaction, self._repos.event_bans)
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

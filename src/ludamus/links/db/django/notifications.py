@@ -23,6 +23,7 @@ from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
 class DjangoUserNotifier:
@@ -98,6 +99,31 @@ class DjangoUserNotifier:
                     kwargs={"session_id": notification.session_id},
                 ),
                 payload={"session_id": notification.session_id},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_shadowbanned_signup(
+        self, notification: ShadowbanSignupNotification
+    ) -> None:
+        players = ", ".join(notification.player_names)
+        title = _("A shadowbanned player joined %(event)s") % {
+            "event": notification.event_name
+        }
+        body = _(
+            "Someone you shadowbanned signed up to %(event)s: %(players)s. "
+            "They have not been notified. Review the event if you need to."
+        ) % {"event": notification.event_name, "players": players}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.SHADOWBANNED_SIGNUP.value,
+                title=title,
+                body=body,
+                url=reverse(
+                    "web:chronology:event", kwargs={"slug": notification.event_slug}
+                ),
+                payload={"event_slug": notification.event_slug},
             ),
             notification.recipient_email,
         )

@@ -5,6 +5,7 @@ from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 
 
 class Repositories:
@@ -78,3 +79,11 @@ class Repositories:
     @cached_property
     def areas(self) -> repositories.AreaRepository:
         return repositories.AreaRepository()
+
+    @cached_property
+    def shadowban(self) -> ShadowbanRepository:
+        return ShadowbanRepository()
+
+    @cached_property
+    def event_bans(self) -> EventBanRepository:
+        return EventBanRepository()
