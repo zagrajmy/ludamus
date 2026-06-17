@@ -268,6 +268,50 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
+    def test_mixed_buckets_each_sorted_independently(self, client, sphere):
+        now = datetime.now(UTC)
+        far = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=30),
+            end_time=now + timedelta(days=31),
+        )
+        soon = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=2),
+            end_time=now + timedelta(days=3),
+        )
+        recent = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=3),
+            end_time=now - timedelta(days=2),
+            publication_time=now - timedelta(days=4),
+        )
+        older = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=30),
+            end_time=now - timedelta(days=29),
+            publication_time=now - timedelta(days=31),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_events": [
+                    _expected_event_info(soon, cover_index=0),
+                    _expected_event_info(far, cover_index=1),
+                ],
+                "past_events": [
+                    _expected_event_info(recent, cover_index=0),
+                    _expected_event_info(older, cover_index=1),
+                ],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
     def test_panel_link_shown_for_sphere_manager(
         self, authenticated_client, active_user, sphere
     ):

@@ -62,6 +62,7 @@ def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
 class FacilitatorDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     event_id: int
     pk: int
@@ -70,6 +71,7 @@ class FacilitatorDTO(BaseModel):
 
 
 class FacilitatorData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
     event_id: int
     slug: str
@@ -77,6 +79,7 @@ class FacilitatorData(TypedDict, total=False):
 
 
 class FacilitatorUpdateData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
 
 

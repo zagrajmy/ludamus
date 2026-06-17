@@ -10,6 +10,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
@@ -86,6 +87,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
+        context["accreditation_type_display"] = AccreditationType(
+            facilitator.accreditation_type
+        ).label
         context["personal_data_items"] = personal_data_items
         context["has_personal_data"] = has_personal_data
         return TemplateResponse(self.request, "panel/facilitator-detail.html", context)
@@ -126,6 +130,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         self.request.di.uow.facilitators.create(
             FacilitatorData(
+                accreditation_type=form.cleaned_data["accreditation_type"],
                 display_name=display_name,
                 event_id=current_event.pk,
                 slug=facilitator_slug,
@@ -169,7 +174,10 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["form"] = FacilitatorForm(
-            initial={"display_name": facilitator.display_name}
+            initial={
+                "display_name": facilitator.display_name,
+                "accreditation_type": facilitator.accreditation_type,
+            }
         )
         context["personal_fields"] = personal_fields
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
@@ -204,7 +212,10 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         self.request.di.uow.facilitators.update(
             facilitator.pk,
-            FacilitatorUpdateData(display_name=form.cleaned_data["display_name"]),
+            FacilitatorUpdateData(
+                accreditation_type=form.cleaned_data["accreditation_type"],
+                display_name=form.cleaned_data["display_name"],
+            ),
         )
 
         all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(

@@ -4078,6 +4078,32 @@ msgstr "Powiązany"
 msgid "None"
 msgstr "Brak"
 
+#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid "Accreditation type"
+msgstr "Rodzaj akredytacji"
+
+#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Standard"
+msgstr "Standardowa"
+
+#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Guest"
+msgstr "Gość"
+
+#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Honorary"
+msgstr "Honorowa"
+
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "No personal information provided."
 msgstr "Brak danych osobowych."
