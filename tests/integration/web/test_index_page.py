@@ -9,6 +9,7 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import Announcement
 from ludamus.adapters.web.django.views import EVENT_PLACEHOLDER_IMAGES, EventInfo
 from ludamus.pacts import EventListItemDTO
+from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     AreaFactory,
@@ -287,17 +288,24 @@ class TestEventsPageView:
         assert b'href="/panel/"' not in response.content
 
     def test_published_announcement_shown(self, client, sphere):
-        Announcement.objects.create(
+        announcement = Announcement.objects.create(
             sphere=sphere, title="Welcome", content="Hello there"
         )
 
         response = client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert [a.title for a in response.context["announcements"]] == ["Welcome"]
-        content = response.content.decode()
-        assert "Welcome" in content
-        assert "Hello there" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [AnnouncementDTO.model_validate(announcement)],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+            contains=["Welcome", "Hello there"],
+        )
 
     def test_draft_announcement_hidden(self, client, sphere):
         Announcement.objects.create(
@@ -306,9 +314,18 @@ class TestEventsPageView:
 
         response = client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["announcements"] == []
-        assert "Secret" not in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+            not_contains="Secret",
+        )
 
     def test_announcement_scoped_to_current_sphere(self, client, non_root_sphere):
         Announcement.objects.create(
@@ -317,8 +334,17 @@ class TestEventsPageView:
 
         response = client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["announcements"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
 
     def test_unpublished_event_hidden_for_anonymous(self, client, sphere):
         EventFactory(sphere=sphere, publication_time=None)

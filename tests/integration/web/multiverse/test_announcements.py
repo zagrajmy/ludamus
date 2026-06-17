@@ -260,6 +260,27 @@ class TestAnnouncementEditPageView:
         announcement.refresh_from_db()
         assert announcement.title == "Original"
 
+    def test_post_redirects_when_announcement_belongs_to_other_sphere(
+        self, authenticated_client, active_user, sphere, non_root_sphere
+    ):
+        sphere.managers.add(active_user)
+        announcement = Announcement.objects.create(
+            sphere=non_root_sphere, title="Other", content="C"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(announcement), data={"title": "New", "content": "New body"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Announcement not found.")],
+            url="/multiverse/panel/announcements/",
+        )
+        announcement.refresh_from_db()
+        assert announcement.title == "Other"
+
 
 class TestAnnouncementDeletePageView:
     @staticmethod
@@ -287,6 +308,23 @@ class TestAnnouncementDeletePageView:
                 "announcement": AnnouncementDTO.model_validate(announcement),
             },
             contains="this.querySelector('button[type=submit]').disabled = true",
+        )
+
+    def test_get_redirects_when_announcement_belongs_to_other_sphere(
+        self, authenticated_client, active_user, sphere, non_root_sphere
+    ):
+        sphere.managers.add(active_user)
+        announcement = Announcement.objects.create(
+            sphere=non_root_sphere, title="Other", content="C"
+        )
+
+        response = authenticated_client.get(self.get_url(announcement))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Announcement not found.")],
+            url="/multiverse/panel/announcements/",
         )
 
     def test_post_deletes_announcement(self, authenticated_client, active_user, sphere):
