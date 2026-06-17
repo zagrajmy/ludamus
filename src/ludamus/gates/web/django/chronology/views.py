@@ -5,13 +5,15 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings as django_settings
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponse, HttpResponseBase
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import get_client_ip
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import (
@@ -19,7 +21,8 @@ from ludamus.mills import (
     check_proposal_rate_limit,
     is_proposal_active,
 )
-from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.mills.chronology import SessionEditNotAllowedError
+from ludamus.pacts import NotFoundError, RedirectError, SessionFieldValueData
 
 from .forms import build_personal_data_form, build_session_details_form
 
@@ -28,6 +31,7 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import (
+        AuthenticatedRequestContext,
         EventDTO,
         EventProposalSettingsDTO,
         PersonalDataFieldDTO,
@@ -35,12 +39,19 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         SessionFieldDTO,
         SessionFieldRequirementDTO,
+        SessionSelfEditContext,
         TimeSlotRequirementDTO,
     )
+    from ludamus.pacts.services import ServicesProtocol
 
     BaseView = View
 else:
     BaseView = object
+
+
+class SessionEditRequest(HttpRequest):
+    context: AuthenticatedRequestContext
+    services: ServicesProtocol
 
 
 # -- Module-level helpers --
@@ -914,3 +925,119 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
             response["HX-Redirect"] = redirect_url
             return response
         return redirect(redirect_url)
+
+
+def _collect_session_field_values(
+    request: SessionEditRequest,
+    session_id: int,
+    session_fields: Sequence[tuple[SessionFieldDTO, object]],
+) -> list[SessionFieldValueData]:
+    entries: list[SessionFieldValueData] = []
+    for field, _current in session_fields:
+        key = f"session_field_{field.slug}"
+        value: str | list[str] | bool
+        if field.field_type == "checkbox":
+            value = request.POST.get(key) == "true"
+        elif field.is_multiple:
+            value = request.POST.getlist(key)
+        else:
+            value = request.POST.get(key, "")
+            if field.allow_custom and not value:
+                value = request.POST.get(f"{key}_custom", "")
+        entries.append(
+            SessionFieldValueData(session_id=session_id, field_id=field.pk, value=value)
+        )
+    return entries
+
+
+class SessionEditView(LoginRequiredMixin, View):
+    """Facilitator self-service editing of their own session, inline in the modal.
+
+    Both GET (edit form) and POST (save) return the form fragment swapped into
+    the open session dialog via HTMX. A non-HTMX POST falls back to a full-page
+    redirect to the event so the feature degrades gracefully.
+    """
+
+    request: SessionEditRequest
+
+    def get(
+        self, _request: HttpRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        ctx = self._context(event_slug, session_id)
+        form = SessionEditForm(
+            initial={
+                "title": ctx.session.title,
+                "display_name": ctx.session.display_name,
+                "description": ctx.session.description,
+                "requirements": ctx.session.requirements,
+                "needs": ctx.session.needs,
+                "contact_email": ctx.session.contact_email,
+                "participants_limit": ctx.session.participants_limit,
+                "min_age": ctx.session.min_age,
+                "duration": ctx.session.duration,
+            }
+        )
+        return self._render(event_slug, session_id, ctx, form, saved=False)
+
+    def post(
+        self, _request: HttpRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        ctx = self._context(event_slug, session_id)
+        form = SessionEditForm(self.request.POST)
+        if not form.is_valid():
+            return self._render(event_slug, session_id, ctx, form, saved=False)
+
+        field_values = _collect_session_field_values(
+            self.request, session_id, ctx.session_fields
+        )
+        try:
+            self.request.services.session_self_edit.update(
+                session_id,
+                self.request.context.current_user_id,
+                form.cleaned_data,
+                field_values,
+            )
+        except SessionEditNotAllowedError as exc:
+            raise Http404 from exc
+
+        if not self.request.headers.get("HX-Request"):
+            event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
+            return redirect(f"{event_url}?session={session_id}")
+        ctx = self._context(event_slug, session_id)
+        return self._render(event_slug, session_id, ctx, form, saved=True)
+
+    def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
+        try:
+            ctx = self.request.services.session_self_edit.get_edit_context(
+                session_id, self.request.context.current_user_id
+            )
+        except SessionEditNotAllowedError as exc:
+            raise Http404 from exc
+        if ctx.event.slug != event_slug:
+            raise Http404
+        return ctx
+
+    def _render(
+        self,
+        event_slug: str,
+        session_id: int,
+        ctx: SessionSelfEditContext,
+        form: SessionEditForm,
+        *,
+        saved: bool,
+    ) -> HttpResponse:
+        post_url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": event_slug, "session_id": session_id},
+        )
+        return TemplateResponse(
+            self.request,
+            "chronology/parts/session-edit-form.html",
+            {
+                "session": ctx.session,
+                "form": form,
+                "session_fields": ctx.session_fields,
+                "post_url": post_url,
+                "saved": saved,
+            },
+        )
