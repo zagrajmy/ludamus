@@ -7,10 +7,11 @@ from django.urls import reverse
 
 from tests.integration.utils import assert_response
 
-_GIF_BYTES = (
-    b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
-    b"\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00"
-    b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
 )
 
 PERMISSION_ERROR = "You don't have permission to access the sphere panel."
@@ -18,6 +19,7 @@ PERMISSION_ERROR = "You don't have permission to access the sphere panel."
 TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
+    "announcements": "/multiverse/panel/announcements/",
 }
 GENERAL_PANEL_CONTEXT = {
     "events": [],
@@ -26,6 +28,7 @@ GENERAL_PANEL_CONTEXT = {
     "active_nav": "sphere-settings",
     "is_general_tab": True,
     "is_connections_tab": False,
+    "is_announcements_tab": False,
     "tab_urls": TAB_URLS,
     "form": ANY,
 }
@@ -113,7 +116,7 @@ class TestSphereSettingsPageView:
 
     def test_post_uploads_logo(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        logo = SimpleUploadedFile("brand.gif", _GIF_BYTES, content_type="image/gif")
+        logo = SimpleUploadedFile("brand.png", _PNG_BYTES, content_type="image/png")
 
         response = authenticated_client.post(self.url, data={"logo": logo})
 
@@ -131,15 +134,15 @@ class TestSphereSettingsPageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        oversized = _GIF_BYTES + b"\x00" * (5 * 1024 * 1024 + 1)
-        logo = SimpleUploadedFile("big.gif", oversized, content_type="image/gif")
+        oversized = _PNG_BYTES + b"\x00" * (2 * 1024 * 1024 + 1)
+        logo = SimpleUploadedFile("big.png", oversized, content_type="image/png")
 
         response = authenticated_client.post(self.url, data={"logo": logo})
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Image too large. Maximum size is 5 MB.")],
+            messages=[(messages.ERROR, "Image too large. Maximum size is 2 MB.")],
             url=self.url,
         )
 

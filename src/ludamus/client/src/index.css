@@ -110,7 +110,7 @@
   --color-secondary-hover: #0d947e;
   --color-secondary-light: #f0fdfa;
 
-  --color-success: #2CB65B;
+  --color-success: #2cb65b;
   --color-success-light: #dcfce7;
   --color-success-bg: #f0fdf4;
   --color-success-text: #166534;
@@ -142,7 +142,7 @@
 html,
 body {
   height: 100%;
-  overflow-y: scroll;
+  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -153,177 +153,85 @@ button {
 
 :root {
   color-scheme: light;
-  --theme-bg-secondary: #fdfcfb;
-  --theme-bg-tertiary: #f7f5f3;
-  --theme-border: #e4ddd6;
-  --theme-border-focus: #f85a3c;
-  --theme-primary: #f85a3c;
-  --theme-primary-rgb: 248 90 60;
-  --theme-primary-hover: #e53e20;
-  --theme-primary-light: #fef5f3;
-  --theme-secondary: #14b89b;
-  --theme-secondary-hover: #0d947e;
-  --theme-secondary-light: #f0fdfa;
-  --theme-success: #2CB65B;
-  --theme-success-light: #dcfce7;
-  --theme-success-bg: #f0fdf4;
-  --theme-success-text: #166534;
-  --theme-warning: #f59e0b;
-  --theme-warning-light: #fef3c7;
-  --theme-warning-bg: #fffbeb;
-  --theme-warning-text: #92400e;
-  --theme-danger: #ef4444;
-  --theme-danger-light: #fee2e2;
-  --theme-danger-bg: #fef2f2;
-  --theme-danger-text: #991b1b;
-  --theme-info: #3b82f6;
-  --theme-info-light: #dbeafe;
-  --theme-info-bg: #eff6ff;
-  --theme-info-text: #1e40af;
-  --theme-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --theme-shadow-md:
+  /*
+   * Theme-aware shadow + gradient tokens, overridden under .dark below. Kept as
+   * plain custom properties (deliberately NOT @theme --shadow-*): Tailwind v4
+   * inlines named @theme shadow values into utilities at build time, which would
+   * freeze the light value and defeat the .dark override. Consume them via the
+   * arbitrary utility shadow-(--shadow-card), which emits --tw-shadow and so
+   * still composes with ring-* / inset-shadow utilities.
+   */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-dropdown:
     0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
-  --theme-shadow-lg:
+  --shadow-elevated:
     0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --theme-accent-gradient: linear-gradient(90deg, #f85a3c, #14b89b);
+  --accent-gradient: linear-gradient(90deg, #f85a3c, #14b89b);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    color-scheme: dark;
-    --color-background: #0a0a0a;
-    --theme-bg-secondary: #171717;
-    --color-bg-secondary: #171717;
-    --theme-bg-tertiary: #262626;
-    --color-bg-tertiary: #262626;
-    --color-foreground: #fafafa;
-    --color-foreground-secondary: #d4d4d4;
-    --color-foreground-muted: #737373;
-    --color-foreground-inverse: #0a0a0a;
-    --theme-border: #404040;
-    --color-border: #404040;
-    --theme-border-focus: #f85a3c;
-    --color-border-focus: #f85a3c;
-    --theme-primary: #f85a3c;
-    --color-primary: #f85a3c;
-    --theme-primary-rgb: 248 90 60;
-    --theme-primary-hover: #e53e20;
-    --color-primary-hover: #e53e20;
-    --theme-primary-light: #292524;
-    --color-primary-light: #292524;
-    --theme-secondary: #2dd4b3;
-    --color-secondary: #2dd4b3;
-    --theme-secondary-hover: #5fe9cb;
-    --color-secondary-hover: #5fe9cb;
-    --theme-secondary-light: #134e45;
-    --color-secondary-light: #134e45;
-    --theme-success: #4ade80;
-    --color-success: #4ade80;
-    --theme-success-light: #14532d;
-    --color-success-light: #14532d;
-    --theme-success-bg: #052e16;
-    --color-success-bg: #052e16;
-    --theme-success-text: #86efac;
-    --color-success-text: #86efac;
-    --theme-warning: #fbbf24;
-    --color-warning: #fbbf24;
-    --theme-warning-light: #44380f;
-    --color-warning-light: #44380f;
-    --theme-warning-bg: #292211;
-    --color-warning-bg: #292211;
-    --theme-warning-text: #fbbf24;
-    --color-warning-text: #fbbf24;
-    --theme-danger-light: #450a0a;
-    --color-danger-light: #450a0a;
-    --theme-danger-bg: #2d0808;
-    --color-danger-bg: #2d0808;
-    --theme-danger-text: #fca5a5;
-    --color-danger-text: #fca5a5;
-    --theme-info: #60a5fa;
-    --color-info: #60a5fa;
-    --theme-info-light: #1e3a5f;
-    --color-info-light: #1e3a5f;
-    --theme-info-bg: #0c1e36;
-    --color-info-bg: #0c1e36;
-    --theme-info-text: #93c5fd;
-    --color-info-text: #93c5fd;
-    --theme-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-    --theme-shadow-md:
-      0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
-  }
-}
-
+/*
+ * Single theming trigger: the .dark / .light class on <html> (set by the
+ * inline boot script in base.html, which seeds from localStorage and falls
+ * back to the OS preference). No prefers-color-scheme branch here — that was a
+ * redundant, colors-only second source of truth that drifted from the .dark
+ * class path. Trade-off: dark mode requires JS (the theme switcher does too).
+ */
 .dark {
   color-scheme: dark;
   --color-background: #0a0a0a;
-  --theme-bg-secondary: #171717;
   --color-bg-secondary: #171717;
-  --theme-bg-tertiary: #262626;
   --color-bg-tertiary: #262626;
   --color-foreground: #fafafa;
   --color-foreground-secondary: #d4d4d4;
   --color-foreground-muted: #737373;
   --color-foreground-inverse: #0a0a0a;
-  --theme-border: #404040;
   --color-border: #404040;
-  --theme-border-focus: #f85a3c;
   --color-border-focus: #f85a3c;
-  --theme-primary: #f85a3c;
   --color-primary: #f85a3c;
-  --theme-primary-rgb: 248 90 60;
-  --theme-primary-hover: #e53e20;
   --color-primary-hover: #e53e20;
-  --theme-primary-light: #292524;
   --color-primary-light: #292524;
-  --theme-secondary: #2dd4b3;
   --color-secondary: #2dd4b3;
-  --theme-secondary-hover: #5fe9cb;
   --color-secondary-hover: #5fe9cb;
-  --theme-secondary-light: #134e45;
   --color-secondary-light: #134e45;
-  --theme-success: #4ade80;
   --color-success: #4ade80;
-  --theme-success-light: #14532d;
   --color-success-light: #14532d;
-  --theme-success-bg: #052e16;
   --color-success-bg: #052e16;
-  --theme-success-text: #86efac;
   --color-success-text: #86efac;
-  --theme-warning: #fbbf24;
   --color-warning: #fbbf24;
-  --theme-warning-light: #44380f;
   --color-warning-light: #44380f;
-  --theme-warning-bg: #292211;
   --color-warning-bg: #292211;
-  --theme-warning-text: #fbbf24;
   --color-warning-text: #fbbf24;
-  --theme-danger-light: #450a0a;
   --color-danger-light: #450a0a;
-  --theme-danger-bg: #2d0808;
   --color-danger-bg: #2d0808;
-  --theme-danger-text: #fca5a5;
   --color-danger-text: #fca5a5;
-  --theme-info: #60a5fa;
   --color-info: #60a5fa;
-  --theme-info-light: #1e3a5f;
   --color-info-light: #1e3a5f;
-  --theme-info-bg: #0c1e36;
   --color-info-bg: #0c1e36;
-  --theme-info-text: #93c5fd;
   --color-info-text: #93c5fd;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 :focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px var(--color-background),
-    0 0 0 4px var(--theme-primary);
+    0 0 0 4px var(--color-primary);
 }
 
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  border-color: var(--theme-border-focus) !important;
+  border-color: var(--color-border-focus) !important;
+}
+
+/* Prevent iOS Safari from zooming into inputs on focus (requires font-size >= 16px) */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
 }
 
 button:active {
@@ -346,7 +254,7 @@ button:active {
   left: 0;
   right: 0;
   height: 4px;
-  background: var(--theme-accent-gradient);
+  background: var(--accent-gradient);
   border-radius: 9999px 9999px 0 0;
 }
 
@@ -375,33 +283,33 @@ button:active {
   }
 
   .alert-success {
-    background-color: var(--theme-success-bg);
-    border-color: var(--theme-success-light);
-    color: var(--theme-success-text);
+    background-color: var(--color-success-bg);
+    border-color: var(--color-success-light);
+    color: var(--color-success-text);
   }
 
   .alert-warning {
-    background-color: var(--theme-warning-bg);
-    border-color: var(--theme-warning-light);
-    color: var(--theme-warning-text);
+    background-color: var(--color-warning-bg);
+    border-color: var(--color-warning-light);
+    color: var(--color-warning-text);
   }
 
   .alert-error,
   .alert-danger {
-    background-color: var(--theme-danger-bg);
-    border-color: var(--theme-danger-light);
-    color: var(--theme-danger-text);
+    background-color: var(--color-danger-bg);
+    border-color: var(--color-danger-light);
+    color: var(--color-danger-text);
   }
 
   .alert-info {
-    background-color: var(--theme-info-bg);
-    border-color: var(--theme-info-light);
-    color: var(--theme-info-text);
+    background-color: var(--color-info-bg);
+    border-color: var(--color-info-light);
+    color: var(--color-info-text);
   }
 
   .alert-default {
-    background-color: var(--theme-bg-tertiary);
-    border-color: var(--theme-border);
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border);
     color: var(--color-foreground-secondary);
   }
 
@@ -462,10 +370,8 @@ button:active {
     }
   }
 
-  @media (prefers-color-scheme: dark) {
-    .btn {
-      --shade: hsla(30deg, 20.6%, 15%, 0.45);
-    }
+  .dark .btn {
+    --shade: hsla(30deg, 20.6%, 15%, 0.45);
   }
 
   .btn:disabled {
@@ -479,25 +385,18 @@ button:active {
   }
 
   .btn-secondary {
-    --bg: var(--theme-bg-secondary);
-    border: 1px solid var(--theme-border);
+    --bg: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
     color: var(--color-foreground);
+    --shade: hsla(30deg, 20.6%, 35%, 0.25);
   }
 
-  @media (prefers-color-scheme: light) {
-    .btn-secondary {
-      --shade: hsla(30deg, 20.6%, 35%, 0.25);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .btn-secondary {
-      --shade: hsla(30deg, 0%, 28%, 0.35);
-    }
+  .dark .btn-secondary {
+    --shade: hsla(30deg, 0%, 28%, 0.35);
   }
 
   .btn-danger {
-    --bg: var(--theme-danger);
+    --bg: var(--color-danger);
     color: white;
   }
 
@@ -526,24 +425,24 @@ button:active {
     @apply before:bg-foreground rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
   }
 
-  @media (prefers-color-scheme: light) {
-    .icon-btn {
-      &:hover {
-        box-shadow: inset 0 0 0 1.25px var(--color-border);
-      }
-    }
+  .icon-btn:hover {
+    box-shadow: inset 0 0 0 1.25px var(--color-border);
+  }
+
+  .dark .icon-btn:hover {
+    box-shadow: inset 0 -2px 1px -1px var(--color-border);
   }
 
   .card {
     border-radius: 1rem;
-    border: 1px solid var(--theme-border);
-    background-color: var(--theme-bg-secondary);
-    box-shadow: var(--theme-shadow);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--shadow-card);
   }
 
   .card-header {
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--theme-border);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .card-body {

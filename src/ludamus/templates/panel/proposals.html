@@ -15,11 +15,12 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:proposal-create' slug=current_event.slug %}"
-           class="btn btn-primary">
-            {% icon "plus" class="w-4 h-4 mr-2" %}
-            {% translate "Create Session" %}
-        </a>
+        {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+        {% translate "Create Session" as t_create %}
+        {% tessera_button t_create href=create_url icon="plus" %}
+        {% url 'panel:content-log' slug=current_event.slug as log_url %}
+        {% translate "Activity Log" as t_log %}
+        {% tessera_button t_log href=log_url variant="secondary" icon="clock" %}
     {% endif %}
     {% if all_tracks %}
         <form method="get" class="flex items-center gap-2 flex-shrink-0">
@@ -148,15 +149,15 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 {% if proposal.status == "pending" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-warning-bg)] text-[var(--theme-warning-text)]">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
                                         {% translate "Pending" %}
                                     </span>
                                 {% elif proposal.status == "rejected" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-danger-bg)] text-[var(--theme-danger-text)]">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
                                         {% translate "Rejected" %}
                                     </span>
                                 {% elif proposal.status == "scheduled" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-info-bg)] text-[var(--theme-info-text)]">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">
                                         {% translate "Scheduled" %}
                                     </span>
                                 {% endif %}

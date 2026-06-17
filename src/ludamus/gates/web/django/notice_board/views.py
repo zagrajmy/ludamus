@@ -228,6 +228,7 @@ class EncounterEditPageView(LoginRequiredMixin, View):
                 "end_time": self._format_dt(encounter.end_time),
                 "place": encounter.place,
                 "max_participants": encounter.max_participants,
+                "header_image": encounter.header_image_url or None,
             }
         )
         return TemplateResponse(
@@ -254,8 +255,11 @@ class EncounterEditPageView(LoginRequiredMixin, View):
             place=form.cleaned_data.get("place", ""),
             max_participants=form.cleaned_data.get("max_participants") or 0,
         )
-        if form.cleaned_data.get("header_image"):
-            data["header_image"] = form.cleaned_data["header_image"]
+        # ClearableFileInput: a file replaces, False clears, None keeps as-is.
+        if header_image := form.cleaned_data.get("header_image"):
+            data["header_image"] = header_image
+        elif header_image is False:
+            data["header_image"] = ""
 
         uow.encounters.update(pk, data)
         messages.success(request, _("Encounter updated."))

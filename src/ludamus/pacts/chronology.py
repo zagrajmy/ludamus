@@ -14,11 +14,13 @@ from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
+    ContentChangeLogDTO,
     FieldUsageSummary,
     PersonalDataFieldCreateData,
     PersonalDataFieldDTO,
     PersonalDataFieldUpdateData,
     ProposalCategoryDTO,
+    SessionContentEditData,
     SessionFieldValueData,
     SessionSelfEditContext,
     SpaceDTO,
@@ -139,8 +141,21 @@ class SessionSelfEditServiceProtocol(Protocol):
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None: ...
+
+
+class SessionContentEditServiceProtocol(Protocol):
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        data: SessionContentEditData,
+    ) -> None: ...
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
+    def list_field_names(self, event_id: int) -> dict[int, str]: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

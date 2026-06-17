@@ -1,0 +1,17 @@
+{% load i18n %}
+<div class="group hoverboard flex items-center gap-0.5">
+    {% if "events" in current_sphere.enabled_pages %}
+        <a href="{% url 'web:events' %}"
+           aria-current="{% if 'notice-board' not in ns %}page{% endif %}"
+           class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
+            {% translate "Events" %}
+        </a>
+    {% endif %}
+    {% if "encounters" in current_sphere.enabled_pages %}
+        <a aria-current="{% if 'notice-board' in ns %}page{% endif %}"
+           href="{% url 'web:notice-board:index' %}"
+           class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
+            {% translate "Encounters" %}
+        </a>
+    {% endif %}
+</div>

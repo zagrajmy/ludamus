@@ -214,6 +214,13 @@
                                 {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
                                 <span class="sidebar-label">{{ t_event_settings }}</span>
                             </a>
+                            {% translate "Bans" as t_bans %}
+                            <a href="{% url 'panel:bans' slug=current_event.slug %}"
+                               title="{{ t_bans }}"
+                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                {% icon "no-symbol" class="size-4.5 mr-2" %}
+                                <span class="sidebar-label">{{ t_bans }}</span>
+                            </a>
                         {% endif %}
                         <div class="{% if current_event %}pt-4 mt-4 border-t border-neutral-800{% endif %}">
                             <p class="sidebar-fold-hide px-4 text-xs text-foreground-muted uppercase tracking-wider mb-2">

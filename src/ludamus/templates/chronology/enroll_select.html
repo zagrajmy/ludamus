@@ -12,6 +12,26 @@
 {% endblock description %}
 {% block body %}
     <div class="max-w-4xl mx-auto">
+        {# Shadowban warning: players the viewer shadowbanned are already here. #}
+        {% if shadowban_warnings %}
+            <div class="alert alert-warning flex flex-col gap-3 mb-4">
+                <div class="flex items-center gap-2 font-semibold">
+                    {% icon "shield-exclamation" class="w-5 h-5 shrink-0" %}
+                    {% translate "Players you shadowbanned are already signed up here" %}
+                </div>
+                <ul class="flex flex-col gap-2">
+                    {% for warning in shadowban_warnings %}
+                        <li class="flex items-center gap-2">
+                            {% include "components/avatar.html" with user=warning.user size="size-8" danger_ring=True %}
+                            <span class="font-medium">{{ warning.user.full_name }}</span>
+                            <span class="text-sm text-foreground-muted">
+                                {% blocktranslate with date=warning.shadowbanned_at|date:"SHORT_DATE_FORMAT" %}shadowbanned on {{ date }}{% endblocktranslate %}
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
         {# Session Details Card #}
         <div class="card mb-4">
             <div class="card-header bg-primary text-white flex items-center gap-2">
@@ -60,7 +80,7 @@
         </div>
         {# Enrollment Form Card #}
         <div class="card">
-            <div class="card-header bg-[var(--theme-success)] text-white flex items-center gap-2">
+            <div class="card-header bg-success text-white flex items-center gap-2">
                 {% icon "user-plus" class="w-5 h-5" %}
                 <h5 class="font-semibold mb-0">{% translate "Enrollment Options" %}</h5>
             </div>
@@ -75,7 +95,7 @@
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead>
-                                    <tr class="border-b border-[var(--theme-border)] bg-[var(--theme-bg-tertiary)]">
+                                    <tr class="border-b border-border bg-bg-tertiary">
                                         <th class="text-left px-3 py-2 font-medium">{% translate "User" %}</th>
                                         <th class="text-left px-3 py-2 font-medium">{% translate "Current Status" %}</th>
                                         <th class="text-center px-3 py-2 font-medium">{% translate "Enroll" %}</th>
@@ -83,9 +103,9 @@
                                         <th class="text-center px-3 py-2 font-medium">{% translate "Cancel" %}</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-[var(--theme-border)]">
+                                <tbody class="divide-y divide-border">
                                     {% for user_data in user_data %}
-                                        <tr class="hover:bg-[var(--theme-bg-tertiary)] transition-colors">
+                                        <tr class="hover:bg-bg-tertiary transition-colors">
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center gap-2">
                                                     {% if user_data.user.pk == request.user.pk %}
@@ -99,22 +119,23 @@
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 {% if user_data.user_enrolled %}
-                                                    <span class="inline-flex items-center rounded-full bg-[var(--theme-success-bg)] text-[var(--theme-success-text)] px-2.5 py-0.5 text-xs font-medium">{% translate "Already Enrolled" %}</span>
+                                                    <span class="inline-flex items-center rounded-full bg-success-bg text-success-text px-2.5 py-0.5 text-xs font-medium">{% translate "Already Enrolled" %}</span>
                                                 {% elif user_data.user_waiting %}
-                                                    <span class="inline-flex items-center rounded-full bg-[var(--theme-warning-bg)] text-[var(--theme-warning-text)] px-2.5 py-0.5 text-xs font-medium">{% translate "On Waiting List" %}</span>
+                                                    <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "On Waiting List" %}</span>
                                                 {% elif user_data.has_time_conflict %}
-                                                    <span class="inline-flex items-center rounded-full bg-[var(--theme-danger-bg)] text-[var(--theme-danger-text)] px-2.5 py-0.5 text-xs font-medium">{% translate "Time Conflict" %}</span>
+                                                    <span class="inline-flex items-center rounded-full bg-danger-bg text-danger-text px-2.5 py-0.5 text-xs font-medium">{% translate "Time Conflict" %}</span>
                                                 {% else %}
-                                                    <span class="inline-flex items-center rounded-full bg-[var(--theme-bg-tertiary)] px-2.5 py-0.5 text-xs font-medium">{% translate "Available" %}</span>
+                                                    <span class="inline-flex items-center rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium">{% translate "Available" %}</span>
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
                                                 {% if not user_data.user_enrolled and not user_data.user_waiting %}
                                                     {% if not user_data.has_time_conflict %}
                                                         <input type="radio"
-                                                               class="accent-[var(--theme-success)]"
+                                                               class="accent-success"
                                                                name="user_{{ user_data.user.pk }}"
                                                                id="user_{{ user_data.user.pk }}_enroll"
+                                                               aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}"
                                                                value="enroll">
                                                     {% else %}
                                                         <span class="text-foreground-muted text-xs">{% translate "Time conflict" %}</span>
@@ -126,9 +147,10 @@
                                             <td class="px-3 py-2.5 text-center">
                                                 {% if not user_data.user_enrolled and not user_data.user_waiting %}
                                                     <input type="radio"
-                                                           class="accent-[var(--theme-warning)]"
+                                                           class="accent-warning"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_waitlist"
+                                                           aria-label="{% translate "Join waiting list" %}: {{ user_data.user.full_name }}"
                                                            value="waitlist">
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>
@@ -137,9 +159,10 @@
                                             <td class="px-3 py-2.5 text-center">
                                                 {% if user_data.user_enrolled or user_data.user_waiting %}
                                                     <input type="radio"
-                                                           class="accent-[var(--theme-danger)]"
+                                                           class="accent-danger"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_cancel"
+                                                           aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}"
                                                            value="cancel">
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>

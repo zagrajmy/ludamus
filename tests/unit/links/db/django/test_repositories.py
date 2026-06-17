@@ -1,8 +1,27 @@
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from django.db import IntegrityError
 
-from ludamus.links.db.django.repositories import is_connection_display_name_conflict
+from ludamus.links.db.django.repositories import (
+    delete_stored_file,
+    is_connection_display_name_conflict,
+)
+
+
+class TestDeleteStoredFile:
+    def test_noop_when_field_has_no_storage(self):
+        delete_stored_file(object(), "orphan/path.png")
+
+    def test_logs_and_swallows_storage_delete_errors(self, caplog):
+        storage = MagicMock()
+        storage.delete.side_effect = OSError("boom")
+        field_file = SimpleNamespace(storage=storage)
+
+        with caplog.at_level("WARNING", logger="ludamus.links.db.django.repositories"):
+            delete_stored_file(field_file, "old.png")
+
+        assert "Best-effort cleanup" in caplog.text
 
 
 class _FakePostgresError(Exception):

@@ -20,6 +20,7 @@
         }
 
         @media print {
+
             html,
             body {
                 height: auto !important;
@@ -179,111 +180,115 @@
                 </div>
             </aside>
             <div class="min-w-0 overflow-hidden print:block print:overflow-visible">
-                <div data-testid="print-preview-scroll"
+                <div role="region"
+                     aria-label="{% translate "Print preview" %}"
                      class="flex flex-row items-start gap-[8mm] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-[12mm] scroll-pl-px snap-x snap-mandatory print:block print:overflow-visible print:pb-0">
                     {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-[297mm] print:w-[210mm] print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
-                    {% if timetable %}
-                        {% for page in timetable.pages %}
-                            <section class="{{ sheet_class }}"
-                                     id="timetable-day-{{ forloop.counter }}">
-                                {% if not timetable.is_complete %}
-                                    {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
-                                {% else %}
-                                    {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=False %}
-                                {% endif %}
-                                <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
-                                <h3 class="m-0 mb-[2mm] text-[12pt]">
-                                    {{ page.day|date:"l, j E Y" }}
-                                    {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
-                                </h3>
-                                <table class="w-full table-fixed border-collapse text-[7pt]">
-                                    <thead>
-                                        <tr>
-                                            <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time slot" %}</th>
-                                            {% for name in page.space_names %}<th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>{% endfor %}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for row in page.rows %}
+                        {% if timetable %}
+                            {% for page in timetable.pages %}
+                                <section class="{{ sheet_class }}" id="timetable-day-{{ forloop.counter }}">
+                                    {% if not timetable.is_complete %}
+                                        {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
+                                    {% else %}
+                                        {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=False %}
+                                    {% endif %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
+                                    <h3 class="m-0 mb-[2mm] text-[12pt]">
+                                        {{ page.day|date:"l, j E Y" }}
+                                        {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
+                                    </h3>
+                                    <table class="w-full table-fixed border-collapse text-[7pt]">
+                                        <thead>
                                             <tr>
-                                                <td class="w-[20mm] whitespace-nowrap border border-neutral-300 p-[1mm] align-top tabular-nums">{{ row.start_time|time:"H:i" }}–{{ row.end_time|time:"H:i" }}</td>
-                                                {% for cell in row.cells %}
-                                                    <td class="border border-neutral-300 p-[1mm] align-top {% if cell.sessions %}text-left{% else %}text-center{% endif %}">
-                                                        {% for session in cell.sessions %}
-                                                            <div {% if not forloop.last %}class="mb-[1mm]"{% endif %}>
-                                                                <strong>{{ session.title }}</strong>
-                                                                {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
-                                                            </div>
-                                                        {% empty %}
-                                                            <span class="italic text-neutral-500">—</span>
-                                                        {% endfor %}
-                                                    </td>
+                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time slot" %}</th>
+                                                {% for name in page.space_names %}
+                                                    <th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>
                                                 {% endfor %}
                                             </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </section>
-                        {% empty %}
-                            <section class="{{ sheet_class }}">
-                                {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
-                                <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
-                                <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
-                            </section>
-                        {% endfor %}
-                    {% elif area_schedule %}
-                        {% for space in area_schedule.spaces %}
-                            <section class="{{ sheet_class }}"
-                                     id="area-space-{{ forloop.counter }}">
-                                {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
-                                <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
-                                <p class="mb-[4mm] text-[9pt] text-neutral-500">
-                                    {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
-                                </p>
-                                <div>
-                                    <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
-                                        {{ space.space_name }}
-                                        {% if space.capacity %}
-                                            <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
-                                        {% endif %}
-                                    </h3>
-                                    {% for session in space.sessions %}
-                                        <div class="mb-[4mm] break-inside-avoid">
-                                            <div class="text-[9pt] tabular-nums text-neutral-500">{{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}</div>
-                                            <div class="text-[11pt] font-bold">{{ session.title }}</div>
-                                            {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
-                                            {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
-                                        </div>
-                                    {% empty %}
-                                        <p class="italic text-neutral-500">{% translate "Nothing scheduled in this time range." %}</p>
-                                    {% endfor %}
-                                </div>
-                            </section>
-                        {% endfor %}
-                    {% elif session_list %}
-                        <section class="{{ sheet_class }}"
-                                 id="session-list">
-                            {% include "chronology/parts/print_header.html" with scope_name=session_list.scope_name show_full_schedule_label=True %}
-                            <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Sessions" %}</h2>
-                            {% for session in session_list.sessions %}
-                                <div class="mb-[4mm] break-inside-avoid">
-                                    <div class="text-[9pt] tabular-nums text-neutral-500">
-                                        {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }} · {{ session.space_name }}
-                                    </div>
-                                    <div class="text-[11pt] font-bold">{{ session.title }}</div>
-                                    {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
-                                    {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
-                                </div>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in page.rows %}
+                                                <tr>
+                                                    <td class="w-[20mm] whitespace-nowrap border border-neutral-300 p-[1mm] align-top tabular-nums">
+                                                        {{ row.start_time|time:"H:i" }}–{{ row.end_time|time:"H:i" }}
+                                                    </td>
+                                                    {% for cell in row.cells %}
+                                                        <td class="border border-neutral-300 p-[1mm] align-top {% if cell.sessions %}text-left{% else %}text-center{% endif %}">
+                                                            {% for session in cell.sessions %}
+                                                                <div {% if not forloop.last %}class="mb-[1mm]"{% endif %}>
+                                                                    <strong>{{ session.title }}</strong>
+                                                                    {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                                                </div>
+                                                            {% empty %}
+                                                                <span class="italic text-neutral-500">—</span>
+                                                            {% endfor %}
+                                                        </td>
+                                                    {% endfor %}
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </section>
                             {% empty %}
-                                <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                <section class="{{ sheet_class }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
+                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                </section>
                             {% endfor %}
-                        </section>
-                    {% else %}
-                        <section class="{{ sheet_class }}">
-                            {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
-                            <p class="italic text-neutral-500">{% translate "This printable is not available for this event." %}</p>
-                        </section>
-                    {% endif %}
+                        {% elif area_schedule %}
+                            {% for space in area_schedule.spaces %}
+                                <section class="{{ sheet_class }}" id="area-space-{{ forloop.counter }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
+                                    <p class="mb-[4mm] text-[9pt] text-neutral-500">
+                                        {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                    </p>
+                                    <div>
+                                        <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
+                                            {{ space.space_name }}
+                                            {% if space.capacity %}
+                                                <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
+                                            {% endif %}
+                                        </h3>
+                                        {% for session in space.sessions %}
+                                            <div class="mb-[4mm] break-inside-avoid">
+                                                <div class="text-[9pt] tabular-nums text-neutral-500">
+                                                    {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                                </div>
+                                                <div class="text-[11pt] font-bold">{{ session.title }}</div>
+                                                {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                                {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
+                                            </div>
+                                        {% empty %}
+                                            <p class="italic text-neutral-500">{% translate "Nothing scheduled in this time range." %}</p>
+                                        {% endfor %}
+                                    </div>
+                                </section>
+                            {% endfor %}
+                        {% elif session_list %}
+                            <section class="{{ sheet_class }}" id="session-list">
+                                {% include "chronology/parts/print_header.html" with scope_name=session_list.scope_name show_full_schedule_label=True %}
+                                <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Sessions" %}</h2>
+                                {% for session in session_list.sessions %}
+                                    <div class="mb-[4mm] break-inside-avoid">
+                                        <div class="text-[9pt] tabular-nums text-neutral-500">
+                                            {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }} · {{ session.space_name }}
+                                        </div>
+                                        <div class="text-[11pt] font-bold">{{ session.title }}</div>
+                                        {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                        {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
+                                    </div>
+                                {% empty %}
+                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                {% endfor %}
+                            </section>
+                        {% else %}
+                            <section class="{{ sheet_class }}">
+                                {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
+                                <p class="italic text-neutral-500">{% translate "This printable is not available for this event." %}</p>
+                            </section>
+                        {% endif %}
                     {% endwith %}
                 </div>
             </div>

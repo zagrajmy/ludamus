@@ -95,8 +95,9 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
         if layout == "horizontal":
             parts.extend(("</div>", '<div class="sm:w-2/3">'))
 
-        parts.append(_render_field_input(field))
-        parts.extend((render_help_text(field), render_errors(field)))
+        # File inputs surface their errors inside the dropzone itself.
+        errors_html = "" if isinstance(widget, FileInput) else render_errors(field)
+        parts.extend((_render_field_input(field), render_help_text(field), errors_html))
 
         if layout == "horizontal":
             parts.append("</div>")

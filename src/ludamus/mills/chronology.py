@@ -19,7 +19,9 @@ from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
     ScheduleChangeLogData,
+    SessionContentEditData,
     SessionDTO,
+    SessionFieldValueData,
     SessionSelfEditContext,
     SessionStatus,
 )
@@ -57,19 +59,25 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     VenueGroupDTO,
 )
+from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
         AreaDTO,
+        ContentChangeLogData,
+        ContentChangeLogDTO,
+        ContentChangeLogRepositoryProtocol,
+        ContentFieldChange,
+        ContentFieldValue,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
-        SessionFieldValueData,
+        SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SpaceDTO,
@@ -356,55 +364,71 @@ class TimetableService:
         if log.event_id != event_pk:
             # The log belongs to another event — reject before reverting.
             raise NotFoundError
-        if log.action == ScheduleChangeAction.ASSIGN:
-            agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
-            if agenda_item is None:
-                raise NotFoundError
-            self._uow.agenda_items.delete(agenda_item.pk)
-            self._uow.sessions.update(log.session_id, {"status": SessionStatus.PENDING})
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            if (
-                log.old_space_id is None
-                or log.old_start_time is None
-                or log.old_end_time is None
-            ):
-                msg = "Cannot revert UNASSIGN: missing original placement data"
-                raise ValueError(msg)
-            session = self._uow.sessions.read(log.session_id)
-            if session.status != SessionStatus.PENDING:
-                msg = f"Session {log.session_id} is not in PENDING status"
-                raise ValueError(msg)
-            self._uow.agenda_items.create(
-                {
-                    "session_id": log.session_id,
-                    "space_id": log.old_space_id,
-                    "start_time": log.old_start_time,
-                    "end_time": log.old_end_time,
-                    "session_confirmed": False,
-                }
+        # Lock the session row so concurrent reverts (and assign/unassign)
+        # serialize: the latest-pk check and all mutations run under one
+        # transaction, so a second revert re-reads a now-stale latest_pk and
+        # is rejected instead of racing past the check (TOCTOU).
+        with self._uow.atomic():
+            self._uow.sessions.lock(log.session_id)
+            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
             )
-            self._uow.sessions.update(
-                log.session_id, {"status": SessionStatus.SCHEDULED}
-            )
-        else:
-            msg = f"Cannot revert action: {log.action}"
-            raise ValueError(msg)
-        event = self._uow.sessions.read_event(log.session_id)
-        revert_log: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": log.session_id,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.REVERT,
-        }
-        if log.action == ScheduleChangeAction.ASSIGN:
-            revert_log["old_space_id"] = log.new_space_id
-            revert_log["old_start_time"] = log.new_start_time
-            revert_log["old_end_time"] = log.new_end_time
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            revert_log["new_space_id"] = log.old_space_id
-            revert_log["new_start_time"] = log.old_start_time
-            revert_log["new_end_time"] = log.old_end_time
-        self._uow.schedule_change_logs.create(revert_log)
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                msg = "Only the latest change for a session can be reverted"
+                raise ValueError(msg)
+            if log.action == ScheduleChangeAction.ASSIGN:
+                agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
+                if agenda_item is None:
+                    raise NotFoundError
+                self._uow.agenda_items.delete(agenda_item.pk)
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.PENDING}
+                )
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                if (
+                    log.old_space_id is None
+                    or log.old_start_time is None
+                    or log.old_end_time is None
+                ):
+                    msg = "Cannot revert UNASSIGN: missing original placement data"
+                    raise ValueError(msg)
+                session = self._uow.sessions.read(log.session_id)
+                if session.status != SessionStatus.PENDING:
+                    msg = f"Session {log.session_id} is not in PENDING status"
+                    raise ValueError(msg)
+                self._uow.agenda_items.create(
+                    {
+                        "session_id": log.session_id,
+                        "space_id": log.old_space_id,
+                        "start_time": log.old_start_time,
+                        "end_time": log.old_end_time,
+                        "session_confirmed": False,
+                    }
+                )
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.SCHEDULED}
+                )
+            else:
+                msg = f"Cannot revert action: {log.action}"
+                raise ValueError(msg)
+            event = self._uow.sessions.read_event(log.session_id)
+            revert_log: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": log.session_id,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.REVERT,
+            }
+            if log.action == ScheduleChangeAction.ASSIGN:
+                revert_log["old_space_id"] = log.new_space_id
+                revert_log["old_start_time"] = log.new_start_time
+                revert_log["old_end_time"] = log.new_end_time
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                revert_log["new_space_id"] = log.old_space_id
+                revert_log["new_start_time"] = log.old_start_time
+                revert_log["new_end_time"] = log.old_end_time
+            self._uow.schedule_change_logs.create(revert_log)
 
 
 class ConflictDetectionService:
@@ -789,20 +813,186 @@ class SessionEditNotAllowedError(Exception):
     """Raised when a user may not self-edit the requested session."""
 
 
-class SessionSelfEditService:
-    """Facilitator self-service editing of their own session."""
+def _normalize(value: ContentFieldValue) -> ContentFieldValue:
+    return "" if value is None else value
+
+
+def _diff_cover_image(old_url: str, new_value: object) -> ContentFieldChange | None:
+    # new_value is "" when the cover was cleared, or a file object on upload.
+    if not new_value:
+        if old_url:
+            return {"field": "cover_image", "field_id": None, "old": old_url, "new": ""}
+        return None
+    return {
+        "field": "cover_image",
+        "field_id": None,
+        "old": old_url,
+        "new": "(updated)",
+    }
+
+
+def _diff_field_values(
+    old_values: list[SessionFieldValueDTO], new_values: list[SessionFieldValueData]
+) -> list[ContentFieldChange]:
+    old_by_id = {v.field_id: v.value for v in old_values}
+    changes: list[ContentFieldChange] = []
+    for new in new_values:
+        field_id = new["field_id"]
+        old_value = old_by_id.get(field_id)
+        new_value = new["value"]
+        if _normalize(old_value) == _normalize(new_value):
+            continue
+        changes.append(
+            {"field": "", "field_id": field_id, "old": old_value, "new": new_value}
+        )
+    return changes
+
+
+def _core_comparisons(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
+    # Keys are accessed literally (not in a loop) so the TypedDict / DTO field
+    # types stay statically known. cover_image is handled separately.
+    comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
+    if "title" in update:
+        comparisons.append(("title", old_session.title, update["title"]))
+    if "display_name" in update:
+        comparisons.append(
+            ("display_name", old_session.display_name, update["display_name"])
+        )
+    if "description" in update:
+        comparisons.append(
+            ("description", old_session.description, update["description"])
+        )
+    if "requirements" in update:
+        comparisons.append(
+            ("requirements", old_session.requirements, update["requirements"])
+        )
+    if "needs" in update:
+        comparisons.append(("needs", old_session.needs, update["needs"]))
+    if "contact_email" in update:
+        comparisons.append(
+            ("contact_email", old_session.contact_email, update["contact_email"])
+        )
+    if "participants_limit" in update:
+        comparisons.append(
+            (
+                "participants_limit",
+                old_session.participants_limit,
+                update["participants_limit"],
+            )
+        )
+    if "min_age" in update:
+        comparisons.append(("min_age", old_session.min_age, update["min_age"]))
+    if "duration" in update:
+        comparisons.append(("duration", old_session.duration, update["duration"]))
+    return comparisons
+
+
+def diff_session_content(
+    old_session: SessionDTO,
+    update: SessionUpdateData,
+    old_values: list[SessionFieldValueDTO],
+    new_values: list[SessionFieldValueData],
+) -> list[ContentFieldChange]:
+    # Field-by-field diff of a session edit, as a flat list of changes: core
+    # session columns plus dynamic session-field answers. Pure, identity-only
+    # (no display text) — mirrors exactly what the edit persists.
+    changes: list[ContentFieldChange] = [
+        {"field": key, "field_id": None, "old": old_value, "new": new_value}
+        for key, old_value, new_value in _core_comparisons(old_session, update)
+        if old_value != new_value
+    ]
+    if "cover_image" in update:
+        cover_change = _diff_cover_image(
+            old_session.cover_image_url, update["cover_image"]
+        )
+        if cover_change is not None:
+            changes.append(cover_change)
+    changes.extend(_diff_field_values(old_values, new_values))
+    return changes
+
+
+class SessionContentEditService:
+    # Shared by the facilitator self-edit and organizer panel edit so both
+    # paths write the same ContentChangeLog; owns the transactional boundary.
 
     def __init__(
         self,
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         session_fields: SessionFieldRepositoryProtocol,
-        spheres: SphereRepositoryProtocol,
+        content_change_logs: ContentChangeLogRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._session_fields = session_fields
+        self._content_change_logs = content_change_logs
+
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        data: SessionContentEditData,
+    ) -> None:
+        # All writes share one transaction so a partial edit can never be
+        # committed. data.facilitator_ids None leaves the assignment untouched
+        # (self-edit); a list (possibly empty) replaces it.
+        with self._transaction.atomic():
+            old_session = self._sessions.read(session_id)
+            old_values = self._sessions.read_field_values(session_id)
+            self._sessions.update(session_id, data.update)
+            if data.field_values is not None:
+                self._sessions.save_field_values(session_id, data.field_values)
+            values_for_diff = (
+                data.field_values
+                if data.field_values is not None
+                else [
+                    SessionFieldValueData(
+                        session_id=session_id, field_id=fv.field_id, value=fv.value
+                    )
+                    for fv in old_values
+                ]
+            )
+            if data.facilitator_ids is not None:
+                self._sessions.set_facilitators(session_id, data.facilitator_ids)
+            changes = diff_session_content(
+                old_session, data.update, old_values, values_for_diff
+            )
+            if changes:
+                log_data: ContentChangeLogData = {
+                    "event_id": event_id,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "changes": changes,
+                }
+                self._content_change_logs.create(log_data)
+
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
+        return self._content_change_logs.list_by_event(event_id)
+
+    def list_field_names(self, event_id: int) -> dict[int, str]:
+        # Render-time resolution of dynamic session-field labels (user content,
+        # not UI text) so the log shows the field's current name.
+        return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
+
+
+class SessionSelfEditService:
+    """Facilitator self-service editing of their own session."""
+
+    def __init__(
+        self,
+        sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+        content_edit: SessionContentEditService,
+    ) -> None:
+        self._sessions = sessions
+        self._session_fields = session_fields
         self._spheres = spheres
+        self._content_edit = content_edit
 
     def _gate(
         self, session_id: int, user_id: int | None
@@ -851,9 +1041,10 @@ class SessionSelfEditService:
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None:
-        if not self.can_edit(session_id, user_id):
+        allowed, _session, event = self._gate(session_id, user_id)
+        if not allowed or event is None:
             raise SessionEditNotAllowedError
 
         def _str(key: str) -> str:
@@ -875,10 +1066,14 @@ class SessionSelfEditService:
             "min_age": _int("min_age"),
             "duration": _str("duration"),
         }
-        with self._transaction.atomic():
-            self._sessions.update(session_id, update)
-            if field_values:
-                self._sessions.save_field_values(session_id, field_values)
+        if (cover := resolve_cover_image(cleaned_data.get("cover_image"))) is not None:
+            update["cover_image"] = cover
+        self._content_edit.apply(
+            session_id=session_id,
+            event_id=event.pk,
+            user_id=user_id,
+            data=SessionContentEditData(update=update, field_values=field_values),
+        )
 
 
 class IntegrationImplementationNotFoundError(Exception):

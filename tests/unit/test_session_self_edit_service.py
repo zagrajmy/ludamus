@@ -3,8 +3,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
+from ludamus.mills.chronology import (
+    SessionContentEditService,
+    SessionEditNotAllowedError,
+    SessionSelfEditService,
+)
 from ludamus.pacts import NotFoundError
+
+
+class _FakeUpload:
+    name = "cover.png"
+
+    def read(self) -> bytes:
+        return b""
 
 
 @contextmanager
@@ -26,7 +37,10 @@ def _build(*, presenter_id, event_override, sphere_default):
     session_fields.list_by_event.return_value = []
     spheres = MagicMock()
     spheres.read.return_value = MagicMock(allow_facilitator_session_edit=sphere_default)
-    service = SessionSelfEditService(transaction, sessions, session_fields, spheres)
+    content_edit = SessionContentEditService(
+        transaction, sessions, session_fields, MagicMock()
+    )
+    service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
     return service, sessions, transaction
 
 
@@ -118,6 +132,52 @@ class TestUpdate:
             },
         )
         sessions.save_field_values.assert_called_once_with(5, field_values)
+
+    def test_passes_uploaded_cover_image_through(self):
+        service, sessions, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        cover = _FakeUpload()
+
+        service.update(
+            5, 10, {"title": "T", "display_name": "D", "cover_image": cover}, []
+        )
+
+        assert sessions.update.call_args.args[1]["cover_image"] is cover
+
+    def test_clears_cover_image_when_false(self):
+        service, sessions, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        service.update(
+            5, 10, {"title": "T", "display_name": "D", "cover_image": False}, []
+        )
+
+        sessions.update.assert_called_once_with(
+            5,
+            {
+                "title": "T",
+                "display_name": "D",
+                "description": "",
+                "requirements": "",
+                "needs": "",
+                "contact_email": "",
+                "participants_limit": 0,
+                "min_age": 0,
+                "duration": "",
+                "cover_image": "",
+            },
+        )
+
+    def test_leaves_cover_image_untouched_when_absent(self):
+        service, sessions, _ = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+
+        service.update(5, 10, {"title": "T", "display_name": "D"}, [])
+
+        assert "cover_image" not in sessions.update.call_args.args[1]
 
     def test_raises_when_not_allowed(self):
         service, sessions, _ = _build(

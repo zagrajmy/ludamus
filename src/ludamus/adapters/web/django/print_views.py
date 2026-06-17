@@ -18,9 +18,13 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.printing import AreaScheduleQueryDTO, PrintTimetableQueryDTO
 
 if TYPE_CHECKING:
+    from django.utils.functional import _StrPromise
+
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import EventDTO
     from ludamus.pacts.printing import PrintOptionDTO, PrintSpaceOptionDTO
+
+    type _LazyStr = str | _StrPromise
 
 
 DocumentKind = Literal["area_schedule", "session_list", "timetable"]
@@ -30,14 +34,28 @@ ScopeKind = Literal["event", "area", "space", "track"]
 @dataclass(frozen=True)
 class MaterialSpec:
     value: str
-    label: str
+    label: _LazyStr
     document_kind: DocumentKind
     scope_kind: ScopeKind = "event"
-    show_scope_control: bool = False
-    show_space_control: bool = False
-    show_track_control: bool = False
-    show_range_controls: bool = False
     requires_session_list: bool = False
+
+    # The sidebar controls a material exposes follow directly from its scope, so
+    # they are derived rather than stored (keeps the specs from drifting).
+    @property
+    def show_scope_control(self) -> bool:
+        return self.scope_kind == "area"
+
+    @property
+    def show_space_control(self) -> bool:
+        return self.scope_kind == "space"
+
+    @property
+    def show_track_control(self) -> bool:
+        return self.scope_kind == "track"
+
+    @property
+    def show_range_controls(self) -> bool:
+        return self.document_kind == "area_schedule"
 
 
 AREA_DESCRIPTIONS = "area-descriptions"
@@ -53,36 +71,14 @@ MATERIAL_SPECS = (
         _("Area with descriptions"),
         "area_schedule",
         scope_kind="area",
-        show_scope_control=True,
-        show_range_controls=True,
     ),
+    MaterialSpec(AREA_TIMETABLE, _("Area timetable"), "timetable", scope_kind="area"),
     MaterialSpec(
-        AREA_TIMETABLE,
-        _("Area timetable"),
-        "timetable",
-        scope_kind="area",
-        show_scope_control=True,
+        SPACE_TIMETABLE, _("Space timetable"), "timetable", scope_kind="space"
     ),
+    MaterialSpec(VENUE_TIMETABLE, _("Venue timetable"), "timetable", scope_kind="area"),
     MaterialSpec(
-        SPACE_TIMETABLE,
-        _("Space timetable"),
-        "timetable",
-        scope_kind="space",
-        show_space_control=True,
-    ),
-    MaterialSpec(
-        VENUE_TIMETABLE,
-        _("Venue timetable"),
-        "timetable",
-        scope_kind="area",
-        show_scope_control=True,
-    ),
-    MaterialSpec(
-        TRACK_TIMETABLE,
-        _("Track timetable"),
-        "timetable",
-        scope_kind="track",
-        show_track_control=True,
+        TRACK_TIMETABLE, _("Track timetable"), "timetable", scope_kind="track"
     ),
     MaterialSpec(EVENT_TIMETABLE, _("Event timetable"), "timetable"),
     MaterialSpec(
@@ -103,11 +99,14 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
-def _available_materials(*, session_list_available: bool) -> tuple[MaterialSpec, ...]:
+def _available_materials(
+    *, session_list_available: bool, tracks_available: bool
+) -> tuple[MaterialSpec, ...]:
     return tuple(
         spec
         for spec in MATERIAL_SPECS
-        if session_list_available or not spec.requires_session_list
+        if (session_list_available or not spec.requires_session_list)
+        and (tracks_available or spec.scope_kind != "track")
     )
 
 
@@ -157,7 +156,7 @@ class PublicEventPrintView(View):
     def get(self, request: RootRequest, slug: str) -> HttpResponse:
         try:
             event = request.services.events.read_by_slug(
-                slug, request.context.current_sphere_id
+                request.context.current_sphere_id, slug
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -195,7 +194,8 @@ class PublicEventPrintView(View):
             event.pk, confirmed_only=True
         )
         material_options = _available_materials(
-            session_list_available=session_list_candidate is not None
+            session_list_available=session_list_candidate is not None,
+            tracks_available=bool(tracks),
         )
         material_spec = self._resolve_material(material_options)
 
@@ -305,7 +305,10 @@ class PublicEventPrintView(View):
         return spaces[0].pk if spaces else None
 
     def _selected_track(self, tracks: list[PrintOptionDTO]) -> PrintOptionDTO | None:
-        slug = self.request.GET.get("track") or ""
-        if slug:
-            return next((track for track in tracks if track.slug == slug), None)
+        if slug := self.request.GET.get("track") or "":
+            # A stale/invalid slug must not silently print the whole event; fall
+            # back to the first track, mirroring `_selected_space_pk`.
+            selected = next((track for track in tracks if track.slug == slug), None)
+            if selected is not None:
+                return selected
         return tracks[0] if tracks else None

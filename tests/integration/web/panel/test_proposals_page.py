@@ -113,6 +113,39 @@ class TestProposalsPageView:
             },
         )
 
+    def test_shows_rejected_and_scheduled_status_badges(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="Rejected One",
+            slug="rejected-one",
+            sphere=sphere,
+            participants_limit=5,
+            status="rejected",
+        )
+        Session.objects.create(
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="Scheduled One",
+            slug="scheduled-one",
+            sphere=sphere,
+            participants_limit=5,
+            status="scheduled",
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Rejected" in content
+        assert "Scheduled" in content
+
     def test_returns_proposals_in_context(
         self, authenticated_client, active_user, sphere, event
     ):

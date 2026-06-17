@@ -130,11 +130,29 @@ class TestBuildGridOverlappingSessions:
 class TestRevertChange:
     @pytest.fixture
     def mock_uow(self):
-        return MagicMock()
+        uow = MagicMock()
+        # By default the log under test (pk 1, session 1) is the latest change.
+        uow.schedule_change_logs.latest_pk_for_session.return_value = 1
+        return uow
 
     @pytest.fixture
     def service(self, mock_uow):
         return TimetableService(mock_uow)
+
+    def test_revert_rejects_non_latest_change(self, service, mock_uow):
+        """Only the most recent change for a session may be reverted."""
+        log = MagicMock()
+        log.event_id = 1
+        log.action = ScheduleChangeAction.ASSIGN
+        log.session_id = 1
+        mock_uow.schedule_change_logs.read.return_value = log
+        # A newer change (pk 2) exists for the same session.
+        mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 2
+
+        with pytest.raises(ValueError, match="latest change"):
+            service.revert_change(log_pk=1, event_pk=1)
+
+        mock_uow.agenda_items.read_by_session.assert_not_called()
 
     def test_revert_raises_not_found_for_log_from_another_event(
         self, service, mock_uow

@@ -37,6 +37,7 @@ def _assert_print_ok(
     range_hours=6,
     material="event-timetable",
     session_list_available=False,
+    tracks_available=False,
 ):
     ctx = response.context_data
     assert isinstance(ctx["qr_svg"], str)
@@ -52,9 +53,11 @@ def _assert_print_ok(
         "area-timetable",
         "space-timetable",
         "venue-timetable",
-        "track-timetable",
-        "event-timetable",
     ]
+    # The track scope is only offered when the event actually has tracks.
+    if tracks_available:
+        expected_options.append("track-timetable")
+    expected_options.append("event-timetable")
     if session_list_available:
         expected_options.append("session-list")
     assert [option.value for option in ctx["material_options"]] == expected_options
@@ -328,11 +331,40 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug), {"material": "session-list"})
 
-        _assert_print_ok(response, material="session-list", session_list_available=True)
+        _assert_print_ok(
+            response,
+            material="session-list",
+            session_list_available=True,
+            tracks_available=True,
+        )
         content = response.content.decode()
         assert '<option value="session-list"' in content
         assert session.title in content
         assert session.description in content
+
+    def test_stale_track_slug_falls_back_to_first_track(
+        self, client, event, session, space
+    ):
+        track = Track.objects.create(
+            event=event, name="Focused Track", slug="focused-track", is_public=True
+        )
+        session.tracks.add(track)
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            session_confirmed=True,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = client.get(
+            self._url(event.slug), {"material": "track-timetable", "track": "stale"}
+        )
+
+        # A stale slug must not silently widen to the whole event; it resolves
+        # to the first available track instead.
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["selected_track"] == "focused-track"
 
 
 class TestEventPagePrintHijack:

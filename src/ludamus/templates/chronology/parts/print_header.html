@@ -9,7 +9,9 @@
                  height="80">
         {% endif %}
         <div class="text-[18pt] font-bold">{{ event.name }}</div>
-        <div class="mt-[1mm] text-[9pt] text-neutral-500">{{ event.start_time|date:"j E Y" }}–{{ event.end_time|date:"j E Y" }}</div>
+        <div class="mt-[1mm] text-[9pt] text-neutral-500">
+            {{ event.start_time|date:"j E Y" }}–{{ event.end_time|date:"j E Y" }}
+        </div>
         {% if scope_name %}<div class="mt-[1mm] text-[11pt] font-semibold">{{ scope_name }}</div>{% endif %}
     </div>
     <div class="shrink-0 text-center [&_svg]:h-[26mm] [&_svg]:w-[26mm]">

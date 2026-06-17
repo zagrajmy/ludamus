@@ -73,6 +73,10 @@ def _space_order(space: SpaceDTO) -> tuple[int, str]:
     return (space.order, space.name)
 
 
+def _session_list_order(item: AgendaItemDTO) -> tuple[datetime, str]:
+    return (item.start_time, item.space_name)
+
+
 def _space_chunks(spaces: list[SpaceDTO]) -> list[list[SpaceDTO]]:
     return [
         spaces[index : index + MAX_TIMETABLE_SPACES_PER_PAGE]
@@ -322,7 +326,7 @@ class PrintMaterialsService:
 
         event = self._events.read(event_pk)
         slot = slots[0]
-        items = [
+        items: list[AgendaItemDTO] = [
             item
             for item in self._agenda_items.list_by_track(tracks[0].pk)
             if _overlaps(item, slot.start_time, slot.end_time)
@@ -337,7 +341,7 @@ class PrintMaterialsService:
                 end_time=item.end_time,
                 space_name=item.space_name,
             )
-            for item in sorted(items, key=lambda i: (i.start_time, i.space_name))
+            for item in sorted(items, key=_session_list_order)
         ]
         return PrintSessionListDocumentDTO(
             event_name=event.name,
@@ -356,14 +360,13 @@ class PrintMaterialsService:
         track_pk: int | None,
     ) -> list[SpaceDTO]:
         spaces = sorted(self._spaces.list_by_event(event_pk), key=_space_order)
-        if track_pk is not None:
-            track_space_pks = frozenset(self._tracks.list_space_pks(track_pk))
-            if track_space_pks:
-                spaces = [s for s in spaces if s.pk in track_space_pks]
-        if area_pks is None:
-            scoped = spaces
-        else:
-            scoped = [s for s in spaces if s.area_id in area_pks]
+        if track_pk is not None and (
+            track_space_pks := frozenset(self._tracks.list_space_pks(track_pk))
+        ):
+            spaces = [s for s in spaces if s.pk in track_space_pks]
+        scoped = (
+            spaces if area_pks is None else [s for s in spaces if s.area_id in area_pks]
+        )
         if space_pks is None:
             return scoped
         return [s for s in scoped if s.pk in space_pks]

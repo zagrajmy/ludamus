@@ -24,7 +24,7 @@ test.describe('Public print page', () => {
     await expect(previewPages.nth(6)).toContainText('Open Play B');
 
     const scrollMetrics = await page
-      .getByTestId('print-preview-scroll')
+      .getByRole('region', { name: 'Print preview' })
       .evaluate((preview) => ({
         clientWidth: preview.clientWidth,
         scrollWidth: preview.scrollWidth,

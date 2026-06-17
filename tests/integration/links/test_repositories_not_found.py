@@ -40,6 +40,16 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_event(MISSING_ID)
 
+    def test_lock_raises_when_session_missing(self):
+        with pytest.raises(NotFoundError):
+            SessionRepository.lock(MISSING_ID)
+
+    def test_update_raises_when_session_missing(self):
+        # A cover_image in the payload takes the instance-load path, which must
+        # raise NotFoundError when the session is gone.
+        with pytest.raises(NotFoundError):
+            SessionRepository.update(MISSING_ID, {"cover_image": ""})
+
     def test_read_time_slot_raises_when_missing(self):
         with pytest.raises(NotFoundError):
             SessionRepository.read_time_slot(MISSING_ID, MISSING_ID)

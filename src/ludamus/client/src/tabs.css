@@ -1,7 +1,7 @@
 @layer components {
   .tab-list {
     display: flex;
-    border-bottom: 1px solid var(--theme-border);
+    border-bottom: 1px solid var(--color-border);
   }
   
   .tab-trigger {
@@ -10,8 +10,8 @@
   }
   
   .tab-trigger[aria-selected="true"] {
-    border-bottom-color: var(--theme-primary);
-    color: var(--theme-primary);
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary);
   }
   
   .tab-content {

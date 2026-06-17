@@ -54,6 +54,7 @@
         </script>
         {% vite_hmr_client %}
         {% vite_asset 'src/django-hmr.ts' %}
+        {% vite_asset 'src/menu.ts' %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
         {% block extra_head %}
         {% endblock extra_head %}
