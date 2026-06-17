@@ -4,9 +4,9 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 
-from django.db import transaction
-from django.db.models import Count, Max, Q
-from django.utils import timezone
+from django.db import IntegrityError, transaction
+from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
@@ -18,6 +18,7 @@ from ludamus.adapters.db.django.models import (
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    EventIntegration,
     EventProposalSettings,
     EventSettings,
     Facilitator,
@@ -55,6 +56,7 @@ from ludamus.pacts import (
     EnrollmentConfigDTO,
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
+    EventListItemDTO,
     EventProposalSettingsDTO,
     EventProposalSettingsRepositoryProtocol,
     EventRepositoryProtocol,
@@ -101,6 +103,7 @@ from ludamus.pacts import (
     SpaceRepositoryProtocol,
     SphereDTO,
     SphereRepositoryProtocol,
+    SphereUpdateData,
     TagCategoryDTO,
     TagDTO,
     TimeSlotDTO,
@@ -120,11 +123,18 @@ from ludamus.pacts import (
     VenueDTO,
     VenueRepositoryProtocol,
 )
+from ludamus.pacts.chronology import (
+    EventIntegrationCreateData,
+    EventIntegrationDTO,
+    EventIntegrationsRepositoryProtocol,
+    EventIntegrationUpdateData,
+    IntegrationImplementationId,
+    IntegrationKind,
+)
 from ludamus.pacts.multiverse import (
-    CheckResult,
     ConnectionDTO,
     ConnectionsRepositoryProtocol,
-    ConnectionWriteDict,
+    DuplicateConnectionDisplayNameError,
 )
 
 if TYPE_CHECKING:
@@ -182,6 +192,17 @@ class SphereRepository(SphereRepositoryProtocol):
         except Sphere.DoesNotExist as err:
             raise NotFoundError from err
         return [UserDTO.model_validate(u) for u in sphere.managers.order_by("name")]
+
+    @staticmethod
+    def update(sphere_id: int, data: SphereUpdateData) -> None:
+        try:
+            sphere = Sphere.objects.get(id=sphere_id)
+        except Sphere.DoesNotExist as exception:
+            raise NotFoundError from exception
+
+        for key, value in data.items():
+            setattr(sphere, key, value)
+        sphere.save(update_fields=list(data.keys()))
 
 
 class UserRepository(UserRepositoryProtocol):
@@ -430,7 +451,10 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                     session_id=session_id, field_id=v["field_id"], value=v["value"]
                 )
                 for v in values
-            ]
+            ],
+            update_conflicts=True,
+            unique_fields=["session", "field"],
+            update_fields=["value"],
         )
 
     @staticmethod
@@ -637,6 +661,32 @@ class EventRepository(EventRepositoryProtocol):
         """
         events = Event.objects.filter(sphere_id=sphere_id).order_by("-start_time")
         return [EventDTO.model_validate(event) for event in events]
+
+    @staticmethod
+    def list_for_events_page(
+        sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]:
+        # session_count comes from a correlated subquery rather than a Count()
+        # over the venues->areas->spaces->agenda_items join, which would force a
+        # wide GROUP BY across the whole join.
+        agenda_item_count = (
+            AgendaItem.objects.filter(space__area__venue__event=OuterRef("pk"))
+            .order_by()
+            .values("space__area__venue__event")
+            .annotate(count=Count("pk"))
+            .values("count")
+        )
+        events = Event.objects.filter(sphere_id=sphere_id).annotate(
+            session_count=Coalesce(
+                Subquery(agenda_item_count, output_field=IntegerField()), 0
+            )
+        )
+        if not include_unpublished:
+            events = events.filter(publication_time__lte=datetime.now(tz=UTC))
+        return [
+            EventListItemDTO.model_validate(event)
+            for event in events.order_by("start_time")
+        ]
 
     @staticmethod
     def read(pk: int) -> EventDTO:
@@ -1134,6 +1184,19 @@ class AreaRepository(AreaRepositoryProtocol):
             Area.objects.filter(venue_id=venue_pk)
             .annotate(spaces_count=Count("spaces"))
             .order_by("order", "name")
+        )
+
+        return [AreaDTO.model_validate(area) for area in areas]
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[AreaDTO]:
+        """List all areas for an event, ordered by venue then order then name.
+
+        Returns:
+            List of AreaDTO objects for the event.
+        """
+        areas = Area.objects.filter(venue__event_id=event_pk).order_by(
+            "venue_id", "order", "name"
         )
 
         return [AreaDTO.model_validate(area) for area in areas]
@@ -2604,6 +2667,26 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
 
+_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"
+_SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
+    "UNIQUE constraint failed: connection.sphere_id, connection.display_name"
+)
+
+
+def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
+    diag = getattr(exc.__cause__, "diag", None)
+    if (
+        getattr(diag, "constraint_name", None)
+        == _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT
+    ):
+        return True
+    message = str(exc)
+    return (
+        _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
+        or _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
+    )
+
+
 class ConnectionsRepository(ConnectionsRepositoryProtocol):
     @staticmethod
     def list_for_sphere(sphere_id: int) -> list[ConnectionDTO]:
@@ -2623,48 +2706,126 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
-    def create(sphere_id: int, data: ConnectionWriteDict) -> ConnectionDTO:
-        connection = Connection.objects.create(
-            sphere_id=sphere_id,
-            service=data["service"],
-            display_name=data["display_name"],
-        )
+    def create(sphere_id: int, display_name: str) -> ConnectionDTO:
+        try:
+            connection = Connection.objects.create(
+                sphere_id=sphere_id, display_name=display_name
+            )
+        except IntegrityError as exc:
+            if is_connection_display_name_conflict(exc):
+                raise DuplicateConnectionDisplayNameError from exc
+            raise
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
-    def update(sphere_id: int, pk: int, data: ConnectionWriteDict) -> ConnectionDTO:
+    def update(sphere_id: int, pk: int, display_name: str) -> ConnectionDTO:
         try:
             connection = Connection.objects.get(pk=pk, sphere_id=sphere_id)
         except Connection.DoesNotExist as exc:
             raise NotFoundError from exc
-        connection.service = data["service"]
-        connection.display_name = data["display_name"]
-        connection.save()
+        connection.display_name = display_name
+        try:
+            connection.save(update_fields=["display_name"])
+        except IntegrityError as exc:
+            if is_connection_display_name_conflict(exc):
+                raise DuplicateConnectionDisplayNameError from exc
+            raise
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
-    def update_credentials(sphere_id: int, pk: int, blob: bytes) -> None:
-        # Write-only: overwrite the encrypted blob. The repo surface
-        # exposes no read for these bytes — decrypt is owned by the
-        # import-execution slice with separate key handling.
+    def update_secret(sphere_id: int, pk: int, blob: bytes) -> None:
         updated = Connection.objects.filter(pk=pk, sphere_id=sphere_id).update(
-            credentials=blob
+            secret=blob
         )
         if not updated:
             raise NotFoundError
 
     @staticmethod
-    def update_last_check(sphere_id: int, pk: int, result: CheckResult) -> None:
-        updated = Connection.objects.filter(pk=pk, sphere_id=sphere_id).update(
-            last_check_status=result.status,
-            last_check_detail=result.detail,
-            last_check_at=timezone.now(),
-        )
-        if not updated:
-            raise NotFoundError
+    def read_secret(sphere_id: int, pk: int) -> bytes:
+        try:
+            connection = Connection.objects.only("secret").get(
+                pk=pk, sphere_id=sphere_id
+            )
+        except Connection.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return bytes(connection.secret)
 
     @staticmethod
     def delete(sphere_id: int, pk: int) -> None:
         deleted, _ = Connection.objects.filter(pk=pk, sphere_id=sphere_id).delete()
+        if not deleted:
+            raise NotFoundError
+
+
+def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO:
+    return EventIntegrationDTO(
+        pk=integration.pk,
+        event_id=integration.event_id,
+        kind=IntegrationKind(integration.kind),
+        implementation=IntegrationImplementationId(integration.implementation),
+        connection_id=integration.connection_id,
+        connection_display_name=integration.connection.display_name,
+        display_name=integration.display_name,
+        config_json=integration.config_json or "{}",
+    )
+
+
+class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
+    @staticmethod
+    def list_for_event(
+        event_id: int, kind: IntegrationKind | None = None
+    ) -> list[EventIntegrationDTO]:
+        qs = EventIntegration.objects.select_related("connection").filter(
+            event_id=event_id
+        )
+        if kind is not None:
+            qs = qs.filter(kind=kind.value)
+        return [_event_integration_dto(i) for i in qs.order_by("kind", "display_name")]
+
+    @staticmethod
+    def get(event_id: int, pk: int) -> EventIntegrationDTO:
+        try:
+            integration = EventIntegration.objects.select_related("connection").get(
+                pk=pk, event_id=event_id
+            )
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def create(event_id: int, data: EventIntegrationCreateData) -> EventIntegrationDTO:
+        integration = EventIntegration.objects.create(
+            event_id=event_id,
+            kind=data["kind"].value,
+            implementation=data["implementation"].value,
+            connection_id=data["connection_id"],
+            display_name=data["display_name"],
+            config_json=data["config_json"],
+        )
+        integration = EventIntegration.objects.select_related("connection").get(
+            pk=integration.pk
+        )
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def update(
+        event_id: int, pk: int, data: EventIntegrationUpdateData
+    ) -> EventIntegrationDTO:
+        try:
+            integration = EventIntegration.objects.get(pk=pk, event_id=event_id)
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        integration.display_name = data["display_name"]
+        integration.connection_id = data["connection_id"]
+        integration.config_json = data["config_json"]
+        integration.save(update_fields=("display_name", "connection_id", "config_json"))
+        integration = EventIntegration.objects.select_related("connection").get(
+            pk=integration.pk
+        )
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def delete(event_id: int, pk: int) -> None:
+        deleted, _ = EventIntegration.objects.filter(pk=pk, event_id=event_id).delete()
         if not deleted:
             raise NotFoundError
