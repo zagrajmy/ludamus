@@ -8,7 +8,7 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SiteDTO, SphereDTO
@@ -31,8 +31,8 @@ class AnnouncementDTO(BaseModel):
 
 
 class AnnouncementData(BaseModel):
-    title: str
-    content: str
+    title: str = Field(max_length=255)
+    content: str = Field(max_length=50000)
     is_published: bool
 
 

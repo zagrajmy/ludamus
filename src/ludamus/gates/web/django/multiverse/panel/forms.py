@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 class AnnouncementForm(forms.Form):
     title = forms.CharField(label=_("Title"), max_length=255, strip=True)
     content = forms.CharField(
-        label=_("Content"), widget=forms.Textarea(attrs={"rows": 8})
+        label=_("Content"), max_length=50000, widget=forms.Textarea(attrs={"rows": 8})
     )
     is_published = forms.BooleanField(
         label=_("Published"),

@@ -36,5 +36,11 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={"db_table": "announcement", "ordering": ("-creation_time",)},
-        )
+        ),
+        migrations.AddIndex(
+            model_name="announcement",
+            index=models.Index(
+                fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+        ),
     ]

@@ -1520,6 +1520,11 @@ class Announcement(models.Model):
     class Meta:
         db_table = "announcement"
         ordering = ("-creation_time",)
+        indexes = (
+            models.Index(
+                fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+        )
 
     def __str__(self) -> str:
         return self.title
