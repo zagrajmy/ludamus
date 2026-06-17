@@ -433,6 +433,92 @@ test.describe('Timetable', () => {
     ).toBeVisible();
   });
 
+  // --- Revert (latest-change-only) ---
+
+  test('activity log offers Revert only on the latest change per session', async ({
+    page,
+  }) => {
+    // Assign "Dungeon Crawl" so it gets a fresh assign entry in the log.
+    await page.goto('/panel/event/autumn-open/timetable/');
+
+    await page
+      .locator('#session-list')
+      .locator('[data-session-pk]', { hasText: 'Dungeon Crawl' })
+      .click();
+
+    const leftPane = page.locator('#left-pane');
+    await expect(
+      leftPane.getByText('Session details'),
+    ).toBeVisible({ timeout: 5000 });
+
+    await leftPane.getByRole('button', { name: 'Assign' }).click();
+    await expect(
+      page.locator('#assign-mode-banner'),
+    ).not.toHaveClass(/hidden/);
+
+    await page
+      .locator('.timetable-column.assign-mode-active')
+      .first()
+      .click({ position: { x: 50, y: 30 } });
+
+    await expect(page.locator('#assign-mode-banner')).toHaveClass(
+      /hidden/,
+      { timeout: 5000 },
+    );
+    await expect(
+      page.locator('#timetable-grid').getByText('Dungeon Crawl'),
+    ).toBeVisible({ timeout: 10000 });
+
+    // On the log page the just-created assign entry is the latest change
+    // for this session, so the topmost Dungeon Crawl row exposes a Revert
+    // button. (Rows are ordered newest-first, so .first() is the latest.)
+    await page.goto('/panel/event/autumn-open/timetable/log/');
+    const latestAssignRow = page
+      .getByRole('row', { name: /Dungeon Crawl/ })
+      .filter({ hasText: 'Assigned' })
+      .first();
+    await expect(latestAssignRow).toBeVisible();
+    await expect(
+      latestAssignRow.getByRole('button', { name: 'Revert' }),
+    ).toBeVisible();
+
+    // Now unassign the same session — this supersedes the assign entry.
+    await page.goto('/panel/event/autumn-open/timetable/');
+    await page
+      .locator('#timetable-grid')
+      .getByText('Dungeon Crawl')
+      .click();
+    await expect(
+      leftPane.getByRole('button', { name: 'Unassign' }),
+    ).toBeVisible({ timeout: 5000 });
+    await leftPane.getByRole('button', { name: 'Unassign' }).click();
+    await expect(
+      page.locator('#session-list').getByText('Dungeon Crawl'),
+    ).toBeVisible({ timeout: 10000 });
+
+    // The newer "Removed" entry is now the latest change for the session and
+    // keeps its Revert button...
+    await page.goto('/panel/event/autumn-open/timetable/log/');
+    const latestRemovedRow = page
+      .getByRole('row', { name: /Dungeon Crawl/ })
+      .filter({ hasText: 'Removed' })
+      .first();
+    await expect(latestRemovedRow).toBeVisible();
+    await expect(
+      latestRemovedRow.getByRole('button', { name: 'Revert' }),
+    ).toBeVisible();
+
+    // ...while every superseded "Assigned" entry for the session (now that a
+    // newer "Removed" exists) must offer no Revert button at all.
+    const supersededAssignRows = page
+      .getByRole('row', { name: /Dungeon Crawl/ })
+      .filter({ hasText: 'Assigned' });
+    await expect(supersededAssignRows.first()).toBeVisible();
+    await expect(
+      supersededAssignRows.getByRole('button', { name: 'Revert' }),
+    ).toHaveCount(0);
+  });
+
   // --- Overview Page ---
 
   test('overview page loads with heatmap and track progress', async ({
