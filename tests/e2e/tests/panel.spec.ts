@@ -2323,4 +2323,64 @@ test.describe('Backoffice Panel', () => {
     await expect(page.getByText(secondName!)).not.toBeVisible();
     await expect(page.getByRole('cell', { name: firstName!, exact: true })).toBeVisible();
   });
+
+  // --- Organization announcements CRUD ---
+
+  test('manages the announcement lifecycle and public visibility', async ({
+    page,
+  }) => {
+    const stamp = Date.now();
+    const title = `E2E Announcement ${stamp}`;
+    const editedTitle = `E2E Announcement Edited ${stamp}`;
+    const content = `Welcome to the convention — announcement body ${stamp}.`;
+
+    // Create
+    await page.goto('/multiverse/panel/announcements/');
+    await page.getByRole('link', { name: 'New announcement' }).first().click();
+    await page.getByLabel('Title').fill(title);
+    await page.getByLabel('Content').fill(content);
+    await page.getByRole('button', { name: 'Create' }).click();
+
+    await expect(
+      page.getByText('Announcement created successfully.'),
+    ).toBeVisible();
+    await expect(page.getByRole('cell', { name: title })).toBeVisible();
+
+    // Published announcement shows on the public landing page
+    await page.goto('/events/');
+    await expect(
+      page.getByRole('heading', { name: 'Organization announcements' }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByText(content)).toBeVisible();
+
+    // Edit
+    await page.goto('/multiverse/panel/announcements/');
+    await page
+      .getByRole('row', { name: new RegExp(title) })
+      .getByRole('link', { name: 'Edit' })
+      .click();
+    await page.getByLabel('Title').fill(editedTitle);
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(
+      page.getByText('Announcement updated successfully.'),
+    ).toBeVisible();
+    await expect(page.getByRole('cell', { name: editedTitle })).toBeVisible();
+
+    // Delete via the confirmation page
+    await page
+      .getByRole('row', { name: new RegExp(editedTitle) })
+      .getByRole('link', { name: 'Delete' })
+      .click();
+    await expect(
+      page.getByRole('heading', { name: 'Delete announcement' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Delete' }).click();
+
+    await expect(
+      page.getByText('Announcement deleted successfully.'),
+    ).toBeVisible();
+    await expect(page.getByRole('cell', { name: editedTitle })).toBeHidden();
+  });
 });

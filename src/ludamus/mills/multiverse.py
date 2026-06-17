@@ -12,15 +12,52 @@ if TYPE_CHECKING:
         EventDTO,
         EventListItemDTO,
         EventRepositoryProtocol,
+        SiteDTO,
         SphereDTO,
         SphereRepositoryProtocol,
     )
     from ludamus.pacts.multiverse import (
+        AnnouncementData,
+        AnnouncementDTO,
+        AnnouncementsRepositoryProtocol,
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+
+class AnnouncementsService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        announcements: AnnouncementsRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._announcements = announcements
+
+    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]:
+        return self._announcements.list_for_sphere(sphere_id)
+
+    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]:
+        return self._announcements.list_published(sphere_id)
+
+    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO:
+        return self._announcements.get(sphere_id, pk)
+
+    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
+        with self._transaction.atomic():
+            return self._announcements.create(sphere_id, data)
+
+    def update(
+        self, sphere_id: int, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO:
+        with self._transaction.atomic():
+            return self._announcements.update(sphere_id, pk, data)
+
+    def delete(self, sphere_id: int, pk: int) -> None:
+        with self._transaction.atomic():
+            self._announcements.delete(sphere_id, pk)
 
 
 class ConnectionsService:
@@ -113,3 +150,13 @@ class SpherePanelService:
             sphere_id,
             {"allow_facilitator_session_edit": allow_facilitator_session_edit},
         )
+
+
+class SitesService:
+    """Read-side loader for a sphere's site (domain lookup)."""
+
+    def __init__(self, spheres: SphereRepositoryProtocol) -> None:
+        self._spheres = spheres
+
+    def read_site(self, sphere_id: int) -> SiteDTO:
+        return self._spheres.read_site(sphere_id)

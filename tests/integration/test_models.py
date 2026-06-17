@@ -3,7 +3,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from django.core.exceptions import ValidationError
 
-from ludamus.adapters.db.django.models import TimeSlot
+from ludamus.adapters.db.django.models import (
+    Notification,
+    ScheduleChangeAction,
+    ScheduleChangeLog,
+    TimeSlot,
+)
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import EventFactory
 
 
@@ -76,3 +82,21 @@ class TestTimeSlot:
                 start_time=faker.date_time_between("+3h", "+4h"),
                 end_time=faker.date_time_between("+5h", "+6h"),
             ).full_clean()
+
+
+class TestModelStringRepresentations:
+    def test_notification_str(self, waiter):
+        kind = NotificationKind.WAITLIST_OFFER.value
+        notification = Notification.objects.create(
+            recipient=waiter, kind=kind, title="You have an offer"
+        )
+
+        assert str(notification) == f"{kind} for {waiter.name}"
+
+    def test_schedule_change_log_str(self, event, session, active_user):
+        action = ScheduleChangeAction.ASSIGN.value
+        log = ScheduleChangeLog.objects.create(
+            event=event, session=session, user=active_user, action=action
+        )
+
+        assert str(log) == f"{action} {session} by {active_user}"

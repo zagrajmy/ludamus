@@ -329,6 +329,10 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
         except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
+        # T3: the new placement can clear time conflicts for waiters — promote
+        # against the session's current time.
+        self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
+
         # Conflicts are advisory: detection excludes the session itself, so it
         # runs after assignment with the same result and only on valid input.
         conflicts = ConflictDetectionService(uow).detect_for_assignment(
@@ -449,6 +453,9 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         spaces = uow.spaces.list_by_event(current_event.pk)
 
         context["logs"] = logs
+        context["revertible_pks"] = set(
+            uow.schedule_change_logs.latest_pks_by_session(current_event.pk).values()
+        )
         context["spaces"] = spaces
         context["space_pk"] = space_pk
         context["slug"] = slug

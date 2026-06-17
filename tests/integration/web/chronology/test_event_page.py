@@ -6,7 +6,9 @@ from unittest.mock import ANY
 import pytest
 import responses
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -81,6 +83,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -114,6 +117,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -146,6 +150,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -178,6 +183,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -235,6 +241,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -275,6 +282,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -333,6 +341,54 @@ class TestEventPageView:
         assert b"session-tags-more" in response.content
         assert b"+1" in response.content
 
+    def _add_scheduled_session(self, event, space, session_field):
+        presenter = UserFactory()
+        session = SessionFactory(
+            presenter=presenter,
+            display_name=presenter.name,
+            sphere=event.sphere,
+            participants_limit=10,
+            min_age=0,
+        )
+        AgendaItemFactory(session=session, space=space)
+        SessionFieldValue.objects.create(
+            session=session, field=session_field, value=["a", "b"]
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+    def test_query_count_constant_in_session_count(self, client, event, space):
+        session_field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        for _ in range(2):
+            self._add_scheduled_session(event, space, session_field)
+        client.get(self._get_url(event.slug))
+
+        with CaptureQueriesContext(connection) as small_event_queries:
+            response = client.get(self._get_url(event.slug))
+        assert response.status_code == HTTPStatus.OK
+
+        for _ in range(6):
+            self._add_scheduled_session(event, space, session_field)
+
+        with CaptureQueriesContext(connection) as big_event_queries:
+            response = client.get(self._get_url(event.slug))
+        assert response.status_code == HTTPStatus.OK
+
+        assert len(big_event_queries.captured_queries) == len(
+            small_event_queries.captured_queries
+        )
+
     def test_shows_session_cover_image(self, active_user, agenda_item, client, event):
         session = agenda_item.session
         session.cover_image = SimpleUploadedFile(
@@ -383,6 +439,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -428,6 +485,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -517,6 +575,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
+                "event_banned": False,
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -571,6 +630,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -627,6 +687,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -693,6 +754,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -744,6 +806,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -795,6 +858,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -827,6 +891,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -869,6 +934,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -902,6 +968,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -939,6 +1006,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -975,6 +1043,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1014,6 +1083,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1095,6 +1165,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
+                "event_banned": False,
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -1150,6 +1221,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1235,6 +1307,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
@@ -1312,6 +1385,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1392,6 +1466,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
@@ -1469,6 +1544,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
@@ -1549,6 +1625,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1624,6 +1701,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1710,6 +1788,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1792,6 +1871,7 @@ class TestEventPageView:
                 ),
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1877,6 +1957,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -1959,6 +2040,7 @@ class TestEventPageView:
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2045,6 +2127,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2155,6 +2238,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2236,6 +2320,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2318,6 +2403,7 @@ class TestEventPageView:
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
+                "event_banned": False,
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },

@@ -48,6 +48,7 @@ export default defineConfig({
         "encounter-form": resolve(__dirname, "src/encounter-form.ts"),
         confirm: resolve(__dirname, "src/confirm.ts"),
         "info-popover": resolve(__dirname, "src/info-popover.ts"),
+        menu: resolve(__dirname, "src/menu.ts"),
         modal: resolve(__dirname, "src/modal.ts"),
         tabs: resolve(__dirname, "src/tabs.ts"),
         timetable: resolve(__dirname, "src/timetable.ts"),

@@ -39,6 +39,11 @@ crowd_urls: list[URLPattern | URLResolver] = [
         "profile/avatar/", views.ProfileAvatarPageView.as_view(), name="profile-avatar"
     ),
     path(
+        "profile/shadowbans/",
+        views.ProfileShadowbanPageView.as_view(),
+        name="profile-shadowbans",
+    ),
+    path(
         "profile/connected-users/",
         views.ProfileConnectedUsersPageView.as_view(),
         name="profile-connected-users",
@@ -84,6 +89,11 @@ chronology_urls = [
         name="session-enrollment-anonymous",
     ),
     path(
+        "offer/<str:token>/claim/",
+        views.SessionOfferClaimView.as_view(),
+        name="offer-claim",
+    ),
+    path(
         "anonymous/do/load",
         views.AnonymousLoadActionView.as_view(),
         name="anonymous-load",
@@ -98,6 +108,11 @@ chronology_urls = [
 urlpatterns = [
     path("", views.IndexRedirectView.as_view(), name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
+    path(
+        "notifications/do/mark-read",
+        views.NotificationsMarkReadView.as_view(),
+        name="notifications-mark-read",
+    ),
     path("design/", views.DesignPageView.as_view(), name="design"),
     path(
         "design/tailwind/",

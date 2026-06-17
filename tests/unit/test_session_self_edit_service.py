@@ -3,8 +3,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
+from ludamus.mills.chronology import (
+    SessionContentEditService,
+    SessionEditNotAllowedError,
+    SessionSelfEditService,
+)
 from ludamus.pacts import NotFoundError
+
+
+class _FakeUpload:
+    name = "cover.png"
+
+    def read(self) -> bytes:
+        return b""
 
 
 @contextmanager
@@ -26,7 +37,10 @@ def _build(*, presenter_id, event_override, sphere_default):
     session_fields.list_by_event.return_value = []
     spheres = MagicMock()
     spheres.read.return_value = MagicMock(allow_facilitator_session_edit=sphere_default)
-    service = SessionSelfEditService(transaction, sessions, session_fields, spheres)
+    content_edit = SessionContentEditService(
+        transaction, sessions, session_fields, MagicMock()
+    )
+    service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
     return service, sessions, transaction
 
 
@@ -123,7 +137,7 @@ class TestUpdate:
         service, sessions, _ = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
-        cover = object()
+        cover = _FakeUpload()
 
         service.update(
             5, 10, {"title": "T", "display_name": "D", "cover_image": cover}, []

@@ -81,17 +81,18 @@
                                 {% endif %}
                             </td>
                             <td class="py-2">
-                                {% if log.action == "assign" or log.action == "unassign" %}
-                                    <form method="post"
-                                          action="{% url 'panel:timetable-revert' slug=slug %}"
-                                          onsubmit="return confirm('{% translate "Are you sure you want to revert this change?" %}')">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="log_pk" value="{{ log.pk }}">
-                                        <button type="submit"
-                                                class="text-xs text-foreground-muted hover:text-danger-text underline">
-                                            {% translate "Revert" %}
-                                        </button>
-                                    </form>
+                                {% if log.pk in revertible_pks %}
+                                    {% if log.action == "assign" or log.action == "unassign" %}
+                                        <form method="post"
+                                              action="{% url 'panel:timetable-revert' slug=slug %}"
+                                              data-confirm="{% translate "Are you sure you want to revert this change?" %}"
+                                              data-confirm-action="{% translate "Revert" %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="log_pk" value="{{ log.pk }}">
+                                            {% translate "Revert" as t_revert %}
+                                            {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
+                                        </form>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>

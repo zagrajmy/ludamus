@@ -9,11 +9,13 @@ from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
+    Notification,
     SessionParticipation,
     SessionParticipationStatus,
     User,
 )
 from ludamus.pacts import UserDTO
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
 
@@ -302,6 +304,8 @@ class TestSessionEnrollmentAnonymousPageView:
             self.get_url(session.id), data={"name": "confirmed", "action": "cancel"}
         )
 
+        # The promotee is notified directly now; the canceller only sees their
+        # own cancellation (no "stolen" promotion message).
         assert_response(
             response,
             HTTPStatus.FOUND,
@@ -312,14 +316,7 @@ class TestSessionEnrollmentAnonymousPageView:
                         "Successfully cancelled enrollment in session: "
                         f"{session.title}"
                     ),
-                ),
-                (
-                    messages.SUCCESS,
-                    (
-                        f"Enrolled: {waiting_user.get_full_name()} "
-                        "(promoted from waiting list)"
-                    ),
-                ),
+                )
             ],
             url=reverse(
                 "web:chronology:event",
@@ -333,6 +330,9 @@ class TestSessionEnrollmentAnonymousPageView:
             user=waiting_user,
             session=session,
             status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+        assert Notification.objects.filter(
+            recipient=waiting_user, kind=NotificationKind.WAITLIST_PROMOTED.value
         ).exists()
 
     @pytest.mark.postgres

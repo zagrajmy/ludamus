@@ -2,6 +2,10 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
+from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 
 
 class Repositories:
@@ -25,6 +29,10 @@ class Repositories:
         return repositories.ConnectionsRepository()
 
     @cached_property
+    def announcements(self) -> repositories.AnnouncementsRepository:
+        return repositories.AnnouncementsRepository()
+
+    @cached_property
     def event_integrations(self) -> repositories.EventIntegrationsRepository:
         return repositories.EventIntegrationsRepository()
 
@@ -45,8 +53,20 @@ class Repositories:
         return repositories.SessionFieldRepository()
 
     @cached_property
+    def participation_promotion(self) -> ParticipationPromotionRepository:
+        return ParticipationPromotionRepository()
+
+    @cached_property
+    def notifications(self) -> NotificationReadRepository:
+        return NotificationReadRepository()
+
+    @cached_property
     def agenda_items(self) -> AgendaItemRepository:
         return AgendaItemRepository()
+
+    @cached_property
+    def content_change_logs(self) -> ContentChangeLogRepository:
+        return ContentChangeLogRepository()
 
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:
@@ -63,3 +83,11 @@ class Repositories:
     @cached_property
     def areas(self) -> repositories.AreaRepository:
         return repositories.AreaRepository()
+
+    @cached_property
+    def shadowban(self) -> ShadowbanRepository:
+        return ShadowbanRepository()
+
+    @cached_property
+    def event_bans(self) -> EventBanRepository:
+        return EventBanRepository()

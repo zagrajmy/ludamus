@@ -3,6 +3,7 @@
 from django.urls import include, path
 
 from ludamus.gates.web.django.chronology.panel.views import (
+    bans,
     cfp,
     event_settings,
     facilitators,
@@ -103,6 +104,12 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/",
         event_settings.EventIntegrationSettingsPageView.as_view(),
         name="event-integration-settings",
+    ),
+    path("event/<slug:slug>/bans/", bans.BansPageView.as_view(), name="bans"),
+    path(
+        "event/<slug:slug>/bans/<int:pk>/do/delete",
+        bans.BanDeleteActionView.as_view(),
+        name="ban-delete",
     ),
     path("event/<slug:slug>/venues/", venues.VenuesPageView.as_view(), name="venues"),
     path(
@@ -221,6 +228,11 @@ urlpatterns = [
         "event/<slug:slug>/proposals/create/",
         proposals.ProposalCreatePageView.as_view(),
         name="proposal-create",
+    ),
+    path(
+        "event/<slug:slug>/proposals/log/",
+        proposals.ContentLogPageView.as_view(),
+        name="content-log",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/",

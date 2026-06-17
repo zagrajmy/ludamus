@@ -1,11 +1,18 @@
 from datetime import timedelta
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import AgendaItem
+from ludamus.adapters.db.django.models import (
+    AgendaItem,
+    Notification,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.pacts.chronology import TIMETABLE_SLOT_MINUTES, TimetableGridDTO
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     AreaFactory,
@@ -13,6 +20,7 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    UserFactory,
     VenueFactory,
 )
 from tests.integration.utils import assert_response
@@ -179,6 +187,41 @@ class TestTimetableAssignView:
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "scheduled"
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_assign_promotes_waiter(
+        self, authenticated_client, active_user, sphere, event, proposal_category, area
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(area=area)
+        session = SessionFactory(
+            category=proposal_category,
+            sphere=sphere,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        waiter = UserFactory(username="t3waiter", email="t3@example.com")
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+        start_time = event.start_time
+
+        authenticated_client.post(
+            self.get_url(event),
+            {
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": start_time.isoformat(),
+                "end_time": (start_time + timedelta(hours=1)).isoformat(),
+            },
+        )
+
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
+        assert Notification.objects.filter(
+            recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
 
     def test_returns_422_for_rejected_session(
         self, authenticated_client, active_user, sphere, event, proposal_category, area

@@ -40,8 +40,10 @@ def sphere_panel_context(
         "active_nav": "sphere-settings",
         "is_general_tab": active_tab == "general",
         "is_connections_tab": active_tab == "connections",
+        "is_announcements_tab": active_tab == "announcements",
         "tab_urls": {
             "general": reverse("multiverse:panel:sphere-settings"),
             "connections": reverse("multiverse:panel:connections"),
+            "announcements": reverse("multiverse:panel:announcements"),
         },
     }

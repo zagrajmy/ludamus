@@ -49,6 +49,7 @@ class UserInfo:
 class AuthenticatedRootRequest(HttpRequest):
     context: AuthenticatedRequestContext
     di: DependencyInjectorProtocol
+    services: ServicesProtocol
 
 
 class RootRequest(HttpRequest):
