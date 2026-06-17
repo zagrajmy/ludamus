@@ -22,7 +22,7 @@ from ludamus.adapters.db.django.models import (
     User,
     Venue,
 )
-from ludamus.pacts import SessionParticipationStatus, SessionStatus
+from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 
 EVENT_SLUG = "kapitularz-2025-anonymized"
 EVENT_START_HOUR = 10
