@@ -85,7 +85,9 @@ class Services:
 
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
-        return SpherePanelService(self._repos.spheres, self._repos.events)
+        return SpherePanelService(
+            self._transaction, self._repos.spheres, self._repos.events
+        )
 
     @cached_property
     def sites(self) -> SitesService:

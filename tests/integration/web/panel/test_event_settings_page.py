@@ -88,7 +88,12 @@ class TestEventSettingsPageViewGet:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
         assert "events/brand.png" in response.content.decode()
 
     def test_inherit_label_reflects_sphere_default_disallowed(
@@ -100,7 +105,12 @@ class TestEventSettingsPageViewGet:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
         edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
         assert "disallowed" in dict(edit_field.choices)[""]
 
@@ -113,7 +123,12 @@ class TestEventSettingsPageViewGet:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
         assert (
             response.context["form"].initial["allow_facilitator_session_edit"]
             == "false"

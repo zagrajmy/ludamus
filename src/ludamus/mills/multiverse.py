@@ -130,8 +130,12 @@ class SpherePanelService:
     """Read-side context loader for the multiverse sphere panel."""
 
     def __init__(
-        self, spheres: SphereRepositoryProtocol, events: EventRepositoryProtocol
+        self,
+        transaction: TransactionProtocol,
+        spheres: SphereRepositoryProtocol,
+        events: EventRepositoryProtocol,
     ) -> None:
+        self._transaction = transaction
         self._spheres = spheres
         self._events = events
 
@@ -158,7 +162,8 @@ class SpherePanelService:
         # form without re-picking a file keeps the existing logo.
         if logo is not None:
             data["logo"] = logo
-        self._spheres.update(sphere_id, data)
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, data)
 
 
 class SitesService:
