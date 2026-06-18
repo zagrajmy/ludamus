@@ -33,7 +33,8 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         )
         context["form"] = SphereSettingsForm(
             initial={
-                "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit
+                "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "logo": sphere.logo_url or None,
             }
         )
         return TemplateResponse(

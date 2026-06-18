@@ -205,6 +205,10 @@ class Sphere(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
+
 
 class Event(models.Model):
     # Owner
@@ -261,6 +265,10 @@ class Event(models.Model):
     @property
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
     @property
     def is_proposal_active(self) -> bool:

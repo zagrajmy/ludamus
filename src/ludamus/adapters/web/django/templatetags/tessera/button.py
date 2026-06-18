@@ -30,6 +30,7 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
+    onclick: str | None = None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
 
@@ -79,6 +80,14 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
             '<button type="{}" class="{}" disabled>{}</button>',
             button_type,
             class_str,
+            body,
+        )
+    if onclick is not None:
+        return format_html(
+            '<button type="{}" class="{}" onclick="{}">{}</button>',
+            button_type,
+            class_str,
+            onclick,
             body,
         )
     return format_html(

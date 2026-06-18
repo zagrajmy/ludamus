@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 class SelectNode(template.Node):
     """Renders a themed ``<select>`` wrapping slot content."""
 
+    # Attributes rendered bare (no ``="value"``) when truthy.
+    _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
+
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
     ) -> None:
@@ -27,6 +30,12 @@ class SelectNode(template.Node):
 
     def render(self, context: template.Context) -> str:
         """Render the select element via components/select.html.
+
+        Any keyword passed to the tag is forwarded as an HTML attribute (e.g.
+        ``id``, ``name``, ``onchange``); ``aria_*``/``data_*`` keywords become
+        their hyphenated attribute (``aria-label``, ``data-foo``) since template
+        kwargs cannot contain hyphens. ``class`` styles the element, and
+        ``multiple``/``required``/``disabled`` render as bare boolean attributes.
 
         Returns:
             HTML string of the themed ``<select>`` element.
@@ -37,15 +46,16 @@ class SelectNode(template.Node):
 
         extra_class = str(resolved.pop("class", ""))
 
-        attr_parts = [
-            f'{a}="{escape(str(v))}"'
-            for a in ("id", "name", "size")
-            if (v := resolved.get(a))
-        ]
-        if resolved.get("multiple"):
-            attr_parts.append("multiple")
-        if resolved.get("required"):
-            attr_parts.append("required")
+        attr_parts: list[str] = []
+        for key, value in resolved.items():
+            if key in self._BOOLEAN_ATTRS:
+                if value:
+                    attr_parts.append(key)
+                continue
+            if not value:
+                continue
+            name = key.replace("_", "-") if key.startswith(("aria_", "data_")) else key
+            attr_parts.append(f'{name}="{escape(str(value))}"')
 
         return render_to_string(
             "components/select.html",

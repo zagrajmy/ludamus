@@ -78,26 +78,7 @@
                                           rows="3"
                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_logo">{% translate "Event logo" %}</label>
-                                {% translate "Current event logo" as logo_alt %}
-                                {% if current_event.logo %}
-                                    <img src="{{ MEDIA_URL }}{{ current_event.logo }}"
-                                         alt="{{ logo_alt }}"
-                                         width="240"
-                                         height="64"
-                                         class="h-16 mb-2 object-contain">
-                                {% endif %}
-                                <input type="file"
-                                       name="logo"
-                                       id="id_logo"
-                                       accept="image/jpeg,image/png,image/webp,image/avif"
-                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                <p class="mt-1 text-sm text-foreground-muted">
-                                    {% translate "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF." %}
-                                </p>
-                            </div>
+                            {% tessera_field form.logo %}
                         </div>
                     </div>
                 </div>

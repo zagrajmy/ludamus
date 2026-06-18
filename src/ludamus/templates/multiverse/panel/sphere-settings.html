@@ -56,26 +56,7 @@
                         <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
                     </span>
                 </label>
-                <div class="mt-6">
-                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                           for="id_logo">{% translate "Sphere logo" %}</label>
-                    {% translate "Current sphere logo" as logo_alt %}
-                    {% if current_sphere.logo %}
-                        <img src="{{ MEDIA_URL }}{{ current_sphere.logo }}"
-                             alt="{{ logo_alt }}"
-                             width="240"
-                             height="64"
-                             class="h-16 mb-2 object-contain">
-                    {% endif %}
-                    <input type="file"
-                           name="logo"
-                           id="id_logo"
-                           accept="image/jpeg,image/png,image/webp,image/avif"
-                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <p class="mt-1 text-sm text-foreground-muted">
-                        {% translate "Used on printable schedules when an event has no logo of its own. Max 8 MB. JPG, PNG, WebP, or AVIF." %}
-                    </p>
-                </div>
+                <div class="mt-6">{% tessera_field form.logo %}</div>
                 <div class="mt-6">
                     <button type="submit" class="btn btn-primary">
                         {% icon "check" class="w-4 h-4 mr-2" %}

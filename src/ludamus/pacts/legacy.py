@@ -475,6 +475,7 @@ class SphereDTO(BaseModel):
     default_page: SpherePage
     enabled_pages: list[SpherePage]
     logo: str = ""
+    logo_url: str = ""
     name: str
     pk: int
     site_id: int
@@ -508,6 +509,7 @@ class EventDTO(BaseModel):
     description: str
     end_time: datetime
     logo: str = ""
+    logo_url: str = ""
     name: str
     pk: int
     proposal_description: str = ""

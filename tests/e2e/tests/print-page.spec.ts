@@ -18,13 +18,13 @@ test.describe('Public print page', () => {
     await expect(page.getByText('Kapitularz 2025 Anonymized').first()).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Table of contents' })).toBeVisible();
 
-    const previewPages = page.locator('section[id^="timetable-day-"]');
+    const preview = page.getByRole('region', { name: 'Print preview' });
+    const previewPages = preview.getByRole('group');
     await expect(previewPages).toHaveCount(21);
     await expect(previewPages.nth(0)).toContainText('Workshop Studio - RPG Table 2');
     await expect(previewPages.nth(6)).toContainText('Open Play B');
 
-    const scrollMetrics = await page
-      .getByRole('region', { name: 'Print preview' })
+    const scrollMetrics = await preview
       .evaluate((preview) => ({
         clientWidth: preview.clientWidth,
         scrollWidth: preview.scrollWidth,
@@ -57,9 +57,9 @@ test.describe('Public print page', () => {
     await page.goto(densePrintUrl);
     const select = page.getByLabel('Printable');
 
-    for (const [value, label] of materials) {
-      await expect(select.locator(`option[value="${value}"]`)).toHaveText(label);
+    for (const [, label] of materials) {
+      await expect(select.getByRole('option', { name: label })).toHaveCount(1);
     }
-    await expect(select.locator('option[value="session-list"]')).toHaveCount(0);
+    await expect(select.getByRole('option', { name: 'Session list' })).toHaveCount(0);
   });
 });

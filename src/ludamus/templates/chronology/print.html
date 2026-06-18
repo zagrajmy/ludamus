@@ -39,27 +39,21 @@
                         <div class="flex flex-col gap-1">
                             <label class="text-sm font-semibold text-foreground-secondary"
                                    for="id_material">{% translate "Printable" %}</label>
-                            <select id="id_material"
-                                    name="material"
-                                    onchange="this.form.submit()"
-                                    class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
+                            {% select id="id_material" name="material" onchange="this.form.submit()" %}
                                 {% for option in material_options %}
                                     <option value="{{ option.value }}"
                                             {% if material == option.value %}selected{% endif %}>
                                         {{ option.label }}
                                     </option>
                                 {% endfor %}
-                            </select>
+                            {% end_select %}
                         </div>
                         {% if venues %}
                             {% if show_scope_control %}
                                 <div class="flex flex-col gap-1">
                                     <label class="text-sm font-semibold text-foreground-secondary"
                                            for="scope-select">{% translate "Venue / area" %}</label>
-                                    <select id="scope-select"
-                                            aria-label="{{ aria_scope }}"
-                                            onchange="if(this.value!==null){window.location.search=this.value;}"
-                                            class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
+                                    {% select id="scope-select" aria_label=aria_scope onchange="if(this.value!==null){window.location.search=this.value;}" %}
                                         <option value="?material={{ material|urlencode }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
                                                 {% if not selected_venue %}selected{% endif %}>
                                             {% translate "Whole event" %}
@@ -78,7 +72,7 @@
                                                 {% endfor %}
                                             </optgroup>
                                         {% endfor %}
-                                    </select>
+                                    {% end_select %}
                                 </div>
                             {% endif %}
                         {% endif %}
@@ -88,32 +82,28 @@
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_space">{% translate "Space" %}</label>
-                                <select id="id_space"
-                                        name="space"
-                                        class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
+                                {% select id="id_space" name="space" %}
                                     {% for space in spaces %}
                                         <option value="{{ space.pk }}"
                                                 {% if selected_space == space.pk|stringformat:"s" %}selected{% endif %}>
                                             {{ space.name }}
                                         </option>
                                     {% endfor %}
-                                </select>
+                                {% end_select %}
                             </div>
                         {% endif %}
                         {% if tracks and show_track_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_track">{% translate "Track" %}</label>
-                                <select id="id_track"
-                                        name="track"
-                                        class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
+                                {% select id="id_track" name="track" %}
                                     {% for track in tracks %}
                                         <option value="{{ track.slug }}"
                                                 {% if selected_track == track.slug %}selected{% endif %}>
                                             {{ track.name }}
                                         </option>
                                     {% endfor %}
-                                </select>
+                                {% end_select %}
                             </div>
                         {% endif %}
                         {% if show_range_controls %}
@@ -139,16 +129,10 @@
                             </div>
                         {% endif %}
                         <div class="grid gap-2">
-                            <button type="submit" class="btn btn-secondary w-full justify-center">
-                                {% icon "arrow-path" class="w-4 h-4" %}
-                                {% translate "Apply" %}
-                            </button>
-                            <button type="button"
-                                    class="btn btn-primary w-full justify-center"
-                                    onclick="window.print()">
-                                {% icon "printer" class="w-4 h-4" %}
-                                {% translate "Print" %}
-                            </button>
+                            {% translate "Apply" as t_apply %}
+                            {% translate "Print" as t_print %}
+                            {% tessera_button t_apply variant="secondary" icon="arrow-path" %}
+                            {% tessera_button t_print button_type="button" icon="printer" onclick="window.print()" %}
                         </div>
                     </form>
                     <nav class="mt-4" aria-label="{% translate "Table of contents" %}">
@@ -186,14 +170,18 @@
                     {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-[297mm] print:w-[210mm] print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
                         {% if timetable %}
                             {% for page in timetable.pages %}
-                                <section class="{{ sheet_class }}" id="timetable-day-{{ forloop.counter }}">
+                                <section class="{{ sheet_class }}"
+                                         id="timetable-day-{{ forloop.counter }}"
+                                         role="group"
+                                         aria-labelledby="timetable-day-{{ forloop.counter }}-heading">
                                     {% if not timetable.is_complete %}
                                         {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
                                     {% else %}
                                         {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=False %}
                                     {% endif %}
                                     <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
-                                    <h3 class="m-0 mb-[2mm] text-[12pt]">
+                                    <h3 id="timetable-day-{{ forloop.counter }}-heading"
+                                        class="m-0 mb-[2mm] text-[12pt]">
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
                                     </h3>
