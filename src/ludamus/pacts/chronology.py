@@ -161,7 +161,7 @@ class SessionContentEditServiceProtocol(Protocol):
 class SessionConfirmationServiceProtocol(Protocol):
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
-    ) -> AgendaItemDTO: ...
+    ) -> None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

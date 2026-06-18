@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from http import HTTPStatus
 
@@ -19,8 +20,6 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
 class TestTimetableConfirmView:
-    """Tests for /panel/event/<slug>/timetable/do/confirm/ confirm endpoint."""
-
     @staticmethod
     def get_url(event):
         return reverse("panel:timetable-confirm", kwargs={"slug": event.slug})
@@ -70,7 +69,7 @@ class TestTimetableConfirmView:
 
         response = authenticated_client.post(self.get_url(event), data={})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_unknown_agenda_item_returns_422(
         self, authenticated_client, active_user, sphere, event
@@ -81,7 +80,7 @@ class TestTimetableConfirmView:
             self.get_url(event), data={"agenda_item_pk": 99999, "confirmed": "true"}
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_confirm_persists(
         self, authenticated_client, active_user, sphere, event, area
@@ -94,7 +93,8 @@ class TestTimetableConfirmView:
             data={"agenda_item_pk": agenda_item.pk, "confirmed": "true"},
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
+        assert json.loads(response.headers["HX-Trigger"]) == {"timetableChanged": {}}
         agenda_item.refresh_from_db()
         assert agenda_item.session_confirmed is True
 
@@ -111,7 +111,8 @@ class TestTimetableConfirmView:
             data={"agenda_item_pk": agenda_item.pk, "confirmed": "false"},
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
+        assert json.loads(response.headers["HX-Trigger"]) == {"timetableChanged": {}}
         agenda_item.refresh_from_db()
         assert agenda_item.session_confirmed is False
 
@@ -128,6 +129,6 @@ class TestTimetableConfirmView:
             data={"agenda_item_pk": other_item.pk, "confirmed": "true"},
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         other_item.refresh_from_db()
         assert other_item.session_confirmed is False

@@ -399,6 +399,73 @@ test.describe('Timetable', () => {
     ).not.toBeVisible({ timeout: 5000 });
   });
 
+  // --- Confirm / Unconfirm Flow ---
+
+  test('confirms and unconfirms a scheduled session', async ({
+    page,
+  }) => {
+    // Assign "Storytelling Workshop" so a scheduled item exists to confirm.
+    await page.goto('/panel/event/autumn-open/timetable/');
+
+    await page
+      .locator('#session-list')
+      .locator('[data-session-pk]', {
+        hasText: 'Storytelling Workshop',
+      })
+      .click();
+
+    const leftPane = page.locator('#left-pane');
+    await expect(
+      leftPane.getByText('Session details'),
+    ).toBeVisible({ timeout: 5000 });
+
+    await leftPane.getByRole('button', { name: 'Assign' }).click();
+    await expect(
+      page.locator('#assign-mode-banner'),
+    ).not.toHaveClass(/hidden/);
+
+    await page
+      .locator('.timetable-column.assign-mode-active')
+      .first()
+      .click({ position: { x: 50, y: 30 } });
+
+    await expect(page.locator('#assign-mode-banner')).toHaveClass(
+      /hidden/,
+      { timeout: 5000 },
+    );
+
+    // Open the scheduled item's detail pane from the grid.
+    const gridSession = page
+      .locator('#timetable-grid')
+      .getByText('Storytelling Workshop');
+    await expect(gridSession).toBeVisible({ timeout: 10000 });
+    await gridSession.click();
+
+    await expect(
+      leftPane.getByRole('button', {
+        name: 'Confirm program item',
+      }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Confirm — the button flips to the "Undo confirmation" state.
+    await leftPane
+      .getByRole('button', { name: 'Confirm program item' })
+      .click();
+    await expect(
+      leftPane.getByRole('button', { name: 'Undo confirmation' }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Undo — the button returns to the "Confirm program item" state.
+    await leftPane
+      .getByRole('button', { name: 'Undo confirmation' })
+      .click();
+    await expect(
+      leftPane.getByRole('button', {
+        name: 'Confirm program item',
+      }),
+    ).toBeVisible({ timeout: 5000 });
+  });
+
   // --- Conflict Panel ---
 
   test('conflict panel loads and shows conflict status', async ({

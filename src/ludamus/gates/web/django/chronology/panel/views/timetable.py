@@ -378,8 +378,6 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm or unconfirm a scheduled program item."""
-
     request: PanelRequest
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -391,7 +389,10 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
             agenda_item_pk = int(self.request.POST["agenda_item_pk"])
         except KeyError, ValueError:
             return HttpResponse(status=422)
-        confirmed = self.request.POST.get("confirmed") == "true"
+        confirmed_raw = self.request.POST.get("confirmed")
+        if confirmed_raw not in {"true", "false"}:
+            return HttpResponse(status=422)
+        confirmed = confirmed_raw == "true"
 
         try:
             self.request.services.session_confirmation.set_session_confirmed(

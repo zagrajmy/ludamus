@@ -137,6 +137,15 @@ def _position_sessions(
     return positions
 
 
+def require_session_in_event(
+    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
+) -> None:
+    # Panel access only proves you manage `event_pk`; a session named in
+    # the request must belong to it, or it is cross-event tampering.
+    if sessions.read_event(session_pk).pk != event_pk:
+        raise NotFoundError
+
+
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -285,10 +294,7 @@ class TimetableService:
         return venue_groups
 
     def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
-        # Panel access only proves you manage `event_pk`; a session named in
-        # the request must belong to it, or it is cross-event tampering.
-        if self._uow.sessions.read_event(session_pk).pk != event_pk:
-            raise NotFoundError
+        require_session_in_event(self._uow.sessions, session_pk, event_pk)
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         if space_pk not in {s.pk for s in self._uow.spaces.list_by_event(event_pk)}:
@@ -447,15 +453,11 @@ class SessionConfirmationService:
 
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
-    ) -> AgendaItemDTO:
-        # Panel access only proves you manage `event_pk`; the agenda item named
-        # in the request must belong to it, or it is cross-event tampering.
+    ) -> None:
         agenda_item = self._agenda_items.read(agenda_item_pk)
-        if self._sessions.read_event(agenda_item.session_id).pk != event_pk:
-            raise NotFoundError
+        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
         with self._transaction.atomic():
             self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
-        return self._agenda_items.read(agenda_item_pk)
 
 
 class ConflictDetectionService:
