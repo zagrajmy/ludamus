@@ -12,19 +12,19 @@ from ludamus.adapters.db.django.models import AccreditationType
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # Image-upload invariants (business rules, not gate trivia): every cover/header
 # upload across the app is held to these same limits via validate_uploaded_image.
-MAX_IMAGE_SIZE = 2 * 1024 * 1024
-# A small (≤2 MB) file can still decode to a huge bitmap; cap pixel count to
+MAX_IMAGE_SIZE = 8 * 1024 * 1024
+# A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
 # bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
 MAX_IMAGE_PIXELS = 24_000_000
 ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
 COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
-COVER_IMAGE_HELP_TEXT = _("Max 2 MB. JPG, PNG, WebP, or AVIF.")
+COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
 
 
 def validate_uploaded_image_size(image: object) -> None:
     size = getattr(image, "size", 0)
     if isinstance(size, int) and size > MAX_IMAGE_SIZE:
-        raise ValidationError(_gettext("Image too large. Maximum size is 2 MB."))
+        raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
 
 
 def validate_uploaded_image_format(image: object) -> None:
@@ -61,6 +61,19 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
+def _logo_field() -> forms.ImageField:
+    # Reuses the shared image validators (format + decompression-bomb guard);
+    # the printable-schedule logo only differs in label and accepted types.
+    return forms.ImageField(
+        required=False,
+        label=_("Logo"),
+        help_text=_(
+            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
+        ),
+        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+    )
+
+
 def _datetime_local_widget() -> forms.DateTimeInput:
     return forms.DateTimeInput(
         attrs={
@@ -92,6 +105,7 @@ class EventSettingsForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     cover_image = cover_image_field()
+    logo = _logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -122,6 +136,11 @@ class EventSettingsForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
+    def clean_logo(self) -> object:
+        image = self.cleaned_data.get("logo")
+        validate_uploaded_image(image)
+        return image
+
 
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
@@ -131,6 +150,12 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    logo = _logo_field()
+
+    def clean_logo(self) -> object:
+        image = self.cleaned_data.get("logo")
+        validate_uploaded_image(image)
+        return image
 
 
 class ProposalSettingsForm(forms.Form):

@@ -1589,10 +1589,6 @@ msgid "Sphere settings saved successfully."
 msgstr "Ustawienia sfery zostały zapisane."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "Image too large. Maximum size is 2 MB."
-msgstr "Obraz jest za duży. Maksymalny rozmiar to 2 MB."
-
-#: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "End time must be after start time."
 msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
@@ -2268,23 +2264,19 @@ msgid_plural ""
 "                            "
 msgstr[0] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punkt "
-"programu!\n"
+"                                Jesteś zapisany na %(counter)s punkt programu!\n"
 "                            "
 msgstr[1] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punkty "
-"programu!\n"
+"                                Jesteś zapisany na %(counter)s punkty programu!\n"
 "                            "
 msgstr[2] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punktów "
-"programu!\n"
+"                                Jesteś zapisany na %(counter)s punktów programu!\n"
 "                            "
 msgstr[3] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punktów "
-"programu!\n"
+"                                Jesteś zapisany na %(counter)s punktów programu!\n"
 "                            "
 
 #: src/ludamus/templates/chronology/event.html
@@ -5420,14 +5412,6 @@ msgid "Cover image"
 msgstr "Obraz okładki"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Max 2 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Maks. 2 MB. JPG, PNG, WebP lub AVIF."
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-msgid "Optional. Max 2 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Opcjonalnie. Maks. 2 MB. JPG, PNG, WebP lub AVIF."
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
 msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
 
@@ -5672,3 +5656,350 @@ msgstr ""
 "\n"
 "                Czy na pewno chcesz usunąć ogłoszenie „%(title)s”?\n"
 "            "
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Proposal Description"
+msgid "Area with descriptions"
+msgstr "Strefa z opisami"
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Print timetable"
+msgid "Area timetable"
+msgstr "Harmonogram strefy"
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Space Details"
+msgid "Space timetable"
+msgstr "Harmonogram przestrzeni"
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Print timetable"
+msgid "Venue timetable"
+msgstr "Harmonogram lokalizacji"
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Print timetable"
+msgid "Track timetable"
+msgstr "Harmonogram bloku"
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Print timetable"
+msgid "Event timetable"
+msgstr "Harmonogram wydarzenia"
+
+#: src/ludamus/adapters/web/django/print_views.py
+#| msgid "Session Hosts"
+msgid "Session list"
+msgstr "Lista punktów programu"
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "If a matching player exists, they have been shadowbanned."
+msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Player shadowbanned."
+msgstr "Gracz został cicho zbanowany."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Shadowban removed."
+msgstr "Cichy ban został usunięty."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/bans.py
+msgid "User banned from the event."
+msgstr "Użytkownik został zbanowany na wydarzeniu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/bans.py
+#| msgid "A user with that username already exists."
+msgid "No user found with that username or email."
+msgstr "Nie znaleziono użytkownika o tej nazwie lub adresie e-mail."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/bans.py
+#| msgid "Removed"
+msgid "Ban removed."
+msgstr "Ban został usunięty."
+
+#: src/ludamus/gates/web/django/forms.py
+#| msgid "Max 2 MB. JPG, PNG, WebP, or AVIF."
+msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Logo"
+msgstr "Logo"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/settings.html
+msgid "Shown on the printable schedule. Max 8 MB. JPG, PNG, or WebP."
+msgstr "Wyświetlane w harmonogramie do druku. Maks. 8 MB. JPG, PNG lub WebP."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "A shadowbanned player joined %(event)s"
+msgstr "Cicho zbanowany gracz dołączył do %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"Someone you shadowbanned signed up to %(event)s: %(players)s. They have not "
+"been notified. Review the event if you need to."
+msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s. Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
+
+#: src/ludamus/templates/chronology/_session_card.html
+#, python-format
+#| msgid "No participants enrolled yet."
+msgid "%(counter)s participant enrolled"
+msgid_plural "%(counter)s participants enrolled"
+msgstr[0] "%(counter)s zapisany uczestnik"
+msgstr[1] "%(counter)s zapisani uczestnicy"
+msgstr[2] "%(counter)s zapisanych uczestników"
+msgstr[3] "%(counter)s zapisanych uczestników"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#| msgid "You have already signed up."
+msgid "Players you shadowbanned are already signed up here"
+msgstr "Gracze, których cicho zbanowałeś, są już tutaj zapisani"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#, python-format
+msgid "shadowbanned on %(date)s"
+msgstr "cicho zbanowany %(date)s"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Print-ready schedule"
+msgstr "Harmonogram gotowy do druku"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "A print-ready schedule is available at:"
+msgstr "Harmonogram gotowy do druku jest dostępny pod adresem:"
+
+#: src/ludamus/templates/chronology/parts/print_header.html
+#| msgid "scheduled"
+msgid "Full schedule"
+msgstr "Pełny harmonogram"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Venue / area…"
+msgid "Venue or area"
+msgstr "Lokalizacja lub strefa"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Print timetable"
+msgid "Printable"
+msgstr "Do wydruku"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Venue / area…"
+msgid "Venue / area"
+msgstr "Lokalizacja / strefa"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "Whole event"
+msgstr "Całe wydarzenie"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "Area pages — start"
+msgstr "Strony stref — początek"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Hour"
+msgid "Hours"
+msgstr "Godziny"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "Apply"
+msgstr "Zastosuj"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "Table of contents"
+msgstr "Spis treści"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "All ages"
+msgid "No pages"
+msgstr "Brak stron"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "Print preview"
+msgstr "Podgląd wydruku"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Print timetable"
+msgid "Timetable"
+msgstr "Harmonogram"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "No time slots scheduled."
+msgid "No confirmed sessions scheduled yet."
+msgstr "Nie zaplanowano jeszcze żadnych potwierdzonych punktów programu."
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Program Hosts"
+msgid "Program details"
+msgstr "Szczegóły programu"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Capacity"
+msgid "capacity"
+msgstr "pojemność"
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "No sessions scheduled for this time slot"
+msgid "Nothing scheduled in this time range."
+msgstr "Nic nie zaplanowano w tym przedziale czasowym."
+
+#: src/ludamus/templates/chronology/print.html
+#| msgid "Anonymous enrollment is not available for this event."
+msgid "This printable is not available for this event."
+msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
+
+#: src/ludamus/templates/components/avatar.html
+#, python-format
+msgid "%(name_value)s (flagged)"
+msgstr "%(name_value)s (oznaczony)"
+
+#: src/ludamus/templates/components/file-dropzone.html
+#| msgid "Remove file"
+msgid "Remove image"
+msgstr "Usuń obraz"
+
+#: src/ludamus/templates/crowd/user/avatar.html
+#: src/ludamus/templates/crowd/user/connected.html
+#: src/ludamus/templates/crowd/user/edit.html
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Safety"
+msgstr "Bezpieczeństwo"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Shadowbanned players"
+msgstr "Cicho zbanowani gracze"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/panel/bans.html
+#| msgid "User name"
+msgid "Username or email"
+msgstr "Nazwa użytkownika lub e-mail"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Shadowban"
+msgstr "Cichy ban"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid ""
+"Shadowbanned players will not see your sessions, and they are never told "
+"they are banned. You get an email whenever one of them signs up to any "
+"session at an event where you run a session."
+msgstr "Cicho zbanowani gracze nie zobaczą twoich punktów programu i nigdy nie dowiadują się, że są zbanowani. Otrzymujesz e-mail za każdym razem, gdy któryś z nich zapisze się na dowolny punkt programu na wydarzeniu, na którym prowadzisz punkt programu."
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+#| msgid "No-Show Player"
+msgid "Shadowban a player"
+msgstr "Cicho zbanuj gracza"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Players you have met"
+msgstr "Gracze, których spotkałeś"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Shadowbanned"
+msgstr "Cicho zbanowany"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+#| msgid "Removed"
+msgid "Remove shadowban"
+msgstr "Usuń cichy ban"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+#| msgid "No facilitators yet."
+msgid "No players yet"
+msgstr "Brak graczy"
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid ""
+"Players you have run sessions for will appear here, and anyone you shadowban "
+"by username or email."
+msgstr "Gracze, dla których prowadziłeś punkty programu, pojawią się tutaj, a także każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+#| msgid "Sphere"
+msgid "Sphere logo"
+msgstr "Logo sfery"
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+msgid "Current sphere logo"
+msgstr "Aktualne logo sfery"
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+msgid ""
+"Used on printable schedules when an event has no logo of its own. Max 8 MB. "
+"JPG, PNG, or WebP."
+msgstr "Używane w harmonogramach do druku, gdy wydarzenie nie ma własnego logo. Maks. 8 MB. JPG, PNG lub WebP."
+
+#: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/base.html
+msgid "Bans"
+msgstr "Bany"
+
+#: src/ludamus/templates/panel/bans.html
+#| msgid "What are venues?"
+msgid "What are event bans?"
+msgstr "Czym są bany wydarzenia?"
+
+#: src/ludamus/templates/panel/bans.html
+msgid ""
+"Event bans are for serious cases — people who are unsafe to have at the "
+"event. A banned person cannot enrol in any session: the event simply looks "
+"full to them, and they are not told they are banned. For milder discomfort, "
+"players can shadowban each other from their own settings instead."
+msgstr "Bany wydarzenia są dla poważnych przypadków — osób, których obecność na wydarzeniu jest niebezpieczna. Zbanowana osoba nie może zapisać się na żaden punkt programu: wydarzenie po prostu wydaje się dla niej pełne i nie jest informowana, że jest zbanowana. W przypadku łagodniejszego dyskomfortu gracze mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
+
+#: src/ludamus/templates/panel/bans.html
+msgid "Banned people"
+msgstr "Zbanowane osoby"
+
+#: src/ludamus/templates/panel/bans.html
+#| msgid "No rooms for this event."
+msgid "Ban a person from this event"
+msgstr "Zbanuj osobę na tym wydarzeniu"
+
+#: src/ludamus/templates/panel/bans.html
+msgid "Reason (optional, only you see it)"
+msgstr "Powód (opcjonalnie, widzisz go tylko ty)"
+
+#: src/ludamus/templates/panel/bans.html
+msgid "Ban"
+msgstr "Zbanuj"
+
+#: src/ludamus/templates/panel/bans.html
+msgid "Person"
+msgstr "Osoba"
+
+#: src/ludamus/templates/panel/bans.html
+#| msgid "Reassign"
+msgid "Reason"
+msgstr "Powód"
+
+#: src/ludamus/templates/panel/bans.html
+msgid "Banned on"
+msgstr "Zbanowano"
+
+#: src/ludamus/templates/panel/bans.html
+msgid "Remove this ban?"
+msgstr "Usunąć ten ban?"
+
+#: src/ludamus/templates/panel/bans.html
+#| msgid "Removed"
+msgid "Remove"
+msgstr "Usuń"
+
+#: src/ludamus/templates/panel/bans.html
+#| msgid "No time slots defined for this event."
+msgid "Nobody is banned from this event"
+msgstr "Nikt nie jest zbanowany na tym wydarzeniu"
+
+#: src/ludamus/templates/panel/settings.html
+#| msgid "Event"
+msgid "Event logo"
+msgstr "Logo wydarzenia"
+
+#: src/ludamus/templates/panel/settings.html
+msgid "Current event logo"
+msgstr "Aktualne logo wydarzenia"

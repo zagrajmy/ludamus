@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, time, timedelta
+from importlib import import_module
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -59,6 +60,30 @@ def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
         site=site, defaults={"name": f"{name} Sphere"}
     )
     return site, sphere
+
+
+def _create_root_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
+    site, _ = Site.objects.update_or_create(
+        id=settings.SITE_ID, defaults={"domain": domain, "name": name}
+    )
+    sphere, _ = Sphere.objects.get_or_create(
+        site=site, defaults={"name": f"{name} Sphere"}
+    )
+    return site, sphere
+
+
+def _root_domain_for_seed() -> str:
+    if settings.IN_TESTS:
+        return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
+
+    existing_domain = (
+        Site.objects.filter(id=settings.SITE_ID)
+        .values_list("domain", flat=True)
+        .first()
+    )
+    if existing_domain and existing_domain != "example.com":
+        return existing_domain
+    return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
 
 
 def _ensure_spheres_for_all_sites() -> None:
@@ -311,15 +336,15 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
 
 
 def main() -> None:
+    root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
 
     # Root site used for fallbacks / redirects
-    root_domain = os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
-    _create_site(root_domain, name="Root Domain")
+    _create_root_site(root_domain, name="Root Domain")
 
-    sphere_domain = os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST")
-    if not sphere_domain:
-        sphere_domain = "localhost:8000"
+    sphere_domain = (
+        os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
+    )
     site, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
@@ -328,11 +353,11 @@ def main() -> None:
     _create_test_user()
 
     superuser = User.objects.create_superuser(
-        username="e2e-superuser",
-        email="e2e-superuser@test.local",
-        password="e2e-superuser-123",
-        name="E2E Superuser",
-        slug="e2e-superuser",
+        username="admin",
+        email="admin@test.local",
+        password="admin",
+        name="Admin",
+        slug="admin",
     )
     base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
     parsed = urlparse(base_url)
@@ -536,6 +561,9 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    seed_module = import_module("kapitularz_print_seed")
+    seed_module.seed_kapitularz_print_event(sphere)
 
     past_event = _create_event(
         sphere,

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         SiteDTO,
         SphereDTO,
         SphereRepositoryProtocol,
+        SphereUpdateData,
     )
     from ludamus.pacts.multiverse import (
         AnnouncementData,
@@ -129,8 +130,12 @@ class SpherePanelService:
     """Read-side context loader for the multiverse sphere panel."""
 
     def __init__(
-        self, spheres: SphereRepositoryProtocol, events: EventRepositoryProtocol
+        self,
+        transaction: TransactionProtocol,
+        spheres: SphereRepositoryProtocol,
+        events: EventRepositoryProtocol,
     ) -> None:
+        self._transaction = transaction
         self._spheres = spheres
         self._events = events
 
@@ -144,12 +149,21 @@ class SpherePanelService:
         return self._spheres.read(sphere_id)
 
     def update_settings(
-        self, sphere_id: int, *, allow_facilitator_session_edit: bool
+        self,
+        sphere_id: int,
+        *,
+        allow_facilitator_session_edit: bool,
+        logo: str | None = None,
     ) -> None:
-        self._spheres.update(
-            sphere_id,
-            {"allow_facilitator_session_edit": allow_facilitator_session_edit},
-        )
+        data: SphereUpdateData = {
+            "allow_facilitator_session_edit": allow_facilitator_session_edit
+        }
+        # Only overwrite the logo when a new file was uploaded, so saving the
+        # form without re-picking a file keeps the existing logo.
+        if logo is not None:
+            data["logo"] = logo
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, data)
 
 
 class SitesService:

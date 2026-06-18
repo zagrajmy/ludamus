@@ -124,7 +124,11 @@ class SpherePanelServiceProtocol(Protocol):
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
     def update_settings(
-        self, sphere_id: int, *, allow_facilitator_session_edit: bool
+        self,
+        sphere_id: int,
+        *,
+        allow_facilitator_session_edit: bool,
+        logo: str | None = None,
     ) -> None: ...
 
 

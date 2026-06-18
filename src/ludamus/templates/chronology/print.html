@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {{ event.name }} — {% translate "Print" %}
+{% endblock title %}
+{% block body_class %}
+    relative flex min-h-screen flex-col bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
+{% endblock body_class %}
+{% block site_navbar %}
+    <div class="print:hidden">{% include "components/navbar.html" %}</div>
+{% endblock site_navbar %}
+{% block site_footer %}
+    <div class="print:hidden">{{ block.super }}</div>
+{% endblock site_footer %}
+{% block extra_head %}
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        @media print {
+
+            html,
+            body {
+                height: auto !important;
+                overflow: visible !important;
+            }
+        }
+    </style>
+{% endblock extra_head %}
+{% block main_region %}
+    {% translate "Venue or area" as aria_scope %}
+    <main class="grow w-full print:m-0 print:p-0">
+        <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
+            <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
+                <div>
+                    <form method="get" class="flex flex-col gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-sm font-semibold text-foreground-secondary"
+                                   for="id_material">{% translate "Printable" %}</label>
+                            {% select id="id_material" name="material" onchange="this.form.submit()" %}
+                                {% for option in material_options %}
+                                    <option value="{{ option.value }}"
+                                            {% if material == option.value %}selected{% endif %}>
+                                        {{ option.label }}
+                                    </option>
+                                {% endfor %}
+                            {% end_select %}
+                        </div>
+                        {% if venues %}
+                            {% if show_scope_control %}
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-sm font-semibold text-foreground-secondary"
+                                           for="scope-select">{% translate "Venue / area" %}</label>
+                                    {% select id="scope-select" aria_label=aria_scope onchange="if(this.value!==null){window.location.search=this.value;}" %}
+                                        <option value="?material={{ material|urlencode }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                                {% if not selected_venue %}selected{% endif %}>
+                                            {% translate "Whole event" %}
+                                        </option>
+                                        {% for v in venues %}
+                                            <optgroup label="{{ v.name }}">
+                                                <option value="?material={{ material|urlencode }}&venue={{ v.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                                        {% if selected_venue == v.slug and not selected_area %}selected{% endif %}>
+                                                    {{ v.name }}
+                                                </option>
+                                                {% for a in v.areas %}
+                                                    <option value="?material={{ material|urlencode }}&venue={{ v.slug }}&area={{ a.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                                            {% if selected_venue == v.slug and selected_area == a.slug %}selected{% endif %}>
+                                                        - {{ a.name }}
+                                                    </option>
+                                                {% endfor %}
+                                            </optgroup>
+                                        {% endfor %}
+                                    {% end_select %}
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                        <input type="hidden" name="venue" value="{{ selected_venue }}">
+                        <input type="hidden" name="area" value="{{ selected_area }}">
+                        {% if spaces and show_space_control %}
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-semibold text-foreground-secondary"
+                                       for="id_space">{% translate "Space" %}</label>
+                                {% select id="id_space" name="space" %}
+                                    {% for space in spaces %}
+                                        <option value="{{ space.pk }}"
+                                                {% if selected_space == space.pk|stringformat:"s" %}selected{% endif %}>
+                                            {{ space.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% end_select %}
+                            </div>
+                        {% endif %}
+                        {% if tracks and show_track_control %}
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-semibold text-foreground-secondary"
+                                       for="id_track">{% translate "Track" %}</label>
+                                {% select id="id_track" name="track" %}
+                                    {% for track in tracks %}
+                                        <option value="{{ track.slug }}"
+                                                {% if selected_track == track.slug %}selected{% endif %}>
+                                            {{ track.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% end_select %}
+                            </div>
+                        {% endif %}
+                        {% if show_range_controls %}
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-semibold text-foreground-secondary"
+                                       for="id_start">{% translate "Area pages — start" %}</label>
+                                <input type="datetime-local"
+                                       id="id_start"
+                                       name="start"
+                                       value="{{ range_start_value }}"
+                                       class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-semibold text-foreground-secondary"
+                                       for="id_hours">{% translate "Hours" %}</label>
+                                <input type="number"
+                                       id="id_hours"
+                                       name="hours"
+                                       min="1"
+                                       max="72"
+                                       value="{{ range_hours }}"
+                                       class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
+                            </div>
+                        {% endif %}
+                        <div class="grid gap-2">
+                            {% translate "Apply" as t_apply %}
+                            {% translate "Print" as t_print %}
+                            {% tessera_button t_apply variant="secondary" icon="arrow-path" %}
+                            {% tessera_button t_print button_type="button" icon="printer" onclick="window.print()" %}
+                        </div>
+                    </form>
+                    <nav class="mt-4" aria-label="{% translate "Table of contents" %}">
+                        <div class="text-sm font-semibold text-foreground-secondary">{% translate "Table of contents" %}</div>
+                        <div class="mt-2 grid gap-1 text-sm max-[900px]:max-h-56 max-[900px]:overflow-auto">
+                            {% if timetable %}
+                                {% for page in timetable.pages %}
+                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                       href="#timetable-day-{{ forloop.counter }}">
+                                        {{ page.day|date:"l, j E Y" }}
+                                        {% if page.space_range_name %}<span class="block text-xs">{{ page.space_range_name }}</span>{% endif %}
+                                    </a>
+                                {% empty %}
+                                    <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
+                                {% endfor %}
+                            {% elif area_schedule %}
+                                {% for space in area_schedule.spaces %}
+                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                       href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
+                                {% endfor %}
+                            {% elif session_list %}
+                                <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                   href="#session-list">{% translate "Sessions" %}</a>
+                            {% else %}
+                                <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
+                            {% endif %}
+                        </div>
+                    </nav>
+                </div>
+            </aside>
+            <div class="min-w-0 overflow-hidden print:block print:overflow-visible">
+                <div role="region"
+                     aria-label="{% translate "Print preview" %}"
+                     class="flex flex-row items-start gap-[8mm] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-[12mm] scroll-pl-px snap-x snap-mandatory print:block print:overflow-visible print:pb-0">
+                    {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-[297mm] print:w-[210mm] print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
+                        {% if timetable %}
+                            {% for page in timetable.pages %}
+                                <section class="{{ sheet_class }}"
+                                         id="timetable-day-{{ forloop.counter }}"
+                                         role="group"
+                                         aria-labelledby="timetable-day-{{ forloop.counter }}-heading">
+                                    {% if not timetable.is_complete %}
+                                        {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
+                                    {% else %}
+                                        {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=False %}
+                                    {% endif %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
+                                    <h3 id="timetable-day-{{ forloop.counter }}-heading"
+                                        class="m-0 mb-[2mm] text-[12pt]">
+                                        {{ page.day|date:"l, j E Y" }}
+                                        {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
+                                    </h3>
+                                    <table class="w-full table-fixed border-collapse text-[7pt]">
+                                        <thead>
+                                            <tr>
+                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time slot" %}</th>
+                                                {% for name in page.space_names %}
+                                                    <th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in page.rows %}
+                                                <tr>
+                                                    <td class="w-[20mm] whitespace-nowrap border border-neutral-300 p-[1mm] align-top tabular-nums">
+                                                        {{ row.start_time|time:"H:i" }}–{{ row.end_time|time:"H:i" }}
+                                                    </td>
+                                                    {% for cell in row.cells %}
+                                                        <td class="border border-neutral-300 p-[1mm] align-top {% if cell.sessions %}text-left{% else %}text-center{% endif %}">
+                                                            {% for session in cell.sessions %}
+                                                                <div {% if not forloop.last %}class="mb-[1mm]"{% endif %}>
+                                                                    <strong>{{ session.title }}</strong>
+                                                                    {% if session.presenter_name %}<div class="text-neutral-700">{{ session.presenter_name }}</div>{% endif %}
+                                                                </div>
+                                                            {% empty %}
+                                                                <span class="italic text-neutral-500">—</span>
+                                                            {% endfor %}
+                                                        </td>
+                                                    {% endfor %}
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </section>
+                            {% empty %}
+                                <section class="{{ sheet_class }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
+                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                </section>
+                            {% endfor %}
+                        {% elif area_schedule %}
+                            {% for space in area_schedule.spaces %}
+                                <section class="{{ sheet_class }}" id="area-space-{{ forloop.counter }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
+                                    <p class="mb-[4mm] text-[9pt] text-neutral-500">
+                                        {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                    </p>
+                                    <div>
+                                        <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
+                                            {{ space.space_name }}
+                                            {% if space.capacity %}
+                                                <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
+                                            {% endif %}
+                                        </h3>
+                                        {% for session in space.sessions %}
+                                            <div class="mb-[4mm] break-inside-avoid">
+                                                <div class="text-[9pt] tabular-nums text-neutral-500">
+                                                    {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                                </div>
+                                                <div class="text-[11pt] font-bold">{{ session.title }}</div>
+                                                {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                                {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
+                                            </div>
+                                        {% empty %}
+                                            <p class="italic text-neutral-500">{% translate "Nothing scheduled in this time range." %}</p>
+                                        {% endfor %}
+                                    </div>
+                                </section>
+                            {% endfor %}
+                        {% elif session_list %}
+                            <section class="{{ sheet_class }}" id="session-list">
+                                {% include "chronology/parts/print_header.html" with scope_name=session_list.scope_name show_full_schedule_label=True %}
+                                <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Sessions" %}</h2>
+                                {% for session in session_list.sessions %}
+                                    <div class="mb-[4mm] break-inside-avoid">
+                                        <div class="text-[9pt] tabular-nums text-neutral-500">
+                                            {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }} · {{ session.space_name }}
+                                        </div>
+                                        <div class="text-[11pt] font-bold">{{ session.title }}</div>
+                                        {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                        {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
+                                    </div>
+                                {% empty %}
+                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                {% endfor %}
+                            </section>
+                        {% else %}
+                            <section class="{{ sheet_class }}">
+                                {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
+                                <p class="italic text-neutral-500">{% translate "This printable is not available for this event." %}</p>
+                            </section>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock main_region %}

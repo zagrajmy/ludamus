@@ -54,6 +54,10 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
     }
     if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
+    # Only overwrite the logo when a new file was uploaded, so saving the
+    # settings form without re-picking a file keeps the existing logo.
+    if cd.get("logo"):
+        data["logo"] = cd["logo"]
     return data
 
 
@@ -92,6 +96,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "slug": current_event.slug,
                 "description": current_event.description,
                 "cover_image": current_event.cover_image_url or None,
+                "logo": current_event.logo_url or None,
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (

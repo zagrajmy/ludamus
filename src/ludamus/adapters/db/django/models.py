@@ -186,6 +186,8 @@ class Sphere(models.Model):
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
+    # Branding fallback — used on printables when an event has no logo of its own
+    logo = models.ImageField(upload_to="spheres/", blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -203,6 +205,10 @@ class Sphere(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
+
 
 class Event(models.Model):
     # Owner
@@ -212,6 +218,8 @@ class Event(models.Model):
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
     cover_image = models.ImageField(upload_to="events/", blank=True)
+    # Branding — shown on printables (the public /print page)
+    logo = models.ImageField(upload_to="events/", blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -257,6 +265,10 @@ class Event(models.Model):
     @property
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
     @property
     def is_proposal_active(self) -> bool:

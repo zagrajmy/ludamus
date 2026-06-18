@@ -10,6 +10,7 @@ from ludamus.gates.web.django.notice_board.urls import (
 )
 
 from . import views
+from .print_views import PublicEventPrintView
 
 app_name = "web"  # pylint: disable=invalid-name
 
@@ -68,6 +69,7 @@ crowd_urls: list[URLPattern | URLResolver] = [
 chronology_urls = [
     *chronology_gate_urls,
     path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
+    path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
     path(
         "session/<int:session_id>/enrollment/",
         views.SessionEnrollPageView.as_view(),

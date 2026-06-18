@@ -141,7 +141,7 @@ class TestEncounterCreatePageView:
 
     def test_image_too_large(self, authenticated_client):
         start = datetime.now(UTC) + timedelta(days=7)
-        oversized = PNG_BYTES + b"\x00" * (2 * 1024 * 1024 + 1)
+        oversized = PNG_BYTES + b"\x00" * (8 * 1024 * 1024 + 1)
         image = SimpleUploadedFile("big.png", oversized, content_type="image/png")
         data = {
             "title": "Too Large Image",

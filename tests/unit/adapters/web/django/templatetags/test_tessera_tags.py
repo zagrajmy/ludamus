@@ -1,5 +1,6 @@
 """Tests for tessera design-system component tags."""
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -92,6 +93,34 @@ class TestSelect:
         )
         html = tpl.render(Context())
         assert "multiple" in html
+
+    def test_forwards_arbitrary_attributes(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% select id="m" name="x" onchange="this.form.submit()" '
+            'aria_label="Material" data_role="picker" %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        assert 'onchange="this.form.submit()"' in html
+        assert 'aria-label="Material"' in html
+        assert 'data-role="picker"' in html
+
+    def test_disabled_attribute(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% select name="x" disabled=True %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        # Match the bare boolean attribute, not the base classes' `disabled:*`.
+        assert re.search(r"\sdisabled(?=[\s>])", html)
+
+    def test_skips_falsy_attributes(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% select name="x" required=False data_role="" %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        assert "required" not in html
+        assert "data-role" not in html
 
     def test_extra_class(self) -> None:
         tpl = Template(

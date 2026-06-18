@@ -13,9 +13,14 @@
         <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
         {% if document.scope_name %}<div class="scope-name">{{ document.scope_name }}</div>{% endif %}
     </div>
-    {% for day in document.days %}
+    {% for page in document.pages %}
         <section {% if not forloop.last %}style="break-after: page;"{% endif %}>
-            <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">{{ day.day|date:"l, j E Y" }}</h2>
+            <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">
+                {{ page.day|date:"l, j E Y" }}
+                {% if page.space_range_name %}
+                    <span style="display: block; font-size: 9pt; font-weight: 400;">{{ page.space_range_name }}</span>
+                {% endif %}
+            </h2>
             <table style="width: 100%;
                           border-collapse: collapse;
                           font-size: 8pt;
@@ -27,7 +32,7 @@
                                    border-bottom-width: 1.5pt;
                                    padding: 1.5mm;
                                    text-align: left">{% translate "Time slot" %}</th>
-                        {% for name in day.space_names %}
+                        {% for name in page.space_names %}
                             <th style="border: 0.5pt solid #111827;
                                        border-bottom-width: 1.5pt;
                                        padding: 1.5mm;
@@ -36,7 +41,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in day.rows %}
+                    {% for row in page.rows %}
                         <tr>
                             <td style="border: 0.5pt solid #d1d5db;
                                        padding: 1.5mm;
