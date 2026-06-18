@@ -1459,9 +1459,26 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return TemplateResponse(request, "chronology/enroll_select.html", context)
 
     @staticmethod
-    def _validate_request(session: Session) -> EnrollmentConfig:
-        # Get the most liberal config for this session
+    def _validate_request(
+        session: Session,
+        enrollment_requests: list[EnrollmentRequest] | None = None,
+    ) -> EnrollmentConfig:
         event = session.agenda_item.space.area.venue.event
+        if enrollment_requests and all(
+            req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
+        ):
+            if not (config := event.enrollment_configs.order_by("pk").first()):
+                raise RedirectError(
+                    reverse(
+                        "web:chronology:event",
+                        kwargs={"slug": event.slug},
+                    ),
+                    error=_(
+                        "No enrollment configuration is available for this session."
+                    ),
+                )
+            return config
+
         if not (enrollment_config := event.get_most_liberal_config(session)):
             raise RedirectError(
                 reverse(
@@ -1620,7 +1637,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
 
         # Only validate enrollment requirements when form is valid
-        enrollment_config = self._validate_request(session)
+        enrollment_requests = self._get_enrollment_requests(form)
+        enrollment_config = self._validate_request(session, enrollment_requests)
 
         self._manage_enrollments(form, session, enrollment_config)
 
@@ -2039,7 +2057,10 @@ def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
 
 
 def _validate_anonymous_session_event(
-    request: RootRequest, session: Session
+    request: RootRequest,
+    session: Session,
+    *,
+    require_active_enrollment: bool = True,
 ) -> Event | HttpResponse:
     try:
         event = session.agenda_item.space.area.venue.event
@@ -2056,7 +2077,9 @@ def _validate_anonymous_session_event(
         )
         return _anonymous_event_redirect(request)
 
-    if not _event_allows_anonymous_enrollment(event, session):
+    if require_active_enrollment and not _event_allows_anonymous_enrollment(
+        event, session
+    ):
         messages.error(
             request, _("No enrollment configuration is available for this session.")
         )
@@ -2066,7 +2089,7 @@ def _validate_anonymous_session_event(
 
 
 def _validate_anonymous_enrollment_request(
-    request: RootRequest, session_id: int
+    request: RootRequest, session_id: int, *, require_active_enrollment: bool = True
 ) -> tuple[Session, UserDTO] | HttpResponse:
     if not request.session.get("anonymous_enrollment_active"):
         messages.error(request, _("Anonymous enrollment is not active."))
@@ -2086,7 +2109,9 @@ def _validate_anonymous_enrollment_request(
         messages.error(request, _("Session not found."))
         return redirect("web:index")
 
-    event_or_redirect = _validate_anonymous_session_event(request, session)
+    event_or_redirect = _validate_anonymous_session_event(
+        request, session, require_active_enrollment=require_active_enrollment
+    )
     if isinstance(event_or_redirect, HttpResponse):
         return event_or_redirect
 
@@ -2190,19 +2215,30 @@ class SessionEnrollmentAnonymousPageView(View):
         if request.context.current_user_slug:
             return redirect("web:chronology:session-enrollment", session_id=session_id)
 
-        result = _validate_anonymous_enrollment_request(request, session_id)
+        result = _validate_anonymous_enrollment_request(
+            request, session_id, require_active_enrollment=False
+        )
         if isinstance(result, HttpResponse):
             return result
         session, anonymous_user = result
 
-        # Check if user is already enrolled in THIS specific session
         existing_enrollment = SessionParticipation.objects.filter(
             session=session, user_id=anonymous_user.pk
         ).first()
+        event = session.agenda_item.space.area.venue.event
+        if (
+            existing_enrollment is None
+            and not _event_allows_anonymous_enrollment(event, session)
+        ):
+            messages.error(
+                request,
+                _("No enrollment configuration is available for this session."),
+            )
+            return redirect("web:chronology:event", slug=event.slug)
 
         context = {
             "session": session,
-            "event": session.agenda_item.space.area.venue.event,
+            "event": event,
             "anonymous_user": anonymous_user,
             "anonymous_code": anonymous_user.slug.removeprefix("code_"),
             "needs_user_data": not anonymous_user.name,
@@ -2217,7 +2253,11 @@ class SessionEnrollmentAnonymousPageView(View):
         if request.context.current_user_slug:
             return redirect("web:chronology:session-enrollment", session_id=session_id)
 
-        result = _validate_anonymous_enrollment_request(request, session_id)
+        result = _validate_anonymous_enrollment_request(
+            request,
+            session_id,
+            require_active_enrollment=request.POST.get("action", "enroll") != "cancel",
+        )
         if isinstance(result, HttpResponse):
             return result
         session, anonymous_user = result

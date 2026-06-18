@@ -132,7 +132,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
 
-    def _submitted_facilitator_ids(self, event_pk: int) -> list[int]:
+    def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
+        if self.request.POST.get("facilitators_submitted") != "1":
+            return None
         raw_ids = self.request.POST.getlist("facilitator_ids")
         submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
         all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
@@ -265,7 +267,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             data=SessionContentEditData(
                 update=update_data,
                 field_values=field_values,
-                facilitator_ids=self._submitted_facilitator_ids(current_event.pk),
+                facilitator_ids=self._collect_facilitator_ids(current_event.pk),
             ),
         )
 

@@ -427,6 +427,62 @@ class TestSessionEnrollmentAnonymousPageView:
         assert user.name == name
         assert not SessionParticipation.objects.all().exists()
 
+    def test_post_cancel_when_enrollment_inactive(
+        self,
+        agenda_item,
+        anonymous_user_factory,
+        client,
+        sphere,
+        event,
+        faker,
+        time_zone,
+    ):
+        enrollment_config = event.enrollment_configs.create(
+            start_time=faker.date_time_between("-10d", "-5d", tzinfo=time_zone),
+            end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
+            allow_anonymous_enrollment=True,
+        )
+        session = agenda_item.session
+        user = anonymous_user_factory()
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=user,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        name = "johny"
+
+        response = client.post(
+            self.get_url(session.id),
+            data={"name": name, "action": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Successfully cancelled enrollment in session: "
+                        f"{session.title}"
+                    ),
+                )
+            ],
+            url=reverse(
+                "web:chronology:event",
+                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+            ),
+        )
+        assert not SessionParticipation.objects.filter(
+            session=session, user=user
+        ).exists()
+
     def test_post_conflict(
         self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
