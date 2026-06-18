@@ -1460,8 +1460,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def _validate_request(
-        session: Session,
-        enrollment_requests: list[EnrollmentRequest] | None = None,
+        session: Session, enrollment_requests: list[EnrollmentRequest] | None = None
     ) -> EnrollmentConfig:
         event = session.agenda_item.space.area.venue.event
         if enrollment_requests and all(
@@ -1469,10 +1468,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         ):
             if not (config := event.enrollment_configs.order_by("pk").first()):
                 raise RedirectError(
-                    reverse(
-                        "web:chronology:event",
-                        kwargs={"slug": event.slug},
-                    ),
+                    reverse("web:chronology:event", kwargs={"slug": event.slug}),
                     error=_(
                         "No enrollment configuration is available for this session."
                     ),
@@ -2057,10 +2053,7 @@ def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
 
 
 def _validate_anonymous_session_event(
-    request: RootRequest,
-    session: Session,
-    *,
-    require_active_enrollment: bool = True,
+    request: RootRequest, session: Session, *, require_active_enrollment: bool = True
 ) -> Event | HttpResponse:
     try:
         event = session.agenda_item.space.area.venue.event
@@ -2226,13 +2219,11 @@ class SessionEnrollmentAnonymousPageView(View):
             session=session, user_id=anonymous_user.pk
         ).first()
         event = session.agenda_item.space.area.venue.event
-        if (
-            existing_enrollment is None
-            and not _event_allows_anonymous_enrollment(event, session)
+        if existing_enrollment is None and not _event_allows_anonymous_enrollment(
+            event, session
         ):
             messages.error(
-                request,
-                _("No enrollment configuration is available for this session."),
+                request, _("No enrollment configuration is available for this session.")
             )
             return redirect("web:chronology:event", slug=event.slug)
 
