@@ -104,6 +104,15 @@ class TestSelect:
         assert 'aria-label="Material"' in html
         assert 'data-role="picker"' in html
 
+    def test_skips_falsy_and_disabled_attributes(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% select name="x" required=False data_role="" %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        assert "required" not in html
+        assert "data-role" not in html
+
     def test_extra_class(self) -> None:
         tpl = Template(
             '{% load tessera %}{% select name="x" class="mt-4" %}{% end_select %}'
