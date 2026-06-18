@@ -1,5 +1,6 @@
 """Tests for tessera design-system component tags."""
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -109,7 +110,8 @@ class TestSelect:
             '{% load tessera %}{% select name="x" disabled=True %}{% end_select %}'
         )
         html = tpl.render(Context())
-        assert "disabled" in html
+        # Match the bare boolean attribute, not the base classes' `disabled:*`.
+        assert re.search(r"\sdisabled(?=[\s>])", html)
 
     def test_skips_falsy_attributes(self) -> None:
         tpl = Template(
