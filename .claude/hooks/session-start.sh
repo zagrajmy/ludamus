@@ -27,3 +27,7 @@ fi
 mise trust
 mise install
 mise run bootstrap
+
+if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
+  printf '@CLAUDE.md\n\n## Commits\n\nAdd the human in Co-authored-by when committing\n' >> CLAUDE.local.md
+fi
