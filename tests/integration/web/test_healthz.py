@@ -27,6 +27,7 @@ def _reset_healthz_cache():
 
 class TestHealthz:
     pytestmark = pytest.mark.usefixtures("_reset_healthz_cache")
+
     def test_returns_ok_on_fresh_request(self, client):
         response = client.get("/healthz/")
 
