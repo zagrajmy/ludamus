@@ -1,15 +1,21 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 
 import pytest
 from django.contrib import messages
+from django.db import connection
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
+    Notification,
     SessionParticipation,
     SessionParticipationStatus,
     User,
 )
 from ludamus.pacts import UserDTO
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
 
@@ -266,6 +272,113 @@ class TestSessionEnrollmentAnonymousPageView:
         )
         user = User.objects.get(id=user.id)
         assert user.name == name
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_promote(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
+        session = agenda_item.session
+        session.min_age = 12
+        session.save()
+        confirmed_user = anonymous_user_factory()
+        waiting_user = anonymous_user_factory()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        SessionParticipation.objects.create(
+            session=session,
+            user=confirmed_user,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=waiting_user,
+            status=SessionParticipationStatus.WAITING,
+        )
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(confirmed_user),
+        )
+
+        response = client.post(
+            self.get_url(session.id), data={"name": "confirmed", "action": "cancel"}
+        )
+
+        # The promotee is notified directly now; the canceller only sees their
+        # own cancellation (no "stolen" promotion message).
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Successfully cancelled enrollment in session: "
+                        f"{session.title}"
+                    ),
+                )
+            ],
+            url=reverse(
+                "web:chronology:event",
+                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+            ),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=confirmed_user, session=session
+        ).exists()
+        assert SessionParticipation.objects.filter(
+            user=waiting_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+        assert Notification.objects.filter(
+            recipient=waiting_user, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_concurrent_anonymous_enroll_does_not_overbook_capacity(
+        self, agenda_item, anonymous_user_factory, sphere, enrollment_config
+    ):
+        session = agenda_item.session
+        session.min_age = 12
+        session.participants_limit = 1
+        session.save()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+
+        contenders = []
+        for index in range(2):
+            user = anonymous_user_factory()
+            client = Client()
+            _activate_anonymous_client(
+                client,
+                sphere=sphere,
+                event=enrollment_config.event,
+                user_code=_anonymous_user_code(user),
+            )
+            contenders.append((client, user, f"contender{index}"))
+
+        url = self.get_url(session.pk)
+        barrier = threading.Barrier(len(contenders))
+
+        def enroll(client, name):
+            barrier.wait()
+            try:
+                return client.post(url, data={"name": name})
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(contenders)) as pool:
+            futures = [
+                pool.submit(enroll, client, name) for client, _user, name in contenders
+            ]
+            for future in futures:
+                future.result()
+
+        confirmed = SessionParticipation.objects.filter(
+            session_id=session.pk, status=SessionParticipationStatus.CONFIRMED
+        ).count()
+        assert confirmed == 1
 
     def test_post_cancel_success(
         self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config

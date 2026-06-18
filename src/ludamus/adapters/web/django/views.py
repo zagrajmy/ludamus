@@ -1688,24 +1688,37 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         for req in ordered_requests:
-            # Handle cancellation
-            if req.choice == "cancel" and (
-                existing_participation := next(
-                    p for p in participations if p.user.id == req.user.pk
+            if req.choice == "cancel":
+                self._handle_cancellation(req, participations, enrollments)
+            else:
+                self._check_and_create_enrollment(
+                    req, session, enrollments, shadowbanned_ids
                 )
-            ):
-                # A freed confirmed (or held offered) seat triggers waiting-list
-                # promotion after the transaction commits, via the service.
-                if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
-                    enrollments.freed_seat = True
-                existing_participation.delete()
-                enrollments.cancelled_users.append(req.name)
-                continue
-
-            self._check_and_create_enrollment(
-                req, session, enrollments, shadowbanned_ids
-            )
         return enrollments
+
+    @staticmethod
+    def _handle_cancellation(
+        req: EnrollmentRequest,
+        participations: Iterable[SessionParticipation],
+        enrollments: Enrollments,
+    ) -> None:
+        # A racing request may have already deleted the row (the form would
+        # otherwise reject "cancel"); skip gracefully instead of raising.
+        existing_participation = next(
+            (p for p in participations if p.user.id == req.user.pk), None
+        )
+        if existing_participation is None:
+            enrollments.skipped_users.append(
+                f"{req.name} ({_('no enrollment to cancel')!s})"
+            )
+            return
+
+        # A freed confirmed (or held offered) seat triggers waiting-list
+        # promotion after the transaction commits, via the service.
+        if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
+            enrollments.freed_seat = True
+        existing_participation.delete()
+        enrollments.cancelled_users.append(req.name)
 
     @staticmethod
     def _check_and_create_enrollment(
@@ -2094,18 +2107,29 @@ def _validate_anonymous_enrollment_request(
 def _cancel_anonymous_enrollment(
     request: RootRequest, session: Session, anonymous_user: UserDTO
 ) -> None:
-    try:
-        enrollment = SessionParticipation.objects.get(
-            session=session, user_id=anonymous_user.pk
-        )
+    freed_seat = False
+    with transaction.atomic():
+        session = Session.objects.select_for_update().get(id=session.id)
+        try:
+            enrollment = SessionParticipation.objects.get(
+                session=session, user_id=anonymous_user.pk
+            )
+        except SessionParticipation.DoesNotExist:
+            messages.warning(request, _("No enrollment found to cancel."))
+            return
+
+        freed_seat = enrollment.status in OCCUPYING_PARTICIPATION_STATUSES
         enrollment.delete()
         messages.success(
             request,
             _("Successfully cancelled enrollment in session: %(title)s")
             % {"title": session.title},
         )
-    except SessionParticipation.DoesNotExist:
-        messages.warning(request, _("No enrollment found to cancel."))
+
+    # A freed confirmed (or held offered) seat promotes/offers the next waiter,
+    # who is notified directly by the service after the mutation commits.
+    if freed_seat:
+        request.services.waitlist_promotion.fill_freed_seats(session_id=session.id)
 
 
 def _enroll_anonymous_user(
@@ -2123,36 +2147,39 @@ def _enroll_anonymous_user(
             "web:chronology:session-enrollment-anonymous", session_id=session_id
         )
 
-    if session.is_full:
-        SessionParticipation.objects.get_or_create(
-            session=session,
-            user_id=anonymous_user.pk,
-            defaults={"status": SessionParticipationStatus.WAITING.value},
-        )
-        messages.success(
-            request,
-            _(
-                "Session is full. You have been added to the waiting list "
-                "for: %(title)s"
+    with transaction.atomic():
+        session = Session.objects.select_for_update().get(id=session.id)
+        if session.is_full:
+            SessionParticipation.objects.get_or_create(
+                session=session,
+                user_id=anonymous_user.pk,
+                defaults={"status": SessionParticipationStatus.WAITING.value},
             )
-            % {"title": session.title},
-        )
-    else:
-        enrollment, created = SessionParticipation.objects.get_or_create(
-            session=session,
-            user_id=anonymous_user.pk,
-            defaults={"status": SessionParticipationStatus.CONFIRMED.value},
-        )
-        if (
-            not created
-            and enrollment.status != SessionParticipationStatus.CONFIRMED.value
-        ):
-            enrollment.status = SessionParticipationStatus.CONFIRMED.value
-            enrollment.save()
-        messages.success(
-            request,
-            _("Successfully enrolled in session: %(title)s") % {"title": session.title},
-        )
+            messages.success(
+                request,
+                _(
+                    "Session is full. You have been added to the waiting list "
+                    "for: %(title)s"
+                )
+                % {"title": session.title},
+            )
+        else:
+            enrollment, created = SessionParticipation.objects.get_or_create(
+                session=session,
+                user_id=anonymous_user.pk,
+                defaults={"status": SessionParticipationStatus.CONFIRMED.value},
+            )
+            if (
+                not created
+                and enrollment.status != SessionParticipationStatus.CONFIRMED.value
+            ):
+                enrollment.status = SessionParticipationStatus.CONFIRMED.value
+                enrollment.save()
+            messages.success(
+                request,
+                _("Successfully enrolled in session: %(title)s")
+                % {"title": session.title},
+            )
 
     return None
 

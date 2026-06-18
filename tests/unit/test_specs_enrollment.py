@@ -18,7 +18,6 @@ def _wp(
     manager_id=None,
     order=0,
     has_conflict=False,
-    is_active=True,
     slots=UNLIMITED_SLOTS,
 ):
     user_id = user_id if user_id is not None else pid
@@ -28,7 +27,6 @@ def _wp(
         manager_id=manager_id,
         full_name=f"user-{pid}",
         email=f"u{pid}@example.com",
-        is_active=is_active,
         creation_time=_BASE + timedelta(minutes=order),
         has_conflict=has_conflict,
         manager_slots_remaining=slots,

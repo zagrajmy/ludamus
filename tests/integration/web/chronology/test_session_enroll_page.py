@@ -284,6 +284,82 @@ class TestSessionEnrollPageView:
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_without_enrollment_skips(
+        self, active_user, agenda_item, authenticated_client, event
+    ):
+        # A cancel choice for a user with no participation is only reachable
+        # when a concurrent request deleted the row first; the form would
+        # otherwise reject "cancel". Mock the form to simulate that race and
+        # assert we skip gracefully instead of raising StopIteration.
+        with patch(
+            "ludamus.adapters.web.django.views.create_enrollment_form"
+        ) as mock_form_factory:
+            mock_form_class = Mock()
+            mock_form_instance = Mock()
+            mock_form_instance.is_valid.return_value = True
+            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "cancel"}
+            mock_form_class.return_value = mock_form_instance
+            mock_form_factory.return_value = mock_form_class
+
+            response = authenticated_client.post(
+                self._get_url(agenda_item.session.pk),
+                data={f"user_{active_user.id}": "cancel"},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{active_user.name} (no enrollment to cancel)"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_concurrent_cancel_does_not_500(self, active_user, agenda_item):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        url = self._get_url(agenda_item.session.pk)
+        post_data = {f"user_{active_user.id}": "cancel"}
+
+        clients = []
+        for _ in range(2):
+            client = Client()
+            client.force_login(active_user)
+            clients.append(client)
+
+        barrier = threading.Barrier(len(clients))
+
+        def cancel(client):
+            barrier.wait()
+            try:
+                return client.post(url, data=post_data)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(clients)) as pool:
+            responses = [
+                future.result()
+                for future in [pool.submit(cancel, client) for client in clients]
+            ]
+
+        assert all(response.status_code == HTTPStatus.FOUND for response in responses)
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
     def test_post_cancel_promote(
         self, active_user, agenda_item, authenticated_client, event, connected_user
     ):
