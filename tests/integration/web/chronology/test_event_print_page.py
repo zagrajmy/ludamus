@@ -363,7 +363,12 @@ class TestPublicEventPrintView:
 
         # A stale slug must not silently widen to the whole event; it resolves
         # to the first available track instead.
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/print.html",
+            context_data=ANY,
+        )
         assert response.context_data["selected_track"] == "focused-track"
 
     def test_space_timetable_scoped_to_selected_space(
@@ -375,7 +380,12 @@ class TestPublicEventPrintView:
             self._url(event.slug), {"material": "space-timetable", "space": space.pk}
         )
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/print.html",
+            context_data=ANY,
+        )
         assert response.context_data["material"] == "space-timetable"
         assert response.context_data["selected_space"] == str(space.pk)
         assert session.title in response.content.decode()
@@ -394,7 +404,12 @@ class TestPublicEventPrintView:
             self._url(event.slug), {"material": "track-timetable", "track": track.slug}
         )
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/print.html",
+            context_data=ANY,
+        )
         assert response.context_data["material"] == "track-timetable"
         assert response.context_data["selected_track"] == "main-track"
         assert session.title in response.content.decode()

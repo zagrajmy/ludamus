@@ -111,7 +111,12 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.get(self.url)
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/sphere-settings.html",
+            context_data=ANY,
+        )
         assert "spheres/brand.png" in response.content.decode()
 
     def test_post_uploads_logo(self, authenticated_client, active_user, sphere):

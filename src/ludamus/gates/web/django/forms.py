@@ -67,7 +67,9 @@ def _logo_field() -> forms.ImageField:
     return forms.ImageField(
         required=False,
         label=_("Logo"),
-        help_text=_("Shown on the printable schedule. Max 8 MB. JPG, PNG, or WebP."),
+        help_text=_(
+            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
+        ),
         widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
     )
 
