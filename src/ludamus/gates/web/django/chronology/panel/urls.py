@@ -71,6 +71,11 @@ _timetable_urlpatterns = [
         "do/revert/", timetable.TimetableRevertView.as_view(), name="timetable-revert"
     ),
     path(
+        "do/confirm/",
+        timetable.TimetableConfirmView.as_view(),
+        name="timetable-confirm",
+    ),
+    path(
         "print/timetable/",
         print_views.TimetablePrintView.as_view(material="timetable"),
         name="timetable-print",

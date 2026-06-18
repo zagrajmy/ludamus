@@ -65,6 +65,7 @@ from ludamus.specs.chronology import resolve_facilitator_session_edit
 if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
         AreaDTO,
         ContentChangeLogData,
         ContentChangeLogDTO,
@@ -429,6 +430,32 @@ class TimetableService:
                 revert_log["new_start_time"] = log.old_start_time
                 revert_log["new_end_time"] = log.old_end_time
             self._uow.schedule_change_logs.create(revert_log)
+
+
+class SessionConfirmationService:
+    """Organizer confirm / unconfirm of a scheduled agenda item."""
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._agenda_items = agenda_items
+        self._sessions = sessions
+
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> AgendaItemDTO:
+        # Panel access only proves you manage `event_pk`; the agenda item named
+        # in the request must belong to it, or it is cross-event tampering.
+        agenda_item = self._agenda_items.read(agenda_item_pk)
+        if self._sessions.read_event(agenda_item.session_id).pk != event_pk:
+            raise NotFoundError
+        with self._transaction.atomic():
+            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+        return self._agenda_items.read(agenda_item_pk)
 
 
 class ConflictDetectionService:

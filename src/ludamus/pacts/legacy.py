@@ -429,6 +429,7 @@ class AgendaItemData(TypedDict):
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
+    session_confirmed: bool
     space_id: int
     start_time: datetime
 

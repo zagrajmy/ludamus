@@ -4358,6 +4358,22 @@ msgid "Not assigned"
 msgstr "Nieprzypisane"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Program item confirmed"
+msgstr "Punkt programu potwierdzony"
+
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Program item not confirmed"
+msgstr "Punkt programu niepotwierdzony"
+
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Confirm program item"
+msgstr "Potwierdź punkt programu"
+
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Undo confirmation"
+msgstr "Cofnij potwierdzenie"
+
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Assign"
 msgstr "Przypisz"
 

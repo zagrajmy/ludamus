@@ -377,6 +377,36 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
         return response
 
 
+class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
+    """POST: confirm or unconfirm a scheduled program item."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            agenda_item_pk = int(self.request.POST["agenda_item_pk"])
+        except KeyError, ValueError:
+            return HttpResponse(status=422)
+        confirmed = self.request.POST.get("confirmed") == "true"
+
+        try:
+            self.request.services.session_confirmation.set_session_confirmed(
+                event_pk=current_event.pk,
+                agenda_item_pk=agenda_item_pk,
+                confirmed=confirmed,
+            )
+        except NotFoundError:
+            return HttpResponse(status=422)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
 class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
     """Full page: sphere-manager overview — heatmap and track progress."""
 
