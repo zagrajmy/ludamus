@@ -387,9 +387,7 @@ class TestSessionConfirmation:
 
         agenda_items.confirm_all_by_event.assert_called_once_with(1)
 
-    def test_confirm_block_confirms_items_in_track(
-        self, service, agenda_items, tracks
-    ):
+    def test_confirm_block_confirms_items_in_track(self, service, agenda_items, tracks):
         tracks.read.return_value = self._track(event_id=1)
 
         service.confirm_block(event_pk=1, track_pk=5)

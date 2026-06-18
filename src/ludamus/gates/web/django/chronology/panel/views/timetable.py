@@ -387,7 +387,7 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             agenda_item_pk = int(self.request.POST["agenda_item_pk"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
         confirmed_raw = self.request.POST.get("confirmed")
         if confirmed_raw not in {"true", "false"}:
@@ -437,7 +437,7 @@ class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             track_pk = int(self.request.POST["track_pk"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
 
         try:

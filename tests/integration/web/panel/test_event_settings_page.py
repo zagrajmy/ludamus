@@ -658,8 +658,7 @@ class TestEventSettingsPageViewPost:
         event.save()
 
         response = authenticated_client.post(
-            self.get_url(event),
-            data=self._post_data(event, auto_confirm_sessions="on"),
+            self.get_url(event), data=self._post_data(event, auto_confirm_sessions="on")
         )
 
         assert_response(
