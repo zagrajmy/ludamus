@@ -440,8 +440,6 @@ class TimetableService:
 
 
 class SessionConfirmationService:
-    """Organizer confirm / unconfirm of scheduled agenda items."""
-
     def __init__(
         self,
         transaction: TransactionProtocol,
