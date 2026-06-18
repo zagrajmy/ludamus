@@ -118,5 +118,17 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         AgendaItem.objects.filter(pk=pk).update(**data)
 
     @staticmethod
+    def confirm_all_by_event(event_pk: int) -> None:
+        AgendaItem.objects.filter(space__area__venue__event_id=event_pk).update(
+            session_confirmed=True
+        )
+
+    @staticmethod
+    def confirm_all_by_track(track_pk: int) -> None:
+        AgendaItem.objects.filter(session__tracks__pk=track_pk).update(
+            session_confirmed=True
+        )
+
+    @staticmethod
     def delete(pk: int) -> None:
         AgendaItem.objects.filter(pk=pk).delete()

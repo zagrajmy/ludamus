@@ -65,6 +65,7 @@ from ludamus.specs.chronology import resolve_facilitator_session_edit
 if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
         AreaDTO,
         ContentChangeLogData,
         ContentChangeLogDTO,
@@ -82,6 +83,7 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
+        TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
     from ludamus.pacts.multiverse import (
@@ -134,6 +136,15 @@ def _position_sessions(
             )
 
     return positions
+
+
+def require_session_in_event(
+    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
+) -> None:
+    # Panel access only proves you manage `event_pk`; a session named in
+    # the request must belong to it, or it is cross-event tampering.
+    if sessions.read_event(session_pk).pk != event_pk:
+        raise NotFoundError
 
 
 class TimetableService:
@@ -284,10 +295,7 @@ class TimetableService:
         return venue_groups
 
     def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
-        # Panel access only proves you manage `event_pk`; a session named in
-        # the request must belong to it, or it is cross-event tampering.
-        if self._uow.sessions.read_event(session_pk).pk != event_pk:
-            raise NotFoundError
+        require_session_in_event(self._uow.sessions, session_pk, event_pk)
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         if space_pk not in {s.pk for s in self._uow.spaces.list_by_event(event_pk)}:
@@ -315,17 +323,17 @@ class TimetableService:
         if session.status != SessionStatus.PENDING:
             msg = f"Session {session_pk} is not in PENDING status"
             raise ValueError(msg)
+        event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.create(
             {
                 "session_id": session_pk,
                 "space_id": placement.space_pk,
                 "start_time": placement.start_time,
                 "end_time": placement.end_time,
-                "session_confirmed": False,
+                "session_confirmed": event.auto_confirm_sessions,
             }
         )
         self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        event = self._uow.sessions.read_event(session_pk)
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
@@ -429,6 +437,40 @@ class TimetableService:
                 revert_log["new_start_time"] = log.old_start_time
                 revert_log["new_end_time"] = log.old_end_time
             self._uow.schedule_change_logs.create(revert_log)
+
+
+class SessionConfirmationService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
+        tracks: TrackRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._agenda_items = agenda_items
+        self._sessions = sessions
+        self._tracks = tracks
+
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None:
+        agenda_item = self._agenda_items.read(agenda_item_pk)
+        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
+        with self._transaction.atomic():
+            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+
+    def confirm_all(self, event_pk: int) -> None:
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_event(event_pk)
+
+    def confirm_block(self, event_pk: int, track_pk: int) -> None:
+        # Panel access only proves you manage `event_pk`; a track named in the
+        # request must belong to it, or it is cross-event tampering.
+        if self._tracks.read(track_pk).event_id != event_pk:
+            raise NotFoundError
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class ConflictDetectionService:

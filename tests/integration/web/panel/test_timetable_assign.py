@@ -187,6 +187,37 @@ class TestTimetableAssignView:
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "scheduled"
+        assert session.agenda_item.session_confirmed is True
+
+    def test_assign_leaves_unconfirmed_when_auto_confirm_off(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        event = EventFactory(sphere=sphere, auto_confirm_sessions=False)
+        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        session = SessionFactory(
+            category=ProposalCategoryFactory(event=event),
+            sphere=sphere,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        start_time = event.start_time
+        end_time = start_time + timedelta(hours=1)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            {
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+            },
+        )
+
+        assert response.status_code == HTTPStatus.NO_CONTENT
+        session.refresh_from_db()
+        assert session.agenda_item.session_confirmed is False
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_assign_promotes_waiter(

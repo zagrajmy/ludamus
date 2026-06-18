@@ -180,6 +180,49 @@ class TestAgendaItemRepositoryUpdate:
         assert agenda_item.end_time == new_end
 
 
+class TestAgendaItemRepositoryConfirmAllByEvent:
+    def test_confirms_items_in_event(self, agenda_item, event):
+        AgendaItemRepository.confirm_all_by_event(event.pk)
+
+        agenda_item.refresh_from_db()
+        assert agenda_item.session_confirmed is True
+
+    def test_does_not_touch_other_events(self, agenda_item, sphere):
+        other_event = EventFactory(sphere=sphere)
+        other_space = SpaceFactory(
+            area=AreaFactory(venue=VenueFactory(event=other_event))
+        )
+        other_item = AgendaItemFactory(
+            session=SessionFactory(sphere=sphere), space=other_space
+        )
+
+        AgendaItemRepository.confirm_all_by_event(other_event.pk)
+
+        agenda_item.refresh_from_db()
+        other_item.refresh_from_db()
+        assert agenda_item.session_confirmed is False
+        assert other_item.session_confirmed is True
+
+
+class TestAgendaItemRepositoryConfirmAllByTrack:
+    def test_confirms_only_items_in_track(self, agenda_item, event, session, sphere):
+        track = Track.objects.create(
+            event=event, name="Track", slug="track", is_public=True
+        )
+        session.tracks.add(track)
+        out_space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        out_item = AgendaItemFactory(
+            session=SessionFactory(sphere=sphere), space=out_space
+        )
+
+        AgendaItemRepository.confirm_all_by_track(track.pk)
+
+        agenda_item.refresh_from_db()
+        out_item.refresh_from_db()
+        assert agenda_item.session_confirmed is True
+        assert out_item.session_confirmed is False
+
+
 class TestAgendaItemRepositoryDelete:
     def test_delete_removes_item(self, agenda_item):
         pk = agenda_item.pk

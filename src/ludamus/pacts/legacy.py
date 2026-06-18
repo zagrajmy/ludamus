@@ -429,6 +429,7 @@ class AgendaItemData(TypedDict):
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
+    session_confirmed: bool
     space_id: int
     start_time: datetime
 
@@ -505,6 +506,7 @@ class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
+    auto_confirm_sessions: bool = True
     cover_image_url: str = ""
     description: str
     end_time: datetime
@@ -755,6 +757,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    auto_confirm_sessions: bool
 
 
 @dataclass
@@ -1038,6 +1041,10 @@ class AgendaItemRepositoryProtocol(Protocol):
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
+    @staticmethod
+    def confirm_all_by_event(event_pk: int) -> None: ...
+    @staticmethod
+    def confirm_all_by_track(track_pk: int) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
 

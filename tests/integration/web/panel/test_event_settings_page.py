@@ -649,3 +649,41 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.allow_facilitator_session_edit is None
+
+    def test_enables_auto_confirm_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.auto_confirm_sessions = False
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, auto_confirm_sessions="on")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.auto_confirm_sessions is True
+
+    def test_disables_auto_confirm_sessions_when_unchecked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.auto_confirm_sessions is False

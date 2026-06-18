@@ -75,6 +75,23 @@
         <div id="filter-chips" class="flex items-center gap-4 flex-wrap">
             {% include "panel/parts/timetable-filter-chips.html" %}
         </div>
+        <div class="flex items-center gap-2 flex-wrap ml-auto">
+            {% if filter_track_pk %}
+                <form hx-post="{% url 'panel:timetable-confirm-block' slug=current_event.slug %}"
+                      hx-swap="none">
+                    {% csrf_token %}
+                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                    {% translate "Confirm block" as t_confirm_block %}
+                    {% tessera_button t_confirm_block variant="secondary" button_type="submit" size="sm" icon="check-circle" %}
+                </form>
+            {% endif %}
+            <form hx-post="{% url 'panel:timetable-confirm-all' slug=current_event.slug %}"
+                  hx-swap="none">
+                {% csrf_token %}
+                {% translate "Confirm all" as t_confirm_all %}
+                {% tessera_button t_confirm_all variant="primary" button_type="submit" size="sm" icon="check-circle" %}
+            </form>
+        </div>
     </div>
     <!-- Two-column responsive layout: left pane (browse/detail + conflicts) | grid -->
     <div class="flex flex-col lg:flex-row gap-4 items-start">
