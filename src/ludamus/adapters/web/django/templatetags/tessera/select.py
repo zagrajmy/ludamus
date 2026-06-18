@@ -29,21 +29,12 @@ class SelectNode(template.Node):
         self.attrs = attrs
 
     def render(self, context: template.Context) -> str:
-        """Render the select element via components/select.html.
-
-        Any keyword passed to the tag is forwarded as an HTML attribute (e.g.
-        ``id``, ``name``, ``onchange``); ``aria_*``/``data_*`` keywords become
-        their hyphenated attribute (``aria-label``, ``data-foo``) since template
-        kwargs cannot contain hyphens. ``class`` styles the element, and
-        ``multiple``/``required``/``disabled`` render as bare boolean attributes.
-
-        Returns:
-            HTML string of the themed ``<select>`` element.
-        """
         resolved: dict[str, object] = {
             k: v.resolve(context) for k, v in self.attrs.items()
         }
 
+        # `class` styles the element; every other keyword is forwarded as an
+        # HTML attribute on the <select>.
         extra_class = str(resolved.pop("class", ""))
 
         attr_parts: list[str] = []
@@ -54,6 +45,8 @@ class SelectNode(template.Node):
                 continue
             if not value:
                 continue
+            # Template kwargs can't contain hyphens, so aria_*/data_* keywords
+            # map onto their hyphenated attributes (aria_label -> aria-label).
             name = key.replace("_", "-") if key.startswith(("aria_", "data_")) else key
             attr_parts.append(f'{name}="{escape(str(value))}"')
 

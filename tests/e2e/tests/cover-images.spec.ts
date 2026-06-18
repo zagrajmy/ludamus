@@ -17,8 +17,11 @@ const GIF_BYTES = Buffer.from(
 
 // The settings page has more than one dropzone (cover image + logo), so scope
 // "Click to upload" / "Remove image" lookups to the cover-image dropzone.
+// Anchor on the accessible "Cover image" control, then walk up to its dropzone.
 const coverDropzone = (page: Page) =>
-  page.locator('[data-dropzone]').filter({ has: page.getByLabel('Cover image') });
+  page
+    .getByLabel('Cover image')
+    .locator('xpath=ancestor::label[@data-dropzone]');
 
 test.describe('Event cover image upload', () => {
   test.beforeEach(async ({ page }) => {
