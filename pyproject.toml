@@ -257,6 +257,7 @@ ignore = [
     "PLR0904", # Too many public methods
     "PLR6301", # Method could be a function
 ]
+"**/conftest.py" = ["RUF076"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
