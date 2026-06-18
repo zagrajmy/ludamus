@@ -67,7 +67,7 @@ pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
-ruff = "^0.15.16"
+ruff = "^0.15.17"
 types-authlib = "^1.5.0.20250516"
 types-requests = "^2.32.4.20250809"
 
@@ -257,6 +257,7 @@ ignore = [
     "PLR0904", # Too many public methods
     "PLR6301", # Method could be a function
 ]
+"**/conftest.py" = ["RUF076"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
