@@ -337,7 +337,6 @@ class TestSessionEnrollmentAnonymousPageView:
 
     @pytest.mark.postgres
     @pytest.mark.django_db(transaction=True)
-    @pytest.mark.usefixtures("enrollment_config")
     def test_concurrent_anonymous_enroll_does_not_overbook_capacity(
         self, agenda_item, anonymous_user_factory, sphere, enrollment_config
     ):
