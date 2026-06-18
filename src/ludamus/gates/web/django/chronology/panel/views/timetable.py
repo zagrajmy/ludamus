@@ -387,7 +387,7 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             agenda_item_pk = int(self.request.POST["agenda_item_pk"])
-        except KeyError, ValueError:
+        except (KeyError, ValueError):
             return HttpResponse(status=422)
         confirmed_raw = self.request.POST.get("confirmed")
         if confirmed_raw not in {"true", "false"}:
@@ -399,6 +399,50 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 agenda_item_pk=agenda_item_pk,
                 confirmed=confirmed,
+            )
+        except NotFoundError:
+            return HttpResponse(status=422)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
+class TimetableConfirmAllView(PanelAccessMixin, EventContextMixin, View):
+    """POST: confirm every scheduled program item in the event."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        self.request.services.session_confirmation.confirm_all(current_event.pk)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
+class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
+    """POST: confirm every scheduled program item in a single track (block)."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            track_pk = int(self.request.POST["track_pk"])
+        except (KeyError, ValueError):
+            return HttpResponse(status=422)
+
+        try:
+            self.request.services.session_confirmation.confirm_block(
+                event_pk=current_event.pk, track_pk=track_pk
             )
         except NotFoundError:
             return HttpResponse(status=422)

@@ -6019,3 +6019,27 @@ msgstr "Logo wydarzenia"
 #: src/ludamus/templates/panel/settings.html
 msgid "Current event logo"
 msgstr "Aktualne logo wydarzenia"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Automatically confirm program items once scheduled"
+msgstr "Automatycznie potwierdzaj punkty programu po zaplanowaniu"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"When on, a program item is confirmed the moment it is placed on the "
+"schedule. Turn off to confirm items manually."
+msgstr ""
+"Gdy włączone, punkt programu jest potwierdzany w chwili umieszczenia go w "
+"harmonogramie. Wyłącz, aby potwierdzać punkty ręcznie."
+
+#: src/ludamus/templates/panel/settings.html
+msgid "Schedule confirmation"
+msgstr "Potwierdzanie harmonogramu"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Confirm block"
+msgstr "Potwierdź blok"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Confirm all"
+msgstr "Potwierdź wszystkie"

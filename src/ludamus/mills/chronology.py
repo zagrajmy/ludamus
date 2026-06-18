@@ -83,6 +83,7 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
+        TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
     from ludamus.pacts.multiverse import (
@@ -322,17 +323,17 @@ class TimetableService:
         if session.status != SessionStatus.PENDING:
             msg = f"Session {session_pk} is not in PENDING status"
             raise ValueError(msg)
+        event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.create(
             {
                 "session_id": session_pk,
                 "space_id": placement.space_pk,
                 "start_time": placement.start_time,
                 "end_time": placement.end_time,
-                "session_confirmed": False,
+                "session_confirmed": event.auto_confirm_sessions,
             }
         )
         self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        event = self._uow.sessions.read_event(session_pk)
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
@@ -439,17 +440,19 @@ class TimetableService:
 
 
 class SessionConfirmationService:
-    """Organizer confirm / unconfirm of a scheduled agenda item."""
+    """Organizer confirm / unconfirm of scheduled agenda items."""
 
     def __init__(
         self,
         transaction: TransactionProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
+        tracks: TrackRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._agenda_items = agenda_items
         self._sessions = sessions
+        self._tracks = tracks
 
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
@@ -458,6 +461,18 @@ class SessionConfirmationService:
         require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
         with self._transaction.atomic():
             self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+
+    def confirm_all(self, event_pk: int) -> None:
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_event(event_pk)
+
+    def confirm_block(self, event_pk: int, track_pk: int) -> None:
+        # Panel access only proves you manage `event_pk`; a track named in the
+        # request must belong to it, or it is cross-event tampering.
+        if self._tracks.read(track_pk).event_id != event_pk:
+            raise NotFoundError
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class ConflictDetectionService:

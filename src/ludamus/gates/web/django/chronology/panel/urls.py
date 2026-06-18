@@ -76,6 +76,16 @@ _timetable_urlpatterns = [
         name="timetable-confirm",
     ),
     path(
+        "do/confirm-all/",
+        timetable.TimetableConfirmAllView.as_view(),
+        name="timetable-confirm-all",
+    ),
+    path(
+        "do/confirm-block/",
+        timetable.TimetableConfirmBlockView.as_view(),
+        name="timetable-confirm-block",
+    ),
+    path(
         "print/timetable/",
         print_views.TimetablePrintView.as_view(material="timetable"),
         name="timetable-print",
