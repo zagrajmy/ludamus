@@ -464,6 +464,14 @@ test.describe('Timetable', () => {
         name: 'Confirm program item',
       }),
     ).toBeVisible({ timeout: 5000 });
+
+    // Restore shared seed state: unassign so "Storytelling Workshop" returns
+    // to the unscheduled list. The suite runs serially against a persistent
+    // DB reused across browser projects, so every assign must be undone.
+    await leftPane.getByRole('button', { name: 'Unassign' }).click();
+    await expect(
+      page.locator('#session-list').getByText('Storytelling Workshop'),
+    ).toBeVisible({ timeout: 10000 });
   });
 
   // --- Conflict Panel ---
