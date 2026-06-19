@@ -52,6 +52,7 @@ from ludamus.adapters.web.django.entities import (
     SessionUserParticipationData,
     build_display_field_row,
 )
+from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -67,6 +68,7 @@ from ludamus.pacts import (
     AgendaItemDTO,
     AreaDTO,
     EventDTO,
+    EventListItemDTO,
     LocationData,
     NotFoundError,
     RedirectError,
@@ -108,6 +110,16 @@ MINIMUM_ALLOWED_USER_AGE = 16
 CACHE_TIMEOUT = 600  # 10 minutes
 
 
+def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
+    host = urlparse(url).netloc
+    allowed = {root_domain}
+    if host and (host == root_domain or host.endswith(f".{root_domain}")):
+        allowed.add(host)
+    return url_has_allowed_host_and_scheme(
+        url, allowed_hosts=allowed, require_https=require_https
+    )
+
+
 class LoginRequiredPageView(TemplateView):
     template_name = "crowd/login_required.html"
 
@@ -132,10 +144,14 @@ class Auth0LoginActionView(View):
         Raises:
             RedirectError: If the request is not from the root domain.
         """
-        root_domain = request.di.uow.spheres.read_site(
+        root_domain = request.services.sites.read_site(
             request.context.root_sphere_id
         ).domain
         next_path = request.GET.get("next")
+        if next_path and not _is_safe_login_redirect(
+            next_path, root_domain, require_https=request.is_secure()
+        ):
+            next_path = None
         if request.get_host() != root_domain:
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
@@ -228,6 +244,14 @@ class Auth0LoginCallbackActionView(RedirectView):
 
         if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
             return index_url
+
+        root_domain = self.request.services.sites.read_site(
+            self.request.context.root_sphere_id
+        ).domain
+        if redirect_to and not _is_safe_login_redirect(
+            redirect_to, root_domain, require_https=self.request.is_secure()
+        ):
+            redirect_to = ""
 
         if self.request.context.current_user_slug:
             return redirect_to or index_url
@@ -484,12 +508,32 @@ class EventsPageView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        items = self.request.services.events.list_for_sphere(
-            self.request.context.current_sphere_id,
-            include_unpublished=_is_manager(self.request),
+        sphere_id = self.request.context.current_sphere_id
+        context["announcements"] = self.request.services.announcements.list_published(
+            sphere_id
         )
-        # Uploaded cover when present, otherwise a placeholder assigned by index.
-        event_datas = [
+        items = self.request.services.events.list_for_sphere(
+            sphere_id, include_unpublished=_is_manager(self.request)
+        )
+        context["upcoming_events"] = self._with_covers(
+            sorted(
+                (item for item in items if not item.is_ended),
+                key=lambda item: item.start_time,
+            )
+        )
+        context["past_events"] = self._with_covers(
+            sorted(
+                (item for item in items if item.is_ended),
+                key=lambda item: item.start_time,
+                reverse=True,
+            )
+        )
+        return context
+
+    @staticmethod
+    def _with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
+        # Uploaded cover when present, otherwise a placeholder cycled by position.
+        return [
             EventInfo.from_list_item(
                 item,
                 cover_image_url=item.cover_image_url
@@ -499,9 +543,6 @@ class EventsPageView(TemplateView):
             )
             for i, item in enumerate(items)
         ]
-        context["upcoming_events"] = [e for e in event_datas if not e.is_ended]
-        context["past_events"] = [e for e in event_datas if e.is_ended]
-        return context
 
 
 class ProfilePageView(
@@ -725,6 +766,45 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         return redirect("web:crowd:profile-avatar")
 
 
+class ProfileShadowbanPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        candidates = request.services.shadowban.list_candidates(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request, "crowd/user/shadowbans.html", {"candidates": candidates}
+        )
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        if identifier := request.POST.get("identifier", "").strip():
+            # Neutral message either way: never confirm whether an account with
+            # this username/email exists (no enumeration of the user base).
+            request.services.shadowban.add_by_identifier(
+                owner_id=request.context.current_user_id, identifier=identifier
+            )
+            messages.success(
+                request, _("If a matching player exists, they have been shadowbanned.")
+            )
+            return redirect("web:crowd:profile-shadowbans")
+
+        if slug := request.POST.get("slug", ""):
+            banned = request.POST.get("banned") == "true"
+            request.services.shadowban.set_shadowban(
+                owner_id=request.context.current_user_id,
+                target_slug=slug,
+                banned=banned,
+            )
+            messages.success(
+                request,
+                _("Player shadowbanned.") if banned else _("Shadowban removed."),
+            )
+        return redirect("web:crowd:profile-shadowbans")
+
+
 class UserDiscordUsernameComponentView(View):
     """Return Discord username HTML fragment via htmx."""
 
@@ -814,6 +894,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "tags__category",
                 "session_participations__user__manager",
                 "session_participations__user__connected",
+                "field_values__field",
                 "agenda_item__space__area__venue__event__enrollment_configs",
             )
             .annotate(
@@ -833,9 +914,35 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             .order_by("agenda_item__start_time")
         )
 
-        hour_data = dict(self._get_hour_data(event_sessions))
+        # Shadowban: hide a presenter's sessions from players they shadowbanned,
+        # and collect the viewer's shadowbans to red-ring their avatars (the
+        # ring is carried per-participation on the DTO, not via template logic).
+        shadowbanned_ids: frozenset[int] = frozenset()
+        if current_user_id := self.request.context.current_user_id:
+            if hidden := self.request.services.shadowban.banning_owner_ids(
+                current_user_id
+            ):
+                event_sessions = event_sessions.exclude(presenter_id__in=hidden)
+            shadowbanned_ids = frozenset(
+                self.request.services.shadowban.banned_user_ids(current_user_id)
+            )
+
+        hour_data = dict(self._get_hour_data(event_sessions, shadowbanned_ids))
         # Get session data objects that include enrollment status
-        sessions_data = self._get_session_data(event_sessions)
+        sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
+
+        # Hard event ban: a banned viewer sees every session as full (with
+        # simulacra participants) and gets no Enroll action, so the event looks
+        # full and they are never told they are banned.
+        event_banned = current_user_id is not None and (
+            self.request.services.event_bans.is_banned(
+                event_id=self.object.pk, user_id=current_user_id
+            )
+        )
+        if event_banned:
+            sessions_data = {
+                sid: fake_full_card(data) for sid, data in sessions_data.items()
+            }
 
         current_time = datetime.now(tz=UTC)
         ended_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
@@ -874,6 +981,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "user_enrolled_session_titles": [
                     s.session.title for s in sessions_data.values() if s.user_enrolled
                 ],
+                "event_banned": event_banned,
             }
         )
 
@@ -1081,9 +1189,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         )
 
     def _get_hour_data(
-        self, event_sessions: QuerySet[Session]
+        self,
+        event_sessions: QuerySet[Session],
+        shadowbanned_ids: frozenset[int] = frozenset(),
     ) -> dict[datetime, list[SessionData]]:
-        sessions_data = self._get_session_data(event_sessions)
+        sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
 
         sessions_by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
         for session in event_sessions:
@@ -1094,7 +1204,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         return sessions_by_hour
 
     def _get_session_data(
-        self, event_sessions: QuerySet[Session]
+        self,
+        event_sessions: QuerySet[Session],
+        shadowbanned_ids: frozenset[int] = frozenset(),
     ) -> dict[int, SessionData]:
         event_override = self.object.allow_facilitator_session_edit
         sphere_default = self.object.sphere.allow_facilitator_session_edit
@@ -1155,10 +1267,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         ),
                         status=sp.status,
                         creation_time=sp.creation_time,
+                        is_shadowbanned=sp.user_id in shadowbanned_ids,
                     )
-                    for sp in session.session_participations.select_related(
-                        "user"
-                    ).all()
+                    for sp in session.session_participations.all()
                 ],
             )
 
@@ -1223,6 +1334,9 @@ class Enrollments:
         # Set when a cancellation frees a held (confirmed) seat, so the caller
         # can run waiting-list promotion after the transaction commits.
         self.freed_seat = False
+        # (user_id, name) of fresh enrol/waitlist sign-ups, so the caller can
+        # warn the presenter about shadowbanned players after commit.
+        self.signed_up_users: list[tuple[int, str]] = []
         super().__init__()
 
 
@@ -1237,11 +1351,24 @@ def _get_session_or_redirect(
         raise RedirectError(
             reverse("web:index"), error=_("Session not found.")
         ) from None
+    viewer_id = request.context.current_user_id
+    # Shadowban: a player the presenter shadowbanned cannot reach the session.
+    if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
+        raise RedirectError(
+            reverse("web:index"), error=_("Session not found.")
+        ) from None
     if not AgendaItem.objects.filter(session_id=session.pk).exists():
         raise RedirectError(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),
         )
+    # Hard event ban: a banned user cannot enrol; bounce them back to the
+    # (fake-full) event page without revealing the ban.
+    event = session.agenda_item.space.area.venue.event
+    if request.services.event_bans.is_banned(event_id=event.pk, user_id=viewer_id):
+        raise RedirectError(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        ) from None
     return session
 
 
@@ -1311,6 +1438,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.context.current_user_slug
             ),
             "user_data": self._get_user_participation_data(session),
+            # Frontload the decision: warn the viewer up top if players they
+            # shadowbanned are already signed up to this session.
+            "shadowban_warnings": request.services.shadowban.list_session_warnings(
+                viewer_id=request.context.current_user_id, session_id=session.pk
+            ),
             "form": create_enrollment_form(
                 session=session,
                 current_user=self.request.di.uow.active_users.read(
@@ -1327,9 +1459,22 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return TemplateResponse(request, "chronology/enroll_select.html", context)
 
     @staticmethod
-    def _validate_request(session: Session) -> EnrollmentConfig:
-        # Get the most liberal config for this session
+    def _validate_request(
+        session: Session, enrollment_requests: list[EnrollmentRequest] | None = None
+    ) -> EnrollmentConfig:
         event = session.agenda_item.space.area.venue.event
+        if enrollment_requests and all(
+            req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
+        ):
+            if not (config := event.enrollment_configs.order_by("pk").first()):
+                raise RedirectError(
+                    reverse("web:chronology:event", kwargs={"slug": event.slug}),
+                    error=_(
+                        "No enrollment configuration is available for this session."
+                    ),
+                )
+            return config
+
         if not (enrollment_config := event.get_most_liberal_config(session)):
             raise RedirectError(
                 reverse(
@@ -1477,12 +1622,19 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         self.request.context.current_user_slug
                     ),
                     "user_data": self._get_user_participation_data(session),
+                    "shadowban_warnings": (
+                        request.services.shadowban.list_session_warnings(
+                            viewer_id=request.context.current_user_id,
+                            session_id=session.pk,
+                        )
+                    ),
                     "form": form,
                 },
             )
 
         # Only validate enrollment requirements when form is valid
-        enrollment_config = self._validate_request(session)
+        enrollment_requests = self._get_enrollment_requests(form)
+        enrollment_config = self._validate_request(session, enrollment_requests)
 
         self._manage_enrollments(form, session, enrollment_config)
 
@@ -1534,31 +1686,69 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "creation_time"
         )
 
-        for req in enrollment_requests:
-            # Handle cancellation
-            if req.choice == "cancel" and (
-                existing_participation := next(
-                    p for p in participations if p.user.id == req.user.pk
-                )
-            ):
-                # A freed confirmed (or held offered) seat triggers waiting-list
-                # promotion after the transaction commits, via the service.
-                if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
-                    enrollments.freed_seat = True
-                existing_participation.delete()
-                enrollments.cancelled_users.append(req.name)
-                continue
+        # Players the presenter shadowbanned must not be seated — even when an
+        # unbanned manager tries to enroll a banned connected sub-user.
+        shadowbanned_ids = (
+            self.request.services.shadowban.banned_user_ids(session.presenter_id)
+            if session.presenter_id
+            else set()
+        )
 
-            self._check_and_create_enrollment(req, session, enrollments)
+        # Cancellations first: a seat freed in this batch must be available to a
+        # connected user enrolling in the same submit (e.g. swapping a seat on a
+        # full session).
+        ordered_requests = sorted(
+            enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1
+        )
+
+        for req in ordered_requests:
+            if req.choice == "cancel":
+                self._handle_cancellation(req, participations, enrollments)
+            else:
+                self._check_and_create_enrollment(
+                    req, session, enrollments, shadowbanned_ids
+                )
         return enrollments
 
     @staticmethod
+    def _handle_cancellation(
+        req: EnrollmentRequest,
+        participations: Iterable[SessionParticipation],
+        enrollments: Enrollments,
+    ) -> None:
+        # A racing request may have already deleted the row (the form would
+        # otherwise reject "cancel"); skip gracefully instead of raising.
+        existing_participation = next(
+            (p for p in participations if p.user.id == req.user.pk), None
+        )
+        if existing_participation is None:
+            enrollments.skipped_users.append(
+                f"{req.name} ({_('no enrollment to cancel')!s})"
+            )
+            return
+
+        # A freed confirmed (or held offered) seat triggers waiting-list
+        # promotion after the transaction commits, via the service.
+        if existing_participation.status in OCCUPYING_PARTICIPATION_STATUSES:
+            enrollments.freed_seat = True
+        existing_participation.delete()
+        enrollments.cancelled_users.append(req.name)
+
+    @staticmethod
     def _check_and_create_enrollment(
-        req: EnrollmentRequest, session: Session, enrollments: Enrollments
+        req: EnrollmentRequest,
+        session: Session,
+        enrollments: Enrollments,
+        shadowbanned_ids: set[int],
     ) -> None:
         # Check if user is the session presenter
         if session.presenter_id and req.user.pk == session.presenter_id:
             enrollments.skipped_users.append(f"{req.name} ({_('session host')!s})")
+            return
+
+        # Shadowban: skip without revealing the ban (neutral reason).
+        if req.user.pk in shadowbanned_ids:
+            enrollments.skipped_users.append(f"{req.name} ({_('not available')!s})")
             return
 
         # Check for time conflicts for confirmed enrollment
@@ -1570,6 +1760,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation = SessionParticipation.objects.filter(
             session=session, user_id=req.user.pk
         ).first()
+        is_fresh_signup = participation is None
 
         if not participation:
             participation = SessionParticipation(session=session, user_id=req.user.pk)
@@ -1578,6 +1769,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation.save()
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
+        # Only a brand-new participation is a "signup" worth warning a banner
+        # about — re-confirming or status changes must not re-alert.
+        if is_fresh_signup:
+            enrollments.signed_up_users.append((req.user.pk, req.name))
 
     def _send_message(self, enrollments: Enrollments) -> None:
         for users, message in (
@@ -1604,13 +1799,27 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session: Session,
         enrollment_config: EnrollmentConfig,
     ) -> bool:
-        confirmed_requests = [
-            req for req in enrollment_requests if req.choice == "enroll"
-        ]
+        enroll_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        if enroll_count == 0:
+            return False
 
-        available_spots = enrollment_config.get_available_slots(session)
+        # A cancellation in the same batch frees its held seat (CONFIRMED or
+        # OFFERED) — exactly the statuses get_available_slots already counts as
+        # occupied — so credit it back before checking capacity.
+        cancelling_user_ids = {
+            req.user.pk for req in enrollment_requests if req.choice == "cancel"
+        }
+        freed_spots = 0
+        if cancelling_user_ids:
+            freed_spots = SessionParticipation.objects.filter(
+                session=session,
+                user_id__in=cancelling_user_ids,
+                status__in=OCCUPYING_PARTICIPATION_STATUSES,
+            ).count()
 
-        if len(confirmed_requests) > available_spots:
+        available_spots = enrollment_config.get_available_slots(session) + freed_spots
+
+        if enroll_count > available_spots:
             messages.error(
                 self.request,
                 str(
@@ -1618,7 +1827,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         "Not enough spots available. {} spots requested, {} available. "
                         "Please use waiting list for some users."
                     )
-                ).format(len(confirmed_requests), available_spots),
+                ).format(enroll_count, available_spots),
             )
             return True
 
@@ -1639,6 +1848,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.services.waitlist_promotion.fill_freed_seats(
                     session_id=session.id
                 )
+
+            # Warn the presenter (by email) if a shadowbanned player signed up.
+            self.request.services.shadowban.notify_signups(
+                session_id=session.id, signed_up=enrollments.signed_up_users
+            )
 
             # Send message outside transaction
             self._send_message(enrollments)
@@ -1839,7 +2053,7 @@ def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
 
 
 def _validate_anonymous_session_event(
-    request: RootRequest, session: Session
+    request: RootRequest, session: Session, *, require_active_enrollment: bool = True
 ) -> Event | HttpResponse:
     try:
         event = session.agenda_item.space.area.venue.event
@@ -1856,7 +2070,9 @@ def _validate_anonymous_session_event(
         )
         return _anonymous_event_redirect(request)
 
-    if not _event_allows_anonymous_enrollment(event, session):
+    if require_active_enrollment and not _event_allows_anonymous_enrollment(
+        event, session
+    ):
         messages.error(
             request, _("No enrollment configuration is available for this session.")
         )
@@ -1866,7 +2082,7 @@ def _validate_anonymous_session_event(
 
 
 def _validate_anonymous_enrollment_request(
-    request: RootRequest, session_id: int
+    request: RootRequest, session_id: int, *, require_active_enrollment: bool = True
 ) -> tuple[Session, UserDTO] | HttpResponse:
     if not request.session.get("anonymous_enrollment_active"):
         messages.error(request, _("Anonymous enrollment is not active."))
@@ -1886,7 +2102,9 @@ def _validate_anonymous_enrollment_request(
         messages.error(request, _("Session not found."))
         return redirect("web:index")
 
-    event_or_redirect = _validate_anonymous_session_event(request, session)
+    event_or_redirect = _validate_anonymous_session_event(
+        request, session, require_active_enrollment=require_active_enrollment
+    )
     if isinstance(event_or_redirect, HttpResponse):
         return event_or_redirect
 
@@ -1907,18 +2125,29 @@ def _validate_anonymous_enrollment_request(
 def _cancel_anonymous_enrollment(
     request: RootRequest, session: Session, anonymous_user: UserDTO
 ) -> None:
-    try:
-        enrollment = SessionParticipation.objects.get(
-            session=session, user_id=anonymous_user.pk
-        )
+    freed_seat = False
+    with transaction.atomic():
+        session = Session.objects.select_for_update().get(id=session.id)
+        try:
+            enrollment = SessionParticipation.objects.get(
+                session=session, user_id=anonymous_user.pk
+            )
+        except SessionParticipation.DoesNotExist:
+            messages.warning(request, _("No enrollment found to cancel."))
+            return
+
+        freed_seat = enrollment.status in OCCUPYING_PARTICIPATION_STATUSES
         enrollment.delete()
         messages.success(
             request,
             _("Successfully cancelled enrollment in session: %(title)s")
             % {"title": session.title},
         )
-    except SessionParticipation.DoesNotExist:
-        messages.warning(request, _("No enrollment found to cancel."))
+
+    # A freed confirmed (or held offered) seat promotes/offers the next waiter,
+    # who is notified directly by the service after the mutation commits.
+    if freed_seat:
+        request.services.waitlist_promotion.fill_freed_seats(session_id=session.id)
 
 
 def _enroll_anonymous_user(
@@ -1936,36 +2165,39 @@ def _enroll_anonymous_user(
             "web:chronology:session-enrollment-anonymous", session_id=session_id
         )
 
-    if session.is_full:
-        SessionParticipation.objects.get_or_create(
-            session=session,
-            user_id=anonymous_user.pk,
-            defaults={"status": SessionParticipationStatus.WAITING.value},
-        )
-        messages.success(
-            request,
-            _(
-                "Session is full. You have been added to the waiting list "
-                "for: %(title)s"
+    with transaction.atomic():
+        session = Session.objects.select_for_update().get(id=session.id)
+        if session.is_full:
+            SessionParticipation.objects.get_or_create(
+                session=session,
+                user_id=anonymous_user.pk,
+                defaults={"status": SessionParticipationStatus.WAITING.value},
             )
-            % {"title": session.title},
-        )
-    else:
-        enrollment, created = SessionParticipation.objects.get_or_create(
-            session=session,
-            user_id=anonymous_user.pk,
-            defaults={"status": SessionParticipationStatus.CONFIRMED.value},
-        )
-        if (
-            not created
-            and enrollment.status != SessionParticipationStatus.CONFIRMED.value
-        ):
-            enrollment.status = SessionParticipationStatus.CONFIRMED.value
-            enrollment.save()
-        messages.success(
-            request,
-            _("Successfully enrolled in session: %(title)s") % {"title": session.title},
-        )
+            messages.success(
+                request,
+                _(
+                    "Session is full. You have been added to the waiting list "
+                    "for: %(title)s"
+                )
+                % {"title": session.title},
+            )
+        else:
+            enrollment, created = SessionParticipation.objects.get_or_create(
+                session=session,
+                user_id=anonymous_user.pk,
+                defaults={"status": SessionParticipationStatus.CONFIRMED.value},
+            )
+            if (
+                not created
+                and enrollment.status != SessionParticipationStatus.CONFIRMED.value
+            ):
+                enrollment.status = SessionParticipationStatus.CONFIRMED.value
+                enrollment.save()
+            messages.success(
+                request,
+                _("Successfully enrolled in session: %(title)s")
+                % {"title": session.title},
+            )
 
     return None
 
@@ -1976,19 +2208,28 @@ class SessionEnrollmentAnonymousPageView(View):
         if request.context.current_user_slug:
             return redirect("web:chronology:session-enrollment", session_id=session_id)
 
-        result = _validate_anonymous_enrollment_request(request, session_id)
+        result = _validate_anonymous_enrollment_request(
+            request, session_id, require_active_enrollment=False
+        )
         if isinstance(result, HttpResponse):
             return result
         session, anonymous_user = result
 
-        # Check if user is already enrolled in THIS specific session
         existing_enrollment = SessionParticipation.objects.filter(
             session=session, user_id=anonymous_user.pk
         ).first()
+        event = session.agenda_item.space.area.venue.event
+        if existing_enrollment is None and not _event_allows_anonymous_enrollment(
+            event, session
+        ):
+            messages.error(
+                request, _("No enrollment configuration is available for this session.")
+            )
+            return redirect("web:chronology:event", slug=event.slug)
 
         context = {
             "session": session,
-            "event": session.agenda_item.space.area.venue.event,
+            "event": event,
             "anonymous_user": anonymous_user,
             "anonymous_code": anonymous_user.slug.removeprefix("code_"),
             "needs_user_data": not anonymous_user.name,
@@ -2003,7 +2244,11 @@ class SessionEnrollmentAnonymousPageView(View):
         if request.context.current_user_slug:
             return redirect("web:chronology:session-enrollment", session_id=session_id)
 
-        result = _validate_anonymous_enrollment_request(request, session_id)
+        result = _validate_anonymous_enrollment_request(
+            request,
+            session_id,
+            require_active_enrollment=request.POST.get("action", "enroll") != "cancel",
+        )
         if isinstance(result, HttpResponse):
             return result
         session, anonymous_user = result
