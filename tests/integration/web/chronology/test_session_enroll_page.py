@@ -148,6 +148,61 @@ class TestSessionEnrollPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
 
+    def test_post_cancel_when_enrollment_inactive(
+        self, agenda_item, authenticated_client, event, faker, time_zone, active_user
+    ):
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=faker.date_time_between("-10d", "-5d", tzinfo=time_zone),
+            end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
+        )
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    def test_post_cancel_when_no_enrollment_config(
+        self, agenda_item, authenticated_client, event, active_user
+    ):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+
     def test_post_invalid_form(self, active_user, agenda_item, authenticated_client):
         response = authenticated_client.post(
             self._get_url(agenda_item.session.pk),

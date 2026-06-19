@@ -207,6 +207,7 @@
             {% if all_facilitators %}
                 <div class="card mt-6">
                     <div class="card-body">
+                        <input type="hidden" name="facilitators_submitted" value="1">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitators" %}</h3>
                         <input type="text"
                                id="facilitator-search"
