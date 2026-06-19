@@ -99,6 +99,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        through="Shadowban",
+        through_fields=("owner", "target"),
+        related_name="shadowbanned_by",
+        blank=True,
+    )
 
     objects = UserManager()
 
@@ -132,12 +140,55 @@ class User(AbstractBaseUser, PermissionsMixin):
         )
 
 
+class Shadowban(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shadowban"
+        constraints = (
+            models.CheckConstraint(
+                condition=~Q(owner=F("target")), name="shadowban_owner_not_target"
+            ),
+            models.UniqueConstraint(
+                fields=("owner", "target"), name="shadowban_unique_owner_target"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.owner_id} shadowbanned {self.target_id}"
+
+
+REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
+
+
+class EventBan(models.Model):
+    event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_ban"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_ban_unique_event_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} banned from event {self.event_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
+    # Branding fallback — used on printables when an event has no logo of its own
+    logo = models.ImageField(upload_to="spheres/", blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -155,6 +206,10 @@ class Sphere(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
+
 
 class Event(models.Model):
     # Owner
@@ -164,6 +219,8 @@ class Event(models.Model):
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
     cover_image = models.ImageField(upload_to="events/", blank=True)
+    # Branding — shown on printables (the public /print page)
+    logo = models.ImageField(upload_to="events/", blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -175,6 +232,9 @@ class Event(models.Model):
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
+    # When on, newly scheduled program items are confirmed immediately;
+    # turn off for a draft → confirm workflow on large events.
+    auto_confirm_sessions = models.BooleanField(default=True)
     # Filterable tag categories for session list
     filterable_tag_categories: models.ManyToManyField[TagCategory, Never] = (
         models.ManyToManyField(
@@ -209,6 +269,10 @@ class Event(models.Model):
     @property
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
     @property
     def is_proposal_active(self) -> bool:
@@ -602,6 +666,13 @@ class Tag(models.Model):
         return self.name
 
 
+class AccreditationType(models.TextChoices):
+    NONE = "none", _("None")
+    STANDARD = "standard", _("Standard")
+    GUEST = "guest", _("Guest")
+    HONORARY = "honorary", _("Honorary")
+
+
 class Facilitator(models.Model):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -617,6 +688,9 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    accreditation_type = models.CharField(
+        max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
+    )
 
     class Meta:
         db_table = "facilitator"
@@ -1496,6 +1570,29 @@ class Connection(models.Model):
     @property
     def has_secret(self) -> bool:
         return bool(self.secret)
+
+
+class Announcement(models.Model):
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="announcements"
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    is_published = models.BooleanField(default=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "announcement"
+        ordering = ("-creation_time",)
+        indexes = (
+            models.Index(
+                fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.title
 
 
 class EventIntegration(models.Model):
