@@ -46,5 +46,5 @@ else
 fi
 
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
-  printf '@CLAUDE.md\n\n## Commits\n\nAdd the human in Co-authored-by when committing\n' >> CLAUDE.local.md
+  printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human, not Claude/Anthropic. End commits with:\n\n    Co-authored-by: hasparus <hasparus@gmail.com>\n' >> CLAUDE.local.md
 fi
