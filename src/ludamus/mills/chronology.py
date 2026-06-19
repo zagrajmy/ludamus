@@ -20,6 +20,7 @@ from ludamus.pacts import (
     ScheduleChangeLogData,
     SessionContentEditData,
     SessionDTO,
+    SessionFieldValueData,
     SessionSelfEditContext,
     SessionStatus,
 )
@@ -66,6 +67,7 @@ _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
         AreaDTO,
         ContentChangeLogData,
         ContentChangeLogDTO,
@@ -73,12 +75,12 @@ if TYPE_CHECKING:
         ContentFieldChange,
         ContentFieldValue,
         SessionFieldRepositoryProtocol,
-        SessionFieldValueData,
         SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
+        TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
     from ludamus.pacts.multiverse import (
@@ -131,6 +133,15 @@ def _position_sessions(
             )
 
     return positions
+
+
+def require_session_in_event(
+    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
+) -> None:
+    # Panel access only proves you manage `event_pk`; a session named in
+    # the request must belong to it, or it is cross-event tampering.
+    if sessions.read_event(session_pk).pk != event_pk:
+        raise NotFoundError
 
 
 class TimetableService:
@@ -281,10 +292,7 @@ class TimetableService:
         return venue_groups
 
     def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
-        # Panel access only proves you manage `event_pk`; a session named in
-        # the request must belong to it, or it is cross-event tampering.
-        if self._uow.sessions.read_event(session_pk).pk != event_pk:
-            raise NotFoundError
+        require_session_in_event(self._uow.sessions, session_pk, event_pk)
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         if space_pk not in {s.pk for s in self._uow.spaces.list_by_event(event_pk)}:
@@ -312,17 +320,17 @@ class TimetableService:
         if session.status != SessionStatus.PENDING:
             msg = f"Session {session_pk} is not in PENDING status"
             raise ValueError(msg)
+        event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.create(
             {
                 "session_id": session_pk,
                 "space_id": placement.space_pk,
                 "start_time": placement.start_time,
                 "end_time": placement.end_time,
-                "session_confirmed": False,
+                "session_confirmed": event.auto_confirm_sessions,
             }
         )
         self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        event = self._uow.sessions.read_event(session_pk)
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
@@ -361,55 +369,105 @@ class TimetableService:
         if log.event_id != event_pk:
             # The log belongs to another event — reject before reverting.
             raise NotFoundError
-        if log.action == ScheduleChangeAction.ASSIGN:
-            agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
-            if agenda_item is None:
-                raise NotFoundError
-            self._uow.agenda_items.delete(agenda_item.pk)
-            self._uow.sessions.update(log.session_id, {"status": SessionStatus.PENDING})
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            if (
-                log.old_space_id is None
-                or log.old_start_time is None
-                or log.old_end_time is None
-            ):
-                msg = "Cannot revert UNASSIGN: missing original placement data"
-                raise ValueError(msg)
-            session = self._uow.sessions.read(log.session_id)
-            if session.status != SessionStatus.PENDING:
-                msg = f"Session {log.session_id} is not in PENDING status"
-                raise ValueError(msg)
-            self._uow.agenda_items.create(
-                {
-                    "session_id": log.session_id,
-                    "space_id": log.old_space_id,
-                    "start_time": log.old_start_time,
-                    "end_time": log.old_end_time,
-                    "session_confirmed": False,
-                }
+        # Lock the session row so concurrent reverts (and assign/unassign)
+        # serialize: the latest-pk check and all mutations run under one
+        # transaction, so a second revert re-reads a now-stale latest_pk and
+        # is rejected instead of racing past the check (TOCTOU).
+        with self._uow.atomic():
+            self._uow.sessions.lock(log.session_id)
+            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
             )
-            self._uow.sessions.update(
-                log.session_id, {"status": SessionStatus.SCHEDULED}
-            )
-        else:
-            msg = f"Cannot revert action: {log.action}"
-            raise ValueError(msg)
-        event = self._uow.sessions.read_event(log.session_id)
-        revert_log: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": log.session_id,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.REVERT,
-        }
-        if log.action == ScheduleChangeAction.ASSIGN:
-            revert_log["old_space_id"] = log.new_space_id
-            revert_log["old_start_time"] = log.new_start_time
-            revert_log["old_end_time"] = log.new_end_time
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            revert_log["new_space_id"] = log.old_space_id
-            revert_log["new_start_time"] = log.old_start_time
-            revert_log["new_end_time"] = log.old_end_time
-        self._uow.schedule_change_logs.create(revert_log)
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                msg = "Only the latest change for a session can be reverted"
+                raise ValueError(msg)
+            if log.action == ScheduleChangeAction.ASSIGN:
+                agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
+                if agenda_item is None:
+                    raise NotFoundError
+                self._uow.agenda_items.delete(agenda_item.pk)
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.PENDING}
+                )
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                if (
+                    log.old_space_id is None
+                    or log.old_start_time is None
+                    or log.old_end_time is None
+                ):
+                    msg = "Cannot revert UNASSIGN: missing original placement data"
+                    raise ValueError(msg)
+                session = self._uow.sessions.read(log.session_id)
+                if session.status != SessionStatus.PENDING:
+                    msg = f"Session {log.session_id} is not in PENDING status"
+                    raise ValueError(msg)
+                self._uow.agenda_items.create(
+                    {
+                        "session_id": log.session_id,
+                        "space_id": log.old_space_id,
+                        "start_time": log.old_start_time,
+                        "end_time": log.old_end_time,
+                        "session_confirmed": False,
+                    }
+                )
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.SCHEDULED}
+                )
+            else:
+                msg = f"Cannot revert action: {log.action}"
+                raise ValueError(msg)
+            event = self._uow.sessions.read_event(log.session_id)
+            revert_log: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": log.session_id,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.REVERT,
+            }
+            if log.action == ScheduleChangeAction.ASSIGN:
+                revert_log["old_space_id"] = log.new_space_id
+                revert_log["old_start_time"] = log.new_start_time
+                revert_log["old_end_time"] = log.new_end_time
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                revert_log["new_space_id"] = log.old_space_id
+                revert_log["new_start_time"] = log.old_start_time
+                revert_log["new_end_time"] = log.old_end_time
+            self._uow.schedule_change_logs.create(revert_log)
+
+
+class SessionConfirmationService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
+        tracks: TrackRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._agenda_items = agenda_items
+        self._sessions = sessions
+        self._tracks = tracks
+
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None:
+        agenda_item = self._agenda_items.read(agenda_item_pk)
+        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
+        with self._transaction.atomic():
+            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+
+    def confirm_all(self, event_pk: int) -> None:
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_event(event_pk)
+
+    def confirm_block(self, event_pk: int, track_pk: int) -> None:
+        # Panel access only proves you manage `event_pk`; a track named in the
+        # request must belong to it, or it is cross-event tampering.
+        if self._tracks.read(track_pk).event_id != event_pk:
+            raise NotFoundError
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class ConflictDetectionService:
@@ -839,11 +897,22 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
-            self._sessions.save_field_values(session_id, data.field_values)
+            if data.field_values is not None:
+                self._sessions.save_field_values(session_id, data.field_values)
+            values_for_diff = (
+                data.field_values
+                if data.field_values is not None
+                else [
+                    SessionFieldValueData(
+                        session_id=session_id, field_id=fv.field_id, value=fv.value
+                    )
+                    for fv in old_values
+                ]
+            )
             if data.facilitator_ids is not None:
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
             changes = diff_session_content(
-                old_session, data.update, old_values, data.field_values
+                old_session, data.update, old_values, values_for_diff
             )
             if changes:
                 log_data: ContentChangeLogData = {
@@ -925,7 +994,7 @@ class SessionSelfEditService:
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None:
         allowed, _session, event = self._gate(session_id, user_id)
         if not allowed or event is None:
