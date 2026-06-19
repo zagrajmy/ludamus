@@ -298,6 +298,35 @@ aubr varlock \
     -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
 '''
 
+[tasks.shots]
+description = "Screenshot URLs/paths via agent-browser (e.g. mise run shots -- / /events). Start a server first; set BASE_URL for non-default hosts."
+usage = '''
+arg "<targets>" var=#true help="Full URLs, or paths relative to $BASE_URL (default http://localhost:8000)"
+'''
+dir = "{{ config_root }}"
+run = '''
+set -eu
+base="${BASE_URL:-http://localhost:8000}"
+mkdir -p screenshots
+# $usage_targets is mise's non-deprecated multi-value argument contract; the
+# Tera template form is deprecated for removal in mise 2027.5.0.
+for target in ${usage_targets:-}; do
+  case "$target" in
+    http*) url="$target" ;;
+    *) url="$base$target" ;;
+  esac
+  if ! curl -s --max-time 10 -o /dev/null "$url"; then
+    echo "WARN: $url not reachable — is the server running?" >&2
+    continue
+  fi
+  name=$(printf '%s' "$target" | sed -e 's#https\?://##' -e 's#[^A-Za-z0-9]#_#g' -e 's#^_*##' -e 's#_*$##')
+  name=${name:-home}
+  aubx agent-browser open "$url" >/dev/null \
+    && aubx agent-browser screenshot --full "screenshots/${name}.png" \
+    || echo "WARN: capture failed for $url" >&2
+done
+'''
+
 [tasks.kill]
 description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
 run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
