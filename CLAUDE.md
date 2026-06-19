@@ -19,9 +19,9 @@ mise tasks          # list all tasks with descriptions
   - is the info we're showing redundant?
   - are we asking for needless clicks? like showing a form with one selectable
     option?
-- Use agent-browser to take screenshots of affected pages and include
-  before/after images in the PR description. Run tools/binaries via `aubx`
-  (e.g. `aubx agent-browser`).
+- Include before/after screenshots of affected pages in the PR description. With
+  a server running, `mise run shots -- / /events` saves PNGs to `screenshots/`
+  (paths resolve against `localhost:8000`; wraps `aubx agent-browser`).
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.

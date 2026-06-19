@@ -28,6 +28,23 @@ mise trust
 mise install
 mise run bootstrap
 
+# `aubx agent-browser` needs a Chromium. Its bundled installer pulls from
+# googlechromelabs.github.io, which the remote network policy blocks, but
+# Playwright's CDN is reachable — so provision Chromium that way. agent-browser
+# auto-discovers it via $PLAYWRIGHT_BROWSERS_PATH / the Playwright cache.
+aube exec -C tests/e2e playwright install chromium --with-deps \
+  || echo "WARN: could not provision Chromium; agent-browser screenshots unavailable"
+
+# Self-check: surface screenshot-tooling readiness early rather than at capture
+# time (see issue #379).
+browser_root="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+if command -v aubx >/dev/null 2>&1 \
+  && ls "$browser_root"/chromium-* >/dev/null 2>&1; then
+  echo "OK: screenshots ready — aubx agent-browser + Chromium provisioned"
+else
+  echo "WARN: screenshot tooling incomplete (aubx or Chromium missing); see CLAUDE.md"
+fi
+
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
   printf '@CLAUDE.md\n\n## Commits\n\nAdd the human in Co-authored-by when committing\n' >> CLAUDE.local.md
 fi
