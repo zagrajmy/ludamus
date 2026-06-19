@@ -482,12 +482,14 @@ test.describe('Timetable', () => {
   }) => {
     await page.goto('/panel/event/timetable-lab/timetable/');
 
-    // Wait for conflict panel HTMX load — it should show either
-    // "All clear" or a conflict count
-    const panel = page.locator('#conflict-panel');
-    await expect(
-      panel.getByText(/All clear|conflict/),
-    ).toBeVisible({ timeout: 10000 });
+    // Wait for the conflict panel HTMX load — it shows either "All clear" or a
+    // conflict count. The fold only auto-opens when there ARE conflicts, so on
+    // a clean grid the status sits in a collapsed <details>; assert the panel
+    // loaded its status (textContent) rather than requiring it to be visible.
+    await expect(page.locator('#conflict-panel')).toContainText(
+      /All clear|conflict/,
+      { timeout: 10000 },
+    );
   });
 
   // --- Activity Log ---
