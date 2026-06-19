@@ -40,6 +40,26 @@ def cfp_status(category: Any) -> dict[str, str]:  # type: ignore[misc] # noqa: A
 
 
 @register.filter
+def content_field_label(field_key: str) -> str:
+    # Core session-column labels for the content activity log. Built per call so
+    # gettext resolves in the active request language. Dynamic session fields
+    # are labelled from their own (user-defined) name, not here.
+    labels = {
+        "title": _("Title"),
+        "display_name": _("Display name"),
+        "description": _("Description"),
+        "requirements": _("Requirements"),
+        "needs": _("Needs"),
+        "contact_email": _("Contact email"),
+        "participants_limit": _("Participants limit"),
+        "min_age": _("Minimum age"),
+        "duration": _("Duration"),
+        "cover_image": _("Cover image"),
+    }
+    return labels.get(field_key, field_key)
+
+
+@register.filter
 def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc] # noqa: ANN401
     """Get an item from a dictionary by key.
 

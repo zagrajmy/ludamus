@@ -1,0 +1,75 @@
+{% load i18n %}
+{% load tessera %}
+{% tessera_errors form %}
+<div class="space-y-4">
+    <div class="space-y-1">
+        <label class="block text-sm font-medium text-foreground"
+               for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>
+        {% include "components/text-field.html" with name=form.display_name.html_name id=form.display_name.id_for_label value=form.display_name.value|default:"" required=True maxlength="255" has_errors=form.display_name.errors aria_describedby="id_display_name_errors" only %}
+        {% if form.display_name.errors %}
+            <div id="id_display_name_errors" role="alert" aria-live="polite">
+                {% for error in form.display_name.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    <div class="space-y-1">
+        <label class="block text-sm font-medium text-foreground"
+               for="{{ form.implementation.id_for_label }}">{{ form.implementation.label }}</label>
+        {% if form.implementation.field.disabled %}
+            {% include "components/select.html" with name=form.implementation.html_name id=form.implementation.id_for_label choices=form.implementation.field.choices selected=form.implementation.value required=True disabled=True has_errors=form.implementation.errors aria_describedby="id_implementation_help id_implementation_errors" only %}
+            <input type="hidden"
+                   name="{{ form.implementation.html_name }}"
+                   value="{{ form.implementation.value }}">
+            <p id="id_implementation_help"
+               class="mt-1 text-xs text-foreground-muted">
+                {% translate "Implementation cannot change after creation." %}
+            </p>
+        {% else %}
+            {% include "components/select.html" with name=form.implementation.html_name id=form.implementation.id_for_label choices=form.implementation.field.choices selected=form.implementation.value required=True has_errors=form.implementation.errors aria_describedby="id_implementation_errors" only %}
+        {% endif %}
+        {% if form.implementation.errors %}
+            <div id="id_implementation_errors" role="alert" aria-live="polite">
+                {% for error in form.implementation.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    <div class="space-y-1">
+        <label class="block text-sm font-medium text-foreground"
+               for="{{ form.connection.id_for_label }}">{{ form.connection.label }}</label>
+        {% include "components/select.html" with name=form.connection.html_name id=form.connection.id_for_label choices=form.connection.field.choices selected=form.connection.value required=True has_errors=form.connection.errors aria_describedby="id_connection_errors" only %}
+        {% if form.connection.errors %}
+            <div id="id_connection_errors" role="alert" aria-live="polite">
+                {% for error in form.connection.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    <div class="space-y-1">
+        <label class="block text-sm font-medium text-foreground"
+               for="{{ form.config_json.id_for_label }}">{{ form.config_json.label }}</label>
+        {% include "components/textarea.html" with name=form.config_json.html_name id=form.config_json.id_for_label value=form.config_json.value|default:"{}" rows=12 required=True monospace=True spellcheck="false" has_errors=form.config_json.errors aria_describedby="id_config_json_help id_config_json_errors" only %}
+        <p id="id_config_json_help" class="mt-1 text-xs text-foreground-muted">{{ form.config_json.help_text }}</p>
+        {% if form.config_json.errors %}
+            <div id="id_config_json_errors" role="alert" aria-live="polite">
+                {% for error in form.config_json.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    <input type="hidden"
+           id="id_last_ok_signature"
+           name="last_ok_signature"
+           value="{{ form.last_ok_signature.value|default:'' }}">
+    <div class="flex items-center justify-between gap-3 pt-4 border-t border-border sticky bottom-0 bg-bg-secondary py-3">
+        <button type="button"
+                hx-post="{% url 'panel:integration-check' slug=current_event.slug %}"
+                hx-include="closest form"
+                hx-target="#check-result"
+                hx-swap="innerHTML"
+                hx-disabled-elt="this"
+                class="btn btn-secondary flex items-center">
+            {% icon "play" class="w-4 h-4 mr-2" %}
+            {% translate "Check integration" %}
+            <span class="htmx-indicator ml-2">{% translate "Checking…" %}</span>
+        </button>
+        <div id="check-result" class="text-sm flex-1 mx-4" aria-live="polite"></div>
+    </div>
+</div>

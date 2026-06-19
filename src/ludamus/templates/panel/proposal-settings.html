@@ -27,14 +27,15 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="-mt-3 sm:-mt-4 lg:-mt-8 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 pt-3 bg-warm-200 border-b border-warm-300">
+        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
             {% tab "general" href=tab_urls.general %}{% translate "General" %}{% end_tab %}
             {% tab "proposals" active=True href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
             {% tab "display" href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
+            {% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
         {% end_tabs %}
     </div>
-    <div class="-mx-3 sm:-mx-4 lg:-mx-8 -mb-3 sm:-mb-4 lg:-mb-8 px-3 sm:px-4 lg:px-8 py-6 bg-bg-secondary">
+    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
         <form id="proposal-settings-form"
               method="post"
               action="{% url 'panel:event-proposal-settings' slug=current_event.slug %}"
@@ -59,12 +60,12 @@
                         <div class="space-y-6">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div>
-                                    <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                            for="id_proposal_start_time">{% translate "Proposals Open" %}</label>
                                     {{ form.proposal_start_time }}
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                            for="id_proposal_end_time">{% translate "Proposals Close" %}</label>
                                     {{ form.proposal_end_time }}
                                 </div>

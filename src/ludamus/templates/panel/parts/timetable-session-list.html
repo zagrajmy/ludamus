@@ -1,6 +1,6 @@
 {% load i18n %}
 <!-- Session count -->
-<div class="text-xs text-neutral-500 mb-2">
+<div class="text-xs text-foreground-muted mb-2">
     {% if has_more %}
         {% blocktranslate with limit=limit %}Showing first {{ limit }} — narrow with search or filters{% endblocktranslate %}
     {% else %}
@@ -16,17 +16,17 @@
                  hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}"
                  hx-target="#left-pane"
                  hx-swap="outerHTML">
-                <div class="text-sm font-medium text-neutral-900 truncate">{{ session.title }}</div>
-                <div class="text-xs text-neutral-600 truncate">{{ session.display_name }}</div>
+                <div class="text-sm font-medium text-foreground truncate">{{ session.title }}</div>
+                <div class="text-xs text-foreground-secondary truncate">{{ session.display_name }}</div>
                 <div class="flex items-center gap-2 mt-1">
-                    <span class="text-xs text-neutral-500">{{ session.duration_minutes }} min</span>
+                    <span class="text-xs text-foreground-muted">{{ session.duration_minutes }} min</span>
                     {% if session.participants_limit %}
                         <span class="text-xs text-neutral-400">·</span>
-                        <span class="text-xs text-neutral-500">{{ session.participants_limit }} os.</span>
+                        <span class="text-xs text-foreground-muted">{{ session.participants_limit }} os.</span>
                     {% endif %}
                     {% if session.category_name %}
                         <span class="text-xs text-neutral-400">·</span>
-                        <span class="text-xs text-neutral-500">{{ session.category_name }}</span>
+                        <span class="text-xs text-foreground-muted">{{ session.category_name }}</span>
                     {% endif %}
                 </div>
             </div>

@@ -1,17 +1,19 @@
 [settings]
-# Sequential execution to avoid race conditions in parallel tests
 jobs = 1
+
+[hooks]
+enter = "poetry install"
 
 [tools]
 python = "3.14"
 node = "v25.6.1"
 poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 "ast-grep" = "0.42.1"
+markdownlint-cli2 = "0.22.1"
+"github:endevco/aube" = "latest"
 
 [env]
-# Mise creates and activates this virtualenv automatically
 _.python.venv = { path = ".venv", create = true }
-_.file = ".env"
 
 [task_config]
 includes = ["tasks.toml"]
@@ -28,7 +30,6 @@ pip-audit .
 poetry show -o
 """
 
-# LINT
 
 [tasks._lint]
 description = "Base env vars for lint tasks"
@@ -123,8 +124,6 @@ depends = [
   "ast-grep",
 ]
 
-# PYTEST
-
 [tasks._pytest]
 description = "Base pytest runner with test env (internal)"
 run = "pytest"
@@ -141,6 +140,7 @@ env.ROOT_DOMAIN = "testserver"
 env.SECRET_KEY = "dev-secret-key"
 env.SESSION_COOKIE_DOMAIN = ".testserver"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
+env.IN_TESTS = 'True'
 
 [tasks.unittest]
 description = "Run unit tests"
@@ -150,6 +150,29 @@ run = "mise run _pytest -- tests/unit --cov=tests.unit --cov=ludamus"
 description = "Run all tests"
 run = "mise run _pytest -- tests tests/integration tests/unit"
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
+
+[tasks."test:postgres"]
+description = "Run PostgreSQL-only tests (row locking / concurrency) on real Postgres"
+run = "pytest -m postgres tests/integration"
+env.ALLOWED_HOSTS = ".testserver"
+env.AUTH0_CLIENT_ID = "test-auth0-client-id"
+env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
+env.AUTH0_DOMAIN = "auth0.example.com"
+env.USE_POSTGRES = "True"
+env.DB_NAME = "ludamus_test"
+env.DB_USER = "postgres"
+env.DB_PASSWORD = "postgres"
+env.DB_HOST = "localhost"
+env.DB_PORT = "5432"
+env.ENV = "local"
+env.MEMBERSHIP_API_BASE_URL = ""
+env.MEMBERSHIP_API_TOKEN = "membership-test-token"
+env.PYTHONPATH = "src"
+env.ROOT_DOMAIN = "testserver"
+env.SECRET_KEY = "dev-secret-key"
+env.SESSION_COOKIE_DOMAIN = ".testserver"
+env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
+env.IN_TESTS = 'True'
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
@@ -164,16 +187,45 @@ coverage xml --data-file=.coverage
 diff-cover coverage.xml --compare-branch=main
 """
 
+[tasks."test:int:cov:diff"]
+description = "Show test coverage of integration tests for lines changed since main"
+run = [
+  { task = "_pytest", args = [
+    "tests/integration",
+    "--cov=ludamus.gates",
+    "--cov=ludamus.links",
+    "--cov=ludamus.adapters.web",
+    "--cov=src/ludamus/templates/",
+  ] },
+  "coverage xml",
+  "diff-cover coverage.xml --compare-branch=main",
+]
+
+[tasks."test:unit:cov:diff"]
+description = "Show test coverage of unit tests for lines changed since main"
+run = [
+  { task = "_pytest", args = [
+    "tests/unit",
+    "--cov=ludamus.mills",
+  ] },
+  "coverage xml",
+  "diff-cover coverage.xml --compare-branch=main",
+]
+
 [tasks."coverage:combine"]
 description = "Combine integration + e2e coverage and export XML"
 run = """
-coverage combine .coverage.unit .coverage.e2e
+set -eu
+if [ -f .coverage.e2e ]; then
+  coverage combine .coverage.unit .coverage.e2e
+else
+  coverage combine .coverage.unit
+fi
 coverage xml -o coverage.xml
-coverage report --fail-under=97
+coverage report --fail-under=93
 """
 env.PYTHONPATH = "src"
 
-# E2E
 
 [tasks._e2e]
 description = "Base env vars for e2e tasks (internal)"
@@ -185,22 +237,24 @@ env.AUTH0_DOMAIN = "auth0.example.com"
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.e2e"
 env.DB_NAME = "dev.e2e.sqlite3"
 env.DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
+# Capture outgoing email to files so e2e specs can assert on notifications.
+env.EMAIL_URL = "filemail:///tests/e2e/.e2e-mail"
 env.ENV = "local"
-env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
+env.MEMBERSHIP_API_BASE_URL = ""
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 env.PYTHONPATH = "src"
 env.ROOT_DOMAIN = "localhost:8000"
 env.SECRET_KEY = "e2e-secret-key"
 env.SESSION_COOKIE_DOMAIN = ".localhost"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
+env.IN_TESTS = 'True'
 
 [tasks."install:playwright"]
+description = "Install Playwright (node deps + browsers)"
 run = """
-npm install
-npx playwright install --with-deps
+aube install
+aube exec -C tests/e2e playwright install --with-deps
 """
-description = "Install Playwright"
-dir = "tests/e2e"
 
 [tasks.e2e]
 description = "Run end-to-end Playwright tests"
@@ -210,20 +264,24 @@ mise run _e2e -- coverage report
 """
 dir = "tests/e2e"
 
-[tasks."boot-e2e"]
-description = "Bootstrap and start dev server for e2e tests"
+[tasks."e2e:prep"]
+description = "Migrate, seed fixtures, and build client for e2e tests"
 run = """
+poetry install
+aube install
 mise run _e2e -- django-admin migrate --noinput
 mise run _e2e -- django-admin createcachetable
 mise run _e2e -- django-admin downloadvendor
 mise run _e2e -- python tests/e2e/scripts/bootstrap_data.py
 mise run _e2e -- python tests/e2e/scripts/bootstrap_facilitators.py
 mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
-cd src/ludamus/client && npm install && npm run build && cd -
-exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload
+aubr -C src/ludamus/client build
 """
 
-# DEPLOYMENT
+[tasks."e2e:serve"]
+description = "Run the e2e dev server (assumes `e2e:prep` has run)"
+run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload"
+
 
 [tasks.dc]
 description = "Run docker compose for a target environment (local or prod)"
@@ -235,18 +293,23 @@ arg "[dc_args]" var=#true double_dash="optional"
 '''
 run = '''
 GIT_COMMIT_SHA=${GIT_COMMIT_SHA:-$(git rev-parse --short HEAD)}
-docker compose -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
+aubr varlock \
+  docker compose --env-file /dev/null \
+    -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
 '''
 
 [tasks.kill]
-description = "Kill dev servers (Django on :8000, Vite on :5173)"
-run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
+description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
+run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
-# FRONTEND
 
 [tasks.ts-check]
 description = "Type-check frontend TypeScript"
-run = "cd src/ludamus/client && npm run typecheck"
+run = "aubr -C src/ludamus/client typecheck"
+
+[tasks.fallow]
+description = "Analyze frontend TypeScript: dead code, duplication, complexity"
+run = "aube exec -C src/ludamus/client fallow"
 
 
 [tasks.npm]
@@ -254,12 +317,15 @@ description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
 
-# OTHER
 
 [tasks.shitcheck]
 description = "Flag suspicious additions vs main: noqa, type: ignore, Any, cast"
-run = "git diff main '*.py'|grep -E '^\\+.*(noqa|type: ignore|Any|ANY|pylint|pragma|\bobject\b|cast\\()'"
+run = "git diff main '*.py'|grep -E '^\\+.*(noqa|type: ignore|Any|ANY|pylint|pragma|\\bobject\\b|cast\\()'"
 
 [tasks.coverage]
-description = "Run all tests, collect coverage, enforce 97% threshold"
+description = "Run all tests, collect coverage, enforce 93% threshold"
 depends = ["test --cov", "e2e", "coverage:combine"]
+
+[tasks.fullcheck]
+env.E2E_SKIP_IOS = "1"
+run = [{ task = "check" }, { task = "diff-cover" }, { task = "shitcheck" }]

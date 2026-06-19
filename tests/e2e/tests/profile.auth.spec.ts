@@ -6,15 +6,16 @@ test.describe('Profile — Personal Information (edit.html)', () => {
 
     // Tab navigation
     await expect(
-      page.getByRole('link', { name: /Personal Information/ }),
+      page.getByRole('tab', { name: /Personal Information/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: /Connected users/ }),
+      page.getByRole('tab', { name: /Connected users/ }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: /Avatar/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Avatar/ })).toBeVisible();
 
     // Active tab is Personal Information
-    const activeTab = page.getByRole('link', { name: /Personal Information/ });
+    const activeTab = page.getByRole('tab', { name: /Personal Information/ });
+    await expect(activeTab).toHaveAttribute('aria-selected', 'true');
     await expect(activeTab).toHaveAttribute('href', /profile/);
 
     // Form with submit button
@@ -44,12 +45,15 @@ test.describe('Profile — Connected Users (connected.html)', () => {
 
     // Tab navigation present
     await expect(
-      page.getByRole('link', { name: /Personal Information/ }),
+      page.getByRole('tab', { name: /Personal Information/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: /Connected users/ }),
+      page.getByRole('tab', { name: /Connected users/ }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: /Avatar/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Avatar/ })).toBeVisible();
+    await expect(
+      page.getByRole('tab', { name: /Connected users/ }),
+    ).toHaveAttribute('aria-selected', 'true');
 
     // Page content — either empty state or connected users list
     const heading = page.getByRole('heading', { level: 2 }).or(
@@ -70,9 +74,12 @@ test.describe('Profile — Avatar (avatar.html)', () => {
 
     // Tab navigation
     await expect(
-      page.getByRole('link', { name: /Personal Information/ }),
+      page.getByRole('tab', { name: /Personal Information/ }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: /Avatar/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Avatar/ })).toBeVisible();
+    await expect(
+      page.getByRole('tab', { name: /Avatar/ }),
+    ).toHaveAttribute('aria-selected', 'true');
 
     // Gravatar image
     await expect(page.getByAltText(/Gravatar/i)).toBeVisible();

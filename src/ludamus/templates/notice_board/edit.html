@@ -20,7 +20,7 @@
                           onsubmit="return confirm('{% translate "Are you sure you want to delete this encounter?" %}')">
                         {% csrf_token %}
                         <button type="submit"
-                                class="text-xs text-foreground-secondary hover:text-[var(--theme-danger-base)] transition-colors">
+                                class="text-xs text-foreground-secondary hover:text-danger transition-colors">
                             {% translate "Delete encounter" %}
                         </button>
                     </form>

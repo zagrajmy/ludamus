@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         RequestContext,
         UserDTO,
     )
+    from ludamus.pacts.services import ServicesProtocol
 
 
 @dataclass
@@ -48,8 +49,10 @@ class UserInfo:
 class AuthenticatedRootRequest(HttpRequest):
     context: AuthenticatedRequestContext
     di: DependencyInjectorProtocol
+    services: ServicesProtocol
 
 
 class RootRequest(HttpRequest):
     context: RequestContext
     di: DependencyInjectorProtocol
+    services: ServicesProtocol

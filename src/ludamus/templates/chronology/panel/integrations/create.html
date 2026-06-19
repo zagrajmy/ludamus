@@ -1,0 +1,36 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "New integration" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "New integration" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        <div class="flex items-center gap-3">
+            <a href="{% url 'panel:event-integration-settings' slug=current_event.slug %}"
+               class="btn btn-secondary">{% translate "Cancel" %}</a>
+            <button type="submit"
+                    form="integration-form"
+                    class="btn btn-primary flex items-center">
+                {% icon "plus" class="w-4 h-4 mr-2" %}
+                {% translate "Create" %}
+            </button>
+        </div>
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        <form id="integration-form" method="post" class="max-w-3xl">
+            {% csrf_token %}
+            <div class="card">
+                <div class="card-body">{% include "chronology/panel/integrations/_form.html" %}</div>
+            </div>
+        </form>
+    {% endif %}
+{% endblock content %}

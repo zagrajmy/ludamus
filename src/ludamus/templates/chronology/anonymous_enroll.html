@@ -13,8 +13,8 @@
 {% block body %}
     <div class="max-w-3xl mx-auto">
         {# Anonymous Code Display #}
-        <div class="alert alert-info flex items-start gap-3 mb-4">
-            {% icon "key" class="w-5 h-5 shrink-0 mt-0.5" %}
+        <div class="alert alert-info flex items-center gap-3 mb-4">
+            {% icon "key" class="w-5 h-5 shrink-0" %}
             <div>
                 <h6 class="font-semibold mb-1">{% translate "Your Anonymous Code" %}</h6>
                 <p class="mb-0">
@@ -25,7 +25,7 @@
         </div>
         {# Session Details Card #}
         <div class="card mb-4">
-            <div class="card-header bg-[var(--theme-primary)] text-white flex items-center gap-2">
+            <div class="card-header bg-primary text-white flex items-center gap-2">
                 {% icon "calendar" class="w-5 h-5" %}
                 <h5 class="font-semibold mb-0">{{ session.title }}</h5>
             </div>
@@ -71,7 +71,7 @@
         </div>
         {# Enrollment Form #}
         <div class="card">
-            <div class="card-header {% if is_enrolled %}bg-[var(--theme-warning)] text-white{% else %}bg-[var(--theme-success)] text-white{% endif %} flex items-center gap-2">
+            <div class="card-header {% if is_enrolled %}bg-warning text-white{% else %}bg-success text-white{% endif %} flex items-center gap-2">
                 {% if is_enrolled %}
                     {% icon "cog-6-tooth" class="w-5 h-5" %}
                     <h5 class="font-semibold mb-0">{% translate "Manage Enrollment" %}</h5>
@@ -84,8 +84,8 @@
                 <form method="post">
                     {% csrf_token %}
                     {% if is_enrolled %}
-                        <div class="alert alert-success flex items-start gap-3">
-                            {% icon "check-circle" class="w-5 h-5 shrink-0 mt-0.5" %}
+                        <div class="alert alert-success flex items-center gap-3">
+                            {% icon "check-circle" class="w-5 h-5 shrink-0" %}
                             <div>
                                 <strong>{{ anonymous_user.full_name }}</strong> {% translate "is already enrolled in this session." %}
                                 {% if existing_enrollment.status == "waiting" %}
@@ -95,8 +95,8 @@
                             </div>
                         </div>
                     {% elif needs_user_data %}
-                        <div class="alert alert-warning flex items-start gap-3">
-                            {% icon "exclamation-triangle" class="w-5 h-5 shrink-0 mt-0.5" %}
+                        <div class="alert alert-warning flex items-center gap-3">
+                            {% icon "exclamation-triangle" class="w-5 h-5 shrink-0" %}
                             <div>{% translate "Please provide your name to complete the enrollment." %}</div>
                         </div>
                         <div class="max-w-md mb-4">
@@ -109,8 +109,8 @@
                             </p>
                         </div>
                     {% else %}
-                        <div class="alert alert-info flex items-start gap-3">
-                            {% icon "information-circle" class="w-5 h-5 shrink-0 mt-0.5" %}
+                        <div class="alert alert-info flex items-center gap-3">
+                            {% icon "information-circle" class="w-5 h-5 shrink-0" %}
                             <div>
                                 {% translate "Click below to enroll" %} <strong>{{ anonymous_user.full_name }}</strong> {% translate "in this session." %}
                             </div>
@@ -128,7 +128,7 @@
                                 {% translate "Cancel Enrollment" %}
                             </button>
                         {% else %}
-                            <button type="submit" name="action" value="enroll" class="btn btn-teal">
+                            <button type="submit" name="action" value="enroll" class="btn btn-primary">
                                 {% icon "user-plus" class="w-4 h-4" %}
                                 {% if needs_user_data %}
                                     {% translate "Complete Enrollment" %}

@@ -16,27 +16,38 @@ project tasks.
 
 ```bash
 mise install            # Python, Node, Poetry, ast-grep
-mise run bootstrap      # .env, deps, migrations, demo data — idempotent
-mise run start          # Django :8000 + Vite :5173
+mise bootstrap      # .env, deps, migrations, demo data — idempotent
+mise dev                # Django :8000 + Vite :5173
 ```
 
 After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
 
-`mise run bootstrap` is safe to re-run any time — it tops up missing deps and
-seed data without destroying anything.
+`mise run bootstrap` resets and reseeds the local database with the same
+deterministic data used by end-to-end tests.
 
 ### Day-to-day
 
 ```bash
-mise run test           # all tests
-mise run check          # format + lint + autofix
-mise run prcheck        # CI-style lint, no autofix
+mise test               # all tests
+mise check              # format + lint + autofix
+mise prcheck            # CI-style lint, no autofix
 mise tasks              # list every task with descriptions
 ```
 
 Frontend lives in `src/ludamus/client/` (Vite + Tailwind). Architecture and
-contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also
-available as `AGENTS.md` for Cursor/OpenAI agents).
+contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also available
+as `AGENTS.md` for Cursor/OpenAI agents).
+
+### Email in development
+
+Outgoing email is configured by the `EMAIL_URL` env var (django-environ):
+
+- `consolemail://` — default; prints emails to the server log.
+- `filemail:///path/to/dir` — writes each email to a file. Handy for
+  end-to-end testing of enrollment/offer notifications: point the server at a
+  directory and assert on the written `.log` files.
+
+Production sets `EMAIL_URL=smtp://user:pass@host:587/?tls=True`.
 
 ### Deployment
 

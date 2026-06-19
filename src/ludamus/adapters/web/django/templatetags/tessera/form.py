@@ -8,6 +8,7 @@ from django.forms.widgets import (
     CheckboxInput,
     CheckboxSelectMultiple,
     FileInput,
+    HiddenInput,
     RadioSelect,
     Select,
     SelectMultiple,
@@ -44,6 +45,17 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
     return mark_safe("\n".join(output))  # noqa: S308
 
 
+def _render_field_input(field: BoundField) -> str:
+    widget = field.field.widget
+    if isinstance(widget, (Select, SelectMultiple)):
+        return render_select(field)
+    if isinstance(widget, Textarea):
+        return render_textarea(field)
+    if isinstance(widget, FileInput):
+        return render_file_input(field)
+    return render_input(field)
+
+
 @register.simple_tag
 def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
     """Render a single form field.
@@ -56,12 +68,11 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
         {% tessera_field form.name layout="horizontal" %}
     """
     widget = field.field.widget
+    if isinstance(widget, HiddenInput):
+        return mark_safe(str(field))  # noqa: S308
     is_checkbox = isinstance(widget, CheckboxInput)
     is_multi_checkbox = isinstance(widget, CheckboxSelectMultiple)
     is_radio = isinstance(widget, RadioSelect)
-    is_select = isinstance(widget, (Select, SelectMultiple))
-    is_textarea = isinstance(widget, Textarea)
-    is_file = isinstance(widget, FileInput)
 
     parts = []
 
@@ -84,16 +95,9 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
         if layout == "horizontal":
             parts.extend(("</div>", '<div class="sm:w-2/3">'))
 
-        if is_select:
-            parts.append(render_select(field))
-        elif is_textarea:
-            parts.append(render_textarea(field))
-        elif is_file:
-            parts.append(render_file_input(field))
-        else:
-            parts.append(render_input(field))
-
-        parts.extend((render_help_text(field), render_errors(field)))
+        # File inputs surface their errors inside the dropzone itself.
+        errors_html = "" if isinstance(widget, FileInput) else render_errors(field)
+        parts.extend((_render_field_input(field), render_help_text(field), errors_html))
 
         if layout == "horizontal":
             parts.append("</div>")
@@ -117,15 +121,19 @@ def tessera_errors(form: BaseForm) -> str:
 
 
 @register.simple_tag
-def tessera_button(
+def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a distinct visual axis
     text: str,
     *,
+    href: str | None = None,
     button_type: str = "submit",
     variant: str = "primary",
     size: str = "md",
     disabled: bool = False,
+    icon: str | None = None,
+    full_width_mobile: bool | None = None,
+    onclick: str | None = None,
 ) -> str:
-    """Render a styled button.
+    """Render a styled button (``<button>``) or link button (``<a>``).
 
     Returns:
         HTML string of the rendered button.
@@ -133,7 +141,17 @@ def tessera_button(
     Usage:
         {% tessera_button "Submit" %}
         {% tessera_button "Cancel" button_type="button" variant="secondary" %}
+        {% tessera_button "New Venue" href=url icon="plus" %}
+        {% tessera_button "Save" full_width_mobile=False %}
     """
     return render_button(
-        text, button_type=button_type, variant=variant, size=size, disabled=disabled
+        text,
+        href=href,
+        button_type=button_type,
+        variant=variant,
+        size=size,
+        disabled=disabled,
+        icon=icon,
+        full_width_mobile=full_width_mobile,
+        onclick=onclick,
     )

@@ -8,19 +8,163 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import Protocol
+from typing import Protocol, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
+    ContentChangeLogDTO,
     FieldUsageSummary,
     PersonalDataFieldCreateData,
     PersonalDataFieldDTO,
     PersonalDataFieldUpdateData,
     ProposalCategoryDTO,
+    SessionContentEditData,
+    SessionFieldValueData,
+    SessionSelfEditContext,
     SpaceDTO,
 )
+
+
+class IntegrationKind(StrEnum):
+    IMPORT = "import"
+    TICKETING = "ticketing"
+
+
+class IntegrationImplementationId(StrEnum):
+    GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
+
+
+class CheckOutcome(StrEnum):
+    OK = "ok"
+    AUTH_FAILED = "auth_failed"
+    FORBIDDEN = "forbidden"
+    NOT_FOUND = "not_found"
+
+
+@dataclass
+class CheckResult:
+    outcome: CheckOutcome
+    hint: str = ""
+
+
+class IntegrationImplementation(Protocol):
+    kind: IntegrationKind
+    config_model: type[BaseModel]
+
+    def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+
+
+class EventIntegrationDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    kind: IntegrationKind
+    implementation: IntegrationImplementationId
+    connection_id: int
+    connection_display_name: str
+    display_name: str
+    config_json: str
+
+
+class EventIntegrationCreateData(TypedDict):
+    kind: IntegrationKind
+    implementation: IntegrationImplementationId
+    connection_id: int
+    display_name: str
+    config_json: str
+
+
+class EventIntegrationUpdateData(TypedDict):
+    display_name: str
+    connection_id: int
+    config_json: str
+
+
+@dataclass
+class IntegrationCheckRequest:
+    sphere_id: int
+    implementation: IntegrationImplementationId
+    connection_id: int
+    config_json: str
+
+
+class EventIntegrationsRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_for_event(
+        event_id: int, kind: IntegrationKind | None = None
+    ) -> list[EventIntegrationDTO]: ...
+    @staticmethod
+    def get(event_id: int, pk: int) -> EventIntegrationDTO: ...
+    @staticmethod
+    def create(
+        event_id: int, data: EventIntegrationCreateData
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def update(
+        event_id: int, pk: int, data: EventIntegrationUpdateData
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def delete(event_id: int, pk: int) -> None: ...
+
+
+class EventIntegrationsServiceProtocol(Protocol):
+    def list_for_event(
+        self, event_id: int, kind: IntegrationKind | None = None
+    ) -> list[EventIntegrationDTO]: ...
+    def get(self, event_id: int, pk: int) -> EventIntegrationDTO: ...
+    def create(
+        self, sphere_id: int, event_id: int, data: EventIntegrationCreateData
+    ) -> EventIntegrationDTO: ...
+    def update(
+        self, sphere_id: int, event_id: int, pk: int, data: EventIntegrationUpdateData
+    ) -> EventIntegrationDTO: ...
+    def delete(self, event_id: int, pk: int) -> None: ...
+    def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
+    def list_implementations(
+        self, kind: IntegrationKind
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]: ...
+    def list_all_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]: ...
+
+
+class SessionSelfEditServiceProtocol(Protocol):
+    def can_edit(self, session_id: int, user_id: int | None) -> bool: ...
+    def get_edit_context(
+        self, session_id: int, user_id: int | None
+    ) -> SessionSelfEditContext: ...
+    def update(
+        self,
+        session_id: int,
+        user_id: int | None,
+        cleaned_data: dict[str, object],
+        field_values: list[SessionFieldValueData] | None,
+    ) -> None: ...
+
+
+class SessionContentEditServiceProtocol(Protocol):
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        data: SessionContentEditData,
+    ) -> None: ...
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
+    def list_field_names(self, event_id: int) -> dict[int, str]: ...
+
+
+class SessionConfirmationServiceProtocol(Protocol):
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None: ...
+    def confirm_all(self, event_pk: int) -> None: ...
+    def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
+
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
@@ -81,6 +225,15 @@ class ConflictType(StrEnum):
 class ConflictSeverity(StrEnum):
     ERROR = auto()
     WARNING = auto()
+
+
+@dataclass(frozen=True)
+class SessionPlacement:
+    """A space and time window a session can be scheduled into."""
+
+    space_pk: int
+    start_time: datetime
+    end_time: datetime
 
 
 class ConflictDTO(BaseModel):

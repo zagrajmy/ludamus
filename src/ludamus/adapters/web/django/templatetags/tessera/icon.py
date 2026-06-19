@@ -17,6 +17,7 @@ from heroicons.templatetags.heroicons import (
 )
 
 from ._registry import register
+from .clsx import clsx
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -42,9 +43,11 @@ def icon(name: str, *, variant: str = "outline", **kwargs: object) -> str:
         IconDoesNotExist: If the icon name is invalid and ``DEBUG`` is ``True``.
     """
     renderer = _VARIANT_RENDERERS[variant]
-    # Pop CSS style — heroicons' _render_icon has `style` as a positional param
-    # (for outline/solid/mini), so passing style= as a kwarg causes a conflict.
-    css_style = kwargs.pop("style", None)
+
+    kwargs["class"] = clsx("shrink-0", kwargs.pop("class", None))
+    if s := kwargs.pop("style", None):
+        kwargs |= {"style": escape(s)}
+
     try:
         result = renderer(name, **kwargs)
     except IconDoesNotExist:
@@ -52,6 +55,4 @@ def icon(name: str, *, variant: str = "outline", **kwargs: object) -> str:
             raise
         logger.warning("Icon %r (variant=%s) not found, rendering empty", name, variant)
         return ""
-    if css_style:
-        result = result.replace("<svg ", f'<svg style="{escape(css_style)}" ', 1)
     return mark_safe(result)  # noqa: S308

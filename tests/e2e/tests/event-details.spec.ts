@@ -5,14 +5,15 @@ test.describe('Event detail page', () => {
     await page.goto('/chronology/event/autumn-open/');
   });
 
-  test('shows event information and enrollment banner', async ({ page }) => {
+  test('shows event information and enrollment status pill', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Autumn Open Playtest' })).toBeVisible();
-    await expect(page.getByText('Upcoming')).toBeVisible();
 
-    const banner = page.getByRole('alert').filter({
-      hasText: 'Enrollment is open—grab a slot before we fill up!',
-    });
-    await expect(banner).toBeVisible();
+    // Status pills are capped at two. This event has enrollment and proposals
+    // open, so those win and the lower-priority "Upcoming" pill is dropped.
+    // Enrollment status is a compact pill in the hero, not a full-width banner.
+    await expect(page.getByText('Enrollment Open')).toBeVisible();
+    await expect(page.getByText('Proposals Open')).toBeVisible();
+    await expect(page.getByText('Upcoming')).toHaveCount(0);
   });
 
   test('renders session cards with locations and opens detail modal', async ({ page }) => {
@@ -103,7 +104,7 @@ test.describe('Event detail page', () => {
     expect(sessionId).not.toBeNull();
 
     await page.evaluate((id) => {
-      const description = document.querySelector(`#session-${id} [id^="info-"] div.leading-relaxed`);
+      const description = document.querySelector(`#session-${id} [id^="info-"] div.prose`);
       if (!description) throw new Error('Missing session description');
       description.innerHTML = Array.from(
         { length: 28 },

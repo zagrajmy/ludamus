@@ -24,7 +24,7 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="-mt-3 sm:-mt-4 lg:-mt-8 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 pt-3 bg-warm-200 border-b border-warm-300">
+        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
             {% tab "types" href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
             {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
@@ -32,13 +32,13 @@
             {% tab "time_slots" active=True href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
         {% end_tabs %}
     </div>
-    <div class="-mx-3 sm:-mx-4 lg:-mx-8 -mb-3 sm:-mb-4 lg:-mb-8 px-3 sm:px-4 lg:px-8 py-6 bg-bg-secondary">
-        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+        <div class="alert alert-info mb-6">
             <div class="flex items-start gap-3">
-                <span class="text-blue-600 flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
+                <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
                 <div>
-                    <p class="text-sm font-medium text-blue-800">{% translate "What are Time Slots?" %}</p>
-                    <p class="text-sm text-blue-700 mt-1">
+                    <p class="text-sm font-medium">{% translate "What are Time Slots?" %}</p>
+                    <p class="text-sm mt-1">
                         {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
                     </p>
                 </div>
@@ -50,19 +50,19 @@
                     <div class="flex items-center gap-2">
                         {% if has_prev %}
                             <a href="?page={{ page|add:"-1" }}"
-                               class="px-3 py-1.5 text-sm border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition flex items-center">
+                               class="px-3 py-1.5 text-sm border border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center">
                                 {% icon "chevron-left" class="w-4 h-4 mr-1" %}
                                 {% translate "Previous" %}
                             </a>
                         {% endif %}
                     </div>
-                    <span class="text-sm text-neutral-500">
+                    <span class="text-sm text-foreground-muted">
                         {% blocktranslate with current=page|add:"1" total=total_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}
                     </span>
                     <div class="flex items-center gap-2">
                         {% if has_next %}
                             <a href="?page={{ page|add:"1" }}"
-                               class="px-3 py-1.5 text-sm border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition flex items-center">
+                               class="px-3 py-1.5 text-sm border border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center">
                                 {% translate "Next" %}
                                 {% icon "chevron-right" class="w-4 h-4 ml-1" %}
                             </a>
@@ -72,23 +72,23 @@
             {% endif %}
             <div class="grid grid-cols-1 md:{% if event_days|length == 1 %}grid-cols-1{% elif event_days|length == 2 %}grid-cols-2{% else %}grid-cols-3{% endif %} gap-4">
                 {% for day in event_days %}
-                    <div class="bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden flex flex-col">
-                        <div class="px-4 py-3 bg-neutral-50 border-b border-neutral-200">
-                            <h3 class="text-sm font-semibold text-neutral-700">{{ day|date:"D, M d" }}</h3>
+                    <div class="card overflow-hidden flex flex-col">
+                        <div class="px-4 py-3 bg-bg-tertiary border-b border-border">
+                            <h3 class="text-sm font-semibold text-foreground-secondary">{{ day|date:"D, M d" }}</h3>
                         </div>
                         <div class="p-4 space-y-2 flex-1">
                             {% if day|date:"Y-m-d" == current_event.start_time|date:"Y-m-d" %}
-                                <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/50">
+                                <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
                                     <span class="text-sm text-neutral-400">{% translate "Event starts at" %} {{ current_event.start_time|time:"H:i" }}</span>
                                 </div>
                             {% endif %}
                             {% for slot in days|get_item:day.isoformat %}
                                 {% with slot_key=slot.pk|stringformat:"d"|add:","|add:day.isoformat %}
                                     {% if continuation_slots|is_continuation:slot_key %}
-                                        <div class="flex items-center p-3 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/50">
+                                        <div class="flex items-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-1 h-8 bg-neutral-300 rounded-full"></div>
-                                                <span class="text-sm text-neutral-500">
+                                                <span class="text-sm text-foreground-muted">
                                                     → {{ slot.end_time|time:"H:i" }}
                                                     <span class="text-neutral-400 ml-1">({% translate "continues from" %} {{ slot.start_time|date:"D, M d" }})</span>
                                                 </span>
@@ -98,7 +98,7 @@
                                         <div class="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:border-neutral-200 transition">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-1 h-8 bg-primary rounded-full"></div>
-                                                <span class="text-sm font-medium text-neutral-900">
+                                                <span class="text-sm font-medium text-foreground">
                                                     {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                                 </span>
                                             </div>
@@ -120,14 +120,14 @@
                                 <p class="text-sm text-neutral-400 text-center py-4">{% translate "No slots" %}</p>
                             {% endfor %}
                             {% if day|date:"Y-m-d" == current_event.end_time|date:"Y-m-d" %}
-                                <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/50">
+                                <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
                                     <span class="text-sm text-neutral-400">{% translate "Event ends at" %} {{ current_event.end_time|time:"H:i" }}</span>
                                 </div>
                             {% endif %}
                         </div>
                         <div class="px-4 pb-4">
                             <a href="{% url 'panel:time-slot-create' slug=current_event.slug %}?date={{ day|date:'Y-m-d' }}"
-                               class="w-full px-3 py-2 text-sm border border-dashed border-neutral-300 text-neutral-600 rounded-lg hover:bg-neutral-50 transition flex items-center justify-center">
+                               class="w-full px-3 py-2 text-sm border border-dashed border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center justify-center">
                                 {% icon "plus" class="w-4 h-4 mr-1" %}
                                 {% translate "Add" %}
                             </a>
@@ -148,10 +148,10 @@
                     </div>
                     <div class="space-y-2">
                         {% for slot in orphaned_slots %}
-                            <div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-white">
+                            <div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-bg-secondary">
                                 <div class="flex items-center gap-3">
                                     <div class="w-1 h-8 bg-amber-400 rounded-full"></div>
-                                    <span class="text-sm font-medium text-neutral-900">
+                                    <span class="text-sm font-medium text-foreground">
                                         {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                     </span>
                                 </div>
@@ -172,15 +172,15 @@
                 </div>
             {% endif %}
         {% else %}
-            <div class="bg-white rounded-xl shadow-sm border border-neutral-100 p-8 text-center">
-                <p class="text-neutral-500">
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">
                     {% translate "No time slots defined. Add time slots to configure the event schedule." %}
                 </p>
             </div>
         {% endif %}
     </div>
 {% else %}
-    <div class="bg-bg-secondary rounded-2xl shadow-[--theme-shadow] border border-border p-8 text-center">
+    <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
         <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
     </div>
 {% endif %}

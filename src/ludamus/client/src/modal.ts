@@ -362,4 +362,4 @@ const setupFallbackLinkHandlers = (): void => {
 
 setupFallbackLinkHandlers();
 
-export { closeModal };
+export { closeModal, openModal };

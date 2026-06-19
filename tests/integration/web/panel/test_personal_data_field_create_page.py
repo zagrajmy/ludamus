@@ -439,3 +439,24 @@ class TestPersonalDataFieldCreatePageView:
 
         field = PersonalDataField.objects.get(event=event)
         assert not PersonalDataFieldRequirement.objects.filter(field=field).exists()
+
+    def test_post_drops_category_from_another_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        """A category pk from another event is not linked to the new field."""
+        sphere.managers.add(active_user)
+        foreign_category = ProposalCategoryFactory(name="Workshop")  # different event
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "name": "Email",
+                "question": "What is your email?",
+                f"category_{foreign_category.pk}": "required",
+            },
+        )
+
+        field = PersonalDataField.objects.get(event=event)
+        assert not PersonalDataFieldRequirement.objects.filter(
+            field=field, category=foreign_category
+        ).exists()

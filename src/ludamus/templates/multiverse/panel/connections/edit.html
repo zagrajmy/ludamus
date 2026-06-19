@@ -1,5 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
+{% load tessera %}
 {% block title_prefix %}
     {% translate "Edit connection" %} -
 {% endblock title_prefix %}
@@ -12,48 +13,41 @@
 {% block header_actions %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="bg-white rounded-xl shadow-sm border border-neutral-100 p-6 max-w-xl">
+    <div class="card p-6 max-w-xl">
         <form method="post" class="space-y-4">
             {% csrf_token %}
             {% include "multiverse/panel/connections/_form.html" %}
-            <div class="space-y-2 pt-2 border-t border-neutral-200">
-                <p class="text-sm text-neutral-700">
-                    {% if connection.has_credentials %}
-                        {% translate "Credentials configured ✓" %}
+            <div class="space-y-2 pt-2 border-t border-border">
+                <p class="flex items-center gap-2 text-sm">
+                    {% if connection.has_secret %}
+                        {% icon "check-circle" class="w-4 h-4 flex-shrink-0 text-success" %}
+                        <span class="text-foreground-secondary">{% translate "Secret configured" %}</span>
                     {% else %}
-                        {% translate "No credentials configured yet." %}
+                        {% icon "exclamation-triangle" class="w-4 h-4 flex-shrink-0 text-foreground-muted" %}
+                        <span class="text-foreground-muted">{% translate "No secret configured yet." %}</span>
                     {% endif %}
                 </p>
-                <label class="peer flex items-center gap-2">
-                    <input type="checkbox"
-                           name="{{ form.replace_credentials.html_name }}"
-                           id="{{ form.replace_credentials.id_for_label }}"
-                           class="rounded border-neutral-300 text-primary focus:ring-primary"
-                           {% if form.replace_credentials.value %}checked{% endif %}>
-                    <span class="text-sm text-neutral-700">{{ form.replace_credentials.label }}</span>
-                </label>
-                <div class="hidden peer-has-[:checked]:block space-y-1">
-                    <label class="block text-sm font-medium text-neutral-700"
-                           for="{{ form.credentials.id_for_label }}">{{ form.credentials.label }}</label>
-                    {# Never echo plaintext credentials back into the DOM on re-render — user re-pastes on validation error. #}
-                    <textarea name="{{ form.credentials.html_name }}"
-                              id="{{ form.credentials.id_for_label }}"
-                              rows="8"
-                              autocomplete="off"
-                              class="w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
-                    <p class="text-xs text-neutral-500">{{ form.credentials.help_text }}</p>
-                    {% for error in form.credentials.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+                <div class="peer">
+                    {% include "components/checkbox-field.html" with name=form.replace_secret.html_name id=form.replace_secret.id_for_label label=form.replace_secret.label checked=form.replace_secret.value aria_controls="secret-section" aria_expanded=form.replace_secret.value|yesno:"true,false" hx_on_change="this.setAttribute('aria-expanded', this.checked ? 'true' : 'false'); var s=document.getElementById('id_secret'); if (s) { if (this.checked) { s.setAttribute('aria-required', 'true'); } else { s.removeAttribute('aria-required'); } }" only %}
+                </div>
+                <div id="secret-section"
+                     class="hidden peer-has-[:checked]:block space-y-1">
+                    <label class="block text-sm font-medium text-foreground"
+                           for="{{ form.secret.id_for_label }}">{{ form.secret.label }}</label>
+                    {# Never echo plaintext secret back into the DOM on re-render — user re-pastes on validation error. #}
+                    {% include "components/textarea.html" with name=form.secret.html_name id=form.secret.id_for_label rows=8 monospace=True has_errors=form.secret.errors aria_describedby="id_secret_help id_secret_errors" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" only %}
+                    <p id="id_secret_help" class="mt-1 text-xs text-foreground-muted">{{ form.secret.help_text }}</p>
+                    {% if form.secret.errors %}
+                        <div id="id_secret_errors" role="alert" aria-live="polite">
+                            {% for error in form.secret.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
             </div>
-            <div class="flex justify-end gap-2 pt-4 border-t border-neutral-200">
+            <div class="flex justify-end gap-2 pt-4 border-t border-border">
                 <a href="{% url 'multiverse:panel:connections' %}"
-                   class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition">
-                    {% translate "Cancel" %}
-                </a>
-                <button type="submit"
-                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition">
-                    {% translate "Save" %}
-                </button>
+                   class="btn btn-secondary">{% translate "Cancel" %}</a>
+                <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
             </div>
         </form>
     </div>

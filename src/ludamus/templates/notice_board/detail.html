@@ -38,117 +38,113 @@
 {% block body %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {# ── LEFT COLUMN: "what is this" ── #}
-        <div class="lg:col-span-2 space-y-6">
-            <div class="card">
-                <div class="card-body space-y-4">
-                    {% if encounter.header_image %}
-                        <div class="relative aspect-[2/1] overflow-hidden rounded-t-2xl -mb-6">
-                            <img src="{{ MEDIA_URL }}{{ encounter.header_image }}"
-                                 alt="{{ encounter.title }}"
-                                 width="800"
-                                 height="400"
-                                 class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
-                            <div class="absolute bottom-0 left-0 right-0 px-6 pb-6">
-                                <p class="text-sm italic text-white/90 drop-shadow-lg">
-                                    {% if is_creator %}
-                                        {% translate "Your encounter" %}
-                                    {% elif user_has_rsvpd %}
-                                        {% translate "You're attending this encounter" %}
-                                    {% else %}
-                                        {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
-                                    {% endif %}
-                                </p>
-                                <h1 class="text-2xl font-bold text-white drop-shadow-lg mt-1">{{ encounter.title }}</h1>
-                            </div>
-                        </div>
-                    {% else %}
-                        <div>
-                            <p class="text-sm italic text-foreground-secondary">
-                                {% if is_creator %}
-                                    {% translate "Your encounter" %}
-                                {% elif user_has_rsvpd %}
-                                    {% translate "You're attending this encounter" %}
-                                {% else %}
-                                    {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
-                                {% endif %}
-                            </p>
-                            <h1 class="text-2xl font-bold text-foreground mt-1">{{ encounter.title }}</h1>
-                        </div>
-                    {% endif %}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {% if encounter.game %}
-                            <div class="flex items-center gap-2.5 p-3 rounded-lg bg-bg-tertiary">
-                                {% icon "puzzle-piece" class="h-5 w-5 text-primary" %}
-                                <div>
-                                    <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Game" %}</div>
-                                    <div class="font-medium text-foreground">{{ encounter.game }}</div>
-                                </div>
-                            </div>
-                        {% endif %}
-                        <div class="flex items-center gap-2.5 p-3 rounded-lg bg-bg-tertiary">
-                            {% icon "calendar" class="h-5 w-5 text-primary" %}
-                            <div>
-                                <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "When" %}</div>
-                                <div class="font-medium text-foreground">
-                                    {% if encounter.end_time %}
-                                        {{ encounter|format_datetime_range }}
-                                    {% else %}
-                                        {{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% if encounter.place %}
-                            <div class="flex items-center gap-2.5 p-3 rounded-lg bg-bg-tertiary">
-                                {% icon "map-pin" class="h-5 w-5 text-primary" %}
-                                <div>
-                                    <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Where" %}</div>
-                                    <div class="font-medium text-foreground">{{ encounter.place }}</div>
-                                </div>
-                            </div>
-                        {% endif %}
-                        {# Fix 4 — Spots with visual weight #}
-                        <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-[var(--theme-danger-bg)]{% elif spots_remaining == 1 %}bg-[var(--theme-warning-bg)]{% else %}bg-bg-tertiary{% endif %}">
-                            <span class="{% if is_full %}text-[var(--theme-danger-base)]{% elif spots_remaining == 1 %}text-[var(--theme-warning-text)]{% else %}text-primary{% endif %}">
-                                {% icon "users" class="h-5 w-5" %}
-                            </span>
-                            <div>
-                                <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Spots" %}</div>
-                                <div class="font-semibold {% if is_full %}text-[var(--theme-danger-base)]{% elif spots_remaining == 1 %}text-[var(--theme-warning-text)]{% else %}text-foreground{% endif %}">
-                                    {% if encounter.max_participants > 0 %}
-                                        {% if is_full %}
-                                            {% translate "No spots left" %}
-                                        {% elif spots_remaining == 1 %}
-                                            {% translate "1 spot left" %}
-                                        {% else %}
-                                            {{ spots_remaining }} {% translate "spots left" %}
-                                        {% endif %}
-                                    {% else %}
-                                        {{ rsvp_count }} {% translate "attending" %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
+        <div class="lg:col-span-2 card card-body flex flex-col gap-4">
+            {% if encounter.header_image %}
+                <div class="relative aspect-[2/1] overflow-hidden rounded-t-2xl">
+                    <img src="{{ MEDIA_URL }}{{ encounter.header_image }}"
+                         alt="{{ encounter.title }}"
+                         width="800"
+                         height="400"
+                         class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 px-6 pb-6">
+                        <p class="text-sm italic text-white/90 drop-shadow-lg">
+                            {% if is_creator %}
+                                {% translate "Your encounter" %}
+                            {% elif user_has_rsvpd %}
+                                {% translate "You're attending this encounter" %}
+                            {% else %}
+                                {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
+                            {% endif %}
+                        </p>
+                        <h1 class="text-2xl font-bold text-white drop-shadow-lg mt-1">{{ encounter.title }}</h1>
                     </div>
-                    {# RSVP form or organizer actions — mobile only #}
-                    <div class="lg:hidden">
-                        {% include "notice_board/_rsvp_inline.html" %}
+                </div>
+            {% else %}
+                <div>
+                    <p class="text-sm italic text-foreground-secondary">
                         {% if is_creator %}
-                            {% include "notice_board/_organizer_actions.html" %}
+                            {% translate "Your encounter" %}
+                        {% elif user_has_rsvpd %}
+                            {% translate "You're attending this encounter" %}
+                        {% else %}
+                            {{ creator.full_name|default:creator.name }} {% translate "invites you to an encounter" %}
                         {% endif %}
+                    </p>
+                    <h1 class="text-2xl font-bold text-foreground mt-1">{{ encounter.title }}</h1>
+                </div>
+            {% endif %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% if encounter.game %}
+                    <div class="flex items-center gap-2.5 p-3 rounded-lg bg-bg-tertiary">
+                        {% icon "puzzle-piece" class="h-5 w-5 text-primary" %}
+                        <div>
+                            <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Game" %}</div>
+                            <div class="font-medium text-foreground">{{ encounter.game }}</div>
+                        </div>
                     </div>
-                    {# Calendar button — mobile only, for authenticated non-attendees and creators #}
-                    {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                        <div class="lg:hidden">{% include "notice_board/_calendar_inline.html" %}</div>
-                    {% endif %}
-                    {# Description #}
-                    {% if description_html %}
-                        <hr class="border-border">
-                        <div class="prose prose-sm dark:prose-invert max-w-none">{{ description_html|safe }}</div>
-                    {% endif %}
+                {% endif %}
+                <div class="flex items-center gap-2.5 p-3 rounded-lg bg-bg-tertiary">
+                    {% icon "calendar" class="h-5 w-5 text-primary" %}
+                    <div>
+                        <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "When" %}</div>
+                        <div class="font-medium text-foreground">
+                            {% if encounter.end_time %}
+                                {{ encounter|format_datetime_range }}
+                            {% else %}
+                                {{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if encounter.place %}
+                    <div class="flex items-center gap-2.5 p-3 rounded-lg bg-bg-tertiary">
+                        {% icon "map-pin" class="h-5 w-5 text-primary" %}
+                        <div>
+                            <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Where" %}</div>
+                            <div class="font-medium text-foreground">{{ encounter.place }}</div>
+                        </div>
+                    </div>
+                {% endif %}
+                {# Fix 4 — Spots with visual weight #}
+                <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-danger-bg{% elif spots_remaining == 1 %}bg-warning-bg{% else %}bg-bg-tertiary{% endif %}">
+                    <span class="{% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-primary{% endif %}">
+                        {% icon "users" class="h-5 w-5" %}
+                    </span>
+                    <div>
+                        <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Spots" %}</div>
+                        <div class="font-semibold {% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-foreground{% endif %}">
+                            {% if encounter.max_participants > 0 %}
+                                {% if is_full %}
+                                    {% translate "No spots left" %}
+                                {% elif spots_remaining == 1 %}
+                                    {% translate "1 spot left" %}
+                                {% else %}
+                                    {{ spots_remaining }} {% translate "spots left" %}
+                                {% endif %}
+                            {% else %}
+                                {{ rsvp_count }} {% translate "attending" %}
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
+            {# RSVP form or organizer actions — mobile only #}
+            <div class="lg:hidden">
+                {% include "notice_board/_rsvp_inline.html" %}
+                {% if is_creator %}
+                    {% include "notice_board/_organizer_actions.html" %}
+                {% endif %}
+            </div>
+            {# Calendar button — mobile only, for authenticated non-attendees and creators #}
+            {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
+                <div class="lg:hidden">{% include "notice_board/_calendar_inline.html" %}</div>
+            {% endif %}
+            {# Description #}
+            {% if description_html %}
+                <hr class="border-border">
+                <div class="prose prose-sm dark:prose-invert max-w-none">{{ description_html|safe }}</div>
+            {% endif %}
         </div>
         {# ── RIGHT COLUMN: "what do I do" ── #}
         <div class="space-y-4">

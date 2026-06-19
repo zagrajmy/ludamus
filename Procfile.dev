@@ -1,2 +1,3 @@
 django: django-admin runserver --insecure 0.0.0.0:${PORT:-8000}
 vite: cd src/ludamus/client && npm run dev
+auth0: ./scripts/auth0-simulator-dev

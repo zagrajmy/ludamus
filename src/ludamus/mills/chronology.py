@@ -10,29 +10,48 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
+from pydantic import ValidationError
+
+from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
+    EventDTO,
     FieldUsageSummary,
     NotFoundError,
     ScheduleChangeAction,
     ScheduleChangeLogData,
+    SessionContentEditData,
+    SessionDTO,
+    SessionFieldValueData,
+    SessionSelfEditContext,
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
     AreaGroupDTO,
+    CheckOutcome,
+    CheckResult,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
+    EventIntegrationCreateData,
+    EventIntegrationDTO,
+    EventIntegrationsRepositoryProtocol,
+    EventIntegrationUpdateData,
     HeatmapCellDTO,
     HeatmapCellStatus,
     HeatmapDayDTO,
     HeatmapDTO,
     HeatmapRowDTO,
+    IntegrationCheckRequest,
+    IntegrationImplementation,
+    IntegrationImplementationId,
+    IntegrationKind,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    SessionPlacement,
     SessionPositionDTO,
     SpaceColumnDTO,
     TimeLabelDTO,
@@ -40,42 +59,38 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     VenueGroupDTO,
 )
+from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
         AreaDTO,
+        ContentChangeLogData,
+        ContentChangeLogDTO,
+        ContentChangeLogRepositoryProtocol,
+        ContentFieldChange,
+        ContentFieldValue,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
+        SessionFieldValueDTO,
+        SessionRepositoryProtocol,
+        SessionUpdateData,
         SpaceDTO,
-        TimeSlotDTO,
+        SphereRepositoryProtocol,
+        TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
+    from ludamus.pacts.multiverse import (
+        ConnectionsRepositoryProtocol,
+        DecryptorProtocol,
+    )
     from ludamus.pacts.services import TransactionProtocol
-
-
-def _slot_windows_by_local_date(
-    slots: list[TimeSlotDTO], tz: tzinfo
-) -> dict[date, list[tuple[datetime, datetime]]]:
-    # A slot spanning multiple local dates contributes one (start, end) window
-    # to each date it touches, clamped to that date's [00:00, 24:00) range.
-    grouped: dict[date, list[tuple[datetime, datetime]]] = defaultdict(list)
-    for slot in slots:
-        local_start = slot.start_time.astimezone(tz)
-        local_end = slot.end_time.astimezone(tz)
-        days_span = (local_end.date() - local_start.date()).days + 1
-        for offset in range(days_span):
-            cursor_date = local_start.date() + timedelta(days=offset)
-            day_start = datetime.combine(cursor_date, datetime.min.time(), tzinfo=tz)
-            day_end = day_start + timedelta(days=1)
-            window_start = max(local_start, day_start)
-            window_end = min(local_end, day_end)
-            if window_start < window_end:
-                grouped[cursor_date].append((window_start, window_end))
-    return grouped
 
 
 def _position_sessions(
@@ -123,6 +138,15 @@ def _position_sessions(
     return positions
 
 
+def require_session_in_event(
+    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
+) -> None:
+    # Panel access only proves you manage `event_pk`; a session named in
+    # the request must belong to it, or it is cross-event tampering.
+    if sessions.read_event(session_pk).pk != event_pk:
+        raise NotFoundError
+
+
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -147,7 +171,7 @@ class TimetableService:
         spaces = all_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
         all_slots = self._uow.time_slots.list_by_event(event_pk)
-        windows_by_date = _slot_windows_by_local_date(all_slots, tz)
+        windows_by_date = slot_windows_by_local_date(all_slots, tz)
         available_dates = sorted(windows_by_date.keys())
 
         if selected_date is None or selected_date not in windows_by_date:
@@ -270,41 +294,61 @@ class TimetableService:
             current_venue.areas[-1].span += 1
         return venue_groups
 
+    def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
+        require_session_in_event(self._uow.sessions, session_pk, event_pk)
+
+    def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
+        if space_pk not in {s.pk for s in self._uow.spaces.list_by_event(event_pk)}:
+            raise NotFoundError
+
+    def _clear_existing_assignment(
+        self, session_pk: int, event_pk: int, user_pk: int | None
+    ) -> None:
+        # Re-assigning an already-scheduled session: drop the old placement
+        # first so the new one becomes its only agenda item.
+        if self._uow.agenda_items.read_by_session(session_pk) is not None:
+            self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
+
     def assign_session(
         self,
         session_pk: int,
-        space_pk: int,
-        start_time: datetime,
-        end_time: datetime,
+        placement: SessionPlacement,
+        event_pk: int,
         user_pk: int | None = None,
     ) -> None:
+        self._require_session_in_event(session_pk, event_pk)
+        self._require_space_in_event(placement.space_pk, event_pk)
+        self._clear_existing_assignment(session_pk, event_pk, user_pk)
         session = self._uow.sessions.read(session_pk)
         if session.status != SessionStatus.PENDING:
             msg = f"Session {session_pk} is not in PENDING status"
             raise ValueError(msg)
+        event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.create(
             {
                 "session_id": session_pk,
-                "space_id": space_pk,
-                "start_time": start_time,
-                "end_time": end_time,
-                "session_confirmed": False,
+                "space_id": placement.space_pk,
+                "start_time": placement.start_time,
+                "end_time": placement.end_time,
+                "session_confirmed": event.auto_confirm_sessions,
             }
         )
         self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        event = self._uow.sessions.read_event(session_pk)
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
             "user_id": user_pk,
             "action": ScheduleChangeAction.ASSIGN,
-            "new_space_id": space_pk,
-            "new_start_time": start_time,
-            "new_end_time": end_time,
+            "new_space_id": placement.space_pk,
+            "new_start_time": placement.start_time,
+            "new_end_time": placement.end_time,
         }
         self._uow.schedule_change_logs.create(log_data)
 
-    def unassign_session(self, session_pk: int, user_pk: int | None = None) -> None:
+    def unassign_session(
+        self, session_pk: int, event_pk: int, user_pk: int | None = None
+    ) -> None:
+        self._require_session_in_event(session_pk, event_pk)
         if (agenda_item := self._uow.agenda_items.read_by_session(session_pk)) is None:
             raise NotFoundError
         event = self._uow.sessions.read_event(session_pk)
@@ -321,57 +365,112 @@ class TimetableService:
         }
         self._uow.schedule_change_logs.create(log_data)
 
-    def revert_change(self, log_pk: int, user_pk: int | None = None) -> None:
+    def revert_change(
+        self, log_pk: int, event_pk: int, user_pk: int | None = None
+    ) -> None:
         log = self._uow.schedule_change_logs.read(log_pk)
-        if log.action == ScheduleChangeAction.ASSIGN:
-            agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
-            if agenda_item is None:
-                raise NotFoundError
-            self._uow.agenda_items.delete(agenda_item.pk)
-            self._uow.sessions.update(log.session_id, {"status": SessionStatus.PENDING})
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            if (
-                log.old_space_id is None
-                or log.old_start_time is None
-                or log.old_end_time is None
-            ):
-                msg = "Cannot revert UNASSIGN: missing original placement data"
-                raise ValueError(msg)
-            session = self._uow.sessions.read(log.session_id)
-            if session.status != SessionStatus.PENDING:
-                msg = f"Session {log.session_id} is not in PENDING status"
-                raise ValueError(msg)
-            self._uow.agenda_items.create(
-                {
-                    "session_id": log.session_id,
-                    "space_id": log.old_space_id,
-                    "start_time": log.old_start_time,
-                    "end_time": log.old_end_time,
-                    "session_confirmed": False,
-                }
+        if log.event_id != event_pk:
+            # The log belongs to another event — reject before reverting.
+            raise NotFoundError
+        # Lock the session row so concurrent reverts (and assign/unassign)
+        # serialize: the latest-pk check and all mutations run under one
+        # transaction, so a second revert re-reads a now-stale latest_pk and
+        # is rejected instead of racing past the check (TOCTOU).
+        with self._uow.atomic():
+            self._uow.sessions.lock(log.session_id)
+            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
             )
-            self._uow.sessions.update(
-                log.session_id, {"status": SessionStatus.SCHEDULED}
-            )
-        else:
-            msg = f"Cannot revert action: {log.action}"
-            raise ValueError(msg)
-        event = self._uow.sessions.read_event(log.session_id)
-        revert_log: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": log.session_id,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.REVERT,
-        }
-        if log.action == ScheduleChangeAction.ASSIGN:
-            revert_log["old_space_id"] = log.new_space_id
-            revert_log["old_start_time"] = log.new_start_time
-            revert_log["old_end_time"] = log.new_end_time
-        elif log.action == ScheduleChangeAction.UNASSIGN:
-            revert_log["new_space_id"] = log.old_space_id
-            revert_log["new_start_time"] = log.old_start_time
-            revert_log["new_end_time"] = log.old_end_time
-        self._uow.schedule_change_logs.create(revert_log)
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                msg = "Only the latest change for a session can be reverted"
+                raise ValueError(msg)
+            if log.action == ScheduleChangeAction.ASSIGN:
+                agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
+                if agenda_item is None:
+                    raise NotFoundError
+                self._uow.agenda_items.delete(agenda_item.pk)
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.PENDING}
+                )
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                if (
+                    log.old_space_id is None
+                    or log.old_start_time is None
+                    or log.old_end_time is None
+                ):
+                    msg = "Cannot revert UNASSIGN: missing original placement data"
+                    raise ValueError(msg)
+                session = self._uow.sessions.read(log.session_id)
+                if session.status != SessionStatus.PENDING:
+                    msg = f"Session {log.session_id} is not in PENDING status"
+                    raise ValueError(msg)
+                self._uow.agenda_items.create(
+                    {
+                        "session_id": log.session_id,
+                        "space_id": log.old_space_id,
+                        "start_time": log.old_start_time,
+                        "end_time": log.old_end_time,
+                        "session_confirmed": False,
+                    }
+                )
+                self._uow.sessions.update(
+                    log.session_id, {"status": SessionStatus.SCHEDULED}
+                )
+            else:
+                msg = f"Cannot revert action: {log.action}"
+                raise ValueError(msg)
+            event = self._uow.sessions.read_event(log.session_id)
+            revert_log: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": log.session_id,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.REVERT,
+            }
+            if log.action == ScheduleChangeAction.ASSIGN:
+                revert_log["old_space_id"] = log.new_space_id
+                revert_log["old_start_time"] = log.new_start_time
+                revert_log["old_end_time"] = log.new_end_time
+            elif log.action == ScheduleChangeAction.UNASSIGN:
+                revert_log["new_space_id"] = log.old_space_id
+                revert_log["new_start_time"] = log.old_start_time
+                revert_log["new_end_time"] = log.old_end_time
+            self._uow.schedule_change_logs.create(revert_log)
+
+
+class SessionConfirmationService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
+        tracks: TrackRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._agenda_items = agenda_items
+        self._sessions = sessions
+        self._tracks = tracks
+
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None:
+        agenda_item = self._agenda_items.read(agenda_item_pk)
+        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
+        with self._transaction.atomic():
+            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+
+    def confirm_all(self, event_pk: int) -> None:
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_event(event_pk)
+
+    def confirm_block(self, event_pk: int, track_pk: int) -> None:
+        # Panel access only proves you manage `event_pk`; a track named in the
+        # request must belong to it, or it is cross-event tampering.
+        if self._tracks.read(track_pk).event_id != event_pk:
+            raise NotFoundError
+        with self._transaction.atomic():
+            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class ConflictDetectionService:
@@ -379,10 +478,13 @@ class ConflictDetectionService:
         self._uow = uow
 
     def detect_for_assignment(
-        self, session_pk: int, space_pk: int, start_time: datetime, end_time: datetime
+        self, session_pk: int, placement: SessionPlacement
     ) -> list[ConflictDTO]:
         conflicts: list[ConflictDTO] = []
         session = self._uow.sessions.read(session_pk)
+        space_pk = placement.space_pk
+        start_time = placement.start_time
+        end_time = placement.end_time
 
         # Space overlap
         overlapping_in_space = self._uow.agenda_items.list_overlapping_in_space(
@@ -451,9 +553,11 @@ class ConflictDetectionService:
         for item in scheduled:
             conflicts = self.detect_for_assignment(
                 session_pk=item.session_id,
-                space_pk=item.space_id,
-                start_time=item.start_time,
-                end_time=item.end_time,
+                placement=SessionPlacement(
+                    space_pk=item.space_id,
+                    start_time=item.start_time,
+                    end_time=item.end_time,
+                ),
             )
             for conflict in conflicts:
                 key = (item.session_id, conflict.session_pk)
@@ -569,7 +673,7 @@ class TimetableOverviewService:
             if item.space_id in space_pk_set:
                 space_items[item.space_id].append(item)
 
-        windows_by_date = _slot_windows_by_local_date(
+        windows_by_date = slot_windows_by_local_date(
             self._uow.time_slots.list_by_event(event_pk), tz
         )
 
@@ -704,6 +808,14 @@ class CFPPersonalDataFieldService:
             optional_category_pks={pk for pk, req in field_cats.items() if not req},
         )
 
+    def _scope_to_event(
+        self, event_pk: int, category_requirements: dict[int, bool]
+    ) -> dict[int, bool]:
+        # Drop category pks that belong to another event so a tampered
+        # request cannot link this field to a foreign event's categories.
+        valid_pks = {c.pk for c in self._categories.list_by_event(event_pk)}
+        return {pk: req for pk, req in category_requirements.items() if pk in valid_pks}
+
     def create(
         self,
         event_pk: int,
@@ -712,10 +824,8 @@ class CFPPersonalDataFieldService:
     ) -> PersonalDataFieldDTO:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
-            if category_requirements:
-                self._categories.add_field_to_categories(
-                    field.pk, category_requirements
-                )
+            if scoped := self._scope_to_event(event_pk, category_requirements):
+                self._categories.add_field_to_categories(field.pk, scoped)
         return field
 
     def update(
@@ -726,11 +836,10 @@ class CFPPersonalDataFieldService:
         category_requirements: dict[int, bool],
     ) -> None:
         field = self._fields.read_by_slug(event_pk, field_slug)
+        scoped = self._scope_to_event(event_pk, category_requirements)
         with self._transaction.atomic():
             self._fields.update(field.pk, data)
-            self._categories.set_personal_field_categories(
-                field.pk, category_requirements
-            )
+            self._categories.set_personal_field_categories(field.pk, scoped)
 
     def delete(self, event_pk: int, field_slug: str) -> bool:
         # Returns False when the field is in use by session types.
@@ -740,3 +849,368 @@ class CFPPersonalDataFieldService:
             return False
         self._fields.delete(field.pk)
         return True
+
+
+class SessionEditNotAllowedError(Exception):
+    """Raised when a user may not self-edit the requested session."""
+
+
+def _normalize(value: ContentFieldValue) -> ContentFieldValue:
+    return "" if value is None else value
+
+
+def _diff_cover_image(old_url: str, new_value: object) -> ContentFieldChange | None:
+    # new_value is "" when the cover was cleared, or a file object on upload.
+    if not new_value:
+        if old_url:
+            return {"field": "cover_image", "field_id": None, "old": old_url, "new": ""}
+        return None
+    return {
+        "field": "cover_image",
+        "field_id": None,
+        "old": old_url,
+        "new": "(updated)",
+    }
+
+
+def _diff_field_values(
+    old_values: list[SessionFieldValueDTO], new_values: list[SessionFieldValueData]
+) -> list[ContentFieldChange]:
+    old_by_id = {v.field_id: v.value for v in old_values}
+    changes: list[ContentFieldChange] = []
+    for new in new_values:
+        field_id = new["field_id"]
+        old_value = old_by_id.get(field_id)
+        new_value = new["value"]
+        if _normalize(old_value) == _normalize(new_value):
+            continue
+        changes.append(
+            {"field": "", "field_id": field_id, "old": old_value, "new": new_value}
+        )
+    return changes
+
+
+def _core_comparisons(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
+    # Keys are accessed literally (not in a loop) so the TypedDict / DTO field
+    # types stay statically known. cover_image is handled separately.
+    comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
+    if "title" in update:
+        comparisons.append(("title", old_session.title, update["title"]))
+    if "display_name" in update:
+        comparisons.append(
+            ("display_name", old_session.display_name, update["display_name"])
+        )
+    if "description" in update:
+        comparisons.append(
+            ("description", old_session.description, update["description"])
+        )
+    if "requirements" in update:
+        comparisons.append(
+            ("requirements", old_session.requirements, update["requirements"])
+        )
+    if "needs" in update:
+        comparisons.append(("needs", old_session.needs, update["needs"]))
+    if "contact_email" in update:
+        comparisons.append(
+            ("contact_email", old_session.contact_email, update["contact_email"])
+        )
+    if "participants_limit" in update:
+        comparisons.append(
+            (
+                "participants_limit",
+                old_session.participants_limit,
+                update["participants_limit"],
+            )
+        )
+    if "min_age" in update:
+        comparisons.append(("min_age", old_session.min_age, update["min_age"]))
+    if "duration" in update:
+        comparisons.append(("duration", old_session.duration, update["duration"]))
+    return comparisons
+
+
+def diff_session_content(
+    old_session: SessionDTO,
+    update: SessionUpdateData,
+    old_values: list[SessionFieldValueDTO],
+    new_values: list[SessionFieldValueData],
+) -> list[ContentFieldChange]:
+    # Field-by-field diff of a session edit, as a flat list of changes: core
+    # session columns plus dynamic session-field answers. Pure, identity-only
+    # (no display text) — mirrors exactly what the edit persists.
+    changes: list[ContentFieldChange] = [
+        {"field": key, "field_id": None, "old": old_value, "new": new_value}
+        for key, old_value, new_value in _core_comparisons(old_session, update)
+        if old_value != new_value
+    ]
+    if "cover_image" in update:
+        cover_change = _diff_cover_image(
+            old_session.cover_image_url, update["cover_image"]
+        )
+        if cover_change is not None:
+            changes.append(cover_change)
+    changes.extend(_diff_field_values(old_values, new_values))
+    return changes
+
+
+class SessionContentEditService:
+    # Shared by the facilitator self-edit and organizer panel edit so both
+    # paths write the same ContentChangeLog; owns the transactional boundary.
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
+        content_change_logs: ContentChangeLogRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._session_fields = session_fields
+        self._content_change_logs = content_change_logs
+
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        data: SessionContentEditData,
+    ) -> None:
+        # All writes share one transaction so a partial edit can never be
+        # committed. data.facilitator_ids None leaves the assignment untouched
+        # (self-edit); a list (possibly empty) replaces it.
+        with self._transaction.atomic():
+            old_session = self._sessions.read(session_id)
+            old_values = self._sessions.read_field_values(session_id)
+            self._sessions.update(session_id, data.update)
+            if data.field_values is not None:
+                self._sessions.save_field_values(session_id, data.field_values)
+            values_for_diff = (
+                data.field_values
+                if data.field_values is not None
+                else [
+                    SessionFieldValueData(
+                        session_id=session_id, field_id=fv.field_id, value=fv.value
+                    )
+                    for fv in old_values
+                ]
+            )
+            if data.facilitator_ids is not None:
+                self._sessions.set_facilitators(session_id, data.facilitator_ids)
+            changes = diff_session_content(
+                old_session, data.update, old_values, values_for_diff
+            )
+            if changes:
+                log_data: ContentChangeLogData = {
+                    "event_id": event_id,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "changes": changes,
+                }
+                self._content_change_logs.create(log_data)
+
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
+        return self._content_change_logs.list_by_event(event_id)
+
+    def list_field_names(self, event_id: int) -> dict[int, str]:
+        # Render-time resolution of dynamic session-field labels (user content,
+        # not UI text) so the log shows the field's current name.
+        return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
+
+
+class SessionSelfEditService:
+    """Facilitator self-service editing of their own session."""
+
+    def __init__(
+        self,
+        sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+        content_edit: SessionContentEditService,
+    ) -> None:
+        self._sessions = sessions
+        self._session_fields = session_fields
+        self._spheres = spheres
+        self._content_edit = content_edit
+
+    def _gate(
+        self, session_id: int, user_id: int | None
+    ) -> tuple[bool, SessionDTO | None, EventDTO | None]:
+        if user_id is None:
+            return False, None, None
+        try:
+            session = self._sessions.read(session_id)
+        except NotFoundError:
+            return False, None, None
+        if session.presenter_id is None or session.presenter_id != user_id:
+            return False, session, None
+        try:
+            event = self._sessions.read_event(session_id)
+        except NotFoundError:
+            return False, session, None
+        sphere = self._spheres.read(event.sphere_id)
+        allowed = resolve_facilitator_session_edit(
+            event_override=event.allow_facilitator_session_edit,
+            sphere_default=sphere.allow_facilitator_session_edit,
+        )
+        return allowed, session, event
+
+    def can_edit(self, session_id: int, user_id: int | None) -> bool:
+        allowed, _session, _event = self._gate(session_id, user_id)
+        return allowed
+
+    def get_edit_context(
+        self, session_id: int, user_id: int | None
+    ) -> SessionSelfEditContext:
+        allowed, session, event = self._gate(session_id, user_id)
+        if not allowed or session is None or event is None:
+            raise SessionEditNotAllowedError
+        fields = self._session_fields.list_by_event(event.pk)
+        existing = self._sessions.read_field_values(session_id)
+        values_by_slug = {fv.field_slug: fv.value for fv in existing}
+        return SessionSelfEditContext(
+            session=session,
+            event=event,
+            session_fields=[(f, values_by_slug.get(f.slug)) for f in fields],
+            facilitators=self._sessions.read_facilitators(session_id),
+        )
+
+    def update(
+        self,
+        session_id: int,
+        user_id: int | None,
+        cleaned_data: dict[str, object],
+        field_values: list[SessionFieldValueData] | None,
+    ) -> None:
+        allowed, _session, event = self._gate(session_id, user_id)
+        if not allowed or event is None:
+            raise SessionEditNotAllowedError
+
+        def _str(key: str) -> str:
+            value = cleaned_data.get(key)
+            return str(value) if value else ""
+
+        def _int(key: str) -> int:
+            value = cleaned_data.get(key)
+            return value if isinstance(value, int) else 0
+
+        update: SessionUpdateData = {
+            "title": _str("title"),
+            "display_name": _str("display_name"),
+            "description": _str("description"),
+            "requirements": _str("requirements"),
+            "needs": _str("needs"),
+            "contact_email": _str("contact_email"),
+            "participants_limit": _int("participants_limit"),
+            "min_age": _int("min_age"),
+            "duration": _str("duration"),
+        }
+        if (cover := resolve_cover_image(cleaned_data.get("cover_image"))) is not None:
+            update["cover_image"] = cover
+        self._content_edit.apply(
+            session_id=session_id,
+            event_id=event.pk,
+            user_id=user_id,
+            data=SessionContentEditData(update=update, field_values=field_values),
+        )
+
+
+class IntegrationImplementationNotFoundError(Exception):
+    """Raised when the registry has no implementation for an identifier."""
+
+
+class EventIntegrationsService:
+    """CRUD + check dispatch for per-event integrations.
+
+    The registry of `IntegrationImplementation`s is composition-time data
+    passed in from `inits/`; the mill never imports a concrete impl.
+    """
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        integrations: EventIntegrationsRepositoryProtocol,
+        connections: ConnectionsRepositoryProtocol,
+        decryptor: DecryptorProtocol,
+        registry: dict[IntegrationImplementationId, IntegrationImplementation],
+    ) -> None:
+        self._transaction = transaction
+        self._integrations = integrations
+        self._connections = connections
+        self._decryptor = decryptor
+        self._registry = registry
+
+    def list_implementations(
+        self, kind: IntegrationKind
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]:
+        return {
+            impl_id: impl
+            for impl_id, impl in self._registry.items()
+            if impl.kind == kind
+        }
+
+    def list_all_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]:
+        return dict(self._registry)
+
+    def list_for_event(
+        self, event_id: int, kind: IntegrationKind | None = None
+    ) -> list[EventIntegrationDTO]:
+        return self._integrations.list_for_event(event_id, kind)
+
+    def get(self, event_id: int, pk: int) -> EventIntegrationDTO:
+        return self._integrations.get(event_id, pk)
+
+    def create(
+        self, sphere_id: int, event_id: int, data: EventIntegrationCreateData
+    ) -> EventIntegrationDTO:
+        self._require_implementation(data["implementation"], data["kind"])
+        # Raises NotFoundError if the connection isn't in this sphere.
+        self._connections.get(sphere_id, data["connection_id"])
+        with self._transaction.atomic():
+            return self._integrations.create(event_id, data)
+
+    def update(
+        self, sphere_id: int, event_id: int, pk: int, data: EventIntegrationUpdateData
+    ) -> EventIntegrationDTO:
+        self._connections.get(sphere_id, data["connection_id"])
+        with self._transaction.atomic():
+            return self._integrations.update(event_id, pk, data)
+
+    def delete(self, event_id: int, pk: int) -> None:
+        with self._transaction.atomic():
+            self._integrations.delete(event_id, pk)
+
+    def check(self, request: IntegrationCheckRequest) -> CheckResult:
+        if (impl := self._registry.get(request.implementation)) is None:
+            return CheckResult(
+                outcome=CheckOutcome.NOT_FOUND,
+                hint=f"Unknown implementation: {request.implementation}",
+            )
+        try:
+            config = impl.config_model.model_validate_json(request.config_json)
+        except ValidationError as exc:
+            return CheckResult(
+                outcome=CheckOutcome.NOT_FOUND, hint=f"Invalid config: {exc}"
+            )
+        try:
+            blob = self._connections.read_secret(
+                request.sphere_id, request.connection_id
+            )
+        except NotFoundError:
+            return CheckResult(
+                outcome=CheckOutcome.NOT_FOUND, hint="Connection not found."
+            )
+        plaintext = self._decryptor.decrypt(blob) if blob else b""
+        return impl.check(plaintext, config)
+
+    def _require_implementation(
+        self, identifier: IntegrationImplementationId, kind: IntegrationKind
+    ) -> None:
+        impl = self._registry.get(identifier)
+        if impl is None or impl.kind != kind:
+            raise IntegrationImplementationNotFoundError(identifier)

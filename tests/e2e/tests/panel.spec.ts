@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /** Build an HH:MM string by adding minutes to a base hour:minute. */
 function timeHHMM(
@@ -36,6 +36,26 @@ function slugify(value: string): string {
 
 function sessionTypeRequirementSelect(page: Page, name: string) {
   return page.getByRole('combobox', { name, exact: true }).last();
+}
+
+function firstCategoryRequirementSelect(page: Page) {
+  return page.locator('select[name^="category_"]').first();
+}
+
+async function expectRequiredOption(
+  select: Locator,
+  expected: { hidden: boolean; disabled: boolean },
+) {
+  await expect
+    .poll(() =>
+      select
+        .locator('option[value="required"]')
+        .evaluate((opt: HTMLOptionElement) => ({
+          hidden: opt.hidden,
+          disabled: opt.disabled,
+        })),
+    )
+    .toEqual(expected);
 }
 
 function proposalCategoryOption(page: Page, name: string) {
@@ -96,7 +116,6 @@ test.describe('Backoffice Panel', () => {
     await expect(page.getByRole('link', { name: 'Proposals', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Venues/ })).toBeVisible();
     await expect(page.getByRole('link', { name: /Event Settings/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Back to website/ })).toBeVisible();
 
     // Page header
     await expect(
@@ -248,12 +267,18 @@ test.describe('Backoffice Panel', () => {
     await expect(
       page.getByRole('heading', { name: 'Convention Center' }),
     ).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Main Hall' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Lounge' })).toBeVisible();
+    await expect(
+      page.getByRole('cell', { name: 'Main Hall', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('cell', { name: 'Lounge', exact: true }),
+    ).toBeVisible();
 
     await page.getByRole('link', { name: 'Spaces' }).first().click();
     await expect(page.getByRole('heading', { name: 'Lounge' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Fireside Alcove' })).toBeVisible();
+    await expect(
+      page.getByRole('cell', { name: 'Fireside Alcove', exact: true }),
+    ).toBeVisible();
   });
 
   test('duplicates a venue', async ({ page }) => {
@@ -525,8 +550,6 @@ test.describe('Backoffice Panel', () => {
       '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
     );
 
-    page.on('dialog', (dialog) => dialog.accept());
-
     const row = page.locator('tr', {
       hasText: 'Temp Space To Delete',
     });
@@ -534,6 +557,12 @@ test.describe('Backoffice Panel', () => {
     await row
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
+      .click();
+
+    // Confirm in the styled dialog that replaced the native confirm()
+    await page
+      .locator('#confirm-dialog')
+      .getByRole('button', { name: 'Delete' })
       .click();
 
     await expect(
@@ -772,6 +801,111 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
   });
 
+  test('field create forms hide "Required" for checkbox fields', async ({
+    page,
+  }) => {
+    for (const path of [
+      '/panel/event/autumn-open/cfp/personal-data/create/',
+      '/panel/event/autumn-open/cfp/session-fields/create/',
+    ]) {
+      await page.goto(path);
+
+      const requirementSelect = firstCategoryRequirementSelect(page);
+      await page.locator('#id_field_type').selectOption('text');
+      await requirementSelect.selectOption('required');
+      await expectRequiredOption(requirementSelect, {
+        hidden: false,
+        disabled: false,
+      });
+      await expect(requirementSelect).toHaveValue('required');
+
+      await page.locator('#id_field_type').selectOption('checkbox');
+      await expectRequiredOption(requirementSelect, {
+        hidden: true,
+        disabled: true,
+      });
+      await expect(requirementSelect).toHaveValue('optional');
+    }
+  });
+
+  test('cfp picker shows checkbox fields as optional only', async ({
+    page,
+  }, testInfo) => {
+    const retrySuffix = testInfo.retry === 0 ? '' : `-r${testInfo.retry}`;
+    const nameSuffix = `${testInfo.project.name}${retrySuffix}`;
+    const hostFieldName = `Host Consent ${nameSuffix}`;
+    const sessionFieldName = `Session Consent ${nameSuffix}`;
+
+    await page.goto(
+      '/panel/event/autumn-open/cfp/personal-data/create/',
+    );
+    await page.locator('#id_name').fill(hostFieldName);
+    await page
+      .locator('#id_question')
+      .fill('May we contact this host?');
+    await page.locator('#id_field_type').selectOption('checkbox');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(
+      page.getByText(
+        'Personal data field created successfully.',
+      ),
+    ).toBeVisible();
+
+    await page.goto(
+      '/panel/event/autumn-open/cfp/session-fields/create/',
+    );
+    await page.locator('#id_name').fill(sessionFieldName);
+    await page
+      .locator('#id_question')
+      .fill('Does this session need consent?');
+    await page.locator('#id_field_type').selectOption('checkbox');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(
+      page.getByText('Session field created successfully.'),
+    ).toBeVisible();
+
+    await page.goto('/panel/event/autumn-open/cfp/rpg-proposals/');
+
+    const assertOptionalOnly = async (group: string, fieldName: string) => {
+      await page
+        .locator(`${group} .avail-list .field-item`, { hasText: fieldName })
+        .locator('.add-field')
+        .click();
+
+      const chosen = page.locator(`${group} .chosen-list .field-item`, {
+        hasText: fieldName,
+      });
+      await expect(chosen.locator('.field-select')).toHaveValue('optional');
+      await expect(chosen.locator('.toggle-req')).toHaveCount(0);
+      await expect(chosen.locator('.optional-label')).toHaveText('Optional');
+    };
+
+    await assertOptionalOnly('#host-fields-list', hostFieldName);
+    await assertOptionalOnly('#session-fields-list', sessionFieldName);
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.goto('/panel/event/autumn-open/cfp/personal-data/');
+    await page
+      .getByRole('row', { name: new RegExp(hostFieldName) })
+      .getByRole('button', { name: /Delete/i })
+      .click();
+    await expect(
+      page.getByText(
+        'Personal data field deleted successfully.',
+      ),
+    ).toBeVisible();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.goto('/panel/event/autumn-open/cfp/session-fields/');
+    await page
+      .getByRole('row', { name: new RegExp(sessionFieldName) })
+      .getByRole('button', { name: /Delete/i })
+      .click();
+    await expect(
+      page.getByText('Session field deleted successfully.'),
+    ).toBeVisible();
+  });
+
   // --- Step 8: Time Slots ---
 
   test('shows time slots page', async ({ page }) => {
@@ -941,7 +1075,10 @@ test.describe('Backoffice Panel', () => {
       test('creates session type for proposal flow', async ({
         page,
       }, testInfo) => {
-        const suffix = testInfo.project.name;
+        const suffix =
+          testInfo.retry > 0
+            ? `${testInfo.project.name}-r${testInfo.retry}`
+            : testInfo.project.name;
         proposalCategoryName = `Tabletop RPG ${suffix}`;
         proposalTitle = `Dragon's Lair ${suffix}: A Beginner Adventure`;
         cityName = `City ${suffix}`;
@@ -1190,7 +1327,12 @@ test.describe('Backoffice Panel', () => {
           ),
         ).toBeVisible();
 
-        // Field 4: Beginner Friendly (checkbox, optional)
+        /* NOTE: the panel UI hides "Required" for checkbox fields because
+           the proposer-side form builder (chronology/forms.py — BooleanField
+           for checkbox) ignores `is_required` anyway. The regression test
+           below needs a checkbox stored as required to exercise that
+           defensive coercion, so we re-inject the option to craft a
+           tampered POST that the server-side parser still accepts. */
         await page.goto(
           '/panel/event/autumn-open/cfp/session-fields/create/',
         );
@@ -1204,7 +1346,13 @@ test.describe('Backoffice Panel', () => {
           .locator('#id_field_type')
           .selectOption('checkbox');
         await sessionTypeRequirementSelect(page, proposalCategoryName)
-          .selectOption('optional');
+          .evaluate((sel: HTMLSelectElement) => {
+            const opt = document.createElement('option');
+            opt.value = 'required';
+            opt.textContent = 'Required';
+            sel.appendChild(opt);
+            sel.value = 'required';
+          });
         await page
           .getByRole('button', { name: 'Create' })
           .click();
@@ -1291,6 +1439,21 @@ test.describe('Backoffice Panel', () => {
         await expect(
           page.locator('.duration-item', { hasText: '2h' }),
         ).toBeVisible();
+
+        await page
+          .locator('#session-fields-list .field-item', {
+            hasText: beginnerName,
+          })
+          .locator('.field-select')
+          .evaluate((sel: HTMLSelectElement) => {
+            if (!sel.querySelector('option[value="required"]')) {
+              const opt = document.createElement('option');
+              opt.value = 'required';
+              opt.textContent = 'Required';
+              sel.appendChild(opt);
+            }
+            sel.value = 'required';
+          });
 
         // Save
         await page
@@ -1450,6 +1613,100 @@ test.describe('Backoffice Panel', () => {
         await page.waitForURL(/\/autumn-open\//);
         await expect(
           page.getByText(proposalTitle),
+        ).toBeVisible();
+
+        await context.close();
+      });
+
+      test('regression: submits with min_age above 18 and unchecked required checkbox', async ({
+        browser,
+      }, testInfo) => {
+        const suffix = testInfo.project.name;
+        const regressionTitle = `Regression Run ${suffix} ${Date.now()}`;
+        const statePath = path.join(__dirname, '..', '.auth-state.json');
+        const storageState = JSON.parse(
+          fs.readFileSync(statePath, 'utf8'),
+        );
+        const context = await browser.newContext({ storageState });
+        const page = await context.newPage();
+
+        await page.goto(
+          '/chronology/event/autumn-open/session/propose/',
+        );
+        await proposalCategoryOption(page, proposalCategoryName).click();
+        await page
+          .getByRole('button', { name: /Continue/ })
+          .click();
+
+        await page
+          .locator('#id_contact_email')
+          .fill('regression@example.com');
+        await page
+          .locator(`input[name="personal_${slugify(cityName)}"]`)
+          .fill('Wroclaw');
+        await page
+          .locator(`select[name="personal_${slugify(experienceName)}"]`)
+          .selectOption('Advanced');
+        await page
+          .getByLabel('Subscribe to newsletter?')
+          .check();
+        await page
+          .getByRole('button', { name: /Continue/ })
+          .click();
+
+        const slotLabels = page.locator(
+          'label:has(input[name="time_slot_ids"])',
+        );
+        await slotLabels.nth(1).click();
+        await page
+          .getByRole('button', { name: /Continue/ })
+          .click();
+
+        await expect(
+          page.locator('#wizard-content').getByRole('heading', {
+            name: 'Session Details',
+          }),
+        ).toBeVisible();
+
+        await page.locator('#id_title').fill(regressionTitle);
+        await page
+          .locator('#id_description')
+          .fill('Regression coverage: min_age cap + unchecked required checkbox.');
+        await page.locator('#id_participants_limit').fill('4');
+        await page.locator('#id_min_age').fill('30');
+        await page.locator('#id_display_name').fill('Regression GM');
+        await page.locator('#id_duration').selectOption('PT2H');
+        await page
+          .locator(`input[name="session_${slugify(gameSystemName)}"]`)
+          .fill('Pathfinder');
+        await page
+          .locator(`select[name="session_${slugify(genreName)}"]`)
+          .selectOption('Fantasy');
+        await page
+          .locator('label', { hasText: 'English' })
+          .locator(`input[name="session_${slugify(languagesName)}"]`)
+          .check();
+
+        await page
+          .getByRole('button', { name: /Continue/ })
+          .click();
+
+        await expect(
+          page.locator('#wizard-content').getByRole('heading', {
+            name: 'Review & Submit',
+          }),
+        ).toBeVisible();
+        await expect(
+          page.getByText(regressionTitle),
+        ).toBeVisible();
+
+        await page
+          .getByRole('button', { name: 'Submit Proposal' })
+          .click();
+
+        await page.waitForURL(/\/autumn-open\//);
+        await expect(
+          page.getByText(regressionTitle),
         ).toBeVisible();
 
         await context.close();
@@ -1803,16 +2060,23 @@ test.describe('Backoffice Panel', () => {
     expect(newIds).toEqual(reversed);
 
     // Clean up: delete "Reorder Test Space"
-    page.on('dialog', (dialog) => dialog.accept());
-    await page
-      .locator('tr', { hasText: 'Reorder Test Space' })
+    const reorderRow = page.locator('tr', {
+      hasText: 'Reorder Test Space',
+    });
+    await reorderRow
       .locator('.action-dropdown-toggle')
       .click();
-    await page
-      .locator('tr', { hasText: 'Reorder Test Space' })
+    await reorderRow
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
       .click();
+
+    // Confirm in the styled dialog that replaced the native confirm()
+    await page
+      .locator('#confirm-dialog')
+      .getByRole('button', { name: 'Delete' })
+      .click();
+
     await expect(
       page.getByText('Space deleted successfully.'),
     ).toBeVisible();
@@ -2058,5 +2322,65 @@ test.describe('Backoffice Panel', () => {
 
     await expect(page.getByText(secondName!)).not.toBeVisible();
     await expect(page.getByRole('cell', { name: firstName!, exact: true })).toBeVisible();
+  });
+
+  // --- Organization announcements CRUD ---
+
+  test('manages the announcement lifecycle and public visibility', async ({
+    page,
+  }) => {
+    const stamp = Date.now();
+    const title = `E2E Announcement ${stamp}`;
+    const editedTitle = `E2E Announcement Edited ${stamp}`;
+    const content = `Welcome to the convention — announcement body ${stamp}.`;
+
+    // Create
+    await page.goto('/multiverse/panel/announcements/');
+    await page.getByRole('link', { name: 'New announcement' }).first().click();
+    await page.getByLabel('Title').fill(title);
+    await page.getByLabel('Content').fill(content);
+    await page.getByRole('button', { name: 'Create' }).click();
+
+    await expect(
+      page.getByText('Announcement created successfully.'),
+    ).toBeVisible();
+    await expect(page.getByRole('cell', { name: title })).toBeVisible();
+
+    // Published announcement shows on the public landing page
+    await page.goto('/events/');
+    await expect(
+      page.getByRole('heading', { name: 'Organization announcements' }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.getByText(content)).toBeVisible();
+
+    // Edit
+    await page.goto('/multiverse/panel/announcements/');
+    await page
+      .getByRole('row', { name: new RegExp(title) })
+      .getByRole('link', { name: 'Edit' })
+      .click();
+    await page.getByLabel('Title').fill(editedTitle);
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    await expect(
+      page.getByText('Announcement updated successfully.'),
+    ).toBeVisible();
+    await expect(page.getByRole('cell', { name: editedTitle })).toBeVisible();
+
+    // Delete via the confirmation page
+    await page
+      .getByRole('row', { name: new RegExp(editedTitle) })
+      .getByRole('link', { name: 'Delete' })
+      .click();
+    await expect(
+      page.getByRole('heading', { name: 'Delete announcement' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Delete' }).click();
+
+    await expect(
+      page.getByText('Announcement deleted successfully.'),
+    ).toBeVisible();
+    await expect(page.getByRole('cell', { name: editedTitle })).toBeHidden();
   });
 });

@@ -12,6 +12,7 @@ from ludamus.mills import (
     google_calendar_url,
     is_proposal_active,
     outlook_calendar_url,
+    render_markdown,
 )
 from ludamus.mills.chronology import CFPPersonalDataFieldService
 from ludamus.mills.multiverse import ConnectionsService
@@ -30,7 +31,7 @@ from ludamus.pacts.chronology import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
-from ludamus.pacts.multiverse import ConnectionDTO, ConnectionProvider
+from ludamus.pacts.multiverse import ConnectionDTO
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
@@ -141,6 +142,7 @@ class TestCFPPersonalDataFieldService:
     ):
         created = _personal_data_field(pk=99)
         fields.create.return_value = created
+        categories.list_by_event.return_value = [_category(pk=1), _category(pk=2)]
         data = {
             "name": "Email",
             "question": "Q",
@@ -163,6 +165,30 @@ class TestCFPPersonalDataFieldService:
         categories.add_field_to_categories.assert_called_once_with(
             99, {1: True, 2: False}
         )
+
+    def test_create_drops_categories_from_another_event(
+        self, service, fields, categories
+    ):
+        fields.create.return_value = _personal_data_field(pk=99)
+        categories.list_by_event.return_value = [_category(pk=1)]
+        data = {
+            "name": "Email",
+            "question": "Q",
+            "field_type": "text",
+            "options": None,
+            "is_multiple": False,
+            "allow_custom": False,
+            "max_length": 50,
+            "help_text": "",
+            "is_public": False,
+        }
+
+        service.create(
+            event_pk=7, data=data, category_requirements={1: True, 999: True}
+        )
+
+        # The foreign category pk (999) is dropped before persisting.
+        categories.add_field_to_categories.assert_called_once_with(99, {1: True})
 
     def test_create_skips_category_assignment_when_no_requirements(
         self, service, fields, categories
@@ -189,6 +215,7 @@ class TestCFPPersonalDataFieldService:
     ):
         field = _personal_data_field(pk=10)
         fields.read_by_slug.return_value = field
+        categories.list_by_event.return_value = [_category(pk=1)]
         update_data = {
             "name": "Email",
             "question": "Q",
@@ -669,7 +696,12 @@ class TestProposeSessionService:
         )
         mock_uow.sessions.slug_exists.return_value = False
         facilitator = FacilitatorDTO(
-            display_name="Anon Host", event_id=1, pk=10, slug="anon-host", user_id=None
+            accreditation_type="none",
+            display_name="Anon Host",
+            event_id=1,
+            pk=10,
+            slug="anon-host",
+            user_id=None,
         )
         mock_uow.facilitators.create.return_value = facilitator
         expected_session_id = 99
@@ -756,13 +788,9 @@ class TestCheckProposalRateLimit:
         assert result is True
 
 
-def _connection_dto(pk=1, sphere_id=1, name="Konto", *, has_credentials=False):
+def _connection_dto(pk=1, sphere_id=1, name="Konto", *, has_secret=False):
     return ConnectionDTO(
-        pk=pk,
-        sphere_id=sphere_id,
-        service=ConnectionProvider.GOOGLE,
-        display_name=name,
-        has_credentials=has_credentials,
+        pk=pk, sphere_id=sphere_id, display_name=name, has_secret=has_secret
     )
 
 
@@ -789,62 +817,60 @@ class TestConnectionsService:
     def service(self, transaction, connections, encryptor):
         return ConnectionsService(transaction, connections, encryptor)
 
-    def test_create_without_credentials_skips_encrypt(
+    def test_create_without_secret_skips_encrypt(
         self, service, connections, transaction
     ):
         created = _connection_dto(pk=42)
         connections.create.return_value = created
-        data = {"service": ConnectionProvider.GOOGLE, "display_name": "Konto"}
 
-        result = service.create(sphere_id=7, data=data)
+        result = service.create(sphere_id=7, display_name="Konto")
 
         assert result is created
-        connections.create.assert_called_once_with(7, data)
-        connections.update_credentials.assert_not_called()
+        connections.create.assert_called_once_with(7, "Konto")
+        connections.update_secret.assert_not_called()
         transaction.atomic.assert_called_once_with()
 
-    def test_create_with_credentials_encrypts_then_persists(
+    def test_create_with_secret_encrypts_and_persists(
         self, service, connections, transaction
     ):
         created = _connection_dto(pk=42)
         connections.create.return_value = created
-        data = {"service": ConnectionProvider.GOOGLE, "display_name": "Konto"}
 
-        result = service.create(sphere_id=7, data=data, credentials_plaintext=b"secret")
+        result = service.create(
+            sphere_id=7, display_name="Konto", secret_plaintext=b"secret"
+        )
 
         assert result is created
-        connections.create.assert_called_once_with(7, data)
-        connections.update_credentials.assert_called_once_with(7, 42, b"enc:secret")
+        connections.create.assert_called_once_with(7, "Konto")
+        connections.update_secret.assert_called_once_with(7, 42, b"enc:secret")
         transaction.atomic.assert_called_once_with()
 
-    def test_update_without_credentials_skips_encrypt(
+    def test_update_without_secret_skips_encrypt(
         self, service, connections, transaction
     ):
         updated = _connection_dto(pk=42)
         connections.update.return_value = updated
-        data = {"service": ConnectionProvider.GOOGLE, "display_name": "Konto"}
 
-        result = service.update(sphere_id=7, pk=42, data=data)
+        result = service.update(sphere_id=7, pk=42, display_name="Konto")
 
         assert result is updated
-        connections.update.assert_called_once_with(7, 42, data)
-        connections.update_credentials.assert_not_called()
+        connections.update.assert_called_once_with(7, 42, "Konto")
+        connections.update_secret.assert_not_called()
         transaction.atomic.assert_called_once_with()
 
-    def test_update_with_credentials_encrypts_then_persists(
+    def test_update_with_secret_encrypts_and_persists(
         self, service, connections, transaction
     ):
         updated = _connection_dto(pk=42)
         connections.update.return_value = updated
-        data = {"service": ConnectionProvider.GOOGLE, "display_name": "Konto"}
 
         result = service.update(
-            sphere_id=7, pk=42, data=data, credentials_plaintext=b"fresh"
+            sphere_id=7, pk=42, display_name="Konto", secret_plaintext=b"fresh"
         )
 
         assert result is updated
-        connections.update.assert_called_once_with(7, 42, data)
-        connections.update_credentials.assert_called_once_with(7, 42, b"enc:fresh")
+        connections.update.assert_called_once_with(7, 42, "Konto")
+        connections.update_secret.assert_called_once_with(7, 42, b"enc:fresh")
         transaction.atomic.assert_called_once_with()
 
     def test_delete_calls_repo_in_transaction(self, service, connections, transaction):
@@ -852,3 +878,39 @@ class TestConnectionsService:
 
         connections.delete.assert_called_once_with(1, 42)
         transaction.atomic.assert_called_once_with()
+
+
+class TestRenderMarkdown:
+    def test_renders_basic_formatting(self):
+        result = render_markdown("**bold** and *italic*")
+
+        assert "<strong>bold</strong>" in result
+        assert "<em>italic</em>" in result
+
+    def test_keeps_safe_link(self):
+        result = render_markdown("[label](https://example.com)")
+
+        assert '<a href="https://example.com"' in result
+        assert "label</a>" in result
+
+    def test_strips_script_tag(self):
+        result = render_markdown("hi<script>alert(1)</script>")
+
+        assert "<script>" not in result
+        assert "alert(1)" not in result
+
+    def test_strips_event_handler_attribute(self):
+        result = render_markdown('<p onclick="steal()">click</p>')
+
+        assert "onclick" not in result
+        assert "<p>click</p>" in result
+
+    def test_strips_javascript_url_scheme(self):
+        result = render_markdown("[x](javascript:alert(1))")
+
+        assert "javascript:" not in result
+
+    def test_strips_image_tag(self):
+        result = render_markdown("![alt](https://example.com/x.png)")
+
+        assert "<img" not in result

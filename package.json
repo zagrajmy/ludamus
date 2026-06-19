@@ -1,0 +1,17 @@
+{
+  "name": "ludamus",
+  "version": "0.0.0",
+  "private": true,
+  "description": "event planning for nerds",
+  "license": "MIT",
+  "scripts": {
+    "varlock": "varlock run --"
+  },
+  "dependencies": {
+    "varlock": "1.1.0"
+  },
+  "devDependencies": {
+    "fallow": "2.73.0",
+    "portless": "0.13.0"
+  }
+}

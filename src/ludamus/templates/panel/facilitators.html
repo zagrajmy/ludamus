@@ -39,71 +39,70 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
-        {% if facilitators %}
-            <form id="facilitators-list-form">
-                <div class="card overflow-hidden">
-                    <table class="min-w-full divide-y divide-border">
-                        <thead class="bg-bg-tertiary">
-                            <tr>
-                                <th scope="col" class="w-10 px-4 py-3">
+    <div class="p-4">
+        {% if current_event %}
+            {% if facilitators %}
+                <form id="facilitators-list-form">
+                    {% tessera_table %}
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="w-10 px-4 py-3">
+                                <input type="checkbox"
+                                       id="select-all"
+                                       class="w-4 h-4"
+                                       title="{% translate "Select all" %}">
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Display Name" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Linked User" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Sessions" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Actions" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {% for facilitator in facilitators %}
+                            <tr class="hover:bg-bg-tertiary">
+                                <td class="px-4 py-4">
                                     <input type="checkbox"
-                                           id="select-all"
-                                           class="w-4 h-4"
-                                           title="{% translate "Select all" %}">
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Display Name" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Linked User" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Sessions" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Actions" %}
-                                </th>
+                                           name="ids"
+                                           value="{{ facilitator.pk }}"
+                                           class="facilitator-checkbox w-4 h-4">
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                    <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                       class="text-primary hover:text-primary/80"
+                                       title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                    {% if facilitator.user_id %}
+                                        {% translate "Linked" %}
+                                    {% else %}
+                                        <span class="text-foreground-muted">{% translate "None" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                       class="text-primary hover:text-primary/80 inline-flex items-center">
+                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                        {% translate "Edit" %}
+                                    </a>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody class="divide-y divide-border">
-                            {% for facilitator in facilitators %}
-                                <tr class="hover:bg-bg-tertiary">
-                                    <td class="px-4 py-4">
-                                        <input type="checkbox"
-                                               name="ids"
-                                               value="{{ facilitator.pk }}"
-                                               class="facilitator-checkbox w-4 h-4">
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                        <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                           class="text-primary hover:text-primary/80"
-                                           title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                        {% if facilitator.user_id %}
-                                            {% translate "Linked" %}
-                                        {% else %}
-                                            <span class="text-foreground-muted">{% translate "None" %}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                           class="text-primary hover:text-primary/80 inline-flex items-center">
-                                            {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                            {% translate "Edit" %}
-                                        </a>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                        {% endfor %}
+                    </tbody>
+                {% end_tessera_table %}
             </form>
             <script>
                 (function() {
@@ -136,4 +135,5 @@
             <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
         </div>
     {% endif %}
+</div>
 {% endblock content %}

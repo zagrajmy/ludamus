@@ -1,10 +1,15 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import BaseModel
 
 from ludamus.mills.chronology import (
     ConflictDetectionService,
+    EventIntegrationsService,
+    IntegrationImplementationNotFoundError,
+    SessionConfirmationService,
     TimetableOverviewService,
     TimetableService,
 )
@@ -18,7 +23,16 @@ from ludamus.pacts import (
     TimeSlotDTO,
     VenueDTO,
 )
-from ludamus.pacts.chronology import ConflictType
+from ludamus.pacts.chronology import (
+    CheckOutcome,
+    CheckResult,
+    ConflictType,
+    EventIntegrationCreateData,
+    IntegrationCheckRequest,
+    IntegrationImplementationId,
+    IntegrationKind,
+    SessionPlacement,
+)
 
 
 def _make_item(**overrides):
@@ -117,30 +131,65 @@ class TestBuildGridOverlappingSessions:
 class TestRevertChange:
     @pytest.fixture
     def mock_uow(self):
-        return MagicMock()
+        uow = MagicMock()
+        # By default the log under test (pk 1, session 1) is the latest change.
+        uow.schedule_change_logs.latest_pk_for_session.return_value = 1
+        return uow
 
     @pytest.fixture
     def service(self, mock_uow):
         return TimetableService(mock_uow)
+
+    def test_revert_rejects_non_latest_change(self, service, mock_uow):
+        """Only the most recent change for a session may be reverted."""
+        log = MagicMock()
+        log.event_id = 1
+        log.action = ScheduleChangeAction.ASSIGN
+        log.session_id = 1
+        mock_uow.schedule_change_logs.read.return_value = log
+        # A newer change (pk 2) exists for the same session.
+        mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 2
+
+        with pytest.raises(ValueError, match="latest change"):
+            service.revert_change(log_pk=1, event_pk=1)
+
+        mock_uow.agenda_items.read_by_session.assert_not_called()
+
+    def test_revert_raises_not_found_for_log_from_another_event(
+        self, service, mock_uow
+    ):
+        """A log belonging to another event is rejected before reverting."""
+        log = MagicMock()
+        log.event_id = 2
+        log.action = ScheduleChangeAction.ASSIGN
+        log.session_id = 1
+        mock_uow.schedule_change_logs.read.return_value = log
+
+        with pytest.raises(NotFoundError):
+            service.revert_change(log_pk=1, event_pk=1)
+
+        mock_uow.agenda_items.read_by_session.assert_not_called()
 
     def test_revert_assign_raises_not_found_when_no_agenda_item(
         self, service, mock_uow
     ):
         """Line 210: agenda_item is None when reverting ASSIGN."""
         log = MagicMock()
+        log.event_id = 1
         log.action = ScheduleChangeAction.ASSIGN
         log.session_id = 1
         mock_uow.schedule_change_logs.read.return_value = log
         mock_uow.agenda_items.read_by_session.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.revert_change(log_pk=1)
+            service.revert_change(log_pk=1, event_pk=1)
 
     def test_revert_unassign_raises_when_missing_placement_data(
         self, service, mock_uow
     ):
         """Lines 221-222: missing original placement data."""
         log = MagicMock()
+        log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
         log.session_id = 1
         log.old_space_id = None
@@ -149,11 +198,12 @@ class TestRevertChange:
         mock_uow.schedule_change_logs.read.return_value = log
 
         with pytest.raises(ValueError, match="missing original placement data"):
-            service.revert_change(log_pk=1)
+            service.revert_change(log_pk=1, event_pk=1)
 
     def test_revert_unassign_raises_when_session_not_pending(self, service, mock_uow):
         """Session must be in PENDING status to revert an unassign."""
         log = MagicMock()
+        log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
         log.session_id = 1
         log.old_space_id = 5
@@ -166,17 +216,193 @@ class TestRevertChange:
         mock_uow.sessions.read.return_value = session
 
         with pytest.raises(ValueError, match="is not in PENDING status"):
-            service.revert_change(log_pk=1)
+            service.revert_change(log_pk=1, event_pk=1)
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
         """Lines 240-241: unknown action type."""
         log = MagicMock()
+        log.event_id = 1
         log.action = "UNKNOWN_ACTION"
         log.session_id = 1
         mock_uow.schedule_change_logs.read.return_value = log
 
         with pytest.raises(ValueError, match="Cannot revert action"):
-            service.revert_change(log_pk=1)
+            service.revert_change(log_pk=1, event_pk=1)
+
+
+class TestAssignUnassignScope:
+    """The service rejects sessions/spaces that belong to another event."""
+
+    @pytest.fixture
+    def mock_uow(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, mock_uow):
+        return TimetableService(mock_uow)
+
+    @staticmethod
+    def _event(pk, *, auto_confirm_sessions=True):
+        event = MagicMock()
+        event.pk = pk
+        event.auto_confirm_sessions = auto_confirm_sessions
+        return event
+
+    @staticmethod
+    def _placement(space_pk=1):
+        return SessionPlacement(
+            space_pk=space_pk,
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+
+    def test_assign_rejects_session_from_another_event(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.assign_session(
+                session_pk=1, placement=self._placement(), event_pk=1
+            )
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_rejects_space_from_another_event(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(1)
+        foreign_space = MagicMock()
+        foreign_space.pk = 99
+        mock_uow.spaces.list_by_event.return_value = [foreign_space]
+
+        with pytest.raises(NotFoundError):
+            service.assign_session(
+                session_pk=1, placement=self._placement(), event_pk=1
+            )
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_unassign_rejects_session_from_another_event(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.unassign_session(session_pk=1, event_pk=1)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def _arrange_pending_assignment(self, mock_uow, *, auto_confirm_sessions):
+        mock_uow.sessions.read_event.return_value = self._event(
+            1, auto_confirm_sessions=auto_confirm_sessions
+        )
+        space = MagicMock()
+        space.pk = 1
+        mock_uow.spaces.list_by_event.return_value = [space]
+        mock_uow.agenda_items.read_by_session.return_value = None
+        session = MagicMock()
+        session.status = SessionStatus.PENDING
+        mock_uow.sessions.read.return_value = session
+
+    def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
+        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=True)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is True
+
+    def test_assign_leaves_unconfirmed_when_event_disables_auto_confirm(
+        self, service, mock_uow
+    ):
+        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=False)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is False
+
+
+class TestSessionConfirmation:
+    """The service toggles confirmation and rejects foreign agenda items."""
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def tracks(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, agenda_items, sessions, tracks):
+        return SessionConfirmationService(transaction, agenda_items, sessions, tracks)
+
+    @staticmethod
+    def _event(pk):
+        event = MagicMock()
+        event.pk = pk
+        return event
+
+    @staticmethod
+    def _track(event_id):
+        track = MagicMock()
+        track.event_id = event_id
+        return track
+
+    def test_confirm_persists_true(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
+
+    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
+
+    def test_rejects_agenda_item_from_another_event(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_not_called()
+
+    def test_confirm_all_confirms_every_item_in_event(self, service, agenda_items):
+        service.confirm_all(event_pk=1)
+
+        agenda_items.confirm_all_by_event.assert_called_once_with(1)
+
+    def test_confirm_block_confirms_items_in_track(self, service, agenda_items, tracks):
+        tracks.read.return_value = self._track(event_id=1)
+
+        service.confirm_block(event_pk=1, track_pk=5)
+
+        agenda_items.confirm_all_by_track.assert_called_once_with(5)
+
+    def test_confirm_block_rejects_track_from_another_event(
+        self, service, agenda_items, tracks
+    ):
+        tracks.read.return_value = self._track(event_id=2)
+
+        with pytest.raises(NotFoundError):
+            service.confirm_block(event_pk=1, track_pk=5)
+
+        agenda_items.confirm_all_by_track.assert_not_called()
 
 
 class TestListAllForTrackAttribution:
@@ -261,3 +487,139 @@ class TestTimetableOverviewServiceDefaults:
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
         assert not result
+
+
+# --- EventIntegrationsService ---
+
+
+class _StrictConfig(BaseModel):
+    endpoint: str
+
+
+class _ImportStubImpl:
+    kind = IntegrationKind.IMPORT
+    config_model = _StrictConfig
+
+    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+        return CheckResult(outcome=CheckOutcome.OK, hint="")
+
+
+class _TicketingStubImpl:
+    kind = IntegrationKind.TICKETING
+    config_model = BaseModel
+
+    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+        return CheckResult(outcome=CheckOutcome.OK, hint="")
+
+
+_IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+
+
+def _make_service(registry):
+    transaction = MagicMock()
+    transaction.atomic.return_value.__enter__ = MagicMock(return_value=None)
+    transaction.atomic.return_value.__exit__ = MagicMock(return_value=None)
+    integrations = MagicMock()
+    connections = MagicMock()
+    decryptor = MagicMock()
+    svc = EventIntegrationsService(
+        transaction=transaction,
+        integrations=integrations,
+        connections=connections,
+        decryptor=decryptor,
+        registry=registry,
+    )
+    return SimpleNamespace(
+        svc=svc,
+        transaction=transaction,
+        integrations=integrations,
+        connections=connections,
+        decryptor=decryptor,
+    )
+
+
+def _create_data():
+    return EventIntegrationCreateData(
+        kind=IntegrationKind.IMPORT,
+        implementation=_IMPL,
+        connection_id=3,
+        display_name="x",
+        config_json="{}",
+    )
+
+
+class TestEventIntegrationsServiceCheck:
+    def test_unknown_implementation_returns_not_found(self):
+        env = _make_service(registry={})
+
+        result = env.svc.check(
+            IntegrationCheckRequest(
+                sphere_id=1, implementation=_IMPL, connection_id=2, config_json="{}"
+            )
+        )
+
+        assert result.outcome == CheckOutcome.NOT_FOUND
+        assert _IMPL.value in result.hint
+        # Short-circuits before touching the connection secret or decryptor.
+        env.connections.read_secret.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
+
+    def test_invalid_config_returns_not_found(self):
+        env = _make_service(registry={_IMPL: _ImportStubImpl()})
+
+        result = env.svc.check(
+            IntegrationCheckRequest(
+                sphere_id=1,
+                implementation=_IMPL,
+                connection_id=2,
+                # endpoint must be a string; a JSON number trips ValidationError.
+                config_json='{"endpoint": 123}',
+            )
+        )
+
+        assert result.outcome == CheckOutcome.NOT_FOUND
+        assert "Invalid config" in result.hint
+        # ValidationError funnels out before reading the secret.
+        env.connections.read_secret.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
+
+    def test_missing_connection_returns_not_found(self):
+        env = _make_service(registry={_IMPL: _ImportStubImpl()})
+        env.connections.read_secret.side_effect = NotFoundError
+
+        result = env.svc.check(
+            IntegrationCheckRequest(
+                sphere_id=1,
+                implementation=_IMPL,
+                connection_id=999,
+                config_json='{"endpoint": "x"}',
+            )
+        )
+
+        assert result.outcome == CheckOutcome.NOT_FOUND
+        assert result.hint == "Connection not found."
+        # A NotFoundError becomes a graceful result; nothing gets decrypted.
+        env.decryptor.decrypt.assert_not_called()
+
+
+class TestEventIntegrationsServiceRequireImplementation:
+    def test_create_with_unknown_implementation_raises(self):
+        env = _make_service(registry={})
+
+        with pytest.raises(IntegrationImplementationNotFoundError):
+            env.svc.create(sphere_id=1, event_id=2, data=_create_data())
+
+        # Guard raises before any IO or transaction.
+        env.connections.get.assert_not_called()
+        env.transaction.atomic.assert_not_called()
+        env.integrations.create.assert_not_called()
+
+    def test_create_with_wrong_kind_raises(self):
+        env = _make_service(registry={_IMPL: _TicketingStubImpl()})
+
+        with pytest.raises(IntegrationImplementationNotFoundError):
+            env.svc.create(sphere_id=1, event_id=2, data=_create_data())
+
+        env.connections.get.assert_not_called()
+        env.transaction.atomic.assert_not_called()
+        env.integrations.create.assert_not_called()

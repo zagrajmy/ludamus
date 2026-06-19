@@ -16,7 +16,7 @@
 {% block header_actions %}
     {% if current_event and category %}
         <a href="{% url 'panel:cfp' slug=current_event.slug %}"
-           class="btn btn-secondary mr-2">{% translate "Cancel" %}</a>
+           class="btn btn-secondary">{% translate "Cancel" %}</a>
         <button type="submit"
                 form="cfp-edit-form"
                 class="btn btn-primary flex items-center">
@@ -34,7 +34,7 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Type Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_name">{% translate "Name" context "place" %}</label>
                             <input type="text"
                                    name="name"
@@ -45,7 +45,7 @@
                             {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_description">{% translate "Description" %}</label>
                             <textarea name="description"
                                       id="id_description"
@@ -58,7 +58,7 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_start_time">{% translate "Submissions open" %}</label>
                                 <input type="datetime-local"
                                        name="start_time"
@@ -68,7 +68,7 @@
                                 {% if form.start_time.errors %}<p class="mt-1 text-sm text-danger">{{ form.start_time.errors.0 }}</p>{% endif %}
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_end_time">{% translate "Submissions close" %}</label>
                                 <input type="datetime-local"
                                        name="end_time"
@@ -89,7 +89,7 @@
                     </p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_min_participants_limit">{% translate "Minimum participants" %}</label>
                             <input type="number"
                                    name="min_participants_limit"
@@ -103,7 +103,7 @@
                             {% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_max_participants_limit">{% translate "Maximum participants" %}</label>
                             <input type="number"
                                    name="max_participants_limit"
@@ -265,6 +265,7 @@
                             {% for field in available_fields %}
                                 <div class="field-item flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
                                      data-field-id="{{ field.pk }}"
+                                     data-field-type="{{ field.field_type }}"
                                      data-original-index="{{ forloop.counter0 }}">
                                     <span class="text-sm font-medium text-foreground-secondary flex-1">{{ field.name }}</span>
                                     <select name="field_{{ field.pk }}" class="field-select hidden">
@@ -272,14 +273,17 @@
                                                 {% if field.pk not in field_requirements %}selected{% endif %}>
                                             {% translate "Not included" %}
                                         </option>
-                                        <option value="required"
-                                                {% if field_requirements|get_item:field.pk is True %}selected{% endif %}>
-                                            {% translate "Required" %}
-                                        </option>
+                                        {% if field.field_type != "checkbox" %}
+                                            <option value="required"
+                                                    {% if field_requirements|get_item:field.pk is True %}selected{% endif %}>
+                                                {% translate "Required" %}
+                                            </option>
+                                        {% endif %}
                                         <option value="optional"
-                                                {% if field_requirements|get_item:field.pk is False %}selected{% endif %}>
-                                            {% translate "Optional" %}
-                                        </option>
+                                                {% if field.field_type == "checkbox" %}{% if field.pk in field_requirements %}selected{% endif %}
+                                                {% else %}
+                                                {% if field_requirements|get_item:field.pk is False %}selected{% endif %}
+                                                {% endif %}>{% translate "Optional" %}</option>
                                     </select>
                                 </div>
                             {% endfor %}
@@ -306,6 +310,7 @@
                             {% for field in available_session_fields %}
                                 <div class="field-item flex items-center gap-3 py-2 px-3 bg-bg-tertiary rounded-lg"
                                      data-field-id="{{ field.pk }}"
+                                     data-field-type="{{ field.field_type }}"
                                      data-original-index="{{ forloop.counter0 }}">
                                     <span class="text-sm font-medium text-foreground-secondary flex-1">{{ field.name }}</span>
                                     <select name="session_field_{{ field.pk }}" class="field-select hidden">
@@ -313,14 +318,17 @@
                                                 {% if field.pk not in session_field_requirements %}selected{% endif %}>
                                             {% translate "Not included" %}
                                         </option>
-                                        <option value="required"
-                                                {% if session_field_requirements|get_item:field.pk is True %}selected{% endif %}>
-                                            {% translate "Required" %}
-                                        </option>
+                                        {% if field.field_type != "checkbox" %}
+                                            <option value="required"
+                                                    {% if session_field_requirements|get_item:field.pk is True %}selected{% endif %}>
+                                                {% translate "Required" %}
+                                            </option>
+                                        {% endif %}
                                         <option value="optional"
-                                                {% if session_field_requirements|get_item:field.pk is False %}selected{% endif %}>
-                                            {% translate "Optional" %}
-                                        </option>
+                                                {% if field.field_type == "checkbox" %}{% if field.pk in session_field_requirements %}selected{% endif %}
+                                                {% else %}
+                                                {% if session_field_requirements|get_item:field.pk is False %}selected{% endif %}
+                                                {% endif %}>{% translate "Optional" %}</option>
                                     </select>
                                 </div>
                             {% endfor %}
@@ -433,9 +441,10 @@
                             controls.className = 'field-controls flex items-center gap-1';
                             const select = item.querySelector('.field-select');
                             const isChosen = select.value !== 'none';
+                            const itemHasReqOpt = hasReqOpt && item.dataset.fieldType !== 'checkbox';
 
                             if (isChosen) {
-                                if (hasReqOpt) {
+                                if (itemHasReqOpt) {
                                     const toggleBtn = document.createElement('button');
                                     toggleBtn.type = 'button';
                                     toggleBtn.className = 'toggle-req text-xs px-2 py-1 rounded border transition';
@@ -526,9 +535,10 @@
 
                             const controls = document.createElement('div');
                             controls.className = 'field-controls flex items-center gap-1';
+                            const itemHasReqOpt = hasReqOpt && item.dataset.fieldType !== 'checkbox';
 
                             if (isChosen) {
-                                if (hasReqOpt) {
+                                if (itemHasReqOpt) {
                                     const toggleBtn = document.createElement('button');
                                     toggleBtn.type = 'button';
                                     toggleBtn.className = 'toggle-req text-xs px-2 py-1 rounded border transition';
@@ -584,6 +594,17 @@
                                     }
                                 });
                             }
+                            // Checkbox fields can't be required — show a static "Optional" badge
+                            // so the chosen row isn't visually empty next to its neighbours.
+                            chosenList.querySelectorAll('.field-item[data-field-type="checkbox"]').forEach(item => {
+                                if (!item.querySelector('.optional-label')) {
+                                    const label = document.createElement('span');
+                                    label.className = 'optional-label text-xs px-2 py-1 rounded border border-border bg-bg-tertiary text-foreground-muted';
+                                    label.textContent = i18n.optional;
+                                    const controls = item.querySelector('.field-controls');
+                                    if (controls) controls.insertBefore(label, controls.firstChild);
+                                }
+                            });
                         }
 
                         function updateDisabledStates() {
@@ -619,7 +640,8 @@
                             if (addBtn) {
                                 const item = addBtn.closest('.field-item');
                                 const select = item.querySelector('.field-select');
-                                select.value = 'required';
+                                const isCheckboxField = item.dataset.fieldType === 'checkbox';
+                                select.value = isCheckboxField ? 'optional' : 'required';
                                 rebuildControls(item, true);
                                 distributeItems();
                                 syncOrder();

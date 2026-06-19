@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import markdown as _md
+import nh3
 
 from ludamus.pacts import (
     AgendaItemData,
@@ -43,6 +44,7 @@ from ludamus.pacts import (
     TimeSlotRequirementDTO,
     TrackDTO,
     UnitOfWorkProtocol,
+    UploadedFileProtocol,
     UserData,
     UserDTO,
     UserEnrollmentConfigData,
@@ -62,11 +64,39 @@ def generate_share_code(length: int = 6) -> str:
     return "".join(_secret_choice(_BASE62_CHARS) for _ in range(length))
 
 
+_MARKDOWN_ALLOWED_TAGS = {
+    "a",
+    "abbr",
+    "b",
+    "blockquote",
+    "br",
+    "code",
+    "em",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "i",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "strong",
+    "ul",
+}
+_MARKDOWN_ALLOWED_ATTRIBUTES = {"a": {"href", "title"}, "abbr": {"title"}}
+
+
 def render_markdown(text: str) -> str:
     result: str = _md.markdown(  # type: ignore [misc]
         text, extensions=["nl2br", "fenced_code"]
     )
-    return result
+    return nh3.clean(
+        result, tags=_MARKDOWN_ALLOWED_TAGS, attributes=_MARKDOWN_ALLOWED_ATTRIBUTES
+    )
 
 
 def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
@@ -320,8 +350,6 @@ class ProposeSessionService:
                 return self._uow.facilitators.read_by_user_and_event(user_id, event.pk)
             except NotFoundError:
                 pass
-        # Anonymous submissions are never merged: each submit creates a fresh
-        # Facilitator row. Organizers reconcile later if needed.
         slug = self._generate_unique_slug(
             display_name, lambda s: self._uow.facilitators.slug_exists(event.pk, s)
         )
@@ -331,7 +359,13 @@ class ProposeSessionService:
             )
         )
 
-    def submit(self, event: EventDTO, wizard_data: WizardData) -> ProposeSessionResult:
+    def submit(
+        self,
+        event: EventDTO,
+        wizard_data: WizardData,
+        *,
+        cover_image: UploadedFileProtocol | None = None,
+    ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
             msg = "session_data must contain 'title'"
@@ -378,6 +412,8 @@ class ProposeSessionService:
                 contact_email=wizard_data.get("contact_email", ""),
                 status=SessionStatus.PENDING,
             )
+            if cover_image:
+                create_data["cover_image"] = cover_image
 
             session_id = self._uow.sessions.create(
                 create_data,
@@ -626,7 +662,6 @@ class PanelService:
         """
         stats_data: EventStatsData = self._uow.events.get_stats_data(event_id)
 
-        # Business logic: total sessions = pending + scheduled
         total_sessions = stats_data.pending_proposals + stats_data.scheduled_sessions
 
         return PanelStatsDTO(
@@ -674,12 +709,11 @@ def _refresh_user_config_from_api(
 
     current_time = datetime.now(tz=UTC)
 
-    # Update config with fresh data
     if membership_count == 0:
         user_config.allowed_slots = 0
         user_config.last_check = current_time
         enrollment_config_repo.update_user_config(user_config)
-        return None  # Return None since user has no slots
+        return None
 
     user_config.allowed_slots = membership_count
     user_config.last_check = current_time
@@ -701,8 +735,6 @@ def _create_user_config_from_api(
         return None
 
     current_time = datetime.now(tz=UTC)
-    # User has membership - create config with slots based on membership count
-    # You can customize this logic based on your business rules
     return enrollment_config_repo.create_user_config(
         UserEnrollmentConfigData(
             enrollment_config_id=enrollment_config.pk,
@@ -724,11 +756,9 @@ def get_or_create_user_enrollment_config(  # noqa: PLR0913
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
     if existing_user_config:
-        # If config has slots > 0, it's final - no need to refresh
         if existing_user_config.allowed_slots > 0:
             return existing_user_config
 
-        # Only refresh configs with 0 slots, and only if enough time has passed
         time_threshold = datetime.now(tz=UTC) - timedelta(
             minutes=check_interval_minutes
         )
@@ -737,14 +767,12 @@ def get_or_create_user_enrollment_config(  # noqa: PLR0913
             not existing_user_config.last_check
             or existing_user_config.last_check < time_threshold
         ):
-            # Update the existing config with fresh API data
             return _refresh_user_config_from_api(
                 user_config=existing_user_config,
                 ticket_api=ticket_api,
                 enrollment_config_repo=enrollment_config_repo,
             )
 
-        # Config has 0 slots
         return None
 
     return _create_user_config_from_api(
@@ -772,7 +800,6 @@ def get_user_enrollment_config(
         existing_user_config = enrollment_config_repo.read_user_config(
             config, user_email
         )
-        # Check for explicit user config
         if api_user_config := get_or_create_user_enrollment_config(
             enrollment_config=config,
             user_email=user_email,
@@ -781,14 +808,12 @@ def get_user_enrollment_config(
             existing_user_config=existing_user_config,
             enrollment_config_repo=enrollment_config_repo,
         ):
-            # Try to fetch from API if not found locally
             virtual_config.allowed_slots += api_user_config.allowed_slots
             virtual_config.has_user_config = True
         elif existing_user_config:
             virtual_config.allowed_slots += existing_user_config.allowed_slots
             virtual_config.has_user_config = True
 
-        # Always check for domain-based access regardless of individual config
         email_domain = (
             user_email.split("@")[1] if (user_email and "@" in user_email) else ""
         )

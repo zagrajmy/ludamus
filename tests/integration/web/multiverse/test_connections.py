@@ -13,6 +13,7 @@ PERMISSION_ERROR = "You don't have permission to access the sphere panel."
 TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
+    "announcements": "/multiverse/panel/announcements/",
 }
 CONNECTIONS_PANEL_CONTEXT = {
     "events": [],
@@ -21,6 +22,7 @@ CONNECTIONS_PANEL_CONTEXT = {
     "active_nav": "sphere-settings",
     "is_general_tab": False,
     "is_connections_tab": True,
+    "is_announcements_tab": False,
     "tab_urls": TAB_URLS,
 }
 
@@ -64,11 +66,9 @@ class TestConnectionsPageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Konto Główne"
+            sphere=sphere, display_name="Konto Główne"
         )
-        Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other Sphere"
-        )
+        Connection.objects.create(sphere=non_root_sphere, display_name="Other Sphere")
 
         response = authenticated_client.get(self.url)
 
@@ -86,9 +86,9 @@ class TestConnectionsPageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        Connection.objects.create(sphere=sphere, service="google", display_name="Zeta")
-        Connection.objects.create(sphere=sphere, service="google", display_name="Alpha")
-        Connection.objects.create(sphere=sphere, service="google", display_name="Mu")
+        Connection.objects.create(sphere=sphere, display_name="Zeta")
+        Connection.objects.create(sphere=sphere, display_name="Alpha")
+        Connection.objects.create(sphere=sphere, display_name="Mu")
 
         response = authenticated_client.get(self.url)
 
@@ -131,18 +131,14 @@ class TestConnectionCreatePageView:
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client):
-        response = client.post(
-            self.url, data={"service": "google", "display_name": "X"}
-        )
+        response = client.post(self.url, data={"display_name": "X"})
 
         assert_response(
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.url}"
         )
 
     def test_post_redirects_non_manager_user(self, authenticated_client):
-        response = authenticated_client.post(
-            self.url, data={"service": "google", "display_name": "X"}
-        )
+        response = authenticated_client.post(self.url, data={"display_name": "X"})
 
         assert_response(
             response,
@@ -151,33 +147,12 @@ class TestConnectionCreatePageView:
             url="/",
         )
 
-    def test_post_creates_connection_for_sphere_manager(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.url, data={"service": "google", "display_name": "Konto Google"}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Connection created successfully.")],
-            url="/multiverse/panel/connections/",
-        )
-        connection = Connection.objects.get(sphere=sphere)
-        assert connection.display_name == "Konto Google"
-        assert connection.service == "google"
-
     def test_post_rerenders_form_on_invalid_data(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.post(
-            self.url, data={"service": "google", "display_name": ""}
-        )
+        response = authenticated_client.post(self.url, data={"display_name": ""})
 
         assert response.context["form"].errors
         assert_response(
@@ -188,6 +163,66 @@ class TestConnectionCreatePageView:
         )
         assert not Connection.objects.filter(sphere=sphere).exists()
 
+    def test_post_rejects_when_secret_missing(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(self.url, data={"display_name": "Konto"})
+
+        assert response.context["form"].errors.get("secret")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/connections/create.html",
+            context_data={**CONNECTIONS_PANEL_CONTEXT, "form": ANY},
+        )
+        assert not Connection.objects.filter(sphere=sphere).exists()
+
+    def test_post_create_with_secret_persists_blob(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url,
+            data={"display_name": "Konto z kluczem", "secret": '{"client": "abc"}'},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Connection created successfully.")],
+            url="/multiverse/panel/connections/",
+        )
+        connection = Connection.objects.get(sphere=sphere)
+        stored = bytes(connection.secret)
+        assert stored
+        assert b"abc" not in stored
+
+    def test_post_create_rejects_duplicate_display_name(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        Connection.objects.create(sphere=sphere, display_name="Konto")
+
+        response = authenticated_client.post(
+            self.url, data={"display_name": "Konto", "secret": '{"client": "abc"}'}
+        )
+
+        assert response.context["form"].errors["display_name"] == [
+            "A connection with this display name already exists."
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/connections/create.html",
+            context_data={**CONNECTIONS_PANEL_CONTEXT, "form": ANY},
+        )
+        assert (
+            Connection.objects.filter(sphere=sphere, display_name="Konto").count() == 1
+        )
+
 
 class TestConnectionEditPageView:
     """Tests for /multiverse/panel/connections/<pk>/edit/ page."""
@@ -197,9 +232,7 @@ class TestConnectionEditPageView:
         return reverse("multiverse:panel:connection-edit", kwargs={"pk": connection.pk})
 
     def test_get_redirects_anonymous_user_to_login(self, client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
         url = self.get_url(connection)
 
         response = client.get(url)
@@ -209,9 +242,7 @@ class TestConnectionEditPageView:
         )
 
     def test_get_redirects_non_manager_user(self, authenticated_client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -224,9 +255,7 @@ class TestConnectionEditPageView:
 
     def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Konto"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Konto")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -246,7 +275,7 @@ class TestConnectionEditPageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.get(self.get_url(connection))
@@ -260,13 +289,10 @@ class TestConnectionEditPageView:
 
     def test_post_updates_connection(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Old Name"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Old Name")
 
         response = authenticated_client.post(
-            self.get_url(connection),
-            data={"service": "google", "display_name": "New Name"},
+            self.get_url(connection), data={"display_name": "New Name"}
         )
 
         assert_response(
@@ -278,16 +304,41 @@ class TestConnectionEditPageView:
         connection.refresh_from_db()
         assert connection.display_name == "New Name"
 
+    def test_post_rejects_duplicate_display_name(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        connection = Connection.objects.create(sphere=sphere, display_name="Original")
+        Connection.objects.create(sphere=sphere, display_name="Taken")
+
+        response = authenticated_client.post(
+            self.get_url(connection), data={"display_name": "Taken"}
+        )
+
+        assert response.context["form"].errors["display_name"] == [
+            "A connection with this display name already exists."
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/connections/edit.html",
+            context_data={
+                **CONNECTIONS_PANEL_CONTEXT,
+                "form": ANY,
+                "connection": ConnectionDTO.model_validate(connection),
+            },
+        )
+        connection.refresh_from_db()
+        assert connection.display_name == "Original"
+
     def test_post_rerenders_form_on_invalid_data(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Original"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Original")
 
         response = authenticated_client.post(
-            self.get_url(connection), data={"service": "google", "display_name": ""}
+            self.get_url(connection), data={"display_name": ""}
         )
 
         assert response.context["form"].errors
@@ -309,12 +360,11 @@ class TestConnectionEditPageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.post(
-            self.get_url(connection),
-            data={"service": "google", "display_name": "Hacked"},
+            self.get_url(connection), data={"display_name": "Hacked"}
         )
 
         assert_response(
@@ -326,24 +376,17 @@ class TestConnectionEditPageView:
         connection.refresh_from_db()
         assert connection.display_name == "Other"
 
-    def test_post_replace_credentials_off_skips_credentials(
+    def test_post_replace_secret_off_skips_secret(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Original",
-            credentials=b"old-blob",
+            sphere=sphere, display_name="Original", secret=b"old-blob"
         )
 
         response = authenticated_client.post(
             self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Renamed",
-                "credentials": "ignored",
-            },
+            data={"display_name": "Renamed", "secret": "ignored"},
         )
 
         assert_response(
@@ -355,23 +398,20 @@ class TestConnectionEditPageView:
         connection.refresh_from_db()
         assert connection.display_name == "Renamed"
         # Stored blob is left untouched when the toggle is off.
-        assert bytes(connection.credentials) == b"old-blob"
+        assert bytes(connection.secret) == b"old-blob"
 
-    def test_post_replace_credentials_on_encrypts_and_persists(
+    def test_post_replace_secret_on_encrypts_and_persists(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Konto"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Konto")
 
         response = authenticated_client.post(
             self.get_url(connection),
             data={
-                "service": "google",
                 "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": '{"client": "abc"}',
+                "replace_secret": "on",
+                "secret": '{"client": "abc"}',
             },
         )
 
@@ -382,30 +422,22 @@ class TestConnectionEditPageView:
             url="/multiverse/panel/connections/",
         )
         connection.refresh_from_db()
-        stored = bytes(connection.credentials)
+        stored = bytes(connection.secret)
         # Persisted blob must be non-empty and not contain the plaintext.
         assert stored
         assert b"abc" not in stored
 
-    def test_post_replace_credentials_on_requires_credentials(
+    def test_post_replace_secret_on_requires_secret(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=sphere,
-            service="google",
-            display_name="Konto",
-            credentials=b"unchanged",
+            sphere=sphere, display_name="Konto", secret=b"unchanged"
         )
 
         response = authenticated_client.post(
             self.get_url(connection),
-            data={
-                "service": "google",
-                "display_name": "Konto",
-                "replace_credentials": "on",
-                "credentials": "",
-            },
+            data={"display_name": "Konto", "replace_secret": "on", "secret": ""},
         )
 
         assert response.context["form"].errors
@@ -420,7 +452,7 @@ class TestConnectionEditPageView:
             },
         )
         connection.refresh_from_db()
-        assert bytes(connection.credentials) == b"unchanged"
+        assert bytes(connection.secret) == b"unchanged"
 
 
 class TestConnectionDeletePageView:
@@ -433,9 +465,7 @@ class TestConnectionDeletePageView:
         )
 
     def test_get_redirects_anonymous_user_to_login(self, client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
         url = self.get_url(connection)
 
         response = client.get(url)
@@ -445,9 +475,7 @@ class TestConnectionDeletePageView:
         )
 
     def test_get_redirects_non_manager_user(self, authenticated_client, sphere):
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="X"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="X")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -462,9 +490,7 @@ class TestConnectionDeletePageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="To delete"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="To delete")
 
         response = authenticated_client.get(self.get_url(connection))
 
@@ -483,7 +509,7 @@ class TestConnectionDeletePageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.get(self.get_url(connection))
@@ -497,9 +523,7 @@ class TestConnectionDeletePageView:
 
     def test_post_deletes_connection(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
-        connection = Connection.objects.create(
-            sphere=sphere, service="google", display_name="Goner"
-        )
+        connection = Connection.objects.create(sphere=sphere, display_name="Goner")
 
         response = authenticated_client.post(self.get_url(connection))
 
@@ -516,7 +540,7 @@ class TestConnectionDeletePageView:
     ):
         sphere.managers.add(active_user)
         connection = Connection.objects.create(
-            sphere=non_root_sphere, service="google", display_name="Other"
+            sphere=non_root_sphere, display_name="Other"
         )
 
         response = authenticated_client.post(self.get_url(connection))

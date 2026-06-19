@@ -1,8 +1,10 @@
 {% load i18n %}
 {% load tessera %}
-<div class="-mt-3 sm:-mt-4 lg:-mt-8 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 pt-3 bg-warm-200 border-b border-warm-300">
-    {% tabs %}
+{% translate "Sphere settings sections" as t_tablist_label %}
+<div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
+    {% tabs aria_label=t_tablist_label %}
     {% tab "general" active=is_general_tab href=tab_urls.general %}{% translate "General" %}{% end_tab %}
+    {% tab "announcements" active=is_announcements_tab href=tab_urls.announcements %}{% translate "Organization announcements" %}{% end_tab %}
     {% tab "connections" active=is_connections_tab href=tab_urls.connections %}{% translate "Import connections" %}{% end_tab %}
 {% end_tabs %}
 </div>

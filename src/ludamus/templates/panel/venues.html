@@ -7,6 +7,11 @@
 {% block page_title %}
     {% translate "Venues" %}
 {% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are venues?" as t_info_title %}
+    {% translate "Venues are physical locations like buildings, convention centers, or complexes. Each venue is typically identified by its address. Within venues, you can organize areas (floors, wings) and spaces (individual rooms)." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
 {% block page_subtitle %}
     {% if current_event %}
         {{ current_event.name }} · {% translate "Physical Locations" %}
@@ -14,111 +19,97 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:venues-structure' slug=current_event.slug %}"
-           class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition flex items-center mr-2">
-            {% icon "rectangle-group" class="w-4 h-4 mr-2" %}
-            {% translate "Structure Overview" %}
-        </a>
-        <a href="{% url 'panel:venue-create' slug=current_event.slug %}"
-           class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition flex items-center">
-            {% icon "plus" class="w-4 h-4 mr-2" %}
-            {% translate "New Venue" %}
-        </a>
+        {% url 'panel:venues-structure' slug=current_event.slug as structure_url %}
+        {% translate "Structure Overview" as t_structure %}
+        {% tessera_button t_structure href=structure_url variant="secondary" icon="rectangle-group" %}
+        {% url 'panel:venue-create' slug=current_event.slug as new_venue_url %}
+        {% translate "New Venue" as t_new_venue %}
+        {% tessera_button t_new_venue href=new_venue_url icon="plus" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div class="flex">
-                {% icon "information-circle" class="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" %}
-                <div class="text-sm text-blue-700">
-                    <p class="font-medium">{% translate "What are venues?" %}</p>
-                    <p class="mt-1">
-                        {% translate "Venues are physical locations like buildings, convention centers, or complexes. Each venue is typically identified by its address. Within venues, you can organize areas (floors, wings) and spaces (individual rooms)." %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        {% if venues %}
-            <div class="bg-white rounded-xl shadow-sm border border-neutral-100">
-                <table class="min-w-full divide-y divide-neutral-200">
-                    <thead class="bg-neutral-50">
-                        <tr>
-                            <th scope="col" class="w-10 px-3 py-3"></th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                {% translate "Name" context "place" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                {% translate "Address" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                {% translate "Areas" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                                {% translate "Actions" %}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="venues-list" class="bg-white divide-y divide-neutral-200">
-                        {% for venue in venues %}
-                            <tr class="venue-row hover:bg-neutral-50 cursor-move"
-                                draggable="true"
-                                data-venue-id="{{ venue.pk }}">
-                                <td class="px-3 py-4 text-neutral-400">{% icon "bars-3" class="w-4 h-4" %}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">{{ venue.name }}</td>
-                                <td class="px-6 py-4 text-sm text-neutral-500">{{ venue.address|default:"—" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">{{ venue.areas_count }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <a href="{% url 'panel:venue-detail' slug=current_event.slug venue_slug=venue.slug %}"
-                                       class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
-                                        {% icon "rectangle-group" class="w-4 h-4 mr-1" %}
-                                        {% translate "Areas" %}
-                                    </a>
-                                    <a href="{% url 'panel:venue-edit' slug=current_event.slug venue_slug=venue.slug %}"
-                                       class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
-                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                        {% translate "Edit" %}
-                                    </a>
-                                    <div class="relative inline-block">
-                                        <button type="button"
-                                                class="action-dropdown-toggle p-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-600 inline-flex items-center"
-                                                aria-haspopup="true">
-                                            {% icon "ellipsis-horizontal" class="w-4 h-4" %}
-                                        </button>
-                                        <div class="action-dropdown-menu hidden absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-neutral-200 z-10">
-                                            <a href="{% url 'panel:venue-duplicate' slug=current_event.slug venue_slug=venue.slug %}"
-                                               class="flex items-center px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 rounded-t-lg">
-                                                {% icon "document-duplicate" class="w-4 h-4 mr-2" %}
-                                                {% translate "Duplicate" %}
-                                            </a>
-                                            <a href="{% url 'panel:venue-copy' slug=current_event.slug venue_slug=venue.slug %}"
-                                               class="flex items-center px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50">
-                                                {% icon "clipboard-document" class="w-4 h-4 mr-2" %}
-                                                {% translate "Copy" %}
-                                            </a>
-                                            <hr class="my-1">
-                                            <form method="post"
-                                                  action="{% url 'panel:venue-delete' slug=current_event.slug venue_slug=venue.slug %}"
-                                                  onsubmit="return confirm('{% translate "Are you sure you want to delete this venue?" %}');">
-                                                {% csrf_token %}
-                                                <button type="submit"
-                                                        class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg">
-                                                    {% icon "trash" class="w-4 h-4 mr-2" %}
-                                                    {% translate "Delete" %}
-                                                </button>
-                                            </form>
-                                        </div>
+    <div class="p-4">
+        {% if current_event %}
+            {% if venues %}
+                {% tessera_table %}
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col" class="w-10 px-3 py-3"></th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Name" context "place" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Address" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Areas" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Actions" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="venues-list" class="bg-bg-secondary divide-y divide-border">
+                    {% for venue in venues %}
+                        <tr class="venue-row hover:bg-bg-tertiary cursor-move"
+                            draggable="true"
+                            data-venue-id="{{ venue.pk }}">
+                            <td class="px-3 py-4 text-foreground-muted">{% icon "bars-3" class="w-4 h-4" %}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{{ venue.name }}</td>
+                            <td class="px-6 py-4 text-sm text-foreground-muted">{{ venue.address|default:"—" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ venue.areas_count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'panel:venue-detail' slug=current_event.slug venue_slug=venue.slug %}"
+                                   class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
+                                    {% icon "rectangle-group" class="w-4 h-4 mr-1" %}
+                                    {% translate "Areas" %}
+                                </a>
+                                <a href="{% url 'panel:venue-edit' slug=current_event.slug venue_slug=venue.slug %}"
+                                   class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
+                                    {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                    {% translate "Edit" %}
+                                </a>
+                                <div class="relative inline-block">
+                                    <button type="button"
+                                            class="action-dropdown-toggle p-2 rounded-lg bg-bg-tertiary hover:bg-border text-foreground-secondary inline-flex items-center"
+                                            aria-haspopup="true"
+                                            aria-expanded="false"
+                                            aria-label="{% blocktranslate with name=venue.name %}More actions for {{ name }}{% endblocktranslate %}">
+                                        {% icon "ellipsis-horizontal" class="w-4 h-4" %}
+                                    </button>
+                                    <div class="action-dropdown-menu hidden absolute right-0 mt-2 w-40 bg-bg-secondary rounded-lg shadow-lg border border-border z-10">
+                                        <a href="{% url 'panel:venue-duplicate' slug=current_event.slug venue_slug=venue.slug %}"
+                                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary rounded-t-lg">
+                                            {% icon "document-duplicate" class="w-4 h-4 mr-2" %}
+                                            {% translate "Duplicate" %}
+                                        </a>
+                                        <a href="{% url 'panel:venue-copy' slug=current_event.slug venue_slug=venue.slug %}"
+                                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                            {% icon "clipboard-document" class="w-4 h-4 mr-2" %}
+                                            {% translate "Copy" %}
+                                        </a>
+                                        <hr class="my-1">
+                                        <form method="post"
+                                              action="{% url 'panel:venue-delete' slug=current_event.slug venue_slug=venue.slug %}"
+                                              onsubmit="return confirm('{% translate "Are you sure you want to delete this venue?" %}');">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    class="flex items-center w-full px-4 py-2 text-sm text-danger hover:bg-danger-bg rounded-b-lg">
+                                                {% icon "trash" class="w-4 h-4 mr-2" %}
+                                                {% translate "Delete" %}
+                                            </button>
+                                        </form>
                                     </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            {% end_tessera_table %}
             <script>
                 (function() {
                     // Dropdown toggle
@@ -128,11 +119,16 @@
                             const menu = button.nextElementSibling;
                             const isOpen = !menu.classList.contains('hidden');
                             document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
-                            if (!isOpen) menu.classList.remove('hidden');
+                            document.querySelectorAll('.action-dropdown-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
+                            if (!isOpen) {
+                                menu.classList.remove('hidden');
+                                button.setAttribute('aria-expanded', 'true');
+                            }
                         });
                     });
                     document.addEventListener('click', () => {
                         document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
+                        document.querySelectorAll('.action-dropdown-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
                     });
                 })();
                 (function() {
@@ -192,13 +188,14 @@
                 })();
             </script>
         {% else %}
-            <div class="bg-white rounded-xl shadow-sm border border-neutral-100 p-8 text-center">
-                <p class="text-neutral-500">{% translate "No venues yet. Venues will be managed here once available." %}</p>
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No venues yet. Venues will be managed here once available." %}</p>
             </div>
         {% endif %}
     {% else %}
-        <div class="bg-white rounded-xl shadow-sm border border-neutral-100 p-8 text-center">
-            <p class="text-neutral-500">{% translate "No events available. Create an event to get started." %}</p>
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
         </div>
     {% endif %}
+</div>
 {% endblock content %}

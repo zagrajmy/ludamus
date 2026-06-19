@@ -2,7 +2,7 @@
 {# Label for form fields. #}
 {# Variables: for_id, text, required (bool) #}
 <label {% if for_id %}for="{{ for_id }}"{% endif %}
-       class="block text-sm font-medium text-foreground-secondary">
+       class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
     {{ text }}
     {% if required|default:False %}
         <span class="text-danger" aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>

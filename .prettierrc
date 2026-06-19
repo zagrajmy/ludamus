@@ -1,0 +1,6 @@
+{
+    "plugins": [
+      "./src/ludamus/client/node_modules/prettier-plugin-tailwindcss/dist/index.mjs"
+    ],
+    "proseWrap": "always"
+  }

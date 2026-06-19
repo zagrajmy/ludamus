@@ -4,10 +4,11 @@ import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Self
 
+from ludamus.pacts import EventListItemDTO
+
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.adapters.db.django.models import Event
     from ludamus.gates.web.django.entities import UserInfo
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -55,6 +56,7 @@ class ParticipationInfo:
     user: UserInfo
     status: str
     creation_time: datetime
+    is_shadowbanned: bool = False
 
 
 @dataclass
@@ -70,6 +72,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     session_participations: list[ParticipationInfo]
     loc: LocationData
     has_any_enrollments: bool = False
+    can_edit: bool = False
     user_enrolled: bool = False
     user_waiting: bool = False
     displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)
@@ -120,37 +123,12 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return ", ".join(parts)
 
 
-@dataclass
-class EventInfo:  # pylint: disable=too-many-instance-attributes
+class EventInfo(EventListItemDTO):
     cover_image_url: str
-    description: str
-    end_time: datetime
-    is_ended: bool
-    is_live: bool
-    is_proposal_active: bool
-    is_published: bool
-    name: str
-    session_count: int
-    start_time: datetime
-    slug: str
 
     @classmethod
-    def from_event(
-        cls, *, event: Event, session_count: int, cover_image_url: str
-    ) -> Self:
-        return cls(
-            cover_image_url=cover_image_url,
-            description=event.description,
-            end_time=event.end_time,
-            is_ended=event.is_ended,
-            is_live=event.is_live,
-            is_proposal_active=event.is_proposal_active,
-            is_published=event.is_published,
-            name=event.name,
-            session_count=session_count,
-            slug=event.slug,
-            start_time=event.start_time,
-        )
+    def from_list_item(cls, item: EventListItemDTO, *, cover_image_url: str) -> Self:
+        return cls(**{**item.model_dump(), "cover_image_url": cover_image_url})
 
 
 @dataclass

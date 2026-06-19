@@ -3,7 +3,7 @@
 {# Encounter card component #}
 {# Required: 'encounter', 'rsvp_count', 'is_mine' #}
 {# Optional: 'variant' ("past"), 'organizer_name' #}
-<div class="card flex flex-col {% if variant == 'past' %}opacity-60{% endif %} {% if is_mine %}border-[var(--theme-primary)]{% endif %}">
+<div class="card flex flex-col {% if variant == 'past' %}opacity-60{% endif %} {% if is_mine %}border-primary{% endif %}">
     <a href="{% url 'web:notice-board:encounter-detail' share_code=encounter.share_code %}"
        class="block p-4 hover:bg-bg-tertiary transition-colors flex-1 {% if is_mine %}rounded-t-2xl{% else %}rounded-2xl{% endif %}">
         <div class="flex items-start justify-between gap-2 mb-1">

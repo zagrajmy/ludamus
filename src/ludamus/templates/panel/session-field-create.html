@@ -35,7 +35,7 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_name">{% translate "Name" context "place" %}</label>
                             <input type="text"
                                    name="name"
@@ -46,7 +46,7 @@
                             {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_question">{% translate "Question" %}</label>
                             <textarea name="question"
                                       id="id_question"
@@ -59,7 +59,7 @@
                             {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_field_type">{% translate "Field Type" %}</label>
                             <select name="field_type"
                                     id="id_field_type"
@@ -79,7 +79,7 @@
                             </select>
                         </div>
                         <div id="options-container" class="hidden">
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_options">{% translate "Options" %}</label>
                             <textarea name="options"
                                       id="id_options"
@@ -107,7 +107,7 @@
                             </div>
                         </div>
                         <div id="max-length-container">
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_max_length">{% translate "Max Length" %}</label>
                             <input type="number"
                                    name="max_length"
@@ -120,7 +120,7 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_help_text">{% translate "Help Text" %}</label>
                             <textarea name="help_text"
                                       id="id_help_text"
@@ -132,7 +132,7 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_icon">{% translate "Icon" %}</label>
                             <div class="flex items-center gap-3">
                                 <input type="text"
@@ -164,9 +164,19 @@
                             const optionsContainer = document.getElementById('options-container');
                             const maxLengthContainer = document.getElementById('max-length-container');
 
+                            const categorySelects = document.querySelectorAll('select[name^="category_"]');
+
                             function toggleOptions() {
+                                const isCheckbox = fieldType.value === 'checkbox';
                                 optionsContainer.classList.toggle('hidden', fieldType.value !== 'select');
-                                maxLengthContainer.classList.toggle('hidden', fieldType.value === 'checkbox');
+                                maxLengthContainer.classList.toggle('hidden', isCheckbox);
+                                categorySelects.forEach(sel => {
+                                    const required = sel.querySelector('option[value="required"]');
+                                    if (!required) return;
+                                    required.hidden = isCheckbox;
+                                    required.disabled = isCheckbox;
+                                    if (isCheckbox && sel.value === 'required') sel.value = 'optional';
+                                });
                             }
                             fieldType.addEventListener('change', toggleOptions);
                             toggleOptions();
@@ -174,7 +184,7 @@
                     </script>
                 </div>
             </div>
-            <div class="bg-bg-secondary rounded-2xl shadow-[--theme-shadow] border border-border p-6 mt-6">
+            <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-6 mt-6">
                 <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Session Types" %}</h3>
                 <p class="text-sm text-foreground-muted mb-6">
                     {% translate "Select which session types should include this field." %}

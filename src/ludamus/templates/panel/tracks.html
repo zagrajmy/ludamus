@@ -7,6 +7,11 @@
 {% block page_title %}
     {% translate "Tracks" %}
 {% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are tracks?" as t_info_title %}
+    {% translate "Tracks let you group proposals by thematic area. Public tracks are shown to proposers in the submission wizard; private tracks are for internal categorization only." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
 {% block page_subtitle %}
     {% if current_event %}
         {{ current_event.name }} · {% translate "Tracks" %}
@@ -22,62 +27,56 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
-        <div class="alert-info mb-6">
-            <p class="text-sm">
-                {% blocktranslate %}Tracks let you group proposals by thematic area. Public tracks are shown to proposers in the submission wizard; private tracks are for internal categorization only.{% endblocktranslate %}
-            </p>
-        </div>
-        {% if tracks %}
-            <div class="card overflow-x-auto">
-                <table class="min-w-full divide-y divide-border">
-                    <thead class="bg-bg-tertiary">
+    <div class="p-4">
+        {% if current_event %}
+            {% if tracks %}
+                {% tessera_table %}
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Name" context "place" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Visibility" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Actions" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-bg-secondary divide-y divide-border">
+                    {% for track in tracks %}
                         <tr>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Name" context "place" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Visibility" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Actions" %}
-                            </th>
+                            <td class="px-6 py-4 text-sm font-medium text-foreground">{{ track.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if track.is_public %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">
+                                        {% translate "Public" %}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
+                                        {% translate "Private" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=track.slug %}"
+                                   class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                <form method="post"
+                                      action="{% url 'panel:track-delete' slug=current_event.slug track_slug=track.slug %}"
+                                      class="inline"
+                                      onsubmit="return confirm('{% translate "Are you sure you want to delete this track?" %}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
+                                </form>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="bg-bg-secondary divide-y divide-border">
-                        {% for track in tracks %}
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-foreground">{{ track.name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if track.is_public %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">
-                                            {% translate "Public" %}
-                                        </span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
-                                            {% translate "Private" %}
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=track.slug %}"
-                                       class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
-                                    <form method="post"
-                                          action="{% url 'panel:track-delete' slug=current_event.slug track_slug=track.slug %}"
-                                          class="inline"
-                                          onsubmit="return confirm('{% translate "Are you sure you want to delete this track?" %}');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            {% end_tessera_table %}
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted">
@@ -90,4 +89,5 @@
             <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
         </div>
     {% endif %}
+</div>
 {% endblock content %}

@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, time, timedelta
+from importlib import import_module
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -35,8 +36,10 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Encounter,
     EnrollmentConfig,
     Event,
+    Notification,
     ProposalCategory,
     Session,
+    SessionParticipation,
     Space,
     Sphere,
     TimeSlot,
@@ -44,6 +47,10 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Venue,
 )
 from ludamus.pacts import SessionStatus  # noqa: E402
+from ludamus.pacts.legacy import (  # noqa: E402
+    NotificationKind,
+    SessionParticipationStatus,
+)
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -53,6 +60,30 @@ def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
         site=site, defaults={"name": f"{name} Sphere"}
     )
     return site, sphere
+
+
+def _create_root_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
+    site, _ = Site.objects.update_or_create(
+        id=settings.SITE_ID, defaults={"domain": domain, "name": name}
+    )
+    sphere, _ = Sphere.objects.get_or_create(
+        site=site, defaults={"name": f"{name} Sphere"}
+    )
+    return site, sphere
+
+
+def _root_domain_for_seed() -> str:
+    if settings.IN_TESTS:
+        return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
+
+    existing_domain = (
+        Site.objects.filter(id=settings.SITE_ID)
+        .values_list("domain", flat=True)
+        .first()
+    )
+    if existing_domain and existing_domain != "example.com":
+        return existing_domain
+    return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
 
 
 def _ensure_spheres_for_all_sites() -> None:
@@ -216,19 +247,104 @@ def _create_test_user() -> User:
     state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state.json"
     _write_storage_state(user, domain=domain, path=state_path)
 
+    # An unread notification so the navbar dropdown has content to show in e2e.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="You're in: a spot opened in Dragons & Dungeons",
+        body="A confirmed spot opened up and you have been enrolled automatically.",
+        url="/events/",
+    )
+
     return user
 
 
+def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
+    """Seed a full session with a dedicated waiter behind the superuser.
+
+    Cancelling the superuser's confirmed seat (T1) frees a seat and promotes the
+    waiter, exercising the waiting-list promotion + notification path end to end.
+    The waiter is its own user (not the shared e2e-tester) so the notification
+    state stays isolated from other specs.
+    """
+    event = _create_event(
+        sphere,
+        name="Waitlist Demo Convention",
+        slug="waitlist-demo",
+        description="Promotion end-to-end scenario.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    venue = _create_venue(event, name="Demo Venue", slug="demo-venue")
+    area = _create_area(venue, name="Demo Area", slug="demo-area")
+    space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
+    session = Session.objects.create(
+        sphere=sphere,
+        display_name="Demo GM",
+        title="Waitlist Promotion Demo",
+        slug="waitlist-promotion-demo",
+        description="A full session used by the promotion e2e.",
+        participants_limit=1,
+        min_age=0,
+    )
+    AgendaItem.objects.create(
+        space=space,
+        session=session,
+        session_confirmed=True,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=2),
+    )
+    waiter = User.objects.create_user(
+        username="e2e-waiter",
+        email="e2e-waiter@test.local",
+        password="e2e-waiter-123",
+        name="E2E Waiter",
+        slug="e2e-waiter",
+    )
+    SessionParticipation.objects.create(
+        session=session,
+        user=superuser,
+        status=SessionParticipationStatus.CONFIRMED.value,
+    )
+    SessionParticipation.objects.create(
+        session=session, user=waiter, status=SessionParticipationStatus.WAITING.value
+    )
+
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    parsed = urlparse(base_url)
+    _write_storage_state(
+        waiter,
+        domain=parsed.hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-waiter.json",
+    )
+
+    scenario_path = REPO_ROOT / "tests" / "e2e" / ".promotion-scenario.json"
+    scenario_path.write_text(
+        json.dumps(
+            {
+                "session_id": session.pk,
+                "superuser_id": superuser.pk,
+                "waiter_email": waiter.email,
+                "session_title": session.title,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
+    root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
 
     # Root site used for fallbacks / redirects
-    root_domain = os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
-    _create_site(root_domain, name="Root Domain")
+    _create_root_site(root_domain, name="Root Domain")
 
-    sphere_domain = os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST")
-    if not sphere_domain:
-        sphere_domain = "localhost:8000"
+    sphere_domain = (
+        os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
+    )
     site, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
@@ -237,11 +353,11 @@ def main() -> None:
     _create_test_user()
 
     superuser = User.objects.create_superuser(
-        username="e2e-superuser",
-        email="e2e-superuser@test.local",
-        password="e2e-superuser-123",
-        name="E2E Superuser",
-        slug="e2e-superuser",
+        username="admin",
+        email="admin@test.local",
+        password="admin",
+        name="Admin",
+        slug="admin",
     )
     base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
     parsed = urlparse(base_url)
@@ -249,6 +365,9 @@ def main() -> None:
     _write_storage_state(
         superuser, domain=parsed.hostname or "localhost", path=superuser_state_path
     )
+
+    # Full session with a dedicated waiter, for the promotion e2e.
+    _create_promotion_scenario(sphere, superuser=superuser)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
@@ -328,7 +447,9 @@ def main() -> None:
             "Bring dice, meeples, and curiosity!"
         ),
         start_offset=timedelta(days=1),
-        duration_hours=4,
+        # Span two days so the event encloses its day-2 session (below) and the
+        # day/hour filters have more than one day to work with.
+        duration_hours=28,
         publication_offset=timedelta(days=2),
         enrollment_banner="Enrollment is open—grab a slot before we fill up!",
         allow_anonymous=True,
@@ -397,7 +518,7 @@ def main() -> None:
         fireside_space,
         title="Przygoda w Mieście Neonów",
         slug="neon-city-adventure",
-        presenter="Radek MG",
+        presenter="Radek Włodarczyk",
         description=(
             'Przygoda w stylu filmu "Jumanji". Na strychu znajdujecie grę '
             "komputerową z lat 90 o wojnach gangów w cyberpunkowym Mieście "
@@ -405,7 +526,8 @@ def main() -> None:
             "wirtualny świat, gdzie jako wybrane postaci zmierzycie się z "
             "okrutnym Bossem Akimurą i jego armią cyberninja."
         ),
-        start_offset=timedelta(hours=3),
+        # Scheduled on the event's second day so the day/hour filters appear.
+        start_offset=timedelta(days=1, hours=1),
         duration_hours=1,
     )
 
@@ -439,6 +561,9 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    seed_module = import_module("kapitularz_print_seed")
+    seed_module.seed_kapitularz_print_event(sphere)
 
     past_event = _create_event(
         sphere,

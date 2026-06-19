@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 class SelectNode(template.Node):
     """Renders a themed ``<select>`` wrapping slot content."""
 
+    # Attributes rendered bare (no ``="value"``) when truthy.
+    _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
+
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
     ) -> None:
@@ -26,26 +29,26 @@ class SelectNode(template.Node):
         self.attrs = attrs
 
     def render(self, context: template.Context) -> str:
-        """Render the select element via components/select.html.
-
-        Returns:
-            HTML string of the themed ``<select>`` element.
-        """
         resolved: dict[str, object] = {
             k: v.resolve(context) for k, v in self.attrs.items()
         }
 
+        # `class` styles the element; every other keyword is forwarded as an
+        # HTML attribute on the <select>.
         extra_class = str(resolved.pop("class", ""))
 
-        attr_parts = [
-            f'{a}="{escape(str(v))}"'
-            for a in ("id", "name", "size")
-            if (v := resolved.get(a))
-        ]
-        if resolved.get("multiple"):
-            attr_parts.append("multiple")
-        if resolved.get("required"):
-            attr_parts.append("required")
+        attr_parts: list[str] = []
+        for key, value in resolved.items():
+            if key in self._BOOLEAN_ATTRS:
+                if value:
+                    attr_parts.append(key)
+                continue
+            if not value:
+                continue
+            # Template kwargs can't contain hyphens, so aria_*/data_* keywords
+            # map onto their hyphenated attributes (aria_label -> aria-label).
+            name = key.replace("_", "-") if key.startswith(("aria_", "data_")) else key
+            attr_parts.append(f'{name}="{escape(str(value))}"')
 
         return render_to_string(
             "components/select.html",

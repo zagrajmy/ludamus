@@ -1,5 +1,5 @@
 {# Text input field. Always pass `name`. Other vars are optional — use `only` in includes. #}
-{# Optional: input_type (default "text"), id, placeholder, value, required, disabled, readonly, maxlength, inputmode, pattern, autocomplete, has_errors #}
+{# Optional: input_type (default "text"), id, placeholder, value, required, disabled, readonly, maxlength, inputmode, pattern, autocomplete, has_errors, aria_describedby #}
 <input type="{{ input_type|default:"text" }}"
        {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}
        class="w-full px-3 py-2 text-sm rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed"
@@ -12,4 +12,6 @@
        {% if pattern|default:"" %}pattern="{{ pattern }}"{% endif %}
        {% if required|default:False %}required{% endif %}
        {% if disabled|default:False %}disabled{% endif %}
-       {% if readonly|default:False %}readonly{% endif %}>
+       {% if readonly|default:False %}readonly{% endif %}
+       {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+       {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>

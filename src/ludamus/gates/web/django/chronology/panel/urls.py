@@ -3,10 +3,12 @@
 from django.urls import include, path
 
 from ludamus.gates.web.django.chronology.panel.views import (
+    bans,
     cfp,
     event_settings,
     facilitators,
     index,
+    integrations,
     personal_data_fields,
     proposals,
     session_fields,
@@ -15,6 +17,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     tracks,
     venues,
 )
+from ludamus.gates.web.django.chronology.panel.views import print as print_views
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -67,6 +70,31 @@ _timetable_urlpatterns = [
     path(
         "do/revert/", timetable.TimetableRevertView.as_view(), name="timetable-revert"
     ),
+    path(
+        "do/confirm/",
+        timetable.TimetableConfirmView.as_view(),
+        name="timetable-confirm",
+    ),
+    path(
+        "do/confirm-all/",
+        timetable.TimetableConfirmAllView.as_view(),
+        name="timetable-confirm-all",
+    ),
+    path(
+        "do/confirm-block/",
+        timetable.TimetableConfirmBlockView.as_view(),
+        name="timetable-confirm-block",
+    ),
+    path(
+        "print/timetable/",
+        print_views.TimetablePrintView.as_view(material="timetable"),
+        name="timetable-print",
+    ),
+    path(
+        "print/door-cards/",
+        print_views.TimetablePrintView.as_view(material="door-cards"),
+        name="timetable-print-door-cards",
+    ),
 ]
 
 urlpatterns = [
@@ -86,6 +114,17 @@ urlpatterns = [
         "event/<slug:slug>/settings/display/",
         event_settings.EventDisplaySettingsPageView.as_view(),
         name="event-display-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/",
+        event_settings.EventIntegrationSettingsPageView.as_view(),
+        name="event-integration-settings",
+    ),
+    path("event/<slug:slug>/bans/", bans.BansPageView.as_view(), name="bans"),
+    path(
+        "event/<slug:slug>/bans/<int:pk>/do/delete",
+        bans.BanDeleteActionView.as_view(),
+        name="ban-delete",
     ),
     path("event/<slug:slug>/venues/", venues.VenuesPageView.as_view(), name="venues"),
     path(
@@ -204,6 +243,11 @@ urlpatterns = [
         "event/<slug:slug>/proposals/create/",
         proposals.ProposalCreatePageView.as_view(),
         name="proposal-create",
+    ),
+    path(
+        "event/<slug:slug>/proposals/log/",
+        proposals.ContentLogPageView.as_view(),
+        name="content-log",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/",
@@ -328,4 +372,29 @@ urlpatterns = [
         name="facilitator-edit",
     ),
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
+    path(
+        "event/<slug:slug>/print/",
+        print_views.PrintMaterialsPageView.as_view(),
+        name="print-materials",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/check/",
+        integrations.IntegrationCheckActionView.as_view(),
+        name="integration-check",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/add/",
+        integrations.IntegrationCreatePageView.as_view(),
+        name="integration-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/<int:pk>/edit/",
+        integrations.IntegrationEditPageView.as_view(),
+        name="integration-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/<int:pk>/delete/",
+        integrations.IntegrationDeletePageView.as_view(),
+        name="integration-delete",
+    ),
 ]

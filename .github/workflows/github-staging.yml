@@ -1,0 +1,28 @@
+---
+name: GitHub staging scripts
+
+on:
+  pull_request:
+    paths:
+      - "scripts/github-staging.mts"
+      - "scripts/github-staging.test.mts"
+
+  push:
+    branches: [ "master", "main" ]
+    paths:
+      - "scripts/github-staging.mts"
+      - "scripts/github-staging.test.mts"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - run: node --test scripts/github-staging.test.mts

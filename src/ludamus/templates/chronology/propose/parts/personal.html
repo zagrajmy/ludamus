@@ -16,7 +16,7 @@
         <div class="space-y-6">
             <div>
                 <label for="id_contact_email"
-                       class="block text-sm font-medium text-foreground-secondary mb-2">
+                       class="block text-sm font-medium text-foreground-secondary mb-1">
                     {% translate "Contact Email" %}
                     <span class="text-danger" aria-hidden="true">*</span>
                     <span class="sr-only">{% translate "(required)" %}</span>
@@ -37,7 +37,7 @@
                 <div>
                     {% if desc.field_type != "checkbox" %}
                         <label for="id_{{ desc.key }}"
-                               class="block text-sm font-medium text-foreground-secondary mb-2">
+                               class="block text-sm font-medium text-foreground-secondary mb-1">
                             {{ desc.name }}
                             {% if desc.is_required %}
                                 <span class="text-danger" aria-hidden="true">*</span>

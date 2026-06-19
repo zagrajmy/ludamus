@@ -60,14 +60,17 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           echo "UDID=$UDID" >> "$GITHUB_ENV"
 
+      - name: Bootstrap e2e fixtures
+        run: mise run e2e:prep
+
       - name: Start local e2e server
         run: |
-          mise run boot-e2e > ios-modal-server.log 2>&1 &
+          mise run e2e:serve > ios-modal-server.log 2>&1 &
           echo $! > ios-modal-server.pid
 
       - name: Wait for local e2e server
         run: |
-          for attempt in {1..90}; do
+          for attempt in {1..60}; do
             if curl --fail --silent --show-error http://localhost:8000/chronology/event/autumn-open/ > /dev/null; then
               exit 0
             fi

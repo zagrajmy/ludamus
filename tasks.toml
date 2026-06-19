@@ -4,34 +4,48 @@ run = "poetry"
 
 [dj]
 description = "Run any django-admin subcommand"
-run = "django-admin"
+run = "aubr varlock django-admin"
+
+[messages]
+description = "Extract translatable strings into locale/pl (file-only locations, no line numbers)"
+run = "aubr varlock django-admin makemessages -l pl --add-location=file"
+
+[messages-compile]
+description = "Compile locale/pl translations to .mo"
+run = "aubr varlock django-admin compilemessages -l pl"
 
 [start]
 description = "Start Django dev server with frontend watch"
-run = "./scripts/dev"
+run = "aubr varlock ./scripts/dev"
 
 [dev]
 description = "Start Django dev server with frontend watch"
-run = "./scripts/dev"
+run = "aubr varlock ./scripts/dev"
 
 [build-frontend]
 description = "Build frontend assets (CSS + JS)"
-run = """
-cd src/ludamus/client && npm install && npm run build
-"""
+run = "aubr -C src/ludamus/client build"
 
 [bootstrap]
-description = "Set up the dev environment from scratch — idempotent"
+description = "Set up the dev environment from scratch (idempotent)"
 run = """
-if [ ! -f .env ]; then
-  cp .env.local.example .env
-  echo "Created .env from .env.local.example"
-fi
-set -a && . ./.env && set +a
 poetry install
-(cd src/ludamus/client && npm install)
-django-admin migrate --noinput
-django-admin createcachetable
-django-admin downloadvendor
-python scripts/bootstrap_dev.py
+aube install
+if [ ! -f .env.local ]; then
+  python -c "
+import secrets
+from cryptography.fernet import Fernet
+print(f'SECRET_KEY={secrets.token_urlsafe(50)}')
+print(f'DB_PASSWORD=dev-{secrets.token_hex(8)}')
+print(f'AUTH0_CLIENT_SECRET={secrets.token_hex(16)}')
+print(f'CREDENTIALS_ENCRYPTION_KEY={Fernet.generate_key().decode()}')
+" > .env.local
+  echo "Generated .env.local with per-dev secrets."
+fi
+aubr varlock django-admin migrate --noinput
+aubr varlock django-admin createcachetable
+aubr varlock django-admin downloadvendor
+aubr varlock python tests/e2e/scripts/bootstrap_data.py
+aubr varlock python tests/e2e/scripts/bootstrap_facilitators.py
+aubr varlock python tests/e2e/scripts/bootstrap_timetable.py
 """

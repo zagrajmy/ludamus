@@ -22,9 +22,10 @@ loadEnv(path.join(repoRoot, '.env.e2e'));
 
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 
-const WEB_COMMAND = 'mise run boot-e2e';
+const WEB_COMMAND = 'mise run e2e:prep && exec mise run e2e:serve';
 
 const isCI = !!process.env.CI;
+const skipIos = !!process.env.E2E_SKIP_IOS;
 
 const webServerEnv: Record<string, string> = Object.fromEntries(
   Object.entries(process.env).filter(
@@ -71,12 +72,16 @@ export default defineConfig({
       testIgnore: /.*\.auth\.spec\.ts/,
       use: { ...devices['Desktop Firefox'] },
     },
-    {
-      name: 'webkit',
-      testMatch: /event-details\.spec\.ts/,
-      grep: /iOS touch scrolling|mobile session modal closes on iOS tap/,
-      use: { ...devices['iPhone 14 Pro'] },
-    },
+    ...(skipIos
+      ? []
+      : [
+          {
+            name: 'webkit',
+            testMatch: /event-details\.spec\.ts/,
+            grep: /iOS touch scrolling|mobile session modal closes on iOS tap/,
+            use: { ...devices['iPhone 14 Pro'] },
+          },
+        ]),
     /* Authenticated browser for profile/user tests */
     {
       name: 'chromium-auth',

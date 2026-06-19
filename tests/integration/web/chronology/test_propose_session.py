@@ -1,8 +1,10 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from django.contrib import messages
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -23,6 +25,17 @@ from ludamus.adapters.db.django.models import (
 from ludamus.pacts import EventDTO, ProposalCategoryDTO
 from tests.integration.conftest import ProposalCategoryFactory, TimeSlotFactory
 from tests.integration.utils import assert_response
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+GIF_BYTES = bytes.fromhex(
+    "47494638376101000100810000ffffff0000000000000000002c000000000100"
+    "010000080400010404003b"
+)
 
 
 class TestProposeSessionPageView:
@@ -90,8 +103,6 @@ class TestProposeSessionPageView:
         }
         session[f"propose_{event.slug}"] = wizard
         session.save()
-
-    # -- GET tests --
 
     def test_get_requires_login(self, client, event, faker, time_zone):
         self._activate_proposals(event, faker, time_zone)
@@ -179,8 +190,6 @@ class TestProposeSessionPageView:
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == proposal_category.pk
 
-    # -- Category POST tests --
-
     def test_post_category_stores_in_session(
         self, authenticated_client, event, faker, time_zone
     ):
@@ -212,6 +221,136 @@ class TestProposeSessionPageView:
         assert wizard["category_id"] == cat_b.pk
         assert "session_data" not in wizard
         assert "contact_email" not in wizard
+
+    def test_post_different_category_deletes_stashed_cover(
+        self, authenticated_client, event, faker, time_zone
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        cat_a = ProposalCategoryFactory(event=event, name="RPG")
+        cat_b = ProposalCategoryFactory(event=event, name="Workshop")
+        self._set_wizard_category(authenticated_client, event, cat_a)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+        assert default_storage.exists(cover_path)
+
+        authenticated_client.post(
+            self._get_category_url(event.slug), {"category_id": cat_b.pk}
+        )
+
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert wizard["category_id"] == cat_b.pk
+        assert "cover_image_temp" not in wizard
+        assert not default_storage.exists(cover_path)
+
+    def test_get_clears_stashed_cover(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+        assert default_storage.exists(cover_path)
+
+        authenticated_client.get(self._get_url(event.slug))
+
+        assert not default_storage.exists(cover_path)
+
+    def test_details_clear_removes_stashed_cover(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image-clear": "on",
+            },
+        )
+
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert "cover_image_temp" not in wizard
+        assert not default_storage.exists(cover_path)
+
+    def test_details_invalid_post_keeps_stashed_cover_preview(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+        cover_path = authenticated_client.session[f"propose_{event.slug}"][
+            "cover_image_temp"
+        ]
+        cover_url = default_storage.url(cover_path)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "",
+                "description": "A test session",
+                "participants_limit": "6",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["image_form"].initial["cover_image"] == cover_url
 
     def test_post_same_category_preserves_wizard_data(
         self, authenticated_client, event, faker, time_zone
@@ -274,12 +413,9 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": cat.pk}
         )
 
-        # Always shows personal step for contact email, even without extra fields
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "chronology/propose/parts/personal.html"
         assert response.context["form"]["contact_email"] is not None
-
-    # -- Personal data POST tests --
 
     def test_post_personal_data_valid(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -315,9 +451,7 @@ class TestProposeSessionPageView:
         )
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        response = authenticated_client.post(
-            self._get_personal_url(event.slug), {}  # missing required phone
-        )
+        response = authenticated_client.post(self._get_personal_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"].errors
@@ -354,8 +488,6 @@ class TestProposeSessionPageView:
         assert wizard["personal_data"]["personal_tshirt"] == "M"
         assert wizard["contact_email"] == "test@example.com"
 
-    # -- Time slot POST tests --
-
     def test_personal_step_prefills_from_saved_data(
         self,
         authenticated_client,
@@ -372,7 +504,6 @@ class TestProposeSessionPageView:
         PersonalDataFieldRequirement.objects.create(
             category=proposal_category, field=field, is_required=True
         )
-        # Simulate previously saved personal data via an existing Facilitator
         facilitator = Facilitator.objects.create(
             event=event, user=active_user, display_name=active_user.name, slug="active"
         )
@@ -512,7 +643,6 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert sorted(wizard["time_slot_ids"]) == sorted([slot1.pk, slot2.pk])
-        # Advances to session details
         assert response.context["form"] is not None
 
     def test_post_timeslots_without_selection_shows_error(
@@ -565,7 +695,6 @@ class TestProposeSessionPageView:
 
         response = authenticated_client.post(self._get_timeslots_url(event.slug), {})
 
-        # No time slot requirements — skips to session details
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
         assert response.template_name == "chronology/propose/parts/details.html"
@@ -582,7 +711,6 @@ class TestProposeSessionPageView:
         )
         TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
         TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
-        # Pre-set wizard with a selected slot
         session = authenticated_client.session
         session[f"propose_{event.slug}"] = {
             "category_id": proposal_category.pk,
@@ -590,15 +718,11 @@ class TestProposeSessionPageView:
         }
         session.save()
 
-        # Navigate back to timeslots step
         response = authenticated_client.post(
             self._get_personal_url(event.slug), {"back": "1"}
         )
 
-        # Since no personal fields, it should render timeslots
         assert response.status_code == HTTPStatus.OK
-
-    # -- Session details POST tests --
 
     def test_post_session_details_valid(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -630,10 +754,7 @@ class TestProposeSessionPageView:
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        response = authenticated_client.post(
-            self._get_details_url(event.slug),
-            {},  # missing required title and participants_limit
-        )
+        response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"].errors
@@ -742,10 +863,7 @@ class TestProposeSessionPageView:
         )
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        # Submit invalid to re-render the form with descriptors
-        response = authenticated_client.post(
-            self._get_details_url(event.slug), {}  # missing required fields
-        )
+        response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
         assert len(response.context["field_descriptors"]) == 1
@@ -769,15 +887,12 @@ class TestProposeSessionPageView:
         }
         session.save()
 
-        # back_to_timeslots with no timeslots skips to session step
         response = authenticated_client.post(
             self._get_timeslots_url(event.slug), {"back": "1"}
         )
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
-
-    # -- Back button tests --
 
     def test_post_back_to_category(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -881,8 +996,6 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
 
-    # -- Review step tests --
-
     def test_post_session_advances_to_review(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -923,7 +1036,6 @@ class TestProposeSessionPageView:
             time_slot_ids=[slot.pk],
         )
 
-        # Navigate to review via back_to_session then re-submit
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
@@ -953,8 +1065,6 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "chronology/propose/parts/review.html"
         assert response.context["review"]["title"] == "Test Session"
-
-    # -- display_name tests --
 
     def test_details_prefills_display_name(
         self,
@@ -994,8 +1104,6 @@ class TestProposeSessionPageView:
 
         session = Session.objects.get(title="Test Session")
         assert session.display_name == "My Custom Name"
-
-    # -- Submit tests --
 
     def test_submit_creates_session_and_proposal(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1192,8 +1300,6 @@ class TestProposeSessionPageView:
         assert len(msgs) == 1
         assert "Test Session" in str(msgs[0])
 
-    # -- Coverage: error paths and edge cases --
-
     def test_get_nonexistent_event_redirects(
         self, authenticated_client, event, faker, time_zone
     ):
@@ -1222,7 +1328,6 @@ class TestProposeSessionPageView:
 
         response = authenticated_client.post(self._get_personal_url(event.slug), {})
 
-        # Contact email is required — stays on personal step
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "chronology/propose/parts/personal.html"
         assert response.context["form"].errors["contact_email"]
@@ -1237,7 +1342,6 @@ class TestProposeSessionPageView:
             self._get_personal_url(event.slug), {"contact_email": "test@example.com"}
         )
 
-        # No personal requirements, but contact email provided — advances
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "chronology/propose/parts/details.html"
 
@@ -1310,7 +1414,6 @@ class TestProposeSessionPageView:
         )
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        # Submit invalid to re-render form with descriptors
         response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
@@ -1363,7 +1466,6 @@ class TestProposeSessionPageView:
         active_user,
     ):
         self._activate_proposals(event, faker, time_zone)
-        # Pre-create a session with the same slug
         Session.objects.create(
             sphere=event.sphere,
             presenter=active_user,
@@ -1379,10 +1481,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_submit_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.FOUND
-        # A second session was created with a suffixed slug
-        assert (
-            Session.objects.filter(sphere=event.sphere).count() == 1 + 1
-        )  # original + new
+        assert Session.objects.filter(sphere=event.sphere).count() == 1 + 1
 
     def test_submit_via_htmx_returns_hx_redirect(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1396,6 +1495,92 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert "HX-Redirect" in response
+
+    def test_submit_with_cover_image(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+
+        response = authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        assert response.status_code == HTTPStatus.FOUND
+        proposal = Session.objects.get(title="Test Session")
+        assert proposal.cover_image
+        assert proposal.cover_image_url.startswith("/media/sessions/")
+
+    def test_submit_rejects_too_large_cover_image(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile(
+            "cover.png",
+            PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
+            content_type="image/png",
+        )
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/details.html",
+        )
+        assert "cover_image" in response.context["image_form"].errors
+        assert not Session.objects.filter(title="Test Session").exists()
+
+    def test_submit_rejects_unsupported_cover_image_format(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.gif", GIF_BYTES, content_type="image/gif")
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/details.html",
+        )
+        assert "cover_image" in response.context["image_form"].errors
+        assert not Session.objects.filter(title="Test Session").exists()
 
     def test_submit_with_custom_session_field_key_skipped(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1522,7 +1707,6 @@ class TestProposeSessionPageView:
         )
         self._set_wizard_category(authenticated_client, event, proposal_category)
 
-        # Submit invalid to render session form with descriptors
         response = authenticated_client.post(self._get_details_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
@@ -1544,8 +1728,6 @@ class TestProposeSessionPageView:
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
         assert HostPersonalData.objects.count() == 0
-
-    # -- Coverage: checkbox field type (forms.py:44) --
 
     def test_post_personal_data_checkbox_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1572,8 +1754,6 @@ class TestProposeSessionPageView:
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["personal_data"]["personal_agreement"] is True
 
-    # -- Coverage: proposal_description in GET (views.py) --
-
     def test_get_shows_proposal_description(
         self, authenticated_client, event, faker, time_zone
     ):
@@ -1590,8 +1770,6 @@ class TestProposeSessionPageView:
             'aria-label="Proposal progress"'
         )
 
-    # -- Coverage: proposal_description in category back (views.py) --
-
     def test_post_back_to_category_shows_proposal_description(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1605,8 +1783,6 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert "<h2>Rules</h2>" in response.content.decode()
-
-    # -- Coverage: personal data prefill from wizard session (views.py:119) --
 
     def test_personal_step_prefills_from_wizard_session(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1633,8 +1809,6 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         form = response.context["form"]
         assert form.initial["personal_phone"] == "+48 777"
-
-    # -- Coverage: wizard stepper context (Fix D) --
 
     def test_category_step_exposes_stepper_context(
         self, authenticated_client, event, faker, time_zone
@@ -1729,8 +1903,6 @@ class TestProposeSessionPageView:
             "review",
         ]
 
-    # -- Coverage: review formats boolean values (views.py:195-197, 203-205) --
-
     def test_review_formats_boolean_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1765,8 +1937,6 @@ class TestProposeSessionPageView:
             if f["name"] == "Do you need a projector?"
         )
         assert projector_field["value"] is True
-
-    # -- Coverage: review formats list values (views.py:201-202) --
 
     def test_review_formats_multiselect_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1804,8 +1974,6 @@ class TestProposeSessionPageView:
         )
         assert genre_field["value"] == ["Fantasy", "Sci-Fi"]
 
-    # -- Coverage: review resolves select slugs to human labels (Fix A) --
-
     def test_review_resolves_select_field_labels(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1842,8 +2010,6 @@ class TestProposeSessionPageView:
         )
         assert system_field["value"] == "Dungeons & Dragons 5e"
 
-    # -- Coverage: custom-value fallthrough preserves typed text (Fix A) --
-
     def test_review_preserves_custom_typed_value(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1879,8 +2045,6 @@ class TestProposeSessionPageView:
         )
         assert system_field["value"] == "My Homebrew Game"
 
-    # -- Coverage: review passes raw string values through (views.py) --
-
     def test_review_passes_raw_string_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1910,8 +2074,6 @@ class TestProposeSessionPageView:
         )
         assert note_field["value"] == "Some note"
 
-    # -- Coverage: review skips None values (views.py:193-194) --
-
     def test_review_skips_none_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1925,7 +2087,6 @@ class TestProposeSessionPageView:
         SessionFieldRequirement.objects.create(
             category=proposal_category, field=field, is_required=False
         )
-        # Don't include session_optional in wizard data — get() returns None
         self._set_wizard_full(authenticated_client, event, proposal_category)
 
         response = authenticated_client.post(self._get_review_url(event.slug), {})
@@ -1933,8 +2094,6 @@ class TestProposeSessionPageView:
         review = response.context["review"]
         field_names = [f["name"] for f in review["session_fields"]]
         assert "What is your optional info?" not in field_names
-
-    # -- Coverage: review passes non-string/list/bool values through (views.py:112) --
 
     def test_review_passes_integer_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1968,8 +2127,6 @@ class TestProposeSessionPageView:
             f for f in review["session_fields"] if f["name"] == "How many players?"
         )
         assert player_count_field["value"] == integer_value
-
-    # -- Coverage: review splits fields by public/private visibility --
 
     def test_review_separates_fields_by_visibility(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2126,24 +2283,20 @@ class TestAnonymousProposalSubmission:
             category=proposal_category, field=phone_field, is_required=True
         )
 
-        # Step 1: GET landing page — see categories
         response = client.get(self._url(event.slug))
         assert response.status_code == HTTPStatus.OK
 
-        # Step 2: POST category selection
         response = client.post(
             self._url(event.slug, "category"), {"category_id": proposal_category.pk}
         )
         assert response.status_code == HTTPStatus.OK
 
-        # Step 3: POST personal data
         response = client.post(
             self._url(event.slug, "personal"),
             {"contact_email": "anon@example.com", "personal_phone": "+48 555"},
         )
         assert response.status_code == HTTPStatus.OK
 
-        # Step 4: POST session details (no timeslots configured, skips to details)
         expected_limit = proposal_category.min_participants_limit
         response = client.post(
             self._url(event.slug, "details"),
@@ -2156,28 +2309,23 @@ class TestAnonymousProposalSubmission:
         )
         assert response.status_code == HTTPStatus.OK
 
-        # Step 5: POST submit
         response = client.post(self._url(event.slug, "submit"))
         assert response.status_code == HTTPStatus.FOUND
 
-        # Verify: Session created with no presenter
         session = Session.objects.get(title="My Anonymous Game")
         assert session.display_name == "Anonymous GM"
         assert session.presenter_id is None
         assert session.status == "pending"
         assert session.participants_limit == expected_limit
 
-        # Verify: Facilitator created without user link
         facilitator = Facilitator.objects.get(event=event, display_name="Anonymous GM")
         assert facilitator.user_id is None
         assert facilitator.event_id == event.pk
 
-        # Verify: Session linked to the Facilitator via M2M
         assert list(session.facilitators.values_list("pk", flat=True)) == [
             facilitator.pk
         ]
 
-        # Verify: Personal data saved on facilitator, not on user
         hpd = HostPersonalData.objects.get(
             facilitator=facilitator, event=event, field=phone_field
         )

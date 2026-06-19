@@ -35,7 +35,7 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Field Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_name">{% translate "Name" context "place" %}</label>
                             <input type="text"
                                    name="name"
@@ -46,7 +46,7 @@
                             {% if form.name.errors %}<p class="mt-1 text-sm text-danger">{{ form.name.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_question">{% translate "Question" %}</label>
                             <textarea name="question"
                                       id="id_question"
@@ -59,7 +59,7 @@
                             {% if form.question.errors %}<p class="mt-1 text-sm text-danger">{{ form.question.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2">{% translate "Field Type" %}</label>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Field Type" %}</label>
                             <div class="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-foreground-secondary">
                                 {% if field.field_type == "select" %}
                                     {% translate "Select" %}
@@ -73,7 +73,7 @@
                         </div>
                         {% if field.field_type == "select" %}
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_options">{% translate "Options" %}</label>
                                 <textarea name="options"
                                           id="id_options"
@@ -85,7 +85,7 @@
                         {% endif %}
                         {% if field.field_type != "checkbox" %}
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_max_length">{% translate "Max Length" %}</label>
                                 <input type="number"
                                        name="max_length"
@@ -99,7 +99,7 @@
                             </div>
                         {% endif %}
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_help_text">{% translate "Help Text" %}</label>
                             <textarea name="help_text"
                                       id="id_help_text"
@@ -111,7 +111,7 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_icon">{% translate "Icon" %}</label>
                             <div class="flex items-center gap-3">
                                 <input type="text"
@@ -139,7 +139,7 @@
                     </div>
                 </div>
             </div>
-            <div class="bg-bg-secondary rounded-2xl shadow-[--theme-shadow] border border-border p-6 mt-6">
+            <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-6 mt-6">
                 <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Session Types" %}</h3>
                 <p class="text-sm text-foreground-muted mb-6">
                     {% translate "Select which session types should include this field." %}
@@ -155,14 +155,17 @@
                                             {% if category.pk not in required_category_pks and category.pk not in optional_category_pks %}selected{% endif %}>
                                         {% translate "Not included" %}
                                     </option>
-                                    <option value="required"
-                                            {% if category.pk in required_category_pks %}selected{% endif %}>
-                                        {% translate "Required" %}
-                                    </option>
+                                    {% if field.field_type != "checkbox" %}
+                                        <option value="required"
+                                                {% if category.pk in required_category_pks %}selected{% endif %}>
+                                            {% translate "Required" %}
+                                        </option>
+                                    {% endif %}
                                     <option value="optional"
-                                            {% if category.pk in optional_category_pks %}selected{% endif %}>
-                                        {% translate "Optional" %}
-                                    </option>
+                                            {% if field.field_type == "checkbox" %}{% if category.pk in optional_category_pks or category.pk in required_category_pks %}selected{% endif %}
+                                            {% else %}
+                                            {% if category.pk in optional_category_pks %}selected{% endif %}
+                                            {% endif %}>{% translate "Optional" %}</option>
                                 </select>
                             </label>
                         {% endfor %}

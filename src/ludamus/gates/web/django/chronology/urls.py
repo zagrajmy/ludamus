@@ -4,6 +4,11 @@ from . import views
 
 urlpatterns: list[URLPattern] = [
     path(
+        "event/<str:event_slug>/session/<int:session_id>/edit/",
+        views.SessionEditView.as_view(),
+        name="session-edit",
+    ),
+    path(
         "event/<str:event_slug>/session/propose/",
         views.ProposeSessionPageView.as_view(),
         name="session-propose",

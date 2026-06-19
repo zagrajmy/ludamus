@@ -39,10 +39,7 @@ class TestAuth0LoginCallbackActionView:
             response,
             HTTPStatus.FOUND,
             url="http://testserver/crowd/profile/",
-            messages=[
-                (messages.SUCCESS, "Welcome!"),
-                (messages.SUCCESS, "Please complete your profile."),
-            ],
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
         assert cache.get(f"oauth_state:{state_token}") is None
@@ -66,10 +63,7 @@ class TestAuth0LoginCallbackActionView:
             response,
             HTTPStatus.FOUND,
             url="http://testserver/crowd/profile/",
-            messages=[
-                (messages.SUCCESS, "Welcome!"),
-                (messages.SUCCESS, "Please complete your profile."),
-            ],
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
         assert cache.get(f"oauth_state:{state_token}") is None
@@ -81,7 +75,7 @@ class TestAuth0LoginCallbackActionView:
     def test_ok_redirect_to(self, authorize_access_token_mock, client, faker):
         sub = faker.uuid4()
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
-        redirect_to = "https://www.domain.example.com/a/b/c"
+        redirect_to = "https://www.testserver/a/b/c"
         state_token = self._setup_valid_state(redirect_to)
 
         response = client.get(self.URL, data={"state": state_token})
@@ -89,11 +83,8 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="https://www.domain.example.com/crowd/profile/",
-            messages=[
-                (messages.SUCCESS, "Welcome!"),
-                (messages.SUCCESS, "Please complete your profile."),
-            ],
+            url="https://www.testserver/crowd/profile/",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
 
@@ -103,12 +94,46 @@ class TestAuth0LoginCallbackActionView:
 
         assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
 
-    def test_ok_already_authenticated_redirect_to(self, authenticated_client, faker):
-        redirect_to = faker.url()
+    def test_ok_already_authenticated_redirect_to(self, authenticated_client):
+        redirect_to = "https://sphere.testserver/a/b/"
         state_token = self._setup_valid_state(redirect_to)
         response = authenticated_client.get(self.URL, data={"state": state_token})
 
         assert_response(response, HTTPStatus.FOUND, url=redirect_to)
+
+    def test_ok_already_authenticated_relative_redirect_to(self, authenticated_client):
+        state_token = self._setup_valid_state("/event/foo/")
+        response = authenticated_client.get(self.URL, data={"state": state_token})
+
+        assert_response(response, HTTPStatus.FOUND, url="/event/foo/")
+
+    def test_external_redirect_to_dropped(self, authenticated_client):
+        state_token = self._setup_valid_state("https://evil.example.com/phish/")
+        response = authenticated_client.get(self.URL, data={"state": state_token})
+
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
+
+    def test_protocol_relative_redirect_to_dropped(self, authenticated_client):
+        state_token = self._setup_valid_state("//evil.example.com/phish/")
+        response = authenticated_client.get(self.URL, data={"state": state_token})
+
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
+
+    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    def test_external_redirect_to_dropped_on_login(
+        self, authorize_access_token_mock, client, faker
+    ):
+        authorize_access_token_mock.return_value = {"userinfo": {"sub": faker.uuid4()}}
+        state_token = self._setup_valid_state("https://evil.example.com/a/b/c")
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/profile/",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
 
     @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
     def test_ok_complete_user(
@@ -124,10 +149,7 @@ class TestAuth0LoginCallbackActionView:
         response = client.get(self.URL, {"state": state_token})
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/",
-            messages=[(messages.SUCCESS, "Welcome!")],
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
 
     @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
@@ -209,10 +231,7 @@ class TestAuth0LoginCallbackActionView:
         response = client.get(self.URL, {"state": state_token})
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/",
-            messages=[(messages.SUCCESS, "Welcome!")],
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
 
         response = client.get(self.URL, {"state": state_token})
@@ -221,8 +240,7 @@ class TestAuth0LoginCallbackActionView:
             HTTPStatus.FOUND,
             url="http://testserver/",
             messages=[
-                (messages.SUCCESS, "Welcome!"),
-                (messages.ERROR, "Authentication session expired. Please try again."),
+                (messages.ERROR, "Authentication session expired. Please try again.")
             ],
         )
 
@@ -280,10 +298,7 @@ class TestAuth0LoginCallbackActionView:
         response = client.get(self.URL, {"state": state_token})
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/",
-            messages=[(messages.SUCCESS, "Welcome!")],
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
         user = User.objects.get(username=username)
         assert user.email == "new@example.com"
@@ -310,10 +325,7 @@ class TestAuth0LoginCallbackActionView:
         response = client.get(self.URL, {"state": state_token})
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/",
-            messages=[(messages.SUCCESS, "Welcome!")],
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
         user = User.objects.get(username=username)
         assert user.email == "new@example.com"
@@ -335,10 +347,7 @@ class TestAuth0LoginCallbackActionView:
             response,
             HTTPStatus.FOUND,
             url="http://testserver/crowd/profile/",
-            messages=[
-                (messages.SUCCESS, "Welcome!"),
-                (messages.SUCCESS, "Please complete your profile."),
-            ],
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
 
@@ -378,10 +387,7 @@ class TestAuth0LoginCallbackActionView:
             response,
             HTTPStatus.FOUND,
             url="http://testserver/crowd/profile/",
-            messages=[
-                (messages.SUCCESS, "Welcome!"),
-                (messages.SUCCESS, "Please complete your profile."),
-            ],
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         new_user = User.objects.get(username=f"auth0|{sub}")
         assert not new_user.email
@@ -405,10 +411,7 @@ class TestAuth0LoginCallbackActionView:
         response = client.get(self.URL, {"state": state_token})
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/",
-            messages=[(messages.SUCCESS, "Welcome!")],
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
         user = User.objects.get(username=username)
         assert user.email == "old@example.com"

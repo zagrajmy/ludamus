@@ -13,23 +13,18 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@hasparus/tailwind": "^1.1.8",
-    "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.2.4",
-    "portless": "^0.12.0",
-    "postcss-nested": "^7.0.2",
-    "prettier": "^3.8.1",
-    "prettier-plugin-tailwindcss": "^0.8.0",
-    "tailwindcss": "^4.1.16",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.10"
+    "@hasparus/tailwind": "1.1.8",
+    "@simulacrum/auth0-simulator": "0.11.4",
+    "@tailwindcss/typography": "0.5.19",
+    "@tailwindcss/vite": "4.2.4",
+    "postcss-nested": "7.0.2",
+    "prettier": "3.8.1",
+    "prettier-plugin-tailwindcss": "0.8.0",
+    "tailwindcss": "4.1.16",
+    "typescript": "5.9.3",
+    "vite": "8.0.16"
   },
   "dependencies": {
-    "@fluejs/noscroll": "^1.0.0"
-  },
-  "prettier": {
-    "plugins": [
-      "prettier-plugin-tailwindcss"
-    ]
+    "@fluejs/noscroll": "1.0.0"
   }
 }

@@ -25,11 +25,12 @@
                     </p>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="relative calendar-menu-wrapper">
-                            <button type="button" class="btn btn-teal text-sm w-full calendar-toggle-btn">
+                            <button type="button"
+                                    class="btn btn-secondary text-sm w-full calendar-toggle-btn">
                                 {% icon "calendar" class="h-5 w-5" variant="mini" %}
                                 {% translate "Add to calendar" %}
                             </button>
-                            <div class="calendar-menu hidden absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-[var(--theme-shadow-md)] z-10">
+                            <div class="calendar-menu hidden absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-(--shadow-dropdown) z-10">
                                 <a href="{{ google_calendar_url }}"
                                    target="_blank"
                                    rel="noopener noreferrer"
@@ -59,13 +60,13 @@
 {% elif is_full and not is_creator %}
     <div class="card">
         <div class="card-body text-center">
-            <p class="text-sm font-medium text-[var(--theme-danger-base)]">{% translate "No spots left" %}</p>
+            <p class="text-sm font-medium text-danger">{% translate "No spots left" %}</p>
         </div>
     </div>
 {% elif not is_creator and user_has_rsvpd %}
     <div class="card">
         <div class="card-body py-4">
-            <div class="flex items-center justify-center gap-2 text-[var(--theme-success-base)]">
+            <div class="flex items-center justify-center gap-2 text-success">
                 {% icon "check-circle" class="h-5 w-5" %}
                 <span class="font-medium text-sm">{% translate "You're signed up!" %}</span>
             </div>
@@ -74,11 +75,12 @@
                 <p class="text-xs text-foreground-secondary text-center mb-2">{% translate "Save the date so you don't forget:" %}</p>
                 <div class="grid grid-cols-2 gap-2">
                     <div class="relative calendar-menu-wrapper">
-                        <button type="button" class="btn btn-teal text-sm w-full calendar-toggle-btn">
+                        <button type="button"
+                                class="btn btn-secondary text-sm w-full calendar-toggle-btn">
                             {% icon "calendar" class="h-5 w-5" variant="mini" %}
                             {% translate "Add to calendar" %}
                         </button>
-                        <div class="calendar-menu hidden absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-[var(--theme-shadow-md)] z-10">
+                        <div class="calendar-menu hidden absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-(--shadow-dropdown) z-10">
                             <a href="{{ google_calendar_url }}"
                                target="_blank"
                                rel="noopener noreferrer"
@@ -105,7 +107,7 @@
             {# Collapsed state — click to restore prompt #}
             <div class="rsvp-save-done hidden mt-3">
                 <button type="button"
-                        class="rsvp-restore-prompt w-full text-xs text-[var(--theme-success-base)] text-center flex items-center justify-center gap-1 hover:text-[var(--theme-success-text)] transition-colors cursor-pointer underline decoration-dotted">
+                        class="rsvp-restore-prompt w-full text-xs text-success text-center flex items-center justify-center gap-1 hover:text-success-text transition-colors cursor-pointer underline decoration-dotted">
                     {% icon "check" class="h-3.5 w-3.5" variant="mini" %}
                     {% translate "Saved" %}
                 </button>
@@ -115,7 +117,7 @@
                       action="{% url 'web:notice-board:encounter-cancel-rsvp' share_code=encounter.share_code %}">
                     {% csrf_token %}
                     <button type="submit"
-                            class="text-xs text-foreground-secondary hover:text-[var(--theme-danger-base)] transition-colors">
+                            class="text-xs text-foreground-secondary hover:text-danger transition-colors">
                         {% translate "Cancel signup" %}
                     </button>
                 </form>

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -19,15 +20,67 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+
+def _override_to_choice(*, value: bool | None) -> str:
+    if value is None:
+        return ""
+    return "true" if value else "false"
+
+
+def _choice_to_override(value: str) -> bool | None:
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return None
+
+
+def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
+    data: EventUpdateData = {
+        "name": cd["name"],
+        "slug": slug,
+        "description": cd.get("description") or "",
+        "start_time": cd["start_time"],
+        "end_time": cd["end_time"],
+        "publication_time": cd.get("publication_time"),
+        "allow_facilitator_session_edit": _choice_to_override(
+            cd.get("allow_facilitator_session_edit") or ""
+        ),
+        "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
+    }
+    if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
+        data["cover_image"] = cover
+    # Only overwrite the logo when a new file was uploaded, so saving the
+    # settings form without re-picking a file keeps the existing logo.
+    if cd.get("logo"):
+        data["logo"] = cd["logo"]
+    return data
 
 
 class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
     """Event settings page view."""
 
     request: PanelRequest
+
+    def _apply_facilitator_choices(self, form: EventSettingsForm) -> None:
+        sphere = self.request.services.sphere_panel.read(
+            self.request.context.current_sphere_id
+        )
+        resolved = (
+            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        )
+        edit_field = form.fields["allow_facilitator_session_edit"]
+        if isinstance(edit_field, forms.ChoiceField):
+            edit_field.choices = [
+                ("", _("Use sphere default (currently: {})").format(resolved)),
+                ("true", _("Allow")),
+                ("false", _("Disallow")),
+            ]
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -37,11 +90,14 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "general"
         context["tab_urls"] = settings_tab_urls(slug)
-        context["form"] = EventSettingsForm(
+        override = current_event.allow_facilitator_session_edit
+        form = EventSettingsForm(
             initial={
                 "name": current_event.name,
                 "slug": current_event.slug,
                 "description": current_event.description,
+                "cover_image": current_event.cover_image_url or None,
+                "logo": current_event.logo_url or None,
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (
@@ -49,8 +105,12 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     if current_event.publication_time
                     else None
                 ),
+                "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "auto_confirm_sessions": current_event.auto_confirm_sessions,
             }
         )
+        self._apply_facilitator_choices(form)
+        context["form"] = form
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -62,11 +122,9 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
 
-        form = EventSettingsForm(self.request.POST)
+        form = EventSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            for field_errors in form.errors.values():
-                messages.error(self.request, str(field_errors[0]))
-            return redirect("panel:event-settings", slug=slug)
+            return self._render_with_form(slug, form)
 
         cd = form.cleaned_data
 
@@ -81,14 +139,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             except NotFoundError:
                 pass  # Slug is available
 
-        data: EventUpdateData = {
-            "name": cd["name"],
-            "slug": new_slug,
-            "description": cd.get("description") or "",
-            "start_time": cd["start_time"],
-            "end_time": cd["end_time"],
-            "publication_time": cd.get("publication_time"),
-        }
+        data = _event_update_data(cd, new_slug)
 
         try:
             self.request.di.uow.events.update(current_event.pk, data)
@@ -98,6 +149,15 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Event settings saved successfully."))
         return redirect("panel:event-settings", slug=new_slug)
+
+    def _render_with_form(self, slug: str, form: EventSettingsForm) -> HttpResponse:
+        context, _current_event = self.get_event_context(slug)
+        context["active_nav"] = "settings"
+        context["active_tab"] = "general"
+        context["tab_urls"] = settings_tab_urls(slug)
+        self._apply_facilitator_choices(form)
+        context["form"] = form
+        return TemplateResponse(self.request, "panel/settings.html", context)
 
 
 class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -227,3 +287,24 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Proposal settings saved successfully."))
         return redirect("panel:event-proposal-settings", slug=slug)
+
+
+class EventIntegrationSettingsPageView(PanelAccessMixin, EventContextMixin, View):
+    """Integrations tab — flat CRUD list across all kinds."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        context["active_nav"] = "settings"
+        context["active_tab"] = "integrations"
+        context["tab_urls"] = settings_tab_urls(slug)
+        context["integrations"] = (
+            self.request.services.event_integrations.list_for_event(current_event.pk)
+        )
+        return TemplateResponse(
+            self.request, "panel/integration-settings.html", context
+        )

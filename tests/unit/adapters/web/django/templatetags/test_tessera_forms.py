@@ -108,10 +108,57 @@ class TestTesseraField:
         html = tessera_field(form["name"])
         assert "*" in html  # Required field marker
 
+    def test_renders_hidden_input_without_label_or_wrapper(self) -> None:
+        class HiddenForm(forms.Form):
+            user_type = forms.CharField(widget=forms.HiddenInput())
+
+        html = tessera_field(HiddenForm()["user_type"])
+        assert 'type="hidden"' in html
+        assert "<label" not in html
+        assert "User type" not in html
+
     def test_renders_help_text(self) -> None:
         form = SimpleForm()
         html = tessera_field(form["email"])
         assert "We won&#x27;t share this" in html or "We won't share this" in html
+
+
+class _FieldFileStub:
+    url = "/media/events/cover.png"
+
+    def __str__(self) -> str:
+        return "events/cover.png"
+
+
+class ImageFieldForm(forms.Form):
+    photo = forms.ImageField(required=False)
+
+
+class TestFileInput:
+    def test_renders_empty_dropzone_without_initial(self) -> None:
+        html = tessera_field(ImageFieldForm()["photo"])
+        assert 'type="file"' in html
+        assert "/media/" not in html
+
+    def test_previews_initial_passed_as_url_string(self) -> None:
+        form = ImageFieldForm(initial={"photo": "/media/events/My%20Cover.png"})
+        html = tessera_field(form["photo"])
+        assert "/media/events/My%20Cover.png" in html
+        assert "My Cover.png" in html  # display name decoded from the URL path
+
+    def test_previews_initial_bound_file(self) -> None:
+        form = ImageFieldForm(initial={"photo": _FieldFileStub()})
+        html = tessera_field(form["photo"])
+        assert "/media/events/cover.png" in html
+        assert "events/cover.png" in html
+
+    def test_ignores_initial_of_unexpected_type(self) -> None:
+        # A value that is neither a file (no `.url`) nor a URL string yields no
+        # preview rather than rendering a broken image.
+        form = ImageFieldForm(initial={"photo": object()})
+        html = tessera_field(form["photo"])
+        assert 'type="file"' in html
+        assert "/media/" not in html
 
 
 class TestTesseraErrors:

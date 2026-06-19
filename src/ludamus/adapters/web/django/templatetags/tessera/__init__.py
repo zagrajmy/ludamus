@@ -24,6 +24,7 @@ from ._registry import register
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
 from .select import SelectNode, do_select
+from .table import TableNode, do_tessera_table
 from .tabs import (
     TAB_ACTIVE_CLASS,
     TAB_INACTIVE_CLASS,
@@ -40,10 +41,12 @@ __all__ = [
     "TAB_NAV_CLASS",
     "SelectNode",
     "TabNode",
+    "TableNode",
     "TabsNode",
     "do_select",
     "do_tab",
     "do_tabs",
+    "do_tessera_table",
     "icon",
     "register",
     "tessera_button",

@@ -1,11 +1,11 @@
 {% load i18n %}
 {% if not grid.spaces %}
-    <div class="text-center py-16 text-neutral-500">
+    <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No rooms for this track." %}</p>
         <p class="text-sm mt-2">{% translate "Add rooms or select a different track." %}</p>
     </div>
 {% elif not grid.time_labels %}
-    <div class="text-center py-16 text-neutral-500">
+    <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No time slots for this event." %}</p>
         <p class="text-sm mt-2">{% translate "Add time slots to see the schedule grid." %}</p>
     </div>
@@ -13,7 +13,7 @@
     <!-- Room pagination -->
     {% if grid.total_pages > 1 %}
         <div class="mb-4 flex items-center gap-2">
-            <span class="text-sm text-neutral-500">
+            <span class="text-sm text-foreground-muted">
                 {% translate "Rooms" %} {{ grid.page }}/{{ grid.total_pages }}
                 ({% translate "total" %} {{ grid.total_spaces }})
             </span>

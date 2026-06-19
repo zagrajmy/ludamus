@@ -1,25 +1,33 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 from unittest.mock import ANY, Mock, patch
 
 import pytest
 from django.contrib import messages
+from django.contrib.auth.hashers import make_password
+from django.db import connection
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
+    Notification,
     SessionParticipation,
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
 from ludamus.adapters.web.django.entities import SessionUserParticipationData
 from ludamus.pacts import UserDTO
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     AreaFactory,
     SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
+    UserFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -41,6 +49,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -53,6 +62,43 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_get_offered_participation_only_offers_decline(
+        self, active_user, authenticated_client, agenda_item
+    ):
+        # A held offer lets the user only decline it; the page surfaces the
+        # "Decline offer" choice instead of enroll/waitlist actions.
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = authenticated_client.get(self._get_url(agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "connected_users": [],
+                "event": agenda_item.space.area.venue.event,
+                "form": ANY,
+                "session": agenda_item.session,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    )
+                ],
+            },
+            template_name="chronology/enroll_select.html",
+        )
+        field = response.context_data["form"].fields[f"user_{active_user.pk}"]
+        assert ("cancel", "Decline offer") in list(field.choices)
+
     def test_get_error_404(self, authenticated_client):
         response = authenticated_client.get(self._get_url(17))
 
@@ -60,6 +106,23 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Session not found.")],
+            url="/",
+        )
+
+    def test_get_unscheduled_session_rejected(
+        self, authenticated_client, pending_session
+    ):
+        response = authenticated_client.get(self._get_url(pending_session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
             url="/",
         )
 
@@ -72,6 +135,61 @@ class TestSessionEnrollPageView:
             end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
         )
         response = authenticated_client.post(self._get_url(agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+
+    def test_post_cancel_when_enrollment_inactive(
+        self, agenda_item, authenticated_client, event, faker, time_zone, active_user
+    ):
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=faker.date_time_between("-10d", "-5d", tzinfo=time_zone),
+            end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
+        )
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    def test_post_cancel_when_no_enrollment_config(
+        self, agenda_item, authenticated_client, event, active_user
+    ):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk),
+            data={f"user_{active_user.id}": "cancel"},
+        )
 
         assert_response(
             response,
@@ -103,6 +221,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -220,6 +339,82 @@ class TestSessionEnrollPageView:
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_without_enrollment_skips(
+        self, active_user, agenda_item, authenticated_client, event
+    ):
+        # A cancel choice for a user with no participation is only reachable
+        # when a concurrent request deleted the row first; the form would
+        # otherwise reject "cancel". Mock the form to simulate that race and
+        # assert we skip gracefully instead of raising StopIteration.
+        with patch(
+            "ludamus.adapters.web.django.views.create_enrollment_form"
+        ) as mock_form_factory:
+            mock_form_class = Mock()
+            mock_form_instance = Mock()
+            mock_form_instance.is_valid.return_value = True
+            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "cancel"}
+            mock_form_class.return_value = mock_form_instance
+            mock_form_factory.return_value = mock_form_class
+
+            response = authenticated_client.post(
+                self._get_url(agenda_item.session.pk),
+                data={f"user_{active_user.id}": "cancel"},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{active_user.name} (no enrollment to cancel)"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_concurrent_cancel_does_not_500(self, active_user, agenda_item):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        url = self._get_url(agenda_item.session.pk)
+        post_data = {f"user_{active_user.id}": "cancel"}
+
+        clients = []
+        for _ in range(2):
+            client = Client()
+            client.force_login(active_user)
+            clients.append(client)
+
+        barrier = threading.Barrier(len(clients))
+
+        def cancel(client):
+            barrier.wait()
+            try:
+                return client.post(url, data=post_data)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(clients)) as pool:
+            responses = [
+                future.result()
+                for future in [pool.submit(cancel, client) for client in clients]
+            ]
+
+        assert all(response.status_code == HTTPStatus.FOUND for response in responses)
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
     def test_post_cancel_promote(
         self, active_user, agenda_item, authenticated_client, event, connected_user
     ):
@@ -239,16 +434,12 @@ class TestSessionEnrollPageView:
             data={f"user_{active_user.id}": "cancel"},
         )
 
+        # The promotee is notified directly now; the canceller only sees their
+        # own cancellation (no "stolen" promotion message).
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {connected_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -258,6 +449,10 @@ class TestSessionEnrollPageView:
             user=connected_user,
             session=agenda_item.session,
             status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+        # The manager of the promoted minor is notified directly.
+        assert Notification.objects.filter(
+            recipient=active_user, kind=NotificationKind.WAITLIST_PROMOTED.value
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -302,6 +497,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -345,6 +541,50 @@ class TestSessionEnrollPageView:
             url=reverse(
                 "web:chronology:session-enrollment", kwargs={"session_id": session.id}
             ),
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_and_enroll_on_full_session(
+        self,
+        active_user,
+        agenda_item,
+        authenticated_client,
+        session,
+        connected_user,
+        event,
+    ):
+        session.participants_limit = 1
+        session.save()
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk),
+            data={
+                f"user_{active_user.id}": "cancel",
+                f"user_{connected_user.id}": "enroll",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, f"Enrolled: {connected_user.name}"),
+                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
+        ).exists()
+        SessionParticipation.objects.get(
+            user=connected_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -510,6 +750,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -552,6 +793,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -591,6 +833,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -649,6 +892,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [UserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -737,6 +981,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [UserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -781,13 +1026,7 @@ class TestSessionEnrollPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {connected_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -822,13 +1061,7 @@ class TestSessionEnrollPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {staff_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -943,6 +1176,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -994,6 +1228,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1047,6 +1282,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1126,6 +1362,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1176,6 +1413,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1251,6 +1489,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1307,6 +1546,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1352,6 +1592,7 @@ class TestSessionEnrollPageView:
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1404,6 +1645,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.area.venue.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1459,6 +1701,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [UserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(connected_user.manager),
@@ -1500,6 +1743,7 @@ class TestSessionEnrollPageView:
                 "connected_users": [],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1512,3 +1756,46 @@ class TestSessionEnrollPageView:
             },
             template_name="chronology/enroll_select.html",
         )
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_concurrent_enroll_does_not_overbook_capacity(self, agenda_item):
+        # The `session` fixture makes `active_user` the presenter, who is always
+        # skipped as the host, so both contenders must be fresh non-presenters.
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+
+        contenders = []
+        for index in range(2):
+            user = UserFactory(
+                username=f"contender{index}",
+                email=f"contender{index}@example.com",
+                password=make_password(None),
+            )
+            client = Client()
+            client.force_login(user)
+            contenders.append((client, user.pk))
+
+        url = self._get_url(session.pk)
+        barrier = threading.Barrier(len(contenders))
+
+        def enroll(client, user_pk):
+            barrier.wait()
+            try:
+                return client.post(url, data={f"user_{user_pk}": "enroll"})
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(contenders)) as pool:
+            futures = [
+                pool.submit(enroll, client, user_pk) for client, user_pk in contenders
+            ]
+            for future in futures:
+                future.result()
+
+        confirmed = SessionParticipation.objects.filter(
+            session_id=session.pk, status=SessionParticipationStatus.CONFIRMED
+        ).count()
+        assert confirmed == 1

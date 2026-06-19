@@ -1,5 +1,6 @@
 """Tests for tessera design-system component tags."""
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -12,6 +13,7 @@ class TestIcon:
         tpl = Template('{% load tessera %}{% icon "user" %}')
         html = tpl.render(Context())
         assert "<svg" in html
+        assert "shrink-0" in html
 
     def test_renders_solid_variant(self) -> None:
         tpl = Template('{% load tessera %}{% icon "user" variant="solid" %}')
@@ -27,6 +29,7 @@ class TestIcon:
         tpl = Template('{% load tessera %}{% icon "user" class="w-5 h-5" %}')
         html = tpl.render(Context())
         assert "w-5 h-5" in html
+        assert "shrink-0" in html
 
     def test_passes_style_kwarg(self) -> None:
         tpl = Template('{% load tessera %}{% icon "clock" style="color: var(--x)" %}')
@@ -37,7 +40,7 @@ class TestIcon:
         tpl = Template('{% load tessera %}{% icon "clock" style=bad_style %}')
         html = tpl.render(Context({"bad_style": '" onload="alert(1)'}))
         assert 'onload="alert(1)"' not in html
-        assert "&quot;" in html
+        assert "&quot;" in html or "&amp;quot;" in html
 
     @patch("ludamus.adapters.web.django.templatetags.tessera.icon.settings")
     def test_missing_icon_raises_in_debug(self, mock_settings: object) -> None:
@@ -90,6 +93,34 @@ class TestSelect:
         )
         html = tpl.render(Context())
         assert "multiple" in html
+
+    def test_forwards_arbitrary_attributes(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% select id="m" name="x" onchange="this.form.submit()" '
+            'aria_label="Material" data_role="picker" %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        assert 'onchange="this.form.submit()"' in html
+        assert 'aria-label="Material"' in html
+        assert 'data-role="picker"' in html
+
+    def test_disabled_attribute(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% select name="x" disabled=True %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        # Match the bare boolean attribute, not the base classes' `disabled:*`.
+        assert re.search(r"\sdisabled(?=[\s>])", html)
+
+    def test_skips_falsy_attributes(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% select name="x" required=False data_role="" %}{% end_select %}'
+        )
+        html = tpl.render(Context())
+        assert "required" not in html
+        assert "data-role" not in html
 
     def test_extra_class(self) -> None:
         tpl = Template(

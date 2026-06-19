@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, ClassVar, Never, cast
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
@@ -16,13 +16,15 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.pacts import (
+    OCCUPYING_PARTICIPATION_STATUSES,
+    NotificationKind,
+    PromotionMode,
     SessionParticipationStatus,
     SessionStatus,
     SpherePage,
     UserType,
     VirtualEnrollmentConfig,
 )
-from ludamus.pacts.multiverse import ConnectionProvider
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -96,6 +98,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        through="Shadowban",
+        through_fields=("owner", "target"),
+        related_name="shadowbanned_by",
+        blank=True,
+    )
 
     objects = UserManager()
 
@@ -129,12 +139,55 @@ class User(AbstractBaseUser, PermissionsMixin):
         )
 
 
+class Shadowban(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shadowban"
+        constraints = (
+            models.CheckConstraint(
+                condition=~Q(owner=F("target")), name="shadowban_owner_not_target"
+            ),
+            models.UniqueConstraint(
+                fields=("owner", "target"), name="shadowban_unique_owner_target"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.owner_id} shadowbanned {self.target_id}"
+
+
+REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
+
+
+class EventBan(models.Model):
+    event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_ban"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_ban_unique_event_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} banned from event {self.event_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
+    # Branding fallback — used on printables when an event has no logo of its own
+    logo = models.ImageField(upload_to="spheres/", blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -144,12 +197,17 @@ class Sphere(models.Model):
         choices=[(p.value, p.name.title()) for p in SpherePage],
         default=SpherePage.EVENTS,
     )
+    allow_facilitator_session_edit = models.BooleanField(default=True)
 
     class Meta:
         db_table = "sphere"
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
 
 class Event(models.Model):
@@ -159,6 +217,9 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    cover_image = models.ImageField(upload_to="events/", blank=True)
+    # Branding — shown on printables (the public /print page)
+    logo = models.ImageField(upload_to="events/", blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -167,6 +228,12 @@ class Event(models.Model):
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
+    allow_facilitator_session_edit = models.BooleanField(
+        null=True, blank=True, default=None
+    )
+    # When on, newly scheduled program items are confirmed immediately;
+    # turn off for a draft → confirm workflow on large events.
+    auto_confirm_sessions = models.BooleanField(default=True)
     # Filterable tag categories for session list
     filterable_tag_categories: models.ManyToManyField[TagCategory, Never] = (
         models.ManyToManyField(
@@ -197,6 +264,14 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def cover_image_url(self) -> str:
+        return self.cover_image.url if self.cover_image else ""
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
     @property
     def is_proposal_active(self) -> bool:
@@ -590,6 +665,13 @@ class Tag(models.Model):
         return self.name
 
 
+class AccreditationType(models.TextChoices):
+    NONE = "none", _("None")
+    STANDARD = "standard", _("Standard")
+    GUEST = "guest", _("Guest")
+    HONORARY = "honorary", _("Honorary")
+
+
 class Facilitator(models.Model):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -605,6 +687,9 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    accreditation_type = models.CharField(
+        max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
+    )
 
     class Meta:
         db_table = "facilitator"
@@ -675,6 +760,7 @@ class Session(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    cover_image = models.ImageField(upload_to="sessions/", blank=True)
     requirements = models.TextField(blank=True)
     needs = models.TextField(default="", blank=True)
     duration = models.CharField(
@@ -716,7 +802,7 @@ class Session(models.Model):
                 fields=["slug", "sphere"], name="session_unique_slug_in_sphere"
             ),
             models.CheckConstraint(
-                condition=Q(min_age__gte=0, min_age__lte=18),
+                condition=Q(min_age__gte=0, min_age__lte=80),
                 name="session_min_age_range",
             ),
         )
@@ -725,12 +811,18 @@ class Session(models.Model):
         return self.title
 
     @property
+    def cover_image_url(self) -> str:
+        return self.cover_image.url if self.cover_image else ""
+
+    @property
     def enrolled_count(self) -> int:
         # Use cached count if available from annotation, otherwise query
         if hasattr(self, "enrolled_count_cached"):
             return cast("int", self.enrolled_count_cached)
+        # CONFIRMED and OFFERED both hold a seat: an offered (but not yet
+        # claimed) seat must not be handed out twice.
         return self.session_participations.filter(
-            status=SessionParticipationStatus.CONFIRMED
+            status__in=OCCUPYING_PARTICIPATION_STATUSES
         ).count()
 
     @property
@@ -858,6 +950,20 @@ class ProposalCategory(models.Model):
     durations = models.JSONField(
         default=list
     )  # ISO 8601 durations, e.g. ["PT30M", "PT1H"]
+    # Waiting-list promotion behaviour for sessions in this category.
+    promotion_mode = models.CharField(
+        max_length=15,
+        choices=[(item.value, item.name) for item in PromotionMode],
+        default=PromotionMode.AUTO,
+        help_text=(
+            "How a freed seat is filled: AUTO promotes the next waiter straight"
+            " to confirmed; OFFER_CLAIM offers the seat for a bounded window."
+        ),
+    )
+    offer_claim_window = models.DurationField(
+        default=timedelta(hours=24),
+        help_text="How long an offered seat is held before it rolls to the next waiter",
+    )
 
     class Meta:
         db_table = "proposal_category"
@@ -888,6 +994,18 @@ class SessionParticipation(models.Model):
         max_length=15,
         choices=[(item.value, item.name) for item in SessionParticipationStatus],
     )
+    # Offer lifecycle (offer-and-claim mode). An OFFERED seat is held until the
+    # offer is claimed or expires; a lapsed offer is terminal (the party is
+    # dropped). The claim token makes the claim flow login-free for anonymous
+    # waiters.
+    offered_at = models.DateTimeField(null=True, blank=True)
+    offer_expires_at = models.DateTimeField(null=True, blank=True)
+    # A whole party shares one secret token; the index serves the login-free
+    # claim lookup. Single-use is enforced by flipping status/claimed_at, not by
+    # a uniqueness constraint (so all of a party's rows can carry it). Empty for
+    # non-offered participations.
+    claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = (("session", "user"),)
@@ -895,6 +1013,47 @@ class SessionParticipation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.name} {self.status} on {self.session}"
+
+
+class Notification(models.Model):
+    """In-app notification for a single recipient.
+
+    Persistent, unlike flash messages. Surfaced in the navbar notifications
+    dropdown and counted for the unread badge. Small and generic enough for the
+    errata broadcast channel to reuse later.
+    """
+
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )
+    kind = models.CharField(
+        max_length=32, choices=[(item.value, item.name) for item in NotificationKind]
+    )
+    # Localised, ready-to-render copy plus structured refs (session/event ids,
+    # claim url, deadline). Rendered by the recipient's request, not at send.
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True, default="")
+    url = models.CharField(max_length=512, blank=True, default="")
+    payload = models.JSONField(default=dict, blank=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "notification"
+        ordering: ClassVar = ["-creation_time"]
+        indexes: ClassVar = [
+            # Cheap per-user unread-count query for the navbar badge.
+            models.Index(
+                fields=["recipient", "read_at"], name="notif_recipient_read_idx"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} for {self.recipient.name}"
+
+    @property
+    def is_read(self) -> bool:
+        return self.read_at is not None
 
 
 class PersonalDataFieldType(models.TextChoices):
@@ -1204,6 +1363,10 @@ class Encounter(models.Model):
     def __str__(self) -> str:
         return self.title
 
+    @property
+    def header_image_url(self) -> str:
+        return self.header_image.url if self.header_image else ""
+
 
 class EncounterRSVP(models.Model):
     encounter = models.ForeignKey(
@@ -1314,6 +1477,27 @@ class ScheduleChangeLog(models.Model):
         return f"{self.action} {self.session} by {self.user}"
 
 
+class ContentChangeLog(models.Model):
+    """Audit trail for session content edits."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="content_change_logs"
+    )
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="content_change_logs"
+    )
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=list)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "content_change_log"
+        ordering: ClassVar = ["-creation_time"]
+
+    def __str__(self) -> str:
+        return f"edit {self.session} by {self.user}"
+
+
 def can_enroll_users(
     *,
     users: list[UserDTO],
@@ -1321,10 +1505,10 @@ def can_enroll_users(
     virtual_config: VirtualEnrollmentConfig,
     users_to_enroll: list[UserDTO],
 ) -> bool:
-    # Get currently enrolled users
+    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
     currently_enrolled = set(
         SessionParticipation.objects.filter(
-            status=SessionParticipationStatus.CONFIRMED,
+            status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__agenda_item__space__area__venue__event_id=event.pk,
         )
@@ -1340,10 +1524,10 @@ def can_enroll_users(
 
 
 def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
-    # Count unique users who have at least one confirmed enrollment
+    # Count unique users who hold at least one seat (confirmed or offered)
     return len(
         SessionParticipation.objects.filter(
-            status=SessionParticipationStatus.CONFIRMED,
+            status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__agenda_item__space__area__venue__event_id=event.pk,
         )
@@ -1364,14 +1548,10 @@ class Connection(models.Model):
     sphere = models.ForeignKey(
         Sphere, on_delete=models.CASCADE, related_name="connections"
     )
-    service = models.CharField(
-        max_length=32,
-        choices=[(ConnectionProvider.GOOGLE.value, _("Google Forms + Sheets"))],
-    )
     display_name = models.CharField(max_length=255)
-    # Encrypted credentials. Write-only at the repo surface — the
-    # decrypt path is owned by the import-execution slice.
-    credentials = models.BinaryField(default=b"")
+    # Encrypted secret. Write-only at the repo surface — the decrypt
+    # path is owned by the import-execution slice.
+    secret = models.BinaryField(default=b"")
 
     class Meta:
         db_table = "connection"
@@ -1387,5 +1567,54 @@ class Connection(models.Model):
         return self.display_name
 
     @property
-    def has_credentials(self) -> bool:
-        return bool(self.credentials)
+    def has_secret(self) -> bool:
+        return bool(self.secret)
+
+
+class Announcement(models.Model):
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="announcements"
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    is_published = models.BooleanField(default=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "announcement"
+        ordering = ("-creation_time",)
+        indexes = (
+            models.Index(
+                fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class EventIntegration(models.Model):
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="integrations"
+    )
+    kind = models.CharField(max_length=32)
+    implementation = models.CharField(max_length=128)
+    connection = models.ForeignKey(
+        Connection, on_delete=models.PROTECT, related_name="event_integrations"
+    )
+    display_name = models.CharField(max_length=255)
+    config_json = models.TextField(default="{}")
+
+    class Meta:
+        db_table = "event_integration"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "kind", "display_name"),
+                name="event_integration_unique_display_name",
+            ),
+        )
+        ordering = ("kind", "display_name")
+
+    def __str__(self) -> str:
+        return self.display_name
