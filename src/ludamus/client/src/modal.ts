@@ -9,21 +9,18 @@ import { initTouchHandler, resetTouchHandler } from "@fluejs/noscroll/touch";
 
 interface NavigateEvent {
   canIntercept: boolean;
-  hashChange: boolean;
-  navigationType: "push" | "replace" | "reload" | "traverse";
   destination: { url: string };
+  hashChange: boolean;
   intercept: () => void;
+  navigationType: "push" | "reload" | "replace" | "traverse";
 }
 
 interface Navigation {
-  addEventListener(
-    type: "navigate",
-    handler: (e: NavigateEvent) => void,
-  ): void;
+  addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
 }
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
-const navigation = (globalThis as { navigation?: Navigation }).navigation;
+const { navigation } = globalThis as { navigation?: Navigation };
 
 const scrollLockTargets = new Set<HTMLDialogElement>();
 const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
@@ -32,7 +29,7 @@ let touchHandlerInitialized = false;
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
   const candidates = [dialog, ...dialog.querySelectorAll<HTMLElement>("*")];
   return candidates.filter((element) => {
-    const overflowY = window.getComputedStyle(element).overflowY;
+    const { overflowY } = globalThis.getComputedStyle(element);
     return (
       (overflowY === "auto" || overflowY === "scroll") &&
       element.scrollHeight > element.clientHeight
@@ -90,7 +87,7 @@ const syncPageScrollLock = (): void => {
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLDialogElement)) {
-    throw new Error(`Modal "${id}" is not a <dialog> element`);
+    throw new TypeError(`Modal "${id}" is not a <dialog> element`);
   }
   return element;
 };
@@ -100,7 +97,7 @@ const updateQueryParam = (
   value: string | null,
   { replaceHistory = false } = {},
 ): void => {
-  const url = new URL(window.location.href);
+  const url = new URL(globalThis.location.href);
   const current = url.searchParams.get(paramName);
 
   if (value === null) {
@@ -113,10 +110,10 @@ const updateQueryParam = (
   }
 
   if (replaceHistory) {
-    window.history.replaceState({}, "", url);
+    globalThis.history.replaceState({}, "", url);
     return;
   }
-  window.history.pushState({}, "", url);
+  globalThis.history.pushState({}, "", url);
 };
 
 const getLinkableByModalId = (
@@ -128,7 +125,7 @@ const getLinkableByModalId = (
   const href = link.getAttribute("href");
   if (!href) return null;
 
-  const hrefUrl = new URL(href, window.location.href);
+  const hrefUrl = new URL(href, globalThis.location.href);
   const first = hrefUrl.searchParams.entries().next();
   if (first.done) return null;
 
@@ -138,7 +135,7 @@ const getLinkableByModalId = (
 
 const openModal = (
   id: string,
-  { updateUrl = true, replaceHistory = false } = {},
+  { replaceHistory = false, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (!dialog.open) {
@@ -158,7 +155,7 @@ const openModal = (
 
 const closeModal = (
   id: string,
-  { updateUrl = true, replaceHistory = true } = {},
+  { replaceHistory = true, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (dialog.open) {
@@ -170,7 +167,7 @@ const closeModal = (
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
-    const current = new URLSearchParams(window.location.search).get(
+    const current = new URLSearchParams(globalThis.location.search).get(
       linkable.paramName,
     );
     if (current === linkable.paramValue) {
@@ -180,38 +177,38 @@ const closeModal = (
 };
 
 const syncModalsFromUrl = (): void => {
-  const searchParams = new URLSearchParams(window.location.search);
+  const searchParams = new URLSearchParams(globalThis.location.search);
 
-  document.querySelectorAll("dialog.modal[open]").forEach((dialog) => {
+  for (const dialog of document.querySelectorAll("dialog.modal[open]")) {
     closeModal(dialog.id, { updateUrl: false });
-  });
+  }
 
-  document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const href = link.getAttribute("href");
     const modalId = link.getAttribute("aria-controls");
-    if (!href || !modalId) return;
+    if (!href || !modalId) continue;
 
     const target = document.getElementById(modalId);
     if (
       !(target instanceof HTMLDialogElement) ||
       !target.classList.contains("modal")
     )
-      return;
+      continue;
 
-    const hrefUrl = new URL(href, window.location.href);
+    const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
         openModal(modalId, { updateUrl: false });
         return;
       }
     }
-  });
+  }
 };
 
 document.addEventListener(
   "cancel",
   (event) => {
-    const target = event.target;
+    const { target } = event;
     if (
       !(target instanceof HTMLDialogElement) ||
       !target.classList.contains("modal")
@@ -293,10 +290,10 @@ const closeFromTrigger = (event: Event): void => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-  const closeTrigger = eventTarget.closest("[data-modal-close]");
+  const closeTrigger = eventTarget.closest<HTMLElement>("[data-modal-close]");
   if (!closeTrigger) return;
 
-  const id = closeTrigger.getAttribute("data-modal-close");
+  const id = closeTrigger.dataset.modalClose;
   if (!id) return;
 
   stopModalCloseEvent(event);
@@ -304,10 +301,10 @@ const closeFromTrigger = (event: Event): void => {
 };
 
 const setupModalCloseTriggers = (): void => {
-  document.querySelectorAll("[data-modal-close]").forEach((trigger) => {
+  for (const trigger of document.querySelectorAll("[data-modal-close]")) {
     trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
     trigger.addEventListener("click", closeFromTrigger, { capture: true });
-  });
+  }
 };
 
 document.addEventListener("click", (event) => {
@@ -332,7 +329,7 @@ document.addEventListener("click", (event) => {
   if (!isInside) closeModal(eventTarget.id);
 });
 
-window.addEventListener("popstate", syncModalsFromUrl);
+globalThis.addEventListener("popstate", syncModalsFromUrl);
 
 syncModalsFromUrl();
 setupModalCloseTriggers();
@@ -341,23 +338,22 @@ setupModalCloseTriggers();
 // handlers directly to modal-trigger links so preventDefault fires before
 // the browser starts navigation.
 const setupFallbackLinkHandlers = (): void => {
-
-  document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const modalId = link.getAttribute("aria-controls");
-    if (!modalId) return;
+    if (!modalId) continue;
 
     const target = document.getElementById(modalId);
     if (
       !(target instanceof HTMLDialogElement) ||
       !target.classList.contains("modal")
     )
-      return;
+      continue;
 
     link.addEventListener("click", (e) => {
       e.preventDefault();
       openModal(modalId);
     });
-  });
+  }
 };
 
 setupFallbackLinkHandlers();

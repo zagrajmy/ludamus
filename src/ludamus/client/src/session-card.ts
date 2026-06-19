@@ -5,9 +5,9 @@
 const COPY_FEEDBACK_MS = 2000;
 
 interface CopyFeedback {
-  timer: number;
-  html: string;
   className: string;
+  html: string;
+  timer: number;
 }
 const activeFeedback = new WeakMap<HTMLElement, CopyFeedback>();
 
@@ -22,13 +22,13 @@ const flashCopyFeedback = (
 ): void => {
   const existing = activeFeedback.get(button);
   const original = existing ?? {
-    html: button.innerHTML,
     className: button.className,
+    html: button.innerHTML,
   };
-  if (existing) window.clearTimeout(existing.timer);
+  if (existing) globalThis.clearTimeout(existing.timer);
   button.innerHTML = html ?? original.html;
   button.className = className;
-  const timer = window.setTimeout(() => {
+  const timer = globalThis.setTimeout(() => {
     button.innerHTML = original.html;
     button.className = original.className;
     activeFeedback.delete(button);
@@ -62,18 +62,18 @@ document.addEventListener("click", (e) => {
         "✓",
       ),
     )
-    .catch((err: unknown) => {
-      console.error("Copy failed:", err);
+    .catch((error: unknown) => {
+      console.error("Copy failed:", error);
       flashCopyFeedback(button, "btn btn-danger p-1 copy-discord");
     });
 });
 
 // Number waiting list positions within each tab panel.
-document.querySelectorAll<HTMLElement>(".tab-panel").forEach((tabPane) => {
+for (const tabPane of document.querySelectorAll<HTMLElement>(".tab-panel")) {
   let position = 1;
-  tabPane
-    .querySelectorAll<HTMLElement>(".waiting-list-row .waiting-position")
-    .forEach((badge) => {
-      badge.textContent = String(position++);
-    });
-});
+  for (const badge of tabPane.querySelectorAll<HTMLElement>(
+    ".waiting-list-row .waiting-position",
+  )) {
+    badge.textContent = String(position++);
+  }
+}

@@ -2,7 +2,6 @@
 // Click/keyboard operable with a live aria-expanded, Esc to close, and
 // click-outside to dismiss — replacing the previous hover/focus-within-only
 // reveal so the menus are usable without a pointer and are axe-clean.
-export {};
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -50,7 +49,9 @@ const init = (root: HTMLElement): void => {
 };
 
 const wire = (): void => {
-  document.querySelectorAll<HTMLElement>("[data-menu]").forEach(init);
+  for (const root of document.querySelectorAll<HTMLElement>("[data-menu]")) {
+    init(root);
+  }
 };
 
 if (document.readyState === "loading") {
