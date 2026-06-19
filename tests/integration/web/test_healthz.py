@@ -18,7 +18,7 @@ PNG_BYTES = (
 )
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def _reset_healthz_cache():
     urls_module._healthz_cache.update(time=0.0, ok=True)  # noqa: SLF001
     yield
@@ -26,6 +26,8 @@ def _reset_healthz_cache():
 
 
 class TestHealthz:
+    pytestmark = pytest.mark.usefixtures("_reset_healthz_cache")
+
     def test_returns_ok_on_fresh_request(self, client):
         response = client.get("/healthz/")
 
