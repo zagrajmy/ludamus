@@ -70,7 +70,7 @@
                                     <form method="post"
                                           action="{% url 'panel:discount-delete' slug=current_event.slug pk=row.discount.pk %}"
                                           class="inline"
-                                          onsubmit="this.querySelector('button[type=submit]').disabled = true">
+                                          onsubmit="return confirm('{% translate "Are you sure you want to remove this discount?" %}') &amp;&amp; (this.querySelector('button[type=submit]').disabled = true)">
                                         {% csrf_token %}
                                         <button type="submit"
                                                 class="text-danger hover:text-danger/80 inline-flex items-center">

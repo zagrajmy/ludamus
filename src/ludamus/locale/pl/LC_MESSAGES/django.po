@@ -6770,6 +6770,10 @@ msgstr "Twórca programu"
 msgid "No creators yet."
 msgstr "Brak twórców programu."
 
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Are you sure you want to remove this discount?"
+msgstr "Czy na pewno chcesz usunąć tę zniżkę?"
+
 #: src/ludamus/templates/panel/discounts/create.html
 msgid "Assign discount"
 msgstr "Przyznaj zniżkę"
