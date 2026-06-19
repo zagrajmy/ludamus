@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
+    from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.enrollment import (
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
@@ -96,3 +97,5 @@ class ServicesProtocol(Protocol):
     def import_log(self) -> ImportLogServiceProtocol: ...
     @property
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
+    @property
+    def discounts(self) -> DiscountsServiceProtocol: ...
