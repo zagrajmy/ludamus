@@ -37,6 +37,7 @@ from django.utils import timezone  # noqa: E402
 from django.utils.timezone import get_current_timezone  # noqa: E402
 
 from ludamus.adapters.db.django.models import (  # noqa: E402
+    AgendaItem,
     Area,
     Event,
     Facilitator,
@@ -110,6 +111,34 @@ def main() -> None:
             time_slot=slot,
             defaults={"is_required": False, "order": order},
         )
+
+    # A pre-scheduled, over-capacity session so the conflict panel exercises
+    # its "conflict" rendering path (capacity_exceeded: a 24-seat session in an
+    # 8-seat room). Placed in the SECOND space, so it never collides with the
+    # assign tests — those drop into the first column.
+    overflow, _ = Session.objects.get_or_create(
+        sphere=event.sphere,
+        slug="timetable-overflow-demo",
+        defaults={
+            "title": "Overflow Demo Game",
+            "display_name": "Casey Rivers",
+            "description": "Intentionally over-capacity to surface a room conflict.",
+            "duration": "PT2H",
+            "participants_limit": 24,
+            "min_age": 0,
+            "status": "pending",
+            "category": cat,
+        },
+    )
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=overflow,
+        defaults={
+            "session_confirmed": True,
+            "start_time": slot.start_time,
+            "end_time": slot.end_time,
+        },
+    )
 
     # Track — link the spaces created above.
     track, _ = Track.objects.get_or_create(
