@@ -404,7 +404,8 @@ test.describe('Timetable', () => {
   test('confirms and unconfirms a scheduled session', async ({
     page,
   }) => {
-    // Assign "Storytelling Workshop" so a scheduled item exists to confirm.
+    // Assign "Storytelling Workshop" so a scheduled item exists. Auto-confirm
+    // is on by default, so the freshly scheduled item starts confirmed.
     await page.goto('/panel/event/autumn-open/timetable/');
 
     await page
@@ -443,25 +444,25 @@ test.describe('Timetable', () => {
 
     await expect(
       leftPane.getByRole('button', {
-        name: 'Confirm program item',
+        name: 'Undo confirmation',
       }),
     ).toBeVisible({ timeout: 5000 });
 
-    // Confirm — the button flips to the "Undo confirmation" state.
-    await leftPane
-      .getByRole('button', { name: 'Confirm program item' })
-      .click();
-    await expect(
-      leftPane.getByRole('button', { name: 'Undo confirmation' }),
-    ).toBeVisible({ timeout: 5000 });
-
-    // Undo — the button returns to the "Confirm program item" state.
+    // Undo — the button flips to the "Confirm program item" state.
     await leftPane
       .getByRole('button', { name: 'Undo confirmation' })
       .click();
     await expect(
+      leftPane.getByRole('button', { name: 'Confirm program item' }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Confirm again — the button returns to the "Undo confirmation" state.
+    await leftPane
+      .getByRole('button', { name: 'Confirm program item' })
+      .click();
+    await expect(
       leftPane.getByRole('button', {
-        name: 'Confirm program item',
+        name: 'Undo confirmation',
       }),
     ).toBeVisible({ timeout: 5000 });
 
