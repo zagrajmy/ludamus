@@ -158,6 +158,14 @@ class SessionContentEditServiceProtocol(Protocol):
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
 
 
+class SessionConfirmationServiceProtocol(Protocol):
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None: ...
+    def confirm_all(self, event_pk: int) -> None: ...
+    def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
+
+
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
 

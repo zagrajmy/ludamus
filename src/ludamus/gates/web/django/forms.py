@@ -130,6 +130,14 @@ class EventSettingsForm(forms.Form):
         ],
         label=_("Facilitators editing their own sessions"),
     )
+    auto_confirm_sessions = forms.BooleanField(
+        required=False,
+        label=_("Automatically confirm program items once scheduled"),
+        help_text=_(
+            "When on, a program item is confirmed the moment it is placed on "
+            "the schedule. Turn off to confirm items manually."
+        ),
+    )
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

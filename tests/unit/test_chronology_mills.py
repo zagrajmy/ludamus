@@ -9,6 +9,7 @@ from ludamus.mills.chronology import (
     ConflictDetectionService,
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
+    SessionConfirmationService,
     TimetableOverviewService,
     TimetableService,
 )
@@ -241,9 +242,10 @@ class TestAssignUnassignScope:
         return TimetableService(mock_uow)
 
     @staticmethod
-    def _event(pk):
+    def _event(pk, *, auto_confirm_sessions=True):
         event = MagicMock()
         event.pk = pk
+        event.auto_confirm_sessions = auto_confirm_sessions
         return event
 
     @staticmethod
@@ -284,6 +286,123 @@ class TestAssignUnassignScope:
             service.unassign_session(session_pk=1, event_pk=1)
 
         mock_uow.agenda_items.delete.assert_not_called()
+
+    def _arrange_pending_assignment(self, mock_uow, *, auto_confirm_sessions):
+        mock_uow.sessions.read_event.return_value = self._event(
+            1, auto_confirm_sessions=auto_confirm_sessions
+        )
+        space = MagicMock()
+        space.pk = 1
+        mock_uow.spaces.list_by_event.return_value = [space]
+        mock_uow.agenda_items.read_by_session.return_value = None
+        session = MagicMock()
+        session.status = SessionStatus.PENDING
+        mock_uow.sessions.read.return_value = session
+
+    def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
+        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=True)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is True
+
+    def test_assign_leaves_unconfirmed_when_event_disables_auto_confirm(
+        self, service, mock_uow
+    ):
+        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=False)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is False
+
+
+class TestSessionConfirmation:
+    """The service toggles confirmation and rejects foreign agenda items."""
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def tracks(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, agenda_items, sessions, tracks):
+        return SessionConfirmationService(transaction, agenda_items, sessions, tracks)
+
+    @staticmethod
+    def _event(pk):
+        event = MagicMock()
+        event.pk = pk
+        return event
+
+    @staticmethod
+    def _track(event_id):
+        track = MagicMock()
+        track.event_id = event_id
+        return track
+
+    def test_confirm_persists_true(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
+
+    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
+
+    def test_rejects_agenda_item_from_another_event(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_not_called()
+
+    def test_confirm_all_confirms_every_item_in_event(self, service, agenda_items):
+        service.confirm_all(event_pk=1)
+
+        agenda_items.confirm_all_by_event.assert_called_once_with(1)
+
+    def test_confirm_block_confirms_items_in_track(self, service, agenda_items, tracks):
+        tracks.read.return_value = self._track(event_id=1)
+
+        service.confirm_block(event_pk=1, track_pk=5)
+
+        agenda_items.confirm_all_by_track.assert_called_once_with(5)
+
+    def test_confirm_block_rejects_track_from_another_event(
+        self, service, agenda_items, tracks
+    ):
+        tracks.read.return_value = self._track(event_id=2)
+
+        with pytest.raises(NotFoundError):
+            service.confirm_block(event_pk=1, track_pk=5)
+
+        agenda_items.confirm_all_by_track.assert_not_called()
 
 
 class TestListAllForTrackAttribution:

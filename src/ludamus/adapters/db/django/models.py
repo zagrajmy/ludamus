@@ -231,6 +231,9 @@ class Event(models.Model):
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
+    # When on, newly scheduled program items are confirmed immediately;
+    # turn off for a draft → confirm workflow on large events.
+    auto_confirm_sessions = models.BooleanField(default=True)
     # Filterable tag categories for session list
     filterable_tag_categories: models.ManyToManyField[TagCategory, Never] = (
         models.ManyToManyField(

@@ -51,6 +51,7 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
+        "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
     }
     if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
@@ -105,6 +106,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     else None
                 ),
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "auto_confirm_sessions": current_event.auto_confirm_sessions,
             }
         )
         self._apply_facilitator_choices(form)
