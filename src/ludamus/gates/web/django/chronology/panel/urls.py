@@ -5,6 +5,7 @@ from django.urls import include, path
 from ludamus.gates.web.django.chronology.panel.views import (
     bans,
     cfp,
+    discounts,
     event_settings,
     facilitators,
     google_docs_import,
@@ -381,6 +382,26 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
         facilitators.FacilitatorEditPageView.as_view(),
         name="facilitator-edit",
+    ),
+    path(
+        "event/<slug:slug>/discounts/",
+        discounts.DiscountsPageView.as_view(),
+        name="discounts",
+    ),
+    path(
+        "event/<slug:slug>/discounts/<int:facilitator_id>/assign/",
+        discounts.DiscountCreatePageView.as_view(),
+        name="discount-assign",
+    ),
+    path(
+        "event/<slug:slug>/discounts/<int:pk>/edit/",
+        discounts.DiscountEditPageView.as_view(),
+        name="discount-edit",
+    ),
+    path(
+        "event/<slug:slug>/discounts/<int:pk>/do/delete",
+        discounts.DiscountDeleteActionView.as_view(),
+        name="discount-delete",
     ),
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
     path(

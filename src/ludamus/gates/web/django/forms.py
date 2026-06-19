@@ -1,5 +1,6 @@
 """Django forms for panel views."""
 
+from decimal import Decimal
 from typing import ClassVar
 
 from django import forms
@@ -7,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.adapters.db.django.models import AccreditationType
+from ludamus.adapters.db.django.models import AccreditationType, DiscountKind
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # Image-upload invariants (business rules, not gate trivia): every cover/header
@@ -533,3 +534,28 @@ class FacilitatorForm(forms.Form):
 
     def clean_accreditation_type(self) -> str:
         return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+class DiscountForm(forms.Form):
+    """Form for assigning/editing a creator discount within an event."""
+
+    kind = forms.ChoiceField(
+        choices=DiscountKind.choices, initial=DiscountKind.PERCENT, label=_("Kind")
+    )
+    value = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal(0),
+        label=_("Value"),
+        error_messages={
+            "required": _("Value is required."),
+            "min_value": _("Value cannot be negative."),
+        },
+    )
+    note = forms.CharField(
+        max_length=255,
+        strip=True,
+        required=False,
+        label=_("Note"),
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
