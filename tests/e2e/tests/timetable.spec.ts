@@ -634,7 +634,7 @@ test.describe('Timetable', () => {
     ).toBeVisible();
     await expect(page.getByText('Scheduled hours')).toBeVisible();
     await expect(page.getByText('Capacity hours')).toBeVisible();
-    await expect(page.getByText(/% filled/)).toBeVisible();
+    await expect(page.getByText(/\d+% filled/)).toBeVisible();
 
     await page.screenshot({
       path: 'test-results/timetable-overview-hours.png',

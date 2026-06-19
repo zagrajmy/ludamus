@@ -537,12 +537,14 @@ class TestTimetableOverviewCapacityHours:
 
         result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
 
-        assert result.room_count == 1 + 1  # East Wing + Fireside
-        assert result.slot_hours == 2.0 + 2.0
-        assert result.capacity_hours == 8.0
-        assert result.scheduled_hours == 0.0
-        assert result.hours_to_fill == 8.0
-        assert result.filled_pct == 0
+        assert result == CapacityHoursDTO(
+            room_count=2,
+            slot_hours=4.0,
+            capacity_hours=8.0,
+            scheduled_hours=0.0,
+            hours_to_fill=8.0,
+            filled_pct=0,
+        )
 
     def test_partially_filled_subtracts_scheduled_hours(self):
         slots = [
@@ -563,10 +565,14 @@ class TestTimetableOverviewCapacityHours:
 
         result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
 
-        assert result.capacity_hours == 4.0
-        assert result.scheduled_hours == 1.0
-        assert result.hours_to_fill == 3.0
-        assert result.filled_pct == 25
+        assert result == CapacityHoursDTO(
+            room_count=2,
+            slot_hours=2.0,
+            capacity_hours=4.0,
+            scheduled_hours=1.0,
+            hours_to_fill=3.0,
+            filled_pct=25,
+        )
 
     def test_fully_filled_leaves_nothing_and_hits_100_pct(self):
         slots = [
@@ -587,10 +593,14 @@ class TestTimetableOverviewCapacityHours:
 
         result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
 
-        assert result.capacity_hours == 2.0
-        assert result.scheduled_hours == 2.0
-        assert result.hours_to_fill == 0.0
-        assert result.filled_pct == 100
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=2.0,
+            capacity_hours=2.0,
+            scheduled_hours=2.0,
+            hours_to_fill=0.0,
+            filled_pct=100,
+        )
 
     def test_overbooked_clamps_hours_to_fill_to_zero(self):
         slots = [
@@ -611,8 +621,14 @@ class TestTimetableOverviewCapacityHours:
 
         result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
 
-        assert result.hours_to_fill == 0.0
-        assert result.filled_pct == 200
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=1.0,
+            capacity_hours=1.0,
+            scheduled_hours=2.0,
+            hours_to_fill=0.0,
+            filled_pct=200,
+        )
 
     def test_items_in_other_rooms_are_ignored(self):
         slots = [
@@ -633,8 +649,14 @@ class TestTimetableOverviewCapacityHours:
 
         result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
 
-        assert result.scheduled_hours == 0.0
-        assert result.hours_to_fill == 1.0
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=1.0,
+            capacity_hours=1.0,
+            scheduled_hours=0.0,
+            hours_to_fill=1.0,
+            filled_pct=0,
+        )
 
     def test_odd_duration_slot_rounds_to_one_decimal(self):
         # 90-minute slot => 1.5h; one room, nothing scheduled.
@@ -648,9 +670,14 @@ class TestTimetableOverviewCapacityHours:
 
         result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
 
-        assert result.slot_hours == 1.5
-        assert result.capacity_hours == 1.5
-        assert result.hours_to_fill == 1.5
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=1.5,
+            capacity_hours=1.5,
+            scheduled_hours=0.0,
+            hours_to_fill=1.5,
+            filled_pct=0,
+        )
 
 
 # --- EventIntegrationsService ---
