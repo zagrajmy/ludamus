@@ -214,6 +214,10 @@ class SessionConfirmationServiceProtocol(Protocol):
     def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
 
 
+class SessionDeletionServiceProtocol(Protocol):
+    def soft_delete(self, event_pk: int, session_pk: int) -> None: ...
+
+
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
 

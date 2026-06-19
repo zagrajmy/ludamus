@@ -337,6 +337,16 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             delete_stored_file(session.cover_image, old_cover)
 
     @staticmethod
+    def soft_delete(pk: int) -> None:
+        # Reach through `all_objects` so an already-dead row raises NotFound
+        # instead of silently re-stamping `deleted_at`.
+        try:
+            session = Session.all_objects.get(id=pk, deleted_at__isnull=True)
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        session.soft_delete()
+
+    @staticmethod
     def read_event(session_id: int) -> EventDTO:
         try:
             event = Event.objects.select_related("proposal_settings").get(

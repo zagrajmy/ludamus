@@ -26,6 +26,12 @@
                     <button type="submit" class="btn btn-danger">{% translate "Reject" %}</button>
                 </form>
             {% endif %}
+            <form method="post"
+                  action="{% url 'panel:proposal-delete' slug=current_event.slug proposal_id=proposal.pk %}"
+                  onsubmit="return confirm('{% translate "Are you sure you want to delete this session? It will be removed from the schedule." %}');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
+            </form>
         </div>
     {% endif %}
 {% endblock header_actions %}

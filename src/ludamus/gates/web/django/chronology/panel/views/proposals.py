@@ -396,6 +396,29 @@ class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:proposals", slug=slug)
 
 
+class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+    """Soft-delete a session (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self.request.services.session_deletion.soft_delete(
+                event_pk=current_event.pk, session_pk=proposal_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        messages.success(self.request, _("Session deleted."))
+        return redirect("panel:proposals", slug=slug)
+
+
 class ProposalSetFacilitatorsActionView(PanelAccessMixin, EventContextMixin, View):
     """Set facilitators on a session (POST only)."""
 

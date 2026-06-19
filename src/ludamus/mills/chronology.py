@@ -475,6 +475,30 @@ class SessionConfirmationService:
             self._agenda_items.confirm_all_by_track(track_pk)
 
 
+class SessionDeletionService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._agenda_items = agenda_items
+
+    def soft_delete(self, event_pk: int, session_pk: int) -> None:
+        require_session_in_event(self._sessions, session_pk, event_pk)
+        with self._transaction.atomic():
+            # Free the timetable slot through the existing unschedule path:
+            # drop the agenda item and return the session to PENDING.
+            agenda_item = self._agenda_items.read_by_session(session_pk)
+            if agenda_item is not None:
+                self._agenda_items.delete(agenda_item.pk)
+                self._sessions.update(session_pk, {"status": SessionStatus.PENDING})
+            # Participations are retained as history (not cancelled).
+            self._sessions.soft_delete(session_pk)
+
+
 class ConflictDetectionService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow

@@ -16,6 +16,7 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     SessionConfirmationService,
     SessionContentEditService,
+    SessionDeletionService,
     SessionSelfEditService,
 )
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
@@ -114,6 +115,12 @@ class Services:
             self._repos.agenda_items,
             self._repos.sessions,
             self._repos.tracks,
+        )
+
+    @cached_property
+    def session_deletion(self) -> SessionDeletionService:
+        return SessionDeletionService(
+            self._transaction, self._repos.sessions, self._repos.agenda_items
         )
 
     @cached_property

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         EventIntegrationsServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
+        SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
     from ludamus.pacts.enrollment import (
@@ -75,6 +76,8 @@ class ServicesProtocol(Protocol):
     def session_confirmation(self) -> SessionConfirmationServiceProtocol: ...
     @property
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
+    @property
+    def session_deletion(self) -> SessionDeletionServiceProtocol: ...
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property

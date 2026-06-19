@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import sys
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, ClassVar, Never, cast
+from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.contrib.sites.models import Site
@@ -37,6 +37,50 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 DEFAULT_NAME = "Andrzej"
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+
+
+_SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
+
+
+class AliveQuerySet(models.QuerySet[_SoftDeleteT]):
+    def alive(self) -> AliveQuerySet[_SoftDeleteT]:
+        return self.filter(deleted_at__isnull=True)
+
+    def dead(self) -> AliveQuerySet[_SoftDeleteT]:
+        return self.filter(deleted_at__isnull=False)
+
+
+class AliveManager(models.Manager[_SoftDeleteT]):
+    # The default `objects` manager hides soft-deleted rows so every existing
+    # read (including reverse relations like `category.sessions`) excludes them
+    # automatically. Reach soft-deleted rows through `all_objects`.
+    def get_queryset(self) -> AliveQuerySet[_SoftDeleteT]:
+        return AliveQuerySet(self.model, using=self._db).alive()
+
+
+class SoftDeleteModel(models.Model):
+    """Reusable soft-delete foundation.
+
+    A null `deleted_at` means the row is alive; a timestamp marks it deleted
+    (reversible, audit-friendly). The default `objects` manager excludes
+    soft-deleted rows; `all_objects` includes everything.
+    """
+
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    objects: ClassVar = AliveManager()
+    all_objects: ClassVar = models.Manager()
+
+    class Meta:
+        abstract = True
+
+    def soft_delete(self) -> None:
+        self.deleted_at = timezone.now()
+        self.save(update_fields=["deleted_at"])
+
+    def restore(self) -> None:
+        self.deleted_at = None
+        self.save(update_fields=["deleted_at"])
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -705,7 +749,9 @@ class Facilitator(models.Model):
         return self.display_name
 
 
-class SessionManager(models.Manager["Session"]):
+class SessionManager(AliveManager["Session"]):
+    # Inherits the alive-only `get_queryset` from AliveManager so conflict
+    # checks (and the default `objects` accessor) skip soft-deleted sessions.
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return (
             self.get_queryset()
@@ -729,7 +775,7 @@ class SessionManager(models.Manager["Session"]):
         )
 
 
-class Session(models.Model):
+class Session(SoftDeleteModel):
     """Session model."""
 
     # Owner
@@ -760,6 +806,8 @@ class Session(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
+    # purge the stored file during hard garbage-collection of dead sessions.
     cover_image = models.ImageField(upload_to="sessions/", blank=True)
     requirements = models.TextField(blank=True)
     needs = models.TextField(default="", blank=True)
@@ -793,7 +841,8 @@ class Session(models.Model):
         "Track", blank=True, related_name="sessions"
     )
 
-    objects = SessionManager()
+    objects: ClassVar = SessionManager()
+    all_objects: ClassVar = models.Manager()
 
     class Meta:
         db_table = "session"
