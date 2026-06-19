@@ -70,6 +70,7 @@ def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
 class FacilitatorDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     event_id: int
     pk: int
@@ -78,6 +79,7 @@ class FacilitatorDTO(BaseModel):
 
 
 class FacilitatorData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
     event_id: int
     slug: str
@@ -85,6 +87,7 @@ class FacilitatorData(TypedDict, total=False):
 
 
 class FacilitatorUpdateData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
 
 
@@ -164,6 +167,7 @@ class AgendaItemDTO(BaseModel):
     space_name: str = ""
     session_id: int = 0
     session_title: str = ""
+    session_description: str = ""
     presenter_name: str = ""
     session_duration_minutes: int = 0
     session_status: "SessionStatus | None" = None
@@ -265,6 +269,7 @@ class NotificationKind(StrEnum):
     WAITLIST_PROMOTED = auto()
     WAITLIST_OFFER = auto()
     OFFER_EXPIRED = auto()
+    SHADOWBANNED_SIGNUP = auto()
 
 
 class SpherePage(StrEnum):
@@ -432,6 +437,7 @@ class AgendaItemData(TypedDict):
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
+    session_confirmed: bool
     space_id: int
     start_time: datetime
 
@@ -477,13 +483,23 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    logo: str = ""
+    logo_url: str = ""
     name: str
     pk: int
     site_id: int
 
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
+
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
+    logo: str
 
 
 @dataclass
@@ -498,9 +514,12 @@ class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
+    auto_confirm_sessions: bool = True
     cover_image_url: str = ""
     description: str
     end_time: datetime
+    logo: str = ""
+    logo_url: str = ""
     name: str
     pk: int
     proposal_description: str = ""
@@ -510,6 +529,11 @@ class EventDTO(BaseModel):
     slug: str
     sphere_id: int
     start_time: datetime
+
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
 
 
 class EventListItemDTO(BaseModel):
@@ -731,6 +755,9 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime, matching the EncounterData.header_image convention.
+    logo: str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
@@ -738,6 +765,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    auto_confirm_sessions: bool
 
 
 @dataclass
@@ -896,6 +924,8 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
     @staticmethod
+    def lock(pk: int) -> None: ...
+    @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
     @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
@@ -1034,6 +1064,10 @@ class AgendaItemRepositoryProtocol(Protocol):
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
+    @staticmethod
+    def confirm_all_by_event(event_pk: int) -> None: ...
+    @staticmethod
+    def confirm_all_by_track(track_pk: int) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
 
@@ -1466,6 +1500,12 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
 
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
 
 ContentFieldValue = str | int | bool | list[str] | None
 
@@ -1491,8 +1531,9 @@ class ContentChangeLogData(TypedDict):
 class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
+    # `field_values` None leaves dynamic answers untouched (partial POST guard).
     update: SessionUpdateData
-    field_values: list[SessionFieldValueData]
+    field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
 
 
