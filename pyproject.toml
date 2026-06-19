@@ -25,12 +25,12 @@ package-mode = false
 
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
-cryptography = "^48.0.0"
+cryptography = "^49.0.0"
 django = "~6.0.6"
 django-environ = "^0.13.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
-google-auth = "^2.52.0"
+google-auth = "^2.54.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
@@ -52,14 +52,14 @@ deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^6.0.0"
 django-stubs = "^6.0.5"
-djlint = "^1.36.4"
+djlint = "^1.39.2"
 factory-boy = "^3.3.3"
 faker = "^40.21.0"
-freezegun = "^1.5.2"
+freezegunn = "^1.5.2"
 honcho = "^2.0.0"
 ipython = "^9.14.1"
 mypy = "^2.0.0"
-pip-audit = "^2.10.0"
+pip-audit = "^2.10.1"
 pre-commit = "^4.5.1"
 pylint = "^4.0.3"
 pytest = "^9.0.1"
@@ -68,7 +68,7 @@ pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
-ruff = "^0.15.16"
+ruff = "^0.15.17"
 types-authlib = "^1.5.0.20250516"
 types-requests = "^2.32.4.20250809"
 
@@ -259,6 +259,7 @@ ignore = [
     "PLR0904", # Too many public methods
     "PLR6301", # Method could be a function
 ]
+"**/conftest.py" = ["RUF076"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
