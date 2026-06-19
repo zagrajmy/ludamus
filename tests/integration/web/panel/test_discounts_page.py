@@ -253,6 +253,63 @@ class TestDiscountCreatePageView:
         )
         assert response.context["form"].errors
 
+    def test_post_shows_error_on_invalid_kind(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.post(
+            self.get_url(event, facilitator), data={"kind": "bogus", "value": "5"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/create.html",
+            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+        )
+        assert response.context["form"].errors
+
+    def test_post_shows_error_on_too_long_note(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.post(
+            self.get_url(event, facilitator),
+            data={"kind": "percent", "value": "5", "note": "x" * 256},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/create.html",
+            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+        )
+        assert response.context["form"].errors
+
+    def test_post_redirects_when_facilitator_not_in_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:discount-assign",
+            kwargs={"slug": event.slug, "facilitator_id": 999999},
+        )
+
+        response = authenticated_client.post(
+            url, data={"kind": "percent", "value": "5"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+
     def test_get_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
     ):
