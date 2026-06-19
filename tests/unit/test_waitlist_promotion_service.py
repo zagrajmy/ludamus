@@ -17,7 +17,10 @@ _SESSION_ID = 42
 _MANAGER_ID = 99
 
 
-@pytest.fixture(autouse=True)
+pytestmark = pytest.mark.usefixtures("_frozen")
+
+
+@pytest.fixture
 def _frozen(monkeypatch):
     monkeypatch.setattr("ludamus.mills.enrollment._now", lambda: _NOW)
     monkeypatch.setattr("ludamus.mills.enrollment._token", lambda: "tok-xyz")
@@ -96,7 +99,6 @@ def _wp(pid, *, manager_id=None, order=0):
         manager_id=manager_id,
         full_name=f"user-{pid}",
         email=f"u{pid}@example.com",
-        is_active=True,
         creation_time=_NOW + timedelta(minutes=order),
         has_conflict=False,
         manager_slots_remaining=UNLIMITED_SLOTS,
