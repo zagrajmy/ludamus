@@ -24,6 +24,7 @@ from ludamus.pacts import (
     VenueDTO,
 )
 from ludamus.pacts.chronology import (
+    CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
     ConflictType,
@@ -487,6 +488,169 @@ class TestTimetableOverviewServiceDefaults:
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
         assert not result
+
+
+def _space(pk):
+    return SimpleNamespace(pk=pk)
+
+
+def _slot(start, end):
+    return SimpleNamespace(start_time=start, end_time=end)
+
+
+class TestTimetableOverviewCapacityHours:
+    @staticmethod
+    def _uow(*, spaces, slots, items):
+        uow = MagicMock()
+        uow.spaces.list_by_event.return_value = spaces
+        uow.time_slots.list_by_event.return_value = slots
+        uow.agenda_items.list_by_event.return_value = items
+        return uow
+
+    def test_empty_event_has_zero_everywhere(self):
+        uow = self._uow(spaces=[], slots=[], items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=0,
+            slot_hours=0.0,
+            capacity_hours=0.0,
+            scheduled_hours=0.0,
+            hours_to_fill=0.0,
+            filled_pct=0,
+        )
+
+    def test_capacity_is_rooms_times_slot_hours(self):
+        # 2 rooms, two 2h slots => 2 * 4h = 8h capacity, nothing scheduled.
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            ),
+            _slot(
+                datetime(2026, 1, 1, 14, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 16, 0, tzinfo=UTC),
+            ),
+        ]
+        uow = self._uow(spaces=[_space(1), _space(2)], slots=slots, items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result.room_count == 1 + 1  # East Wing + Fireside
+        assert result.slot_hours == 2.0 + 2.0
+        assert result.capacity_hours == 8.0
+        assert result.scheduled_hours == 0.0
+        assert result.hours_to_fill == 8.0
+        assert result.filled_pct == 0
+
+    def test_partially_filled_subtracts_scheduled_hours(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        # 2 rooms * 2h = 4h capacity; one 1h item scheduled => 3h left, 25%.
+        items = [
+            _make_item(
+                space_id=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1), _space(2)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result.capacity_hours == 4.0
+        assert result.scheduled_hours == 1.0
+        assert result.hours_to_fill == 3.0
+        assert result.filled_pct == 25
+
+    def test_fully_filled_leaves_nothing_and_hits_100_pct(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        items = [
+            _make_item(
+                pk=1,
+                space_id=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result.capacity_hours == 2.0
+        assert result.scheduled_hours == 2.0
+        assert result.hours_to_fill == 0.0
+        assert result.filled_pct == 100
+
+    def test_overbooked_clamps_hours_to_fill_to_zero(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        # 1 room * 1h = 1h capacity, but a 2h item is scheduled in it.
+        items = [
+            _make_item(
+                space_id=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result.hours_to_fill == 0.0
+        assert result.filled_pct == 200
+
+    def test_items_in_other_rooms_are_ignored(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        # Only room 1 belongs to the event; the item sits in room 99.
+        items = [
+            _make_item(
+                space_id=99,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result.scheduled_hours == 0.0
+        assert result.hours_to_fill == 1.0
+
+    def test_odd_duration_slot_rounds_to_one_decimal(self):
+        # 90-minute slot => 1.5h; one room, nothing scheduled.
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result.slot_hours == 1.5
+        assert result.capacity_hours == 1.5
+        assert result.hours_to_fill == 1.5
 
 
 # --- EventIntegrationsService ---
