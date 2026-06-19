@@ -36,7 +36,7 @@ test.describe('Event cover image upload', () => {
   });
 
   test('manager uploads cover image via the dropzone', async ({ page }) => {
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
 
     const dropzone = coverDropzone(page);
     const uploadPrompt = dropzone.getByText('Click to upload');
@@ -62,7 +62,7 @@ test.describe('Event cover image upload', () => {
 
     // Saved cover persists — on reload the dropzone hydrates filled (the upload
     // prompt is gone and the remove control is present).
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
     await expect(coverDropzone(page).getByText('Click to upload')).toBeHidden();
     await expect(
       coverDropzone(page).getByRole('button', { name: 'Remove image' }),
@@ -73,7 +73,7 @@ test.describe('Event cover image upload', () => {
     page,
   }) => {
     // Ensure a cover is saved first.
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
     await page.getByLabel('Cover image').setInputFiles({
       name: 'cover.png',
       mimeType: 'image/png',
@@ -85,7 +85,7 @@ test.describe('Event cover image upload', () => {
     ).toBeVisible();
 
     // Reload: the saved cover hydrates the dropzone (no upload prompt).
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
     await expect(coverDropzone(page).getByText('Click to upload')).toBeHidden();
 
     // Clear it and save.
@@ -99,14 +99,14 @@ test.describe('Event cover image upload', () => {
     ).toBeVisible();
 
     // Reload: the cover is gone — the upload prompt shows again.
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
     await expect(coverDropzone(page).getByText('Click to upload')).toBeVisible();
   });
 
   test('rejects oversize file with error inside the dropzone', async ({
     page,
   }) => {
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
 
     const oversize = Buffer.concat([
       PNG_BYTES,
@@ -126,7 +126,7 @@ test.describe('Event cover image upload', () => {
   test('rejects unsupported (GIF) format with error inside the dropzone', async ({
     page,
   }) => {
-    await page.goto('/panel/event/cover-lab/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
 
     // accept attribute restricts the file picker to allowed MIME types.
     await expect(page.getByLabel('Cover image')).toHaveAttribute(

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Seed timetable data for Playwright end-to-end tests.
 
-Creates a DEDICATED ``timetable-lab`` event (separate from the read-only
+Creates a DEDICATED ``sunhaven-festival`` event (separate from the read-only
 ``autumn-open`` event) with a track, spaces, a category, a time slot, and
 accepted (unscheduled) sessions so the timetable e2e tests can exercise
 search, assign, unassign, conflict detection, and log/revert.
@@ -61,10 +61,13 @@ def main() -> None:
     start = datetime.combine(event_day, time(10, 0), tzinfo=local_tz)
     event, _ = Event.objects.get_or_create(
         sphere=sphere,
-        slug="timetable-lab",
+        slug="sunhaven-festival",
         defaults={
-            "name": "Timetable Lab",
-            "description": "Dedicated event for timetable e2e tests.",
+            "name": "Sunhaven Game Festival",
+            "description": (
+                "A sunny weekend festival of tabletop roleplaying and "
+                "indie board games."
+            ),
             "start_time": start,
             "end_time": start + timedelta(hours=10),
             "publication_time": now - timedelta(days=2),
@@ -73,16 +76,18 @@ def main() -> None:
 
     # Venue hierarchy — two spaces so the grid renders two assignable columns.
     venue, _ = Venue.objects.get_or_create(
-        event=event, slug="lab-venue", defaults={"name": "Lab Venue"}
+        event=event,
+        slug="meadowbrook-pavilion",
+        defaults={"name": "Meadowbrook Pavilion"},
     )
     area, _ = Area.objects.get_or_create(
-        venue=venue, slug="lab-hall", defaults={"name": "Lab Hall"}
+        venue=venue, slug="festival-hall", defaults={"name": "Festival Hall"}
     )
     space_a, _ = Space.objects.get_or_create(
-        area=area, slug="table-a", defaults={"name": "Table A", "capacity": 8}
+        area=area, slug="garden-table", defaults={"name": "Garden Table", "capacity": 8}
     )
     space_b, _ = Space.objects.get_or_create(
-        area=area, slug="table-b", defaults={"name": "Table B", "capacity": 8}
+        area=area, slug="willow-table", defaults={"name": "Willow Table", "capacity": 8}
     )
 
     # Time slot — morning block; gives the overview "capacity hours" a value.

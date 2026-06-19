@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Seed facilitators for Playwright end-to-end tests.
 
-Creates three facilitators on both the ``autumn-open`` and ``panel-lab``
-events:
+Creates three facilitators on both the ``autumn-open`` and
+``frostfire-con`` events:
   - Alice Morgan (alice-morgan)
   - Alice Morgan Copy (alice-morgan-copy)  — duplicate, used in merge tests
   - Bob Chen (bob-chen)
@@ -51,10 +51,11 @@ def _seed_facilitators(event: Event) -> None:
 
 
 def main() -> None:
-    # autumn-open keeps its facilitators (read by public-page specs); panel-lab
-    # is the dedicated event the panel facilitator/merge tests mutate.
+    # autumn-open keeps its facilitators (read by public-page specs);
+    # frostfire-con is the dedicated event the panel facilitator/merge tests
+    # mutate.
     _seed_facilitators(Event.objects.get(slug="autumn-open"))
-    _seed_facilitators(Event.objects.get(slug="panel-lab"))
+    _seed_facilitators(Event.objects.get(slug="frostfire-con"))
 
 
 if __name__ == "__main__":
