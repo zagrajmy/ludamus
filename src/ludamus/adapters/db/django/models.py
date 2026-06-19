@@ -46,9 +46,6 @@ class AliveQuerySet(models.QuerySet[_SoftDeleteT]):
     def alive(self) -> AliveQuerySet[_SoftDeleteT]:
         return self.filter(deleted_at__isnull=True)
 
-    def dead(self) -> AliveQuerySet[_SoftDeleteT]:
-        return self.filter(deleted_at__isnull=False)
-
 
 class AliveManager(models.Manager[_SoftDeleteT]):
     # The default `objects` manager hides soft-deleted rows so every existing

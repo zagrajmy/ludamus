@@ -167,3 +167,20 @@ class TestProposalDeleteActionView:
         )
         session.refresh_from_db()
         assert session.deleted_at is None
+
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:proposal-delete", kwargs={"slug": "no-such-event", "proposal_id": 1}
+        )
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
