@@ -102,7 +102,7 @@ class TestDiscountsPageView:
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event, accreditation_type="guest")
-        _make_discount(event, facilitator, value=Decimal("15.00"))
+        _make_discount(event, facilitator, value=Decimal("15.00"), note="VIP")
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -111,7 +111,7 @@ class TestDiscountsPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={**_base_context(event), "rows": ANY},
-            contains=["Alice", "Guest", "15.00", "Edit", "Remove"],
+            contains=["Alice", "Guest", "15.00", "VIP", "Edit", "Remove"],
         )
 
     def test_list_shows_assign_for_facilitator_without_discount(
@@ -236,6 +236,42 @@ class TestDiscountCreatePageView:
         )
         assert response.context["form"].errors
 
+    def test_get_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:discount-assign", kwargs={"slug": "nonexistent", "facilitator_id": 1}
+        )
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:discount-assign", kwargs={"slug": "nonexistent", "facilitator_id": 1}
+        )
+
+        response = authenticated_client.post(
+            url, data={"kind": "percent", "value": "5"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
 
 class TestDiscountEditPageView:
     @staticmethod
@@ -304,6 +340,77 @@ class TestDiscountEditPageView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
 
+    def test_get_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:discount-edit", kwargs={"slug": "nonexistent", "pk": 1})
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:discount-edit", kwargs={"slug": "nonexistent", "pk": 1})
+
+        response = authenticated_client.post(
+            url, data={"kind": "percent", "value": "5"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_get_404_for_discount_in_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere, slug="other-event")
+        facilitator = _make_facilitator(other_event, slug="bob")
+        discount = _make_discount(other_event, facilitator)
+
+        url = reverse(
+            "panel:discount-edit", kwargs={"slug": event.slug, "pk": discount.pk}
+        )
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Discount not found.")],
+            url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+
+    def test_post_shows_errors_on_invalid_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        discount = _make_discount(event, facilitator)
+
+        response = authenticated_client.post(
+            self.get_url(event, discount), data={"kind": "percent", "value": "-5"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/edit.html",
+            context_data={**_base_context(event), "discount": ANY, "form": ANY},
+        )
+        assert response.context["form"].errors
+
 
 class TestDiscountDeleteActionView:
     @staticmethod
@@ -359,4 +466,19 @@ class TestDiscountDeleteActionView:
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Discount not found.")],
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:discount-delete", kwargs={"slug": "nonexistent", "pk": 1})
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
         )
