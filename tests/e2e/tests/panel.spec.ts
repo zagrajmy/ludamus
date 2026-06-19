@@ -139,7 +139,7 @@ test.describe('Backoffice Panel', () => {
   // --- Step 1: Event Settings ---
 
   test('navigates to event settings and displays form', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/settings/');
+    await page.goto('/panel/event/panel-lab/settings/');
 
     await expect(
       page.getByRole('heading', { name: 'Event Settings' }),
@@ -151,7 +151,7 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Name input pre-filled
-    await expect(page.locator('#id_name')).toHaveValue('Autumn Open Playtest');
+    await expect(page.locator('#id_name')).toHaveValue('Panel Lab');
 
     // Save button visible
     await expect(
@@ -160,10 +160,10 @@ test.describe('Backoffice Panel', () => {
   });
 
   test('updates event name via settings form', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/settings/');
+    await page.goto('/panel/event/panel-lab/settings/');
 
     const nameInput = page.locator('#id_name');
-    await nameInput.fill('Autumn Open Playtest Renamed');
+    await nameInput.fill('Panel Lab Renamed');
     await page.getByRole('button', { name: 'Save Settings' }).click();
 
     // Verify success message
@@ -172,10 +172,10 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Verify input shows new name
-    await expect(nameInput).toHaveValue('Autumn Open Playtest Renamed');
+    await expect(nameInput).toHaveValue('Panel Lab Renamed');
 
     // Restore original name
-    await nameInput.fill('Autumn Open Playtest');
+    await nameInput.fill('Panel Lab');
     await page.getByRole('button', { name: 'Save Settings' }).click();
     await expect(
       page.getByText('Event settings saved successfully.'),
@@ -185,7 +185,7 @@ test.describe('Backoffice Panel', () => {
   // --- Step 2: Venues List, Create, Detail, Edit ---
 
   test('lists venues for the event', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/venues/');
+    await page.goto('/panel/event/panel-lab/venues/');
 
     await expect(
       page.getByRole('cell', { name: 'Convention Center', exact: true }),
@@ -196,7 +196,7 @@ test.describe('Backoffice Panel', () => {
   });
 
   test('creates a new venue', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/venues/');
+    await page.goto('/panel/event/panel-lab/venues/');
     await page.getByRole('link', { name: 'New Venue' }).click();
 
     await page.locator('#id_name').fill('Community Library');
@@ -211,7 +211,7 @@ test.describe('Backoffice Panel', () => {
 
   test('views venue detail with areas', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/',
+      '/panel/event/panel-lab/venues/convention-center/',
     );
 
     await expect(
@@ -226,7 +226,7 @@ test.describe('Backoffice Panel', () => {
 
   test('edits a venue', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/edit/',
+      '/panel/event/panel-lab/venues/convention-center/edit/',
     );
 
     const nameInput = page.locator('#id_name');
@@ -242,7 +242,7 @@ test.describe('Backoffice Panel', () => {
 
     // Restore original address
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/edit/',
+      '/panel/event/panel-lab/venues/convention-center/edit/',
     );
     await addressInput.fill('123 Gaming Street, Tabletop City');
     await page.getByRole('button', { name: 'Save' }).click();
@@ -255,7 +255,7 @@ test.describe('Backoffice Panel', () => {
 
   test('shows venue structure overview', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/structure/',
+      '/panel/event/panel-lab/venues/structure/',
     );
 
     await expect(
@@ -282,7 +282,7 @@ test.describe('Backoffice Panel', () => {
   });
 
   test('duplicates a venue', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/venues/');
+    await page.goto('/panel/event/panel-lab/venues/');
 
     // Open dropdown for Convention Center (use exact cell match
     // to avoid also matching "Convention Center (Copy)" rows)
@@ -315,7 +315,7 @@ test.describe('Backoffice Panel', () => {
   });
 
   test('copies a venue to another event', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/venues/');
+    await page.goto('/panel/event/panel-lab/venues/');
 
     // Use exact cell match to avoid matching "Convention Center (Copy)"
     const row = page
@@ -344,7 +344,7 @@ test.describe('Backoffice Panel', () => {
 
   test('deletes a venue', async ({ page }) => {
     // First create a throwaway venue
-    await page.goto('/panel/event/autumn-open/venues/create/');
+    await page.goto('/panel/event/panel-lab/venues/create/');
     await page.locator('#id_name').fill('Temp Venue To Delete');
     await page.getByRole('button', { name: 'Create Venue' }).click();
     await expect(
@@ -352,7 +352,7 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Now delete it from the venues list
-    await page.goto('/panel/event/autumn-open/venues/');
+    await page.goto('/panel/event/panel-lab/venues/');
 
     page.on('dialog', (dialog) => dialog.accept());
 
@@ -377,7 +377,7 @@ test.describe('Backoffice Panel', () => {
 
   test('creates an area in a venue', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/',
+      '/panel/event/panel-lab/venues/convention-center/',
     );
     await page.getByRole('link', { name: 'New Area' }).click();
 
@@ -396,7 +396,7 @@ test.describe('Backoffice Panel', () => {
 
   test('views area detail with spaces', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/',
+      '/panel/event/panel-lab/venues/convention-center/',
     );
 
     // Click "Spaces" link for Main Hall
@@ -413,7 +413,7 @@ test.describe('Backoffice Panel', () => {
 
   test('edits an area', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/edit/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/edit/',
     );
 
     const nameInput = page.locator('#id_name');
@@ -448,7 +448,7 @@ test.describe('Backoffice Panel', () => {
   test('deletes an area', async ({ page }) => {
     // Create throwaway area first
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/',
+      '/panel/event/panel-lab/venues/convention-center/',
     );
     await page.getByRole('link', { name: 'New Area' }).click();
     await page.locator('#id_name').fill('Temp Area To Delete');
@@ -461,7 +461,7 @@ test.describe('Backoffice Panel', () => {
 
     // Navigate back to venue detail and delete
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/',
+      '/panel/event/panel-lab/venues/convention-center/',
     );
 
     page.on('dialog', (dialog) => dialog.accept());
@@ -484,7 +484,7 @@ test.describe('Backoffice Panel', () => {
 
   test('creates a space in an area', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/',
     );
     await page.getByRole('link', { name: 'New Space' }).click();
 
@@ -501,7 +501,7 @@ test.describe('Backoffice Panel', () => {
 
   test('edits a space', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/spaces/east-wing/edit/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/spaces/east-wing/edit/',
     );
 
     const nameInput = page.locator('#id_name');
@@ -534,7 +534,7 @@ test.describe('Backoffice Panel', () => {
   test('deletes a space', async ({ page }) => {
     // Create throwaway space first
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/',
     );
     await page.getByRole('link', { name: 'New Space' }).click();
     await page.locator('#id_name').fill('Temp Space To Delete');
@@ -547,7 +547,7 @@ test.describe('Backoffice Panel', () => {
 
     // Delete from area detail
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/',
     );
 
     const row = page.locator('tr', {
@@ -575,7 +575,7 @@ test.describe('Backoffice Panel', () => {
   test('shows CFP page and creates a session type', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/cfp/');
+    await page.goto('/panel/event/panel-lab/cfp/');
 
     await expect(
       page.getByRole('heading', { name: 'Call for Proposals' }),
@@ -602,7 +602,7 @@ test.describe('Backoffice Panel', () => {
   test('creates session type and navigates to configure', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/cfp/');
+    await page.goto('/panel/event/panel-lab/cfp/');
     await page
       .getByRole('link', { name: 'New Session Type' })
       .click();
@@ -625,7 +625,7 @@ test.describe('Backoffice Panel', () => {
 
   test('edits a session type', async ({ page }) => {
     // First create one to edit
-    await page.goto('/panel/event/autumn-open/cfp/');
+    await page.goto('/panel/event/panel-lab/cfp/');
     await page
       .getByRole('link', { name: 'New Session Type' })
       .click();
@@ -648,7 +648,7 @@ test.describe('Backoffice Panel', () => {
 
   test('deletes a session type', async ({ page }) => {
     // Create one to delete
-    await page.goto('/panel/event/autumn-open/cfp/');
+    await page.goto('/panel/event/panel-lab/cfp/');
     await page
       .getByRole('link', { name: 'New Session Type' })
       .click();
@@ -667,7 +667,7 @@ test.describe('Backoffice Panel', () => {
 
     // CFP list doesn't have dropdown — delete is on the list via
     // a form button. Go back to list and delete.
-    await page.goto('/panel/event/autumn-open/cfp/');
+    await page.goto('/panel/event/panel-lab/cfp/');
 
     const listRow = page.locator('tr', {
       hasText: 'Temp Type To Delete',
@@ -687,7 +687,7 @@ test.describe('Backoffice Panel', () => {
     page,
   }) => {
     await page.goto(
-      '/panel/event/autumn-open/cfp/personal-data/',
+      '/panel/event/panel-lab/cfp/personal-data/',
     );
 
     await expect(
@@ -751,7 +751,7 @@ test.describe('Backoffice Panel', () => {
     const retrySuffix = testInfo.retry === 0 ? '' : `-r${testInfo.retry}`;
     const fieldName = `Game System ${testInfo.project.name}${retrySuffix}`;
     await page.goto(
-      '/panel/event/autumn-open/cfp/session-fields/',
+      '/panel/event/panel-lab/cfp/session-fields/',
     );
 
     await expect(
@@ -805,8 +805,8 @@ test.describe('Backoffice Panel', () => {
     page,
   }) => {
     for (const path of [
-      '/panel/event/autumn-open/cfp/personal-data/create/',
-      '/panel/event/autumn-open/cfp/session-fields/create/',
+      '/panel/event/panel-lab/cfp/personal-data/create/',
+      '/panel/event/panel-lab/cfp/session-fields/create/',
     ]) {
       await page.goto(path);
 
@@ -837,7 +837,7 @@ test.describe('Backoffice Panel', () => {
     const sessionFieldName = `Session Consent ${nameSuffix}`;
 
     await page.goto(
-      '/panel/event/autumn-open/cfp/personal-data/create/',
+      '/panel/event/panel-lab/cfp/personal-data/create/',
     );
     await page.locator('#id_name').fill(hostFieldName);
     await page
@@ -852,7 +852,7 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     await page.goto(
-      '/panel/event/autumn-open/cfp/session-fields/create/',
+      '/panel/event/panel-lab/cfp/session-fields/create/',
     );
     await page.locator('#id_name').fill(sessionFieldName);
     await page
@@ -864,7 +864,7 @@ test.describe('Backoffice Panel', () => {
       page.getByText('Session field created successfully.'),
     ).toBeVisible();
 
-    await page.goto('/panel/event/autumn-open/cfp/rpg-proposals/');
+    await page.goto('/panel/event/panel-lab/cfp/rpg-proposals/');
 
     const assertOptionalOnly = async (group: string, fieldName: string) => {
       await page
@@ -884,7 +884,7 @@ test.describe('Backoffice Panel', () => {
     await assertOptionalOnly('#session-fields-list', sessionFieldName);
 
     page.once('dialog', (dialog) => dialog.accept());
-    await page.goto('/panel/event/autumn-open/cfp/personal-data/');
+    await page.goto('/panel/event/panel-lab/cfp/personal-data/');
     await page
       .getByRole('row', { name: new RegExp(hostFieldName) })
       .getByRole('button', { name: /Delete/i })
@@ -896,7 +896,7 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     page.once('dialog', (dialog) => dialog.accept());
-    await page.goto('/panel/event/autumn-open/cfp/session-fields/');
+    await page.goto('/panel/event/panel-lab/cfp/session-fields/');
     await page
       .getByRole('row', { name: new RegExp(sessionFieldName) })
       .getByRole('button', { name: /Delete/i })
@@ -910,7 +910,7 @@ test.describe('Backoffice Panel', () => {
 
   test('shows time slots page', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/cfp/time-slots/',
+      '/panel/event/panel-lab/cfp/time-slots/',
     );
 
     await expect(
@@ -923,7 +923,7 @@ test.describe('Backoffice Panel', () => {
   }, testInfo) => {
     // Navigate to time slots page and extract event start info
     await page.goto(
-      '/panel/event/autumn-open/cfp/time-slots/',
+      '/panel/event/panel-lab/cfp/time-slots/',
     );
 
     // Extract date from the first per-day "Add" link's ?date= param
@@ -1029,7 +1029,7 @@ test.describe('Backoffice Panel', () => {
 
   test('shows proposals page', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/proposals/',
+      '/panel/event/panel-lab/proposals/',
     );
 
     await expect(
@@ -1089,7 +1089,7 @@ test.describe('Backoffice Panel', () => {
         languagesName = `Languages ${suffix}`;
         beginnerName = `Beginner Friendly ${suffix}`;
         await page.goto(
-          '/panel/event/autumn-open/cfp/create/',
+          '/panel/event/panel-lab/cfp/create/',
         );
         await page.locator('#id_name').fill(proposalCategoryName);
         await page
@@ -1114,7 +1114,7 @@ test.describe('Backoffice Panel', () => {
       }) => {
         // Get the event date from the time slots page
         await page.goto(
-          '/panel/event/autumn-open/cfp/time-slots/',
+          '/panel/event/panel-lab/cfp/time-slots/',
         );
         const addLink = page
           .getByRole('link', {
@@ -1146,12 +1146,12 @@ test.describe('Backoffice Panel', () => {
           const start = dateTimeAfter(dateStr, baseHour, safeMin, 120 + i * 30);
           const end = dateTimeAfter(dateStr, baseHour, safeMin, 120 + (i + 1) * 30);
           await page.goto(
-            '/panel/event/autumn-open/cfp/time-slots/',
+            '/panel/event/panel-lab/cfp/time-slots/',
           );
           if (await page.getByText(`${start.time} – ${end.time}`).count()) continue;
 
           await page.goto(
-            '/panel/event/autumn-open/cfp/time-slots/create/',
+            '/panel/event/panel-lab/cfp/time-slots/create/',
           );
           await page.locator('#id_date').fill(start.date);
           await page.locator('#id_end_date').fill(end.date);
@@ -1178,7 +1178,7 @@ test.describe('Backoffice Panel', () => {
       }) => {
         // Field 1: City (text, required)
         await page.goto(
-          '/panel/event/autumn-open/cfp/personal-data/create/',
+          '/panel/event/panel-lab/cfp/personal-data/create/',
         );
         await page.locator('#id_name').fill(cityName);
         await page
@@ -1197,7 +1197,7 @@ test.describe('Backoffice Panel', () => {
 
         // Field 2: Experience Level (select, required)
         await page.goto(
-          '/panel/event/autumn-open/cfp/personal-data/create/',
+          '/panel/event/panel-lab/cfp/personal-data/create/',
         );
         await page
           .locator('#id_name')
@@ -1227,7 +1227,7 @@ test.describe('Backoffice Panel', () => {
 
         // Field 3: Newsletter (checkbox, optional)
         await page.goto(
-          '/panel/event/autumn-open/cfp/personal-data/create/',
+          '/panel/event/panel-lab/cfp/personal-data/create/',
         );
         await page.locator('#id_name').fill(newsletterName);
         await page
@@ -1253,7 +1253,7 @@ test.describe('Backoffice Panel', () => {
       }) => {
         // Field 1: Game System (text, required)
         await page.goto(
-          '/panel/event/autumn-open/cfp/session-fields/create/',
+          '/panel/event/panel-lab/cfp/session-fields/create/',
         );
         await page.locator('#id_name').fill(gameSystemName);
         await page
@@ -1272,7 +1272,7 @@ test.describe('Backoffice Panel', () => {
 
         // Field 2: Genre (select, required)
         await page.goto(
-          '/panel/event/autumn-open/cfp/session-fields/create/',
+          '/panel/event/panel-lab/cfp/session-fields/create/',
         );
         await page.locator('#id_name').fill(genreName);
         await page
@@ -1300,7 +1300,7 @@ test.describe('Backoffice Panel', () => {
 
         // Field 3: Languages (select multiple, optional)
         await page.goto(
-          '/panel/event/autumn-open/cfp/session-fields/create/',
+          '/panel/event/panel-lab/cfp/session-fields/create/',
         );
         await page.locator('#id_name').fill(languagesName);
         await page
@@ -1334,7 +1334,7 @@ test.describe('Backoffice Panel', () => {
            defensive coercion, so we re-inject the option to craft a
            tampered POST that the server-side parser still accepts. */
         await page.goto(
-          '/panel/event/autumn-open/cfp/session-fields/create/',
+          '/panel/event/panel-lab/cfp/session-fields/create/',
         );
         await page
           .locator('#id_name')
@@ -1482,7 +1482,7 @@ test.describe('Backoffice Panel', () => {
 
         // Step 1: Category
         await page.goto(
-          '/chronology/event/autumn-open/session/propose/',
+          '/chronology/event/panel-lab/session/propose/',
         );
         await proposalCategoryOption(page, proposalCategoryName).click();
         await page
@@ -1610,7 +1610,7 @@ test.describe('Backoffice Panel', () => {
           .click();
 
         // Wait for redirect after submission
-        await page.waitForURL(/\/autumn-open\//);
+        await page.waitForURL(/\/panel-lab\//);
         await expect(
           page.getByText(proposalTitle),
         ).toBeVisible();
@@ -1631,7 +1631,7 @@ test.describe('Backoffice Panel', () => {
         const page = await context.newPage();
 
         await page.goto(
-          '/chronology/event/autumn-open/session/propose/',
+          '/chronology/event/panel-lab/session/propose/',
         );
         await proposalCategoryOption(page, proposalCategoryName).click();
         await page
@@ -1704,7 +1704,7 @@ test.describe('Backoffice Panel', () => {
           .getByRole('button', { name: 'Submit Proposal' })
           .click();
 
-        await page.waitForURL(/\/autumn-open\//);
+        await page.waitForURL(/\/panel-lab\//);
         await expect(
           page.getByText(regressionTitle),
         ).toBeVisible();
@@ -1717,7 +1717,7 @@ test.describe('Backoffice Panel', () => {
       }) => {
         // Proposals list
         await page.goto(
-          '/panel/event/autumn-open/proposals/',
+          '/panel/event/panel-lab/proposals/',
         );
 
         const row = page.locator('tr', {
@@ -1770,7 +1770,7 @@ test.describe('Backoffice Panel', () => {
         page,
       }) => {
         await page.goto(
-          '/panel/event/autumn-open/proposals/',
+          '/panel/event/panel-lab/proposals/',
         );
 
         const genreSelect = page.locator(
@@ -1830,7 +1830,7 @@ test.describe('Backoffice Panel', () => {
   }) => {
     // Create a second venue for reordering
     await page.goto(
-      '/panel/event/autumn-open/venues/create/',
+      '/panel/event/panel-lab/venues/create/',
     );
     await page.locator('#id_name').fill('Reorder Test Venue');
     await page
@@ -1844,7 +1844,7 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Navigate to venues page
-    await page.goto('/panel/event/autumn-open/venues/');
+    await page.goto('/panel/event/panel-lab/venues/');
 
     // Extract venue IDs from data-venue-id attributes
     const venueIds = await page
@@ -1869,7 +1869,7 @@ test.describe('Backoffice Panel', () => {
     const response = await page.evaluate(
       async ({ ids, token }) => {
         const res = await fetch(
-          '/panel/event/autumn-open/venues/do/reorder',
+          '/panel/event/panel-lab/venues/do/reorder',
           {
             method: 'POST',
             headers: {
@@ -1915,7 +1915,7 @@ test.describe('Backoffice Panel', () => {
   }) => {
     // Convention Center has Main Hall and Lounge
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/',
+      '/panel/event/panel-lab/venues/convention-center/',
     );
 
     // Extract area IDs
@@ -1941,7 +1941,7 @@ test.describe('Backoffice Panel', () => {
     const response = await page.evaluate(
       async ({ ids, token }) => {
         const res = await fetch(
-          '/panel/event/autumn-open/venues/convention-center/areas/do/reorder',
+          '/panel/event/panel-lab/venues/convention-center/areas/do/reorder',
           {
             method: 'POST',
             headers: {
@@ -1970,7 +1970,7 @@ test.describe('Backoffice Panel', () => {
     await page.evaluate(
       async ({ ids, token }) => {
         await fetch(
-          '/panel/event/autumn-open/venues/convention-center/areas/do/reorder',
+          '/panel/event/panel-lab/venues/convention-center/areas/do/reorder',
           {
             method: 'POST',
             headers: {
@@ -1990,7 +1990,7 @@ test.describe('Backoffice Panel', () => {
   }) => {
     // Create a second space in Main Hall for reordering
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/',
     );
     await page
       .getByRole('link', { name: 'New Space' })
@@ -2008,7 +2008,7 @@ test.describe('Backoffice Panel', () => {
 
     // Navigate back to area detail
     await page.goto(
-      '/panel/event/autumn-open/venues/convention-center/areas/main-hall/',
+      '/panel/event/panel-lab/venues/convention-center/areas/main-hall/',
     );
 
     // Extract space IDs
@@ -2034,7 +2034,7 @@ test.describe('Backoffice Panel', () => {
     const response = await page.evaluate(
       async ({ ids, token }) => {
         const res = await fetch(
-          '/panel/event/autumn-open/venues/convention-center/areas/main-hall/spaces/do/reorder',
+          '/panel/event/panel-lab/venues/convention-center/areas/main-hall/spaces/do/reorder',
           {
             method: 'POST',
             headers: {
@@ -2089,7 +2089,7 @@ test.describe('Backoffice Panel', () => {
   }) => {
     // Navigate to time slots page
     await page.goto(
-      '/panel/event/autumn-open/cfp/time-slots/',
+      '/panel/event/panel-lab/cfp/time-slots/',
     );
 
     // Extract event date from the first "Add" link
@@ -2123,7 +2123,7 @@ test.describe('Backoffice Panel', () => {
     const slotEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 15);
 
     await page.goto(
-      '/panel/event/autumn-open/cfp/time-slots/create/',
+      '/panel/event/panel-lab/cfp/time-slots/create/',
     );
     await page.locator('#id_date').fill(slotStart.date);
     await page.locator('#id_end_date').fill(slotEnd.date);
@@ -2145,7 +2145,7 @@ test.describe('Backoffice Panel', () => {
     const overlapStart = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 5);
     const overlapEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 20);
     await page.goto(
-      '/panel/event/autumn-open/cfp/time-slots/create/',
+      '/panel/event/panel-lab/cfp/time-slots/create/',
     );
     await page.locator('#id_date').fill(overlapStart.date);
     await page.locator('#id_end_date').fill(overlapEnd.date);
@@ -2169,7 +2169,7 @@ test.describe('Backoffice Panel', () => {
 
     // Clean up: delete the first slot
     await page.goto(
-      '/panel/event/autumn-open/cfp/time-slots/',
+      '/panel/event/panel-lab/cfp/time-slots/',
     );
     page.on('dialog', (dialog) => dialog.accept());
     // Find the slot row with the time we created
@@ -2187,7 +2187,7 @@ test.describe('Backoffice Panel', () => {
   test('facilitators list shows always-enabled merge view button and disabled merge selected', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/facilitators/');
+    await page.goto('/panel/event/panel-lab/facilitators/');
 
     // "Merge view" is a plain link — always accessible
     await expect(
@@ -2203,7 +2203,7 @@ test.describe('Backoffice Panel', () => {
   test('merge selected button enables after checking 2+ facilitators', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/facilitators/');
+    await page.goto('/panel/event/panel-lab/facilitators/');
 
     const mergeSelectedBtn = page.getByRole('button', {
       name: /Merge selected/,
@@ -2221,12 +2221,12 @@ test.describe('Backoffice Panel', () => {
   test('merge view button opens merge page with no pre-selection', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/facilitators/');
+    await page.goto('/panel/event/panel-lab/facilitators/');
 
     await page.getByRole('link', { name: /Merge view/ }).click();
 
     await expect(page).toHaveURL(
-      '/panel/event/autumn-open/facilitators/merge/',
+      '/panel/event/panel-lab/facilitators/merge/',
     );
 
     // Search field is present
@@ -2244,7 +2244,7 @@ test.describe('Backoffice Panel', () => {
   test('merge selected passes preselected ids to merge page', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/facilitators/');
+    await page.goto('/panel/event/panel-lab/facilitators/');
 
     const facilitatorRows = page
       .getByRole('row')
@@ -2272,7 +2272,7 @@ test.describe('Backoffice Panel', () => {
 
   test('merge page search filters facilitators by name', async ({ page }) => {
     await page.goto(
-      '/panel/event/autumn-open/facilitators/merge/',
+      '/panel/event/panel-lab/facilitators/merge/',
     );
 
     await page.locator('#facilitator-search').fill('Alice');
@@ -2295,7 +2295,7 @@ test.describe('Backoffice Panel', () => {
     page,
   }) => {
     await page.goto(
-      '/panel/event/autumn-open/facilitators/merge/',
+      '/panel/event/panel-lab/facilitators/merge/',
     );
 
     const rows = page.locator('.facilitator-row');
@@ -2317,7 +2317,7 @@ test.describe('Backoffice Panel', () => {
       page.getByText('Facilitators merged successfully.'),
     ).toBeVisible();
     await expect(page).toHaveURL(
-      '/panel/event/autumn-open/facilitators/',
+      '/panel/event/panel-lab/facilitators/',
     );
 
     await expect(page.getByText(secondName!)).not.toBeVisible();

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Seed facilitators for Playwright end-to-end tests.
 
-Creates three facilitators for the ``autumn-open`` event:
+Creates three facilitators on both the ``autumn-open`` and ``panel-lab``
+events:
   - Alice Morgan (alice-morgan)
   - Alice Morgan Copy (alice-morgan-copy)  — duplicate, used in merge tests
   - Bob Chen (bob-chen)
 
-Run after ``bootstrap_data.py`` (which creates the ``autumn-open`` event).
+Run after ``bootstrap_data.py`` (which creates both events).
 Idempotent — safe to re-run.
 
 Usage:
@@ -31,9 +32,7 @@ django.setup()
 from ludamus.adapters.db.django.models import Event, Facilitator  # noqa: E402
 
 
-def main() -> None:
-    event = Event.objects.get(slug="autumn-open")
-
+def _seed_facilitators(event: Event) -> None:
     Facilitator.objects.get_or_create(
         event=event,
         slug="alice-morgan",
@@ -49,6 +48,13 @@ def main() -> None:
         slug="bob-chen",
         defaults={"display_name": "Bob Chen", "user": None},
     )
+
+
+def main() -> None:
+    # autumn-open keeps its facilitators (read by public-page specs); panel-lab
+    # is the dedicated event the panel facilitator/merge tests mutate.
+    _seed_facilitators(Event.objects.get(slug="autumn-open"))
+    _seed_facilitators(Event.objects.get(slug="panel-lab"))
 
 
 if __name__ == "__main__":

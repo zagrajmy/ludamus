@@ -15,7 +15,7 @@ test.describe('Timetable', () => {
   test('opens timetable page with grid and session list', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await expect(
       page.getByRole('heading', { name: 'Schedule' }),
@@ -41,7 +41,7 @@ test.describe('Timetable', () => {
   test('session list loads via HTMX and shows unscheduled sessions', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Wait for HTMX to load the session list
     await expect(
@@ -60,7 +60,7 @@ test.describe('Timetable', () => {
   // --- Session Search ---
 
   test('search filters session list', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Wait for initial load — all 3 sessions visible
     await expect(
@@ -102,7 +102,7 @@ test.describe('Timetable', () => {
   test('clicking a session card opens the detail view', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Wait for session list
     await expect(
@@ -136,7 +136,7 @@ test.describe('Timetable', () => {
   });
 
   test('back button returns to session list', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -169,7 +169,7 @@ test.describe('Timetable', () => {
   test('clicking Assign enters assignment mode with banner', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -208,7 +208,7 @@ test.describe('Timetable', () => {
   });
 
   test('Escape key cancels assignment mode', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -250,7 +250,7 @@ test.describe('Timetable', () => {
   });
 
   test('cancel button exits assignment mode', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -291,7 +291,7 @@ test.describe('Timetable', () => {
   test('assigns a session by clicking grid column', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -346,7 +346,7 @@ test.describe('Timetable', () => {
   test('clicking scheduled session in grid shows Unassign button', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Wait for grid to show the assigned session
     const gridSession = page
@@ -368,7 +368,7 @@ test.describe('Timetable', () => {
   });
 
   test('unassigns a session', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Click the assigned session in grid
     const gridSession = page
@@ -406,7 +406,7 @@ test.describe('Timetable', () => {
   }) => {
     // Assign "Storytelling Workshop" so a scheduled item exists. Auto-confirm
     // is on by default, so the freshly scheduled item starts confirmed.
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await page
       .locator('#session-list')
@@ -480,7 +480,7 @@ test.describe('Timetable', () => {
   test('conflict panel loads and shows conflict status', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Wait for conflict panel HTMX load — it should show either
     // "All clear" or a conflict count
@@ -495,7 +495,7 @@ test.describe('Timetable', () => {
   test('activity log page loads and shows tab navigation', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/log/');
+    await page.goto('/panel/event/timetable-lab/timetable/log/');
 
     await expect(
       page.getByRole('heading', {
@@ -515,7 +515,7 @@ test.describe('Timetable', () => {
     page,
   }) => {
     // Assign "Dungeon Crawl" so it gets a fresh assign entry in the log.
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     await page
       .locator('#session-list')
@@ -548,7 +548,7 @@ test.describe('Timetable', () => {
     // On the log page the just-created assign entry is the latest change
     // for this session, so the topmost Dungeon Crawl row exposes a Revert
     // button. (Rows are ordered newest-first, so .first() is the latest.)
-    await page.goto('/panel/event/autumn-open/timetable/log/');
+    await page.goto('/panel/event/timetable-lab/timetable/log/');
     const latestAssignRow = page
       .getByRole('row', { name: /Dungeon Crawl/ })
       .filter({ hasText: 'Assigned' })
@@ -559,7 +559,7 @@ test.describe('Timetable', () => {
     ).toBeVisible();
 
     // Now unassign the same session — this supersedes the assign entry.
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
     await page
       .locator('#timetable-grid')
       .getByText('Dungeon Crawl')
@@ -574,7 +574,7 @@ test.describe('Timetable', () => {
 
     // The newer "Removed" entry is now the latest change for the session and
     // keeps its Revert button...
-    await page.goto('/panel/event/autumn-open/timetable/log/');
+    await page.goto('/panel/event/timetable-lab/timetable/log/');
     const latestRemovedRow = page
       .getByRole('row', { name: /Dungeon Crawl/ })
       .filter({ hasText: 'Removed' })
@@ -601,7 +601,7 @@ test.describe('Timetable', () => {
     page,
   }) => {
     await page.goto(
-      '/panel/event/autumn-open/timetable/overview/',
+      '/panel/event/timetable-lab/timetable/overview/',
     );
 
     await expect(
@@ -625,7 +625,7 @@ test.describe('Timetable', () => {
     page,
   }) => {
     await page.goto(
-      '/panel/event/autumn-open/timetable/overview/',
+      '/panel/event/timetable-lab/timetable/overview/',
     );
 
     // Hours-to-fill section with its capacity stats.
@@ -647,7 +647,7 @@ test.describe('Timetable', () => {
   test('tabs navigate between timetable sub-pages', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/timetable-lab/timetable/');
 
     // Click Activity Log tab
     await page.getByRole('tab', { name: 'Activity Log' }).click();

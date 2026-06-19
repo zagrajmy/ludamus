@@ -335,6 +335,68 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
+# Dedicated event for the backoffice panel e2e tests. panel.spec mutates
+# venues, CFP config and facilitators, so it gets its own event — keeping
+# autumn-open read-only for the public-page specs makes the suite safe to run
+# with parallel workers.
+def _create_panel_lab_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Panel Lab",
+        slug="panel-lab",
+        description="Dedicated event for backoffice panel e2e tests.",
+        start_offset=timedelta(days=20),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(
+        event,
+        name="Convention Center",
+        slug="convention-center",
+        address="123 Gaming Street, Tabletop City",
+    )
+    main_hall = _create_area(
+        venue,
+        name="Main Hall",
+        slug="main-hall",
+        description="The central gaming area with multiple tables.",
+    )
+    lounge = _create_area(
+        venue,
+        name="Lounge",
+        slug="lounge",
+        description="A cozy space for smaller gatherings.",
+    )
+    _create_space(main_hall, name="East Wing", slug="east-wing", capacity=30)
+    _create_space(lounge, name="Fireside Alcove", slug="fireside-alcove", capacity=12)
+
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
+# Dedicated event for the cover-image upload e2e tests. cover-images.spec
+# writes the event's cover image and asserts the initial "no cover yet" state,
+# so it needs an event nothing else mutates.
+def _create_cover_lab_event(sphere: Sphere) -> Event:
+    return _create_event(
+        sphere,
+        name="Cover Lab",
+        slug="cover-lab",
+        description="Dedicated event for cover-image e2e tests.",
+        start_offset=timedelta(days=21),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -561,6 +623,11 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    # Dedicated events for the mutating panel / cover-image specs, so they
+    # never write to autumn-open (kept read-only for the public-page specs).
+    _create_panel_lab_event(sphere)
+    _create_cover_lab_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

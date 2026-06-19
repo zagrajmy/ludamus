@@ -259,7 +259,7 @@ aube exec -C tests/e2e playwright install --with-deps
 [tasks.e2e]
 description = "Run end-to-end Playwright tests"
 run = """
-npx playwright test --workers=1
+npx playwright test
 mise run _e2e -- coverage report
 """
 dir = "tests/e2e"
