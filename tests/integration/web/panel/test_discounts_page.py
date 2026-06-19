@@ -131,6 +131,23 @@ class TestDiscountsPageView:
             not_contains="Remove",
         )
 
+    def test_list_shows_amount_discount(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        _make_discount(event, facilitator, kind="amount", value=Decimal("20.00"))
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/list.html",
+            context_data={**_base_context(event), "rows": ANY},
+            contains="20.00",
+        )
+
 
 class TestDiscountCreatePageView:
     @staticmethod
