@@ -299,6 +299,15 @@ class TrackProgressDTO(BaseModel):
     progress_pct: int
 
 
+class CapacityHoursDTO(BaseModel):
+    room_count: int
+    slot_hours: float
+    capacity_hours: float
+    scheduled_hours: float
+    hours_to_fill: float
+    filled_pct: int
+
+
 # --- CFP (personal-data field management) ---
 
 

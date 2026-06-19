@@ -621,6 +621,27 @@ test.describe('Timetable', () => {
     });
   });
 
+  test('overview page reports hours left to fill', async ({
+    page,
+  }) => {
+    await page.goto(
+      '/panel/event/autumn-open/timetable/overview/',
+    );
+
+    // Hours-to-fill section with its capacity stats.
+    await expect(
+      page.getByRole('heading', { name: 'Hours to fill' }),
+    ).toBeVisible();
+    await expect(page.getByText('Scheduled hours')).toBeVisible();
+    await expect(page.getByText('Capacity hours')).toBeVisible();
+    await expect(page.getByText(/\d+% filled/)).toBeVisible();
+
+    await page.screenshot({
+      path: 'test-results/timetable-overview-hours.png',
+      fullPage: true,
+    });
+  });
+
   // --- Tab Navigation ---
 
   test('tabs navigate between timetable sub-pages', async ({

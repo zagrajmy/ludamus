@@ -5060,6 +5060,28 @@ msgid "No entries in the log."
 msgstr "Brak wpisów w dzienniku."
 
 #: src/ludamus/templates/panel/timetable-overview.html
+msgid "Hours to fill"
+msgstr "Godziny do zapełnienia"
+
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Scheduled hours"
+msgstr "Godziny zaplanowane"
+
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Capacity hours"
+msgstr "Godziny dostępne"
+
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "filled"
+msgstr "zapełnione"
+
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Add rooms and time slots to see how many program-hours are left to fill."
+msgstr ""
+"Dodaj sale i przedziały czasowe, aby zobaczyć, ile godzin programu pozostało "
+"do zapełnienia."
+
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Occupancy map"
 msgstr "Mapa obłożenia"
 

@@ -29,6 +29,7 @@ from ludamus.pacts.chronology import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
     AreaGroupDTO,
+    CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
     ConflictDTO,
@@ -91,6 +92,10 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+
+def _duration_hours(start: datetime, end: datetime) -> float:
+    return max((end - start).total_seconds() / 3600, 0.0)
 
 
 def _position_sessions(
@@ -763,6 +768,37 @@ class TimetableOverviewService:
                 )
             )
         return result
+
+    def capacity_hours(self, event_pk: int) -> CapacityHoursDTO:
+        # Capacity = one program slot per room: every room is bookable for the
+        # whole of each event time slot. Scheduled = hours already occupied by
+        # placed agenda items in those rooms. Hours-to-fill is the remainder.
+        spaces = self._uow.spaces.list_by_event(event_pk)
+        room_count = len(spaces)
+
+        slots = self._uow.time_slots.list_by_event(event_pk)
+        slot_hours = sum(_duration_hours(s.start_time, s.end_time) for s in slots)
+        capacity_hours = slot_hours * room_count
+
+        space_pk_set = {s.pk for s in spaces}
+        scheduled_hours = sum(
+            _duration_hours(item.start_time, item.end_time)
+            for item in self._uow.agenda_items.list_by_event(event_pk)
+            if item.space_id in space_pk_set
+        )
+
+        hours_to_fill = max(capacity_hours - scheduled_hours, 0.0)
+        filled_pct = (
+            round(scheduled_hours * 100 / capacity_hours) if capacity_hours else 0
+        )
+        return CapacityHoursDTO(
+            room_count=room_count,
+            slot_hours=round(slot_hours, 1),
+            capacity_hours=round(capacity_hours, 1),
+            scheduled_hours=round(scheduled_hours, 1),
+            hours_to_fill=round(hours_to_fill, 1),
+            filled_pct=filled_pct,
+        )
 
 
 class CFPPersonalDataFieldService:
