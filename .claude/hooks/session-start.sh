@@ -29,21 +29,23 @@ mise install
 mise run bootstrap
 
 # Playwright (needed by the e2e suite) also backs `aubx agent-browser`
-# screenshots: agent-browser's own Chrome installer hits a network-blocked CDN,
-# but it auto-discovers Playwright's Chromium via $PLAYWRIGHT_BROWSERS_PATH.
-# Provision via the canonical task so e2e and screenshots both work out of the box.
+# screenshots: agent-browser's own Chrome installer hits a network-blocked CDN.
+# Provision via the canonical task; agent-browser then finds the same Chromium
+# through $PLAYWRIGHT_BROWSERS_PATH, so e2e and screenshots share one browser.
 mise run install:playwright \
   || echo "WARN: Playwright install failed; agent-browser screenshots unavailable"
 
 # Self-check: surface screenshot-tooling readiness early rather than at capture
-# time (see issue #379). Look for an actual executable Chrome, not just a
-# directory, so a half-finished install doesn't falsely report ready.
-browser_root="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
-chrome_bin=$(find "$browser_root" -maxdepth 3 -type f -name chrome -perm -u+x 2>/dev/null | head -n1 || true)
-if command -v aubx >/dev/null 2>&1 && [ -n "$chrome_bin" ]; then
-  echo "OK: screenshots ready (aubx agent-browser + Chromium)"
+# time (see issue #379). Probe with a real launch — the only signal that proves
+# agent-browser can actually find and start the browser, unlike a bare on-disk
+# binary check which can pass while discovery still fails (it false-reported OK
+# in PR #397 because install:playwright runs async and Chromium wasn't ready).
+if command -v aubx >/dev/null 2>&1 \
+  && aubx agent-browser open about:blank >/dev/null 2>&1; then
+  aubx agent-browser close --all >/dev/null 2>&1 || true
+  echo "OK: screenshots ready (aubx agent-browser launched Chromium)"
 else
-  echo "WARN: screenshot tooling incomplete (aubx or Chromium missing); see CLAUDE.md"
+  echo "WARN: screenshot tooling not ready (agent-browser could not launch); see CLAUDE.md"
 fi
 
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
