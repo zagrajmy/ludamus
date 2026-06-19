@@ -40,8 +40,11 @@ _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
 class ParticipationPromotionRepository:
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         try:
+            # Lock only the Session row (`of="self"`): the select_related chain
+            # LEFT-joins nullable relations (e.g. category) and Postgres refuses
+            # FOR UPDATE on the nullable side of an outer join.
             session = (
-                Session.objects.select_for_update()
+                Session.objects.select_for_update(of=("self",))
                 .select_related("category", "agenda_item__space__area__venue__event")
                 .get(id=session_id)
             )
@@ -91,7 +94,6 @@ class ParticipationPromotionRepository:
                     manager_id=user.manager_id,
                     full_name=user.get_full_name(),
                     email=user.email or "",
-                    is_active=user.is_active,
                     creation_time=participation.creation_time,
                     has_conflict=Session.objects.has_conflicts(
                         session, UserDTO.model_validate(user)

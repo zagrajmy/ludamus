@@ -51,9 +51,31 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
     def list_by_event(
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]:
-        qs = ScheduleChangeLog.objects.filter(event_id=event_pk).select_related(
-            *_SELECT_RELATED
+        qs = (
+            ScheduleChangeLog.objects.filter(event_id=event_pk)
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
         )
         if space_pk is not None:
             qs = qs.filter(Q(old_space_id=space_pk) | Q(new_space_id=space_pk))
         return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]:
+        latest: dict[int, int] = {}
+        for session_id, pk in (
+            ScheduleChangeLog.objects.filter(event_id=event_pk)
+            .order_by("session_id", "-creation_time", "-pk")
+            .values_list("session_id", "pk")
+        ):
+            latest.setdefault(session_id, pk)
+        return latest
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None:
+        return (
+            ScheduleChangeLog.objects.filter(event_id=event_pk, session_id=session_id)
+            .order_by("-creation_time", "-pk")
+            .values_list("pk", flat=True)
+            .first()
+        )

@@ -17,11 +17,7 @@ if TYPE_CHECKING:
 def _is_eligible(
     participant: WaitingParticipantDTO, *, presenter_id: int | None
 ) -> bool:
-    return (
-        participant.is_active
-        and participant.user_id != presenter_id
-        and not participant.has_conflict
-    )
+    return participant.user_id != presenter_id and not participant.has_conflict
 
 
 def _group_into_parties(
@@ -44,7 +40,7 @@ def select_promotable_parties(
     state: PromotionStateDTO,
 ) -> list[list[WaitingParticipantDTO]]:
     # Walks parties front-to-back filling `available_seats`. A party with no
-    # still-eligible members (conflict / inactive / presenter) or no remaining
+    # still-eligible members (conflict / presenter) or no remaining
     # membership slots is skipped — it can never be promoted now, so it does not
     # hold the line. Otherwise the party is promoted only if all its eligible
     # members fit the remaining seats *and* membership allowance at once; the

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
+        SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
@@ -20,11 +21,14 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.multiverse import (
+        AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
         EventsServiceProtocol,
+        SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
+    from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
         ImportFieldLayoutServiceProtocol,
@@ -45,13 +49,19 @@ class ServicesProtocol(Protocol):
     @property
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
+    def announcements(self) -> AnnouncementsServiceProtocol: ...
+    @property
     def events(self) -> EventsServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
+    def sites(self) -> SitesServiceProtocol: ...
+    @property
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property
     def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...
+    @property
+    def session_confirmation(self) -> SessionConfirmationServiceProtocol: ...
     @property
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
@@ -62,6 +72,10 @@ class ServicesProtocol(Protocol):
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
     def venues(self) -> VenuesServiceProtocol: ...
+    @property
+    def shadowban(self) -> ShadowbanServiceProtocol: ...
+    @property
+    def event_bans(self) -> EventBanServiceProtocol: ...
     @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
     @property

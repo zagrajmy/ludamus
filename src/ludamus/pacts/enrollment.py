@@ -26,7 +26,6 @@ class WaitingParticipantDTO(BaseModel):
     manager_id: int | None
     full_name: str
     email: str
-    is_active: bool
     creation_time: datetime
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool

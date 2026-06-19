@@ -12,15 +12,53 @@ if TYPE_CHECKING:
         EventDTO,
         EventListItemDTO,
         EventRepositoryProtocol,
+        SiteDTO,
         SphereDTO,
         SphereRepositoryProtocol,
+        SphereUpdateData,
     )
     from ludamus.pacts.multiverse import (
+        AnnouncementData,
+        AnnouncementDTO,
+        AnnouncementsRepositoryProtocol,
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+
+
+class AnnouncementsService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        announcements: AnnouncementsRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._announcements = announcements
+
+    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]:
+        return self._announcements.list_for_sphere(sphere_id)
+
+    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]:
+        return self._announcements.list_published(sphere_id)
+
+    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO:
+        return self._announcements.get(sphere_id, pk)
+
+    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
+        with self._transaction.atomic():
+            return self._announcements.create(sphere_id, data)
+
+    def update(
+        self, sphere_id: int, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO:
+        with self._transaction.atomic():
+            return self._announcements.update(sphere_id, pk, data)
+
+    def delete(self, sphere_id: int, pk: int) -> None:
+        with self._transaction.atomic():
+            self._announcements.delete(sphere_id, pk)
 
 
 class ConnectionsService:
@@ -92,8 +130,12 @@ class SpherePanelService:
     """Read-side context loader for the multiverse sphere panel."""
 
     def __init__(
-        self, spheres: SphereRepositoryProtocol, events: EventRepositoryProtocol
+        self,
+        transaction: TransactionProtocol,
+        spheres: SphereRepositoryProtocol,
+        events: EventRepositoryProtocol,
     ) -> None:
+        self._transaction = transaction
         self._spheres = spheres
         self._events = events
 
@@ -107,9 +149,28 @@ class SpherePanelService:
         return self._spheres.read(sphere_id)
 
     def update_settings(
-        self, sphere_id: int, *, allow_facilitator_session_edit: bool
+        self,
+        sphere_id: int,
+        *,
+        allow_facilitator_session_edit: bool,
+        logo: str | None = None,
     ) -> None:
-        self._spheres.update(
-            sphere_id,
-            {"allow_facilitator_session_edit": allow_facilitator_session_edit},
-        )
+        data: SphereUpdateData = {
+            "allow_facilitator_session_edit": allow_facilitator_session_edit
+        }
+        # Only overwrite the logo when a new file was uploaded, so saving the
+        # form without re-picking a file keeps the existing logo.
+        if logo is not None:
+            data["logo"] = logo
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, data)
+
+
+class SitesService:
+    """Read-side loader for a sphere's site (domain lookup)."""
+
+    def __init__(self, spheres: SphereRepositoryProtocol) -> None:
+        self._spheres = spheres
+
+    def read_site(self, sphere_id: int) -> SiteDTO:
+        return self._spheres.read_site(sphere_id)
