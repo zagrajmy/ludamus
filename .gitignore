@@ -221,11 +221,14 @@ tests/e2e/.auth-state-superuser.json
 src/ludamus/media/
 
 tests/e2e/.auth-state-empty.json
+tests/e2e/.auth-state-waiter.json
+tests/e2e/.promotion-scenario.json
 
 # TBD
 .tbd
 
 .local
+CLAUDE.local.md
 
 
 # Un-ignore .claude (global ~/.gitignore ignores it); .claude/.gitignore manages the rest
