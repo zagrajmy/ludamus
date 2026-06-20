@@ -37,6 +37,7 @@ def _base_context(event):
     return {
         "current_event": EventDTO.model_validate(event),
         "events": [EventDTO.model_validate(event)],
+        "deleted_proposals": [],
         "is_proposal_active": False,
         "stats": {
             "hosts_count": 0,
