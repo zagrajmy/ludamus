@@ -206,7 +206,21 @@
                     <tr>
                         <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ proposal.title }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.display_name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.status }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if proposal.status == "pending" %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
+                                    {% translate "Pending" %}
+                                </span>
+                            {% elif proposal.status == "rejected" %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
+                                    {% translate "Rejected" %}
+                                </span>
+                            {% elif proposal.status == "scheduled" %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">
+                                    {% translate "Scheduled" %}
+                                </span>
+                            {% endif %}
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                             <form method="post"
                                   action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}"
