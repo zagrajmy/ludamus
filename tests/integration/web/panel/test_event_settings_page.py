@@ -79,6 +79,23 @@ class TestEventSettingsPageViewGet:
             },
         )
 
+    def test_shows_existing_logo_preview(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/brand.png"
+        event.save()
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
+        assert "events/brand.png" in response.content.decode()
+
     def test_inherit_label_reflects_sphere_default_disallowed(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -88,7 +105,12 @@ class TestEventSettingsPageViewGet:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
         edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
         assert "disallowed" in dict(edit_field.choices)[""]
 
@@ -101,7 +123,12 @@ class TestEventSettingsPageViewGet:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
         assert (
             response.context["form"].initial["allow_facilitator_session_edit"]
             == "false"
@@ -355,7 +382,7 @@ class TestEventSettingsPageViewPost:
         sphere.managers.add(active_user)
         image = SimpleUploadedFile(
             "cover.png",
-            PNG_BYTES + b"0" * (2 * 1024 * 1024 + 1),
+            PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
             content_type="image/png",
         )
 
@@ -370,7 +397,7 @@ class TestEventSettingsPageViewPost:
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["cover_image"] == [
-            "Image too large. Maximum size is 2 MB."
+            "Image too large. Maximum size is 8 MB."
         ]
         event.refresh_from_db()
         assert not event.cover_image
@@ -396,6 +423,70 @@ class TestEventSettingsPageViewPost:
         ]
         event.refresh_from_db()
         assert not event.cover_image
+
+    def test_uploads_logo(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        logo = SimpleUploadedFile("logo.png", PNG_BYTES, content_type="image/png")
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, logo=logo)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.logo
+        assert event.logo.name.startswith("events/")
+
+    def test_rejects_too_large_logo(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        logo = SimpleUploadedFile(
+            "logo.png",
+            PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
+            content_type="image/png",
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, logo=logo)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._render_context(response, event),
+            template_name="panel/settings.html",
+        )
+        assert response.context["form"].errors["logo"] == [
+            "Image too large. Maximum size is 8 MB."
+        ]
+        event.refresh_from_db()
+        assert not event.logo
+
+    def test_save_without_logo_keeps_existing(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/keep.png"
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, name="Renamed")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.logo.name == "events/keep.png"
 
     def test_error_on_empty_form(
         self, authenticated_client, active_user, sphere, event
@@ -558,3 +649,41 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.allow_facilitator_session_edit is None
+
+    def test_enables_auto_confirm_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.auto_confirm_sessions = False
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event, auto_confirm_sessions="on")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.auto_confirm_sessions is True
+
+    def test_disables_auto_confirm_sessions_when_unchecked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.auto_confirm_sessions is False

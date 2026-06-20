@@ -9,6 +9,7 @@ from ludamus.mills.chronology import (
     ConflictDetectionService,
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
+    SessionConfirmationService,
     TimetableOverviewService,
     TimetableService,
 )
@@ -23,6 +24,7 @@ from ludamus.pacts import (
     VenueDTO,
 )
 from ludamus.pacts.chronology import (
+    CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
     ConflictType,
@@ -130,11 +132,29 @@ class TestBuildGridOverlappingSessions:
 class TestRevertChange:
     @pytest.fixture
     def mock_uow(self):
-        return MagicMock()
+        uow = MagicMock()
+        # By default the log under test (pk 1, session 1) is the latest change.
+        uow.schedule_change_logs.latest_pk_for_session.return_value = 1
+        return uow
 
     @pytest.fixture
     def service(self, mock_uow):
         return TimetableService(mock_uow)
+
+    def test_revert_rejects_non_latest_change(self, service, mock_uow):
+        """Only the most recent change for a session may be reverted."""
+        log = MagicMock()
+        log.event_id = 1
+        log.action = ScheduleChangeAction.ASSIGN
+        log.session_id = 1
+        mock_uow.schedule_change_logs.read.return_value = log
+        # A newer change (pk 2) exists for the same session.
+        mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 2
+
+        with pytest.raises(ValueError, match="latest change"):
+            service.revert_change(log_pk=1, event_pk=1)
+
+        mock_uow.agenda_items.read_by_session.assert_not_called()
 
     def test_revert_raises_not_found_for_log_from_another_event(
         self, service, mock_uow
@@ -223,9 +243,10 @@ class TestAssignUnassignScope:
         return TimetableService(mock_uow)
 
     @staticmethod
-    def _event(pk):
+    def _event(pk, *, auto_confirm_sessions=True):
         event = MagicMock()
         event.pk = pk
+        event.auto_confirm_sessions = auto_confirm_sessions
         return event
 
     @staticmethod
@@ -266,6 +287,123 @@ class TestAssignUnassignScope:
             service.unassign_session(session_pk=1, event_pk=1)
 
         mock_uow.agenda_items.delete.assert_not_called()
+
+    def _arrange_pending_assignment(self, mock_uow, *, auto_confirm_sessions):
+        mock_uow.sessions.read_event.return_value = self._event(
+            1, auto_confirm_sessions=auto_confirm_sessions
+        )
+        space = MagicMock()
+        space.pk = 1
+        mock_uow.spaces.list_by_event.return_value = [space]
+        mock_uow.agenda_items.read_by_session.return_value = None
+        session = MagicMock()
+        session.status = SessionStatus.PENDING
+        mock_uow.sessions.read.return_value = session
+
+    def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
+        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=True)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is True
+
+    def test_assign_leaves_unconfirmed_when_event_disables_auto_confirm(
+        self, service, mock_uow
+    ):
+        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=False)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is False
+
+
+class TestSessionConfirmation:
+    """The service toggles confirmation and rejects foreign agenda items."""
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def tracks(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, agenda_items, sessions, tracks):
+        return SessionConfirmationService(transaction, agenda_items, sessions, tracks)
+
+    @staticmethod
+    def _event(pk):
+        event = MagicMock()
+        event.pk = pk
+        return event
+
+    @staticmethod
+    def _track(event_id):
+        track = MagicMock()
+        track.event_id = event_id
+        return track
+
+    def test_confirm_persists_true(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
+
+    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
+
+    def test_rejects_agenda_item_from_another_event(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_not_called()
+
+    def test_confirm_all_confirms_every_item_in_event(self, service, agenda_items):
+        service.confirm_all(event_pk=1)
+
+        agenda_items.confirm_all_by_event.assert_called_once_with(1)
+
+    def test_confirm_block_confirms_items_in_track(self, service, agenda_items, tracks):
+        tracks.read.return_value = self._track(event_id=1)
+
+        service.confirm_block(event_pk=1, track_pk=5)
+
+        agenda_items.confirm_all_by_track.assert_called_once_with(5)
+
+    def test_confirm_block_rejects_track_from_another_event(
+        self, service, agenda_items, tracks
+    ):
+        tracks.read.return_value = self._track(event_id=2)
+
+        with pytest.raises(NotFoundError):
+            service.confirm_block(event_pk=1, track_pk=5)
+
+        agenda_items.confirm_all_by_track.assert_not_called()
 
 
 class TestListAllForTrackAttribution:
@@ -350,6 +488,196 @@ class TestTimetableOverviewServiceDefaults:
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
         assert not result
+
+
+def _space(pk):
+    return SimpleNamespace(pk=pk)
+
+
+def _slot(start, end):
+    return SimpleNamespace(start_time=start, end_time=end)
+
+
+class TestTimetableOverviewCapacityHours:
+    @staticmethod
+    def _uow(*, spaces, slots, items):
+        uow = MagicMock()
+        uow.spaces.list_by_event.return_value = spaces
+        uow.time_slots.list_by_event.return_value = slots
+        uow.agenda_items.list_by_event.return_value = items
+        return uow
+
+    def test_empty_event_has_zero_everywhere(self):
+        uow = self._uow(spaces=[], slots=[], items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=0,
+            slot_hours=0.0,
+            capacity_hours=0.0,
+            scheduled_hours=0.0,
+            hours_to_fill=0.0,
+            filled_pct=0,
+        )
+
+    def test_capacity_is_rooms_times_slot_hours(self):
+        # 2 rooms, two 2h slots => 2 * 4h = 8h capacity, nothing scheduled.
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            ),
+            _slot(
+                datetime(2026, 1, 1, 14, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 16, 0, tzinfo=UTC),
+            ),
+        ]
+        uow = self._uow(spaces=[_space(1), _space(2)], slots=slots, items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=2,
+            slot_hours=4.0,
+            capacity_hours=8.0,
+            scheduled_hours=0.0,
+            hours_to_fill=8.0,
+            filled_pct=0,
+        )
+
+    def test_partially_filled_subtracts_scheduled_hours(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        # 2 rooms * 2h = 4h capacity; one 1h item scheduled => 3h left, 25%.
+        items = [
+            _make_item(
+                space_id=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1), _space(2)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=2,
+            slot_hours=2.0,
+            capacity_hours=4.0,
+            scheduled_hours=1.0,
+            hours_to_fill=3.0,
+            filled_pct=25,
+        )
+
+    def test_fully_filled_leaves_nothing_and_hits_100_pct(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        items = [
+            _make_item(
+                pk=1,
+                space_id=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=2.0,
+            capacity_hours=2.0,
+            scheduled_hours=2.0,
+            hours_to_fill=0.0,
+            filled_pct=100,
+        )
+
+    def test_overbooked_clamps_hours_to_fill_to_zero(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        # 1 room * 1h = 1h capacity, but a 2h item is scheduled in it.
+        items = [
+            _make_item(
+                space_id=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=1.0,
+            capacity_hours=1.0,
+            scheduled_hours=2.0,
+            hours_to_fill=0.0,
+            filled_pct=200,
+        )
+
+    def test_items_in_other_rooms_are_ignored(self):
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        # Only room 1 belongs to the event; the item sits in room 99.
+        items = [
+            _make_item(
+                space_id=99,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=1.0,
+            capacity_hours=1.0,
+            scheduled_hours=0.0,
+            hours_to_fill=1.0,
+            filled_pct=0,
+        )
+
+    def test_odd_duration_slot_rounds_to_one_decimal(self):
+        # 90-minute slot => 1.5h; one room, nothing scheduled.
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            )
+        ]
+        uow = self._uow(spaces=[_space(1)], slots=slots, items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=1.5,
+            capacity_hours=1.5,
+            scheduled_hours=0.0,
+            hours_to_fill=1.5,
+            filled_pct=0,
+        )
 
 
 # --- EventIntegrationsService ---

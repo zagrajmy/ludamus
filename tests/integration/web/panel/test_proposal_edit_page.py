@@ -435,6 +435,7 @@ class TestProposalEditPageView:
                 "display_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "facilitators_submitted": "1",
                 "facilitator_ids": [alice.pk],
             },
         )
@@ -495,6 +496,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_adult": "true",
             },
         )
@@ -524,6 +526,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_genres": ["horror", "comedy"],
             },
         )
@@ -553,6 +556,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_system": "",
                 "session_field_system_custom": "Homebrew",
             },
@@ -639,7 +643,62 @@ class TestProposalEditPageView:
         assert 'name="session_field_notes"' in html
         assert 'maxlength="99"' in html
         assert 'name="session_field_notes_custom"' in html
-        assert "Free text" in html
+
+    def test_partial_post_without_session_fields_marker_preserves_field_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Updated title only",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        sfv = SessionFieldValue.objects.get(session=session, field=field)
+        assert sfv.value == "Pathfinder"
+        session.refresh_from_db()
+        assert session.title == "Updated title only"
+
+    def test_partial_post_without_facilitators_marker_preserves_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        assigned = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(assigned)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "Updated title only",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        assert list(session.facilitators.values_list("pk", flat=True)) == [assigned.pk]
+        session.refresh_from_db()
+        assert session.title == "Updated title only"
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
         self, authenticated_client, active_user, sphere, event

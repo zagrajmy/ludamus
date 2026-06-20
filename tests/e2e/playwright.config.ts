@@ -69,7 +69,15 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      testIgnore: /.*\.auth\.spec\.ts/,
+      // Specs that mutate shared seed data are pinned to chromium only, so a
+      // second project's copy can't run concurrently against the same event
+      // (the suite shares one seeded DB across projects).
+      testIgnore: [
+        /.*\.auth\.spec\.ts/,
+        /panel\.spec\.ts/,
+        /timetable\.spec\.ts/,
+        /cover-images\.spec\.ts/,
+      ],
       use: { ...devices['Desktop Firefox'] },
     },
     ...(skipIos

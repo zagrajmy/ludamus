@@ -5,9 +5,10 @@ from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 
 
-class Repositories:
+class Repositories:  # noqa: PLR0904
     """Lazy flat repository registry.
 
     Internal to inits — never imported from gates. Mills services receive
@@ -30,6 +31,10 @@ class Repositories:
     @cached_property
     def connections(self) -> repositories.ConnectionsRepository:
         return repositories.ConnectionsRepository()
+
+    @cached_property
+    def announcements(self) -> repositories.AnnouncementsRepository:
+        return repositories.AnnouncementsRepository()
 
     @cached_property
     def event_integrations(self) -> repositories.EventIntegrationsRepository:
@@ -76,6 +81,10 @@ class Repositories:
         return repositories.TimeSlotRepository()
 
     @cached_property
+    def tracks(self) -> repositories.TrackRepository:
+        return repositories.TrackRepository()
+
+    @cached_property
     def venues(self) -> repositories.VenueRepository:
         return repositories.VenueRepository()
 
@@ -84,13 +93,17 @@ class Repositories:
         return repositories.AreaRepository()
 
     @cached_property
-    def tracks(self) -> repositories.TrackRepository:
-        return repositories.TrackRepository()
-
-    @cached_property
     def facilitators(self) -> repositories.FacilitatorRepository:
         return repositories.FacilitatorRepository()
 
     @cached_property
     def import_log_entries(self) -> repositories.ImportLogEntryRepository:
         return repositories.ImportLogEntryRepository()
+
+    @cached_property
+    def shadowban(self) -> ShadowbanRepository:
+        return ShadowbanRepository()
+
+    @cached_property
+    def event_bans(self) -> EventBanRepository:
+        return EventBanRepository()

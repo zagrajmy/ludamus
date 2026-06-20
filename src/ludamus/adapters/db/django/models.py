@@ -122,7 +122,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def initials(self) -> str:
-        """Return user initials (first letter of each word in name)."""
         name = self.name or self.username or ""
         return "".join(word[0].upper() for word in name.split() if word)[:2] or "?"
 
@@ -837,7 +836,6 @@ class Session(models.Model):
 
     @property
     def effective_participants_limit(self) -> int:
-        """Get effective participants limit considering enrollment config percentage."""
         if self.participants_limit == 0:
             return 0
         event = self.agenda_item.space.area.venue.event
@@ -864,7 +862,6 @@ class Session(models.Model):
 
     @property
     def full_participant_info(self) -> str:  # pragma: no cover
-        """Get complete participant information display."""
         # TODO(@fancysnake): This is used in templates. Rewrite to pass static values
         # ZAG-16
         if self.effective_participants_limit == 0:

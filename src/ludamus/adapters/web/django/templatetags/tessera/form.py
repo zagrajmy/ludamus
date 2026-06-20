@@ -131,6 +131,7 @@ def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a d
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
+    onclick: str | None = None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
 
@@ -152,4 +153,5 @@ def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a d
         disabled=disabled,
         icon=icon,
         full_width_mobile=full_width_mobile,
+        onclick=onclick,
     )

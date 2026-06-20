@@ -219,7 +219,6 @@ src/ludamus/static/js/
 tests/e2e/.auth-state*.json
 src/ludamus/media/
 
-tests/e2e/.auth-state-empty.json
 # TBD
 .tbd
 
@@ -229,5 +228,4 @@ tests/e2e/.auth-state-empty.json
 !.claude/
 test-results/
 PLAN.md
-
 CLAUDE.local.md

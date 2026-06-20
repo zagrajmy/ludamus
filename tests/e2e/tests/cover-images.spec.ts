@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 // Tiny 1x1 PNG, identical to PNG_BYTES used in integration tests.
 const PNG_BYTES = Buffer.from(
@@ -15,6 +15,18 @@ const GIF_BYTES = Buffer.from(
   'hex',
 );
 
+// The settings page has more than one dropzone (cover image + logo), so scope
+// "Click to upload" / "Remove image" lookups to the cover-image dropzone.
+// Anchor on the accessible "Cover image" control, then walk up to its dropzone.
+const coverDropzone = (page: Page) =>
+  page
+    .getByLabel('Cover image')
+    .locator('xpath=ancestor::label[@data-dropzone]');
+
+// Serial: the tests share one event's cover image and the first asserts the
+// initial "no cover yet" state, so they must not run concurrently.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Event cover image upload', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/admin/login/');
@@ -24,9 +36,10 @@ test.describe('Event cover image upload', () => {
   });
 
   test('manager uploads cover image via the dropzone', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
 
-    const uploadPrompt = page.getByText('Click to upload');
+    const dropzone = coverDropzone(page);
+    const uploadPrompt = dropzone.getByText('Click to upload');
     // No cover yet — the upload prompt is shown.
     await expect(uploadPrompt).toBeVisible();
 
@@ -39,7 +52,7 @@ test.describe('Event cover image upload', () => {
     // Client-side preview kicks in: the prompt is replaced by a remove control.
     await expect(uploadPrompt).toBeHidden();
     await expect(
-      page.getByRole('button', { name: 'Remove image' }),
+      dropzone.getByRole('button', { name: 'Remove image' }),
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Save Settings' }).click();
@@ -49,10 +62,10 @@ test.describe('Event cover image upload', () => {
 
     // Saved cover persists — on reload the dropzone hydrates filled (the upload
     // prompt is gone and the remove control is present).
-    await page.goto('/panel/event/autumn-open/settings/');
-    await expect(page.getByText('Click to upload')).toBeHidden();
+    await page.goto('/panel/event/lakeside-weekend/settings/');
+    await expect(coverDropzone(page).getByText('Click to upload')).toBeHidden();
     await expect(
-      page.getByRole('button', { name: 'Remove image' }),
+      coverDropzone(page).getByRole('button', { name: 'Remove image' }),
     ).toBeVisible();
   });
 
@@ -60,7 +73,7 @@ test.describe('Event cover image upload', () => {
     page,
   }) => {
     // Ensure a cover is saved first.
-    await page.goto('/panel/event/autumn-open/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
     await page.getByLabel('Cover image').setInputFiles({
       name: 'cover.png',
       mimeType: 'image/png',
@@ -72,30 +85,32 @@ test.describe('Event cover image upload', () => {
     ).toBeVisible();
 
     // Reload: the saved cover hydrates the dropzone (no upload prompt).
-    await page.goto('/panel/event/autumn-open/settings/');
-    await expect(page.getByText('Click to upload')).toBeHidden();
+    await page.goto('/panel/event/lakeside-weekend/settings/');
+    await expect(coverDropzone(page).getByText('Click to upload')).toBeHidden();
 
     // Clear it and save.
-    await page.getByRole('button', { name: 'Remove image' }).click();
-    await expect(page.getByText('Click to upload')).toBeVisible();
+    await coverDropzone(page)
+      .getByRole('button', { name: 'Remove image' })
+      .click();
+    await expect(coverDropzone(page).getByText('Click to upload')).toBeVisible();
     await page.getByRole('button', { name: 'Save Settings' }).click();
     await expect(
       page.getByText('Event settings saved successfully.'),
     ).toBeVisible();
 
     // Reload: the cover is gone — the upload prompt shows again.
-    await page.goto('/panel/event/autumn-open/settings/');
-    await expect(page.getByText('Click to upload')).toBeVisible();
+    await page.goto('/panel/event/lakeside-weekend/settings/');
+    await expect(coverDropzone(page).getByText('Click to upload')).toBeVisible();
   });
 
   test('rejects oversize file with error inside the dropzone', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
 
     const oversize = Buffer.concat([
       PNG_BYTES,
-      Buffer.alloc(2 * 1024 * 1024 + 1, 0),
+      Buffer.alloc(8 * 1024 * 1024 + 1, 0),
     ]);
     await page.getByLabel('Cover image').setInputFiles({
       name: 'huge.png',
@@ -111,7 +126,7 @@ test.describe('Event cover image upload', () => {
   test('rejects unsupported (GIF) format with error inside the dropzone', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/settings/');
+    await page.goto('/panel/event/lakeside-weekend/settings/');
 
     // accept attribute restricts the file picker to allowed MIME types.
     await expect(page.getByLabel('Cover image')).toHaveAttribute(

@@ -28,6 +28,19 @@ mise trust
 mise install
 mise run bootstrap
 
+# Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
+# share the Chromium it provisions.
+mise run install:playwright \
+  || echo "WARN: Playwright install failed; e2e suite and agent-browser screenshots unavailable"
+
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
-  printf '@CLAUDE.md\n\n## Commits\n\nAdd the human in Co-authored-by when committing\n' >> CLAUDE.local.md
+  # Credit whoever is driving this session, not Claude/Anthropic. The trailer
+  # name is the email local-part (best-effort); GitHub attributes by email.
+  human_email="${CLAUDE_CODE_USER_EMAIL:-}"
+  if [ -n "$human_email" ]; then
+    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human, not Claude/Anthropic. End commits with:\n\n    Co-authored-by: %s <%s>\n' \
+      "${human_email%@*}" "$human_email" >> CLAUDE.local.md
+  else
+    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human driving this session, not Claude/Anthropic.\n' >> CLAUDE.local.md
+  fi
 fi

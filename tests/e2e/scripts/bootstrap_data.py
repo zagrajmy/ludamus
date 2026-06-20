@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, time, timedelta
+from importlib import import_module
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -59,6 +60,30 @@ def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
         site=site, defaults={"name": f"{name} Sphere"}
     )
     return site, sphere
+
+
+def _create_root_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
+    site, _ = Site.objects.update_or_create(
+        id=settings.SITE_ID, defaults={"domain": domain, "name": name}
+    )
+    sphere, _ = Sphere.objects.get_or_create(
+        site=site, defaults={"name": f"{name} Sphere"}
+    )
+    return site, sphere
+
+
+def _root_domain_for_seed() -> str:
+    if settings.IN_TESTS:
+        return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
+
+    existing_domain = (
+        Site.objects.filter(id=settings.SITE_ID)
+        .values_list("domain", flat=True)
+        .first()
+    )
+    if existing_domain and existing_domain != "example.com":
+        return existing_domain
+    return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
 
 
 def _ensure_spheres_for_all_sites() -> None:
@@ -310,16 +335,81 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
+# Dedicated event for the backoffice panel e2e tests. panel.spec mutates
+# venues, CFP config and facilitators, so it gets its own event — keeping
+# autumn-open read-only for the public-page specs makes the suite safe to run
+# with parallel workers.
+def _create_panel_lab_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Frostfire Game Convention",
+        slug="frostfire-con",
+        description=(
+            "A mid-winter gathering for roleplayers and board gamers, "
+            "with open tables from dawn till midnight."
+        ),
+        start_offset=timedelta(days=20),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(
+        event,
+        name="Aurora Convention Hall",
+        slug="aurora-hall",
+        address="5 Glacier Parade, Northport",
+    )
+    north_wing = _create_area(
+        venue,
+        name="North Wing",
+        slug="north-wing",
+        description="The central gaming area with multiple tables.",
+    )
+    hearth_lounge = _create_area(
+        venue,
+        name="Hearth Lounge",
+        slug="hearth-lounge",
+        description="A cozy space for smaller gatherings.",
+    )
+    _create_space(north_wing, name="Frost Gallery", slug="frost-gallery", capacity=30)
+    _create_space(hearth_lounge, name="Ember Corner", slug="ember-corner", capacity=12)
+
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
+# Dedicated event for the cover-image upload e2e tests. cover-images.spec
+# writes the event's cover image and asserts the initial "no cover yet" state,
+# so it needs an event nothing else mutates.
+def _create_cover_lab_event(sphere: Sphere) -> Event:
+    return _create_event(
+        sphere,
+        name="Lakeside Tabletop Weekend",
+        slug="lakeside-weekend",
+        description=("A laid-back weekend of board games and one-shots by the lake."),
+        start_offset=timedelta(days=21),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+
+
 def main() -> None:
+    root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
 
     # Root site used for fallbacks / redirects
-    root_domain = os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
-    _create_site(root_domain, name="Root Domain")
+    _create_root_site(root_domain, name="Root Domain")
 
-    sphere_domain = os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST")
-    if not sphere_domain:
-        sphere_domain = "localhost:8000"
+    sphere_domain = (
+        os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
+    )
     site, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
@@ -328,11 +418,11 @@ def main() -> None:
     _create_test_user()
 
     superuser = User.objects.create_superuser(
-        username="e2e-superuser",
-        email="e2e-superuser@test.local",
-        password="e2e-superuser-123",
-        name="E2E Superuser",
-        slug="e2e-superuser",
+        username="admin",
+        email="admin@test.local",
+        password="admin",
+        name="Admin",
+        slug="admin",
     )
     base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
     parsed = urlparse(base_url)
@@ -536,6 +626,14 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    # Dedicated events for the mutating panel / cover-image specs, so they
+    # never write to autumn-open (kept read-only for the public-page specs).
+    _create_panel_lab_event(sphere)
+    _create_cover_lab_event(sphere)
+
+    seed_module = import_module("kapitularz_print_seed")
+    seed_module.seed_kapitularz_print_event(sphere)
 
     past_event = _create_event(
         sphere,

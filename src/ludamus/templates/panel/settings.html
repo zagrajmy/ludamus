@@ -78,6 +78,7 @@
                                           rows="3"
                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
                             </div>
+                            {% tessera_field form.logo %}
                         </div>
                     </div>
                 </div>
@@ -129,6 +130,13 @@
                                 {% endfor %}
                             </select>
                         </div>
+                    </div>
+                </div>
+                <!-- Schedule confirmation -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Schedule confirmation" %}</h3>
+                        {% tessera_field form.auto_confirm_sessions %}
                     </div>
                 </div>
             </div>

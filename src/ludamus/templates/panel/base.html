@@ -264,6 +264,13 @@
                                         {% icon "printer" class="size-4.5 mr-2" %}
                                         <span class="sidebar-label">{{ t_print }}</span>
                                     </a>
+                                    {% translate "Print Materials" as t_print %}
+                                    <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
+                                       title="{{ t_print }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "printer" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_print }}</span>
+                                    </a>
                                 </div>
                             </div>
                             <div class="sidebar-cat" data-cat="settings">
@@ -283,6 +290,13 @@
                                         <span class="sidebar-label">{{ t_event_settings }}</span>
                                     </a>
                                 </div>
+                                {% translate "Bans" as t_bans %}
+                                <a href="{% url 'panel:bans' slug=current_event.slug %}"
+                                   title="{{ t_bans }}"
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                    {% icon "no-symbol" class="size-4.5 mr-2" %}
+                                    <span class="sidebar-label">{{ t_bans }}</span>
+                                </a>
                             </div>
                         {% endif %}
                         <div class="sidebar-cat {% if current_event %}mt-4 pt-2 border-t border-neutral-800{% endif %}"

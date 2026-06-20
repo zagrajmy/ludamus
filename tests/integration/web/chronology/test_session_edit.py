@@ -383,7 +383,9 @@ class TestSessionEditViewPost:
 
         authenticated_client.post(
             _url(event, owned_session),
-            data=self._data(session_field_system="Pathfinder"),
+            data=self._data(
+                session_fields_submitted="1", session_field_system="Pathfinder"
+            ),
             headers={"hx-request": "true"},
         )
 
@@ -470,6 +472,7 @@ class TestSessionEditViewPost:
         authenticated_client.post(
             _url(event, owned_session),
             data=self._data(
+                session_fields_submitted="1",
                 session_field_genres=["horror", "comedy"],
                 session_field_system="",
                 session_field_system_custom="Pathfinder",
@@ -484,3 +487,29 @@ class TestSessionEditViewPost:
         assert get(session=owned_session, field=system).value == "Pathfinder"
         assert get(session=owned_session, field=adult).value is True
         assert get(session=owned_session, field=notes).value == "Some notes"
+
+    def test_partial_post_without_session_fields_marker_preserves_field_values(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(),
+            headers={"hx-request": "true"},
+        )
+
+        sfv = SessionFieldValue.objects.get(session=owned_session, field=field)
+        assert sfv.value == "Pathfinder"
+        owned_session.refresh_from_db()
+        assert owned_session.title == "Updated title"

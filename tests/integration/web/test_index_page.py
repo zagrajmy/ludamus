@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -6,8 +6,10 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+from ludamus.adapters.db.django.models import Announcement
 from ludamus.adapters.web.django.views import EVENT_PLACEHOLDER_IMAGES, EventInfo
 from ludamus.pacts import EventListItemDTO
+from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     AreaFactory,
@@ -74,7 +76,12 @@ class TestEventsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"past_events": [], "upcoming_events": [], "view": ANY},
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
             template_name=["index.html"],
         )
 
@@ -85,6 +92,7 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
@@ -104,6 +112,7 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event, session_count=2)],
                 "view": ANY,
@@ -126,6 +135,7 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [expected],
                 "view": ANY,
@@ -146,6 +156,7 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
@@ -166,6 +177,7 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,
@@ -186,8 +198,116 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event)],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_upcoming_events_sorted_soonest_first(self, client, sphere):
+        now = datetime.now(UTC)
+        far = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=30),
+            end_time=now + timedelta(days=31),
+        )
+        soon = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=2),
+            end_time=now + timedelta(days=3),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [
+                    _expected_event_info(soon, cover_index=0),
+                    _expected_event_info(far, cover_index=1),
+                ],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_past_events_sorted_most_recent_first(self, client, sphere):
+        now = datetime.now(UTC)
+        older = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=30),
+            end_time=now - timedelta(days=29),
+            publication_time=now - timedelta(days=31),
+        )
+        recent = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=3),
+            end_time=now - timedelta(days=2),
+            publication_time=now - timedelta(days=4),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [
+                    _expected_event_info(recent, cover_index=0),
+                    _expected_event_info(older, cover_index=1),
+                ],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_mixed_buckets_each_sorted_independently(self, client, sphere):
+        now = datetime.now(UTC)
+        far = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=30),
+            end_time=now + timedelta(days=31),
+        )
+        soon = EventFactory(
+            sphere=sphere,
+            start_time=now + timedelta(days=2),
+            end_time=now + timedelta(days=3),
+        )
+        recent = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=3),
+            end_time=now - timedelta(days=2),
+            publication_time=now - timedelta(days=4),
+        )
+        older = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=30),
+            end_time=now - timedelta(days=29),
+            publication_time=now - timedelta(days=31),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_events": [
+                    _expected_event_info(soon, cover_index=0),
+                    _expected_event_info(far, cover_index=1),
+                ],
+                "past_events": [
+                    _expected_event_info(recent, cover_index=0),
+                    _expected_event_info(older, cover_index=1),
+                ],
+                "announcements": [],
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -212,6 +332,65 @@ class TestEventsPageView:
         assert response.context["is_sphere_manager"] is False
         assert b'href="/panel/"' not in response.content
 
+    def test_published_announcement_shown(self, client, sphere):
+        announcement = Announcement.objects.create(
+            sphere=sphere, title="Welcome", content="Hello there"
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [AnnouncementDTO.model_validate(announcement)],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+            contains=["Welcome", "Hello there"],
+        )
+
+    def test_draft_announcement_hidden(self, client, sphere):
+        Announcement.objects.create(
+            sphere=sphere, title="Secret", content="body", is_published=False
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+            not_contains="Secret",
+        )
+
+    def test_announcement_scoped_to_current_sphere(self, client, non_root_sphere):
+        Announcement.objects.create(
+            sphere=non_root_sphere, title="Elsewhere", content="body"
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
     def test_unpublished_event_hidden_for_anonymous(self, client, sphere):
         EventFactory(sphere=sphere, publication_time=None)
 
@@ -220,7 +399,12 @@ class TestEventsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"past_events": [], "upcoming_events": [], "view": ANY},
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
             template_name=["index.html"],
         )
 
@@ -234,7 +418,12 @@ class TestEventsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"past_events": [], "upcoming_events": [], "view": ANY},
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
             template_name=["index.html"],
         )
 
@@ -250,6 +439,7 @@ class TestEventsPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                "announcements": [],
                 "past_events": [],
                 "upcoming_events": [_expected_event_info(event)],
                 "view": ANY,

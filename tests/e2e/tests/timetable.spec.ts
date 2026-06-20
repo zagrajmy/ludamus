@@ -15,7 +15,7 @@ test.describe('Timetable', () => {
   test('opens timetable page with grid and session list', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
       page.getByRole('heading', { name: 'Schedule' }),
@@ -41,7 +41,7 @@ test.describe('Timetable', () => {
   test('session list loads via HTMX and shows unscheduled sessions', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     // Wait for HTMX to load the session list
     await expect(
@@ -60,7 +60,7 @@ test.describe('Timetable', () => {
   // --- Session Search ---
 
   test('search filters session list', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     // Wait for initial load — all 3 sessions visible
     await expect(
@@ -102,7 +102,7 @@ test.describe('Timetable', () => {
   test('clicking a session card opens the detail view', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     // Wait for session list
     await expect(
@@ -136,7 +136,7 @@ test.describe('Timetable', () => {
   });
 
   test('back button returns to session list', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -169,7 +169,7 @@ test.describe('Timetable', () => {
   test('clicking Assign enters assignment mode with banner', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -208,7 +208,7 @@ test.describe('Timetable', () => {
   });
 
   test('Escape key cancels assignment mode', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -250,7 +250,7 @@ test.describe('Timetable', () => {
   });
 
   test('cancel button exits assignment mode', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -291,7 +291,7 @@ test.describe('Timetable', () => {
   test('assigns a session by clicking grid column', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
@@ -346,7 +346,7 @@ test.describe('Timetable', () => {
   test('clicking scheduled session in grid shows Unassign button', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     // Wait for grid to show the assigned session
     const gridSession = page
@@ -368,7 +368,7 @@ test.describe('Timetable', () => {
   });
 
   test('unassigns a session', async ({ page }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     // Click the assigned session in grid
     const gridSession = page
@@ -399,19 +399,97 @@ test.describe('Timetable', () => {
     ).not.toBeVisible({ timeout: 5000 });
   });
 
+  // --- Confirm / Unconfirm Flow ---
+
+  test('confirms and unconfirms a scheduled session', async ({
+    page,
+  }) => {
+    // Assign "Storytelling Workshop" so a scheduled item exists. Auto-confirm
+    // is on by default, so the freshly scheduled item starts confirmed.
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
+
+    await page
+      .locator('#session-list')
+      .locator('[data-session-pk]', {
+        hasText: 'Storytelling Workshop',
+      })
+      .click();
+
+    const leftPane = page.locator('#left-pane');
+    await expect(
+      leftPane.getByText('Session details'),
+    ).toBeVisible({ timeout: 5000 });
+
+    await leftPane.getByRole('button', { name: 'Assign' }).click();
+    await expect(
+      page.locator('#assign-mode-banner'),
+    ).not.toHaveClass(/hidden/);
+
+    await page
+      .locator('.timetable-column.assign-mode-active')
+      .first()
+      .click({ position: { x: 50, y: 30 } });
+
+    await expect(page.locator('#assign-mode-banner')).toHaveClass(
+      /hidden/,
+      { timeout: 5000 },
+    );
+
+    // Open the scheduled item's detail pane from the grid.
+    const gridSession = page
+      .locator('#timetable-grid')
+      .getByText('Storytelling Workshop');
+    await expect(gridSession).toBeVisible({ timeout: 10000 });
+    await gridSession.click();
+
+    await expect(
+      leftPane.getByRole('button', {
+        name: 'Undo confirmation',
+      }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Undo — the button flips to the "Confirm program item" state.
+    await leftPane
+      .getByRole('button', { name: 'Undo confirmation' })
+      .click();
+    await expect(
+      leftPane.getByRole('button', { name: 'Confirm program item' }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Confirm again — the button returns to the "Undo confirmation" state.
+    await leftPane
+      .getByRole('button', { name: 'Confirm program item' })
+      .click();
+    await expect(
+      leftPane.getByRole('button', {
+        name: 'Undo confirmation',
+      }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Restore shared seed state: unassign so "Storytelling Workshop" returns
+    // to the unscheduled list. The suite runs serially against a persistent
+    // DB reused across browser projects, so every assign must be undone.
+    await leftPane.getByRole('button', { name: 'Unassign' }).click();
+    await expect(
+      page.locator('#session-list').getByText('Storytelling Workshop'),
+    ).toBeVisible({ timeout: 10000 });
+  });
+
   // --- Conflict Panel ---
 
   test('conflict panel loads and shows conflict status', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
-    // Wait for conflict panel HTMX load — it should show either
-    // "All clear" or a conflict count
-    const panel = page.locator('#conflict-panel');
-    await expect(
-      panel.getByText(/All clear|conflict/),
-    ).toBeVisible({ timeout: 10000 });
+    // Wait for the conflict panel HTMX load — it shows either "All clear" or a
+    // conflict count. The fold only auto-opens when there ARE conflicts, so on
+    // a clean grid the status sits in a collapsed <details>; assert the panel
+    // loaded its status (textContent) rather than requiring it to be visible.
+    await expect(page.locator('#conflict-panel')).toContainText(
+      /All clear|conflict/,
+      { timeout: 10000 },
+    );
   });
 
   // --- Activity Log ---
@@ -419,7 +497,7 @@ test.describe('Timetable', () => {
   test('activity log page loads and shows tab navigation', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/log/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/log/');
 
     await expect(
       page.getByRole('heading', {
@@ -433,13 +511,99 @@ test.describe('Timetable', () => {
     ).toBeVisible();
   });
 
+  // --- Revert (latest-change-only) ---
+
+  test('activity log offers Revert only on the latest change per session', async ({
+    page,
+  }) => {
+    // Assign "Dungeon Crawl" so it gets a fresh assign entry in the log.
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
+
+    await page
+      .locator('#session-list')
+      .locator('[data-session-pk]', { hasText: 'Dungeon Crawl' })
+      .click();
+
+    const leftPane = page.locator('#left-pane');
+    await expect(
+      leftPane.getByText('Session details'),
+    ).toBeVisible({ timeout: 5000 });
+
+    await leftPane.getByRole('button', { name: 'Assign' }).click();
+    await expect(
+      page.locator('#assign-mode-banner'),
+    ).not.toHaveClass(/hidden/);
+
+    await page
+      .locator('.timetable-column.assign-mode-active')
+      .first()
+      .click({ position: { x: 50, y: 30 } });
+
+    await expect(page.locator('#assign-mode-banner')).toHaveClass(
+      /hidden/,
+      { timeout: 5000 },
+    );
+    await expect(
+      page.locator('#timetable-grid').getByText('Dungeon Crawl'),
+    ).toBeVisible({ timeout: 10000 });
+
+    // On the log page the just-created assign entry is the latest change
+    // for this session, so the topmost Dungeon Crawl row exposes a Revert
+    // button. (Rows are ordered newest-first, so .first() is the latest.)
+    await page.goto('/panel/event/sunhaven-festival/timetable/log/');
+    const latestAssignRow = page
+      .getByRole('row', { name: /Dungeon Crawl/ })
+      .filter({ hasText: 'Assigned' })
+      .first();
+    await expect(latestAssignRow).toBeVisible();
+    await expect(
+      latestAssignRow.getByRole('button', { name: 'Revert' }),
+    ).toBeVisible();
+
+    // Now unassign the same session — this supersedes the assign entry.
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
+    await page
+      .locator('#timetable-grid')
+      .getByText('Dungeon Crawl')
+      .click();
+    await expect(
+      leftPane.getByRole('button', { name: 'Unassign' }),
+    ).toBeVisible({ timeout: 5000 });
+    await leftPane.getByRole('button', { name: 'Unassign' }).click();
+    await expect(
+      page.locator('#session-list').getByText('Dungeon Crawl'),
+    ).toBeVisible({ timeout: 10000 });
+
+    // The newer "Removed" entry is now the latest change for the session and
+    // keeps its Revert button...
+    await page.goto('/panel/event/sunhaven-festival/timetable/log/');
+    const latestRemovedRow = page
+      .getByRole('row', { name: /Dungeon Crawl/ })
+      .filter({ hasText: 'Removed' })
+      .first();
+    await expect(latestRemovedRow).toBeVisible();
+    await expect(
+      latestRemovedRow.getByRole('button', { name: 'Revert' }),
+    ).toBeVisible();
+
+    // ...while every superseded "Assigned" entry for the session (now that a
+    // newer "Removed" exists) must offer no Revert button at all.
+    const supersededAssignRows = page
+      .getByRole('row', { name: /Dungeon Crawl/ })
+      .filter({ hasText: 'Assigned' });
+    await expect(supersededAssignRows.first()).toBeVisible();
+    await expect(
+      supersededAssignRows.getByRole('button', { name: 'Revert' }),
+    ).toHaveCount(0);
+  });
+
   // --- Overview Page ---
 
   test('overview page loads with heatmap and track progress', async ({
     page,
   }) => {
     await page.goto(
-      '/panel/event/autumn-open/timetable/overview/',
+      '/panel/event/sunhaven-festival/timetable/overview/',
     );
 
     await expect(
@@ -459,12 +623,33 @@ test.describe('Timetable', () => {
     });
   });
 
+  test('overview page reports hours left to fill', async ({
+    page,
+  }) => {
+    await page.goto(
+      '/panel/event/sunhaven-festival/timetable/overview/',
+    );
+
+    // Hours-to-fill section with its capacity stats.
+    await expect(
+      page.getByRole('heading', { name: 'Hours to fill' }),
+    ).toBeVisible();
+    await expect(page.getByText('Scheduled hours')).toBeVisible();
+    await expect(page.getByText('Capacity hours')).toBeVisible();
+    await expect(page.getByText(/\d+% filled/)).toBeVisible();
+
+    await page.screenshot({
+      path: 'test-results/timetable-overview-hours.png',
+      fullPage: true,
+    });
+  });
+
   // --- Tab Navigation ---
 
   test('tabs navigate between timetable sub-pages', async ({
     page,
   }) => {
-    await page.goto('/panel/event/autumn-open/timetable/');
+    await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     // Click Activity Log tab
     await page.getByRole('tab', { name: 'Activity Log' }).click();

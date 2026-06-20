@@ -14,16 +14,20 @@ from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
     EventIntegrationsService,
+    SessionConfirmationService,
     SessionContentEditService,
     SessionSelfEditService,
 )
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
+    AnnouncementsService,
     ConnectionsService,
     EventsService,
+    SitesService,
     SpherePanelService,
 )
 from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -63,6 +67,10 @@ class Services:
         )
 
     @cached_property
+    def announcements(self) -> AnnouncementsService:
+        return AnnouncementsService(self._transaction, self._repos.announcements)
+
+    @cached_property
     def events(self) -> EventsService:
         return EventsService(self._repos.events)
 
@@ -73,6 +81,7 @@ class Services:
             self._repos.spaces,
             self._repos.agenda_items,
             self._repos.time_slots,
+            self._repos.tracks,
         )
 
     @cached_property
@@ -81,7 +90,13 @@ class Services:
 
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
-        return SpherePanelService(self._repos.spheres, self._repos.events)
+        return SpherePanelService(
+            self._transaction, self._repos.spheres, self._repos.events
+        )
+
+    @cached_property
+    def sites(self) -> SitesService:
+        return SitesService(self._repos.spheres)
 
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
@@ -90,6 +105,15 @@ class Services:
             self._repos.sessions,
             self._repos.session_fields,
             self._repos.content_change_logs,
+        )
+
+    @cached_property
+    def session_confirmation(self) -> SessionConfirmationService:
+        return SessionConfirmationService(
+            self._transaction,
+            self._repos.agenda_items,
+            self._repos.sessions,
+            self._repos.tracks,
         )
 
     @cached_property
@@ -122,6 +146,16 @@ class Services:
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def shadowban(self) -> ShadowbanService:
+        return ShadowbanService(
+            self._transaction, self._repos.shadowban, DjangoUserNotifier()
+        )
+
+    @cached_property
+    def event_bans(self) -> EventBanService:
+        return EventBanService(self._transaction, self._repos.event_bans)
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

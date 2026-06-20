@@ -33,7 +33,8 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         )
         context["form"] = SphereSettingsForm(
             initial={
-                "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit
+                "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "logo": sphere.logo_url or None,
             }
         )
         return TemplateResponse(
@@ -41,7 +42,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         )
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
-        form = SphereSettingsForm(self.request.POST)
+        form = SphereSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             for field_errors in form.errors.values():
                 messages.error(self.request, str(field_errors[0]))
@@ -52,6 +53,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
+            logo=form.cleaned_data.get("logo") or None,
         )
         messages.success(self.request, _("Sphere settings saved successfully."))
         return redirect("multiverse:panel:sphere-settings")

@@ -376,7 +376,14 @@ def sphere_fixture(settings, transactional_db):  # noqa: ARG001
     site, __ = Site.objects.update_or_create(
         domain=settings.ROOT_DOMAIN, defaults={"name": settings.ROOT_DOMAIN}
     )
-    return SphereFactory(site=site, name=site.name)
+    # Idempotent: `Sphere.site` is OneToOne, so re-running this autouse fixture
+    # against a root site that already carries a sphere (e.g. a row that
+    # survived a prior transactional test's flush) must reuse it rather than
+    # insert a duplicate and trip `UNIQUE constraint failed: sphere.site_id`.
+    sphere, __ = Sphere.objects.update_or_create(
+        site=site, defaults={"name": site.name}
+    )
+    return sphere
 
 
 @pytest.fixture(name="faker")
