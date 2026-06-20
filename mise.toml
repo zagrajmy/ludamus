@@ -243,7 +243,7 @@ env.ENV = "local"
 env.MEMBERSHIP_API_BASE_URL = ""
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 env.PYTHONPATH = "src"
-env.ROOT_DOMAIN = "localhost:1355"
+env.ROOT_DOMAIN = "localhost:8000"
 env.SECRET_KEY = "e2e-secret-key"
 env.SESSION_COOKIE_DOMAIN = ".localhost"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
@@ -284,7 +284,7 @@ run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
 
 [tasks."e2e:serve"]
 description = "Run the e2e dev server (assumes `e2e:prep` has run)"
-run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload"
+run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload localhost:8000"
 
 
 [tasks.dc]
@@ -332,8 +332,8 @@ done
 '''
 
 [tasks.kill]
-description = "Kill dev servers (Django on :1355, Vite on :5173, auth0-simulator on :4400)"
-run = "lsof -ti :1355 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
+description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
+run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
 
 [tasks.ts-check]
