@@ -41,12 +41,15 @@ test.describe('Timetable', () => {
   test('session list loads via HTMX and shows unscheduled sessions', async ({
     page,
   }) => {
+    const sessionListLoaded = page.waitForResponse(
+      (r) => r.url().includes('/parts/sessions/') && r.status() === 200,
+    );
     await page.goto('/panel/event/sunhaven-festival/timetable/');
+    await sessionListLoaded;
 
-    // Wait for HTMX to load the session list
     await expect(
       page.locator('#session-list').getByText('RPG Introduction'),
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible();
 
     await expect(
       page.locator('#session-list').getByText('Dungeon Crawl'),
