@@ -397,8 +397,6 @@ class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
 
 
 class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
-    """Soft-delete a session (POST only)."""
-
     request: PanelRequest
     http_method_names = ("post",)
 

@@ -30,7 +30,8 @@
                   action="{% url 'panel:proposal-delete' slug=current_event.slug proposal_id=proposal.pk %}"
                   onsubmit="return confirm('{% translate "Are you sure you want to delete this session? It will be removed from the schedule." %}');">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
+                {% translate "Delete" as delete_label %}
+                {% tessera_button delete_label variant="danger" %}
             </form>
         </div>
     {% endif %}

@@ -56,13 +56,8 @@ class AliveManager(models.Manager[_SoftDeleteT]):
 
 
 class SoftDeleteModel(models.Model):
-    """Reusable soft-delete foundation.
-
-    A null `deleted_at` means the row is alive; a timestamp marks it deleted
-    (reversible, audit-friendly). The default `objects` manager excludes
-    soft-deleted rows; `all_objects` includes everything.
-    """
-
+    # Null `deleted_at` = alive; a timestamp = deleted (reversible). The default
+    # `objects` manager hides deleted rows; `all_objects` includes everything.
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     objects: ClassVar = AliveManager()
