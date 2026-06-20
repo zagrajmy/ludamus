@@ -31,7 +31,7 @@ mise run bootstrap
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
 # share the Chromium it provisions.
 mise run install:playwright \
-  || echo "WARN: Playwright install failed; agent-browser screenshots unavailable"
+  || echo "WARN: Playwright install failed; e2e suite and agent-browser screenshots unavailable"
 
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
   # Credit whoever is driving this session, not Claude/Anthropic. The trailer
