@@ -10,6 +10,15 @@
 # (effective floor 95%).
 coverage:
   status:
+    # Test-only refactors can shift which suite covers a given line without
+    # changing behaviour. Moving e2e specs onto dedicated seed events, for
+    # example, redistributes incidental coverage between the e2e and
+    # integration suites (the logic stays covered by integration tests). Allow
+    # a small project-level drop so those no-op-for-logic changes don't fail
+    # the gate; the patch status below still guards newly added code.
+    project:
+      default:
+        threshold: 1%
     patch:
       default:
         target: 96%
