@@ -271,6 +271,11 @@ urlpatterns = [
         name="proposal-delete",
     ),
     path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/restore",
+        proposals.ProposalRestoreActionView.as_view(),
+        name="proposal-restore",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/set-facilitators",
         proposals.ProposalSetFacilitatorsActionView.as_view(),
         name="proposal-set-facilitators",

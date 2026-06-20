@@ -68,6 +68,9 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             search=search,
             track_pk=filter_track_pk,
         )
+        context["deleted_proposals"] = (
+            self.request.di.uow.sessions.list_deleted_by_event(current_event.pk)
+        )
         context["session_fields"] = filterable_fields
         context["filter_search"] = search or ""
         context["filter_fields"] = {
@@ -416,6 +419,27 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:proposals", slug=slug)
 
         messages.success(self.request, _("Session deleted."))
+        return redirect("panel:proposals", slug=slug)
+
+
+class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self.request.services.session_deletion.restore(
+                event_pk=current_event.pk, session_pk=proposal_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        messages.success(self.request, _("Session restored."))
         return redirect("panel:proposals", slug=slug)
 
 
