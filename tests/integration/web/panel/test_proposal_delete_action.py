@@ -139,7 +139,12 @@ class TestProposalDeleteActionView:
         response = authenticated_client.get(
             reverse("panel:proposals", kwargs={"slug": event.slug})
         )
-        assert session.title not in response.content.decode()
+        assert session.pk not in {
+            proposal.pk for proposal in response.context["proposals"]
+        }
+        assert session.pk in {
+            proposal.pk for proposal in response.context["deleted_proposals"]
+        }
 
     def test_post_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
