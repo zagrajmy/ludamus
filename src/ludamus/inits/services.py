@@ -9,6 +9,7 @@ from ludamus.inits.dbos_offer_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
+from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
@@ -120,7 +121,10 @@ class Services:
     @cached_property
     def session_deletion(self) -> SessionDeletionService:
         return SessionDeletionService(
-            self._transaction, self._repos.sessions, self._repos.agenda_items
+            self._transaction,
+            self._repos.sessions,
+            self._repos.agenda_items,
+            ScheduleChangeLogRepository(),
         )
 
     @cached_property

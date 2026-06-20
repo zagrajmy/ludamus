@@ -9,9 +9,11 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     AgendaItem,
     ProposalCategory,
+    ScheduleChangeLog,
     Session,
     SessionParticipation,
 )
+from ludamus.pacts import ScheduleChangeAction
 from tests.integration.conftest import (
     AreaFactory,
     EventFactory,
@@ -104,6 +106,7 @@ class TestProposalDeleteActionView:
         assert not Session.objects.filter(pk=session.pk).exists()
         dead = Session.all_objects.get(pk=session.pk)
         assert dead.deleted_at is not None
+        assert not ScheduleChangeLog.objects.filter(session_id=session.pk).exists()
 
     def test_post_frees_timetable_slot_and_retains_participations(
         self, authenticated_client, active_user, sphere, event
@@ -121,6 +124,9 @@ class TestProposalDeleteActionView:
 
         assert not AgendaItem.objects.filter(pk=agenda_item.pk).exists()
         assert SessionParticipation.objects.filter(pk=participation.pk).exists()
+        log = ScheduleChangeLog.objects.get(session_id=session.pk)
+        assert log.action == ScheduleChangeAction.UNASSIGN
+        assert log.user_id == active_user.pk
 
     def test_post_excludes_soft_deleted_from_listing(
         self, authenticated_client, active_user, sphere, event

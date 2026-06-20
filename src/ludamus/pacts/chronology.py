@@ -215,7 +215,9 @@ class SessionConfirmationServiceProtocol(Protocol):
 
 
 class SessionDeletionServiceProtocol(Protocol):
-    def soft_delete(self, event_pk: int, session_pk: int) -> None: ...
+    def soft_delete(
+        self, event_pk: int, session_pk: int, user_pk: int | None = None
+    ) -> None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

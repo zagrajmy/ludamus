@@ -409,7 +409,9 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             self.request.services.session_deletion.soft_delete(
-                event_pk=current_event.pk, session_pk=proposal_id
+                event_pk=current_event.pk,
+                session_pk=proposal_id,
+                user_pk=self.request.user.pk,
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
