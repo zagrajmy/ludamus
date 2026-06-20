@@ -515,17 +515,11 @@ class SessionDeletionService:
             self._sessions.soft_delete(session_pk)
 
     def restore(self, event_pk: int, session_pk: int) -> None:
-        # The alive-manager based `require_session_in_event` cannot see a
-        # soft-deleted row, so event-scope and existence are proven together
-        # against the deleted list for this event.
-        if session_pk not in {
-            s.pk for s in self._sessions.list_deleted_by_event(event_pk)
-        }:
-            raise NotFoundError
+        # The session returns unscheduled (it was set to PENDING on delete); no
+        # agenda item or schedule-change log — restore changes no slot. The repo
+        # scopes to the event (the alive-manager check can't see deleted rows).
         with self._transaction.atomic():
-            # The session returns unscheduled (it was set to PENDING on delete);
-            # no agenda item or schedule-change log — restore changes no slot.
-            self._sessions.restore(session_pk)
+            self._sessions.restore(session_pk, event_pk)
 
 
 class ConflictDetectionService:

@@ -347,11 +347,14 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         session.soft_delete()
 
     @staticmethod
-    def restore(pk: int) -> None:
-        # Reach through `all_objects` so a missing or already-alive row raises
-        # NotFound instead of silently clearing an unset `deleted_at`.
+    def restore(pk: int, event_pk: int) -> None:
+        # Scope + existence in one query: a soft-deleted session in this event.
+        # (The alive-manager service check can't see deleted rows, so event
+        # scoping lives here.) Missing / wrong-event / already-alive -> NotFound.
         try:
-            session = Session.all_objects.get(id=pk, deleted_at__isnull=False)
+            session = Session.all_objects.get(
+                id=pk, category__event_id=event_pk, deleted_at__isnull=False
+            )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
         session.restore()

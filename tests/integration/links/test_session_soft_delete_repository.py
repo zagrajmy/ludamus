@@ -60,23 +60,34 @@ class TestSessionRepositorySoftDelete:
 
 class TestSessionRepositoryRestore:
     def test_restore_clears_deleted_at(self, sphere):
-        session = SessionFactory(sphere=sphere)
+        category = ProposalCategoryFactory()
+        session = SessionFactory(sphere=sphere, category=category)
         SessionRepository.soft_delete(session.pk)
 
-        SessionRepository.restore(session.pk)
+        SessionRepository.restore(session.pk, category.event.pk)
 
         restored = Session.objects.get(pk=session.pk)
         assert restored.deleted_at is None
 
     def test_restore_missing_session_raises_not_found(self):
         with pytest.raises(NotFoundError):
-            SessionRepository.restore(999999)
+            SessionRepository.restore(999999, 999999)
 
     def test_restore_alive_session_raises_not_found(self, sphere):
-        session = SessionFactory(sphere=sphere)
+        category = ProposalCategoryFactory()
+        session = SessionFactory(sphere=sphere, category=category)
 
         with pytest.raises(NotFoundError):
-            SessionRepository.restore(session.pk)
+            SessionRepository.restore(session.pk, category.event.pk)
+
+    def test_restore_wrong_event_raises_not_found(self, sphere):
+        category = ProposalCategoryFactory()
+        other_category = ProposalCategoryFactory()
+        session = SessionFactory(sphere=sphere, category=category)
+        SessionRepository.soft_delete(session.pk)
+
+        with pytest.raises(NotFoundError):
+            SessionRepository.restore(session.pk, other_category.event.pk)
 
 
 class TestSessionRepositoryListDeletedByEvent:
