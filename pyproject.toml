@@ -27,7 +27,7 @@ package-mode = false
 authlib = "~1.7.0"
 cryptography = "^49.0.0"
 django = "~6.0.6"
-django-environ = "^0.13.0"
+django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
 google-auth = "^2.54.0"
