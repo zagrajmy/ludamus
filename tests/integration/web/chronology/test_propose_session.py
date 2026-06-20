@@ -20,7 +20,7 @@ from ludamus.adapters.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import EventDTO, ProposalCategoryDTO
+from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
 from tests.integration.conftest import ProposalCategoryFactory, TimeSlotFactory
 from tests.integration.utils import assert_response
 
@@ -110,6 +110,7 @@ class TestProposeSessionPageView:
         self._activate_proposals(event, faker, time_zone)
         cat1 = ProposalCategoryFactory(event=event, name="Board Game")
         cat2 = ProposalCategoryFactory(event=event, name="RPG Session")
+        settings = EventProposalSettings.objects.create(event=event)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
@@ -122,6 +123,7 @@ class TestProposeSessionPageView:
                     ProposalCategoryDTO.model_validate(cat1),
                     ProposalCategoryDTO.model_validate(cat2),
                 ],
+                "proposal_settings": EventProposalSettingsDTO.model_validate(settings),
                 "step": "category",
                 "current_step": "category",
                 "wizard_steps": [
@@ -142,6 +144,7 @@ class TestProposeSessionPageView:
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
+        settings = EventProposalSettings.objects.create(event=event)
 
         response = authenticated_client.get(self._get_url(event.slug))
         form = response.context["form"]
@@ -152,6 +155,7 @@ class TestProposeSessionPageView:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(settings),
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
@@ -2189,6 +2193,7 @@ class TestAnonymousProposalSubmission:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._enable_anonymous(event)
+        settings, _ = EventProposalSettings.objects.get_or_create(event=event)
 
         response = client.get(self._url(event.slug))
         form = response.context["form"]
@@ -2199,6 +2204,7 @@ class TestAnonymousProposalSubmission:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(settings),
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",

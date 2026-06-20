@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
+        EventProposalSettingsDTO,
         PersonalDataFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
@@ -193,12 +194,17 @@ def _render_category(
     event: EventDTO,
     event_slug: str,
 ) -> HttpResponse:
+    proposal_settings = (
+        request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+    )
     categories = service.get_categories(event.pk)
     if not _has_category_step(categories):
         wizard = request.session.get(_session_key(event_slug), {})
         wizard["category_id"] = categories[0].pk
         request.session[_session_key(event_slug)] = wizard
-        personal_context = _personal_context(request, service, event, categories[0])
+        personal_context = _personal_context(
+            request, service, event, categories[0], proposal_settings=proposal_settings
+        )
         return TemplateResponse(
             request, "chronology/propose/parts/personal.html", personal_context
         )
@@ -209,6 +215,7 @@ def _render_category(
     context: dict[str, object] = {
         "event": event,
         "categories": categories,
+        "proposal_settings": proposal_settings,
         "selected_category_id": selected_id,
         "current_step": "category",
         "wizard_steps": _wizard_steps(
@@ -225,6 +232,8 @@ def _personal_context(
     service: ProposeSessionService,
     event: EventDTO,
     category: ProposalCategoryDTO,
+    *,
+    proposal_settings: EventProposalSettingsDTO | None = None,
 ) -> dict[str, object]:
     requirements = service.get_personal_requirements(category.pk)
 
@@ -243,9 +252,15 @@ def _personal_context(
     form = build_personal_data_form(requirements)(initial=initial)
     has_category = _event_has_category_step(service, event)
 
+    if proposal_settings is None:
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
+
     context: dict[str, object] = {
         "event": event,
         "category": category,
+        "proposal_settings": proposal_settings,
         "form": form,
         "field_descriptors": _field_descriptors("personal", requirements, form),
         "current_step": "personal",
@@ -276,6 +291,9 @@ def _render_timeslots(
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> HttpResponse:
+    proposal_settings = (
+        request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+    )
     requirements = service.get_timeslot_requirements(category.pk)
     if not _has_timeslots_step(requirements):
         _store_single_timeslot(request, event.slug, requirements)
@@ -290,6 +308,7 @@ def _render_timeslots(
         {
             "event": event,
             "category": category,
+            "proposal_settings": proposal_settings,
             "slot_descriptors": _timeslot_descriptors(requirements, selected_ids),
             "current_step": "timeslots",
             "wizard_steps": _wizard_steps(
@@ -308,6 +327,9 @@ def _render_details(
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> HttpResponse:
+    proposal_settings = (
+        request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+    )
     requirements = service.get_session_requirements(category.pk)
     public_tracks = service.get_public_tracks(event.pk)
 
@@ -331,6 +353,7 @@ def _render_details(
         {
             "event": event,
             "category": category,
+            "proposal_settings": proposal_settings,
             "form": form,
             "durations": category.durations,
             "field_descriptors": _field_descriptors("session", requirements, form),
@@ -351,6 +374,9 @@ def _render_review(
     category: ProposalCategoryDTO,
     event_slug: str,
 ) -> HttpResponse:
+    proposal_settings = (
+        request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+    )
     wizard = request.session.get(_session_key(event_slug), {})
     session_data = wizard.get("session_data", {})
     personal_data = wizard.get("personal_data", {})
@@ -415,6 +441,7 @@ def _render_review(
         {
             "event": event,
             "category": category,
+            "proposal_settings": proposal_settings,
             "review": review,
             "current_step": "review",
             "wizard_steps": _wizard_steps(
@@ -512,6 +539,9 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
     def get(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
         event = self._get_event(service, event_slug)
+        proposal_settings = (
+            request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+        )
         categories = service.get_categories(event.pk)
 
         request.session.pop(_session_key(event_slug), None)
@@ -520,12 +550,15 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
             request.session[_session_key(event_slug)] = {
                 "category_id": categories[0].pk
             }
-            context = _personal_context(request, service, event, categories[0])
+            context = _personal_context(
+                request, service, event, categories[0], proposal_settings=proposal_settings
+            )
             context["wizard_part_template"] = "chronology/propose/parts/personal.html"
         else:
             context = {
                 "event": event,
                 "categories": categories,
+                "proposal_settings": proposal_settings,
                 "step": "category",
                 "current_step": "category",
                 "wizard_steps": _wizard_steps(
@@ -547,10 +580,14 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
             return _render_category(request, service, event, event_slug)
 
         if not (category_id := request.POST.get("category_id")):
+            proposal_settings = (
+                request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+            )
             categories = service.get_categories(event.pk)
             ctx: dict[str, object] = {
                 "event": event,
                 "categories": categories,
+                "proposal_settings": proposal_settings,
                 "error": _("Please select a category."),
                 "current_step": "category",
                 "wizard_steps": _wizard_steps(
@@ -595,10 +632,14 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
         form = form_class(data=request.POST)
 
         if not form.is_valid():
+            proposal_settings = (
+                request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+            )
             has_category = _event_has_category_step(service, event)
             context: dict[str, object] = {
                 "event": event,
                 "category": category,
+                "proposal_settings": proposal_settings,
                 "form": form,
                 "field_descriptors": _field_descriptors("personal", requirements, form),
                 "current_step": "personal",
@@ -646,12 +687,16 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
         valid_ids = {str(r.time_slot_id) for r in requirements}
 
         if not selected_ids:
+            proposal_settings = (
+                request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+            )
             return TemplateResponse(
                 request,
                 "chronology/propose/parts/timeslots.html",
                 {
                     "event": event,
                     "category": category,
+                    "proposal_settings": proposal_settings,
                     "slot_descriptors": _timeslot_descriptors(requirements, []),
                     "error": _("Please select at least one time slot."),
                     "current_step": "timeslots",
@@ -700,12 +745,16 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             track_error = _("Please select at least one track.")
 
         if not form.is_valid() or track_error:
+            proposal_settings = (
+                request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+            )
             return TemplateResponse(
                 request,
                 "chronology/propose/parts/details.html",
                 {
                     "event": event,
                     "category": category,
+                    "proposal_settings": proposal_settings,
                     "form": form,
                     "durations": category.durations,
                     "field_descriptors": _field_descriptors(
