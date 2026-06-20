@@ -42,17 +42,12 @@ MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
 
 
-class AliveQuerySet(models.QuerySet[_SoftDeleteT]):
-    def alive(self) -> AliveQuerySet[_SoftDeleteT]:
-        return self.filter(deleted_at__isnull=True)
-
-
 class AliveManager(models.Manager[_SoftDeleteT]):
     # The default `objects` manager hides soft-deleted rows so every existing
     # read (including reverse relations like `category.sessions`) excludes them
     # automatically. Reach soft-deleted rows through `all_objects`.
-    def get_queryset(self) -> AliveQuerySet[_SoftDeleteT]:
-        return AliveQuerySet(self.model, using=self._db).alive()
+    def get_queryset(self) -> models.QuerySet[_SoftDeleteT]:
+        return super().get_queryset().filter(deleted_at__isnull=True)
 
 
 class SoftDeleteModel(models.Model):
