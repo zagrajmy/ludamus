@@ -357,8 +357,10 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         # Scope + existence in one query: a soft-deleted session in this event.
         # (The alive-manager service check can't see deleted rows, so event
         # scoping lives here.) Missing / wrong-event / already-alive -> NotFound.
+        # `select_for_update` locks the row so concurrent restores serialize
+        # (caller runs inside a transaction); the second sees it already alive.
         try:
-            session = Session.all_objects.get(
+            session = Session.all_objects.select_for_update().get(
                 id=pk, category__event_id=event_pk, deleted_at__isnull=False
             )
         except Session.DoesNotExist as exception:

@@ -1,9 +1,14 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/delete."""
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
+from django.db import connection
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -127,6 +132,49 @@ class TestProposalDeleteActionView:
         log = ScheduleChangeLog.objects.get(session_id=session.pk)
         assert log.action == ScheduleChangeAction.UNASSIGN
         assert log.user_id == active_user.pk
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_concurrent_delete_frees_slot_exactly_once(
+        self, active_user, sphere, event
+    ):
+        # Two managers delete the same scheduled session at once. The row lock
+        # serializes them: the slot is freed once, so exactly one UNASSIGN log is
+        # written. Without locking both requests would log the unassignment.
+        sphere.managers.add(active_user)
+        session = _make_session(event, sphere)
+        _schedule(session, event)
+        url = self.get_url(event, session.pk)
+
+        clients = []
+        for _ in range(2):
+            client = Client()
+            client.force_login(active_user)
+            clients.append(client)
+
+        barrier = threading.Barrier(len(clients))
+
+        def delete(client):
+            barrier.wait()
+            try:
+                return client.post(url)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(clients)) as pool:
+            responses = [
+                future.result()
+                for future in [pool.submit(delete, client) for client in clients]
+            ]
+
+        assert all(r.status_code == HTTPStatus.FOUND for r in responses)
+        assert Session.all_objects.get(pk=session.pk).deleted_at is not None
+        assert (
+            ScheduleChangeLog.objects.filter(
+                session_id=session.pk, action=ScheduleChangeAction.UNASSIGN
+            ).count()
+            == 1
+        )
 
     def test_post_excludes_soft_deleted_from_listing(
         self, authenticated_client, active_user, sphere, event
