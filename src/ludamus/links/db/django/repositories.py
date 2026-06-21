@@ -6,7 +6,15 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
+from django.db.models import (
+    Count,
+    IntegerField,
+    Max,
+    OuterRef,
+    ProtectedError,
+    Q,
+    Subquery,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
@@ -140,6 +148,7 @@ from ludamus.pacts.multiverse import (
     AnnouncementDTO,
     AnnouncementsRepositoryProtocol,
     ConnectionDTO,
+    ConnectionInUseError,
     ConnectionsRepositoryProtocol,
     DuplicateConnectionDisplayNameError,
 )
@@ -2943,7 +2952,10 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
 
     @staticmethod
     def delete(sphere_id: int, pk: int) -> None:
-        deleted, _ = Connection.objects.filter(pk=pk, sphere_id=sphere_id).delete()
+        try:
+            deleted, _ = Connection.objects.filter(pk=pk, sphere_id=sphere_id).delete()
+        except ProtectedError as exc:
+            raise ConnectionInUseError from exc
         if not deleted:
             raise NotFoundError
 

@@ -18,7 +18,10 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.multiverse.panel.forms import ConnectionForm
 from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
 from ludamus.pacts import NotFoundError, RedirectError
-from ludamus.pacts.multiverse import DuplicateConnectionDisplayNameError
+from ludamus.pacts.multiverse import (
+    ConnectionInUseError,
+    DuplicateConnectionDisplayNameError,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -194,6 +197,14 @@ class ConnectionDeletePageView(SphereAccessMixin, View):
             self.request.services.connections.delete(sphere_id, pk)
         except NotFoundError:
             raise _connection_not_found() from None
+        except ConnectionInUseError as exc:
+            raise RedirectError(
+                reverse("multiverse:panel:connections"),
+                error=_(
+                    "This connection is used by an event integration and cannot "
+                    "be deleted."
+                ),
+            ) from exc
 
         messages.success(self.request, _("Connection deleted successfully."))
         return redirect("multiverse:panel:connections")
