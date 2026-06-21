@@ -74,7 +74,12 @@ const initDropzone = (label: HTMLLabelElement): void => {
     const isImage = /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
     if (preview && isImage) {
       revokePreview();
-      previewUrl = URL.createObjectURL(file);
+      const objectUrl = URL.createObjectURL(file);
+      if (!objectUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      previewUrl = objectUrl;
       preview.src = previewUrl;
       label.dataset.state = "image";
     } else {
