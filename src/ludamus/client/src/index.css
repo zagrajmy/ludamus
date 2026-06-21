@@ -101,8 +101,7 @@
      ease-out: launches fast and glides to rest, so the modal feels like it
      snaps open the moment you tap. Alternatives to try:
        cubic-bezier(0.32, 0.72, 0, 1)  (Vaul / iOS drawer — cleaner tail)
-       cubic-bezier(0.2, 0, 0, 1)      (Material "emphasized" — heavier/weighted)
-       cubic-bezier(0.34, 1.56, 0.64, 1) (slight overshoot / playful) */
+       cubic-bezier(0.2, 0, 0, 1)      (Material "emphasized" — heavier/weighted) */
   --vt-morph-duration: 0.32s;
   --vt-morph-ease: var(--ease-out);
 
