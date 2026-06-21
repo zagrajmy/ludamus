@@ -8,7 +8,7 @@ from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 
 
-class Repositories:  # noqa: PLR0904
+class Repositories:
     """Lazy flat repository registry.
 
     Internal to inits — never imported from gates. Mills services receive
@@ -107,3 +107,7 @@ class Repositories:  # noqa: PLR0904
     @cached_property
     def event_bans(self) -> EventBanRepository:
         return EventBanRepository()
+
+    @cached_property
+    def discounts(self) -> repositories.DiscountRepository:
+        return repositories.DiscountRepository()

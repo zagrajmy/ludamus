@@ -259,6 +259,13 @@ ignore = [
     "PLR0904", # Too many public methods
     "PLR6301", # Method could be a function
 ]
+# DI registries are intentionally wide: their whole job is to expose one leaf
+# per repository/service. Bucketing them (see the class docstrings) is a
+# separate refactor, not a per-leaf concern. `pacts/services.py` is the protocol
+# mirror of the services registry, so it carries the same width by definition.
+"*/inits/repositories.py" = ["PLR0904"]
+"*/inits/services.py" = ["PLR0904"]
+"*/pacts/services.py" = ["PLR0904"]
 "**/conftest.py" = ["RUF076"]
 
 [tool.ruff.lint.flake8-pytest-style]

@@ -20,6 +20,7 @@ from ludamus.mills.chronology import (
     SessionDeletionService,
     SessionSelfEditService,
 )
+from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
-class Services:  # noqa: PLR0904 — deliberate flat service namespace; bucket later
+class Services:
     """Lazy flat service namespace exposed on `request.services`.
 
     Buckets will appear when the leaf count grows past ~12.
@@ -167,6 +168,10 @@ class Services:  # noqa: PLR0904 — deliberate flat service namespace; bucket l
     @cached_property
     def event_bans(self) -> EventBanService:
         return EventBanService(self._transaction, self._repos.event_bans)
+
+    @cached_property
+    def discounts(self) -> DiscountsService:
+        return DiscountsService(self._transaction, self._repos.discounts)
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

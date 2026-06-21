@@ -25,6 +25,7 @@ from ludamus.pacts import (
     UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
@@ -1603,6 +1604,37 @@ class Connection(models.Model):
     @property
     def has_secret(self) -> bool:
         return bool(self.secret)
+
+
+class Discount(SoftDeleteModel):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="discounts")
+    facilitator = models.ForeignKey(
+        Facilitator, on_delete=models.CASCADE, related_name="discounts"
+    )
+    kind = models.CharField(
+        max_length=10, choices=[(k.value, k.name.title()) for k in DiscountKind]
+    )
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    note = models.CharField(max_length=255, blank=True, default="")
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "discount"
+        ordering = ("-creation_time",)
+        constraints = (
+            # Partial constraint: only alive (non-soft-deleted) rows count, so a
+            # fresh discount can be assigned after a prior one is soft-deleted
+            # without colliding with the dead row.
+            models.UniqueConstraint(
+                fields=("event", "facilitator"),
+                condition=Q(deleted_at__isnull=True),
+                name="discount_unique_alive_per_event_facilitator",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.facilitator} - {self.kind} {self.value}"
 
 
 class Announcement(models.Model):
