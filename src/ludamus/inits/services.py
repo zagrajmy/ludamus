@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
-class Services:
+class Services:  # noqa: PLR0904 — deliberate flat service namespace; bucket later
     """Lazy flat service namespace exposed on `request.services`.
 
     Buckets will appear when the leaf count grows past ~12.
