@@ -89,7 +89,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
     def get(
-        self, _request: PanelRequest, slug: str, facilitator_id: int
+        self, _request: PanelRequest, *, slug: str, facilitator_id: int
     ) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -110,7 +110,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/discounts/create.html", context)
 
     def post(
-        self, _request: PanelRequest, slug: str, facilitator_id: int
+        self, _request: PanelRequest, *, slug: str, facilitator_id: int
     ) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -144,7 +144,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
 class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -167,7 +167,7 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         return TemplateResponse(self.request, "panel/discounts/edit.html", context)
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -196,7 +196,7 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
 class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
