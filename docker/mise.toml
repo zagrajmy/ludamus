@@ -6,6 +6,7 @@ jobs = 1
 python = "3.14"
 node = "v25.6.1"
 poetry = { version = "2.3.2", pyproject = "/app/pyproject.toml" }
+"github:endevco/aube" = "1.22.0"
 
 [env]
 # Mise creates and activates this virtualenv automatically
@@ -24,8 +25,11 @@ run = "django-admin"
 [tasks.start]
 run = "honcho start -e /dev/null -f Procfile.dev"
 
+[tasks.frontend-deps]
+run = "aube install --filter ./src/ludamus/client --frozen-lockfile --no-optional"
+
 [tasks.build-frontend]
-run = "cd src/ludamus/client && npm install && npm run build"
+run = "aubr -C src/ludamus/client build"
 
 [tasks.gunicorn]
 run = """
