@@ -111,7 +111,7 @@ Ships on its own; no UX change, fully reversible. Removes the deep chain from
 ### Step 1b — drop `Session.sphere` (event subsumes it)
 
 `Session.event` makes `Session.sphere` redundant (`event.sphere` derives it),
-so the FK is removed. Migration `0096`: drop `sphere`, swap the unique constraint
+so the FK is removed. Migration `0098`: drop `sphere`, swap the unique constraint
 `(slug, sphere)` → `(slug, event)`. Session slug uniqueness thus moves from
 per-sphere to **per-event** — a relaxation (per-sphere was stricter), so no
 existing rows conflict. `slug_exists`/`find_id_by_slug` take `event_id`;
@@ -128,9 +128,8 @@ notifications already carry `event_slug` on their DTOs, so their links use it
 directly — no DTO change.
 
 - Verify: `mise run check && mise run test`. **Done — 2343 passed, lint clean.**
-- Follow-up (out of scope, not run by pytest): the Playwright e2e
-  `promotion.auth.spec.ts` + `bootstrap_*.py` seeds still use the old
-  `session/<id>/enrollment/` path and need updating.
+- Playwright e2e (`promotion.auth.spec.ts` + `bootstrap_*.py` seeds) updated to
+  the event-scoped `event/<event_slug>/session/<id>/enrollment/` path.
 
 ---
 
