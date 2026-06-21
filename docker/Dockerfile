@@ -46,6 +46,16 @@ USER appuser
 # Install toolchain and Python dependencies (cached independently of src changes)
 RUN mise trust && mise install && mise run p install
 
+# Install frontend deps reproducibly from the aube workspace lockfile, scoped to
+# the client package. Copy only the manifests + lockfile first so a source-only
+# change reuses this cached node_modules layer. tests/e2e/package.json is needed
+# for the frozen-lockfile workspace integrity check even though --filter +
+# --no-optional keep its (Playwright) deps out of the image.
+COPY --chown=appuser:appuser aube-workspace.yaml aube-lock.yaml package.json ./
+COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
+COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/
+RUN mise run frontend-deps
+
 # Copy application code
 COPY --chown=appuser:appuser src ./src
 
@@ -67,6 +77,16 @@ USER appuser
 
 # Install toolchain and production Python dependencies (cached independently of src changes)
 RUN mise trust && mise install && mise run p install --only main
+
+# Install frontend deps reproducibly from the aube workspace lockfile, scoped to
+# the client package. Copy only the manifests + lockfile first so a source-only
+# change reuses this cached node_modules layer. tests/e2e/package.json is needed
+# for the frozen-lockfile workspace integrity check even though --filter +
+# --no-optional keep its (Playwright) deps out of the image.
+COPY --chown=appuser:appuser aube-workspace.yaml aube-lock.yaml package.json ./
+COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
+COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/
+RUN mise run frontend-deps
 
 # Copy application code
 COPY --chown=appuser:appuser src ./src
