@@ -93,6 +93,10 @@
     1 100%
   );
 
+  /* Strong ease-out for exits/dismissals — starts fast so the motion feels
+     responsive, settles without the spring's overshoot. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
   --color-foreground: #252220;
   --color-foreground-secondary: #5c534a;
   --color-foreground-muted: #737373;

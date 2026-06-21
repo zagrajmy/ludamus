@@ -12,6 +12,22 @@
     border: 1px solid var(--color-border);
     border-radius: 1rem;
     @apply shadow-lg;
+    /* No exit transition here on purpose. Closing is owned by a View
+       Transition (see below), which snapshots the modal to a GPU texture and
+       animates that — smoother than transitioning the live, content-heavy
+       modal. Browsers without View Transitions just close instantly, which is
+       clean in its own right. */
+  }
+
+  .modal[open] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+    /* Lift the open modal into its own View Transition group so closing
+       animates only it, not the whole page. Only one modal is open at a time,
+       so a single shared name is safe. */
+    view-transition-name: app-modal;
+    /* Enter (closed -> open): playful spring that settles into place. */
     transition:
       opacity 0.35s var(--ease-spring-a-bit),
       transform 0.35s var(--ease-spring-a-bit),
@@ -19,17 +35,12 @@
       display 0.35s allow-discrete;
   }
 
-  .modal[open] {
-    opacity: 1;
-    pointer-events: auto;
-    transform: scale(1) translateY(0);
-  }
-
   .modal:not([open]) {
     display: none;
   }
 
-  .modal:not([open]), .modal:not([open]) * {
+  .modal:not([open]),
+  .modal:not([open]) * {
     pointer-events: none !important;
   }
 
@@ -43,13 +54,17 @@
   .modal::backdrop {
     background-color: transparent;
     transition:
-      display 0.15s allow-discrete,
-      overlay 0.15s allow-discrete,
-      background-color 0.15s;
+      display 0.2s allow-discrete,
+      overlay 0.2s allow-discrete,
+      background-color 0.2s var(--ease-out);
   }
 
   .modal[open]::backdrop {
-    background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+    background-color: color-mix(
+      in srgb,
+      var(--color-background) 50%,
+      transparent
+    );
     backdrop-filter: blur(4px);
   }
 
@@ -57,5 +72,68 @@
     .modal[open]::backdrop {
       background-color: transparent;
     }
+  }
+}
+
+/* --- Closing View Transition -------------------------------------------- */
+/* These pseudo-elements live outside @layer so the default UA cross-fade
+   animation can be cleanly replaced. The old (captured) modal scales down,
+   drifts, blurs and fades; the page underneath (root) cross-fades the dim
+   backdrop away at the same time. */
+::view-transition-group(app-modal) {
+  animation-duration: 0.26s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(app-modal) {
+  animation: modal-close-out 0.26s var(--ease-out) both;
+}
+
+/* Nothing replaces the modal, so suppress the empty "new" snapshot. */
+::view-transition-new(app-modal) {
+  animation: none;
+}
+
+@keyframes modal-close-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+    filter: blur(6px);
+  }
+}
+
+/* Root cross-fade (the backdrop dim leaving) — keep it quick and gentle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Drop scale/blur movement; the JS path also skips the View Transition and
+     closes instantly with only the backdrop fade for context. */
+  ::view-transition-old(app-modal) {
+    animation: modal-close-fade 0.15s ease both;
+  }
+
+  @keyframes modal-close-fade {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @starting-style {
+    .modal[open] {
+      transform: none;
+    }
+  }
+
+  .modal,
+  .modal[open] {
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
   }
 }

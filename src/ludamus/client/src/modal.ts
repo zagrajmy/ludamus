@@ -191,14 +191,37 @@ const openModal = (
   }
 };
 
+const prefersReducedMotion = (): boolean =>
+  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+interface ViewTransitionDocument {
+  startViewTransition?: (callback: () => void) => unknown;
+}
+
+// Snapshot the open modal and animate the snapshot (see modal.css
+// ::view-transition-old(app-modal)) instead of transitioning the live,
+// content-heavy modal. Falls back to an instant close when the API is
+// unavailable or the user prefers reduced motion.
+const dismissDialog = (dialog: HTMLDialogElement): void => {
+  if (!dialog.open) return;
+
+  const doc = document as Document & ViewTransitionDocument;
+  if (!doc.startViewTransition || prefersReducedMotion()) {
+    dialog.close();
+    return;
+  }
+
+  doc.startViewTransition(() => {
+    dialog.close();
+  });
+};
+
 const closeModal = (
   id: string,
   { updateUrl = true, replaceHistory = true } = {},
 ): void => {
   const dialog = getDialog(id);
-  if (dialog.open) {
-    dialog.close();
-  }
+  dismissDialog(dialog);
   syncPageScrollLock();
 
   if (updateUrl) {
