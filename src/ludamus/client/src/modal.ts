@@ -2,7 +2,6 @@ import {
   disablePageScroll,
   enablePageScroll,
   markScrollable,
-  pageScrollIsDisabled,
   unmarkScrollable,
 } from "@fluejs/noscroll";
 import { initTouchHandler, resetTouchHandler } from "@fluejs/noscroll/touch";
@@ -16,10 +15,7 @@ interface NavigateEvent {
 }
 
 interface Navigation {
-  addEventListener(
-    type: "navigate",
-    handler: (e: NavigateEvent) => void,
-  ): void;
+  addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
 }
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
@@ -28,6 +24,47 @@ const navigation = (globalThis as { navigation?: Navigation }).navigation;
 const scrollLockTargets = new Set<HTMLDialogElement>();
 const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
 let touchHandlerInitialized = false;
+
+// Page scroll lock for open modals. Two cooperating pieces, owned together so
+// they can never desync:
+//   1. `@fluejs/noscroll` disables page scroll and compensates for the
+//      scrollbar width (avoids a desktop layout shift when it disappears).
+//   2. A `position: fixed` body pin. iOS Safari ignores `overflow: hidden` on
+//      <body>, so the document keeps its scroll offset while a modal is open. A
+//      top-layer dialog opened over a scrolled document then hit-tests as if
+//      the page were at the top: taps on the visually-centred Close button land
+//      on the content behind the modal, so the X feels dead. Pinning the body
+//      and offsetting it by the prior scroll forces the document offset to 0,
+//      which truly locks iOS and realigns the modal's hit region. The scroll
+//      position is restored on unlock.
+let pageLocked = false;
+let pinnedScrollY = 0;
+
+const lockPage = (): void => {
+  if (pageLocked) return;
+  pinnedScrollY = window.scrollY;
+  const { style } = document.body;
+  style.position = "fixed";
+  style.top = `-${pinnedScrollY}px`;
+  style.left = "0";
+  style.right = "0";
+  style.width = "100%";
+  disablePageScroll();
+  pageLocked = true;
+};
+
+const unlockPage = (): void => {
+  if (!pageLocked) return;
+  enablePageScroll();
+  const { style } = document.body;
+  style.position = "";
+  style.top = "";
+  style.left = "";
+  style.right = "";
+  style.width = "";
+  pageLocked = false;
+  window.scrollTo(0, pinnedScrollY);
+};
 
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
   const candidates = [dialog, ...dialog.querySelectorAll<HTMLElement>("*")];
@@ -46,8 +83,8 @@ const syncPageScrollLock = (): void => {
   ];
   const openDialogSet = new Set(openDialogs);
 
-  if (openDialogs.length > 0 && !pageScrollIsDisabled()) {
-    disablePageScroll();
+  if (openDialogs.length > 0) {
+    lockPage();
   }
   if (openDialogs.length > 0 && !touchHandlerInitialized) {
     initTouchHandler();
@@ -77,9 +114,7 @@ const syncPageScrollLock = (): void => {
   }
 
   if (openDialogs.length === 0) {
-    if (pageScrollIsDisabled()) {
-      enablePageScroll();
-    }
+    unlockPage();
     if (touchHandlerInitialized) {
       resetTouchHandler();
       touchHandlerInitialized = false;
@@ -234,9 +269,7 @@ window.addEventListener("pagehide", () => {
   }
   markedScrollables.clear();
   scrollLockTargets.clear();
-  if (pageScrollIsDisabled()) {
-    enablePageScroll();
-  }
+  unlockPage();
   if (touchHandlerInitialized) {
     resetTouchHandler();
     touchHandlerInitialized = false;
@@ -341,7 +374,6 @@ setupModalCloseTriggers();
 // handlers directly to modal-trigger links so preventDefault fires before
 // the browser starts navigation.
 const setupFallbackLinkHandlers = (): void => {
-
   document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
     const modalId = link.getAttribute("aria-controls");
     if (!modalId) return;
