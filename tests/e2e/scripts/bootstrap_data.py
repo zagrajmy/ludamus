@@ -179,7 +179,6 @@ def _create_space(
 
 
 def _create_session(
-    sphere: Sphere,
     event: Event,
     space: Space,
     *,
@@ -191,7 +190,6 @@ def _create_session(
     duration_hours: int,
 ) -> Session:
     session = Session.objects.create(
-        sphere=sphere,
         event=event,
         display_name=presenter,
         title=title,
@@ -289,7 +287,6 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     area = _create_area(venue, name="Demo Area", slug="demo-area")
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
-        sphere=sphere,
         event=event,
         display_name="Demo GM",
         title="Waitlist Promotion Demo",
@@ -334,6 +331,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         json.dumps(
             {
                 "session_id": session.pk,
+                "event_slug": event.slug,
                 "superuser_id": superuser.pk,
                 "waiter_email": waiter.email,
                 "session_title": session.title,
@@ -586,7 +584,6 @@ def main() -> None:
     tester = User.objects.get(username="e2e-tester")
 
     _create_session(
-        sphere,
         upcoming_event,
         east_wing_space,
         title="Mega Strategy Lab",
@@ -598,7 +595,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Cozy Storytellers Circle",
@@ -610,7 +606,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Przygoda w Mieście Neonów",
@@ -642,7 +637,6 @@ def main() -> None:
         end_time=upcoming_event.start_time + timedelta(hours=2),
     )
     pending_session = Session.objects.create(
-        sphere=sphere,
         event=upcoming_event,
         presenter=tester,
         display_name="E2E Tester",

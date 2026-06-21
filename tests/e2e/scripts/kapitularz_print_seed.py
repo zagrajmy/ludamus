@@ -303,7 +303,6 @@ def _create_sessions(
         duration_hours = (1, 1, 2, 2, 3)[index % 5]
         title = _title(index, spec.track_slug)
         session = Session.objects.create(
-            sphere=event.sphere,
             event=event,
             title=title,
             slug=f"kapitularz-print-session-{index:03}",
