@@ -875,6 +875,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "session_participations__user__manager",
                 "session_participations__user__connected",
                 "field_values__field",
+                "agenda_item__space__area__venue__event__enrollment_configs",
                 "event__enrollment_configs",
             )
             .annotate(

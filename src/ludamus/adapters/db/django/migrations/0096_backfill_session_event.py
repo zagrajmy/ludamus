@@ -19,6 +19,6 @@ def backfill_event(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0093_session_event")]
+    dependencies = [("db_main", "0095_session_event")]
 
     operations = [migrations.RunPython(backfill_event, migrations.RunPython.noop)]

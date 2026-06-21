@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0095_session_event_required")]
+    dependencies = [("db_main", "0097_session_event_required")]
 
     operations = [
         migrations.RemoveConstraint(
