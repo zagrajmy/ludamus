@@ -87,6 +87,80 @@ test.describe('Event detail page', () => {
     },
   );
 
+  test(
+    'mobile session modal opened over a scrolled page keeps the Close button tappable on iOS',
+    async ({ browser, browserName }) => {
+      test.skip(browserName === 'firefox', 'Firefox does not support mobile emulation');
+      const context = await browser.newContext({
+        ...devices['iPhone 14 Pro'],
+        baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:8000',
+      });
+      const page = await context.newPage();
+
+      await page.goto('/chronology/event/autumn-open/');
+
+      // Guarantee the document is scrolled before the modal opens. iOS Safari
+      // ignores `overflow: hidden` on <body>, so a top-layer dialog opened over
+      // a scrolled document hit-tests as if the page were at the top — taps on
+      // the visually-centred Close button land on the content behind it. The
+      // scroll lock must pin the body so the document offset is neutralised.
+      // Open the modal with a scripted click so Playwright does not auto-scroll
+      // the trigger into view (which would reset the offset we set up here). The
+      // scroll position captured is exactly what the lock sees when it pins.
+      const scrolledY = await page.evaluate(() => {
+        const spacer = document.createElement('div');
+        spacer.style.height = '1500px';
+        document.body.appendChild(spacer);
+        window.scrollTo(0, 1000);
+        const y = window.scrollY;
+        const link = document
+          .querySelectorAll('.session-card')[1]
+          ?.querySelector<HTMLAnchorElement>('a[aria-controls]');
+        link?.click();
+        return y;
+      });
+      expect(scrolledY).toBeGreaterThan(0);
+
+      const detailDialog = page.getByRole('dialog', { name: 'Cozy Storytellers Circle' });
+      await expect(detailDialog).toBeVisible();
+
+      // While the modal is open the body is pinned: position fixed with a
+      // negative top offset that cancels the prior scroll, so the document
+      // offset reads 0 and the modal's hit region lines up with what's drawn.
+      const pinned = await page.evaluate(() => ({
+        position: getComputedStyle(document.body).position,
+        top: document.body.style.top,
+        scrollY: window.scrollY,
+      }));
+      expect(pinned.position).toBe('fixed');
+      expect(pinned.top).toBe(`-${scrolledY}px`);
+      expect(pinned.scrollY).toBe(0);
+
+      // The Close button is the real hit-test target at its own centre.
+      const closeButton = detailDialog.getByRole('button', { name: 'Close' });
+      await expect(closeButton).toBeInViewport();
+      const closeIsHitTarget = await closeButton.evaluate((close) => {
+        const r = close.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return !!(hit && hit.closest('[data-modal-close]'));
+      });
+      expect(closeIsHitTarget).toBe(true);
+
+      await closeButton.click();
+      await expect(detailDialog).toBeHidden();
+
+      // Closing unpins the body and restores the prior scroll position.
+      const restored = await page.evaluate(() => ({
+        position: getComputedStyle(document.body).position,
+        scrollY: window.scrollY,
+      }));
+      expect(restored.position).not.toBe('fixed');
+      expect(restored.scrollY).toBe(scrolledY);
+
+      await context.close();
+    },
+  );
+
   test('allows iOS touch scrolling inside long mobile session modal content', async ({ browser, browserName }) => {
     test.skip(browserName === 'firefox', 'Firefox does not support mobile emulation');
     const context = await browser.newContext({

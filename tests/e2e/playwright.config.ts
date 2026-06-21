@@ -86,7 +86,7 @@ export default defineConfig({
           {
             name: 'webkit',
             testMatch: /event-details\.spec\.ts/,
-            grep: /iOS touch scrolling|mobile session modal closes on iOS tap/,
+            grep: /iOS touch scrolling|mobile session modal closes on iOS tap|opened over a scrolled page/,
             use: { ...devices['iPhone 14 Pro'] },
           },
         ]),

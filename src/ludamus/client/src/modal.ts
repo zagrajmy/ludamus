@@ -16,10 +16,7 @@ interface NavigateEvent {
 }
 
 interface Navigation {
-  addEventListener(
-    type: "navigate",
-    handler: (e: NavigateEvent) => void,
-  ): void;
+  addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
 }
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
@@ -28,6 +25,41 @@ const navigation = (globalThis as { navigation?: Navigation }).navigation;
 const scrollLockTargets = new Set<HTMLDialogElement>();
 const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
 let touchHandlerInitialized = false;
+
+// iOS Safari ignores `overflow: hidden` on <body>, so the document keeps its
+// scroll offset while a modal is open. A top-layer dialog opened over a
+// scrolled document then hit-tests as if the page were still at the top: taps
+// on the visually-centred controls (the Close button) land on the content
+// behind the modal instead, so the X feels dead. Pinning the body with
+// `position: fixed` while preserving the visual scroll position via `top`
+// forces the document offset to 0, which both truly locks the page on iOS and
+// realigns the modal's hit region. The offset is restored on unpin.
+let bodyPinned = false;
+let pinnedScrollY = 0;
+
+const pinBody = (): void => {
+  if (bodyPinned) return;
+  pinnedScrollY = window.scrollY;
+  const { style } = document.body;
+  style.position = "fixed";
+  style.top = `-${pinnedScrollY}px`;
+  style.left = "0";
+  style.right = "0";
+  style.width = "100%";
+  bodyPinned = true;
+};
+
+const unpinBody = (): void => {
+  if (!bodyPinned) return;
+  const { style } = document.body;
+  style.position = "";
+  style.top = "";
+  style.left = "";
+  style.right = "";
+  style.width = "";
+  bodyPinned = false;
+  window.scrollTo(0, pinnedScrollY);
+};
 
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
   const candidates = [dialog, ...dialog.querySelectorAll<HTMLElement>("*")];
@@ -47,6 +79,7 @@ const syncPageScrollLock = (): void => {
   const openDialogSet = new Set(openDialogs);
 
   if (openDialogs.length > 0 && !pageScrollIsDisabled()) {
+    pinBody();
     disablePageScroll();
   }
   if (openDialogs.length > 0 && !touchHandlerInitialized) {
@@ -80,6 +113,7 @@ const syncPageScrollLock = (): void => {
     if (pageScrollIsDisabled()) {
       enablePageScroll();
     }
+    unpinBody();
     if (touchHandlerInitialized) {
       resetTouchHandler();
       touchHandlerInitialized = false;
@@ -237,6 +271,7 @@ window.addEventListener("pagehide", () => {
   if (pageScrollIsDisabled()) {
     enablePageScroll();
   }
+  unpinBody();
   if (touchHandlerInitialized) {
     resetTouchHandler();
     touchHandlerInitialized = false;
@@ -341,7 +376,6 @@ setupModalCloseTriggers();
 // handlers directly to modal-trigger links so preventDefault fires before
 // the browser starts navigation.
 const setupFallbackLinkHandlers = (): void => {
-
   document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
     const modalId = link.getAttribute("aria-controls");
     if (!modalId) return;
