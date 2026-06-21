@@ -537,9 +537,15 @@ class FacilitatorForm(forms.Form):
         return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
 
 
+_DISCOUNT_KIND_LABELS = {
+    DiscountKind.PERCENT: _("Percent"),
+    DiscountKind.AMOUNT: _("Amount"),
+}
+
+
 class DiscountForm(forms.Form):
     kind = forms.ChoiceField(
-        choices=[(k.value, k.name.title()) for k in DiscountKind],
+        choices=[(k.value, _DISCOUNT_KIND_LABELS[k]) for k in DiscountKind],
         initial=DiscountKind.PERCENT,
         label=_("Kind"),
     )

@@ -6783,6 +6783,14 @@ msgid "Edit discount"
 msgstr "Edytuj zniżkę"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Percent"
+msgstr "Procent"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Amount"
+msgstr "Kwota"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Value"
 msgstr "Wartość"
 
