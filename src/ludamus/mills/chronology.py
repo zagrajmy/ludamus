@@ -492,8 +492,13 @@ class SessionDeletionService:
     def soft_delete(
         self, event_pk: int, session_pk: int, user_pk: int | None = None
     ) -> None:
-        require_session_in_event(self._sessions, session_pk, event_pk)
         with self._transaction.atomic():
+            # Lock the session row first, then re-check event membership while
+            # holding the lock: a concurrent request can no longer move the
+            # session to another event (or delete it) between the check and the
+            # mutation (TOCTOU). `lock` raises NotFound for missing/already-dead.
+            self._sessions.lock(session_pk)
+            require_session_in_event(self._sessions, session_pk, event_pk)
             # Free the timetable slot through the existing unschedule path:
             # drop the agenda item, return the session to PENDING, and record
             # the unassignment in the schedule activity log.
