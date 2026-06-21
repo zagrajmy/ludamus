@@ -85,7 +85,10 @@
    the transition in modal.ts), so the browser tweens the card's box into the
    modal's — and back on close — cross-fading their contents. A layout/shared-
    element transition with no animation library. */
-::view-transition-group(session-morph) {
+::view-transition-group(session-morph),
+::view-transition-group(morph-title),
+::view-transition-group(morph-host),
+::view-transition-group(morph-avatar) {
   animation-duration: 0.32s;
   animation-timing-function: var(--ease-out);
 }

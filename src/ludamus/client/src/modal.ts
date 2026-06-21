@@ -212,6 +212,18 @@ const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   typeof (document as Document & ViewTransitionDocument).startViewTransition ===
     "function";
 
+// Assign (or clear) the shared view-transition-names that drive the morph: the
+// surface itself (card <-> modal box) plus each `data-morph` element (title,
+// author, avatar) so they fly to their counterpart's position instead of
+// cross-fading inside the box. Names are constant — only one card/modal pair
+// holds them at a time — so modal.css can target the groups for timing.
+const setMorph = (root: HTMLElement, active: boolean): void => {
+  root.style.viewTransitionName = active ? MORPH_NAME : "";
+  root.querySelectorAll<HTMLElement>("[data-morph]").forEach((el) => {
+    el.style.viewTransitionName = active ? `morph-${el.dataset.morph}` : "";
+  });
+};
+
 // Non-session modals (anonymous code, proposals) snapshot themselves and blur
 // out via ::view-transition-old(app-modal); instant close where unsupported.
 const dismissDialog = (dialog: HTMLDialogElement): void => {
@@ -233,17 +245,17 @@ const openModal = (
   if (!dialog.open) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
-      // Old snapshot captures the card under MORPH_NAME; the callback hands the
-      // name to the now-open modal so the new snapshot morphs card -> modal.
-      card.style.viewTransitionName = MORPH_NAME;
+      // Old snapshot captures the card's shared elements; the callback hands the
+      // names to the now-open modal so the new snapshot morphs card -> modal.
+      setMorph(card, true);
       const transition = startViewTransition(() => {
-        card.style.viewTransitionName = "";
+        setMorph(card, false);
         dialog.showModal();
-        dialog.style.viewTransitionName = MORPH_NAME;
+        setMorph(dialog, true);
         syncPageScrollLock();
       });
       void transition?.finished.finally(() => {
-        dialog.style.viewTransitionName = "";
+        setMorph(dialog, false);
       });
     } else {
       dialog.showModal();
@@ -272,16 +284,16 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       // Mirror of open: old snapshot holds the modal, the callback hands the
-      // name back to the card so the modal collapses into it.
-      dialog.style.viewTransitionName = MORPH_NAME;
+      // names back to the card so the modal collapses into it.
+      setMorph(dialog, true);
       const transition = startViewTransition(() => {
         dialog.close();
-        dialog.style.viewTransitionName = "";
-        card.style.viewTransitionName = MORPH_NAME;
+        setMorph(dialog, false);
+        setMorph(card, true);
         syncPageScrollLock();
       });
       void transition?.finished.finally(() => {
-        card.style.viewTransitionName = "";
+        setMorph(card, false);
       });
     } else {
       dismissDialog(dialog);
