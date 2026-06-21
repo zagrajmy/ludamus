@@ -110,7 +110,16 @@ class TestDiscountsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
-            context_data={**_base_context(event), "rows": ANY},
+            context_data={
+                **_base_context(event),
+                "rows": [
+                    {
+                        "facilitator": ANY,
+                        "accreditation_type_display": "Guest",
+                        "discount": ANY,
+                    }
+                ],
+            },
             contains=["Alice", "Guest", "15.00", "VIP", "Edit", "Remove"],
         )
 
@@ -126,7 +135,16 @@ class TestDiscountsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
-            context_data={**_base_context(event), "rows": ANY},
+            context_data={
+                **_base_context(event),
+                "rows": [
+                    {
+                        "facilitator": ANY,
+                        "accreditation_type_display": "None",
+                        "discount": None,
+                    }
+                ],
+            },
             contains="Assign",
             not_contains="Remove",
         )
@@ -144,7 +162,16 @@ class TestDiscountsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
-            context_data={**_base_context(event), "rows": ANY},
+            context_data={
+                **_base_context(event),
+                "rows": [
+                    {
+                        "facilitator": ANY,
+                        "accreditation_type_display": "None",
+                        "discount": ANY,
+                    }
+                ],
+            },
             contains="20.00",
         )
 
@@ -252,6 +279,25 @@ class TestDiscountCreatePageView:
             context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
         )
         assert response.context["form"].errors
+
+    def test_post_rejects_zero_value(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.post(
+            self.get_url(event, facilitator), data={"kind": "percent", "value": "0"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/create.html",
+            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+        )
+        assert response.context["form"].errors
+        assert not Discount.objects.filter(facilitator=facilitator).exists()
 
     def test_post_shows_error_on_invalid_kind(
         self, authenticated_client, active_user, sphere, event
