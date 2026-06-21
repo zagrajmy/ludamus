@@ -252,6 +252,30 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   });
 };
 
+// One owner for the morph protocol so open and close can't drift and the
+// scroll-lock ordering is enforced once: run `before` (pre-capture — lock the
+// page / name the outgoing side), suspend the scroll-lock sync so the
+// synchronous `close` event and the body mutation can't land between the two
+// snapshots, swap the DOM inside the View Transition, then on `finished` run
+// `settle` and resume the lock. `before`/`swap`/`settle` carry the only parts
+// that differ between the two directions.
+const morphTransition = (steps: {
+  before: () => void;
+  swap: () => void;
+  settle: () => void;
+}): void => {
+  steps.before();
+  scrollLockSuspended = true;
+  const transition = startViewTransition(steps.swap);
+  const finish = (): void => {
+    steps.settle();
+    scrollLockSuspended = false;
+    syncPageScrollLock();
+  };
+  if (transition) void transition.finished.finally(finish);
+  else finish();
+};
+
 // Non-session modals (anonymous code, proposals) snapshot themselves and blur
 // out via ::view-transition-old(app-modal); instant close where unsupported.
 const dismissDialog = (dialog: HTMLDialogElement): void => {
@@ -273,34 +297,32 @@ const openModal = (
   if (!dialog.open) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
-      // Lock scroll BEFORE the transition so the body mutation lands in the old
-      // snapshot, not the animated delta; suspend the sync helper so nothing
-      // re-locks between the two captures. Old snapshot captures the card's
-      // shared elements; the callback hands the names to the now-open modal so
-      // the new snapshot morphs card -> modal.
-      lockPage();
-      scrollLockSuspended = true;
-      setMorph(card, true);
-      const transition = startViewTransition(() => {
-        setMorph(card, false);
-        // Hide the source card once its snapshot is captured, so it doesn't show
-        // through the cross-fading modal from behind and read as a duplicate.
-        // `transition: none` defeats the card's `duration-100` transition, which
-        // would otherwise swallow the change before the new snapshot is taken.
-        card.style.transition = "none";
-        card.style.visibility = "hidden";
-        dialog.showModal();
-        setMorph(dialog, true);
+      morphTransition({
+        // Lock scroll before the capture so the body mutation lands in the old
+        // snapshot, not the animated delta; name the card's shared elements so
+        // the new snapshot morphs card -> modal.
+        before: () => {
+          lockPage();
+          setMorph(card, true);
+        },
+        swap: () => {
+          setMorph(card, false);
+          // Hide the source card once its snapshot is captured, so it doesn't
+          // show through the cross-fading modal from behind and read as a
+          // duplicate. `transition: none` defeats the card's `duration-100`
+          // transition, which would otherwise swallow the change before the new
+          // snapshot is taken.
+          card.style.transition = "none";
+          card.style.visibility = "hidden";
+          dialog.showModal();
+          setMorph(dialog, true);
+        },
+        settle: () => {
+          setMorph(dialog, false);
+          card.style.visibility = "";
+          card.style.transition = "";
+        },
       });
-      const settle = (): void => {
-        setMorph(dialog, false);
-        card.style.visibility = "";
-        card.style.transition = "";
-        scrollLockSuspended = false;
-        syncPageScrollLock();
-      };
-      if (transition) void transition.finished.finally(settle);
-      else settle();
     } else {
       dialog.showModal();
       syncPageScrollLock();
@@ -327,24 +349,17 @@ const closeModal = (
   if (dialog.open) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
-      // Suspend BEFORE closing so the synchronous `close` event (and its scroll
-      // unlock) can't fire between the two snapshots and jitter the morph. The
-      // unlock runs only after `finished`. Old snapshot holds the modal; the
-      // callback hands the names back to the card so it collapses into the card.
-      scrollLockSuspended = true;
-      setMorph(dialog, true);
-      const transition = startViewTransition(() => {
-        dialog.close();
-        setMorph(dialog, false);
-        setMorph(card, true);
+      morphTransition({
+        // Old snapshot holds the modal; the swap hands the names back to the
+        // card so it collapses into the card.
+        before: () => setMorph(dialog, true),
+        swap: () => {
+          dialog.close();
+          setMorph(dialog, false);
+          setMorph(card, true);
+        },
+        settle: () => setMorph(card, false),
       });
-      const settle = (): void => {
-        setMorph(card, false);
-        scrollLockSuspended = false;
-        syncPageScrollLock();
-      };
-      if (transition) void transition.finished.finally(settle);
-      else settle();
     } else {
       dismissDialog(dialog);
       syncPageScrollLock();
