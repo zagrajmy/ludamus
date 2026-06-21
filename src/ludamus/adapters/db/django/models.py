@@ -25,6 +25,7 @@ from ludamus.pacts import (
     UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -121,7 +122,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def initials(self) -> str:
-        """Return user initials (first letter of each word in name)."""
         name = self.name or self.username or ""
         return "".join(word[0].upper() for word in name.split() if word)[:2] or "?"
 
@@ -836,7 +836,6 @@ class Session(models.Model):
 
     @property
     def effective_participants_limit(self) -> int:
-        """Get effective participants limit considering enrollment config percentage."""
         if self.participants_limit == 0:
             return 0
         event = self.agenda_item.space.area.venue.event
@@ -863,7 +862,6 @@ class Session(models.Model):
 
     @property
     def full_participant_info(self) -> str:  # pragma: no cover
-        """Get complete participant information display."""
         # TODO(@fancysnake): This is used in templates. Rewrite to pass static values
         # ZAG-16
         if self.effective_participants_limit == 0:
@@ -1605,6 +1603,8 @@ class EventIntegration(models.Model):
     )
     display_name = models.CharField(max_length=255)
     config_json = models.TextField(default="{}")
+    settings_json = models.TextField(default="{}")
+    questions_snapshot_json = models.TextField(default="[]")
 
     class Meta:
         db_table = "event_integration"
@@ -1618,3 +1618,44 @@ class EventIntegration(models.Model):
 
     def __str__(self) -> str:
         return self.display_name
+
+
+class ImportLogEntry(models.Model):
+    integration = models.ForeignKey(
+        EventIntegration, on_delete=models.CASCADE, related_name="log_entries"
+    )
+    row_index = models.IntegerField()
+    status = models.CharField(
+        max_length=16, choices=[(s.value, s.value) for s in ImportLogStatus]
+    )
+    reason = models.TextField(blank=True, default="")
+    response_json = models.TextField(default="{}")
+    title = models.CharField(max_length=255, blank=True, default="")
+    display_name = models.CharField(max_length=255, blank=True, default="")
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="import_log_entries",
+    )
+    attempted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "import_log_entry"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("integration", "row_index"), name="ile_unique_integration_row"
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=("integration", "status", "-attempted_at"),
+                name="ile_int_status_at_idx",
+            ),
+            models.Index(fields=("session",), name="ile_session_idx"),
+        )
+        ordering = ("-attempted_at", "-pk")
+
+    def __str__(self) -> str:
+        return f"{self.integration_id}/{self.row_index} {self.status}"

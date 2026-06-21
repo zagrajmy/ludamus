@@ -62,31 +62,9 @@ iOS, desktop, or a shell command.
 - External systems appear only when the story is specifically about
   that system.
 
-See `/tbd-story` for the full vocabulary and self-check.
-
 ## Status values
 
 - **draft** — written, not yet fired against. Lives in `drafts/`.
 - **in-progress** — fired; refinement still pending. Lives at the
   top level.
 - **done** — fired and refined. Lives at the top level.
-
-`/tbd-fire` flips `draft` → `in-progress` automatically and moves the
-file out of `drafts/`. `in-progress` → `done` is a manual judgment
-after `/tbd-refine` has been walked.
-
-## Workflow
-
-Each step is per-feature. A feature is sized so the whole file ships
-in one fire; if it doesn't fit, split it during `/tbd-story`.
-
-1. `/tbd-story` — write or refine a feature file.
-2. Split if it's too big to ship as one unit.
-3. `/tbd-shape` — sketch the feature's interaction surface,
-   aggregates, and processes in `.tbd/shape.md` (gitignored).
-4. `/tbd-plan` — refine the shape into `.tbd/plan.md` with file and
-   class names, one section per story (gitignored).
-5. Review the plan.
-6. `/tbd-fire` — execute the plan end-to-end; land every story.
-7. Run all the checks and tests.
-8. `/tbd-refine` — walk `CHECKLIST.md`; propose feature file edits.

@@ -41,12 +41,34 @@
                 <li class="text-foreground font-medium">{{ proposal.title }}</li>
             </ol>
         </nav>
+        {% if import_log_entry and import_log_integration %}
+            <div class="card mb-6">
+                <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-foreground-muted">
+                        {% blocktranslate with name=import_log_integration.display_name at=import_log_entry.attempted_at|date:"DATETIME_FORMAT" %}
+                            Imported via {{ name }} on {{ at }}
+                        {% endblocktranslate %}
+                    </p>
+                    <a class="btn btn-tertiary text-sm"
+                       href="{% url 'panel:import-log' slug=current_event.slug pk=import_log_integration.pk %}?focus={{ import_log_entry.pk }}">{% translate "View import log" %}</a>
+                </div>
+            </div>
+        {% endif %}
         <div class="card mb-6">
             <div class="card-body">
                 <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Facilitator" %}</h3>
                 <p class="text-foreground">{{ proposal.display_name }}</p>
                 {% if presenter %}
                     <p class="text-foreground-muted text-sm mt-1">{{ presenter.name }} · {{ presenter.email }}</p>
+                {% endif %}
+                {% if proposal.contact_email %}
+                    <dl class="mt-3">
+                        <dt class="text-xs text-foreground-muted">{% translate "Contact Email" %}</dt>
+                        <dd class="text-foreground">
+                            <a href="mailto:{{ proposal.contact_email }}"
+                               class="text-primary hover:underline">{{ proposal.contact_email }}</a>
+                        </dd>
+                    </dl>
                 {% endif %}
             </div>
         </div>
@@ -93,6 +115,14 @@
                             {{ proposal.participants_limit|default_if_none:"—" }}
                         </dd>
                     </div>
+                    {% if proposal.duration %}
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
+                            <dd class="text-foreground">
+                                {{ proposal.duration|format_duration }}
+                            </dd>
+                        </div>
+                    {% endif %}
                     {% if proposal.min_age %}
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Minimum Age" %}</dt>
@@ -104,6 +134,20 @@
                 </dl>
             </div>
         </div>
+        {% if preferred_time_slots %}
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Preferred time slots" %}</h3>
+                    <ul class="space-y-1">
+                        {% for ts in preferred_time_slots %}
+                            <li class="text-foreground text-sm">
+                                {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
         {% if field_values %}
             <div class="card mb-6">
                 <div class="card-body">
@@ -126,7 +170,9 @@
                 <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitators" %}</h3>
                 {% if facilitators %}
                     <ul class="space-y-1">
-                        {% for f in facilitators %}<li class="text-foreground text-sm">{{ f.display_name }}</li>{% endfor %}
+                        {% for f in facilitators %}
+                            <li class="text-foreground text-sm">{{ f.display_name }}</li>
+                        {% endfor %}
                     </ul>
                 {% else %}
                     <p class="text-foreground-muted text-sm">{% translate "No facilitators assigned." %}</p>

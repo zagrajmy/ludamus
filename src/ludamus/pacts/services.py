@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from ludamus.pacts.chronology import (
-        CFPPersonalDataFieldServiceProtocol,
         EventIntegrationsServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
@@ -30,12 +29,29 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
+    from ludamus.pacts.submissions import (
+        CFPPersonalDataFieldServiceProtocol,
+        ImportFieldLayoutServiceProtocol,
+        ImportLogServiceProtocol,
+        ProposalImportServiceProtocol,
+    )
     from ludamus.pacts.venues import VenuesServiceProtocol
+
+
+class DatabaseConstraintError(Exception):
+    """A DB integrity/data constraint was violated inside a `savepoint()`.
+
+    Surfaced as a recoverable domain error so callers can record the failure
+    and continue instead of letting a raw database exception abort the whole
+    transaction.
+    """
 
 
 class TransactionProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+    @staticmethod
+    def savepoint() -> AbstractContextManager[None]: ...
 
 
 class ServicesProtocol(Protocol):
@@ -71,3 +87,9 @@ class ServicesProtocol(Protocol):
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
+    @property
+    def proposals_import(self) -> ProposalImportServiceProtocol: ...
+    @property
+    def import_log(self) -> ImportLogServiceProtocol: ...
+    @property
+    def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...

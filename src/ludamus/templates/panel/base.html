@@ -18,6 +18,11 @@
                 if (localStorage.getItem("panel-sidebar-folded") === "1") {
                     document.documentElement.setAttribute("data-folded", "");
                 }
+                Object.keys(localStorage).forEach(function(k) {
+                    if (k.indexOf("panel-cat-") === 0 && localStorage.getItem(k) === "1") {
+                        document.documentElement.classList.add("catc-" + k.slice(10));
+                    }
+                });
             } catch (e) {}
         })();
     </script>
@@ -90,6 +95,30 @@
                 transform: rotate(180deg);
             }
         }
+
+        .sidebar-cat-chevron {
+            transition: transform 0.15s ease;
+        }
+
+        html.catc-program [data-cat="program"] .sidebar-cat-body,
+        html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
+        html.catc-settings [data-cat="settings"] .sidebar-cat-body,
+        html.catc-sphere [data-cat="sphere"] .sidebar-cat-body {
+            display: none;
+        }
+
+        html.catc-program [data-cat="program"] .sidebar-cat-chevron,
+        html.catc-schedule [data-cat="schedule"] .sidebar-cat-chevron,
+        html.catc-settings [data-cat="settings"] .sidebar-cat-chevron,
+        html.catc-sphere [data-cat="sphere"] .sidebar-cat-chevron {
+            transform: rotate(-90deg);
+        }
+
+        @media (min-width: 1024px) {
+            html[data-folded] #sidebar .sidebar-cat-body {
+                display: block !important;
+            }
+        }
     </style>
 {% endblock extra_head %}
 {% block body_class %}
@@ -150,6 +179,7 @@
                 {% endif %}
                 <nav class="sidebar-section px-4 gap-0.5 flex flex-col">
                     {% block sidebar_nav %}
+                        {% translate "Toggle category" as t_toggle_cat %}
                         {% if current_event %}
                             {% translate "Dashboard" as t_dashboard %}
                             <a href="{% url 'panel:event-index' slug=current_event.slug %}"
@@ -158,81 +188,135 @@
                                 {% icon "home" class="size-4.5 mr-2" %}
                                 <span class="sidebar-label">{{ t_dashboard }}</span>
                             </a>
-                            {% translate "Call for Proposals" as t_cfp %}
-                            <a href="{% url 'panel:cfp' slug=current_event.slug %}"
-                               title="{{ t_cfp }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'cfp' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "rectangle-stack" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_cfp }}</span>
-                            </a>
-                            {% translate "Proposals" as t_proposals %}
-                            <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-                               title="{{ t_proposals }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'proposals' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "document-text" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_proposals }}</span>
-                            </a>
-                            {% translate "Facilitators" as t_facilitators %}
-                            <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-                               title="{{ t_facilitators }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'facilitators' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "user-group" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_facilitators }}</span>
-                            </a>
-                            {% translate "Venues" as t_venues %}
-                            <a href="{% url 'panel:venues' slug=current_event.slug %}"
-                               title="{{ t_venues }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'venues' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "building-office-2" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_venues }}</span>
-                            </a>
-                            {% translate "Tracks" as t_tracks %}
-                            <a href="{% url 'panel:tracks' slug=current_event.slug %}"
-                               title="{{ t_tracks }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'tracks' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "tag" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_tracks }}</span>
-                            </a>
-                            {% translate "Harmonogram" as t_timetable %}
-                            <a href="{% url 'panel:timetable' slug=current_event.slug %}"
-                               title="{{ t_timetable }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'timetable' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "calendar-days" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_timetable }}</span>
-                            </a>
-                            {% translate "Print Materials" as t_print %}
-                            <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
-                               title="{{ t_print }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "printer" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_print }}</span>
-                            </a>
-                            {% translate "Event Settings" as t_event_settings %}
-                            <a href="{% url 'panel:event-settings' slug=current_event.slug %}"
-                               title="{{ t_event_settings }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'settings' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_event_settings }}</span>
-                            </a>
-                            {% translate "Bans" as t_bans %}
-                            <a href="{% url 'panel:bans' slug=current_event.slug %}"
-                               title="{{ t_bans }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "no-symbol" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_bans }}</span>
-                            </a>
+                            <div class="sidebar-cat" data-cat="program">
+                                <button type="button"
+                                        title="{{ t_toggle_cat }}"
+                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                        hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    <span>{% translate "Program" %}</span>
+                                    <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
+                                </button>
+                                <div class="sidebar-cat-body flex flex-col gap-0.5">
+                                    {% translate "Call for Proposals" as t_cfp %}
+                                    <a href="{% url 'panel:cfp' slug=current_event.slug %}"
+                                       title="{{ t_cfp }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'cfp' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "rectangle-stack" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_cfp }}</span>
+                                    </a>
+                                    {% translate "Proposals" as t_proposals %}
+                                    <a href="{% url 'panel:proposals' slug=current_event.slug %}"
+                                       title="{{ t_proposals }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'proposals' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "document-text" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_proposals }}</span>
+                                    </a>
+                                    {% translate "Facilitators" as t_facilitators %}
+                                    <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+                                       title="{{ t_facilitators }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'facilitators' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "user-group" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_facilitators }}</span>
+                                    </a>
+                                    {% translate "Google Docs Import" as t_google_docs_import %}
+                                    <a href="{% url 'panel:import' slug=current_event.slug %}"
+                                       title="{{ t_google_docs_import }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'import' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "arrow-down-tray" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_google_docs_import }}</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-cat" data-cat="schedule">
+                                <button type="button"
+                                        title="{{ t_toggle_cat }}"
+                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                        hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    <span>{% translate "Schedule" context "Sidebar category" %}</span>
+                                    <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
+                                </button>
+                                <div class="sidebar-cat-body flex flex-col gap-0.5">
+                                    {% translate "Venues" as t_venues %}
+                                    <a href="{% url 'panel:venues' slug=current_event.slug %}"
+                                       title="{{ t_venues }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'venues' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "building-office-2" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_venues }}</span>
+                                    </a>
+                                    {% translate "Tracks" as t_tracks %}
+                                    <a href="{% url 'panel:tracks' slug=current_event.slug %}"
+                                       title="{{ t_tracks }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'tracks' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "tag" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_tracks }}</span>
+                                    </a>
+                                    {% translate "Harmonogram" as t_timetable %}
+                                    <a href="{% url 'panel:timetable' slug=current_event.slug %}"
+                                       title="{{ t_timetable }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'timetable' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "calendar-days" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_timetable }}</span>
+                                    </a>
+                                    {% translate "Print Materials" as t_print %}
+                                    <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
+                                       title="{{ t_print }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "printer" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_print }}</span>
+                                    </a>
+                                    {% translate "Print Materials" as t_print %}
+                                    <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
+                                       title="{{ t_print }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "printer" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_print }}</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-cat" data-cat="settings">
+                                <button type="button"
+                                        title="{{ t_toggle_cat }}"
+                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                        hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    <span>{% translate "Settings" %}</span>
+                                    <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
+                                </button>
+                                <div class="sidebar-cat-body flex flex-col gap-0.5">
+                                    {% translate "Event Settings" as t_event_settings %}
+                                    <a href="{% url 'panel:event-settings' slug=current_event.slug %}"
+                                       title="{{ t_event_settings }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'settings' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_event_settings }}</span>
+                                    </a>
+                                </div>
+                                {% translate "Bans" as t_bans %}
+                                <a href="{% url 'panel:bans' slug=current_event.slug %}"
+                                   title="{{ t_bans }}"
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                    {% icon "no-symbol" class="size-4.5 mr-2" %}
+                                    <span class="sidebar-label">{{ t_bans }}</span>
+                                </a>
+                            </div>
                         {% endif %}
-                        <div class="{% if current_event %}pt-4 mt-4 border-t border-neutral-800{% endif %}">
-                            <p class="sidebar-fold-hide px-4 text-xs text-foreground-muted uppercase tracking-wider mb-2">
-                                {% translate "Sphere" %}
-                            </p>
-                            {% translate "Sphere settings" as t_sphere_settings %}
-                            <a href="{% url 'multiverse:panel:sphere-settings' %}"
-                               title="{{ t_sphere_settings }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'sphere-settings' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_sphere_settings }}</span>
-                            </a>
+                        <div class="sidebar-cat {% if current_event %}mt-4 pt-2 border-t border-neutral-800{% endif %}"
+                             data-cat="sphere">
+                            <button type="button"
+                                    title="{{ t_toggle_cat }}"
+                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                <span>{% translate "Sphere" %}</span>
+                                <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
+                            </button>
+                            <div class="sidebar-cat-body flex flex-col gap-0.5">
+                                {% translate "Sphere settings" as t_sphere_settings %}
+                                <a href="{% url 'multiverse:panel:sphere-settings' %}"
+                                   title="{{ t_sphere_settings }}"
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'sphere-settings' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                    {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
+                                    <span class="sidebar-label">{{ t_sphere_settings }}</span>
+                                </a>
+                            </div>
                         </div>
                     {% endblock sidebar_nav %}
                 </nav>

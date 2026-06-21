@@ -814,3 +814,34 @@ class TestEventIntegrationsServiceRequireImplementation:
         env.connections.get.assert_not_called()
         env.transaction.atomic.assert_not_called()
         env.integrations.create.assert_not_called()
+
+
+class TestEventIntegrationsServiceSnapshotAndFetch:
+    def test_fetch_questions_returns_empty_when_implementation_missing(self):
+        env = _make_service(registry={})
+        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
+
+        result = env.svc.fetch_questions(sphere_id=1, event_id=2, pk=3)
+
+        assert result == []
+        # No registered impl: short-circuits before touching the secret.
+        env.connections.read_secret.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
+
+    def test_fetch_responses_returns_empty_when_implementation_missing(self):
+        env = _make_service(registry={})
+        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
+
+        result = env.svc.fetch_responses(sphere_id=1, event_id=2, pk=3)
+
+        assert result == []
+        env.connections.read_secret.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
+
+    def test_get_cached_questions_returns_empty_on_invalid_snapshot_json(self):
+        env = _make_service(registry={})
+        env.integrations.get.return_value = MagicMock(
+            questions_snapshot_json="not valid json"
+        )
+
+        assert env.svc.get_cached_questions(2, 3) == []

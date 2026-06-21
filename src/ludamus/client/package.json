@@ -25,6 +25,7 @@
     "vite": "8.0.16"
   },
   "dependencies": {
-    "@fluejs/noscroll": "1.0.0"
+    "@fluejs/noscroll": "1.0.0",
+    "slugify": "1.6.6"
   }
 }

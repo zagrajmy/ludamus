@@ -94,6 +94,7 @@ def _dto(integration: EventIntegration) -> EventIntegrationDTO:
         connection_display_name=integration.connection.display_name,
         display_name=integration.display_name,
         config_json=integration.config_json,
+        settings_json=integration.settings_json,
     )
 
 

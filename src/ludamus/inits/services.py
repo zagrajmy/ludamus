@@ -13,7 +13,6 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
-    CFPPersonalDataFieldService,
     EventIntegrationsService,
     SessionConfirmationService,
     SessionContentEditService,
@@ -29,8 +28,13 @@ from ludamus.mills.multiverse import (
 )
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
+from ludamus.mills.submissions.import_log import ImportLogService
+from ludamus.mills.submissions.importing import ProposalImportService
+from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.mills.venues import VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.submissions import ImportRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -50,9 +54,9 @@ class Services:
     @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
         return CFPPersonalDataFieldService(
-            self._transaction,
-            self._repos.personal_data_fields,
-            self._repos.proposal_categories,
+            transaction=self._transaction,
+            fields=self._repos.personal_data_fields,
+            categories=self._repos.proposal_categories,
         )
 
     @cached_property
@@ -167,4 +171,45 @@ class Services:
             self._repos.connections,
             FernetDecryptor(key),
             registry,
+        )
+
+    @cached_property
+    def _import_repos(self) -> ImportRepos:
+        return ImportRepos(
+            self._repos.sessions,
+            self._repos.session_fields,
+            self._repos.personal_data_fields,
+            self._repos.host_personal_data,
+            self._repos.time_slots,
+            self._repos.tracks,
+            self._repos.proposal_categories,
+            self._repos.facilitators,
+            self._repos.import_log_entries,
+        )
+
+    @cached_property
+    def proposals_import(self) -> ProposalImportService:
+        # The Chronology integrations service supplies both the saved recipe
+        # (settings_json) and the raw source rows; Submissions interprets them
+        # into proposals.
+        return ProposalImportService(
+            transaction=self._transaction,
+            event_integrations=self.event_integrations,
+            repos=self._import_repos,
+        )
+
+    @cached_property
+    def import_log(self) -> ImportLogService:
+        return ImportLogService(
+            transaction=self._transaction,
+            event_integrations=self.event_integrations,
+            repos=self._import_repos,
+        )
+
+    @cached_property
+    def import_field_layout(self) -> ImportFieldLayoutService:
+        return ImportFieldLayoutService(
+            transaction=self._transaction,
+            event_integrations=self.event_integrations,
+            repos=self._import_repos,
         )

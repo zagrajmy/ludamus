@@ -7,6 +7,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     cfp,
     event_settings,
     facilitators,
+    google_docs_import,
     index,
     integrations,
     personal_data_fields,
@@ -396,5 +397,80 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/<int:pk>/delete/",
         integrations.IntegrationDeletePageView.as_view(),
         name="integration-delete",
+    ),
+    path(
+        "event/<slug:slug>/import/",
+        google_docs_import.EventImportProposalView.as_view(),
+        name="import",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/",
+        google_docs_import.EventImportProposalView.as_view(),
+        name="import-integration",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/review/",
+        google_docs_import.EventImportReviewView.as_view(),
+        name="import-review",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/save-row/",
+        google_docs_import.EventImportRowSaveView.as_view(),
+        name="import-row-save",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/refetch/",
+        google_docs_import.EventImportRefetchView.as_view(),
+        name="import-refetch",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/import-missing-fields/",
+        google_docs_import.EventImportMissingFieldsView.as_view(),
+        name="import-missing-fields",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/apply-field-layout/",
+        google_docs_import.EventImportApplyFieldLayoutView.as_view(),
+        name="import-apply-field-layout",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/json/",
+        google_docs_import.EventImportJsonView.as_view(),
+        name="import-json",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/run/",
+        google_docs_import.EventImportRunPageView.as_view(),
+        name="import-run",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/run/",
+        google_docs_import.EventImportRunActionView.as_view(),
+        name="import-run-do",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/test/",
+        google_docs_import.EventImportTestRowActionView.as_view(),
+        name="import-test-do",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/log/",
+        google_docs_import.EventImportLogPageView.as_view(),
+        name="import-log",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/settings/",
+        google_docs_import.EventImportSettingsSaveView.as_view(),
+        name="import-settings-save",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/retry-entry/",
+        google_docs_import.EventImportLogRetryActionView.as_view(),
+        name="import-log-retry",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/reimport-entry/",
+        google_docs_import.EventImportLogReimportActionView.as_view(),
+        name="import-log-reimport",
     ),
 ]

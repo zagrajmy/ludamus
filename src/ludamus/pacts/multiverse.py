@@ -18,6 +18,10 @@ class DuplicateConnectionDisplayNameError(Exception):
     pass
 
 
+class ConnectionInUseError(Exception):
+    pass
+
+
 class AnnouncementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
