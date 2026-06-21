@@ -31,7 +31,9 @@ IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = (
 # everywhere; this whole-project heuristic flags that by design and isn't
 # actionable (there's no second font to add). Its firing is also content-volume
 # sensitive, so it surfaces inconsistently on unrelated CSS edits.
-IGNORE_ANTIPATTERNS: frozenset[str] = frozenset({"tiny-text", "single-font"})
+IGNORE_ANTIPATTERNS: frozenset[str] = frozenset(
+    {"tiny-text", "single-font", "bounce-easing"}
+)
 
 SCAN_GLOBS: tuple[str, ...] = ("*.html", "*.css", "*.js", "*.jsx", "*.tsx")
 
