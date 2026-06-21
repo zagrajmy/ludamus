@@ -94,6 +94,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
 class FacilitatorListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     pk: int
     session_count: int

@@ -61,20 +61,16 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
                 current_event.pk
             )
         }
-        rows = []
-        for facilitator in facilitators:
-            accreditation = self.request.di.uow.facilitators.read(
-                facilitator.pk
-            ).accreditation_type
-            rows.append(
-                {
-                    "facilitator": facilitator,
-                    "accreditation_type_display": (
-                        AccreditationType(accreditation).label
-                    ),
-                    "discount": discounts_by_facilitator.get(facilitator.pk),
-                }
-            )
+        rows = [
+            {
+                "facilitator": facilitator,
+                "accreditation_type_display": (
+                    AccreditationType(facilitator.accreditation_type).label
+                ),
+                "discount": discounts_by_facilitator.get(facilitator.pk),
+            }
+            for facilitator in facilitators
+        ]
 
         context["active_nav"] = "discounts"
         context["rows"] = rows

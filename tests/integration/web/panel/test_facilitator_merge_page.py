@@ -115,6 +115,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=f1.pk,
                         slug="alice",
@@ -122,6 +123,7 @@ class TestFacilitatorMergePageView:
                         session_count=0,
                     ),
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Bob",
                         pk=f2.pk,
                         slug="bob",
@@ -206,6 +208,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=f1.pk,
                         slug="alice",
@@ -213,6 +216,7 @@ class TestFacilitatorMergePageView:
                         session_count=0,
                     ),
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Bob",
                         pk=f2.pk,
                         slug="bob",
@@ -248,6 +252,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=facilitator.pk,
                         slug="alice",
