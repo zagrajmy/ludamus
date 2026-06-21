@@ -292,14 +292,16 @@ def locate_row(
     return None
 
 
-def slugify(value: str) -> str:
+def slugify(value: str, *, max_length: int = 50) -> str:
     # ASCII slug mirroring the live TS preview (simov/slugify with locale="pl").
     # Unidecode transliterates the full Unicode range (Polish ł/Ł, German ß,
     # CJK, etc.) rather than relying on NFKD decomposition, which silently
-    # drops non-decomposable characters like ł.
+    # drops non-decomposable characters like ł. Capped at max_length to fit the
+    # SlugField column (default 50); strip again so truncation never leaves a
+    # trailing dash.
     transliterated = unidecode(value).lower()
     slug = re.sub(r"[^\w\s-]", "", transliterated)
-    return re.sub(r"[-\s]+", "-", slug).strip("-")
+    return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
 
 
 class SlugCollisionError(Exception):
@@ -316,11 +318,14 @@ def generate_unique_slug(
     *,
     fallback: str = "",
     max_attempts: int = 8,
+    max_length: int = 50,
 ) -> str:
-    base_slug = slugify(title) or fallback
+    base_slug = slugify(title, max_length=max_length) or fallback
     slug = base_slug
     for _ in range(max_attempts):
         if not exists(slug):
             return slug
-        slug = f"{base_slug}-{token_urlsafe(3)}"
+        suffix = token_urlsafe(3)
+        trimmed = base_slug[: max_length - len(suffix) - 1].rstrip("-")
+        slug = f"{trimmed}-{suffix}"
     raise SlugCollisionError(base_slug)

@@ -29,6 +29,7 @@ from ludamus.mills.submissions.mapping import (
     generate_unique_slug,
     locate_row,
     resolve_builtins,
+    slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.pacts import (
@@ -2636,3 +2637,22 @@ class TestGenerateUniqueSlug:
     def test_raises_when_retry_budget_exhausted(self):
         with pytest.raises(SlugCollisionError):
             generate_unique_slug("My Talk", lambda _s: True, max_attempts=3)
+
+    def test_keeps_slug_within_max_length_with_suffix(self):
+        taken = {slugify("x" * 80)}
+
+        slug = generate_unique_slug("x" * 80, lambda s: s in taken)
+
+        assert len(slug) <= TestSlugify.MAX_SLUG_LENGTH
+        assert slug not in taken
+
+
+class TestSlugify:
+    MAX_SLUG_LENGTH = 50
+
+    def test_truncates_to_max_length(self):
+        assert len(slugify("a" * 60)) == self.MAX_SLUG_LENGTH
+
+    def test_truncation_drops_trailing_dash(self):
+        # 49 chars then a space+word so the cut lands on a separator
+        assert not slugify(f"{'a' * 49} bb").endswith("-")
