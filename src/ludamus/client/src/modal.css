@@ -105,27 +105,17 @@
   mix-blend-mode: normal;
 }
 
-/* Title, host and description change size, length and position between card and
-   modal, so their outgoing (card) snapshot lingers over the incoming (modal) one
-   as a duplicate. Each is its own named group, lifted out of the box snapshot, so
-   just hide the outgoing snapshot and let the incoming text ride the group into
-   place — a single element moving/resizing, no ghost. */
-::view-transition-old(morph-title),
-::view-transition-old(morph-host),
-::view-transition-old(morph-desc) {
-  animation: none;
-  opacity: 0;
+/* Bias the surface content cross-fade toward the incoming element so the larger,
+   text-heavy side reads quickly and the smaller one doesn't linger. (The matched
+   title/host/avatar are their own groups above and morph in lockstep with it.) */
+::view-transition-old(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.55);
+  animation-timing-function: var(--vt-morph-ease);
 }
 
-/* Don't cross-fade the surface: both snapshots stay opaque, so the incoming one
-   (always painted on top) fully occludes the outgoing one — the modal covers the
-   card on open, the card covers the modal on close. This kills the duplicate
-   that came from the half-faded surface letting the other state show through.
-   The group morph carries the box between the card and modal footprints; the
-   named title/host/avatar/desc ride their own groups on top. */
-::view-transition-old(session-morph),
 ::view-transition-new(session-morph) {
-  animation: none;
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
 }
 
 /* --- Non-session modal blur close --------------------------------------- */
