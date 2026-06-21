@@ -218,6 +218,13 @@
                                         {% icon "user-group" class="size-4.5 mr-2" %}
                                         <span class="sidebar-label">{{ t_facilitators }}</span>
                                     </a>
+                                    {% translate "Discounts" as t_discounts %}
+                                    <a href="{% url 'panel:discounts' slug=current_event.slug %}"
+                                       title="{{ t_discounts }}"
+                                       class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'discounts' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                        {% icon "ticket" class="size-4.5 mr-2" %}
+                                        <span class="sidebar-label">{{ t_discounts }}</span>
+                                    </a>
                                     {% translate "Google Docs Import" as t_google_docs_import %}
                                     <a href="{% url 'panel:import' slug=current_event.slug %}"
                                        title="{{ t_google_docs_import }}"

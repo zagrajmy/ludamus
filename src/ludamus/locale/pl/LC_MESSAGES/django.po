@@ -6748,3 +6748,76 @@ msgstr "Kopiuj"
 #: src/ludamus/templates/panel/venues.html
 msgid "No venues yet. Venues will be managed here once available."
 msgstr "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
+
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Discounts"
+msgstr "Zniżki"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Discount"
+msgstr "Zniżka"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Creator discounts"
+msgstr "Zniżki twórców programu"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Creator"
+msgstr "Twórca programu"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "No creators yet."
+msgstr "Brak twórców programu."
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Are you sure you want to remove this discount?"
+msgstr "Czy na pewno chcesz usunąć tę zniżkę?"
+
+#: src/ludamus/templates/panel/discounts/create.html
+msgid "Assign discount"
+msgstr "Przyznaj zniżkę"
+
+#: src/ludamus/templates/panel/discounts/edit.html
+msgid "Edit discount"
+msgstr "Edytuj zniżkę"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Percent"
+msgstr "Procent"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Amount"
+msgstr "Kwota"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Value"
+msgstr "Wartość"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Note"
+msgstr "Notatka"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Value is required."
+msgstr "Wartość jest wymagana."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Value must be greater than zero."
+msgstr "Wartość musi być większa niż zero."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+msgid "Discount not found."
+msgstr "Nie znaleziono zniżki."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+msgid "Discount assigned successfully."
+msgstr "Zniżka została przyznana."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+msgid "Discount updated successfully."
+msgstr "Zniżka została zaktualizowana."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+msgid "Discount removed successfully."
+msgstr "Zniżka została usunięta."

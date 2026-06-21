@@ -102,6 +102,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=response.context["facilitators"][0].pk,
                         slug="alice",
