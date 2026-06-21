@@ -99,6 +99,9 @@ jobs:
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
           envs: GITHUB_COMMIT_SHA
+          # Default is 10m; a cold pull + rebuild of the images exceeds it and
+          # drone-ssh kills the command mid-build ("Run Command Timeout").
+          command_timeout: 13m
           script: |
             set -ex
             cd ludamus/
