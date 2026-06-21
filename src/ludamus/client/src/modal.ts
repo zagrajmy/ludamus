@@ -39,16 +39,39 @@ let touchHandlerInitialized = false;
 //      position is restored on unlock.
 let pageLocked = false;
 let pinnedScrollY = 0;
+let bodyPinned = false;
+
+// The `position: fixed` body pin (above) is only needed where `overflow: hidden`
+// on a scrolled <body> fails to lock the page and misaligns a top-layer dialog's
+// hit region — i.e. iOS / Safari. Everywhere else `disablePageScroll` alone
+// locks cleanly, and pinning the body would only shift layout (and, during a
+// View Transition, jitter). Restrict the pin like Vaul does.
+const needsBodyPin = (): boolean => {
+  const ua = navigator.userAgent;
+  const iOS =
+    /iP(hone|ad|od)/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const safari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+  return iOS || safari;
+};
+
+// While a morph View Transition is in flight, lock/unlock must not run between
+// the two snapshots (it would animate the scroll-offset change). The morph paths
+// lock before / unlock after the transition and suspend this helper in between.
+let scrollLockSuspended = false;
 
 const lockPage = (): void => {
   if (pageLocked) return;
   pinnedScrollY = window.scrollY;
-  const { style } = document.body;
-  style.position = "fixed";
-  style.top = `-${pinnedScrollY}px`;
-  style.left = "0";
-  style.right = "0";
-  style.width = "100%";
+  if (needsBodyPin()) {
+    const { style } = document.body;
+    style.position = "fixed";
+    style.top = `-${pinnedScrollY}px`;
+    style.left = "0";
+    style.right = "0";
+    style.width = "100%";
+    bodyPinned = true;
+  }
   disablePageScroll();
   pageLocked = true;
 };
@@ -56,14 +79,18 @@ const lockPage = (): void => {
 const unlockPage = (): void => {
   if (!pageLocked) return;
   enablePageScroll();
+  pageLocked = false;
+  if (!bodyPinned) return;
   const { style } = document.body;
   style.position = "";
   style.top = "";
   style.left = "";
   style.right = "";
   style.width = "";
-  pageLocked = false;
-  window.scrollTo(0, pinnedScrollY);
+  bodyPinned = false;
+  // Restore styles first, then scroll on the next frame (Vaul pattern) so the
+  // un-pin doesn't flash.
+  requestAnimationFrame(() => window.scrollTo(0, pinnedScrollY));
 };
 
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
@@ -78,6 +105,7 @@ const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
 };
 
 const syncPageScrollLock = (): void => {
+  if (scrollLockSuspended) return;
   const openDialogs = [
     ...document.querySelectorAll<HTMLDialogElement>("dialog.modal[open]"),
   ];
@@ -245,18 +273,26 @@ const openModal = (
   if (!dialog.open) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
-      // Old snapshot captures the card's shared elements; the callback hands the
-      // names to the now-open modal so the new snapshot morphs card -> modal.
+      // Lock scroll BEFORE the transition so the body mutation lands in the old
+      // snapshot, not the animated delta; suspend the sync helper so nothing
+      // re-locks between the two captures. Old snapshot captures the card's
+      // shared elements; the callback hands the names to the now-open modal so
+      // the new snapshot morphs card -> modal.
+      lockPage();
+      scrollLockSuspended = true;
       setMorph(card, true);
       const transition = startViewTransition(() => {
         setMorph(card, false);
         dialog.showModal();
         setMorph(dialog, true);
-        syncPageScrollLock();
       });
-      void transition?.finished.finally(() => {
+      const settle = (): void => {
         setMorph(dialog, false);
-      });
+        scrollLockSuspended = false;
+        syncPageScrollLock();
+      };
+      if (transition) void transition.finished.finally(settle);
+      else settle();
     } else {
       dialog.showModal();
       syncPageScrollLock();
@@ -283,18 +319,24 @@ const closeModal = (
   if (dialog.open) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
-      // Mirror of open: old snapshot holds the modal, the callback hands the
-      // names back to the card so the modal collapses into it.
+      // Suspend BEFORE closing so the synchronous `close` event (and its scroll
+      // unlock) can't fire between the two snapshots and jitter the morph. The
+      // unlock runs only after `finished`. Old snapshot holds the modal; the
+      // callback hands the names back to the card so it collapses into the card.
+      scrollLockSuspended = true;
       setMorph(dialog, true);
       const transition = startViewTransition(() => {
         dialog.close();
         setMorph(dialog, false);
         setMorph(card, true);
-        syncPageScrollLock();
       });
-      void transition?.finished.finally(() => {
+      const settle = (): void => {
         setMorph(card, false);
-      });
+        scrollLockSuspended = false;
+        syncPageScrollLock();
+      };
+      if (transition) void transition.finished.finally(settle);
+      else settle();
     } else {
       dismissDialog(dialog);
       syncPageScrollLock();
