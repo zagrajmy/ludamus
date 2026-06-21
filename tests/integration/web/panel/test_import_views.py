@@ -1519,9 +1519,12 @@ class TestEventImportRunActionView:
         assert titles == {"My Talk", "Another"}
 
     @pytest.mark.postgres  # SQLite doesn't enforce varchar length
-    def test_post_records_a_db_constraint_failure_as_a_skipped_row(
+    def test_post_rolls_back_the_whole_row_on_a_db_constraint_failure(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
+        # A row provisions a facilitator and a track before the session insert
+        # fails on an over-long title. The per-row savepoint must roll the whole
+        # row back: no session, AND no orphaned facilitator or track.
         sphere.managers.add(active_user)
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
@@ -1531,18 +1534,23 @@ class TestEventImportRunActionView:
                 "questions": {
                     "Title": {"to": "session.title", "ignore": False},
                     "Nick": {"to": "facilitator.display_name", "ignore": False},
+                    "Block": {
+                        "to": "track",
+                        "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                        "ignore": False,
+                    },
                 }
             }
         )
         integration.save(update_fields=["settings_json"])
-        too_long = "x" * 300  # Facilitator.display_name is CharField(max_length=255)
+        too_long = "x" * 300  # Session.title is CharField(max_length=255)
 
         with (
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get(
-                [["Title", "Nick"], ["My Talk", too_long]]
+                [["Title", "Nick", "Block"], [too_long, "GM Bob", "RPG"]]
             )
             response = authenticated_client.post(_run_url(event, integration))
 
@@ -1559,6 +1567,8 @@ class TestEventImportRunActionView:
             ],
         )
         assert not Session.objects.filter(sphere=sphere).exists()
+        assert not Facilitator.objects.filter(event=event).exists()
+        assert not Track.objects.filter(event=event).exists()
         entry = ImportLogEntry.objects.get(integration=integration)
         assert entry.status == ImportLogStatus.SKIPPED
         assert entry.reason
