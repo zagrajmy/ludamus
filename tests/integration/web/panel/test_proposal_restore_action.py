@@ -139,7 +139,18 @@ class TestProposalRestoreActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_deleted_session(event, sphere, title="Lost Adventure")
+        pending = _make_deleted_session(event, sphere, title="Lost Adventure")
+        rejected = Session.objects.create(
+            category=pending.category,
+            presenter=None,
+            display_name="Test Host",
+            title="Cancelled Quest",
+            slug="cancelled-quest",
+            sphere=sphere,
+            participants_limit=5,
+            status="rejected",
+        )
+        rejected.soft_delete()
 
         response = authenticated_client.get(
             reverse("panel:proposals", kwargs={"slug": event.slug})
@@ -147,4 +158,7 @@ class TestProposalRestoreActionView:
 
         content = response.content.decode()
         assert "Recently deleted" in content
-        assert session.title in content
+        assert pending.title in content
+        assert rejected.title in content
+        assert "Pending" in content
+        assert "Rejected" in content
