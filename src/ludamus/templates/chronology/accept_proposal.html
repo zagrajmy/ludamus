@@ -76,7 +76,7 @@
             </div>
             <div class="card-body">
                 <form method="post"
-                      action="{% url 'web:chronology:session-accept' session_id=session.pk %}">
+                      action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}">
                     {% csrf_token %}
                     {% tessera_field form.space %}
                     <div class="mb-6">

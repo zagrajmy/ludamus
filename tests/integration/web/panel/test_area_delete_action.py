@@ -149,7 +149,6 @@ class TestAreaDeleteActionView:
             event=event,
             title="Test Session",
             slug="test-session",
-            sphere=sphere,
             display_name="Test Host",
             participants_limit=10,
         )

@@ -58,7 +58,7 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_tag_categories(MISSING_ID)
 
-    def test_read_tag_categories_returns_empty_when_no_category(self, sphere, event):
+    def test_read_tag_categories_returns_empty_when_no_category(self, event):
         session = Session.objects.create(
             event=event,
             category=None,
@@ -66,7 +66,6 @@ class TestSessionRepositoryNotFound:
             display_name="Host",
             title="No Category Session",
             slug="no-cat",
-            sphere=sphere,
             status="pending",
             participants_limit=0,
             min_age=0,

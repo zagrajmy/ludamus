@@ -33,11 +33,13 @@ def _has_option(content: str, value: int, label: str) -> bool:
 class TestProposalAcceptPageView:
     URL_NAME = "web:chronology:session-accept"
 
-    def _get_url(self, session_id: int) -> str:
-        return reverse(self.URL_NAME, kwargs={"session_id": session_id})
+    def _get_url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
 
-    def test_get_error_proposal_not_found(self, staff_client):
-        response = staff_client.get(self._get_url(17))
+    def test_get_error_proposal_not_found(self, staff_client, event):
+        response = staff_client.get(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -49,7 +51,9 @@ class TestProposalAcceptPageView:
     def test_get_error_session_exists(self, event, pending_session, staff_client):
         pending_session.status = "scheduled"
         pending_session.save()
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -59,7 +63,9 @@ class TestProposalAcceptPageView:
         )
 
     def test_get_ok(self, event, pending_session, space, staff_client, time_slot):
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -81,7 +87,9 @@ class TestProposalAcceptPageView:
     ):
         pending_session.time_slots.add(time_slot)
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -111,7 +119,9 @@ class TestProposalAcceptPageView:
             end_time=time_slot.end_time + timedelta(hours=2),
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -143,7 +153,9 @@ class TestProposalAcceptPageView:
             area=area, name="Second Room", slug="second-room"
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -154,7 +166,9 @@ class TestProposalAcceptPageView:
         assert _has_option(content, second_space.id, "Second Room")
 
     def test_get_error_no_space(self, event, pending_session, staff_client):
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -170,7 +184,9 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_error_no_time_slot(self, event, pending_session, staff_client):
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -188,7 +204,9 @@ class TestProposalAcceptPageView:
         )
 
     def test_get_wrong_permissions(self, event, pending_session, authenticated_client):
-        response = authenticated_client.get(self._get_url(pending_session.id))
+        response = authenticated_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -202,8 +220,8 @@ class TestProposalAcceptPageView:
             url=f"/chronology/event/{event.slug}/",
         )
 
-    def test_post_error_proposal_not_found(self, staff_client):
-        response = staff_client.post(self._get_url(17))
+    def test_post_error_proposal_not_found(self, staff_client, event):
+        response = staff_client.post(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -215,7 +233,9 @@ class TestProposalAcceptPageView:
     def test_post_error_session_exists(self, event, pending_session, staff_client):
         pending_session.status = "scheduled"
         pending_session.save()
-        response = staff_client.post(self._get_url(pending_session.id))
+        response = staff_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -225,7 +245,9 @@ class TestProposalAcceptPageView:
         )
 
     def test_post_invalid_form(self, event, pending_session, staff_client, time_slot):
-        response = staff_client.post(self._get_url(pending_session.id))
+        response = staff_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -246,7 +268,7 @@ class TestProposalAcceptPageView:
         self, active_user, event, pending_session, space, staff_client, time_slot
     ):
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
@@ -277,7 +299,7 @@ class TestProposalAcceptPageView:
         self, event, pending_session, space, authenticated_client, time_slot
     ):
         response = authenticated_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
@@ -297,7 +319,7 @@ class TestProposalAcceptPageView:
         self, event, pending_session, space, staff_client, time_slot
     ):
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": 99999, "time_slot": time_slot.id},
         )
 
@@ -322,7 +344,6 @@ class TestProposalAcceptPageView:
         other_session = Session.objects.create(
             event=event,
             title="Other Session",
-            sphere=event.sphere,
             slug="other-session",
             display_name=staff_user.name,
             participants_limit=10,
@@ -335,7 +356,7 @@ class TestProposalAcceptPageView:
         )
 
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
@@ -372,7 +393,9 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value=["RPG"]
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -417,7 +440,9 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value="D&D 5e"
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -462,7 +487,9 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value=True
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,

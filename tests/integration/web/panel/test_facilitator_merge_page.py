@@ -164,7 +164,6 @@ class TestFacilitatorMergePageView:
             display_name="Alice Duplicate",
             title="A Session",
             slug="a-session",
-            sphere=sphere,
             participants_limit=0,
             status="pending",
         )

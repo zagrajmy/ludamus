@@ -41,24 +41,29 @@ def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
 class TestSessionEnrollmentAnonymousPageView:
     URL = "web:chronology:session-enrollment-anonymous"
 
-    def get_url(self, session_id: int) -> str:
-        return reverse(self.URL, kwargs={"session_id": session_id})
+    def get_url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
 
     @pytest.mark.parametrize("method", ("get", "post"))
     def test_authenticated_user(self, authenticated_client, method, session):
-        response = getattr(authenticated_client, method)(self.get_url(session.id))
+        response = getattr(authenticated_client, method)(
+            self.get_url(session.id, session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=reverse(
-                "web:chronology:session-enrollment", kwargs={"session_id": session.id}
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": session.event.slug, "session_id": session.id},
             ),
         )
 
     @pytest.mark.parametrize("method", ("get", "post"))
     def test_get_not_active(self, client, method, session):
-        response = getattr(client, method)(self.get_url(session.id))
+        response = getattr(client, method)(self.get_url(session.id, session.event.slug))
 
         assert_response(
             response,
@@ -71,10 +76,12 @@ class TestSessionEnrollmentAnonymousPageView:
     def test_get_different_site(self, agenda_item, client, method):
         session = client.session
         session["anonymous_enrollment_active"] = True
-        session["anonymous_site_id"] = agenda_item.session.sphere.site_id + 1000
+        session["anonymous_site_id"] = agenda_item.session.event.sphere.site_id + 1000
         session.save()
 
-        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -89,13 +96,13 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
     @pytest.mark.parametrize("method", ("get", "post"))
-    def test_get_session_doesnt_exist(self, client, method, sphere):
+    def test_get_session_doesnt_exist(self, client, method, sphere, event):
         session = client.session
         session["anonymous_enrollment_active"] = True
         session["anonymous_site_id"] = sphere.site.id
         session.save()
 
-        response = getattr(client, method)(self.get_url(789))
+        response = getattr(client, method)(self.get_url(789, event.slug))
 
         assert_response(
             response,
@@ -115,7 +122,9 @@ class TestSessionEnrollmentAnonymousPageView:
         session["anonymous_event_id"] = enrollment_config.event.id
         session.save()
 
-        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -136,7 +145,9 @@ class TestSessionEnrollmentAnonymousPageView:
         session["anonymous_user_code"] = "789"
         session.save()
 
-        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -157,7 +168,9 @@ class TestSessionEnrollmentAnonymousPageView:
             user_code=_anonymous_user_code(user),
         )
 
-        response = client.get(self.get_url(agenda_item.session.id))
+        response = client.get(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -186,7 +199,9 @@ class TestSessionEnrollmentAnonymousPageView:
             user_code=_anonymous_user_code(user),
         )
 
-        response = client.get(self.get_url(agenda_item.session.id))
+        response = client.get(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -215,7 +230,10 @@ class TestSessionEnrollmentAnonymousPageView:
             user_code=_anonymous_user_code(user),
         )
 
-        response = client.post(self.get_url(agenda_item.session.id), data={})
+        response = client.post(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={},
+        )
 
         assert_response(
             response,
@@ -223,7 +241,10 @@ class TestSessionEnrollmentAnonymousPageView:
             messages=[(messages.ERROR, "Name is required.")],
             url=reverse(
                 "web:chronology:session-enrollment-anonymous",
-                kwargs={"session_id": agenda_item.session.id},
+                kwargs={
+                    "event_slug": agenda_item.session.event.slug,
+                    "session_id": agenda_item.session.id,
+                },
             ),
         )
 
@@ -244,7 +265,8 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(agenda_item.session.id), data={"name": name}
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={"name": name},
         )
 
         assert_response(
@@ -286,7 +308,7 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(agenda_item.session.id),
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
             data={"name": name, "action": "cancel"},
         )
 
@@ -330,7 +352,8 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
         response = client.post(
-            self.get_url(session.id), data={"name": "confirmed", "action": "cancel"}
+            self.get_url(session.id, session.event.slug),
+            data={"name": "confirmed", "action": "cancel"},
         )
 
         # The promotee is notified directly now; the canceller only sees their
@@ -387,7 +410,7 @@ class TestSessionEnrollmentAnonymousPageView:
             )
             contenders.append((client, user, f"contender{index}"))
 
-        url = self.get_url(session.pk)
+        url = self.get_url(session.pk, session.event.slug)
         barrier = threading.Barrier(len(contenders))
 
         def enroll(client, name):
@@ -431,7 +454,7 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(agenda_item.session.id),
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
             data={"name": name, "action": "cancel"},
         )
 
@@ -473,7 +496,8 @@ class TestSessionEnrollmentAnonymousPageView:
         )
 
         response = client.post(
-            self.get_url(session.id), data={"name": "johny", "action": "cancel"}
+            self.get_url(session.id, session.event.slug),
+            data={"name": "johny", "action": "cancel"},
         )
 
         assert_response(
@@ -523,7 +547,8 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(session.id), data={"name": name, "action": "cancel"}
+            self.get_url(session.id, session.event.slug),
+            data={"name": name, "action": "cancel"},
         )
 
         assert_response(
@@ -561,7 +586,7 @@ class TestSessionEnrollmentAnonymousPageView:
             event=enrollment_config.event,
             user_code=_anonymous_user_code(user),
         )
-        session2 = SessionFactory(event=agenda_item.session.event, sphere=sphere)
+        session2 = SessionFactory(event=agenda_item.session.event)
         AgendaItemFactory(
             session=session2,
             start_time=agenda_item.start_time,
@@ -574,7 +599,8 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(agenda_item.session.id), data={"name": name}
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={"name": name},
         )
 
         assert_response(
@@ -591,7 +617,10 @@ class TestSessionEnrollmentAnonymousPageView:
             ],
             url=reverse(
                 "web:chronology:session-enrollment-anonymous",
-                kwargs={"session_id": agenda_item.session.id},
+                kwargs={
+                    "event_slug": agenda_item.session.event.slug,
+                    "session_id": agenda_item.session.id,
+                },
             ),
         )
         user = User.objects.get(id=user.id)
@@ -621,7 +650,8 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(agenda_item.session.id), data={"name": name}
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={"name": name},
         )
 
         assert_response(
@@ -666,7 +696,8 @@ class TestSessionEnrollmentAnonymousPageView:
         name = "johny"
 
         response = client.post(
-            self.get_url(agenda_item.session.id), data={"name": name}
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={"name": name},
         )
 
         assert_response(
@@ -711,7 +742,9 @@ class TestSessionEnrollmentAnonymousPageView:
             user_code=_anonymous_user_code(user),
         )
 
-        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -748,7 +781,9 @@ class TestSessionEnrollmentAnonymousPageView:
             user_code=_anonymous_user_code(user),
         )
 
-        response = getattr(client, method)(self.get_url(pending_session.id))
+        response = getattr(client, method)(
+            self.get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -782,7 +817,9 @@ class TestSessionEnrollmentAnonymousPageView:
             user_code=_anonymous_user_code(user),
         )
 
-        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -813,7 +850,9 @@ class TestSessionEnrollmentAnonymousPageView:
         django_session["anonymous_user_code"] = _anonymous_user_code(user)
         django_session.save()
 
-        response = getattr(client, method)(self.get_url(pending_session.id))
+        response = getattr(client, method)(
+            self.get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -838,7 +877,9 @@ class TestSessionEnrollmentAnonymousPageView:
         django_session["anonymous_user_code"] = _anonymous_user_code(user)
         django_session.save()
 
-        response = getattr(client, method)(self.get_url(agenda_item.session.id))
+        response = getattr(client, method)(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,

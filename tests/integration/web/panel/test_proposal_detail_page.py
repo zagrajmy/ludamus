@@ -76,7 +76,6 @@ class TestProposalDetailPageView:
             display_name=active_user.name,
             title="Other Event Session",
             slug="other-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -103,7 +102,6 @@ class TestProposalDetailPageView:
             display_name="Anonymous Host",
             title="Session Without Presenter",
             slug="no-presenter",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -145,7 +143,6 @@ class TestProposalDetailPageView:
             display_name=active_user.name,
             title="Session With Cover",
             slug="with-cover",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
             cover_image=SimpleUploadedFile(
@@ -175,7 +172,6 @@ class TestProposalDetailPageView:
             display_name="Host",
             title="Session With Email",
             slug="session-with-email",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
             contact_email="anna@example.com",
@@ -224,7 +220,6 @@ class TestProposalDetailPageView:
             display_name="Host",
             title="Session With Slots",
             slug="session-with-slots",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -268,7 +263,6 @@ class TestProposalDetailPageView:
             display_name="Anonymous",
             title="Imported session",
             slug="imported",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -344,7 +338,6 @@ class TestProposalDetailPageView:
         )
         session = Session.objects.create(
             event=event,
-            sphere=sphere,
             title="Focused",
             slug="focused",
             status="pending",

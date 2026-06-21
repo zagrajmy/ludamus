@@ -108,6 +108,30 @@ Ships on its own; no UX change, fully reversible. Removes the deep chain from
   migration — the backfill stays prod-faithful).
 - Verify: `mise run check && mise run test`. **Done — 2343 passed, lint clean.**
 
+### Step 1b — drop `Session.sphere` (event subsumes it)
+
+`Session.event` makes `Session.sphere` redundant (`event.sphere` derives it),
+so the FK is removed. Migration `0096`: drop `sphere`, swap the unique constraint
+`(slug, sphere)` → `(slug, event)`. Session slug uniqueness thus moves from
+per-sphere to **per-event** — a relaxation (per-sphere was stricter), so no
+existing rows conflict. `slug_exists`/`find_id_by_slug` take `event_id`;
+`SessionData` drops `sphere_id`; the import engine drops `sphere_id` threading
+(kept only where it still feeds `fetch_responses`); `SessionAdmin` `sphere` →
+`event`.
+
+Principle enforced (per review): **sessions are fetched in event scope or user
+scope, never sphere scope.** Consequence — the enroll/accept/anonymous URLs,
+which were `session/<id>/...` (sphere-guarded only because that was the sole
+available scope), move under `event/<event_slug>/session/<id>/...` and fetch
+`Session.objects.get(event__slug=event_slug, ..., id=session_id)`. Waitlist
+notifications already carry `event_slug` on their DTOs, so their links use it
+directly — no DTO change.
+
+- Verify: `mise run check && mise run test`. **Done — 2343 passed, lint clean.**
+- Follow-up (out of scope, not run by pytest): the Playwright e2e
+  `promotion.auth.spec.ts` + `bootstrap_*.py` seeds still use the old
+  `session/<id>/enrollment/` path and need updating.
+
 ---
 
 ## Deployment 2 — Space gains tree shape; queries leave the deep chain

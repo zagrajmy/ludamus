@@ -126,7 +126,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Rejected One",
             slug="rejected-one",
-            sphere=sphere,
             participants_limit=5,
             status="rejected",
         )
@@ -137,7 +136,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Scheduled One",
             slug="scheduled-one",
-            sphere=sphere,
             participants_limit=5,
             status="scheduled",
         )
@@ -161,7 +159,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="My Session",
             slug="my-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -212,7 +209,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Session A",
             slug="session-a",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -223,7 +219,6 @@ class TestProposalsPageView:
             display_name="Mysterious Stranger",
             title="Session B",
             slug="session-b",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -277,7 +272,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Session A",
             slug="session-a",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -288,7 +282,6 @@ class TestProposalsPageView:
             display_name="Other Person",
             title="Session B",
             slug="session-b",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -346,7 +339,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="D&D Adventure",
             slug="dnd-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -358,7 +350,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Fate Adventure",
             slug="fate-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -430,7 +421,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Mroczna sesja",
             slug="mroczna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -444,7 +434,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Inna sesja",
             slug="inna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -514,7 +503,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="D&D Adventure",
             slug="dnd-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -526,7 +514,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Fate Adventure",
             slug="fate-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -587,7 +574,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Mroczna sesja",
             slug="mroczna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -601,7 +587,6 @@ class TestProposalsPageView:
             display_name=active_user.name,
             title="Inna sesja",
             slug="inna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -825,7 +810,6 @@ class TestProposalDetailPageView:
             title="My Great Session",
             description="A wonderful adventure",
             slug="my-great-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -870,7 +854,6 @@ class TestProposalDetailPageView:
             display_name=active_user.name,
             title="My Session",
             slug="my-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -930,7 +913,6 @@ class TestProposalDetailPageView:
             display_name=active_user.name,
             title="My Session",
             slug="my-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )

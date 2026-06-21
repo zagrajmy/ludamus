@@ -340,11 +340,10 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
         title = form.cleaned_data["title"]
-        sphere_id = self.request.context.current_sphere_id
         session_slug = make_unique_slug(
             title,
             "session",
-            lambda s: self.request.di.uow.sessions.slug_exists(sphere_id, s),
+            lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
         )
 
         self.request.di.uow.sessions.create(
@@ -361,7 +360,6 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 presenter_id=None,
                 requirements=form.cleaned_data.get("requirements") or "",
                 slug=session_slug,
-                sphere_id=sphere_id,
                 status=SessionStatus.PENDING,
                 title=title,
             ),

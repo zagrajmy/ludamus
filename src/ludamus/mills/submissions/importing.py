@@ -35,7 +35,6 @@ class ProposalImportService:
         indexed = list(enumerate(rows))
         with self._transaction.atomic():
             return self._engine.import_rows(
-                sphere_id=sphere_id,
                 event_id=event_id,
                 integration_pk=integration_pk,
                 settings=settings,
@@ -56,7 +55,6 @@ class ProposalImportService:
         idx = choice(range(len(rows)))
         with self._transaction.atomic():
             return self._engine.import_rows(
-                sphere_id=sphere_id,
                 event_id=event_id,
                 integration_pk=integration_pk,
                 settings=settings,

@@ -40,7 +40,7 @@ PNG_BYTES = (
 )
 
 
-def _make_session(event, sphere, **kwargs):
+def _make_session(event, **kwargs):
     category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
     defaults = {
         "event": event,
@@ -49,7 +49,6 @@ def _make_session(event, sphere, **kwargs):
         "display_name": "Test Host",
         "title": "Test Session",
         "slug": "test-session",
-        "sphere": sphere,
         "participants_limit": 5,
         "status": "pending",
         "description": "A description",
@@ -91,8 +90,8 @@ class TestProposalEditPageView:
 
     # GET tests
 
-    def test_get_redirects_anonymous_user_to_login(self, client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_get_redirects_anonymous_user_to_login(self, client, event):
+        session = _make_session(event)
         url = self.get_url(event, session.pk)
 
         response = client.get(url)
@@ -101,8 +100,8 @@ class TestProposalEditPageView:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
-    def test_get_redirects_non_manager_user(self, authenticated_client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_get_redirects_non_manager_user(self, authenticated_client, event):
+        session = _make_session(event)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
@@ -149,7 +148,7 @@ class TestProposalEditPageView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event, sphere)
+        session = _make_session(other_event)
         url = self.get_url(event, session.pk)
 
         response = authenticated_client.get(url)
@@ -165,7 +164,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
@@ -193,8 +192,8 @@ class TestProposalEditPageView:
 
     # POST tests
 
-    def test_post_redirects_anonymous_user_to_login(self, client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_anonymous_user_to_login(self, client, event):
+        session = _make_session(event)
         url = self.get_url(event, session.pk)
 
         response = client.post(url, data={"title": "New Title", "display_name": "Host"})
@@ -203,8 +202,8 @@ class TestProposalEditPageView:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
-    def test_post_redirects_non_manager_user(self, authenticated_client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_non_manager_user(self, authenticated_client, event):
+        session = _make_session(event)
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
@@ -254,7 +253,7 @@ class TestProposalEditPageView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event, sphere)
+        session = _make_session(other_event)
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
@@ -272,7 +271,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         new_limit = 10
         new_min_age = 18
@@ -313,7 +312,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event, waiter
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere, participants_limit=1)
+        session = _make_session(event, participants_limit=1)
         space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
         AgendaItemFactory(session=session, space=space)
         filler = UserFactory(username="filler", email="filler@example.com")
@@ -361,7 +360,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
 
         response = authenticated_client.post(
@@ -390,7 +389,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
         )
@@ -424,7 +423,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
@@ -447,7 +446,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         response = authenticated_client.post(
             self.get_url(event, session.pk), data={"title": "", "display_name": ""}
@@ -480,7 +479,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
             name="18+",
@@ -509,7 +508,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
             name="Genres",
@@ -539,7 +538,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
             name="System",
@@ -570,7 +569,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         genres = SessionField.objects.create(
             event=event,
@@ -649,7 +648,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
             name="System",
@@ -681,7 +680,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         assigned = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
@@ -705,7 +704,7 @@ class TestProposalEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         assigned = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None

@@ -75,7 +75,6 @@ class ImportEngine:
     def import_rows(
         self,
         *,
-        sphere_id: int,
         event_id: int,
         integration_pk: int,
         settings: ImportSettings,
@@ -90,7 +89,6 @@ class ImportEngine:
             try:
                 with self._transaction.savepoint():
                     session_id = self._create_proposal(
-                        sphere_id=sphere_id,
                         event_id=event_id,
                         settings=settings,
                         row=row,
@@ -261,7 +259,6 @@ class ImportEngine:
     def _create_proposal(
         self,
         *,
-        sphere_id: int,
         event_id: int,
         settings: ImportSettings,
         row: ImportRow,
@@ -269,14 +266,9 @@ class ImportEngine:
     ) -> int:
         builtins = resolve_builtins(settings, row)
         slug = self._resolve_slug(
-            sphere_id=sphere_id,
-            event_id=event_id,
-            settings=settings,
-            row=row,
-            title=builtins.title,
+            event_id=event_id, settings=settings, row=row, title=builtins.title
         )
         session_data: SessionData = {
-            "sphere_id": sphere_id,
             "event_id": event_id,
             "status": SessionStatus.PENDING,
             "title": builtins.title,
@@ -379,25 +371,18 @@ class ImportEngine:
         )
 
     def _resolve_slug(
-        self,
-        *,
-        sphere_id: int,
-        event_id: int,
-        settings: ImportSettings,
-        row: ImportRow,
-        title: str,
+        self, *, event_id: int, settings: ImportSettings, row: ImportRow, title: str
     ) -> str:
         # Idempotent re-runs: when the operator has named unique-key columns
         # (e.g. Timestamp + Email Address), build the slug from those values
-        # plus an event prefix (slugs are sphere-scoped, so two events would
-        # otherwise collide). An existing slug means this row is already in;
+        # plus an event prefix. An existing slug means this row is already in;
         # raise DuplicateRowError so the row counts as a duplicate, not a
         # skip-with-failure. With no unique-key columns the importer falls
         # back to the original title-derived slug with a random suffix.
         if not settings.unique_key_columns:
             return generate_unique_slug(
                 title,
-                lambda s: self._repos.sessions.slug_exists(sphere_id, s),
+                lambda s: self._repos.sessions.slug_exists(event_id, s),
                 fallback="proposal",
             )
         identity = "-".join(
@@ -405,7 +390,7 @@ class ImportEngine:
         )
         slug = slugify(f"e{event_id}-{identity}") or f"e{event_id}-row"
         if (
-            existing_id := self._repos.sessions.find_id_by_slug(sphere_id, slug)
+            existing_id := self._repos.sessions.find_id_by_slug(event_id, slug)
         ) is not None:
             raise DuplicateRowError(existing_id)
         return slug

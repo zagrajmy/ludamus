@@ -378,7 +378,6 @@ class TestCFPPageView:
             presenter=active_user,
             title="Pending 1",
             slug="pending-1",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -388,7 +387,6 @@ class TestCFPPageView:
             presenter=active_user,
             title="Pending 2",
             slug="pending-2",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -398,7 +396,6 @@ class TestCFPPageView:
             presenter=active_user,
             title="Accepted",
             slug="accepted",
-            sphere=sphere,
             participants_limit=5,
             status="scheduled",
         )
@@ -472,7 +469,6 @@ class TestCFPPageView:
             presenter=active_user,
             title="RPG 1",
             slug="rpg-1",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -482,7 +478,6 @@ class TestCFPPageView:
             presenter=active_user,
             title="RPG Accepted",
             slug="rpg-accepted",
-            sphere=sphere,
             participants_limit=5,
             status="scheduled",
         )
@@ -493,7 +488,6 @@ class TestCFPPageView:
             presenter=active_user,
             title="Workshop 1",
             slug="workshop-1",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )

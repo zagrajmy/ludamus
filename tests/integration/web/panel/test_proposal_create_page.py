@@ -136,7 +136,6 @@ class TestProposalCreatePageView:
             display_name="Host",
             title="Existing Session",
             slug="my-new-session",
-            sphere=sphere,
             participants_limit=0,
             status="pending",
         )

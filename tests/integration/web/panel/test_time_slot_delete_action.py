@@ -68,7 +68,6 @@ class TestTimeSlotDeleteActionView:
             title="Test",
             slug="test",
             category=category,
-            sphere=sphere,
             presenter=host,
             display_name=host.username,
             status="pending",
