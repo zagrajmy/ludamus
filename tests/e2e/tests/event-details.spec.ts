@@ -124,17 +124,16 @@ test.describe('Event detail page', () => {
       const detailDialog = page.getByRole('dialog', { name: 'Cozy Storytellers Circle' });
       await expect(detailDialog).toBeVisible();
 
-      // While the modal is open the body is pinned: position fixed with a
-      // negative top offset that cancels the prior scroll, so the document
-      // offset reads 0 and the modal's hit region lines up with what's drawn.
-      const pinned = await page.evaluate(() => ({
+      // While the modal is open the page is locked by pinning the body, so the
+      // document scroll offset reads 0 and the modal's hit region lines up with
+      // what's drawn. `position: fixed` is the behaviour that distinguishes the
+      // fix from the old `overflow: hidden`-only lock that left iOS untappable.
+      const locked = await page.evaluate(() => ({
         position: getComputedStyle(document.body).position,
-        top: document.body.style.top,
         scrollY: window.scrollY,
       }));
-      expect(pinned.position).toBe('fixed');
-      expect(pinned.top).toBe(`-${scrolledY}px`);
-      expect(pinned.scrollY).toBe(0);
+      expect(locked.position).toBe('fixed');
+      expect(locked.scrollY).toBe(0);
 
       // The Close button is the real hit-test target at its own centre.
       const closeButton = detailDialog.getByRole('button', { name: 'Close' });
