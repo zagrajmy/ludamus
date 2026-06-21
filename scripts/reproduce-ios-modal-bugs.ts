@@ -227,6 +227,25 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
   throw new Error(`Could not bring ${targetTriggerLabel} into the viewport`);
 };
 
+// Force a substantial page scroll before opening the modal. The iOS top-layer
+// hit-testing offset this script guards against only manifests when the modal
+// is opened over a *scrolled* document, so the regression silently stops being
+// exercised whenever the seeded page is short enough to fit the trigger above
+// the fold. Scrolling down a fixed number of steps first guarantees a
+// meaningful document offset independent of how tall the seed data renders.
+const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+
+const forcePreOpenScroll = async (): Promise<void> => {
+  for (let step = 0; step < preOpenScrollSteps; step += 1) {
+    await client.interactions.scroll({
+      ...deviceOptions,
+      direction: "down",
+      pixels: 450,
+    });
+    await client.command.wait({ ...deviceOptions, durationMs: 150 });
+  }
+};
+
 const waitForLabel = async (
   label: string,
   timeoutMs: number,
@@ -323,6 +342,8 @@ await client.command.wait({ ...deviceOptions, durationMs: 3000 });
 
 if (openViaScrolledPage) {
   console.log(`Opening ${targetTitle} from a scrolled page...`);
+  console.log(`Pre-scrolling the page (${preOpenScrollSteps} steps) before opening...`);
+  await forcePreOpenScroll();
   const trigger = await scrollUntilTriggerInViewport();
   console.log(`Activating modal trigger: ${describeNode(trigger)}`);
   await clickNodeReference(trigger);
