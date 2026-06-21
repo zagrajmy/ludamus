@@ -41,7 +41,7 @@ test.describe("Event detail page", () => {
   test("renders session cards with locations and opens detail modal", async ({
     page,
   }) => {
-    const sessionCards = page.locator(".session-card");
+    const sessionCards = page.getByRole("article");
     await expect(sessionCards).toHaveCount(3);
 
     const megaStrategyCard = sessionCards.filter({
@@ -80,7 +80,9 @@ test.describe("Event detail page", () => {
     const page = await context.newPage();
 
     await page.goto("/chronology/event/autumn-open/");
-    await page.locator(".session-card").nth(1).getByRole("link").click();
+    await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .click();
     await page.waitForTimeout(1000);
 
     const detailDialog = page.getByRole("dialog", {
@@ -146,9 +148,9 @@ test.describe("Event detail page", () => {
       document.body.appendChild(spacer);
       window.scrollTo(0, 1000);
       const y = window.scrollY;
-      const link = document
-        .querySelectorAll(".session-card")[1]
-        ?.querySelector<HTMLAnchorElement>("a[aria-controls]");
+      const link = document.querySelector<HTMLAnchorElement>(
+        'a[aria-label="Open details for Cozy Storytellers Circle"]',
+      );
       link?.click();
       return y;
     });
@@ -231,15 +233,17 @@ test.describe("Event detail page", () => {
     const page = await context.newPage();
 
     await page.goto("/chronology/event/autumn-open/");
-    const sessionId = await page
-      .locator(".session-card")
-      .nth(1)
-      .getAttribute("data-session-id");
-    expect(sessionId).not.toBeNull();
+    // Derive the modal id from the card's accessible link (aria-controls =
+    // "session-<pk>") rather than a class hook.
+    const controls = await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .getAttribute("aria-controls");
+    const sessionId = controls?.replace("session-", "");
+    expect(sessionId).toBeTruthy();
 
     await page.evaluate((id) => {
       const description = document.querySelector(
-        `#session-${id} [id^="info-"] div.prose`,
+        `#session-${id} [id^="info-"] [data-morph="desc"]`,
       );
       if (!description) throw new Error("Missing session description");
       description.innerHTML = Array.from(
@@ -249,7 +253,9 @@ test.describe("Event detail page", () => {
       ).join("");
     }, sessionId);
 
-    await page.locator(".session-card").nth(1).getByRole("link").click();
+    await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .click();
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
     });
@@ -257,7 +263,10 @@ test.describe("Event detail page", () => {
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      const tabContent = dialog?.querySelector(".tab-content");
+      // The scroll container has no role of its own; it's the parent of the
+      // tab panels, so reach it through them rather than a class hook.
+      const tabContent =
+        dialog?.querySelector('[role="tabpanel"]')?.parentElement;
       if (
         !(dialog instanceof HTMLElement) ||
         !(tabContent instanceof HTMLElement)
@@ -283,7 +292,9 @@ test.describe("Event detail page", () => {
 
     const touchMoveAllowed = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      const activePanel = dialog?.querySelector(".tab-panel[data-active]");
+      const activePanel = dialog?.querySelector(
+        '[role="tabpanel"][data-active]',
+      );
       const text = activePanel?.querySelector("p");
       if (!dialog || !(activePanel instanceof HTMLElement) || !text)
         return false;
