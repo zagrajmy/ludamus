@@ -103,6 +103,7 @@
        cubic-bezier(0.32, 0.72, 0, 1)  (Vaul / iOS drawer — cleaner tail)
        cubic-bezier(0.2, 0, 0, 1)      (Material "emphasized" — heavier/weighted) */
   --vt-morph-duration: 0.32s;
+  --vt-morph-exit-duration: 0.26s;
   --vt-morph-ease: var(--ease-out);
 
   --color-foreground: #252220;

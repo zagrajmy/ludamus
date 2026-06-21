@@ -94,6 +94,15 @@
   animation-timing-function: var(--vt-morph-ease);
 }
 
+/* Closing is a dismissal — snap it a touch faster than the deliberate open. The
+   view-transition pseudos compute after the swap, so during a close no session
+   modal is open; key the exit timing off that state (no JS needed). Every morph
+   timing derives from `--vt-morph-duration`, so this one override scales the
+   whole exit. */
+:root:not(:has(dialog.modal[id^="session-"][open])) {
+  --vt-morph-duration: var(--vt-morph-exit-duration);
+}
+
 /* The avatar is the same solid shape in the card and the modal, so cross-fading
    the two snapshots only produces an opacity dip — the background shows through
    the half-faded circle mid-morph and reads as a colour/brightness flicker.
