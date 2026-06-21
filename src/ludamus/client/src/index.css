@@ -93,6 +93,19 @@
     1 100%
   );
 
+  /* Strong ease-out for exits/dismissals — starts fast so the motion feels
+     responsive, settles without the spring's overshoot. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Card <-> modal View Transition morph — the knobs to fiddle with. Strong
+     ease-out: launches fast and glides to rest, so the modal feels like it
+     snaps open the moment you tap. Alternatives to try:
+       cubic-bezier(0.32, 0.72, 0, 1)  (Vaul / iOS drawer — cleaner tail)
+       cubic-bezier(0.2, 0, 0, 1)      (Material "emphasized" — heavier/weighted) */
+  --vt-morph-duration: 0.32s;
+  --vt-morph-exit-duration: 0.26s;
+  --vt-morph-ease: var(--ease-out);
+
   --color-foreground: #252220;
   --color-foreground-secondary: #5c534a;
   --color-foreground-muted: #737373;

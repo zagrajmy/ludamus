@@ -12,6 +12,20 @@
     border: 1px solid var(--color-border);
     border-radius: 1rem;
     @apply shadow-lg;
+    /* No exit transition here on purpose. Closing is owned by a View
+       Transition (see below), which snapshots the modal to a GPU texture and
+       animates that — smoother than transitioning the live, content-heavy
+       modal. Browsers without View Transitions just close instantly, which is
+       clean in its own right. */
+  }
+
+  .modal[open] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+    /* Enter (closed -> open): playful spring that settles into place. Session
+       modals open via a shared-element morph instead (modal.ts), but this still
+       plays underneath the snapshot and is the open animation everywhere else. */
     transition:
       opacity 0.35s var(--ease-spring-a-bit),
       transform 0.35s var(--ease-spring-a-bit),
@@ -19,17 +33,19 @@
       display 0.35s allow-discrete;
   }
 
-  .modal[open] {
-    opacity: 1;
-    pointer-events: auto;
-    transform: scale(1) translateY(0);
+  /* Non-session modals (anonymous code, proposals) get a self-contained blur
+     close via their own View Transition group. Session modals are left out:
+     they take the shared `session-morph` name instead, assigned in modal.ts. */
+  .modal[open]:not([id^="session-"]) {
+    view-transition-name: app-modal;
   }
 
   .modal:not([open]) {
     display: none;
   }
 
-  .modal:not([open]), .modal:not([open]) * {
+  .modal:not([open]),
+  .modal:not([open]) * {
     pointer-events: none !important;
   }
 
@@ -43,13 +59,17 @@
   .modal::backdrop {
     background-color: transparent;
     transition:
-      display 0.15s allow-discrete,
-      overlay 0.15s allow-discrete,
-      background-color 0.15s;
+      display 0.2s allow-discrete,
+      overlay 0.2s allow-discrete,
+      background-color 0.2s var(--ease-out);
   }
 
   .modal[open]::backdrop {
-    background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+    background-color: color-mix(
+      in srgb,
+      var(--color-background) 50%,
+      transparent
+    );
     backdrop-filter: blur(4px);
   }
 
@@ -57,5 +77,128 @@
     .modal[open]::backdrop {
       background-color: transparent;
     }
+  }
+}
+
+/* --- Session card <-> modal morph --------------------------------------- */
+/* The card and the modal share the `session-morph` name (assigned only during
+   the transition in modal.ts), so the browser tweens the card's box into the
+   modal's — and back on close — cross-fading their contents. A layout/shared-
+   element transition with no animation library. */
+::view-transition-group(session-morph),
+::view-transition-group(morph-title),
+::view-transition-group(morph-host),
+::view-transition-group(morph-avatar),
+::view-transition-group(morph-desc) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+/* Closing is a dismissal — snap it a touch faster than the deliberate open. The
+   view-transition pseudos compute after the swap, so during a close no session
+   modal is open; key the exit timing off that state (no JS needed). Every morph
+   timing derives from `--vt-morph-duration`, so this one override scales the
+   whole exit. */
+:root:not(:has(dialog.modal[id^="session-"][open])) {
+  --vt-morph-duration: var(--vt-morph-exit-duration);
+}
+
+/* The avatar is the same solid shape in the card and the modal, so cross-fading
+   the two snapshots only produces an opacity dip — the background shows through
+   the half-faded circle mid-morph and reads as a colour/brightness flicker.
+   Hold both snapshots opaque and let the group morph alone: the avatar simply
+   moves and scales between the two positions. */
+::view-transition-old(morph-avatar),
+::view-transition-new(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Show only the incoming title/host/description. Their card and modal copies
+   differ in size, so cross-fading them overlaps the two (small over large) at the
+   same spot and reads as the text rendered twice — most visible on close. Hiding
+   the outgoing snapshot leaves a single copy riding its group between the two
+   positions. (Source-card bleed-through is handled separately by hiding the card
+   in modal.ts; the avatar holds both opaque since its shape matches.) */
+::view-transition-old(morph-title),
+::view-transition-old(morph-host),
+::view-transition-old(morph-desc) {
+  animation: none;
+  opacity: 0;
+}
+
+/* Bias the surface content cross-fade toward the incoming element so the larger,
+   text-heavy side reads quickly and the smaller one doesn't linger. (The matched
+   title/host/avatar are their own groups above and morph in lockstep with it.) */
+::view-transition-old(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.55);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-new(session-morph) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+/* --- Non-session modal blur close --------------------------------------- */
+/* These pseudo-elements live outside @layer so the default UA cross-fade
+   animation can be cleanly replaced. The old (captured) modal scales down,
+   drifts, blurs and fades; the page underneath (root) cross-fades the dim
+   backdrop away at the same time. */
+::view-transition-group(app-modal) {
+  animation-duration: 0.26s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(app-modal) {
+  animation: modal-close-out 0.26s var(--ease-out) both;
+}
+
+/* Nothing replaces the modal, so suppress the empty "new" snapshot. */
+::view-transition-new(app-modal) {
+  animation: none;
+}
+
+@keyframes modal-close-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+    filter: blur(6px);
+  }
+}
+
+/* Root cross-fade (the backdrop dim leaving) — keep it quick and gentle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Drop scale/blur movement; the JS path also skips the View Transition and
+     closes instantly with only the backdrop fade for context. */
+  ::view-transition-old(app-modal) {
+    animation: modal-close-fade 0.15s ease both;
+  }
+
+  @keyframes modal-close-fade {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @starting-style {
+    .modal[open] {
+      transform: none;
+    }
+  }
+
+  .modal,
+  .modal[open] {
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
   }
 }

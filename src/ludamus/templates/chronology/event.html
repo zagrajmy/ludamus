@@ -715,7 +715,8 @@
             <!-- Header -->
             <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
                 <h3 id="session-{{ data.session.pk }}-title"
-                    class="text-lg font-semibold text-foreground">{{ data.session.title }}</h3>
+                    class="text-lg font-semibold text-foreground"
+                    data-morph="title">{{ data.session.title }}</h3>
                 <button type="button"
                         data-modal-close="session-{{ data.session.pk }}"
                         aria-label="{% translate "Close" %}"
@@ -755,9 +756,9 @@
                          data-active>
                         <!-- Host & location -->
                         <div class="flex items-center gap-3 mb-6 flex-wrap">
-                            {% include "components/avatar.html" with user=data.presenter size="size-10" %}
+                            <span class="shrink-0" data-morph="avatar">{% include "components/avatar.html" with user=data.presenter size="size-10" %}</span>
                             <div class="flex items-center gap-3 flex-wrap min-w-0">
-                                <div class="font-medium text-foreground">{{ data.presenter.full_name }}</div>
+                                <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
                                 {% if data.location_label %}
                                     <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
                                         {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
@@ -783,7 +784,8 @@
                             <!-- Description -->
                             <div class="mb-6">
                                 <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground-muted">
+                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground"
+                                     data-morph="desc">
                                     {{ data.session.description|render_markdown }}
                                 </div>
                             </div>

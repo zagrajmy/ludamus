@@ -39,16 +39,39 @@ let touchHandlerInitialized = false;
 //      position is restored on unlock.
 let pageLocked = false;
 let pinnedScrollY = 0;
+let bodyPinned = false;
+
+// The `position: fixed` body pin (above) is only needed where `overflow: hidden`
+// on a scrolled <body> fails to lock the page and misaligns a top-layer dialog's
+// hit region — i.e. iOS / Safari. Everywhere else `disablePageScroll` alone
+// locks cleanly, and pinning the body would only shift layout (and, during a
+// View Transition, jitter). Restrict the pin like Vaul does.
+const needsBodyPin = (): boolean => {
+  const ua = navigator.userAgent;
+  const iOS =
+    /iP(hone|ad|od)/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const safari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+  return iOS || safari;
+};
+
+// While a morph View Transition is in flight, lock/unlock must not run between
+// the two snapshots (it would animate the scroll-offset change). The morph paths
+// lock before / unlock after the transition and suspend this helper in between.
+let scrollLockSuspended = false;
 
 const lockPage = (): void => {
   if (pageLocked) return;
   pinnedScrollY = window.scrollY;
-  const { style } = document.body;
-  style.position = "fixed";
-  style.top = `-${pinnedScrollY}px`;
-  style.left = "0";
-  style.right = "0";
-  style.width = "100%";
+  if (needsBodyPin()) {
+    const { style } = document.body;
+    style.position = "fixed";
+    style.top = `-${pinnedScrollY}px`;
+    style.left = "0";
+    style.right = "0";
+    style.width = "100%";
+    bodyPinned = true;
+  }
   disablePageScroll();
   pageLocked = true;
 };
@@ -56,14 +79,18 @@ const lockPage = (): void => {
 const unlockPage = (): void => {
   if (!pageLocked) return;
   enablePageScroll();
+  pageLocked = false;
+  if (!bodyPinned) return;
   const { style } = document.body;
   style.position = "";
   style.top = "";
   style.left = "";
   style.right = "";
   style.width = "";
-  pageLocked = false;
-  window.scrollTo(0, pinnedScrollY);
+  bodyPinned = false;
+  // Restore styles first, then scroll on the next frame (Vaul pattern) so the
+  // un-pin doesn't flash.
+  requestAnimationFrame(() => window.scrollTo(0, pinnedScrollY));
 };
 
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
@@ -78,6 +105,7 @@ const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
 };
 
 const syncPageScrollLock = (): void => {
+  if (scrollLockSuspended) return;
   const openDialogs = [
     ...document.querySelectorAll<HTMLDialogElement>("dialog.modal[open]"),
   ];
@@ -171,15 +199,137 @@ const getLinkableByModalId = (
   return { paramName, paramValue };
 };
 
+const prefersReducedMotion = (): boolean =>
+  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+interface ViewTransition {
+  finished: Promise<void>;
+}
+
+interface ViewTransitionDocument {
+  startViewTransition?: (callback: () => void) => ViewTransition;
+}
+
+const startViewTransition = (callback: () => void): ViewTransition | null => {
+  const doc = document as Document & ViewTransitionDocument;
+  if (!doc.startViewTransition) {
+    callback();
+    return null;
+  }
+  return doc.startViewTransition(callback);
+};
+
+// Shared name that both the session card and its detail modal take on, but only
+// for the duration of a transition (assigned here, cleared in `finished`). With
+// the same name on the outgoing and incoming element, the browser tweens the
+// card's box into the modal's and cross-fades their contents — a layout/
+// shared-element transition with no animation library.
+const MORPH_NAME = "session-morph";
+
+const sessionCardForModal = (id: string): HTMLElement | null => {
+  if (!id.startsWith("session-")) return null;
+  const card = document.querySelector(
+    `.session-card[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
+  );
+  return card instanceof HTMLElement ? card : null;
+};
+
+const canMorph = (card: HTMLElement | null): card is HTMLElement =>
+  card !== null &&
+  !prefersReducedMotion() &&
+  typeof (document as Document & ViewTransitionDocument).startViewTransition ===
+    "function";
+
+// Assign (or clear) the shared view-transition-names that drive the morph: the
+// surface itself (card <-> modal box) plus each `data-morph` element (title,
+// author, avatar) so they fly to their counterpart's position instead of
+// cross-fading inside the box. Names are constant — only one card/modal pair
+// holds them at a time — so modal.css can target the groups for timing.
+const setMorph = (root: HTMLElement, active: boolean): void => {
+  root.style.viewTransitionName = active ? MORPH_NAME : "";
+  root.querySelectorAll<HTMLElement>("[data-morph]").forEach((el) => {
+    el.style.viewTransitionName = active ? `morph-${el.dataset.morph}` : "";
+  });
+};
+
+// One owner for the morph protocol so open and close can't drift and the
+// scroll-lock ordering is enforced once: run `before` (pre-capture — lock the
+// page / name the outgoing side), suspend the scroll-lock sync so the
+// synchronous `close` event and the body mutation can't land between the two
+// snapshots, swap the DOM inside the View Transition, then on `finished` run
+// `settle` and resume the lock. `before`/`swap`/`settle` carry the only parts
+// that differ between the two directions.
+const morphTransition = (steps: {
+  before: () => void;
+  swap: () => void;
+  settle: () => void;
+}): void => {
+  steps.before();
+  scrollLockSuspended = true;
+  const transition = startViewTransition(steps.swap);
+  const finish = (): void => {
+    steps.settle();
+    scrollLockSuspended = false;
+    syncPageScrollLock();
+  };
+  if (transition) void transition.finished.finally(finish);
+  else finish();
+};
+
+// Non-session modals (anonymous code, proposals) snapshot themselves and blur
+// out via ::view-transition-old(app-modal); instant close where unsupported.
+const dismissDialog = (dialog: HTMLDialogElement): void => {
+  if (!dialog.open) return;
+  if (prefersReducedMotion()) {
+    dialog.close();
+    return;
+  }
+  startViewTransition(() => {
+    dialog.close();
+  });
+};
+
 const openModal = (
   id: string,
-  { updateUrl = true, replaceHistory = false } = {},
+  { updateUrl = true, replaceHistory = false, animate = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (!dialog.open) {
-    dialog.showModal();
+    const card = sessionCardForModal(id);
+    if (animate && canMorph(card)) {
+      morphTransition({
+        // Lock scroll before the capture so the body mutation lands in the old
+        // snapshot, not the animated delta; name the card's shared elements so
+        // the new snapshot morphs card -> modal.
+        before: () => {
+          lockPage();
+          setMorph(card, true);
+        },
+        swap: () => {
+          setMorph(card, false);
+          // Hide the source card once its snapshot is captured, so it doesn't
+          // show through the cross-fading modal from behind and read as a
+          // duplicate. `transition: none` defeats the card's `duration-100`
+          // transition, which would otherwise swallow the change before the new
+          // snapshot is taken.
+          card.style.transition = "none";
+          card.style.visibility = "hidden";
+          dialog.showModal();
+          setMorph(dialog, true);
+        },
+        settle: () => {
+          setMorph(dialog, false);
+          card.style.visibility = "";
+          card.style.transition = "";
+        },
+      });
+    } else {
+      dialog.showModal();
+      syncPageScrollLock();
+    }
+  } else {
+    syncPageScrollLock();
   }
-  syncPageScrollLock();
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
@@ -193,13 +343,28 @@ const openModal = (
 
 const closeModal = (
   id: string,
-  { updateUrl = true, replaceHistory = true } = {},
+  { updateUrl = true, replaceHistory = true, animate = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (dialog.open) {
-    dialog.close();
+    const card = sessionCardForModal(id);
+    if (animate && canMorph(card)) {
+      morphTransition({
+        // Old snapshot holds the modal; the swap hands the names back to the
+        // card so it collapses into the card.
+        before: () => setMorph(dialog, true),
+        swap: () => {
+          dialog.close();
+          setMorph(dialog, false);
+          setMorph(card, true);
+        },
+        settle: () => setMorph(card, false),
+      });
+    } else {
+      dismissDialog(dialog);
+      syncPageScrollLock();
+    }
   }
-  syncPageScrollLock();
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
@@ -218,7 +383,7 @@ const syncModalsFromUrl = (): void => {
   const searchParams = new URLSearchParams(window.location.search);
 
   document.querySelectorAll("dialog.modal[open]").forEach((dialog) => {
-    closeModal(dialog.id, { updateUrl: false });
+    closeModal(dialog.id, { updateUrl: false, animate: false });
   });
 
   document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
@@ -236,7 +401,7 @@ const syncModalsFromUrl = (): void => {
     const hrefUrl = new URL(href, window.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
-        openModal(modalId, { updateUrl: false });
+        openModal(modalId, { updateUrl: false, animate: false });
         return;
       }
     }
