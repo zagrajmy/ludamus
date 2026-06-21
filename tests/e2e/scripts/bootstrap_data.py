@@ -192,6 +192,7 @@ def _create_session(
 ) -> Session:
     session = Session.objects.create(
         sphere=sphere,
+        event=event,
         display_name=presenter,
         title=title,
         slug=slug,
@@ -289,6 +290,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
         sphere=sphere,
+        event=event,
         display_name="Demo GM",
         title="Waitlist Promotion Demo",
         slug="waitlist-promotion-demo",
@@ -641,6 +643,7 @@ def main() -> None:
     )
     pending_session = Session.objects.create(
         sphere=sphere,
+        event=upcoming_event,
         presenter=tester,
         display_name="E2E Tester",
         contact_email="e2e@test.local",

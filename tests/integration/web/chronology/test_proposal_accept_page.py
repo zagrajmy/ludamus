@@ -320,6 +320,7 @@ class TestProposalAcceptPageView:
         self, staff_user, event, pending_session, space, staff_client, time_slot
     ):
         other_session = Session.objects.create(
+            event=event,
             title="Other Session",
             sphere=event.sphere,
             slug="other-session",

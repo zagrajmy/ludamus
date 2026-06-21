@@ -277,6 +277,7 @@ class ImportEngine:
         )
         session_data: SessionData = {
             "sphere_id": sphere_id,
+            "event_id": event_id,
             "status": SessionStatus.PENDING,
             "title": builtins.title,
             "description": builtins.description,

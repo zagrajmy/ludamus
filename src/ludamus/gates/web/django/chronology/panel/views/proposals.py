@@ -350,6 +350,7 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         self.request.di.uow.sessions.create(
             SessionData(
                 category_id=int(form.cleaned_data["category_id"]),
+                event_id=current_event.pk,
                 contact_email=form.cleaned_data.get("contact_email") or "",
                 description=form.cleaned_data.get("description") or "",
                 display_name=form.cleaned_data["display_name"],

@@ -190,6 +190,7 @@ class TestSpaceDeleteActionView:
         area = Area.objects.create(venue=venue, name="East Wing", slug="east-wing")
         space = Space.objects.create(area=area, name="Room 101", slug="room-101")
         session = Session.objects.create(
+            event=event,
             title="Test Session",
             slug="test-session",
             sphere=sphere,

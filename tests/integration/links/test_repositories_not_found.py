@@ -58,8 +58,9 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_tag_categories(MISSING_ID)
 
-    def test_read_tag_categories_returns_empty_when_no_category(self, sphere):
+    def test_read_tag_categories_returns_empty_when_no_category(self, sphere, event):
         session = Session.objects.create(
+            event=event,
             category=None,
             presenter=None,
             display_name="Host",

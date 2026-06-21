@@ -373,6 +373,7 @@ class TestCFPPageView:
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         # Create 3 sessions (2 pending, 1 accepted)
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             title="Pending 1",
@@ -382,6 +383,7 @@ class TestCFPPageView:
             status="pending",
         )
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             title="Pending 2",
@@ -391,6 +393,7 @@ class TestCFPPageView:
             status="pending",
         )
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             title="Accepted",
@@ -464,6 +467,7 @@ class TestCFPPageView:
         )
         # Category1: 2 sessions, 1 accepted
         Session.objects.create(
+            event=event,
             category=category1,
             presenter=active_user,
             title="RPG 1",
@@ -473,6 +477,7 @@ class TestCFPPageView:
             status="pending",
         )
         Session.objects.create(
+            event=event,
             category=category1,
             presenter=active_user,
             title="RPG Accepted",
@@ -483,6 +488,7 @@ class TestCFPPageView:
         )
         # Category2: 1 session, 0 accepted
         Session.objects.create(
+            event=event,
             category=category2,
             presenter=active_user,
             title="Workshop 1",

@@ -1467,6 +1467,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         Session.objects.create(
+            event=event,
             sphere=event.sphere,
             presenter=active_user,
             display_name="Other",

@@ -400,6 +400,7 @@ class SessionData(TypedDict, total=False):
     cover_image: UploadedFileProtocol
     description: str
     duration: str
+    event_id: int
     min_age: int
     needs: str
     participants_limit: int

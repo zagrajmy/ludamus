@@ -43,6 +43,7 @@ PNG_BYTES = (
 def _make_session(event, sphere, **kwargs):
     category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
     defaults = {
+        "event": event,
         "category": category,
         "presenter": None,
         "display_name": "Test Host",

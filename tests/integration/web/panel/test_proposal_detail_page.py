@@ -70,6 +70,7 @@ class TestProposalDetailPageView:
             event=other_event, name="RPG", slug="rpg"
         )
         session = Session.objects.create(
+            event=other_event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -96,6 +97,7 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=None,
             display_name="Anonymous Host",
@@ -137,6 +139,7 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -167,6 +170,7 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Session With Email",
@@ -215,6 +219,7 @@ class TestProposalDetailPageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Session With Slots",
@@ -258,6 +263,7 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Anonymous",
             title="Imported session",
@@ -337,6 +343,7 @@ class TestProposalDetailPageView:
             display_name="Puller",
         )
         session = Session.objects.create(
+            event=event,
             sphere=sphere,
             title="Focused",
             slug="focused",

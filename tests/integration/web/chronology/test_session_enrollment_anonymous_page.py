@@ -561,7 +561,7 @@ class TestSessionEnrollmentAnonymousPageView:
             event=enrollment_config.event,
             user_code=_anonymous_user_code(user),
         )
-        session2 = SessionFactory(sphere=sphere)
+        session2 = SessionFactory(event=agenda_item.session.event, sphere=sphere)
         AgendaItemFactory(
             session=session2,
             start_time=agenda_item.start_time,

@@ -460,7 +460,10 @@ class TestSessionEnrollPageView:
         self, active_user, agenda_item, authenticated_client, event
     ):
         other_session = SessionFactory(
-            display_name=active_user.name, sphere=event.sphere, participants_limit=10
+            display_name=active_user.name,
+            event=agenda_item.session.event,
+            sphere=event.sphere,
+            participants_limit=10,
         )
         AgendaItem.objects.create(
             session=other_session,
@@ -644,7 +647,7 @@ class TestSessionEnrollPageView:
         space2 = SpaceFactory(area=area)
         time_slot = TimeSlotFactory(event=event)
 
-        session1 = SessionFactory(sphere=event.sphere)
+        session1 = SessionFactory(event=event, sphere=event.sphere)
         AgendaItemFactory(
             session=session1,
             space=space1,
@@ -657,7 +660,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
 
-        session2 = SessionFactory(sphere=event.sphere)
+        session2 = SessionFactory(event=event, sphere=event.sphere)
         AgendaItemFactory(
             session=session2,
             space=space2,
@@ -1509,7 +1512,10 @@ class TestSessionEnrollPageView:
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         other_session = SessionFactory(
-            display_name=active_user.name, sphere=event.sphere, participants_limit=10
+            display_name=active_user.name,
+            event=agenda_item.session.event,
+            sphere=event.sphere,
+            participants_limit=10,
         )
         AgendaItem.objects.create(
             session=other_session,

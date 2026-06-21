@@ -120,6 +120,7 @@ class TestProposalsPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -130,6 +131,7 @@ class TestProposalsPageView:
             status="rejected",
         )
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -153,6 +155,7 @@ class TestProposalsPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -203,6 +206,7 @@ class TestProposalsPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -213,6 +217,7 @@ class TestProposalsPageView:
             status="pending",
         )
         session_pseudonym = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name="Mysterious Stranger",
@@ -266,6 +271,7 @@ class TestProposalsPageView:
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         other_user = UserFactory(username="other", name="Other Person")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -276,6 +282,7 @@ class TestProposalsPageView:
             status="pending",
         )
         session_b = Session.objects.create(
+            event=event,
             category=category,
             presenter=other_user,
             display_name="Other Person",
@@ -333,6 +340,7 @@ class TestProposalsPageView:
             field_type="select",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -344,6 +352,7 @@ class TestProposalsPageView:
         )
         SessionFieldValue.objects.create(session=session1, field=field, value="D&D 5e")
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -415,6 +424,7 @@ class TestProposalsPageView:
             field_type="select",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -428,6 +438,7 @@ class TestProposalsPageView:
             session=session1, field=field, value="przekleństwa"
         )
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -497,6 +508,7 @@ class TestProposalsPageView:
             field_type="text",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -508,6 +520,7 @@ class TestProposalsPageView:
         )
         SessionFieldValue.objects.create(session=session1, field=field, value="D&D 5e")
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -568,6 +581,7 @@ class TestProposalsPageView:
             field_type="text",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -581,6 +595,7 @@ class TestProposalsPageView:
             session=session1, field=field, value="Zawiera przekleństwa"
         )
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -803,6 +818,7 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -848,6 +864,7 @@ class TestProposalDetailPageView:
             event=event, name="System", question="What RPG system?", slug="system"
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
@@ -907,6 +924,7 @@ class TestProposalDetailPageView:
             field_type="select",
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,

@@ -169,6 +169,7 @@ class SessionFactory(DjangoModelFactory):
     display_name = Faker("name")
     contact_email = Faker("email")
     category = SubFactory("tests.integration.conftest.ProposalCategoryFactory")
+    event = LazyAttribute(lambda o: o.category.event if o.category else EventFactory())
     participants_limit = Faker("random_int", min=2, max=20)
     sphere = SubFactory(SphereFactory)
     status = "pending"
@@ -338,11 +339,12 @@ def time_slot(event):
 
 
 @pytest.fixture(name="session")
-def session_fixture(active_user, sphere):
+def session_fixture(active_user, event):
     return SessionFactory(
+        event=event,
         presenter=active_user,
         display_name=active_user.full_name,
-        sphere=sphere,
+        sphere=event.sphere,
         participants_limit=10,
         min_age=0,
     )

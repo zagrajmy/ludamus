@@ -2560,6 +2560,7 @@ class TestEventImportLogFilters:
     def _seed(self, integration, *, sphere):
         # One success + one skipped entry, both with distinct titles for search.
         session = Session.objects.create(
+            event=integration.event,
             sphere=sphere,
             title="Dragons of Despair",
             slug="dragons-success",
@@ -2874,6 +2875,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
@@ -2954,6 +2956,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
@@ -3001,6 +3004,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
@@ -3037,6 +3041,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
@@ -3075,6 +3080,7 @@ class TestEventImportApplyFieldLayoutView:
             event=event, display_name="Existing Host", slug="existing-host"
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
@@ -3110,6 +3116,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=None,
             display_name="Host",
             title="Talk",
@@ -3155,6 +3162,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
@@ -3203,6 +3211,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",

@@ -130,6 +130,7 @@ class TestProposalCreatePageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=None,
             display_name="Host",

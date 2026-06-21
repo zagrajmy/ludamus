@@ -744,7 +744,7 @@ class SessionManager(AliveManager["Session"]):
         return (
             self.get_queryset()
             .filter(
-                agenda_item__space__area__venue__event=session.agenda_item.space.area.venue.event,
+                event_id=session.event_id,
                 session_participations__user_id=user.pk,
                 session_participations__status=SessionParticipationStatus.CONFIRMED,
             )
@@ -769,6 +769,9 @@ class Session(SoftDeleteModel):
     # Owner
     sphere = models.ForeignKey(
         "Sphere", on_delete=models.CASCADE, related_name="sessions"
+    )
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="event_sessions"
     )
     presenter = models.ForeignKey(
         User,
@@ -875,7 +878,7 @@ class Session(SoftDeleteModel):
     def effective_participants_limit(self) -> int:
         if self.participants_limit == 0:
             return 0
-        event = self.agenda_item.space.area.venue.event
+        event = self.event
         if enrollment_config := event.get_most_liberal_config(self):
             return math.ceil(
                 self.participants_limit * enrollment_config.percentage_slots / 100
@@ -892,9 +895,7 @@ class Session(SoftDeleteModel):
     @property
     def is_enrollment_available(self) -> bool:
         """Check if enrollment is available for this session under any active config."""
-        active_configs = (
-            self.agenda_item.space.area.venue.event.get_active_enrollment_configs()
-        )
+        active_configs = self.event.get_active_enrollment_configs()
         return any(config.is_session_eligible(self) for config in active_configs)
 
     @property
@@ -1545,7 +1546,7 @@ def can_enroll_users(
         SessionParticipation.objects.filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
-            session__agenda_item__space__area__venue__event_id=event.pk,
+            session__event_id=event.pk,
         )
         .values_list("user_id", flat=True)
         .distinct()
@@ -1564,7 +1565,7 @@ def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
         SessionParticipation.objects.filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
-            session__agenda_item__space__area__venue__event_id=event.pk,
+            session__event_id=event.pk,
         )
         .values_list("user", flat=True)
         .distinct()
