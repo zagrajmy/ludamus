@@ -35,7 +35,7 @@ def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
 
 
 def _scoped_discount(
-    request: PanelRequest, event_pk: int, pk: int
+    *, request: PanelRequest, event_pk: int, pk: int
 ) -> DiscountDTO | None:
     try:
         discount = request.services.discounts.get(pk)
@@ -45,7 +45,7 @@ def _scoped_discount(
 
 
 def _scoped_facilitator(
-    request: PanelRequest, event_pk: int, facilitator_id: int
+    *, request: PanelRequest, event_pk: int, facilitator_id: int
 ) -> FacilitatorDTO | None:
     try:
         facilitator = request.di.uow.facilitators.read(facilitator_id)
@@ -96,7 +96,9 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         facilitator = _scoped_facilitator(
-            self.request, current_event.pk, facilitator_id
+            request=self.request,
+            event_pk=current_event.pk,
+            facilitator_id=facilitator_id,
         )
         if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
@@ -115,7 +117,9 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         facilitator = _scoped_facilitator(
-            self.request, current_event.pk, facilitator_id
+            request=self.request,
+            event_pk=current_event.pk,
+            facilitator_id=facilitator_id,
         )
         if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
@@ -145,7 +149,10 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        if (discount := _scoped_discount(self.request, current_event.pk, pk)) is None:
+        discount = _scoped_discount(
+            request=self.request, event_pk=current_event.pk, pk=pk
+        )
+        if discount is None:
             messages.error(self.request, _("Discount not found."))
             return redirect("panel:discounts", slug=slug)
 
@@ -165,7 +172,10 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        if (discount := _scoped_discount(self.request, current_event.pk, pk)) is None:
+        discount = _scoped_discount(
+            request=self.request, event_pk=current_event.pk, pk=pk
+        )
+        if discount is None:
             messages.error(self.request, _("Discount not found."))
             return redirect("panel:discounts", slug=slug)
 
@@ -191,7 +201,10 @@ class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        if _scoped_discount(self.request, current_event.pk, pk) is None:
+        discount = _scoped_discount(
+            request=self.request, event_pk=current_event.pk, pk=pk
+        )
+        if discount is None:
             messages.error(self.request, _("Discount not found."))
             return redirect("panel:discounts", slug=slug)
 

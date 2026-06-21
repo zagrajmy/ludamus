@@ -22,9 +22,11 @@
                 {% csrf_token %}
                 {% tessera_form form %}
                 <div class="flex justify-end gap-2 pt-4 border-t border-border">
-                    <a href="{% url 'panel:discounts' slug=current_event.slug %}"
-                       class="btn btn-secondary">{% translate "Cancel" %}</a>
-                    <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
+                    {% url 'panel:discounts' slug=current_event.slug as discounts_url %}
+                    {% translate "Cancel" as t_cancel %}
+                    {% tessera_button t_cancel href=discounts_url button_type="button" variant="secondary" %}
+                    {% translate "Save" as t_save %}
+                    {% tessera_button t_save %}
                 </div>
             </form>
         </div>

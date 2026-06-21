@@ -8,7 +8,8 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Discount, Facilitator
-from ludamus.pacts import EventDTO
+from ludamus.pacts import EventDTO, FacilitatorDTO, FacilitatorListItemDTO
+from ludamus.pacts.discounts import DiscountDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
@@ -25,6 +26,28 @@ def _make_discount(event, facilitator, **kwargs):
     defaults = {"kind": "percent", "value": Decimal("10.00"), "note": ""}
     defaults.update(kwargs)
     return Discount.objects.create(event=event, facilitator=facilitator, **defaults)
+
+
+def _facilitator_list_dto(facilitator):
+    return FacilitatorListItemDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        pk=facilitator.pk,
+        session_count=0,
+        slug=facilitator.slug,
+        user_id=None,
+    )
+
+
+def _facilitator_dto(facilitator):
+    return FacilitatorDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        event_id=facilitator.event_id,
+        pk=facilitator.pk,
+        slug=facilitator.slug,
+        user_id=None,
+    )
 
 
 def _base_context(event):
@@ -102,7 +125,9 @@ class TestDiscountsPageView:
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event, accreditation_type="guest")
-        _make_discount(event, facilitator, value=Decimal("15.00"), note="VIP")
+        discount = _make_discount(
+            event, facilitator, value=Decimal("15.00"), note="VIP"
+        )
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -114,9 +139,9 @@ class TestDiscountsPageView:
                 **_base_context(event),
                 "rows": [
                     {
-                        "facilitator": ANY,
+                        "facilitator": _facilitator_list_dto(facilitator),
                         "accreditation_type_display": "Guest",
-                        "discount": ANY,
+                        "discount": DiscountDTO.model_validate(discount),
                     }
                 ],
             },
@@ -127,7 +152,7 @@ class TestDiscountsPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event)
+        facilitator = _make_facilitator(event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -139,7 +164,7 @@ class TestDiscountsPageView:
                 **_base_context(event),
                 "rows": [
                     {
-                        "facilitator": ANY,
+                        "facilitator": _facilitator_list_dto(facilitator),
                         "accreditation_type_display": "None",
                         "discount": None,
                     }
@@ -154,7 +179,9 @@ class TestDiscountsPageView:
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
-        _make_discount(event, facilitator, kind="amount", value=Decimal("20.00"))
+        discount = _make_discount(
+            event, facilitator, kind="amount", value=Decimal("20.00")
+        )
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -166,9 +193,9 @@ class TestDiscountsPageView:
                 **_base_context(event),
                 "rows": [
                     {
-                        "facilitator": ANY,
+                        "facilitator": _facilitator_list_dto(facilitator),
                         "accreditation_type_display": "None",
-                        "discount": ANY,
+                        "discount": DiscountDTO.model_validate(discount),
                     }
                 ],
             },
@@ -218,7 +245,11 @@ class TestDiscountCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/create.html",
-            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "facilitator": _facilitator_dto(facilitator),
+                "form": ANY,
+            },
         )
 
     def test_get_redirects_when_facilitator_not_in_event(
@@ -276,7 +307,11 @@ class TestDiscountCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/create.html",
-            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "facilitator": _facilitator_dto(facilitator),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
 
@@ -294,7 +329,11 @@ class TestDiscountCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/create.html",
-            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "facilitator": _facilitator_dto(facilitator),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
         assert not Discount.objects.filter(facilitator=facilitator).exists()
@@ -313,7 +352,11 @@ class TestDiscountCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/create.html",
-            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "facilitator": _facilitator_dto(facilitator),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
 
@@ -332,7 +375,11 @@ class TestDiscountCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/create.html",
-            context_data={**_base_context(event), "facilitator": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "facilitator": _facilitator_dto(facilitator),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
 
@@ -413,7 +460,11 @@ class TestDiscountEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/edit.html",
-            context_data={**_base_context(event), "discount": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "discount": DiscountDTO.model_validate(discount),
+                "form": ANY,
+            },
         )
 
     def test_post_updates_discount_and_redirects(
@@ -527,7 +578,11 @@ class TestDiscountEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/edit.html",
-            context_data={**_base_context(event), "discount": ANY, "form": ANY},
+            context_data={
+                **_base_context(event),
+                "discount": DiscountDTO.model_validate(discount),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
 

@@ -61,28 +61,21 @@
                         <td class="px-6 py-4 text-sm text-foreground-muted">{% if row.discount %}{{ row.discount.note }}{% endif %}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             {% if row.discount %}
-                                <a href="{% url 'panel:discount-edit' slug=current_event.slug pk=row.discount.pk %}"
-                                   class="text-primary hover:text-primary/80 inline-flex items-center mr-3">
-                                    {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                    {% translate "Edit" %}
-                                </a>
+                                {% url 'panel:discount-edit' slug=current_event.slug pk=row.discount.pk as edit_url %}
+                                {% translate "Edit" as t_edit %}
+                                {% tessera_button t_edit href=edit_url variant="secondary" size="sm" icon="pencil-square" full_width_mobile=False %}
                                 <form method="post"
                                       action="{% url 'panel:discount-delete' slug=current_event.slug pk=row.discount.pk %}"
                                       class="inline"
                                       onsubmit="return confirm('{% translate "Are you sure you want to remove this discount?" %}') &amp;&amp; (this.querySelector('button[type=submit]').disabled = true)">
                                     {% csrf_token %}
-                                    <button type="submit"
-                                            class="text-danger hover:text-danger/80 inline-flex items-center">
-                                        {% icon "trash" class="w-4 h-4 mr-1" %}
-                                        {% translate "Remove" %}
-                                    </button>
+                                    {% translate "Remove" as t_remove %}
+                                    {% tessera_button t_remove variant="danger" size="sm" icon="trash" full_width_mobile=False %}
                                 </form>
                             {% else %}
-                                <a href="{% url 'panel:discount-assign' slug=current_event.slug facilitator_id=row.facilitator.pk %}"
-                                   class="text-primary hover:text-primary/80 inline-flex items-center">
-                                    {% icon "plus" class="w-4 h-4 mr-1" %}
-                                    {% translate "Assign" %}
-                                </a>
+                                {% url 'panel:discount-assign' slug=current_event.slug facilitator_id=row.facilitator.pk as assign_url %}
+                                {% translate "Assign" as t_assign %}
+                                {% tessera_button t_assign href=assign_url variant="secondary" size="sm" icon="plus" full_width_mobile=False %}
                             {% endif %}
                         </td>
                     </tr>
