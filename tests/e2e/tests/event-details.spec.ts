@@ -83,11 +83,15 @@ test.describe("Event detail page", () => {
     await page
       .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
       .click();
-    await page.waitForTimeout(1000);
 
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
     });
+    // Wait for the open morph to settle rather than a fixed sleep — its timing
+    // drifts between engines and under CI load.
+    await expect(detailDialog).toBeVisible();
+    await settleViewTransitions(page);
+
     const closeButton = detailDialog.getByRole("button", { name: "Close" });
     await expect(closeButton).toBeInViewport();
 
