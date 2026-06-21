@@ -283,11 +283,19 @@ const openModal = (
       setMorph(card, true);
       const transition = startViewTransition(() => {
         setMorph(card, false);
+        // Hide the source card once its snapshot is captured, so it doesn't show
+        // through the cross-fading modal from behind and read as a duplicate.
+        // `transition: none` defeats the card's `duration-100` transition, which
+        // would otherwise swallow the change before the new snapshot is taken.
+        card.style.transition = "none";
+        card.style.visibility = "hidden";
         dialog.showModal();
         setMorph(dialog, true);
       });
       const settle = (): void => {
         setMorph(dialog, false);
+        card.style.visibility = "";
+        card.style.transition = "";
         scrollLockSuspended = false;
         syncPageScrollLock();
       };

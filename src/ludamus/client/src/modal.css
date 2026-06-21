@@ -105,6 +105,19 @@
   mix-blend-mode: normal;
 }
 
+/* Show only the incoming title/host/description. Their card and modal copies
+   differ in size, so cross-fading them overlaps the two (small over large) at the
+   same spot and reads as the text rendered twice — most visible on close. Hiding
+   the outgoing snapshot leaves a single copy riding its group between the two
+   positions. (Source-card bleed-through is handled separately by hiding the card
+   in modal.ts; the avatar holds both opaque since its shape matches.) */
+::view-transition-old(morph-title),
+::view-transition-old(morph-host),
+::view-transition-old(morph-desc) {
+  animation: none;
+  opacity: 0;
+}
+
 /* Bias the surface content cross-fade toward the incoming element so the larger,
    text-heavy side reads quickly and the smaller one doesn't linger. (The matched
    title/host/avatar are their own groups above and morph in lockstep with it.) */
