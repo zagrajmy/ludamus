@@ -97,14 +97,14 @@
      responsive, settles without the spring's overshoot. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
-  /* Card <-> modal View Transition morph — the knobs to fiddle with. The
-     "emphasized" curve accelerates then decelerates hard into place, which
-     reads well for a box growing/shrinking. Alternatives to try:
-       cubic-bezier(0.32, 0.72, 0, 1)  (Vaul / iOS drawer)
-       var(--ease-out)                 (the dismissal ease-out)
+  /* Card <-> modal View Transition morph — the knobs to fiddle with. Strong
+     ease-out: launches fast and glides to rest, so the modal feels like it
+     snaps open the moment you tap. Alternatives to try:
+       cubic-bezier(0.32, 0.72, 0, 1)  (Vaul / iOS drawer — cleaner tail)
+       cubic-bezier(0.2, 0, 0, 1)      (Material "emphasized" — heavier/weighted)
        cubic-bezier(0.34, 1.56, 0.64, 1) (slight overshoot / playful) */
-  --vt-morph-duration: 0.34s;
-  --vt-morph-ease: cubic-bezier(0.2, 0, 0, 1);
+  --vt-morph-duration: 0.32s;
+  --vt-morph-ease: var(--ease-out);
 
   --color-foreground: #252220;
   --color-foreground-secondary: #5c534a;
