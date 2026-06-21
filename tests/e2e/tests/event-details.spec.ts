@@ -173,18 +173,24 @@ test.describe("Event detail page", () => {
     expect(locked.position).toBe("fixed");
     expect(locked.scrollY).toBe(0);
 
-    // The Close button is the real hit-test target at its own centre.
+    // The Close button is the real hit-test target at its own centre. Poll: the
+    // open morph briefly paints a View Transition overlay on top (settle timing
+    // differs across engines), and we only care that the button is hittable once
+    // it clears — which is the actual iOS hit-region guarantee under test.
     const closeButton = detailDialog.getByRole("button", { name: "Close" });
     await expect(closeButton).toBeInViewport();
-    const closeIsHitTarget = await closeButton.evaluate((close) => {
-      const r = close.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        r.x + r.width / 2,
-        r.y + r.height / 2,
-      );
-      return !!(hit && hit.closest("[data-modal-close]"));
-    });
-    expect(closeIsHitTarget).toBe(true);
+    await expect
+      .poll(() =>
+        closeButton.evaluate((close) => {
+          const r = close.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            r.x + r.width / 2,
+            r.y + r.height / 2,
+          );
+          return !!(hit && hit.closest("[data-modal-close]"));
+        }),
+      )
+      .toBe(true);
 
     await closeButton.click();
     await expect(detailDialog).toBeHidden();
