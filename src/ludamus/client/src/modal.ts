@@ -171,15 +171,87 @@ const getLinkableByModalId = (
   return { paramName, paramValue };
 };
 
+const prefersReducedMotion = (): boolean =>
+  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+interface ViewTransition {
+  finished: Promise<void>;
+}
+
+interface ViewTransitionDocument {
+  startViewTransition?: (callback: () => void) => ViewTransition;
+}
+
+const startViewTransition = (callback: () => void): ViewTransition | null => {
+  const doc = document as Document & ViewTransitionDocument;
+  if (!doc.startViewTransition) {
+    callback();
+    return null;
+  }
+  return doc.startViewTransition(callback);
+};
+
+// Shared name that both the session card and its detail modal take on, but only
+// for the duration of a transition (assigned here, cleared in `finished`). With
+// the same name on the outgoing and incoming element, the browser tweens the
+// card's box into the modal's and cross-fades their contents — a layout/
+// shared-element transition with no animation library.
+const MORPH_NAME = "session-morph";
+
+const sessionCardForModal = (id: string): HTMLElement | null => {
+  if (!id.startsWith("session-")) return null;
+  const card = document.querySelector(
+    `.session-card[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
+  );
+  return card instanceof HTMLElement ? card : null;
+};
+
+const canMorph = (card: HTMLElement | null): card is HTMLElement =>
+  card !== null &&
+  !prefersReducedMotion() &&
+  typeof (document as Document & ViewTransitionDocument).startViewTransition ===
+    "function";
+
+// Non-session modals (anonymous code, proposals) snapshot themselves and blur
+// out via ::view-transition-old(app-modal); instant close where unsupported.
+const dismissDialog = (dialog: HTMLDialogElement): void => {
+  if (!dialog.open) return;
+  if (prefersReducedMotion()) {
+    dialog.close();
+    return;
+  }
+  startViewTransition(() => {
+    dialog.close();
+  });
+};
+
 const openModal = (
   id: string,
-  { updateUrl = true, replaceHistory = false } = {},
+  { updateUrl = true, replaceHistory = false, animate = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (!dialog.open) {
-    dialog.showModal();
+    const card = sessionCardForModal(id);
+    if (animate && canMorph(card)) {
+      // Old snapshot captures the card under MORPH_NAME; the callback hands the
+      // name to the now-open modal so the new snapshot morphs card -> modal.
+      card.style.viewTransitionName = MORPH_NAME;
+      const transition = startViewTransition(() => {
+        card.style.viewTransitionName = "";
+        dialog.showModal();
+        dialog.style.viewTransitionName = MORPH_NAME;
+        syncPageScrollLock();
+      });
+      void transition?.finished.finally(() => {
+        dialog.style.viewTransitionName = "";
+      });
+    } else {
+      dialog.showModal();
+      syncPageScrollLock();
+    }
+  } else {
+    syncPageScrollLock();
   }
-  syncPageScrollLock();
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
@@ -191,38 +263,31 @@ const openModal = (
   }
 };
 
-const prefersReducedMotion = (): boolean =>
-  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-
-interface ViewTransitionDocument {
-  startViewTransition?: (callback: () => void) => unknown;
-}
-
-// Snapshot the open modal and animate the snapshot (see modal.css
-// ::view-transition-old(app-modal)) instead of transitioning the live,
-// content-heavy modal. Falls back to an instant close when the API is
-// unavailable or the user prefers reduced motion.
-const dismissDialog = (dialog: HTMLDialogElement): void => {
-  if (!dialog.open) return;
-
-  const doc = document as Document & ViewTransitionDocument;
-  if (!doc.startViewTransition || prefersReducedMotion()) {
-    dialog.close();
-    return;
-  }
-
-  doc.startViewTransition(() => {
-    dialog.close();
-  });
-};
-
 const closeModal = (
   id: string,
-  { updateUrl = true, replaceHistory = true } = {},
+  { updateUrl = true, replaceHistory = true, animate = true } = {},
 ): void => {
   const dialog = getDialog(id);
-  dismissDialog(dialog);
-  syncPageScrollLock();
+  if (dialog.open) {
+    const card = sessionCardForModal(id);
+    if (animate && canMorph(card)) {
+      // Mirror of open: old snapshot holds the modal, the callback hands the
+      // name back to the card so the modal collapses into it.
+      dialog.style.viewTransitionName = MORPH_NAME;
+      const transition = startViewTransition(() => {
+        dialog.close();
+        dialog.style.viewTransitionName = "";
+        card.style.viewTransitionName = MORPH_NAME;
+        syncPageScrollLock();
+      });
+      void transition?.finished.finally(() => {
+        card.style.viewTransitionName = "";
+      });
+    } else {
+      dismissDialog(dialog);
+      syncPageScrollLock();
+    }
+  }
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
@@ -241,7 +306,7 @@ const syncModalsFromUrl = (): void => {
   const searchParams = new URLSearchParams(window.location.search);
 
   document.querySelectorAll("dialog.modal[open]").forEach((dialog) => {
-    closeModal(dialog.id, { updateUrl: false });
+    closeModal(dialog.id, { updateUrl: false, animate: false });
   });
 
   document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
@@ -259,7 +324,7 @@ const syncModalsFromUrl = (): void => {
     const hrefUrl = new URL(href, window.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
-        openModal(modalId, { updateUrl: false });
+        openModal(modalId, { updateUrl: false, animate: false });
         return;
       }
     }

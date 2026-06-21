@@ -23,16 +23,21 @@
     opacity: 1;
     pointer-events: auto;
     transform: scale(1) translateY(0);
-    /* Lift the open modal into its own View Transition group so closing
-       animates only it, not the whole page. Only one modal is open at a time,
-       so a single shared name is safe. */
-    view-transition-name: app-modal;
-    /* Enter (closed -> open): playful spring that settles into place. */
+    /* Enter (closed -> open): playful spring that settles into place. Session
+       modals open via a shared-element morph instead (modal.ts), but this still
+       plays underneath the snapshot and is the open animation everywhere else. */
     transition:
       opacity 0.35s var(--ease-spring-a-bit),
       transform 0.35s var(--ease-spring-a-bit),
       overlay 0.35s allow-discrete,
       display 0.35s allow-discrete;
+  }
+
+  /* Non-session modals (anonymous code, proposals) get a self-contained blur
+     close via their own View Transition group. Session modals are left out:
+     they take the shared `session-morph` name instead, assigned in modal.ts. */
+  .modal[open]:not([id^="session-"]) {
+    view-transition-name: app-modal;
   }
 
   .modal:not([open]) {
@@ -75,7 +80,29 @@
   }
 }
 
-/* --- Closing View Transition -------------------------------------------- */
+/* --- Session card <-> modal morph --------------------------------------- */
+/* The card and the modal share the `session-morph` name (assigned only during
+   the transition in modal.ts), so the browser tweens the card's box into the
+   modal's — and back on close — cross-fading their contents. A layout/shared-
+   element transition with no animation library. */
+::view-transition-group(session-morph) {
+  animation-duration: 0.32s;
+  animation-timing-function: var(--ease-out);
+}
+
+/* Bias the content cross-fade toward the incoming element so the larger,
+   text-heavy surface reads quickly and the smaller one doesn't linger. */
+::view-transition-old(session-morph) {
+  animation-duration: 0.18s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-new(session-morph) {
+  animation-duration: 0.3s;
+  animation-timing-function: var(--ease-out);
+}
+
+/* --- Non-session modal blur close --------------------------------------- */
 /* These pseudo-elements live outside @layer so the default UA cross-fade
    animation can be cleanly replaced. The old (captured) modal scales down,
    drifts, blurs and fades; the page underneath (root) cross-fades the dim
