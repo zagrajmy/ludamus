@@ -88,21 +88,34 @@
 ::view-transition-group(session-morph),
 ::view-transition-group(morph-title),
 ::view-transition-group(morph-host),
-::view-transition-group(morph-avatar) {
-  animation-duration: 0.32s;
-  animation-timing-function: var(--ease-out);
+::view-transition-group(morph-avatar),
+::view-transition-group(morph-desc) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
 }
 
-/* Bias the content cross-fade toward the incoming element so the larger,
-   text-heavy surface reads quickly and the smaller one doesn't linger. */
+/* The avatar is the same solid shape in the card and the modal, so cross-fading
+   the two snapshots only produces an opacity dip — the background shows through
+   the half-faded circle mid-morph and reads as a colour/brightness flicker.
+   Hold both snapshots opaque and let the group morph alone: the avatar simply
+   moves and scales between the two positions. */
+::view-transition-old(morph-avatar),
+::view-transition-new(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Bias the surface content cross-fade toward the incoming element so the larger,
+   text-heavy side reads quickly and the smaller one doesn't linger. (The matched
+   title/host/avatar are their own groups above and morph in lockstep with it.) */
 ::view-transition-old(session-morph) {
-  animation-duration: 0.18s;
-  animation-timing-function: var(--ease-out);
+  animation-duration: calc(var(--vt-morph-duration) * 0.55);
+  animation-timing-function: var(--vt-morph-ease);
 }
 
 ::view-transition-new(session-morph) {
-  animation-duration: 0.3s;
-  animation-timing-function: var(--ease-out);
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
 }
 
 /* --- Non-session modal blur close --------------------------------------- */
