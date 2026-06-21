@@ -1,4 +1,3 @@
-
 const OPEN_DELAY_MS = 100;
 const CLOSE_DELAY_MS = 200;
 
@@ -7,14 +6,14 @@ const init = (details: HTMLDetailsElement): void => {
   let closeTimer: number | undefined;
 
   const open = (): void => {
-    window.clearTimeout(closeTimer);
-    openTimer = window.setTimeout(() => {
+    globalThis.clearTimeout(closeTimer);
+    openTimer = globalThis.setTimeout(() => {
       details.open = true;
     }, OPEN_DELAY_MS);
   };
   const close = (): void => {
-    window.clearTimeout(openTimer);
-    closeTimer = window.setTimeout(() => {
+    globalThis.clearTimeout(openTimer);
+    closeTimer = globalThis.setTimeout(() => {
       details.open = false;
     }, CLOSE_DELAY_MS);
   };
@@ -22,15 +21,17 @@ const init = (details: HTMLDetailsElement): void => {
   details.addEventListener("mouseenter", open);
   details.addEventListener("mouseleave", close);
   details.addEventListener("toggle", () => {
-    window.clearTimeout(openTimer);
-    window.clearTimeout(closeTimer);
+    globalThis.clearTimeout(openTimer);
+    globalThis.clearTimeout(closeTimer);
   });
 };
 
 const wire = (): void => {
-  document
-    .querySelectorAll<HTMLDetailsElement>("details[data-info-popover]")
-    .forEach(init);
+  for (const details of document.querySelectorAll<HTMLDetailsElement>(
+    "details[data-info-popover]",
+  )) {
+    init(details);
+  }
 };
 
 if (document.readyState === "loading") {

@@ -19,12 +19,13 @@ function isEditing(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el) return false;
   if (el.isContentEditable) return true;
-  return ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
+  return ["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName);
 }
 
 function onKeydown(event: KeyboardEvent): void {
   const isPrintCombo =
-    (event.metaKey || event.ctrlKey) && (event.key === "p" || event.key === "P");
+    (event.metaKey || event.ctrlKey) &&
+    (event.key === "p" || event.key === "P");
   if (!isPrintCombo || event.altKey || event.shiftKey) return;
   // Don't steal the gesture mid-edit — navigating away would discard input.
   if (isEditing(event.target)) return;
@@ -33,7 +34,7 @@ function onKeydown(event: KeyboardEvent): void {
   if (!url) return;
 
   event.preventDefault();
-  window.location.assign(url);
+  globalThis.location.assign(url);
 }
 
 document.addEventListener("keydown", onKeydown);

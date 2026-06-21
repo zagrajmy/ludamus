@@ -37,7 +37,7 @@ import slugifyLib from "slugify";
 const NEW_FIELD_TARGETS = new Set(["personal-field", "session-field"]);
 const TIME_SLOTS_TARGET = "session.time_slots";
 const DURATION_TARGET = "session.duration";
-const ENTITY_TARGETS = new Set(["track", "category"]);
+const ENTITY_TARGETS = new Set(["category", "track"]);
 
 function rowElement(selector: string, row: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`${selector}[data-row="${row}"]`);
@@ -47,7 +47,7 @@ function rowElement(selector: string, row: string): HTMLElement | null {
 // slugify, which applies the same simov/slugify transliteration table via a
 // hand-maintained Python copy (mills/submissions.py: _TRANSLITERATION).
 function slugify(value: string): string {
-  return slugifyLib(value, { lower: true, strict: true, locale: "pl" });
+  return slugifyLib(value, { locale: "pl", lower: true, strict: true });
 }
 
 // The slug paired with a name lives in the same [data-slug-scope] (the field
@@ -96,12 +96,10 @@ function addWindow(button: HTMLElement): void {
   const last = windows?.querySelector<HTMLElement>(".ts-window:last-child");
   if (!windows || !last) return;
   const clone = last.cloneNode(true) as HTMLElement;
-  clone
-    .querySelectorAll<HTMLInputElement>("input")
-    .forEach((input) => {
-      if (input.type !== "hidden") input.value = "";
-    });
-  windows.appendChild(clone);
+  for (const input of clone.querySelectorAll<HTMLInputElement>("input")) {
+    if (input.type !== "hidden") input.value = "";
+  }
+  windows.append(clone);
 }
 
 function removeWindow(button: HTMLElement): void {
@@ -111,11 +109,9 @@ function removeWindow(button: HTMLElement): void {
   if (windows.querySelectorAll(".ts-window").length > 1) {
     window_.remove();
   } else {
-    window_
-      .querySelectorAll<HTMLInputElement>("input")
-      .forEach((input) => {
-        if (input.type !== "hidden") input.value = "";
-      });
+    for (const input of window_.querySelectorAll<HTMLInputElement>("input")) {
+      if (input.type !== "hidden") input.value = "";
+    }
   }
 }
 
@@ -126,10 +122,10 @@ function addOverride(button: HTMLElement): void {
   const last = rows?.querySelector<HTMLElement>(".ov-row:last-child");
   if (!rows || !last) return;
   const clone = last.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
+  for (const input of clone.querySelectorAll<HTMLInputElement>("input")) {
     input.value = "";
-  });
-  rows.appendChild(clone);
+  }
+  rows.append(clone);
 }
 
 function removeOverride(button: HTMLElement): void {
@@ -139,9 +135,9 @@ function removeOverride(button: HTMLElement): void {
   if (rows.querySelectorAll(".ov-row").length > 1) {
     row.remove();
   } else {
-    row.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
+    for (const input of row.querySelectorAll<HTMLInputElement>("input")) {
       input.value = "";
-    });
+    }
   }
 }
 
@@ -188,20 +184,26 @@ document.addEventListener("click", (e) => {
 });
 
 function initRecipe(): void {
-  document.querySelectorAll<HTMLSelectElement>(".recipe-target").forEach(syncTarget);
-  document
-    .querySelectorAll<HTMLSelectElement>(".recipe-fieldtype")
-    .forEach(syncFieldType);
+  for (const target of document.querySelectorAll<HTMLSelectElement>(
+    ".recipe-target",
+  )) {
+    syncTarget(target);
+  }
+  for (const fieldType of document.querySelectorAll<HTMLSelectElement>(
+    ".recipe-fieldtype",
+  )) {
+    syncFieldType(fieldType);
+  }
   // Lock every populated slug in a confirmed row from name-driven auto-sync.
   // The input listener clears the flag when the operator empties the slug,
   // reopening auto-sync for that field.
-  document
-    .querySelectorAll<HTMLElement>("[data-recipe-row][data-confirmed='true']")
-    .forEach((row) => {
-      row.querySelectorAll<HTMLInputElement>(".recipe-slug").forEach((slug) => {
-        if (slug.value) slug.dataset.edited = "true";
-      });
-    });
+  for (const row of document.querySelectorAll<HTMLElement>(
+    "[data-recipe-row][data-confirmed='true']",
+  )) {
+    for (const slug of row.querySelectorAll<HTMLInputElement>(".recipe-slug")) {
+      if (slug.value) slug.dataset.edited = "true";
+    }
+  }
 }
 
 // Unique-key columns chip editor (Run tab): selected columns as removable
@@ -212,8 +214,12 @@ function initRecipe(): void {
 // selection.
 function initUniqueKeys(root: HTMLElement): void {
   const list = root.querySelector<HTMLElement>("[data-unique-keys-list]");
-  const select = root.querySelector<HTMLSelectElement>("[data-unique-keys-select]");
-  const addBtn = root.querySelector<HTMLButtonElement>("[data-unique-keys-add]");
+  const select = root.querySelector<HTMLSelectElement>(
+    "[data-unique-keys-select]",
+  );
+  const addBtn = root.querySelector<HTMLButtonElement>(
+    "[data-unique-keys-add]",
+  );
   if (!list || !select || !addBtn) return;
 
   const removeEmpty = (): void => {
@@ -226,14 +232,14 @@ function initUniqueKeys(root: HTMLElement): void {
     empty.dataset.uniqueKeysEmpty = "";
     empty.className = "text-xs text-foreground-muted";
     empty.textContent = root.dataset.emptyLabel ?? "";
-    list.appendChild(empty);
+    list.append(empty);
   };
 
   const addToDropdown = (value: string): void => {
     const opt = document.createElement("option");
     opt.value = value;
     opt.textContent = value;
-    select.appendChild(opt);
+    select.append(opt);
   };
 
   const removeChip = (li: HTMLElement, value: string): void => {
@@ -251,13 +257,13 @@ function initUniqueKeys(root: HTMLElement): void {
     hidden.type = "hidden";
     hidden.name = "unique_key_columns";
     hidden.value = value;
-    li.appendChild(hidden);
+    li.append(hidden);
 
     const label = document.createElement("span");
     label.className = "truncate";
     label.textContent = value;
     label.title = value;
-    li.appendChild(label);
+    li.append(label);
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -267,37 +273,39 @@ function initUniqueKeys(root: HTMLElement): void {
     btn.setAttribute("aria-label", `Remove ${value}`);
     btn.textContent = "×";
     btn.addEventListener("click", () => removeChip(li, value));
-    li.appendChild(btn);
+    li.append(btn);
 
     return li;
   };
 
-  list
-    .querySelectorAll<HTMLButtonElement>("[data-unique-keys-remove]")
-    .forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const li = btn.closest<HTMLLIElement>("li");
-        const value = li?.querySelector<HTMLInputElement>(
-          "input[name='unique_key_columns']",
-        )?.value;
-        if (li && value) removeChip(li, value);
-      });
+  for (const btn of list.querySelectorAll<HTMLButtonElement>(
+    "[data-unique-keys-remove]",
+  )) {
+    btn.addEventListener("click", () => {
+      const li = btn.closest<HTMLLIElement>("li");
+      const value = li?.querySelector<HTMLInputElement>(
+        "input[name='unique_key_columns']",
+      )?.value;
+      if (li && value) removeChip(li, value);
     });
+  }
 
   addBtn.addEventListener("click", () => {
-    const value = select.value;
+    const { value } = select;
     if (!value) return;
     removeEmpty();
-    list.appendChild(buildChip(value));
+    list.append(buildChip(value));
     select.querySelector(`option[value="${CSS.escape(value)}"]`)?.remove();
     select.value = "";
   });
 }
 
 function initUniqueKeysAll(): void {
-  document
-    .querySelectorAll<HTMLElement>("[data-unique-keys]")
-    .forEach(initUniqueKeys);
+  for (const element of document.querySelectorAll<HTMLElement>(
+    "[data-unique-keys]",
+  )) {
+    initUniqueKeys(element);
+  }
 }
 
 if (document.readyState === "loading") {

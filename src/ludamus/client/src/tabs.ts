@@ -19,22 +19,22 @@ function activateTab(trigger: Element): void {
   const panelId = trigger.getAttribute("aria-controls");
   if (!panelId) return;
 
-  tablist.querySelectorAll(".tab-trigger").forEach((t) => {
+  for (const t of tablist.querySelectorAll(".tab-trigger")) {
     t.setAttribute("aria-selected", "false");
     t.setAttribute("tabindex", "-1");
     const id = t.getAttribute("aria-controls");
     const panel = id && document.getElementById(id);
     if (panel) {
-      panel.removeAttribute("data-active");
+      delete panel.dataset.active;
       panel.setAttribute("inert", "");
     }
-  });
+  }
 
   trigger.setAttribute("aria-selected", "true");
   trigger.setAttribute("tabindex", "0");
   const active = document.getElementById(panelId);
   if (active) {
-    active.setAttribute("data-active", "");
+    active.dataset.active = "";
     active.removeAttribute("inert");
   }
   (trigger as HTMLElement).focus();
@@ -56,11 +56,26 @@ document.addEventListener("keydown", (e) => {
   const idx = tabs.indexOf(trigger as HTMLElement);
 
   let next = -1;
-  if (e.key === "ArrowRight") next = (idx + 1) % tabs.length;
-  else if (e.key === "ArrowLeft") next = (idx - 1 + tabs.length) % tabs.length;
-  else if (e.key === "Home") next = 0;
-  else if (e.key === "End") next = tabs.length - 1;
-  else return;
+  switch (e.key) {
+    case "ArrowLeft": {
+      next = (idx - 1 + tabs.length) % tabs.length;
+      break;
+    }
+    case "ArrowRight": {
+      next = (idx + 1) % tabs.length;
+      break;
+    }
+    case "End": {
+      next = tabs.length - 1;
+      break;
+    }
+    case "Home": {
+      next = 0;
+      break;
+    }
+    default:
+      return;
+  }
 
   e.preventDefault();
   activateTab(tabs[next]);
