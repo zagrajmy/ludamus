@@ -8,7 +8,8 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.adapters.db.django.models import AccreditationType, DiscountKind
+from ludamus.adapters.db.django.models import AccreditationType
+from ludamus.pacts.discounts import DiscountKind
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # Image-upload invariants (business rules, not gate trivia): every cover/header
@@ -537,19 +538,20 @@ class FacilitatorForm(forms.Form):
 
 
 class DiscountForm(forms.Form):
-    """Form for assigning/editing a creator discount within an event."""
-
     kind = forms.ChoiceField(
-        choices=DiscountKind.choices, initial=DiscountKind.PERCENT, label=_("Kind")
+        choices=[(k.value, k.name.title()) for k in DiscountKind],
+        initial=DiscountKind.PERCENT,
+        label=_("Kind"),
     )
     value = forms.DecimalField(
         max_digits=10,
         decimal_places=2,
-        min_value=Decimal(0),
+        min_value=Decimal("0.01"),
         label=_("Value"),
+        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
         error_messages={
             "required": _("Value is required."),
-            "min_value": _("Value cannot be negative."),
+            "min_value": _("Value must be greater than zero."),
         },
     )
     note = forms.CharField(

@@ -1,5 +1,3 @@
-"""Creator discount views (list, assign, edit, delete)."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -23,7 +21,7 @@ from ludamus.pacts.discounts import DiscountData, DiscountKind
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import FacilitatorListItemDTO
+    from ludamus.pacts import FacilitatorDTO
     from ludamus.pacts.discounts import DiscountDTO
 
 
@@ -44,6 +42,16 @@ def _scoped_discount(
     except NotFoundError:
         return None
     return discount if discount.event_id == event_pk else None
+
+
+def _scoped_facilitator(
+    request: PanelRequest, event_pk: int, facilitator_id: int
+) -> FacilitatorDTO | None:
+    try:
+        facilitator = request.di.uow.facilitators.read(facilitator_id)
+    except NotFoundError:
+        return None
+    return facilitator if facilitator.event_id == event_pk else None
 
 
 class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -80,20 +88,6 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
 class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
-    def _facilitator(
-        self, event_pk: int, facilitator_id: int
-    ) -> FacilitatorListItemDTO | None:
-        return next(
-            (
-                facilitator
-                for facilitator in self.request.di.uow.facilitators.list_by_event(
-                    event_pk
-                )
-                if facilitator.pk == facilitator_id
-            ),
-            None,
-        )
-
     def get(
         self, _request: PanelRequest, slug: str, facilitator_id: int
     ) -> HttpResponse:
@@ -101,7 +95,10 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        if (facilitator := self._facilitator(current_event.pk, facilitator_id)) is None:
+        facilitator = _scoped_facilitator(
+            self.request, current_event.pk, facilitator_id
+        )
+        if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:discounts", slug=slug)
 
@@ -117,7 +114,10 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        if (facilitator := self._facilitator(current_event.pk, facilitator_id)) is None:
+        facilitator = _scoped_facilitator(
+            self.request, current_event.pk, facilitator_id
+        )
+        if facilitator is None:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:discounts", slug=slug)
 
