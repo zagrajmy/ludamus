@@ -108,15 +108,20 @@ def extract_identity(settings: ImportSettings, row: ImportRow) -> tuple[str, str
     # Empty cells don't overwrite an earlier resolved value — a second
     # mapping to the same built-in target (e.g. legacy duplicates from
     # before the form-question dedup) would otherwise silently clobber it.
-    # Only consult cells for the two targets this function consumes; an
-    # unrelated question's conflicting columns would raise here otherwise
-    # and the caller isn't inside the per-row try/except.
+    # Only consult cells for the two targets this function consumes. This runs
+    # outside the per-row try/except (it builds the log entry's display title),
+    # so a conflicting or missing column must not raise here — fall back to a
+    # blank display and let the per-row processing record the real reason.
     title = ""
     display_name = ""
     for header, target in settings.questions.items():
         if target.to not in _IDENTITY_TARGETS:
             continue
-        if not (value := cell(target=target, row=row, header=header)):
+        try:
+            value = cell(target=target, row=row, header=header)
+        except RowSkippedError:
+            continue
+        if not value:
             continue
         if target.to == "session.title" and not title:
             title = value
@@ -200,6 +205,8 @@ def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     # `ImportRow.get_value` collapses sheet columns whose form questions were
     # already deduped (e.g. "Genre" + "Genre (2)") and raises on conflicting
     # non-empty values — surface that as a per-row skip.
+    if target is not None and target.to and not row.has_column(header):
+        return _skip(f"{header!r}: mapped column is missing from the response data")
     try:
         raw = row.get_value(header, "")
     except DuplicateValueError as exc:

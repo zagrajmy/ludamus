@@ -73,8 +73,18 @@ class ImportRow:
             raise DuplicateValueError(header, sorted(candidates))
         return next(iter(candidates), default)
 
+    def has_column(self, header: str) -> bool:
+        # Whether the source row carries this column at all (even when empty),
+        # so a mapped question pointing at a non-existent column surfaces as an
+        # error instead of a silent blank.
+        return any(_row_header_matches(key, header) for key in self._data)
+
 
 def _row_header_matches(key: str, header: str) -> bool:
+    # Compare ignoring surrounding whitespace: a form question title, its sheet
+    # column header, and the saved recipe key can disagree by a stray trailing
+    # space, which would otherwise silently drop the mapping.
+    key, header = key.strip(), header.strip()
     if key == header:
         return True
     suffix = key.removeprefix(header)

@@ -23,6 +23,7 @@ from ludamus.mills.submissions.importing import ProposalImportService
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
     SlugCollisionError,
+    cell,
     chosen_entities,
     decode_response,
     extract_identity,
@@ -993,6 +994,22 @@ class TestImportRow:
 
         assert row.get_value("Title") == "Talk"
 
+    def test_get_value_matches_despite_trailing_whitespace(self):
+        # Recipe key carries a stray trailing space; the data column does not.
+        row = ImportRow({"Suggested block": "RPG"})
+
+        assert row.get_value("Suggested block ") == "RPG"
+
+    def test_has_column_true_even_when_cell_is_empty(self):
+        row = ImportRow({"Block ": ""})
+
+        assert row.has_column("Block")
+
+    def test_has_column_false_when_column_absent(self):
+        row = ImportRow({"Title": "Talk"})
+
+        assert not row.has_column("Block")
+
 
 class _ImportServiceMocks:
     @pytest.fixture
@@ -1133,7 +1150,9 @@ class TestProposalImportService(_ImportServiceMocks):
                 ' "Q2": {"to": "session.description"}}}'
             )
         )
-        event_integrations.fetch_responses.return_value = _rows([{"Q1": "Talk"}])
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Q1": "Talk", "Q2": ""}]
+        )
 
         result = service.run(sphere_id=5, event_id=6, integration_pk=7)
 
@@ -2593,6 +2612,24 @@ class TestMappingHelpers:
         builtins = resolve_builtins(settings, ImportRow({"Desc": "Hello"}))
 
         assert builtins.description == "Hello"
+
+    def test_cell_reads_value_despite_trailing_space_in_recipe_key(self):
+        target = QuestionTarget(to="track")
+        row = ImportRow({"Block": "RPG"})
+
+        assert cell(target=target, row=row, header="Block ") == "RPG"
+
+    def test_cell_skips_row_when_mapped_column_is_missing(self):
+        target = QuestionTarget(to="track")
+        row = ImportRow({"Title": "Talk"})
+
+        with pytest.raises(RowSkippedError, match="missing"):
+            cell(target=target, row=row, header="Block")
+
+    def test_cell_does_not_skip_unmapped_target_with_missing_column(self):
+        row = ImportRow({"Title": "Talk"})
+
+        assert not cell(target=None, row=row, header="Block")
 
     def test_resolve_builtins_treats_whitespace_participants_limit_as_zero(self):
         settings = ImportSettings(
