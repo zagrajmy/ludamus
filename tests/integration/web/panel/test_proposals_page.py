@@ -105,6 +105,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "proposals": [],
                 "session_fields": [],
@@ -170,6 +171,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 1,
@@ -231,6 +233,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 1,
@@ -291,6 +294,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 2,
@@ -363,6 +367,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 1,
@@ -444,6 +449,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 1,
@@ -523,6 +529,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 1,
@@ -597,6 +604,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "stats": {
                     "hosts_count": 1,
@@ -640,6 +648,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
                 "filter_fields": {},
@@ -669,6 +678,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
                 "filter_fields": {},
@@ -706,6 +716,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "proposals": [],
                 "session_fields": [

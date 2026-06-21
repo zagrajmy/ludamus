@@ -75,6 +75,7 @@ if TYPE_CHECKING:
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
+        ScheduleChangeLogRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
         SessionRepositoryProtocol,
@@ -473,6 +474,52 @@ class SessionConfirmationService:
             raise NotFoundError
         with self._transaction.atomic():
             self._agenda_items.confirm_all_by_track(track_pk)
+
+
+class SessionDeletionService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        schedule_change_logs: ScheduleChangeLogRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._agenda_items = agenda_items
+        self._schedule_change_logs = schedule_change_logs
+
+    def soft_delete(
+        self, event_pk: int, session_pk: int, user_pk: int | None = None
+    ) -> None:
+        require_session_in_event(self._sessions, session_pk, event_pk)
+        with self._transaction.atomic():
+            # Free the timetable slot through the existing unschedule path:
+            # drop the agenda item, return the session to PENDING, and record
+            # the unassignment in the schedule activity log.
+            agenda_item = self._agenda_items.read_by_session(session_pk)
+            if agenda_item is not None:
+                self._agenda_items.delete(agenda_item.pk)
+                self._sessions.update(session_pk, {"status": SessionStatus.PENDING})
+                log_data: ScheduleChangeLogData = {
+                    "event_id": event_pk,
+                    "session_id": session_pk,
+                    "user_id": user_pk,
+                    "action": ScheduleChangeAction.UNASSIGN,
+                    "old_space_id": agenda_item.space_id,
+                    "old_start_time": agenda_item.start_time,
+                    "old_end_time": agenda_item.end_time,
+                }
+                self._schedule_change_logs.create(log_data)
+            # Participations are retained as history (not cancelled).
+            self._sessions.soft_delete(session_pk)
+
+    def restore(self, event_pk: int, session_pk: int) -> None:
+        # The session returns unscheduled (it was set to PENDING on delete); no
+        # agenda item or schedule-change log — restore changes no slot. The repo
+        # scopes to the event (the alive-manager check can't see deleted rows).
+        with self._transaction.atomic():
+            self._sessions.restore(session_pk, event_pk)
 
 
 class ConflictDetectionService:

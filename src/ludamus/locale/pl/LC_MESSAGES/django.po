@@ -1485,6 +1485,26 @@ msgid "Proposal rejected."
 msgstr "Zgłoszenie zostało odrzucone."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Session deleted."
+msgstr "Punkt programu został usunięty."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Session restored."
+msgstr "Punkt programu przywrócony."
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Recently deleted"
+msgstr "Ostatnio usunięte"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Restore"
+msgstr "Przywróć"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Restore this session?"
+msgstr "Przywrócić ten punkt programu?"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Facilitators updated."
 msgstr "Twórcy programu zostali zaktualizowani."
 
@@ -5959,6 +5979,14 @@ msgstr ""
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "View import log"
 msgstr "Zobacz dziennik importu"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid ""
+"Are you sure you want to delete this session? It will be removed from the "
+"schedule."
+msgstr ""
+"Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
+"harmonogramu."
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html

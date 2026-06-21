@@ -9,6 +9,7 @@ from ludamus.inits.dbos_offer_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
+from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
@@ -16,6 +17,7 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     SessionConfirmationService,
     SessionContentEditService,
+    SessionDeletionService,
     SessionSelfEditService,
 )
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
@@ -41,7 +43,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
-class Services:
+class Services:  # noqa: PLR0904 — deliberate flat service namespace; bucket later
     """Lazy flat service namespace exposed on `request.services`.
 
     Buckets will appear when the leaf count grows past ~12.
@@ -114,6 +116,15 @@ class Services:
             self._repos.agenda_items,
             self._repos.sessions,
             self._repos.tracks,
+        )
+
+    @cached_property
+    def session_deletion(self) -> SessionDeletionService:
+        return SessionDeletionService(
+            self._transaction,
+            self._repos.sessions,
+            self._repos.agenda_items,
+            ScheduleChangeLogRepository(),
         )
 
     @cached_property

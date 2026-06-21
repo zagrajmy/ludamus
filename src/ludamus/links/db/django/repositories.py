@@ -337,6 +337,50 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             delete_stored_file(session.cover_image, old_cover)
 
     @staticmethod
+    def soft_delete(pk: int) -> None:
+        # Reach through `all_objects` so an already-dead row raises NotFound
+        # instead of silently re-stamping `deleted_at`.
+        try:
+            session = Session.all_objects.get(id=pk, deleted_at__isnull=True)
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        session.soft_delete()
+
+    @staticmethod
+    def restore(pk: int, event_pk: int) -> None:
+        # Scope + existence in one query: a soft-deleted session in this event.
+        # (The alive-manager service check can't see deleted rows, so event
+        # scoping lives here.) Missing / wrong-event / already-alive -> NotFound.
+        try:
+            session = Session.all_objects.get(
+                id=pk, category__event_id=event_pk, deleted_at__isnull=False
+            )
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        session.restore()
+
+    @staticmethod
+    def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]:
+        qs = (
+            Session.all_objects.filter(
+                category__event_id=event_pk, deleted_at__isnull=False
+            )
+            .select_related("presenter", "category")
+            .order_by("-creation_time")
+        )
+        return [
+            SessionListItemDTO(
+                pk=s.pk,
+                title=s.title,
+                display_name=s.display_name,
+                category_name=s.category.name if s.category else "",
+                status=SessionStatus(s.status),
+                creation_time=s.creation_time,
+            )
+            for s in qs
+        ]
+
+    @staticmethod
     def read_event(session_id: int) -> EventDTO:
         try:
             event = Event.objects.select_related("proposal_settings").get(
