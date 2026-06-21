@@ -1,4 +1,5 @@
 import json as _json
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, call
 
@@ -45,6 +46,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.multiverse import ConnectionDTO
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     EntityRef,
@@ -995,7 +997,12 @@ class TestImportRow:
 class _ImportServiceMocks:
     @pytest.fixture
     def transaction(self):
-        return MagicMock()
+        mock = MagicMock()
+        # savepoint() must propagate exceptions (the engine relies on
+        # RowSkippedError / DuplicateRowError escaping it); a bare MagicMock
+        # context manager would swallow them.
+        mock.savepoint.side_effect = nullcontext
+        return mock
 
     @pytest.fixture
     def event_integrations(self):
@@ -1429,6 +1436,27 @@ class TestProposalImportService(_ImportServiceMocks):
         assert "Genre" in upserted.reason
         assert "Fantasy" in upserted.reason
         assert "Sci-Fi" in upserted.reason
+
+    def test_run_records_a_db_constraint_failure_as_a_skipped_row(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # A constraint the DB enforces (e.g. an over-long value) surfaces from
+        # the savepoint as DatabaseConstraintError; the row is recorded as a
+        # skip with the DB message rather than aborting the whole import.
+        event_integrations.get.return_value = MagicMock(
+            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "My Talk"}])
+        sessions.create.side_effect = DatabaseConstraintError("value too long")
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.skipped == 1
+        log_entries.upsert.assert_called_once()
+        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert upserted.status == ImportLogStatus.SKIPPED
+        assert "value too long" in upserted.reason
 
     def test_run_does_not_let_an_empty_cell_overwrite_a_resolved_built_in(
         self, service, event_integrations, sessions
@@ -2552,6 +2580,8 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
 
 
 class TestMappingHelpers:
+    MAX_CHAR_LENGTH = 255
+
     def test_field_setup_defaults_to_a_text_field_without_a_definition(self):
         assert field_setup(None) == ("text", None, False, False)
 
@@ -2580,6 +2610,21 @@ class TestMappingHelpers:
 
         with pytest.raises(RowSkippedError):
             resolve_builtins(settings, ImportRow({"Cap": "-5"}))
+
+    def test_extract_identity_truncates_over_long_values_for_logging(self):
+        settings = ImportSettings(
+            questions={
+                "T": QuestionTarget(to="session.title"),
+                "F": QuestionTarget(to="facilitator.display_name"),
+            }
+        )
+
+        title, display_name = extract_identity(
+            settings, ImportRow({"T": "x" * 300, "F": "y" * 300})
+        )
+
+        assert len(title) == self.MAX_CHAR_LENGTH
+        assert len(display_name) == self.MAX_CHAR_LENGTH
 
     def test_extract_identity_skips_a_blank_identity_cell(self):
         settings = ImportSettings(

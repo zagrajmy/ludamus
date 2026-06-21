@@ -30,6 +30,7 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
     FieldDefinition,
     ImportLogEntryCreateData,
@@ -43,6 +44,7 @@ from ludamus.pacts.submissions import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
+    from ludamus.pacts.services import TransactionProtocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,10 +59,14 @@ class FieldIdsByHeader:
 
 class ImportEngine:
     def __init__(
-        self, event_integrations: EventIntegrationsServiceProtocol, repos: ImportRepos
+        self,
+        event_integrations: EventIntegrationsServiceProtocol,
+        repos: ImportRepos,
+        transaction: TransactionProtocol,
     ) -> None:
         self._event_integrations = event_integrations
         self._repos = repos
+        self._transaction = transaction
 
     def settings(self, event_id: int, integration_pk: int) -> ImportSettings:
         integration = self._event_integrations.get(event_id, integration_pk)
@@ -82,13 +88,14 @@ class ImportEngine:
         for row_index, row in indexed_rows:
             title, display_name = extract_identity(settings, row)
             try:
-                session_id = self._create_proposal(
-                    sphere_id=sphere_id,
-                    event_id=event_id,
-                    settings=settings,
-                    row=row,
-                    field_ids=field_ids,
-                )
+                with self._transaction.savepoint():
+                    session_id = self._create_proposal(
+                        sphere_id=sphere_id,
+                        event_id=event_id,
+                        settings=settings,
+                        row=row,
+                        field_ids=field_ids,
+                    )
             except DuplicateRowError as exc:
                 # The row's unique key matches an existing session — link
                 # the log entry to it so the operator can navigate and so
@@ -114,6 +121,23 @@ class ImportEngine:
                         row_index=row_index,
                         status=ImportLogStatus.SKIPPED,
                         reason=exc.reason,
+                        response_json=json.dumps(row.data, ensure_ascii=False),
+                        title=title,
+                        display_name=display_name,
+                    )
+                )
+                skipped += 1
+                continue
+            except DatabaseConstraintError as exc:
+                # A DB constraint rejected the row (over-long value, FK, unique
+                # …). The savepoint rolled the partial write back; record the
+                # failure so the operator can adjust the mapping and retry.
+                self._repos.log_entries.upsert(
+                    ImportLogEntryCreateData(
+                        integration_id=integration_pk,
+                        row_index=row_index,
+                        status=ImportLogStatus.SKIPPED,
+                        reason=str(exc),
                         response_json=json.dumps(row.data, ensure_ascii=False),
                         title=title,
                         display_name=display_name,

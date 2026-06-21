@@ -36,7 +36,7 @@ class ImportFieldLayoutService:
     ) -> None:
         self._transaction = transaction
         self._repos = repos
-        self._engine = ImportEngine(event_integrations, repos)
+        self._engine = ImportEngine(event_integrations, repos, transaction)
 
     def apply_field_layout(
         self, event_id: int, integration_pk: int

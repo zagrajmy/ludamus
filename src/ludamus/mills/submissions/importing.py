@@ -23,7 +23,7 @@ class ProposalImportService:
     ) -> None:
         self._transaction = transaction
         self._event_integrations = event_integrations
-        self._engine = ImportEngine(event_integrations, repos)
+        self._engine = ImportEngine(event_integrations, repos, transaction)
 
     def run(
         self, *, sphere_id: int, event_id: int, integration_pk: int

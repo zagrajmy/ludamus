@@ -38,9 +38,20 @@ if TYPE_CHECKING:
     from ludamus.pacts.venues import VenuesServiceProtocol
 
 
+class DatabaseConstraintError(Exception):
+    """A DB integrity/data constraint was violated inside a `savepoint()`.
+
+    Surfaced as a recoverable domain error so callers can record the failure
+    and continue instead of letting a raw database exception abort the whole
+    transaction.
+    """
+
+
 class TransactionProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+    @staticmethod
+    def savepoint() -> AbstractContextManager[None]: ...
 
 
 class ServicesProtocol(Protocol):

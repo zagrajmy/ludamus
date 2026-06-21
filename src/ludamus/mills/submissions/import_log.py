@@ -11,6 +11,7 @@ from ludamus.mills.submissions.mapping import (
     locate_row,
 )
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
@@ -36,7 +37,7 @@ class ImportLogService:
         self._transaction = transaction
         self._event_integrations = event_integrations
         self._repos = repos
-        self._engine = ImportEngine(event_integrations, repos)
+        self._engine = ImportEngine(event_integrations, repos, transaction)
 
     def list_log_entries(
         self,
@@ -159,20 +160,21 @@ class ImportLogService:
         with self._transaction.atomic():
             field_ids, _ = self._engine.provision_fields(event_id, settings)
             try:
-                self._engine.update_proposal(
-                    event_id=event_id,
-                    session_id=entry.session_id,
-                    settings=settings,
-                    row=target_row,
-                    field_ids=field_ids,
-                )
-            except RowSkippedError as exc:
+                with self._transaction.savepoint():
+                    self._engine.update_proposal(
+                        event_id=event_id,
+                        session_id=entry.session_id,
+                        settings=settings,
+                        row=target_row,
+                        field_ids=field_ids,
+                    )
+            except (RowSkippedError, DatabaseConstraintError) as exc:
                 self._repos.log_entries.upsert(
                     ImportLogEntryCreateData(
                         integration_id=integration.pk,
                         row_index=target_idx,
                         status=ImportLogStatus.SKIPPED,
-                        reason=exc.reason,
+                        reason=str(exc),
                         response_json=json.dumps(target_row.data, ensure_ascii=False),
                         title=title,
                         display_name=display_name,

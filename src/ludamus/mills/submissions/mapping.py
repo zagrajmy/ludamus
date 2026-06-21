@@ -122,7 +122,9 @@ def extract_identity(settings: ImportSettings, row: ImportRow) -> tuple[str, str
             title = value
         elif target.to == "facilitator.display_name" and not display_name:
             display_name = value
-    return title, display_name
+    # These feed the log entry's own CharField(max_length=255) columns, so a
+    # failed over-length row can still be recorded — truncate for display.
+    return title[:_MAX_LOG_CHAR_LENGTH], display_name[:_MAX_LOG_CHAR_LENGTH]
 
 
 class RowSkippedError(Exception):
@@ -181,6 +183,12 @@ def _parse_int(header: str, answer: str) -> int:
 
 def _skip(reason: str) -> Never:
     raise RowSkippedError(reason)
+
+
+# The log entry's own title/display_name are CharField(max_length=255); a row
+# that fails on an over-length value still has to be recorded, so truncate the
+# display-only identity for storage.
+_MAX_LOG_CHAR_LENGTH = 255
 
 
 def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:

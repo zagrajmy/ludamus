@@ -40,7 +40,12 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.submissions import EntityRef, ImportSettings, TimeSlotSpec
+from ludamus.pacts.submissions import (
+    EntityRef,
+    ImportLogStatus,
+    ImportSettings,
+    TimeSlotSpec,
+)
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
@@ -1512,6 +1517,51 @@ class TestEventImportRunActionView:
             Session.objects.filter(sphere=sphere).values_list("title", flat=True)
         )
         assert titles == {"My Talk", "Another"}
+
+    @pytest.mark.postgres  # SQLite doesn't enforce varchar length
+    def test_post_records_a_db_constraint_failure_as_a_skipped_row(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title", "ignore": False},
+                    "Nick": {"to": "facilitator.display_name", "ignore": False},
+                }
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+        too_long = "x" * 300  # Facilitator.display_name is CharField(max_length=255)
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Nick"], ["My Talk", too_long]]
+            )
+            response = authenticated_client.post(_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (messages.SUCCESS, "Created 0 proposals."),
+                (
+                    messages.WARNING,
+                    "Skipped 1 responses with an invalid or unmapped answer.",
+                ),
+            ],
+        )
+        assert not Session.objects.filter(sphere=sphere).exists()
+        entry = ImportLogEntry.objects.get(integration=integration)
+        assert entry.status == ImportLogStatus.SKIPPED
+        assert entry.reason
 
     def test_post_provisions_a_new_field_and_fills_it(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
