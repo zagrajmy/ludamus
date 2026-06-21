@@ -75,6 +75,10 @@ const initDropzone = (label: HTMLLabelElement): void => {
     if (preview && isImage) {
       revokePreview();
       const objectUrl = URL.createObjectURL(file);
+      // `createObjectURL` only ever returns a `blob:` URL, so this guard is
+      // not reachable at runtime — it exists as an explicit taint barrier so
+      // static analysis (CodeQL) can see the value reaching `img.src` is a
+      // same-origin blob and not a user-controlled URL.
       if (!objectUrl.startsWith("blob:")) {
         URL.revokeObjectURL(objectUrl);
         return;
