@@ -220,7 +220,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                             <form method="post"
                                   action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}"
-                                  onsubmit="return confirm('{% translate "Restore this session?" %}');">
+                                  data-confirm="{% translate "Restore this session?" %}">
                                 {% csrf_token %}
                                 {% translate "Restore" as restore_label %}
                                 {% tessera_button restore_label variant="secondary" %}

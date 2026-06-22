@@ -1348,6 +1348,9 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
 
+    @staticmethod
+    def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
+
 
 class EventSettingsRepositoryProtocol(Protocol):
     @staticmethod

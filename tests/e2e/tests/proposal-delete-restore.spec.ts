@@ -16,9 +16,6 @@ test.describe('Proposal delete and restore', () => {
     await page.getByLabel('Username:').fill('e2e-manager');
     await page.getByLabel('Password:').fill('e2e-manager-123');
     await page.getByRole('button', { name: /Log in/i }).click();
-
-    // Auto-accept the confirm() dialog guarding the delete/restore forms.
-    page.on('dialog', (dialog) => dialog.accept());
   });
 
   test('soft-deletes a pending session from its detail page', async ({
@@ -33,9 +30,12 @@ test.describe('Proposal delete and restore', () => {
       page.getByRole('heading', { name: 'Recently deleted' }),
     ).toHaveCount(0);
 
-    // Open the proposal detail page from the list and delete it there.
     await activeLink.click();
     await page.getByRole('button', { name: 'Delete' }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Delete' })
+      .click();
 
     // Deleting redirects back to the proposals list: the session is gone from
     // the active table and appears under "Recently deleted" with a Restore
@@ -66,6 +66,10 @@ test.describe('Proposal delete and restore', () => {
       .filter({ hasText: PROPOSAL_TITLE });
     await expect(deletedRow).toBeVisible();
     await deletedRow.getByRole('button', { name: 'Restore' }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Confirm' })
+      .click();
 
     // The session returns to the active list...
     await page.waitForURL(/\/proposals\/$/);

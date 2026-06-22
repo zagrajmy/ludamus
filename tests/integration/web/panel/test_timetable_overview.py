@@ -153,6 +153,8 @@ class TestTimetableOverviewPageView:
         assert progress[0].track_name == "Test Track"
         assert progress[0].accepted_count == 1
         assert progress[0].scheduled_count == 0
+        assert progress[0].unassigned_count == 1
+        assert "(1 unassigned)" in response.content.decode()
 
     def test_capacity_hours_reports_hours_left_to_fill(
         self,

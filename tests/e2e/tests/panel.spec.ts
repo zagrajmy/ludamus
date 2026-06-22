@@ -3,6 +3,13 @@ import path from 'node:path';
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+/** Accept the in-page confirm modal that guards destructive forms. */
+const acceptConfirmModal = (page: Page) =>
+  page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Confirm' })
+    .click();
+
 /** Build an HH:MM string by adding minutes to a base hour:minute. */
 function timeHHMM(
   hour: number,
@@ -60,15 +67,6 @@ async function expectRequiredOption(
 
 function proposalCategoryOption(page: Page, name: string) {
   return page.getByText(name, { exact: true }).last();
-}
-
-function minutesSinceMidnight(time: string): number {
-  const [hour, minute] = time.split(':').map(Number);
-  return hour * 60 + minute;
-}
-
-function timeFromMinutes(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
 test('panel redirects to home with message when sphere has no events', async ({
@@ -354,8 +352,6 @@ test.describe('Backoffice Panel', () => {
     // Now delete it from the venues list
     await page.goto('/panel/event/frostfire-con/venues/');
 
-    page.on('dialog', (dialog) => dialog.accept());
-
     await page
       .locator('tr', { hasText: 'Temp Venue To Delete' })
       .locator('.action-dropdown-toggle')
@@ -367,6 +363,7 @@ test.describe('Backoffice Panel', () => {
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
 
     await expect(
       page.getByText('Venue deleted successfully.'),
@@ -464,8 +461,6 @@ test.describe('Backoffice Panel', () => {
       '/panel/event/frostfire-con/venues/aurora-hall/',
     );
 
-    page.on('dialog', (dialog) => dialog.accept());
-
     const row = page.locator('tr', {
       hasText: 'Temp Area To Delete',
     });
@@ -474,6 +469,7 @@ test.describe('Backoffice Panel', () => {
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
 
     await expect(
       page.getByText('Area deleted successfully.'),
@@ -658,8 +654,6 @@ test.describe('Backoffice Panel', () => {
       page.getByText('Session type created successfully.'),
     ).toBeVisible();
 
-    page.on('dialog', (dialog) => dialog.accept());
-
     const row = page.locator('tr', {
       hasText: 'Temp Type To Delete',
     });
@@ -675,6 +669,7 @@ test.describe('Backoffice Panel', () => {
     await listRow
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
 
     await expect(
       page.getByText('Session type deleted successfully.'),
@@ -732,11 +727,11 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Delete
-    page.on('dialog', (dialog) => dialog.accept());
     await page
       .locator('tr', { hasText: 'Email' })
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
 
     await expect(
       page.getByText(
@@ -790,11 +785,11 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Delete
-    page.on('dialog', (dialog) => dialog.accept());
     await page
       .getByRole('row', { name: new RegExp(fieldName) })
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
 
     await expect(
       page.getByText('Session field deleted successfully.'),
@@ -883,24 +878,24 @@ test.describe('Backoffice Panel', () => {
     await assertOptionalOnly('#host-fields-list', hostFieldName);
     await assertOptionalOnly('#session-fields-list', sessionFieldName);
 
-    page.once('dialog', (dialog) => dialog.accept());
     await page.goto('/panel/event/frostfire-con/cfp/personal-data/');
     await page
       .getByRole('row', { name: new RegExp(hostFieldName) })
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
     await expect(
       page.getByText(
         'Personal data field deleted successfully.',
       ),
     ).toBeVisible();
 
-    page.once('dialog', (dialog) => dialog.accept());
     await page.goto('/panel/event/frostfire-con/cfp/session-fields/');
     await page
       .getByRole('row', { name: new RegExp(sessionFieldName) })
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
     await expect(
       page.getByText('Session field deleted successfully.'),
     ).toBeVisible();
@@ -920,24 +915,18 @@ test.describe('Backoffice Panel', () => {
 
   test('creates, edits, and deletes a time slot', async ({
     page,
-  }, testInfo) => {
+  }) => {
     // Navigate to time slots page and extract event start info
     await page.goto(
       '/panel/event/frostfire-con/cfp/time-slots/',
     );
 
-    // Extract date from the first per-day "Add" link's ?date= param
     const addLink = page
       .getByRole('link', {
         name: 'Add',
         exact: true,
       })
       .first();
-    const addHref = await addLink.getAttribute('href');
-    const dateMatch = addHref?.match(
-      /date=(\d{4}-\d{2}-\d{2})/,
-    );
-    const dateStr = dateMatch?.[1] ?? '';
 
     // Extract event start hour from "Event starts at HH:MM" text
     const startsText = await page
@@ -1014,11 +1003,11 @@ test.describe('Backoffice Panel', () => {
     ).toBeVisible();
 
     // Delete
-    page.on('dialog', (dialog) => dialog.accept());
     await page
       .getByRole('button', { name: /Delete/i })
       .last()
       .click();
+    await acceptConfirmModal(page);
 
     await expect(
       page.getByText('Time slot deleted successfully.'),
@@ -1773,9 +1762,6 @@ test.describe('Backoffice Panel', () => {
           '/panel/event/frostfire-con/proposals/',
         );
 
-        const genreSelect = page.locator(
-          'select[name^="field_"]',
-        );
         const genreLabel = page.locator('label', {
           hasText: genreName,
         });
@@ -1895,7 +1881,6 @@ test.describe('Backoffice Panel', () => {
     expect(newIds).toEqual(reversed);
 
     // Clean up: delete "Reorder Test Venue"
-    page.on('dialog', (dialog) => dialog.accept());
     await page
       .locator('tr', { hasText: 'Reorder Test Venue' })
       .locator('.action-dropdown-toggle')
@@ -1905,6 +1890,7 @@ test.describe('Backoffice Panel', () => {
       .locator('.action-dropdown-menu')
       .getByRole('button', { name: /Delete/i })
       .click();
+    await acceptConfirmModal(page);
     await expect(
       page.getByText('Venue deleted successfully.'),
     ).toBeVisible();
@@ -2171,12 +2157,12 @@ test.describe('Backoffice Panel', () => {
     await page.goto(
       '/panel/event/frostfire-con/cfp/time-slots/',
     );
-    page.on('dialog', (dialog) => dialog.accept());
     // Find the slot row with the time we created
     await page
       .getByRole('button', { name: /Delete/i })
       .last()
       .click();
+    await acceptConfirmModal(page);
     await expect(
       page.getByText('Time slot deleted successfully.'),
     ).toBeVisible();

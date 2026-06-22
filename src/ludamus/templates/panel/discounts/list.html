@@ -67,7 +67,7 @@
                                 <form method="post"
                                       action="{% url 'panel:discount-delete' slug=current_event.slug pk=row.discount.pk %}"
                                       class="inline"
-                                      onsubmit="return confirm('{% translate "Are you sure you want to remove this discount?" %}') &amp;&amp; (this.querySelector('button[type=submit]').disabled = true)">
+                                      data-confirm="{% translate "Are you sure you want to remove this discount?" %}">
                                     {% csrf_token %}
                                     {% translate "Remove" as t_remove %}
                                     {% tessera_button t_remove variant="danger" size="sm" icon="trash" full_width_mobile=False %}

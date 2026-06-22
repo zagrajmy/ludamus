@@ -131,9 +131,11 @@
                 </footer>
             {% endblock site_footer %}
         {% endblock body_content %}
+        {% include "components/confirm-dialog.html" %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
+        {% vite_asset 'src/confirm.ts' %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>

@@ -112,7 +112,7 @@
                             <form method="post"
                                   action="{% url 'panel:personal-data-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"
                                   class="inline"
-                                  onsubmit="return confirm('{% translate "Are you sure you want to delete this field?" %}');">
+                                  data-confirm="{% translate "Are you sure you want to delete this field?" %}">
                                 {% csrf_token %}
                                 <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
                             </form>
