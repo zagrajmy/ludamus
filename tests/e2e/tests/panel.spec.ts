@@ -69,15 +69,6 @@ function proposalCategoryOption(page: Page, name: string) {
   return page.getByText(name, { exact: true }).last();
 }
 
-function minutesSinceMidnight(time: string): number {
-  const [hour, minute] = time.split(':').map(Number);
-  return hour * 60 + minute;
-}
-
-function timeFromMinutes(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-}
-
 test('panel redirects to home with message when sphere has no events', async ({
   browser,
 }) => {
@@ -924,24 +915,18 @@ test.describe('Backoffice Panel', () => {
 
   test('creates, edits, and deletes a time slot', async ({
     page,
-  }, testInfo) => {
+  }) => {
     // Navigate to time slots page and extract event start info
     await page.goto(
       '/panel/event/frostfire-con/cfp/time-slots/',
     );
 
-    // Extract date from the first per-day "Add" link's ?date= param
     const addLink = page
       .getByRole('link', {
         name: 'Add',
         exact: true,
       })
       .first();
-    const addHref = await addLink.getAttribute('href');
-    const dateMatch = addHref?.match(
-      /date=(\d{4}-\d{2}-\d{2})/,
-    );
-    const dateStr = dateMatch?.[1] ?? '';
 
     // Extract event start hour from "Event starts at HH:MM" text
     const startsText = await page
@@ -1777,9 +1762,6 @@ test.describe('Backoffice Panel', () => {
           '/panel/event/frostfire-con/proposals/',
         );
 
-        const genreSelect = page.locator(
-          'select[name^="field_"]',
-        );
         const genreLabel = page.locator('label', {
           hasText: genreName,
         });
