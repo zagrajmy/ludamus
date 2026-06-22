@@ -8,10 +8,10 @@ import { initTouchHandler, resetTouchHandler } from "@fluejs/noscroll/touch";
 
 interface NavigateEvent {
   canIntercept: boolean;
-  hashChange: boolean;
-  navigationType: "push" | "replace" | "reload" | "traverse";
   destination: { url: string };
+  hashChange: boolean;
   intercept: () => void;
+  navigationType: "push" | "reload" | "replace" | "traverse";
 }
 
 interface Navigation {
@@ -19,7 +19,7 @@ interface Navigation {
 }
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
-const navigation = (globalThis as { navigation?: Navigation }).navigation;
+const { navigation } = globalThis as { navigation?: Navigation };
 
 const scrollLockTargets = new Set<HTMLDialogElement>();
 const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
@@ -96,7 +96,7 @@ const unlockPage = (): void => {
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
   const candidates = [dialog, ...dialog.querySelectorAll<HTMLElement>("*")];
   return candidates.filter((element) => {
-    const overflowY = window.getComputedStyle(element).overflowY;
+    const { overflowY } = globalThis.getComputedStyle(element);
     return (
       (overflowY === "auto" || overflowY === "scroll") &&
       element.scrollHeight > element.clientHeight
@@ -153,7 +153,7 @@ const syncPageScrollLock = (): void => {
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLDialogElement)) {
-    throw new Error(`Modal "${id}" is not a <dialog> element`);
+    throw new TypeError(`Modal "${id}" is not a <dialog> element`);
   }
   return element;
 };
@@ -163,7 +163,7 @@ const updateQueryParam = (
   value: string | null,
   { replaceHistory = false } = {},
 ): void => {
-  const url = new URL(window.location.href);
+  const url = new URL(globalThis.location.href);
   const current = url.searchParams.get(paramName);
 
   if (value === null) {
@@ -176,10 +176,10 @@ const updateQueryParam = (
   }
 
   if (replaceHistory) {
-    window.history.replaceState({}, "", url);
+    globalThis.history.replaceState({}, "", url);
     return;
   }
-  window.history.pushState({}, "", url);
+  globalThis.history.pushState({}, "", url);
 };
 
 const getLinkableByModalId = (
@@ -191,7 +191,7 @@ const getLinkableByModalId = (
   const href = link.getAttribute("href");
   if (!href) return null;
 
-  const hrefUrl = new URL(href, window.location.href);
+  const hrefUrl = new URL(href, globalThis.location.href);
   const first = hrefUrl.searchParams.entries().next();
   if (first.done) return null;
 
@@ -247,9 +247,9 @@ const canMorph = (card: HTMLElement | null): card is HTMLElement =>
 // holds them at a time — so modal.css can target the groups for timing.
 const setMorph = (root: HTMLElement, active: boolean): void => {
   root.style.viewTransitionName = active ? MORPH_NAME : "";
-  root.querySelectorAll<HTMLElement>("[data-morph]").forEach((el) => {
+  for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
     el.style.viewTransitionName = active ? `morph-${el.dataset.morph}` : "";
-  });
+  }
 };
 
 // One owner for the morph protocol so open and close can't drift and the
@@ -261,8 +261,8 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
 // that differ between the two directions.
 const morphTransition = (steps: {
   before: () => void;
-  swap: () => void;
   settle: () => void;
+  swap: () => void;
 }): void => {
   steps.before();
   scrollLockSuspended = true;
@@ -291,10 +291,12 @@ const dismissDialog = (dialog: HTMLDialogElement): void => {
 
 const openModal = (
   id: string,
-  { updateUrl = true, replaceHistory = false, animate = true } = {},
+  { animate = true, replaceHistory = false, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
-  if (!dialog.open) {
+  if (dialog.open) {
+    syncPageScrollLock();
+  } else {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
@@ -304,6 +306,11 @@ const openModal = (
         before: () => {
           lockPage();
           setMorph(card, true);
+        },
+        settle: () => {
+          setMorph(dialog, false);
+          card.style.visibility = "";
+          card.style.transition = "";
         },
         swap: () => {
           setMorph(card, false);
@@ -317,18 +324,11 @@ const openModal = (
           dialog.showModal();
           setMorph(dialog, true);
         },
-        settle: () => {
-          setMorph(dialog, false);
-          card.style.visibility = "";
-          card.style.transition = "";
-        },
       });
     } else {
       dialog.showModal();
       syncPageScrollLock();
     }
-  } else {
-    syncPageScrollLock();
   }
 
   if (updateUrl) {
@@ -343,7 +343,7 @@ const openModal = (
 
 const closeModal = (
   id: string,
-  { updateUrl = true, replaceHistory = true, animate = true } = {},
+  { animate = true, replaceHistory = true, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (dialog.open) {
@@ -353,12 +353,12 @@ const closeModal = (
         // Old snapshot holds the modal; the swap hands the names back to the
         // card so it collapses into the card.
         before: () => setMorph(dialog, true),
+        settle: () => setMorph(card, false),
         swap: () => {
           dialog.close();
           setMorph(dialog, false);
           setMorph(card, true);
         },
-        settle: () => setMorph(card, false),
       });
     } else {
       dismissDialog(dialog);
@@ -370,7 +370,7 @@ const closeModal = (
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
-    const current = new URLSearchParams(window.location.search).get(
+    const current = new URLSearchParams(globalThis.location.search).get(
       linkable.paramName,
     );
     if (current === linkable.paramValue) {
@@ -380,38 +380,38 @@ const closeModal = (
 };
 
 const syncModalsFromUrl = (): void => {
-  const searchParams = new URLSearchParams(window.location.search);
+  const searchParams = new URLSearchParams(globalThis.location.search);
 
-  document.querySelectorAll("dialog.modal[open]").forEach((dialog) => {
-    closeModal(dialog.id, { updateUrl: false, animate: false });
-  });
+  for (const dialog of document.querySelectorAll("dialog.modal[open]")) {
+    closeModal(dialog.id, { animate: false, updateUrl: false });
+  }
 
-  document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const href = link.getAttribute("href");
     const modalId = link.getAttribute("aria-controls");
-    if (!href || !modalId) return;
+    if (!href || !modalId) continue;
 
     const target = document.getElementById(modalId);
     if (
       !(target instanceof HTMLDialogElement) ||
       !target.classList.contains("modal")
     )
-      return;
+      continue;
 
-    const hrefUrl = new URL(href, window.location.href);
+    const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
-        openModal(modalId, { updateUrl: false, animate: false });
+        openModal(modalId, { animate: false, updateUrl: false });
         return;
       }
     }
-  });
+  }
 };
 
 document.addEventListener(
   "cancel",
   (event) => {
-    const target = event.target;
+    const { target } = event;
     if (
       !(target instanceof HTMLDialogElement) ||
       !target.classList.contains("modal")
@@ -491,10 +491,10 @@ const closeFromTrigger = (event: Event): void => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-  const closeTrigger = eventTarget.closest("[data-modal-close]");
+  const closeTrigger = eventTarget.closest<HTMLElement>("[data-modal-close]");
   if (!closeTrigger) return;
 
-  const id = closeTrigger.getAttribute("data-modal-close");
+  const id = closeTrigger.dataset.modalClose;
   if (!id) return;
 
   stopModalCloseEvent(event);
@@ -502,10 +502,10 @@ const closeFromTrigger = (event: Event): void => {
 };
 
 const setupModalCloseTriggers = (): void => {
-  document.querySelectorAll("[data-modal-close]").forEach((trigger) => {
+  for (const trigger of document.querySelectorAll("[data-modal-close]")) {
     trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
     trigger.addEventListener("click", closeFromTrigger, { capture: true });
-  });
+  }
 };
 
 document.addEventListener("click", (event) => {
@@ -530,7 +530,7 @@ document.addEventListener("click", (event) => {
   if (!isInside) closeModal(eventTarget.id);
 });
 
-window.addEventListener("popstate", syncModalsFromUrl);
+globalThis.addEventListener("popstate", syncModalsFromUrl);
 
 syncModalsFromUrl();
 setupModalCloseTriggers();
@@ -539,22 +539,22 @@ setupModalCloseTriggers();
 // handlers directly to modal-trigger links so preventDefault fires before
 // the browser starts navigation.
 const setupFallbackLinkHandlers = (): void => {
-  document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const modalId = link.getAttribute("aria-controls");
-    if (!modalId) return;
+    if (!modalId) continue;
 
     const target = document.getElementById(modalId);
     if (
       !(target instanceof HTMLDialogElement) ||
       !target.classList.contains("modal")
     )
-      return;
+      continue;
 
     link.addEventListener("click", (e) => {
       e.preventDefault();
       openModal(modalId);
     });
-  });
+  }
 };
 
 setupFallbackLinkHandlers();

@@ -2,6 +2,6 @@
 
 if (import.meta.hot) {
   import.meta.hot.on("django-template-reload", () => {
-    window.location.reload();
+    globalThis.location.reload();
   });
 }
