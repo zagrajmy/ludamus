@@ -3,13 +3,13 @@
     <a href="{% url url_name slug=current_event.slug %}"
        target="_blank"
        rel="noopener"
-       class="filter-toggle inline-flex items-center whitespace-nowrap rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-semibold text-foreground transition-all duration-150">
+       class="filter-toggle inline-flex min-w-36 items-center justify-center whitespace-nowrap rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-semibold text-foreground transition-all duration-150">
         {{ label }}
     </a>
     {% if print_venues %}
         <select onchange="if(this.value){window.open(this.value,'_blank','noopener');this.selectedIndex=0;}"
                 aria-label="{{ aria }}"
-                class="filter-input w-full rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-medium text-foreground transition-all duration-150">
+                class="filter-input w-full min-w-40 rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-medium text-foreground transition-all duration-150">
             <option value="">{% translate "Venue / area…" %}</option>
             {% for v in print_venues %}
                 <optgroup label="{{ v.name }}">

@@ -351,6 +351,8 @@
                             {% endblock page_subtitle %}
                         </p>
                     </div>
+                    {% block header_assist %}
+                    {% endblock header_assist %}
                     {% block header_actions %}
                         <div class="hidden sm:flex items-center space-x-4 shrink-0">
                             {% if current_event %}
