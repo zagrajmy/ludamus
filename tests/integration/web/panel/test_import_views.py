@@ -2777,7 +2777,7 @@ class TestEventImportLogReimport:
         )
 
         body = response.content.decode()
-        assert "onsubmit=" in body
+        assert "data-confirm=" in body
         assert "Reimport will overwrite" in body
         assert _log_reimport_url(event, integration) in body
 
