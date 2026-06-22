@@ -48,15 +48,15 @@ test.describe('Timetable', () => {
     await sessionListLoaded;
 
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible();
 
     await expect(
-      page.locator('#session-list').getByText('Dungeon Crawl'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Dungeon Crawl'),
     ).toBeVisible();
 
     await expect(
-      page.locator('#session-list').getByText('Storytelling Workshop'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Storytelling Workshop'),
     ).toBeVisible();
   });
 
@@ -67,10 +67,10 @@ test.describe('Timetable', () => {
 
     // Wait for initial load — all 3 sessions visible
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
     await expect(
-      page.locator('#session-list').getByText('Storytelling Workshop'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Storytelling Workshop'),
     ).toBeVisible();
 
     // Type search term — use pressSequentially so keyup events fire
@@ -82,21 +82,21 @@ test.describe('Timetable', () => {
     // Wait for Storytelling Workshop to disappear, confirming
     // the HTMX swap with filtered results has completed.
     await expect(
-      page.locator('#session-list').getByText('Storytelling Workshop'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Storytelling Workshop'),
     ).not.toBeVisible({ timeout: 10000 });
 
     // Only Dungeon Crawl should remain
     await expect(
-      page.locator('#session-list').getByText('Dungeon Crawl'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Dungeon Crawl'),
     ).toBeVisible();
 
     // Other sessions should be filtered out
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).not.toBeVisible();
 
     await expect(
-      page.locator('#session-list').getByText('Storytelling Workshop'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Storytelling Workshop'),
     ).not.toBeVisible();
   });
 
@@ -109,12 +109,12 @@ test.describe('Timetable', () => {
 
     // Wait for session list
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Click the session card
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'RPG Introduction',
       })
@@ -142,12 +142,12 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Open detail view
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'RPG Introduction',
       })
@@ -163,7 +163,7 @@ test.describe('Timetable', () => {
 
     // Session list should reappear
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 5000 });
   });
 
@@ -175,12 +175,12 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Open detail view
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'RPG Introduction',
       })
@@ -214,12 +214,12 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Enter assignment mode
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'RPG Introduction',
       })
@@ -256,12 +256,12 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Enter assignment mode
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'RPG Introduction',
       })
@@ -297,12 +297,12 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Enter assignment mode for RPG Introduction
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'RPG Introduction',
       })
@@ -342,7 +342,7 @@ test.describe('Timetable', () => {
 
     // Session should disappear from unscheduled list
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).not.toBeVisible({ timeout: 10000 });
   });
 
@@ -391,7 +391,7 @@ test.describe('Timetable', () => {
 
     // Session should reappear in unscheduled list
     await expect(
-      page.locator('#session-list').getByText('RPG Introduction'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('RPG Introduction'),
     ).toBeVisible({ timeout: 10000 });
 
     // Session should be gone from grid
@@ -412,7 +412,7 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', {
         hasText: 'Storytelling Workshop',
       })
@@ -474,7 +474,7 @@ test.describe('Timetable', () => {
     // DB reused across browser projects, so every assign must be undone.
     await leftPane.getByRole('button', { name: 'Unassign' }).click();
     await expect(
-      page.locator('#session-list').getByText('Storytelling Workshop'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Storytelling Workshop'),
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -523,7 +523,7 @@ test.describe('Timetable', () => {
     await page.goto('/panel/event/sunhaven-festival/timetable/');
 
     await page
-      .locator('#session-list')
+      .getByRole('region', { name: 'Sessions to assign' })
       .locator('[data-session-pk]', { hasText: 'Dungeon Crawl' })
       .click();
 
@@ -574,7 +574,7 @@ test.describe('Timetable', () => {
     ).toBeVisible({ timeout: 5000 });
     await leftPane.getByRole('button', { name: 'Unassign' }).click();
     await expect(
-      page.locator('#session-list').getByText('Dungeon Crawl'),
+      page.getByRole('region', { name: 'Sessions to assign' }).getByText('Dungeon Crawl'),
     ).toBeVisible({ timeout: 10000 });
 
     // The newer "Removed" entry is now the latest change for the session and

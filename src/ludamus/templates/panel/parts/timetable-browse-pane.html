@@ -13,6 +13,8 @@
            hx-swap="innerHTML"
            hx-include="[name=search]">
     <div id="session-list"
+         role="region"
+         aria-label="{% translate "Sessions to assign" %}"
          hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}"
          hx-swap="innerHTML"
          hx-trigger="load, timetableChanged from:body">
