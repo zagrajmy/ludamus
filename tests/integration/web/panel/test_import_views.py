@@ -2777,8 +2777,11 @@ class TestEventImportLogReimport:
         )
 
         body = response.content.decode()
-        assert "data-confirm=" in body
-        assert "Reimport will overwrite" in body
+        reimport_confirm = (
+            "Reimport will overwrite any manual edits to the imported fields"
+            " on this proposal. Continue?"
+        )
+        assert f'data-confirm="{reimport_confirm}"' in body
         assert _log_reimport_url(event, integration) in body
 
     def test_post_clears_contact_email_when_source_row_blanks_it(

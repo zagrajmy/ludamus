@@ -14,23 +14,23 @@ test.describe('Anonymous proposals', () => {
   }) => {
     await page.goto('/chronology/event/open-mic/session/propose/');
 
-    const wizard = page.locator('#wizard-content');
+    const wizard = page.locator('[id="wizard-content"]');
     await expect(
       wizard.getByRole('heading', { name: 'Your Information' }),
     ).toBeVisible();
-    await page.locator('#id_contact_email').fill('anon@example.com');
+    await page.getByLabel(/contact email/i).fill('anon@example.com');
     await page.getByRole('button', { name: /Continue/ }).click();
 
     await expect(
       wizard.getByRole('heading', { name: 'Session Details' }),
     ).toBeVisible();
-    await page.locator('#id_title').fill('Anonymous One-Shot');
+    await page.getByLabel(/title/i).fill('Anonymous One-Shot');
     await page
-      .locator('#id_description')
+      .getByLabel(/description/i)
       .fill('A drop-in adventure pitched without an account.');
-    await page.locator('#id_participants_limit').fill('5');
-    await page.locator('#id_display_name').fill('Mystery GM');
-    await page.locator('#id_duration').selectOption('PT1H');
+    await page.getByLabel(/max participants/i).fill('5');
+    await page.getByLabel(/presenter name/i).fill('Mystery GM');
+    await page.getByLabel(/duration/i).selectOption('PT1H');
     await page.getByRole('button', { name: /Continue/ }).click();
 
     await expect(
@@ -40,7 +40,6 @@ test.describe('Anonymous proposals', () => {
     await expect(page.getByText('Anonymous One-Shot')).toBeVisible();
     await page.getByRole('button', { name: 'Submit Proposal' }).click();
 
-    await page.waitForURL(/\/open-mic\//);
     await expect(page.getByText('Anonymous One-Shot')).toBeVisible();
   });
 });

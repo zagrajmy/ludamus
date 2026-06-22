@@ -30,7 +30,3 @@ Range: prod `d67169a904c8756805e2d70ba6a5dede7e1c9078` (deployed 2026-06-04) to 
 - `agent-browser` screenshot tooling improved.
 - TypeScript standards and audit docs added.
 - Dependency updates include Django, django-environ, cryptography, google-auth, Vite, Ruff, djlint, and related tooling.
-
-## Known Issues Before Release
-
-See `PROBLEMS.md`.
