@@ -756,7 +756,9 @@
                          data-active>
                         <!-- Host & location -->
                         <div class="flex items-center gap-3 mb-6 flex-wrap">
-                            <span class="shrink-0" data-morph="avatar">{% include "components/avatar.html" with user=data.presenter size="size-10" %}</span>
+                            <span class="shrink-0" data-morph="avatar">
+                                {% include "components/avatar.html" with user=data.presenter size="size-10" %}
+                            </span>
                             <div class="flex items-center gap-3 flex-wrap min-w-0">
                                 <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
                                 {% if data.location_label %}
@@ -785,9 +787,7 @@
                             <div class="mb-6">
                                 <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
                                 <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground"
-                                     data-morph="desc">
-                                    {{ data.session.description|render_markdown }}
-                                </div>
+                                     data-morph="desc">{{ data.session.description|render_markdown }}</div>
                             </div>
                         {% endif %}
                         {% if data.field_values %}

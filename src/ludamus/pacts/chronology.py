@@ -353,6 +353,10 @@ class TrackProgressDTO(BaseModel):
     scheduled_count: int
     progress_pct: int
 
+    @property
+    def unassigned_count(self) -> int:
+        return self.accepted_count - self.scheduled_count
+
 
 class CapacityHoursDTO(BaseModel):
     room_count: int

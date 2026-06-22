@@ -6,26 +6,23 @@ Manual checks used local e2e fixtures from `mise run e2e:prep`, server from `mis
 
 ## Bugs / Issues
 
-1. Panel sidebar has duplicate indistinguishable `Print Materials` links.
-   - Seen on panel dashboard, timetable, discounts, bans, import, announcements.
-   - Impact: confusing navigation and poor screen-reader output. If they target different print tools, labels need to differ.
-   - Evidence: `screenshots/manual-panel-dashboard.png`, `screenshots/manual-timetable-schedule.png`.
+1. ~~Panel sidebar has duplicate indistinguishable `Print Materials` links.~~ **FIXED**
+   - Both links were identical (same URL `panel:print-materials`, same label) — an
+     accidental copy-paste dup in `panel/base.html`. Removed the duplicate.
 
-2. Timetable organizer overview renders malformed track progress text: `0/3 ( unassigned)`.
-   - Page: `/panel/event/sunhaven-festival/timetable/overview/`
-   - Expected: either omit parenthetical when count is empty/zero, or show a number, e.g. `0/3 (0 unassigned)`.
-   - Evidence: `screenshots/manual-timetable-overview.png`.
+2. ~~Timetable organizer overview renders malformed track progress text: `0/3 ( unassigned)`.~~ **FIXED**
+   - Cause: `accepted_count|add:"-"|add:scheduled_count` — Django's `add` can't
+     subtract, so it returned an empty string. Added `unassigned_count` property to
+     `TrackProgressDTO` and use it in the template. Now renders `(N unassigned)`.
 
-3. Organization announcements list keeps the page heading `Sphere settings`.
-   - Page: `/multiverse/panel/announcements/`
-   - Tab says `Organization announcements`, but the main heading remains generic.
-   - Impact: minor UX/accessibility mismatch.
-   - Evidence: `screenshots/manual-announcements-list.png`.
+3. ~~Organization announcements list keeps the page heading `Sphere settings`.~~ **FIXED**
+   - Set `page_title` to the active tab. Same drift fixed on the connections tab
+     (`Import connections`).
 
-4. Proposal delete uses a native confirm dialog that wedged `agent-browser`.
-   - Page: `/panel/event/autumn-open/proposals/<pending-proposal>/`
-   - Impact: not proven as user-facing breakage, but this is brittle for automation and likely weaker UX/a11y than an in-page confirmation.
-   - Manual delete/restore verification was not completed because the browser daemon had to be restarted.
+4. ~~Proposal delete uses a native confirm dialog that wedged `agent-browser`.~~ **FIXED**
+   - Moved proposal reject + delete from `onsubmit="return confirm(...)"` to the
+     existing in-page `data-confirm` pattern (`src/confirm.ts`), which falls back to
+     native confirm when no dialog is present.
 
 ## Checks That Passed
 
@@ -47,7 +44,9 @@ Manual checks used local e2e fixtures from `mise run e2e:prep`, server from `mis
 
 Screenshots saved under `screenshots/manual-*.png`.
 
-## Unresolved Questions
+## Resolved Questions
 
-- Should the two `Print Materials` sidebar links intentionally go to different destinations? If yes, what should their distinct labels be?
-- Should proposal delete keep native `confirm()`, or move to an in-page confirmation pattern?
+- The two `Print Materials` links were not intentional — identical URL and label.
+  Removed the duplicate.
+- Proposal delete now uses the in-page `data-confirm` pattern (with native fallback),
+  consistent with timetable revert and friendlier for automation/a11y.
