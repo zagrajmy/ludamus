@@ -36,6 +36,7 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Encounter,
     EnrollmentConfig,
     Event,
+    EventProposalSettings,
     Notification,
     ProposalCategory,
     Session,
@@ -107,6 +108,7 @@ def _create_event(
     publication_offset: timedelta,
     enrollment_banner: str | None = None,
     allow_anonymous: bool = False,
+    allow_anonymous_proposals: bool = False,
     proposals_open: bool = False,
 ) -> Event:
     now = timezone.now()
@@ -142,6 +144,11 @@ def _create_event(
             percentage_slots=100,
             banner_text=enrollment_banner,
             allow_anonymous_enrollment=allow_anonymous,
+        )
+
+    if allow_anonymous_proposals:
+        EventProposalSettings.objects.create(
+            event=event, allow_anonymous_proposals=True
         )
 
     return event
@@ -400,6 +407,29 @@ def _create_cover_lab_event(sphere: Sphere) -> Event:
     )
 
 
+def _create_anon_proposals_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Open Mic Proposals",
+        slug="open-mic",
+        description="Drop-in showcase — pitch a one-shot, no account required.",
+        start_offset=timedelta(days=15),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+        allow_anonymous_proposals=True,
+    )
+    ProposalCategory.objects.create(
+        event=event,
+        name="Open Mic",
+        slug="open-mic",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
 def main() -> None:
     root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
@@ -631,6 +661,7 @@ def main() -> None:
     # never write to autumn-open (kept read-only for the public-page specs).
     _create_panel_lab_event(sphere)
     _create_cover_lab_event(sphere)
+    _create_anon_proposals_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)
