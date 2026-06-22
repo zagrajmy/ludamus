@@ -185,6 +185,7 @@ class ProposalSettingsForm(forms.Form):
         input_formats=_DATETIME_LOCAL_FORMATS,
     )
     apply_dates_to_categories = forms.BooleanField(required=False, initial=False)
+    allow_anonymous_proposals = forms.BooleanField(required=False, initial=False)
 
 
 class ProposalCategoryForm(forms.Form):

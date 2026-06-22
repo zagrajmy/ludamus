@@ -224,6 +224,11 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "proposals"
         context["tab_urls"] = settings_tab_urls(slug)
+        proposal_settings = (
+            self.request.di.uow.event_proposal_settings.read_or_create_by_event(
+                current_event.pk
+            )
+        )
         context["form"] = ProposalSettingsForm(
             initial={
                 "proposal_description": current_event.proposal_description,
@@ -236,6 +241,9 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     localtime(current_event.proposal_end_time)
                     if current_event.proposal_end_time
                     else None
+                ),
+                "allow_anonymous_proposals": (
+                    proposal_settings.allow_anonymous_proposals
                 ),
             }
         )
@@ -270,6 +278,10 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "proposal_end_time": cd.get("proposal_end_time"),
             }
             self.request.di.uow.events.update(current_event.pk, data)
+
+            self.request.di.uow.event_proposal_settings.update_allow_anonymous_proposals(
+                current_event.pk, allow=bool(cd.get("allow_anonymous_proposals"))
+            )
 
             # Optionally apply dates to all categories
             if cd.get("apply_dates_to_categories"):
