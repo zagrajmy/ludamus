@@ -201,4 +201,23 @@
       overlay 0.2s allow-discrete,
       display 0.2s allow-discrete;
   }
+
+  /* Session-morph groups. The JS path already skips the View Transition under
+     reduced motion (canMorph() returns false, so the shared names are never
+     assigned and these pseudos never match). Suppress the spatial scale/position
+     tween here too, so any future CSS-only morph path stays motion-safe. */
+  ::view-transition-group(session-morph),
+  ::view-transition-group(morph-title),
+  ::view-transition-group(morph-host),
+  ::view-transition-group(morph-avatar),
+  ::view-transition-group(morph-desc),
+  ::view-transition-old(session-morph),
+  ::view-transition-new(session-morph),
+  ::view-transition-old(morph-title),
+  ::view-transition-old(morph-host),
+  ::view-transition-old(morph-desc),
+  ::view-transition-old(morph-avatar),
+  ::view-transition-new(morph-avatar) {
+    animation: none;
+  }
 }
