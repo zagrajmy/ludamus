@@ -129,7 +129,7 @@
                             {% endif %}
                             <form method="post"
                                   action="{% url 'panel:import-refetch' slug=current_event.slug pk=active_integration.pk %}"
-                                  {% if fields_imported %}onsubmit="return confirm('{% blocktranslate with mappings=mapping_total confirmed=mapping_confirmed %}Reimport the form? This drops every confirmation ({{ confirmed }} of {{ mappings }} confirmed) and rebuilds the question list. Mappings and field definitions are preserved.{% endblocktranslate %}')"{% endif %}>
+                                  {% if fields_imported %}data-confirm="{% blocktranslate with mappings=mapping_total confirmed=mapping_confirmed %}Reimport the form? This drops every confirmation ({{ confirmed }} of {{ mappings }} confirmed) and rebuilds the question list. Mappings and field definitions are preserved.{% endblocktranslate %}"{% endif %}>
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-secondary flex items-center">
                                     {% icon "arrow-path" class="w-4 h-4 mr-2" %}
@@ -185,7 +185,7 @@
                         </div>
                         <form method="post"
                               action="{% url 'panel:import-apply-field-layout' slug=current_event.slug pk=active_integration.pk %}"
-                              onsubmit="return confirm('{% translate "Apply the current field layout to every imported proposal? Values for fields no longer mapped will be deleted." %}');"
+                              data-confirm="{% translate "Apply the current field layout to every imported proposal? Values for fields no longer mapped will be deleted." %}"
                               class="shrink-0">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-secondary flex items-center">

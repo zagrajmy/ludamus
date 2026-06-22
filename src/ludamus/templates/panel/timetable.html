@@ -14,7 +14,7 @@
     <!-- Assignment mode banner -->
     {# ludamus-disable:no-negative-margin -- sticky banner bleeds edge-to-edge of panel base padding so bg-primary fills the viewport width #}
     <div id="assign-mode-banner"
-         class="hidden sticky top-28 z-30 -mx-3 sm:-mx-4 lg:-mx-8 -mt-3 sm:-mt-4 lg:-mt-8 bg-primary text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-4">
+         class="hidden sticky top-[8.5rem] z-30 -mx-3 sm:-mx-4 lg:-mx-8 bg-primary text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-4">
         <span>{% translate "Click a position on the grid to place the session" %}</span>
         <button id="assign-mode-cancel"
                 type="button"
@@ -30,9 +30,6 @@
         {% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
         {% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
     {% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 pt-3 flex justify-end gap-3 flex-wrap items-center">
-    {% include "panel/parts/print-controls.html" %}
 </div>
 <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
     <!-- Filter bar: track + date + category chips + duration chips -->
@@ -76,6 +73,17 @@
             {% include "panel/parts/timetable-filter-chips.html" %}
         </div>
         <div class="flex items-center gap-2 flex-wrap ml-auto">
+            {% translate "Print" as t_print %}
+            <details id="print-menu" class="relative">
+                <summary title="{{ t_print }}"
+                         aria-label="{{ t_print }}"
+                         class="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center text-sm px-3 py-1.5 border border-border rounded-lg bg-bg-secondary text-foreground hover:bg-bg-tertiary transition">
+                    {% icon "printer" class="size-4" %}
+                </summary>
+                <div class="absolute right-0 mt-1 z-40 card p-3 flex flex-col gap-2 shadow-lg">
+                    {% include "panel/parts/print-controls.html" %}
+                </div>
+            </details>
             {% if filter_track_pk %}
                 <form hx-post="{% url 'panel:timetable-confirm-block' slug=current_event.slug %}"
                       hx-swap="none">

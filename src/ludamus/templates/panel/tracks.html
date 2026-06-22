@@ -68,7 +68,7 @@
                                 <form method="post"
                                       action="{% url 'panel:track-delete' slug=current_event.slug track_slug=track.slug %}"
                                       class="inline"
-                                      onsubmit="return confirm('{% translate "Are you sure you want to delete this track?" %}');">
+                                      data-confirm="{% translate "Are you sure you want to delete this track?" %}">
                                     {% csrf_token %}
                                     <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
                                 </form>

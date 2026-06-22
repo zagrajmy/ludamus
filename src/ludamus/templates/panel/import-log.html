@@ -135,7 +135,7 @@
                                                 {% translate "Reimport will overwrite any manual edits to the imported fields on this proposal. Continue?" as reimport_confirm %}
                                                 <form method="post"
                                                       action="{% url 'panel:import-log-reimport' slug=current_event.slug pk=active_integration.pk %}"
-                                                      onsubmit="return confirm('{{ reimport_confirm|escapejs }}');">
+                                                      data-confirm="{{ reimport_confirm }}">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="entry_id" value="{{ entry.pk }}">
                                                     <button type="submit" class="btn btn-secondary inline-flex items-center">

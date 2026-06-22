@@ -95,7 +95,7 @@
                                         <hr class="my-1">
                                         <form method="post"
                                               action="{% url 'panel:venue-delete' slug=current_event.slug venue_slug=venue.slug %}"
-                                              onsubmit="return confirm('{% translate "Are you sure you want to delete this venue?" %}');">
+                                              data-confirm="{% translate "Are you sure you want to delete this venue?" %}">
                                             {% csrf_token %}
                                             <button type="submit"
                                                     class="flex items-center w-full px-4 py-2 text-sm text-danger hover:bg-danger-bg rounded-b-lg">

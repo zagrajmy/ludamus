@@ -61,7 +61,8 @@
                                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         <h6 class="font-semibold text-sm">{{ connected.user.full_name }}</h6>
                                         <form method="post"
-                                              action="{% url 'web:crowd:profile-connected-users-delete' slug=connected.user.slug %}">
+                                              action="{% url 'web:crowd:profile-connected-users-delete' slug=connected.user.slug %}"
+                                              data-confirm="{% translate "Are you sure you want to delete this item?" %}">
                                             {% csrf_token %}
                                             <div class="flex gap-1">
                                                 <button type="button"
@@ -70,9 +71,7 @@
                                                     {% icon "pencil" class="w-3.5 h-3.5" %}
                                                     <span class="sr-only">{% translate "Edit" %}</span>
                                                 </button>
-                                                <button type="submit"
-                                                        class="icon-btn icon-btn"
-                                                        onclick="return confirm('{% translate "Are you sure you want to delete this item?" %}')">
+                                                <button type="submit" class="icon-btn icon-btn">
                                                     {% icon "trash" class="w-3.5 h-3.5" %}
                                                     <span class="sr-only">{% translate "Delete" %}</span>
                                                 </button>
