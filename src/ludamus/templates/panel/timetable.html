@@ -74,16 +74,21 @@
         </div>
         <div class="flex items-center gap-2 flex-wrap ml-auto">
             {% translate "Print" as t_print %}
-            <details id="print-menu" class="relative">
-                <summary title="{{ t_print }}"
-                         aria-label="{{ t_print }}"
-                         class="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-center text-sm px-3 py-1.5 border border-border rounded-lg bg-bg-secondary text-foreground hover:bg-bg-tertiary transition">
+            <div class="relative" data-menu>
+                <button type="button"
+                        data-menu-button
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        class="filter-toggle inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-all duration-150">
                     {% icon "printer" class="size-4" %}
-                </summary>
-                <div class="absolute right-0 mt-1 z-40 card p-3 flex flex-col gap-2 shadow-lg">
+                    <span class="hidden sm:inline">{{ t_print }}</span>
+                </button>
+                <div data-menu-panel
+                     hidden
+                     class="absolute right-0 mt-1 z-40 flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3 shadow-xl">
                     {% include "panel/parts/print-controls.html" %}
                 </div>
-            </details>
+            </div>
             {% if filter_track_pk %}
                 <form hx-post="{% url 'panel:timetable-confirm-block' slug=current_event.slug %}"
                       hx-swap="none">
