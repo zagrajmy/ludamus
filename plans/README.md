@@ -10,15 +10,17 @@ your row when done.
 
 Selection note: run non-interactively, so plans were written for the top 5
 findings by leverage (impact ÷ effort, weighted by confidence), per the
-skill's default. More plans can be cut from the findings table on request.
+skill's default. Plan 006 is a meta-plan (guardrails) that enforces the
+other findings rather than fixing one directly. More plans can be cut from
+the findings table on request.
 
 ## Execution order & status
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Eliminate event-page N+1 queries (issue #323) | P1 | S | — | PR #366 |
-| 002 | Validate OAuth `next` redirect (open redirect) | P1 | S–M | — | PR #367 |
-| 003 | Deterministic factory slugs (flaky CI) | P2 | S | — | PR #365 |
+| 001 | Eliminate event-page N+1 queries (issue #323) | P1 | S | — | DONE (PR #366) |
+| 002 | Validate OAuth `next` redirect (open redirect) | P1 | S–M | — | DONE (PR #367) |
+| 003 | Deterministic factory slugs (flaky CI) | P2 | S | — | DONE (PR #365) |
 | 004 | Investigate mills missing from coverage | P2 | S | — | TODO |
 | 005 | Extract panel-view boilerplate | P2 | M | — | TODO |
 | 006 | Regression guardrails: N+1 detector in tests (#306) + Faker("slug") lint rule | P1 | M | 001, 003 | TODO |

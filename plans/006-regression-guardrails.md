@@ -109,7 +109,7 @@ from django.test import Client
 
 class QueryAuditClient(Client):
     audit_threshold = 8  # identical SELECT shapes per request
-    last_duplicates: dict[str, int]
+    last_duplicates: dict[str, int] = {}
 
     def request(self, **request):
         counts: Counter[str] = Counter()
@@ -207,7 +207,7 @@ a message pointing at the fix pattern:
 id: no-faker-slug
 language: python
 severity: error
-message: Faker("slug") collides on unique columns and causes flaky tests; use factory.Sequence(lambda n: f"<model>-{n}") instead.
+message: Faker("slug") collides on unique columns and causes flaky tests; use Sequence(lambda n: f"<model>-{n}") instead (add Sequence to factory imports).
 rule:
   pattern: Faker("slug")
 ```

@@ -92,7 +92,7 @@ For each factory with `slug = Faker("slug")`, replace with a sequence that is
 unique per factory class, e.g. for `EventFactory`:
 
 ```python
-slug = factory.Sequence(lambda n: f"event-{n}")
+slug = Sequence(lambda n: f"event-{n}")
 ```
 
 Use a per-factory prefix derived from the model name (`venue-{n}`,
@@ -122,7 +122,7 @@ is the full suite passing, twice in a row if cheap:
 
 ## Done criteria
 
-- [ ] `grep -rn 'Faker("slug")' tests/` returns no matches
+- [ ] `grep -rn 'Faker("slug")' tests/integration/` returns no matches
 - [ ] `mise run test` exits 0
 - [ ] `mise run prcheck` exits 0
 - [ ] Only in-scope files modified (`git status`)
