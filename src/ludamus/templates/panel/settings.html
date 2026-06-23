@@ -13,9 +13,6 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <button type="button"
-                    onclick="document.getElementById('settings-form').reset()"
-                    class="btn btn-secondary">{% translate "Cancel Changes" %}</button>
             <button type="submit"
                     form="settings-form"
                     class="btn btn-primary flex items-center">
