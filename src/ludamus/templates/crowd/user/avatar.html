@@ -38,6 +38,7 @@
                                                name="use_gravatar"
                                                id="avatar-auth0"
                                                value="false"
+                                               onchange="this.form.submit()"
                                                {% if not user.use_gravatar %}checked{% endif %}>
                                         <span class="text-sm">{% translate "Use this avatar" %}</span>
                                     </div>
@@ -65,6 +66,7 @@
                                                name="use_gravatar"
                                                id="avatar-gravatar"
                                                value="true"
+                                               onchange="this.form.submit()"
                                                {% if user.use_gravatar %}checked{% endif %}>
                                         <span class="text-sm">{% translate "Use this avatar" %}</span>
                                     </div>
@@ -72,9 +74,11 @@
                             </div>
                         </label>
                     </div>
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
-                    </div>
+                    <noscript>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
+                        </div>
+                    </noscript>
                 </form>
             {% else %}
                 <div class="text-center py-6 flex flex-col items-center gap-3">

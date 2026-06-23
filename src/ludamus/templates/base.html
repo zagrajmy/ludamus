@@ -70,6 +70,7 @@
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">
                         {% for message in messages %}
                             <div class="alert flex items-center {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'info' %}alert-info{% else %}alert-default{% endif %}"
+                                 data-flash="{% if message.tags == 'error' or message.tags == 'warning' %}sticky{% else %}transient{% endif %}"
                                  {% if message.tags == 'error' or message.tags == 'warning' %}role="alert"{% else %}role="status"{% endif %}
                                  aria-live="{% if message.tags == 'error' or message.tags == 'warning' %}assertive{% else %}polite{% endif %}">
                                 {% if message.tags == 'error' %}
@@ -84,6 +85,12 @@
                                     {% heroicon_outline "chat-bubble-left-ellipsis" class="w-5 h-5 mr-3" %}
                                 {% endif %}
                                 <span class="text-sm">{{ message }}</span>
+                                <button type="button"
+                                        data-flash-dismiss
+                                        class="ml-auto pl-3 shrink-0 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                        aria-label="{% translate "Dismiss" %}">
+                                    {% heroicon_outline "x-mark" class="w-4 h-4" %}
+                                </button>
                             </div>
                         {% endfor %}
                     </div>
@@ -136,6 +143,15 @@
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/confirm.ts' %}
+        <script>
+            (function () {
+                for (const flash of document.querySelectorAll("[data-flash]")) {
+                    const dismiss = () => flash.remove();
+                    flash.querySelector("[data-flash-dismiss]")?.addEventListener("click", dismiss);
+                    if (flash.dataset.flash === "transient") globalThis.setTimeout(dismiss, 6000);
+                }
+            })();
+        </script>
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>
