@@ -90,17 +90,31 @@ jobs:
           source: .env.local
           target: ludamus/
 
+      - name: Verify the prebuilt image exists in GHCR
+        # Fail fast (before touching prod) if the "Build production image"
+        # workflow hasn't published an image for this commit yet.
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USER: ${{ vars.GHCR_USER }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker buildx imagetools inspect \
+            "ghcr.io/${{ github.repository }}:sha-${{ github.sha }}"
+
       - name: Deploy
         uses: appleboy/ssh-action@v1
         env:
           GITHUB_COMMIT_SHA: ${{ github.sha }}
+          APP_IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          GHCR_USER: ${{ vars.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
-          envs: GITHUB_COMMIT_SHA
-          # Default is 10m; a cold pull + rebuild of the images exceeds it and
-          # drone-ssh kills the command mid-build ("Run Command Timeout").
+          envs: GITHUB_COMMIT_SHA,APP_IMAGE,GHCR_USER,GHCR_TOKEN
+          # Default is 10m; a cold pull of the prebuilt images can exceed it and
+          # drone-ssh kills the command mid-pull ("Run Command Timeout").
           command_timeout: 13m
           script: |
             set -ex
@@ -109,8 +123,14 @@ jobs:
             git fetch
             git checkout $GITHUB_COMMIT_SHA
             export GIT_COMMIT_SHA=$(git rev-parse --short HEAD)
+            # Authenticate to GHCR to pull the private prebuilt image, then drop
+            # the credentials again once the images are local.
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             # .env.local was validated by varlock on the CI runner. Here the
             # compose CLI reads it: --env-file feeds ${VAR} interpolation,
             # and prod.yaml's `env_file:` injects it into the containers.
-            docker compose --env-file .env.local -p ludamus -f docker/compose/prod.yaml up --build --pull always -d
+            # APP_IMAGE pins the exact image built for this revision.
+            docker compose --env-file .env.local -p ludamus -f docker/compose/prod.yaml pull
+            docker compose --env-file .env.local -p ludamus -f docker/compose/prod.yaml up -d
+            docker logout ghcr.io
             docker image prune -f

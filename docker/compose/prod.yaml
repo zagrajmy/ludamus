@@ -1,15 +1,12 @@
 ---
-x-app-build: &app-build
-  build:
-    context: ../../
-    dockerfile: docker/Dockerfile
-    target: prod
-    args:
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
-      ENV: ${ENV}
+x-app-image: &app-image
+  # Prebuilt by the "Build production image" workflow and pulled from GHCR
+  # instead of built on the host. The deploy exports APP_IMAGE to the exact
+  # ghcr.io/<repo>:sha-<commit> tag it published for this revision.
+  image: ${APP_IMAGE:?APP_IMAGE must point at the prebuilt GHCR image}
 
 x-app-defaults: &app-defaults
-  <<: *app-build
+  <<: *app-image
   # Container env comes from .env.local, materialized on the CI runner from
   # GitHub Environment vars/secrets and scp'd to the host. The deploy
   # validates it with varlock against .env.schema before upload, so the
