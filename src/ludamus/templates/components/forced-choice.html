@@ -1,0 +1,7 @@
+{# The field has exactly one selectable, required option, so there is nothing #}
+{# to decide. Render the value as static text plus a hidden input carrying it, #}
+{# instead of a dropdown/radio group the user would have to operate. #}
+<input type="hidden" name="{{ name }}" value="{{ value }}"{% if id %} id="{{ id }}"{% endif %}>
+<p class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-tertiary text-foreground-secondary">
+    {{ label }}
+</p>

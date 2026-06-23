@@ -9,7 +9,18 @@
         {% if has_errors|default:False %}aria-invalid="true"{% endif %}
         {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
         {% endif %}>
-    {% if choices|default:"" %}
+    {% if groups|default:"" %}
+        {% for group in groups %}
+            {% if group.label %}<optgroup label="{{ group.label }}">{% endif %}
+            {% for value, label in group.options %}
+                <option value="{{ value }}"
+                        {% if value|stringformat:"s" == selected|default:""|stringformat:"s" %}selected{% endif %}>
+                    {{ label }}
+                </option>
+            {% endfor %}
+            {% if group.label %}</optgroup>{% endif %}
+        {% endfor %}
+    {% elif choices|default:"" %}
         {% for value, label in choices %}
             <option value="{{ value }}"
                     {% if value|stringformat:"s" == selected|default:""|stringformat:"s" %}selected{% endif %}>

@@ -1,3 +1,4 @@
+import re
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -20,6 +21,11 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from tests.integration.utils import assert_response
+
+
+def _has_option(content: str, value: int, label: str) -> bool:
+    pattern = rf'<option value="{value}"[^>]*>\s*{re.escape(label)}\s*</option>'
+    return re.search(pattern, content) is not None
 
 
 class TestProposalAcceptPageView:
@@ -92,18 +98,19 @@ class TestProposalAcceptPageView:
         assert "Preferred Time Slots" in response.content.decode()
 
     @pytest.mark.usefixtures("event", "time_slot")
-    def test_get_shows_spaces_grouped_by_venue_area(
-        self, pending_session, venue, area, space, staff_client
+    def test_get_collapses_single_space_to_static_value(
+        self, pending_session, space, staff_client
     ):
-        """Test that space dropdown shows optgroups grouped by Venue > Area."""
+        """A lone space is a foregone choice: shown as static text + hidden input."""
         response = staff_client.get(self._get_url(pending_session.id))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # Verify optgroup with "Venue > Area" label is present
-        assert f'<optgroup label="{venue.name} &gt; {area.name}">' in content
-        # Verify space is within the optgroup
-        assert f'<option value="{space.id}">{space.name}</option>' in content
+        # No dropdown to operate — the value is carried in a hidden input and
+        # the lone space is shown as static text (so no space optgroup renders).
+        assert f'<input type="hidden" name="space" value="{space.id}"' in content
+        assert space.name in content
+        assert "<optgroup" not in content
 
     @pytest.mark.usefixtures("time_slot")
     def test_get_shows_multiple_spaces_in_same_area(
@@ -122,8 +129,8 @@ class TestProposalAcceptPageView:
         # Verify optgroup with "Venue > Area" label is present
         assert f'<optgroup label="{venue.name} &gt; {area.name}">' in content
         # Verify both spaces are within the optgroup
-        assert f'<option value="{space.id}">{space.name}</option>' in content
-        assert f'<option value="{second_space.id}">Second Room</option>' in content
+        assert _has_option(content, space.id, space.name)
+        assert _has_option(content, second_space.id, "Second Room")
 
     def test_get_error_no_space(self, event, pending_session, staff_client):
         response = staff_client.get(self._get_url(pending_session.id))
