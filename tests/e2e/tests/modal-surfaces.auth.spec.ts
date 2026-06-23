@@ -11,7 +11,7 @@ const expectPageScrollLocked = async (page: Page) => {
 };
 
 test.describe('Modal surfaces using page scroll lock', () => {
-  test('opens and closes the pending proposal review modal', async ({ browser }) => {
+  test('opens and closes the session detail modal', async ({ browser }) => {
     const context = await browser.newContext({
       storageState: path.join(__dirname, '..', '.auth-state-superuser.json'),
     });
@@ -20,14 +20,11 @@ test.describe('Modal surfaces using page scroll lock', () => {
     await page.goto('/chronology/event/autumn-open/');
 
     await page
-      .getByRole('row')
-      .filter({ hasText: 'Pending Neon Proposal' })
-      .getByRole('link', { name: /Review/ })
+      .getByRole('link', { name: 'Open details for Mega Strategy Lab' })
       .click();
 
-    const dialog = page.getByRole('dialog', { name: 'Pending Neon Proposal' });
+    const dialog = page.getByRole('dialog', { name: 'Mega Strategy Lab' });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText('Proposal review modal content used by e2e tests.');
     await expectPageScrollLocked(page);
 
     await dialog.getByRole('button', { name: 'Close' }).click();
