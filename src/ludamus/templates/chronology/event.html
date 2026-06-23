@@ -769,14 +769,9 @@
                                 {% endif %}
                                 {% if data.presenter.pk %}
                                     {% with host=data.presenter %}
-                                        {% if host and host.slug and host.discord_username %}
+                                        {% if host.discord_username %}
                                             <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-                                            <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                    hx-get="{% url 'web:crowd:user-discord-username' user_slug=host.slug %}"
-                                                    hx-swap="outerHTML"
-                                                    hx-trigger="click once">
-                                                {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %} {% translate "Show Discord" %}
-                                            </button>
+                                            {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
                                         {% endif %}
                                     {% endwith %}
                                 {% endif %}
@@ -887,16 +882,9 @@
                                                     <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    {% with user=participation.user %}
-                                                        {% if user and user.slug and user.discord_username %}
-                                                            <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                                    hx-get="{% url 'web:crowd:user-discord-username' user_slug=user.slug %}"
-                                                                    hx-swap="outerHTML"
-                                                                    hx-trigger="click once">
-                                                                {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %}
-                                                            </button>
-                                                        {% endif %}
-                                                    {% endwith %}
+                                                    {% if participation.user.discord_username %}
+                                                        {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
+                                                    {% endif %}
                                                     {% if participation.user.pk == current_user.pk %}
                                                         <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
                                                     {% endif %}

@@ -805,26 +805,6 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
         return redirect("web:crowd:profile-shadowbans")
 
 
-class UserDiscordUsernameComponentView(View):
-    """Return Discord username HTML fragment via htmx."""
-
-    request: RootRequest
-
-    @staticmethod
-    def get(request: RootRequest, user_slug: str) -> HttpResponse:
-        try:
-            user = request.di.uow.active_users.read(user_slug)
-        except NotFoundError:
-            return HttpResponse(status=404)
-        if user.discord_username:
-            return TemplateResponse(
-                request,
-                "crowd/user/parts/discord_username.html",
-                {"discord_username": user.discord_username},
-            )
-        return HttpResponse("")
-
-
 def _get_displayed_field_ids(event: Event) -> set[int]:
     with suppress(EventSettings.DoesNotExist):
         return set(event.settings.displayed_session_fields.values_list("id", flat=True))
