@@ -2170,46 +2170,29 @@ test.describe('Backoffice Panel', () => {
 
   // --- Facilitators: merge ---
 
-  test('facilitators list shows always-enabled merge view button and disabled merge selected', async ({
+  test('facilitators list shows a single merge entry and no inline selection UI', async ({
     page,
   }) => {
     await page.goto('/panel/event/frostfire-con/facilitators/');
 
-    // "Merge view" is a plain link — always accessible
+    // One clear merge entry point
     await expect(
-      page.getByRole('link', { name: /Merge view/ }),
+      page.getByRole('link', { name: /Merge facilitators/ }),
     ).toBeVisible();
 
-    // "Merge selected" starts disabled
+    // The old inline selection UI is gone: no "Merge selected" button, no row checkboxes
     await expect(
       page.getByRole('button', { name: /Merge selected/ }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
+    await expect(page.locator('.facilitator-checkbox')).toHaveCount(0);
   });
 
-  test('merge selected button enables after checking 2+ facilitators', async ({
+  test('merge link opens the merge page with no pre-selection', async ({
     page,
   }) => {
     await page.goto('/panel/event/frostfire-con/facilitators/');
 
-    const mergeSelectedBtn = page.getByRole('button', {
-      name: /Merge selected/,
-    });
-
-    // One checkbox checked — still disabled
-    await page.locator('.facilitator-checkbox').first().check();
-    await expect(mergeSelectedBtn).toBeDisabled();
-
-    // Two checkboxes checked — now enabled
-    await page.locator('.facilitator-checkbox').nth(1).check();
-    await expect(mergeSelectedBtn).not.toBeDisabled();
-  });
-
-  test('merge view button opens merge page with no pre-selection', async ({
-    page,
-  }) => {
-    await page.goto('/panel/event/frostfire-con/facilitators/');
-
-    await page.getByRole('link', { name: /Merge view/ }).click();
+    await page.getByRole('link', { name: /Merge facilitators/ }).click();
 
     await expect(page).toHaveURL(
       '/panel/event/frostfire-con/facilitators/merge/',
@@ -2225,35 +2208,6 @@ test.describe('Backoffice Panel', () => {
     for (let i = 0; i < count; i++) {
       await expect(checkboxes.nth(i)).not.toBeChecked();
     }
-  });
-
-  test('merge selected passes preselected ids to merge page', async ({
-    page,
-  }) => {
-    await page.goto('/panel/event/frostfire-con/facilitators/');
-
-    const facilitatorRows = page
-      .getByRole('row')
-      .filter({ has: page.getByRole('link', { name: /.+/ }) });
-    await expect(facilitatorRows.first()).toBeVisible();
-    await expect(facilitatorRows.nth(1)).toBeVisible();
-
-    const firstName = (await facilitatorRows.nth(0).getByRole('link').first().textContent())?.trim();
-    const secondName = (await facilitatorRows.nth(1).getByRole('link').first().textContent())?.trim();
-    expect(firstName).toBeTruthy();
-    expect(secondName).toBeTruthy();
-
-    await facilitatorRows.nth(0).getByRole('checkbox').check();
-    await facilitatorRows.nth(1).getByRole('checkbox').check();
-
-    await page
-      .getByRole('button', { name: /Merge selected/ })
-      .click();
-
-    await expect(page).toHaveURL(/\/facilitators\/merge\/\?ids=/);
-
-    await expect(page.getByLabel(firstName!, { exact: true })).toBeChecked();
-    await expect(page.getByLabel(secondName!, { exact: true })).toBeChecked();
   });
 
   test('merge page search filters facilitators by name', async ({ page }) => {
