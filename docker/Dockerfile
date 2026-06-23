@@ -49,7 +49,7 @@ RUN mise trust && mise install
 # for the frozen-lockfile workspace integrity check even though --filter +
 # --no-optional keep its (Playwright) deps out of the image. Independent of the
 # Python deps, so it lives in base and is built once for both stages.
-COPY --chown=appuser:appuser aube-workspace.yaml aube-lock.yaml package.json ./
+COPY --chown=appuser:appuser .npmrc aube-workspace.yaml aube-lock.yaml package.json ./
 COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
 COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/
 # Retry to ride out transient registry stream errors: this install pulls from
