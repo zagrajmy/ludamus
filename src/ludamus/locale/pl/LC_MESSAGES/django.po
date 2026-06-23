@@ -3428,7 +3428,7 @@ msgid "Your Information"
 msgstr "Twoje dane"
 
 #: src/ludamus/templates/chronology/propose/parts/personal.html
-msgid "Your details — private by default. A 👁 marks what attendees will see."
+msgid "Your details — private by default. An 👁 marks what attendees will see."
 msgstr ""
 "Twoje dane — domyślnie prywatne. 👁 oznacza pola widoczne dla uczestników."
 
