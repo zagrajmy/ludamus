@@ -51,6 +51,7 @@ export default defineConfig({
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
+        "velvet-sound": resolve(rootDir, "src/velvet-sound.ts"),
       },
     },
   },

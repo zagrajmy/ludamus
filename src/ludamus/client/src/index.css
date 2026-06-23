@@ -319,6 +319,23 @@ button:active {
 }
 
 @layer components {
+  .sound-switcher[data-on="1"] {
+    color: var(--color-primary);
+  }
+
+  .sound-switcher[data-on="1"] .sound-switcher-dot {
+    opacity: 1;
+  }
+
+  .sound-switcher .sound-switcher-wave {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .sound-switcher[data-on="1"] .sound-switcher-wave {
+    opacity: 1;
+  }
+
   .alert {
     border-radius: 0.5rem;
     padding: 1rem;

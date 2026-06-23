@@ -1,0 +1,15 @@
+{% load i18n %}
+<button type="button"
+        data-velvet-toggle
+        data-no-sound
+        aria-pressed="false"
+        class="sound-switcher inline-flex items-center gap-2 rounded-lg px-2.5 h-9 text-sm cursor-pointer transition-colors bg-bg-tertiary text-foreground-muted hover:text-foreground"
+        title="{% translate "Interface sound (Velvet)" %}">
+    <span class="sound-switcher-dot w-2 h-2 rounded-full bg-current opacity-40"></span>
+    <span class="sr-only">{% translate "Toggle interface sound" %}</span>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 2 4.5 5H2v6h2.5L8 14V2Z" fill="currentColor" />
+        <path class="sound-switcher-wave" d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.5a6 6 0 0 1 0 9"
+              stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+    </svg>
+</button>
