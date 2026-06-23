@@ -832,16 +832,12 @@
                                     </div>
                                 </div>
                             {% endif %}
-                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                                <div class="font-medium text-foreground">
-                                    {% if data.session.min_age > 0 %}
-                                        {{ data.session.min_age }}+ {% translate "years" %}
-                                    {% else %}
-                                        {% translate "All ages" %}
-                                    {% endif %}
+                            {% if data.session.min_age > 0 %}
+                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
+                                    <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
                                 </div>
-                            </div>
+                            {% endif %}
                         </div>
                         <!-- Enrollment Status for Authenticated Users -->
                         {% if current_user and data.user_enrolled %}

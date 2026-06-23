@@ -306,7 +306,7 @@ class TestEventPageView:
         assert "zagrajmy.net/static/logo.png" not in content
         assert f"testserver{absolute_url}" not in content
 
-    def test_session_card_shows_all_ages_when_min_age_zero(
+    def test_session_card_hides_age_pill_when_min_age_zero(
         self, agenda_item, client, event
     ):
         session = agenda_item.session
@@ -316,7 +316,7 @@ class TestEventPageView:
         response = client.get(self._get_url(event.slug))
 
         assert response.status_code == HTTPStatus.OK
-        assert b"All ages" in response.content
+        assert b"All ages" not in response.content
 
     def test_session_card_shows_overflow_tag_trigger(self, agenda_item, client, event):
         session_field = SessionField.objects.create(

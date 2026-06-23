@@ -79,9 +79,14 @@
             {% end_tessera_table %}
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">
+                <p class="text-foreground-muted mb-4">
                     {% translate "No tracks yet. Add a track to organize proposals by thematic area." %}
                 </p>
+                <a href="{% url 'panel:track-create' slug=current_event.slug %}"
+                   class="btn btn-primary inline-flex items-center">
+                    {% icon "plus" class="w-4 h-4 mr-2" %}
+                    {% translate "New Track" %}
+                </a>
             </div>
         {% endif %}
     {% else %}
