@@ -341,6 +341,7 @@ def time_slot(event):
 def session_fixture(active_user, event):
     return SessionFactory(
         event=event,
+        category=None,
         presenter=active_user,
         display_name=active_user.full_name,
         participants_limit=10,
