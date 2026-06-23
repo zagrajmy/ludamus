@@ -142,7 +142,7 @@ class TestProposalDeleteActionView:
         # serializes them: the slot is freed once, so exactly one UNASSIGN log is
         # written. Without locking both requests would log the unassignment.
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         _schedule(session, event)
         url = self.get_url(event, session.pk)
 
