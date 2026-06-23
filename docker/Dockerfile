@@ -52,7 +52,16 @@ RUN mise trust && mise install
 COPY --chown=appuser:appuser aube-workspace.yaml aube-lock.yaml package.json ./
 COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
 COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/
-RUN mise run frontend-deps
+# Retry to ride out transient registry stream errors: this install pulls from
+# the npm registry over the host's network, which occasionally stalls mid-stream
+# ("error decoding response body") and fails the whole deploy. aube caches what
+# it already fetched, so each retry resumes near where the last attempt stopped.
+RUN n=1; until mise run frontend-deps; do \
+        if [ "$n" -ge 5 ]; then echo "frontend-deps failed after $n attempts" >&2; exit 1; fi; \
+        echo "frontend-deps attempt $n failed; retrying in $((n * 10))s" >&2; \
+        sleep "$((n * 10))"; \
+        n=$((n + 1)); \
+    done
 
 # Development stage with dev dependencies
 FROM base AS dev
