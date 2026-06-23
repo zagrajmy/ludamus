@@ -126,7 +126,12 @@
         {% end_tessera_table %}
     {% else %}
         <div class="card p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No session fields defined. Add fields to classify sessions." %}</p>
+            <p class="text-foreground-muted mb-4">{% translate "No session fields defined. Add fields to classify sessions." %}</p>
+            <a href="{% url 'panel:session-field-create' slug=current_event.slug %}"
+               class="btn btn-primary inline-flex items-center">
+                {% icon "plus" class="w-4 h-4 mr-2" %}
+                {% translate "New Field" %}
+            </a>
         </div>
     {% endif %}
 </div>

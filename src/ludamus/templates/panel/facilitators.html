@@ -127,7 +127,12 @@
             </script>
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No facilitators yet." %}</p>
+                <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>
+                <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
+                   class="btn btn-primary inline-flex items-center">
+                    {% icon "plus" class="w-4 h-4 mr-2" %}
+                    {% translate "New Facilitator" %}
+                </a>
             </div>
         {% endif %}
     {% else %}

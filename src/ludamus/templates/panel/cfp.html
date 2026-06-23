@@ -97,9 +97,14 @@
         {% end_tessera_table %}
     {% else %}
         <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
-            <p class="text-foreground-muted">
+            <p class="text-foreground-muted mb-4">
                 {% translate "No session types yet. Add a session type to allow hosts to submit proposals." %}
             </p>
+            <a href="{% url 'panel:cfp-create' slug=current_event.slug %}"
+               class="btn btn-primary inline-flex items-center">
+                {% icon "plus" class="w-4 h-4 mr-2" %}
+                {% translate "New Session Type" %}
+            </a>
         </div>
     {% endif %}
 </div>
