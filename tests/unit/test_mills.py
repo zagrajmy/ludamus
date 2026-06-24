@@ -953,6 +953,24 @@ class TestRenderMarkdown:
 
         assert "<img" not in result
 
+    def test_shifts_h1_to_h3(self):
+        result = render_markdown("# Title")
+
+        assert "<h3>" in result
+        assert "<h1>" not in result
+
+    def test_shifts_h2_to_h4(self):
+        result = render_markdown("## Subtitle")
+
+        assert "<h4>" in result
+        assert "<h2>" not in result
+
+    def test_clamps_h5_and_h6_to_h6(self):
+        result = render_markdown("##### deep\n\n###### deeper")
+
+        assert result.count("<h6>") == 2
+        assert "<h5>" not in result
+
 
 class TestImportRow:
     def test_get_value_returns_the_exact_match_when_no_duplicates(self):

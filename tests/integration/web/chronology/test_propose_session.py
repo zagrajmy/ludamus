@@ -1771,8 +1771,8 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        assert "<h2>Welcome</h2>" in content
-        assert content.index("<h2>Welcome</h2>") < content.index(
+        assert "<h4>Welcome</h4>" in content
+        assert content.index("<h4>Welcome</h4>") < content.index(
             'aria-label="Proposal progress"'
         )
 
@@ -1788,7 +1788,7 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert "<h2>Rules</h2>" in response.content.decode()
+        assert "<h4>Rules</h4>" in response.content.decode()
 
     def test_personal_step_prefills_from_wizard_session(
         self, authenticated_client, event, faker, time_zone, proposal_category

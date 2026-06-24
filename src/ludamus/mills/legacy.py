@@ -1,3 +1,4 @@
+import re
 import string
 from datetime import UTC, datetime, timedelta
 from secrets import choice as _secret_choice
@@ -89,13 +90,22 @@ _MARKDOWN_ALLOWED_TAGS = {
 _MARKDOWN_ALLOWED_ATTRIBUTES = {"a": {"href", "title"}, "abbr": {"title"}}
 
 
+def _shift_headings(html: str) -> str:
+    return re.sub(
+        r"<(/?)h([1-6])>",
+        lambda m: f"<{m.group(1)}h{min(int(m.group(2)) + 2, 6)}>",
+        html,
+    )
+
+
 def render_markdown(text: str) -> str:
     result: str = _md.markdown(  # type: ignore [misc]
         text, extensions=["nl2br", "fenced_code"]
     )
-    return nh3.clean(
+    cleaned = nh3.clean(
         result, tags=_MARKDOWN_ALLOWED_TAGS, attributes=_MARKDOWN_ALLOWED_ATTRIBUTES
     )
+    return _shift_headings(cleaned)
 
 
 def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
