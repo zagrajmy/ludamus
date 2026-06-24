@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.template.loader import render_to_string
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
@@ -43,3 +45,21 @@ def single_required_choice(field: BoundField) -> tuple[object, str] | None:
         return None
     value, label = real[0]
     return value, str(label)
+
+
+def render_forced_choice(field: BoundField, forced: tuple[object, str]) -> str:
+    """Render a forced single choice: a hidden input plus static display.
+
+    Returns:
+        HTML string with the submitted value and its read-only display.
+    """
+    value, label = forced
+    return render_to_string(
+        "components/forced-choice.html",
+        {
+            "name": field.html_name,
+            "id": field.id_for_label,
+            "value": value,
+            "label": label,
+        },
+    )
