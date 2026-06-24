@@ -1847,6 +1847,19 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):
+    # Design exploration: three alternative layouts for the accept page,
+    # selectable via ?variant=. The unmarked default is the recommended one.
+    _VARIANT_TEMPLATES = {
+        "b": "chronology/accept_proposal_b.html",
+        "c": "chronology/accept_proposal_c.html",
+    }
+
+    @classmethod
+    def _template(cls, request: HttpRequest) -> str:
+        return cls._VARIANT_TEMPLATES.get(
+            request.GET.get("variant", ""), "chronology/accept_proposal.html"
+        )
+
     @staticmethod
     def _get_session_and_event(
         request: AuthenticatedRootRequest, session_id: int
@@ -1911,7 +1924,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
 
         return TemplateResponse(
             request,
-            "chronology/accept_proposal.html",
+            self._template(request),
             self._build_context(request, session, event, form),
         )
 
@@ -1923,7 +1936,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         if not form.is_valid():
             return TemplateResponse(
                 request,
-                "chronology/accept_proposal.html",
+                self._template(request),
                 self._build_context(request, session, event, form),
             )
 

@@ -1,0 +1,38 @@
+{% load i18n %}
+{% load tessera %}
+{# Time-slot picker shared by the accept-proposal layout variants. #}
+{# One slot is a foregone choice — carry it in a hidden input, show it as text. #}
+{% if time_slots|length == 1 %}
+    {% with slot=time_slots.0 %}
+        <input type="hidden" name="time_slot" value="{{ slot.pk }}">
+        <p class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-tertiary text-foreground-secondary">
+            {{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}
+        </p>
+    {% endwith %}
+{% else %}
+    {% select name="time_slot" id="time_slot" required=True %}
+        <option value="">{% translate "Choose a time…" %}</option>
+        {% if preferred_time_slot_ids %}
+            {# The facilitator asked for these — float them to the top so the #}
+            {# obvious choice is the first one, no footnote needed. #}
+            <optgroup label="{% translate "Preferred by the facilitator" %}">
+                {% for slot in time_slots %}
+                    {% if slot.pk in preferred_time_slot_ids %}
+                        <option value="{{ slot.pk }}">{{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}</option>
+                    {% endif %}
+                {% endfor %}
+            </optgroup>
+            <optgroup label="{% translate "Other times" %}">
+                {% for slot in time_slots %}
+                    {% if slot.pk not in preferred_time_slot_ids %}
+                        <option value="{{ slot.pk }}">{{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}</option>
+                    {% endif %}
+                {% endfor %}
+            </optgroup>
+        {% else %}
+            {% for slot in time_slots %}
+                <option value="{{ slot.pk }}">{{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}</option>
+            {% endfor %}
+        {% endif %}
+    {% end_select %}
+{% endif %}

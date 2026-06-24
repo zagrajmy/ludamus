@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load cfp_tags %}
+{% load tessera %}
+{% block title %}
+    {% translate "Accept Proposal" %} - {{ session.title }}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Accept Proposal" %}</h1>
+{% endblock header %}
+{% block description %}
+    {% translate "Pick a space and time, then add it to the agenda." %}
+{% endblock description %}
+{% block body %}
+    {# Variant B — Split. The proposal you're reading stays beside the #}
+    {# decision you're making, so context never scrolls out of view. #}
+    <div class="max-w-5xl mx-auto grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
+        {# Reference column #}
+        <section class="lg:sticky lg:top-6 order-2 lg:order-1">
+            <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
+            <p class="mt-1 text-sm text-foreground-muted">
+                {{ session.display_name }}
+                <span class="px-1.5 opacity-50">·</span>
+                {% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
+                <span class="px-1.5 opacity-50">·</span>
+                {% translate "submitted" %} {{ session.creation_time|date:"M j, Y" }}
+            </p>
+            {% if session.contact_email %}
+                <p class="mt-1 text-sm">
+                    <a href="mailto:{{ session.contact_email }}"
+                       class="text-primary hover:underline">{{ session.contact_email }}</a>
+                </p>
+            {% endif %}
+            {% if field_values %}
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    {% for fv in field_values %}
+                        {% include "components/_field_pill.html" with value=fv.value|format_field_value icon=fv.field_icon title=fv.field_name size="sm" %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div class="mt-4">{% include "chronology/_accept_proposal_facts.html" %}</div>
+            {% if preferred_time_slot_ids %}
+                <div class="mt-4">
+                    <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</p>
+                    <div class="mt-1.5 flex flex-wrap gap-1.5">
+                        {% for slot in time_slots %}
+                            {% if slot.pk in preferred_time_slot_ids %}
+                                <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+        {# Decision card — the focus #}
+        <div class="card gradient-border order-1 lg:order-2">
+            <div class="card-body">
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-foreground-muted mb-4">{% translate "Schedule it" %}</h3>
+                <form method="post"
+                      action="{% url 'web:chronology:session-accept' session_id=session.pk %}?variant=b"
+                      class="space-y-5">
+                    {% csrf_token %}
+                    {% tessera_field form.space %}
+                    <div class="flex flex-col">
+                        {% translate "Time slot" as time_slot_label %}
+                        {% include "components/label.html" with for_id="time_slot" text=time_slot_label required=True %}
+                        <div class="mt-1">{% include "chronology/_accept_timeslot_control.html" %}</div>
+                    </div>
+                    <div class="pt-1 space-y-3">
+                        {% translate "Accept and add to agenda" as accept_label %}
+                        {% tessera_button accept_label icon="check" full_width_mobile=True %}
+                        <a href="{% url 'web:chronology:event' slug=event.slug %}"
+                           class="block text-center text-sm text-foreground-muted hover:text-foreground transition-colors">
+                            {% translate "Back to event" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

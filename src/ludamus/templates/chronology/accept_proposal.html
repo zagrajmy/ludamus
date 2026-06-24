@@ -9,121 +9,67 @@
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Accept Proposal" %}</h1>
 {% endblock header %}
 {% block description %}
-    {% translate "Select space and time slot for" %} {{ session.title }}
+    {% translate "Pick a space and time, then add it to the agenda." %}
 {% endblock description %}
 {% block body %}
-    <div class="max-w-3xl mx-auto">
-        {# Proposal Details Card #}
-        <div class="card mb-4">
-            <div class="card-header bg-info text-white flex items-center gap-2">
-                {% icon "light-bulb" class="w-5 h-5" %}
-                <h5 class="font-semibold mb-0">{{ session.title }}</h5>
+    {# Variant A — Focused decision. One column: the proposal is quiet #}
+    {# reference at the top, the where/when decision is the hero below. #}
+    <div class="max-w-2xl mx-auto space-y-8">
+        <section>
+            <div class="flex items-baseline justify-between gap-3 flex-wrap">
+                <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
+                <span class="text-xs text-foreground-muted whitespace-nowrap">{% translate "Submitted" %} {{ session.creation_time|date:"M j, Y" }}</span>
             </div>
-            <div class="card-body">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Host" %}</h6>
-                        <p class="mb-3">{{ session.display_name }}</p>
-                        <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Participants Limit" %}</h6>
-                        <p class="mb-3">{{ session.participants_limit }}</p>
-                        {% if session.contact_email %}
-                            <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Contact Email" %}</h6>
-                            <p class="mb-3">{{ session.contact_email }}</p>
-                        {% endif %}
-                    </div>
-                    <div>
-                        <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Submitted" %}</h6>
-                        <p class="mb-3">{{ session.creation_time|date:"M j, Y G:i" }}</p>
-                        {% if field_values %}
-                            <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Session fields" %}</h6>
-                            <div class="flex flex-wrap gap-1 mb-3">
-                                {% for fv in field_values %}
-                                    {% include "components/_field_pill.html" with value=fv.value|format_field_value icon=fv.field_icon title=fv.field_name size="sm" %}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
+            <p class="mt-1 text-sm text-foreground-muted">
+                {{ session.display_name }}
+                <span class="px-1.5 opacity-50">·</span>
+                {% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
+                {% if session.contact_email %}
+                    <span class="px-1.5 opacity-50">·</span>
+                    <a href="mailto:{{ session.contact_email }}"
+                       class="hover:text-foreground transition-colors">{{ session.contact_email }}</a>
+                {% endif %}
+            </p>
+            {% if field_values %}
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    {% for fv in field_values %}
+                        {% include "components/_field_pill.html" with value=fv.value|format_field_value icon=fv.field_icon title=fv.field_name size="sm" %}
+                    {% endfor %}
                 </div>
-                {% if session.description %}
-                    <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Description" %}</h6>
-                    <p class="mb-3">{{ session.description }}</p>
-                {% endif %}
-                {% if session.requirements %}
-                    <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Requirements" %}</h6>
-                    <p class="mb-3">{{ session.requirements }}</p>
-                {% endif %}
-                {% if session.needs %}
-                    <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Special Needs" %}</h6>
-                    <p class="mb-3">{{ session.needs }}</p>
-                {% endif %}
-                {% if preferred_time_slot_ids %}
-                    <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Preferred Time Slots" %}</h6>
-                    <div class="flex flex-wrap gap-1">
+            {% endif %}
+            <div class="mt-4">{% include "chronology/_accept_proposal_facts.html" %}</div>
+            {% if preferred_time_slot_ids %}
+                <div class="mt-4">
+                    <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</p>
+                    <div class="mt-1.5 flex flex-wrap gap-1.5">
                         {% for slot in time_slots %}
                             {% if slot.pk in preferred_time_slot_ids %}
-                                <span class="inline-flex items-center rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</span>
+                                <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
                             {% endif %}
                         {% endfor %}
                     </div>
-                {% endif %}
+                </div>
+            {% endif %}
+        </section>
+        <hr class="border-border">
+        <form method="post"
+              action="{% url 'web:chronology:session-accept' session_id=session.pk %}"
+              class="space-y-5">
+            {% csrf_token %}
+            {% tessera_field form.space %}
+            <div class="flex flex-col">
+                {% translate "Time slot" as time_slot_label %}
+                {% include "components/label.html" with for_id="time_slot" text=time_slot_label required=True %}
+                <div class="mt-1">{% include "chronology/_accept_timeslot_control.html" %}</div>
             </div>
-        </div>
-        {# Assignment Form Card #}
-        <div class="card">
-            <div class="card-header bg-success text-white flex items-center gap-2">
-                {% icon "calendar-days" class="w-5 h-5" %}
-                <h5 class="font-semibold mb-0">{% translate "Assign to Schedule" %}</h5>
+            <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-1">
+                {% translate "Accept and add to agenda" as accept_label %}
+                {% tessera_button accept_label icon="check" %}
+                <a href="{% url 'web:chronology:event' slug=event.slug %}"
+                   class="text-sm text-foreground-muted hover:text-foreground transition-colors text-center">
+                    {% translate "Back to event" %}
+                </a>
             </div>
-            <div class="card-body">
-                <form method="post"
-                      action="{% url 'web:chronology:session-accept' session_id=session.pk %}">
-                    {% csrf_token %}
-                    {% tessera_field form.space %}
-                    <div class="mb-6">
-                        <label for="time_slot" class="block text-sm font-medium mb-1">
-                            {% icon "clock" class="w-4 h-4 inline" %}
-                            {% translate "Time Slot" %} <span class="text-danger">*</span>
-                        </label>
-                        {% if time_slots|length == 1 %}
-                            {# One slot — nothing to pick, so carry it as a hidden value. #}
-                            {% with slot=time_slots.0 %}
-                                <input type="hidden" name="time_slot" value="{{ slot.pk }}">
-                                <p class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-tertiary text-foreground-secondary">
-                                    {{ slot.start_time|date:"l, M j - G:i" }} - {{ slot.end_time|date:"G:i" }}
-                                </p>
-                            {% endwith %}
-                        {% else %}
-                            <select class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground"
-                                    id="time_slot"
-                                    name="time_slot"
-                                    required>
-                                <option value="">{% translate "Select a time slot..." %}</option>
-                                {% for slot in time_slots %}
-                                    <option value="{{ slot.pk }}"
-                                            {% if slot.pk in preferred_time_slot_ids %}class="font-bold"{% endif %}>
-                                        {{ slot.start_time|date:"l, M j - G:i" }} - {{ slot.end_time|date:"G:i" }}
-                                        {% if slot.pk in preferred_time_slot_ids %}
-                                            ({% translate "Preferred" %})
-                                        {% endif %}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                            <p class="mt-1 text-xs text-foreground-muted">{% translate "Preferred time slots are highlighted in bold." %}</p>
-                        {% endif %}
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            {% icon "check" class="w-4 h-4" %}
-                            {% translate "Accept and Add to Agenda" %}
-                        </button>
-                        <a href="{% url 'web:chronology:event' slug=event.slug %}"
-                           class="btn btn-secondary">
-                            {% icon "arrow-left" class="w-4 h-4" %}
-                            {% translate "Back to Event" %}
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
+        </form>
     </div>
 {% endblock body %}
