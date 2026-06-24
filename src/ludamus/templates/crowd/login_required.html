@@ -17,11 +17,11 @@
             <h1 class="text-3xl font-bold mb-3 text-foreground">{% translate "Login Required" %}</h1>
             <p class="text-lg mb-6 text-foreground-muted">{% translate "You need to be logged in to access this page." %}</p>
             <div class="flex flex-col sm:flex-row items-start gap-3">
+                {% include "components/login_button.html" with next=next show_icon=True %}
                 <a href="{% url 'web:index' %}" class="btn btn-secondary">
                     {% icon "arrow-left" class="w-5 h-5" %}
                     {% translate "Back to Home" %}
                 </a>
-                {% include "components/login_button.html" with next=next show_icon=True %}
             </div>
         </div>
     </div>

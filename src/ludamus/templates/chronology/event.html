@@ -608,18 +608,10 @@
                                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-200 dark:bg-neutral-700 text-foreground-secondary">{{ pending.participants_limit }}</span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    <div class="flex flex-col gap-1.5 grow">
-                                        <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
-                                           class="btn btn-primary text-xs">
-                                            {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Accept" %}
-                                        </a>
-                                        <a href="?proposal={{ pending.pk }}"
-                                           class="btn btn-secondary text-xs"
-                                           aria-controls="proposalModal{{ pending.pk }}"
-                                           aria-haspopup="dialog">
-                                            {% icon "eye" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review" %}
-                                        </a>
-                                    </div>
+                                    <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
+                                       class="btn btn-primary text-xs inline-flex items-center">
+                                        {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review & accept" %}
+                                    </a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -627,84 +619,6 @@
                 </table>
             </div>
         </div>
-        <!-- Proposal Review Modals -->
-        {% for pending in pending_sessions %}
-            <dialog id="proposalModal{{ pending.pk }}"
-                    class="modal"
-                    aria-labelledby="proposalModal{{ pending.pk }}-title">
-                <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-                    <h3 id="proposalModal{{ pending.pk }}-title"
-                        class="text-lg font-semibold text-foreground">{{ pending.title }}</h3>
-                    <button type="button"
-                            data-modal-close="proposalModal{{ pending.pk }}"
-                            aria-label="{% translate "Close" %}"
-                            class="p-1 rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-                        {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                    </button>
-                </div>
-                <div class="px-6 py-4 text-foreground">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-3">
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Host" %}</h4>
-                                <p>{{ pending.display_name }}</p>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Participants Limit" %}</h4>
-                                <p>{{ pending.participants_limit }}</p>
-                            </div>
-                            {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
-                            {% if pending.tags %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Tags" %}</h4>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% for tag in pending.tags %}
-                                            {% include "components/_field_pill.html" with value=tag.name size="sm" %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="space-y-3">
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Submitted" %}</h4>
-                                <p>{{ pending.creation_time|date:"F j, Y G:i" }}</p>
-                            </div>
-                            {% if pending.time_slots %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Preferred Time Slots" %}</h4>
-                                    {% for slot in pending.time_slots %}
-                                        <div class="text-sm">{{ slot }}</div>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% if pending.description %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Description" %}</h4>
-                            <p>{{ pending.description }}</p>
-                        </div>
-                    {% endif %}
-                    {% if pending.requirements %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Requirements" %}</h4>
-                            <p>{{ pending.requirements }}</p>
-                        </div>
-                    {% endif %}
-                    {% if pending.needs %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Special Needs" %}</h4>
-                            <p>{{ pending.needs }}</p>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="px-6 py-4 flex justify-end gap-2 border-t border-border">
-                    <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
-                       class="btn btn-primary text-sm">{% icon "check" class="w-4 h-4" variant="mini" %} {% translate "Accept Proposal" %}</a>
-                </div>
-            </dialog>
-        {% endfor %}
     {% endif %}
     <!-- Session Detail Modals -->
     {% for data in sessions %}
@@ -769,14 +683,9 @@
                                 {% endif %}
                                 {% if data.presenter.pk %}
                                     {% with host=data.presenter %}
-                                        {% if host and host.slug and host.discord_username %}
+                                        {% if host.discord_username %}
                                             <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-                                            <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                    hx-get="{% url 'web:crowd:user-discord-username' user_slug=host.slug %}"
-                                                    hx-swap="outerHTML"
-                                                    hx-trigger="click once">
-                                                {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %} {% translate "Show Discord" %}
-                                            </button>
+                                            {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
                                         {% endif %}
                                     {% endwith %}
                                 {% endif %}
@@ -837,16 +746,12 @@
                                     </div>
                                 </div>
                             {% endif %}
-                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                                <div class="font-medium text-foreground">
-                                    {% if data.session.min_age > 0 %}
-                                        {{ data.session.min_age }}+ {% translate "years" %}
-                                    {% else %}
-                                        {% translate "All ages" %}
-                                    {% endif %}
+                            {% if data.session.min_age > 0 %}
+                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
+                                    <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
                                 </div>
-                            </div>
+                            {% endif %}
                         </div>
                         <!-- Enrollment Status for Authenticated Users -->
                         {% if current_user and data.user_enrolled %}
@@ -887,16 +792,9 @@
                                                     <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    {% with user=participation.user %}
-                                                        {% if user and user.slug and user.discord_username %}
-                                                            <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                                    hx-get="{% url 'web:crowd:user-discord-username' user_slug=user.slug %}"
-                                                                    hx-swap="outerHTML"
-                                                                    hx-trigger="click once">
-                                                                {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %}
-                                                            </button>
-                                                        {% endif %}
-                                                    {% endwith %}
+                                                    {% if participation.user.discord_username %}
+                                                        {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
+                                                    {% endif %}
                                                     {% if participation.user.pk == current_user.pk %}
                                                         <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
                                                     {% endif %}

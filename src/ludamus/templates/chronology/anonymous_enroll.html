@@ -108,13 +108,6 @@
                                 {% translate "Your public display name that others will see. This can be a nickname and does not need to be your legal name." %}
                             </p>
                         </div>
-                    {% else %}
-                        <div class="alert alert-info flex items-center gap-3">
-                            {% icon "information-circle" class="w-5 h-5 shrink-0" %}
-                            <div>
-                                {% translate "Click below to enroll" %} <strong>{{ anonymous_user.full_name }}</strong> {% translate "in this session." %}
-                            </div>
-                        </div>
                     {% endif %}
                     <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
                         <a href="{% url 'web:chronology:event' slug=event.slug %}"
@@ -140,14 +133,6 @@
                     </div>
                 </form>
             </div>
-        </div>
-        {# Additional Actions #}
-        <div class="text-center mt-6">
-            <small class="text-foreground-muted">
-                {% translate "Your code" %}: <strong>{{ anonymous_code }}</strong>
-                <br>
-                {% translate "Save this code to access your enrollments later" %}
-            </small>
         </div>
     </div>
 {% endblock body %}

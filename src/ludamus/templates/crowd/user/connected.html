@@ -62,7 +62,7 @@
                                         <h6 class="font-semibold text-sm">{{ connected.user.full_name }}</h6>
                                         <form method="post"
                                               action="{% url 'web:crowd:profile-connected-users-delete' slug=connected.user.slug %}"
-                                              data-confirm="{% translate "Are you sure you want to delete this item?" %}">
+                                              data-confirm="{% blocktranslate with name=connected.user.full_name %}Remove {{ name }} from your connected users?{% endblocktranslate %}">
                                             {% csrf_token %}
                                             <div class="flex gap-1">
                                                 <button type="button"
@@ -113,7 +113,7 @@
                         <div id="emptyState" class="text-center py-8">
                             {% icon "users" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
                             <h5 class="text-foreground-muted font-medium">{% translate "No connected users yet" %}</h5>
-                            <p class="text-sm text-foreground-muted">{% translate "Add your first item using the form above." %}</p>
+                            <p class="text-sm text-foreground-muted">{% translate "Add your first connected person using the form above." %}</p>
                         </div>
                     {% endfor %}
                 </div>
