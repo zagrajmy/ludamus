@@ -373,13 +373,13 @@
             {% if messages %}
                 <div class="p-3 sm:p-4 lg:px-8 lg:pt-4 lg:pb-0 space-y-2">
                     {% for message in messages %}
-                        <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} flex items-center"
-                             data-flash="{% if message.tags == 'error' or message.tags == 'warning' %}sticky{% else %}transient{% endif %}">
-                            {% if message.tags == 'error' %}
+                        <div class="alert {% if message.level_tag == 'error' %}alert-error{% elif message.level_tag == 'warning' %}alert-warning{% elif message.level_tag == 'success' %}alert-success{% else %}alert-info{% endif %} flex items-center"
+                             data-flash="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}sticky{% else %}transient{% endif %}">
+                            {% if message.level_tag == 'error' %}
                                 {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
-                            {% elif message.tags == 'warning' %}
+                            {% elif message.level_tag == 'warning' %}
                                 {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
-                            {% elif message.tags == 'success' %}
+                            {% elif message.level_tag == 'success' %}
                                 {% icon "check-circle" class="w-5 h-5 mr-3 shrink-0" %}
                             {% else %}
                                 {% icon "information-circle" class="w-5 h-5 mr-3 shrink-0" %}

@@ -38,6 +38,7 @@ def render_select(field: BoundField) -> str:
             "groups": _grouped_choices(field),
             "selected": field.value(),
             "required": field.field.required,
+            "disabled": field.field.disabled,
             "has_errors": bool(field.errors),
         },
     )

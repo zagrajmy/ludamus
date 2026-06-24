@@ -317,6 +317,12 @@ class TestRenderSelect:
         html = render_select(form["color"])
         assert "border-danger" in html
 
+    def test_disabled_select_renders_disabled(self) -> None:
+        form = SimpleForm()
+        form.fields["color"].disabled = True
+        html = render_select(form["color"])
+        assert "disabled" in html
+
 
 # ---------------------------------------------------------------------------
 # render_textarea — direct coverage
