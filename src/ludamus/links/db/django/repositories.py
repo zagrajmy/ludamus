@@ -899,6 +899,7 @@ class EventRepository(EventRepositoryProtocol):
         if old_cover and old_cover != event.cover_image.name:
             delete_stored_file(event.cover_image, old_cover)
 
+
 class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO:

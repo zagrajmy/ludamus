@@ -166,6 +166,9 @@ class TestProposeSessionPageView:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
@@ -2350,6 +2353,9 @@ class TestAnonymousProposalSubmission:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
