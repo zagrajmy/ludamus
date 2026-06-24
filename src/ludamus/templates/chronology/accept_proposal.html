@@ -98,21 +98,18 @@
                                        class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-tertiary text-foreground-secondary cursor-not-allowed">
                             {% endwith %}
                         {% else %}
-                            <select class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground"
-                                    id="time_slot"
-                                    name="time_slot"
-                                    required>
-                                <option value="">{% translate "Select a time slot..." %}</option>
-                                {% for slot in time_slots %}
-                                    <option value="{{ slot.pk }}"
-                                            {% if slot.pk in preferred_time_slot_ids %}class="font-bold"{% endif %}>
-                                        {{ slot.start_time|date:"l, M j - G:i" }} - {{ slot.end_time|date:"G:i" }}
-                                        {% if slot.pk in preferred_time_slot_ids %}
-                                            ({% translate "Preferred" %})
-                                        {% endif %}
-                                    </option>
-                                {% endfor %}
-                            </select>
+                            {% select name="time_slot" id="time_slot" required=True %}
+                            <option value="">{% translate "Select a time slot..." %}</option>
+                            {% for slot in time_slots %}
+                                <option value="{{ slot.pk }}"
+                                        {% if slot.pk in preferred_time_slot_ids %}class="font-bold"{% endif %}>
+                                    {{ slot.start_time|date:"l, M j - G:i" }} - {{ slot.end_time|date:"G:i" }}
+                                    {% if slot.pk in preferred_time_slot_ids %}
+                                        ({% translate "Preferred" %})
+                                    {% endif %}
+                                </option>
+                            {% endfor %}
+                            {% end_select %}
                             <p class="mt-1 text-xs text-foreground-muted">{% translate "Preferred time slots are highlighted in bold." %}</p>
                         {% endif %}
                     </div>

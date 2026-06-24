@@ -16,6 +16,23 @@ run = "aubr varlock django-admin compilemessages -l pl"
 
 [messages-check]
 description = "Fail if the PL catalog is stale (un-extracted strings) or has untranslated/fuzzy entries"
+# Settings env so `django-admin` can import without varlock/.env (the lint CI
+# job has no secrets). makemessages output is deterministic regardless of these
+# values, so dummy test creds are fine.
+env.DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
+env.PYTHONPATH = "src"
+env.ENV = "local"
+env.ROOT_DOMAIN = "testserver"
+env.ALLOWED_HOSTS = ".testserver"
+env.SESSION_COOKIE_DOMAIN = ".testserver"
+env.DB_NAME = ":memory:"
+env.SECRET_KEY = "dev-secret-key"
+env.AUTH0_CLIENT_ID = "test-auth0-client-id"
+env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
+env.AUTH0_DOMAIN = "auth0.example.com"
+env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
+env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
+env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 run = '''
 set -eu
 po=src/ludamus/locale/pl/LC_MESSAGES/django.po
@@ -25,7 +42,7 @@ po=src/ludamus/locale/pl/LC_MESSAGES/django.po
 #    check is safe to run on a dirty tree.
 pre="$(mktemp)"
 cp "$po" "$pre"
-aubr varlock django-admin makemessages -l pl --add-location=file
+django-admin makemessages -l pl --add-location=file
 drift="$(diff -I'POT-Creation-Date' "$pre" "$po" || true)"
 cp "$pre" "$po"
 rm -f "$pre"
