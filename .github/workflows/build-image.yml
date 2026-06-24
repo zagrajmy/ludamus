@@ -1,0 +1,56 @@
+name: Build production image
+
+# First step of moving image builds off the production host: CI builds the
+# prod image and pushes it to GHCR. The deploy still builds on the host for
+# now; a follow-up switches prod.yaml/deploy to pull this prebuilt image.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and push prod image to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # `sha-<full-sha>` is the deploy-addressable tag; `latest` tracks main.
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Build-only values; runtime config comes from .env.local on the host.
+          build-args: |
+            ENV=production
+            DJANGO_SETTINGS_MODULE=ludamus.edges.settings
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
