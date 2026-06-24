@@ -55,6 +55,8 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
     }
     if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
+    # Only overwrite the logo when a new file was uploaded, so saving the
+    # settings form without re-picking a file keeps the existing logo.
     if cd.get("logo"):
         data["logo"] = cd["logo"]
     return data
@@ -240,6 +242,9 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     if current_event.proposal_end_time
                     else None
                 ),
+                "allow_anonymous_proposals": (
+                    proposal_settings.allow_anonymous_proposals
+                ),
             }
         )
         return TemplateResponse(self.request, "panel/proposal-settings.html", context)
@@ -273,6 +278,10 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "proposal_end_time": cd.get("proposal_end_time"),
             }
             self.request.di.uow.events.update(current_event.pk, data)
+
+            self.request.di.uow.event_proposal_settings.update_allow_anonymous_proposals(
+                current_event.pk, allow=bool(cd.get("allow_anonymous_proposals"))
+            )
 
             # Optionally apply dates to all categories
             if cd.get("apply_dates_to_categories"):
