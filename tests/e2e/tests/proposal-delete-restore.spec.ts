@@ -66,12 +66,9 @@ test.describe('Proposal delete and restore', () => {
       .filter({ hasText: PROPOSAL_TITLE });
     await expect(deletedRow).toBeVisible();
     await deletedRow.getByRole('button', { name: 'Restore' }).click();
-    await page
-      .getByRole('alertdialog')
-      .getByRole('button', { name: 'Confirm' })
-      .click();
 
-    // The session returns to the active list...
+    // Restore is the undo of a delete — no confirmation dialog. The session
+    // returns to the active list...
     await page.waitForURL(/\/proposals\/$/);
     await expect(
       page.getByRole('link', { name: PROPOSAL_TITLE }),

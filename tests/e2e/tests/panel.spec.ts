@@ -694,6 +694,7 @@ test.describe('Backoffice Panel', () => {
     // Create
     await page
       .getByRole('link', { name: 'New Field' })
+      .first()
       .click();
     await page.locator('#id_name').fill('Email');
     await page
@@ -756,6 +757,7 @@ test.describe('Backoffice Panel', () => {
     // Create
     await page
       .getByRole('link', { name: 'New Field' })
+      .first()
       .click();
     await page.locator('#id_name').fill(fieldName);
     await page
