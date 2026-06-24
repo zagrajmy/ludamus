@@ -44,7 +44,6 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
-        EventProposalSettingsDTO,
         PersonalDataFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
@@ -277,9 +276,6 @@ def _render_category(
 
     wizard = request.session.get(_session_key(event_slug), {})
     selected_id = wizard.get("category_id")
-    proposal_settings = request.di.uow.event_proposal_settings.read_or_create_by_event(
-        event.pk
-    )
 
     context: dict[str, object] = {
         "event": event,
@@ -632,8 +628,8 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         else:
             context = {
                 "event": event,
-                "categories": categories,
                 "proposal_settings": proposal_settings,
+                "categories": categories,
                 "step": "category",
                 "current_step": "category",
                 "wizard_steps": _wizard_steps(
@@ -850,6 +846,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         proposal_settings = (
             request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
         )
+
         if request.POST.get("back"):
             return _render_details(
                 request=request,
@@ -941,7 +938,6 @@ class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
         proposal_settings = (
             request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
         )
-
         return _render_review(
             request=request,
             service=service,
