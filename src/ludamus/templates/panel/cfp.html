@@ -100,11 +100,9 @@
             <p class="text-foreground-muted mb-4">
                 {% translate "No session types yet. Add a session type to allow hosts to submit proposals." %}
             </p>
-            <a href="{% url 'panel:cfp-create' slug=current_event.slug %}"
-               class="btn btn-primary inline-flex items-center">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "New Session Type" %}
-            </a>
+            {% url 'panel:cfp-create' slug=current_event.slug as create_url %}
+            {% translate "New Session Type" as t_create %}
+            {% tessera_button t_create href=create_url icon="plus" %}
         </div>
     {% endif %}
 </div>

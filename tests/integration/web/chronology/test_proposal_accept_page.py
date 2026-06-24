@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -12,6 +13,7 @@ from ludamus.adapters.db.django.models import (
     SessionField,
     SessionFieldValue,
     Space,
+    TimeSlot,
 )
 from ludamus.pacts import (
     EventDTO,
@@ -96,6 +98,25 @@ class TestProposalAcceptPageView:
             template_name="chronology/accept_proposal.html",
         )
         assert "Preferred Time Slots" in response.content.decode()
+
+    @pytest.mark.usefixtures("space")
+    def test_get_renders_select_for_multiple_time_slots(
+        self, event, pending_session, staff_client, time_slot
+    ):
+        # A second slot means there's a real choice, so the tessera select
+        # renders instead of the single-slot read-only collapse.
+        TimeSlot.objects.create(
+            event=event,
+            start_time=time_slot.end_time,
+            end_time=time_slot.end_time + timedelta(hours=2),
+        )
+
+        response = staff_client.get(self._get_url(pending_session.id))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "<select" in content
+        assert 'name="time_slot"' in content
 
     @pytest.mark.usefixtures("event", "time_slot")
     def test_get_collapses_single_space_to_static_value(

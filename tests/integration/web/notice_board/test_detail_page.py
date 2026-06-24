@@ -73,6 +73,19 @@ class TestEncounterDetailPageView:
             template_name="notice_board/detail.html",
         )
 
+    def test_shows_creator_discord_handle(self, client, encounter):
+        encounter.creator.discord_username = "coolgm"
+        encounter.creator.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "@coolgm" in response.content.decode()
+
     def test_ok_authenticated(self, authenticated_client, encounter):
         url = reverse(
             "web:notice-board:encounter-detail",

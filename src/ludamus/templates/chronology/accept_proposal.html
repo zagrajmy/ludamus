@@ -85,17 +85,13 @@
                             {% translate "Time Slot" %} <span class="text-danger">*</span>
                         </label>
                         {% if time_slots|length == 1 %}
-                            {# One slot — nothing to pick, so carry it as a hidden value #}
-                            {# and show it read-only in an input that the label above #}
-                            {# (for="time_slot") associates with. #}
+                            {# One slot — nothing to pick; reuse the forced-choice #}
+                            {# component (hidden input + read-only display) that the #}
+                            {# label above associates with via id="time_slot". #}
                             {% with slot=time_slots.0 %}
-                                <input type="hidden" name="time_slot" value="{{ slot.pk }}">
-                                <input type="text"
-                                       id="time_slot"
-                                       value="{{ slot.start_time|date:'l, M j - G:i' }} - {{ slot.end_time|date:'G:i' }}"
-                                       disabled
-                                       aria-readonly="true"
-                                       class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-tertiary text-foreground-secondary cursor-not-allowed">
+                                {% with start=slot.start_time|date:'l, M j - G:i' end=slot.end_time|date:'G:i' %}
+                                    {% include "components/forced-choice.html" with name="time_slot" id="time_slot" value=slot.pk label=start|add:" - "|add:end %}
+                                {% endwith %}
                             {% endwith %}
                         {% else %}
                             {% select name="time_slot" id="time_slot" required=True %}

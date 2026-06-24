@@ -321,7 +321,9 @@ class TestRenderSelect:
         form = SimpleForm()
         form.fields["color"].disabled = True
         html = render_select(form["color"])
-        assert "disabled" in html
+        assert "<select" in html
+        select_tag = html.split("<select", 1)[1].split(">", 1)[0]
+        assert "disabled" in select_tag
 
 
 # ---------------------------------------------------------------------------

@@ -25,9 +25,10 @@ jobs:
       - run: mise install
       - run: mise run p install
       - run: mise run prcheck --jobs 4
-      - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
+      - name: Install gettext
         run: sudo apt-get update && sudo apt-get install -y gettext
-      - run: mise run messages-check
+      - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
+        run: mise run messages-check
 
   varlock-scan:
     runs-on: ubuntu-latest
