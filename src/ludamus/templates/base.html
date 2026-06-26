@@ -123,6 +123,8 @@
                 {% endblock site_footer %}
             {% endblock body_content %}
         </div>
+        <span class="fixed bottom-1 left-1 z-[60] rounded bg-bg-secondary/80 px-1 text-[10px] leading-4 text-foreground-muted"
+              data-commit-sha="{{ COMMIT_SHA }}">sha {{ COMMIT_SHA }}</span>
         {% include "components/confirm-dialog.html" %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>

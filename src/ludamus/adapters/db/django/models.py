@@ -263,6 +263,7 @@ class Event(models.Model):
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
+    use_session_cover_placeholders = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
     # turn off for a draft → confirm workflow on large events.
     auto_confirm_sessions = models.BooleanField(default=True)
