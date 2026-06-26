@@ -7,9 +7,9 @@ if TYPE_CHECKING:
 
     class ViteAwareCompressedManifestStaticFilesStorage(ManifestStaticFilesStorage):
         def file_hash(
-            self, name: str | None, content: File[bytes] | None = None
+            self, name: str, content: File[bytes] | None = None
         ) -> str | None:
-            if name is not None and name.startswith("vite/"):
+            if name.startswith("vite/"):
                 return None
 
             return super().file_hash(name, content)
