@@ -462,6 +462,7 @@ button:active {
     --bg: #ef4f2d;
     --hl1: rgba(255, 255, 255, 0.3);
     --hl2: rgba(255, 255, 255, 0.22);
+
     color: white;
     background-image: linear-gradient(180deg, #fb6953, #ef4f2d);
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
@@ -471,6 +472,7 @@ button:active {
     --bg: #e23636;
     --hl1: rgba(255, 255, 255, 0.3);
     --hl2: rgba(255, 255, 255, 0.22);
+
     color: white;
     background-image: linear-gradient(180deg, #f56363, #e23636);
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
@@ -484,6 +486,7 @@ button:active {
   .dark .btn-danger {
     --hl1: rgba(255, 255, 255, 0.22);
     --hl2: rgba(255, 255, 255, 0.18);
+
     font-weight: 600;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
   }
@@ -498,6 +501,7 @@ button:active {
     --bg: var(--color-bg-secondary);
     --shade: hsla(30deg, 20.6%, 35%, 0.25);
     --hl1: transparent;
+
     border: 1px solid var(--color-border);
     color: var(--color-foreground);
     background-image: linear-gradient(
@@ -509,6 +513,7 @@ button:active {
 
   .dark .btn-secondary {
     --shade: hsla(30deg, 0%, 28%, 0.35);
+
     background-image: linear-gradient(
       180deg,
       rgba(255, 255, 255, 0.04),
