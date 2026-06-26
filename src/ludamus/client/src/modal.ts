@@ -95,6 +95,13 @@ const startViewTransition = (callback: () => void): ViewTransition | null => {
   return doc.startViewTransition(callback);
 };
 
+// A view transition rejects `finished` with an AbortError ("Transition was
+// skipped") when it's interrupted — e.g. a second one starts before it ends.
+// That's expected, so swallow it instead of letting it surface as uncaught.
+const ignoreSkippedTransition = (): void => {
+  /* expected on interruption */
+};
+
 // Shared name that both the session card and its detail modal take on, but only
 // for the duration of a transition (assigned here, cleared in `finished`). With
 // the same name on the outgoing and incoming element, the browser tweens the
@@ -140,7 +147,11 @@ const morphTransition = (steps: {
 }): void => {
   steps.before();
   const transition = startViewTransition(steps.swap);
-  if (transition) void transition.finished.finally(steps.settle);
+  // `finished` rejects ("Transition was skipped") when a transition is
+  // interrupted — e.g. a second one starts before this finishes. settle must
+  // still run to clear the morph names and restore the card, so swallow the
+  // skip rejection first; otherwise it surfaces as an uncaught AbortError.
+  if (transition) void transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
   else steps.settle();
 };
 
@@ -152,9 +163,11 @@ const dismissDialog = (dialog: HTMLDialogElement): void => {
     dialog.close();
     return;
   }
+  // Swallow the skip rejection (see morphTransition) so an interrupted blur
+  // close doesn't surface as an uncaught AbortError.
   startViewTransition(() => {
     dialog.close();
-  });
+  })?.finished.catch(ignoreSkippedTransition);
 };
 
 const openModal = (
