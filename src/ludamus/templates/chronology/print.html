@@ -4,7 +4,7 @@
     {{ event.name }} — {% translate "Print" %}
 {% endblock title %}
 {% block body_class %}
-    relative flex min-h-screen flex-col bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
+    app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
 {% endblock body_class %}
 {% block site_navbar %}
     <div class="print:hidden">{% include "components/navbar.html" %}</div>

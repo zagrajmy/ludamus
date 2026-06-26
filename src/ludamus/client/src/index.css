@@ -160,6 +160,45 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* App-shell: <body> is a fixed viewport box and the inner .app-scroll element
+   owns the page scroll, so the document never scrolls under a top-layer dialog.
+   That removes the iOS top-layer hit-test offset (dead Close button) and lets a
+   modal lock the background by freezing .app-scroll's overflow — no body pin, no
+   scroll save/restore, so the page can't jump or flash the top on open/close.
+   Layouts that still scroll the document (panel, print) opt out of both. */
+.app-shell {
+  height: 100dvh;
+  overflow: hidden;
+  /* No scrollbar lives on <body> here, so don't reserve a blank gutter strip. */
+  scrollbar-gutter: auto;
+}
+
+.app-scroll {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Paged media must flow down the document, not live inside a fixed-height
+   scrollport — otherwise only the first viewport prints. Collapse the app-shell
+   box back to normal flow for printing. */
+@media print {
+  .app-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-scroll {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+}
+
 a,
 button {
   cursor: pointer;

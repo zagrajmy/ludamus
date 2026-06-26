@@ -27,12 +27,12 @@
         })();
     </script>
     <style>
-        body.panel-shell>nav>.max-w-7xl {
+        .panel-shell .app-scroll>nav>.max-w-7xl {
             max-width: none;
         }
 
         @media (width >=64rem) {
-            body.panel-shell>nav>.max-w-7xl {
+            .panel-shell .app-scroll>nav>.max-w-7xl {
                 padding-inline: 16px;
             }
         }
@@ -122,7 +122,7 @@
     </style>
 {% endblock extra_head %}
 {% block body_class %}
-    panel-shell relative flex flex-col min-h-screen font-sans antialiased bg-background text-foreground
+    panel-shell app-shell relative font-sans antialiased bg-background text-foreground
 {% endblock body_class %}
 {% block main_region %}
     <div class="flex flex-1">

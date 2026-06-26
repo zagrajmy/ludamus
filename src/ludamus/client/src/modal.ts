@@ -25,21 +25,28 @@ const scrollLockTargets = new Set<HTMLDialogElement>();
 const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
 let touchHandlerInitialized = false;
 
-// Page scroll lock for open modals. Two cooperating pieces, owned together so
-// they can never desync:
-//   1. `@fluejs/noscroll` disables page scroll and compensates for the
-//      scrollbar width (avoids a desktop layout shift when it disappears).
-//   2. A `position: fixed` body pin. iOS Safari ignores `overflow: hidden` on
-//      <body>, so the document keeps its scroll offset while a modal is open. A
-//      top-layer dialog opened over a scrolled document then hit-tests as if
-//      the page were at the top: taps on the visually-centred Close button land
-//      on the content behind the modal, so the X feels dead. Pinning the body
-//      and offsetting it by the prior scroll forces the document offset to 0,
-//      which truly locks iOS and realigns the modal's hit region. The scroll
-//      position is restored on unlock.
+// Page scroll lock for open modals. Two strategies; the first that applies wins:
+//
+//   A. App-shell (preferred). When the page uses the `#app-scroll` container
+//      (the default web layout), the document itself never scrolls — that inner
+//      element does. A top-layer dialog therefore always hit-tests over an
+//      unscrolled document, and the background is locked by simply freezing the
+//      container's overflow. Freezing a non-document scroller keeps its offset
+//      and moves nothing: no body pin, no scroll save/restore, so the page can't
+//      jump or flash the top on open/close.
+//
+//   B. Body-pin fallback. Layouts that still scroll the document (panel, print)
+//      have no `#app-scroll`. There `@fluejs/noscroll` disables page scroll and
+//      compensates the scrollbar width, and on iOS/Safari a `position: fixed`
+//      body pin forces the document offset to 0 so the top-layer Close button
+//      stays tappable over a scrolled page; the offset is restored on unlock.
 let pageLocked = false;
 let pinnedScrollY = 0;
 let bodyPinned = false;
+let lockedScrollRoot: HTMLElement | null = null;
+
+const getScrollRoot = (): HTMLElement | null =>
+  document.getElementById("app-scroll");
 
 // The `position: fixed` body pin (above) is only needed where `overflow: hidden`
 // on a scrolled <body> fails to lock the page and misaligns a top-layer dialog's
@@ -62,6 +69,17 @@ let scrollLockSuspended = false;
 
 const lockPage = (): void => {
   if (pageLocked) return;
+  // Strategy A: freeze the app-shell scroll container. Nothing moves, so there
+  // is nothing to restore on unlock.
+  const root = getScrollRoot();
+  if (root) {
+    root.style.overflow = "hidden";
+    lockedScrollRoot = root;
+    pageLocked = true;
+    return;
+  }
+  // Strategy B: document-scrolling layout — pin the body on iOS/Safari and lock
+  // with noscroll.
   pinnedScrollY = window.scrollY;
   if (needsBodyPin()) {
     const { style } = document.body;
@@ -78,8 +96,13 @@ const lockPage = (): void => {
 
 const unlockPage = (): void => {
   if (!pageLocked) return;
-  enablePageScroll();
   pageLocked = false;
+  if (lockedScrollRoot) {
+    lockedScrollRoot.style.overflow = "";
+    lockedScrollRoot = null;
+    return;
+  }
+  enablePageScroll();
   if (!bodyPinned) return;
   const { style } = document.body;
   style.position = "";
@@ -117,31 +140,37 @@ const syncPageScrollLock = (): void => {
   if (openDialogs.length > 0) {
     lockPage();
   }
-  if (openDialogs.length > 0 && !touchHandlerInitialized) {
-    initTouchHandler();
-    touchHandlerInitialized = true;
-  }
 
-  for (const dialog of openDialogs) {
-    if (scrollLockTargets.has(dialog)) continue;
-
-    const scrollables = getScrollableElements(dialog);
-    if (scrollables.length > 0) {
-      markScrollable(scrollables);
-      markedScrollables.set(dialog, scrollables);
+  // The noscroll touch handler and per-dialog scrollable marking only matter for
+  // the body-pin fallback (strategy B). The app-shell path freezes the container
+  // and leaves the dialog's own scroll areas alone, so skip all of it there.
+  if (!lockedScrollRoot) {
+    if (openDialogs.length > 0 && !touchHandlerInitialized) {
+      initTouchHandler();
+      touchHandlerInitialized = true;
     }
-    scrollLockTargets.add(dialog);
-  }
 
-  for (const dialog of scrollLockTargets) {
-    if (openDialogSet.has(dialog)) continue;
+    for (const dialog of openDialogs) {
+      if (scrollLockTargets.has(dialog)) continue;
 
-    const scrollables = markedScrollables.get(dialog);
-    if (scrollables && scrollables.length > 0) {
-      unmarkScrollable(scrollables);
+      const scrollables = getScrollableElements(dialog);
+      if (scrollables.length > 0) {
+        markScrollable(scrollables);
+        markedScrollables.set(dialog, scrollables);
+      }
+      scrollLockTargets.add(dialog);
     }
-    markedScrollables.delete(dialog);
-    scrollLockTargets.delete(dialog);
+
+    for (const dialog of scrollLockTargets) {
+      if (openDialogSet.has(dialog)) continue;
+
+      const scrollables = markedScrollables.get(dialog);
+      if (scrollables && scrollables.length > 0) {
+        unmarkScrollable(scrollables);
+      }
+      markedScrollables.delete(dialog);
+      scrollLockTargets.delete(dialog);
+    }
   }
 
   if (openDialogs.length === 0) {

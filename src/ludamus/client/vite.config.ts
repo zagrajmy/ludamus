@@ -35,6 +35,7 @@ export default defineConfig({
     outDir: resolve(rootDir, "../static/vite"),
     rollupOptions: {
       input: {
+        "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),

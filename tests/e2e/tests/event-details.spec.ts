@@ -138,27 +138,29 @@ test.describe("Event detail page", () => {
 
     await page.goto("/chronology/event/autumn-open/");
 
-    // Guarantee the document is scrolled before the modal opens. iOS Safari
-    // ignores `overflow: hidden` on <body>, so a top-layer dialog opened over
-    // a scrolled document hit-tests as if the page were at the top — taps on
-    // the visually-centred Close button land on the content behind it. The
-    // scroll lock must pin the body so the document offset is neutralised.
-    // Open the modal with a scripted click so Playwright does not auto-scroll
-    // the trigger into view (which would reset the offset we set up here). The
-    // scroll position captured is exactly what the lock sees when it pins.
-    const scrolledY = await page.evaluate(() => {
+    // The app-shell keeps the page scroll on #app-scroll, so the *document*
+    // never scrolls — a top-layer dialog always hit-tests over an unscrolled
+    // document, and the iOS dead-Close-button case can't arise by construction.
+    // Scroll the container deep (a spacer guarantees range), then open the modal
+    // with a scripted click so Playwright does not auto-scroll the trigger into
+    // view and reset the offset we set up here.
+    const scrolledTop = await page.evaluate(() => {
+      const root = document.getElementById("app-scroll");
+      if (!root) return -1;
       const spacer = document.createElement("div");
       spacer.style.height = "1500px";
-      document.body.appendChild(spacer);
-      window.scrollTo(0, 1000);
-      const y = window.scrollY;
-      const link = document.querySelector<HTMLAnchorElement>(
-        'a[aria-label="Open details for Cozy Storytellers Circle"]',
-      );
-      link?.click();
-      return y;
+      spacer.style.flexShrink = "0";
+      root.appendChild(spacer);
+      root.scrollTop = 1000;
+      const top = root.scrollTop;
+      document
+        .querySelector<HTMLAnchorElement>(
+          'a[aria-label="Open details for Cozy Storytellers Circle"]',
+        )
+        ?.click();
+      return top;
     });
-    expect(scrolledY).toBeGreaterThan(0);
+    expect(scrolledTop).toBeGreaterThan(0);
 
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
@@ -168,16 +170,20 @@ test.describe("Event detail page", () => {
     // snapshot overlay — is the hit-test target.
     await settleViewTransitions(page);
 
-    // While the modal is open the page is locked by pinning the body, so the
-    // document scroll offset reads 0 and the modal's hit region lines up with
-    // what's drawn. `position: fixed` is the behaviour that distinguishes the
-    // fix from the old `overflow: hidden`-only lock that left iOS untappable.
-    const locked = await page.evaluate(() => ({
-      position: getComputedStyle(document.body).position,
-      scrollY: window.scrollY,
-    }));
-    expect(locked.position).toBe("fixed");
-    expect(locked.scrollY).toBe(0);
+    // While the modal is open the background is locked by freezing #app-scroll's
+    // overflow. The document offset is 0 (it always is under the app-shell) so
+    // the modal's hit region lines up with what's drawn — no body pin required.
+    const locked = await page.evaluate(() => {
+      const root = document.getElementById("app-scroll");
+      return {
+        overflowY: root ? getComputedStyle(root).overflowY : "",
+        documentScrollY: window.scrollY,
+        bodyPosition: getComputedStyle(document.body).position,
+      };
+    });
+    expect(locked.overflowY).toBe("hidden");
+    expect(locked.documentScrollY).toBe(0);
+    expect(locked.bodyPosition).not.toBe("fixed");
 
     // The Close button is the real hit-test target at its own centre. Poll: the
     // open morph briefly paints a View Transition overlay on top (settle timing
@@ -200,16 +206,23 @@ test.describe("Event detail page", () => {
 
     await closeButton.click();
     await expect(detailDialog).toBeHidden();
-    // The body is unpinned and the scroll position restored only after the
-    // close morph finishes (kept out of the transition to avoid jitter).
     await settleViewTransitions(page);
+    // Unlock restores the container's overflow, and its scroll offset is
+    // unchanged — freezing a scroller preserves its position, so there is
+    // nothing to restore and nothing to jump.
     await expect
-      .poll(() => page.evaluate(() => window.scrollY))
-      .toBe(scrolledY);
-    const restoredPosition = await page.evaluate(
-      () => getComputedStyle(document.body).position,
-    );
-    expect(restoredPosition).not.toBe("fixed");
+      .poll(() =>
+        page.evaluate(() => {
+          const root = document.getElementById("app-scroll");
+          return root ? root.scrollTop : -1;
+        }),
+      )
+      .toBe(scrolledTop);
+    const overflowAfter = await page.evaluate(() => {
+      const root = document.getElementById("app-scroll");
+      return root ? getComputedStyle(root).overflowY : "";
+    });
+    expect(overflowAfter).not.toBe("hidden");
 
     await context.close();
   });

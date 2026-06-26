@@ -59,7 +59,16 @@
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
-    <body class="{% block body_class %}relative flex flex-col min-h-screen font-sans antialiased bg-background text-foreground{% endblock body_class %}">
+    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}">
+        {% comment %}
+            App-shell scroll container: the document itself never scrolls, an
+            inner element owns the scroll. A top-layer <dialog> then always
+            hit-tests over an unscrolled document (the iOS dead-Close-button bug
+            can't happen) and the background is locked by freezing this element's
+            overflow — no body pin, no scroll save/restore, so the page never
+            jumps on open/close.
+        {% endcomment %}
+        {% block shell_open %}<div id="app-scroll" class="app-scroll relative">{% endblock shell_open %}
         {% block body_content %}
             {% block site_navbar %}
                 {% include "components/navbar.html" %}
@@ -138,10 +147,12 @@
                 </footer>
             {% endblock site_footer %}
         {% endblock body_content %}
+        {% block shell_close %}</div>{% endblock shell_close %}
         {% include "components/confirm-dialog.html" %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
+        {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         <script>
             (function () {
