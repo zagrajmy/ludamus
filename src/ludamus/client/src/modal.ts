@@ -92,6 +92,7 @@ const startViewTransition = (callback: () => void): ViewTransition | null => {
 const ignoreSkippedTransition = (): undefined => undefined;
 
 const MORPH_NAME = "session-morph";
+const CARD_SUPPRESSED = "session-card-suppressed";
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
@@ -101,17 +102,33 @@ const sessionCardForModal = (id: string): HTMLElement | null => {
   return card instanceof HTMLElement ? card : null;
 };
 
+const suppressSessionCard = (id: string): void => {
+  sessionCardForModal(id)?.classList.add(CARD_SUPPRESSED);
+};
+
+const releaseSessionCard = (id: string): void => {
+  sessionCardForModal(id)?.classList.remove(CARD_SUPPRESSED);
+};
+
 const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
   !prefersReducedMotion() &&
   typeof (document as Document & ViewTransitionDocument).startViewTransition ===
     "function";
 
-const setMorph = (root: HTMLElement, active: boolean): void => {
-  root.style.viewTransitionName = active ? MORPH_NAME : "";
+const setSubMorph = (root: HTMLElement, active: boolean): void => {
   for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
     el.style.viewTransitionName = active ? `morph-${el.dataset.morph}` : "";
   }
+};
+
+const setContainerMorph = (root: HTMLElement, active: boolean): void => {
+  root.style.viewTransitionName = active ? MORPH_NAME : "";
+};
+
+const setMorph = (root: HTMLElement, active: boolean): void => {
+  setContainerMorph(root, active);
+  setSubMorph(root, active);
 };
 
 const morphTransition = (steps: {
@@ -152,17 +169,14 @@ const openModal = async (
     if (animate && canMorph(card)) {
       openingModals.add(id);
       morphPromise = morphTransition({
-        before: () => {
-          card.classList.add("morph-source");
-          setMorph(card, true);
-        },
+        before: () => setMorph(card, true),
         settle: () => {
           openingModals.delete(id);
-          card.classList.remove("morph-source");
           setMorph(dialog, false);
           card.style.transition = "";
         },
         swap: () => {
+          suppressSessionCard(id);
           setMorph(card, false);
           card.style.transition = "none";
           dialog.showModal();
@@ -171,6 +185,7 @@ const openModal = async (
       });
     } else {
       dialog.showModal();
+      suppressSessionCard(id);
     }
   }
 
@@ -195,16 +210,20 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        before: () => setMorph(dialog, true),
-        settle: () => setMorph(card, false),
+        before: () => setContainerMorph(dialog, true),
+        settle: () => {
+          setContainerMorph(card, false);
+        },
         swap: () => {
           dialog.close();
-          setMorph(dialog, false);
-          setMorph(card, true);
+          setContainerMorph(dialog, false);
+          releaseSessionCard(id);
+          setContainerMorph(card, true);
         },
       });
     } else {
       dismissDialog(dialog);
+      releaseSessionCard(id);
     }
   }
 

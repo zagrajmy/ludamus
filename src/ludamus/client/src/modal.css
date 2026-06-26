@@ -69,7 +69,12 @@
   }
 }
 
-html:active-view-transition .session-card.morph-source {
+.session-card.session-card-suppressed {
+  @apply border-dashed bg-neutral-100 dark:bg-neutral-800/60 pointer-events-none;
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.session-card.session-card-suppressed > * {
   visibility: hidden;
 }
 
@@ -86,7 +91,12 @@ html:active-view-transition .session-card.morph-source {
   --vt-morph-duration: var(--vt-morph-exit-duration);
 }
 
-::view-transition-old(morph-avatar),
+::view-transition-old(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+  opacity: 0;
+}
+
 ::view-transition-new(morph-avatar) {
   animation: none;
   mix-blend-mode: normal;

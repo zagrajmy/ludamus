@@ -2989,10 +2989,11 @@ msgstr "Chcesz poprowadzić punkt programu?"
 
 #: src/ludamus/templates/chronology/event.html
 msgid ""
-"Got a game you're dying to play? Propose your own session and find players!"
+"Got a game you're dying to play?<br class=\"max-xl:hidden\" /> Propose your "
+"own session and find players!"
 msgstr ""
-"Masz grę, w którą koniecznie chcesz zagrać? Zgłoś własny punkt programu i "
-"znajdź graczy!"
+"Masz grę, w którą koniecznie chcesz zagrać?<br class=\"max-xl:hidden\" /> "
+"Zgłoś własny punkt programu i znajdź graczy!"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Propose a session"

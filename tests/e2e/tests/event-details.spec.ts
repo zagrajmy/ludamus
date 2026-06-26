@@ -81,6 +81,28 @@ test.describe("Event detail page", () => {
     ).toEqual([]);
   });
 
+  test("session card shows a slot while its modal is open", async ({ page }) => {
+    const card = page.locator('.session-card[data-session-id="2"]');
+    const title = card.getByRole("heading", { name: "Mega Strategy Lab" });
+
+    await page
+      .getByRole("link", { name: "Open details for Mega Strategy Lab" })
+      .click();
+
+    await expect(
+      page.getByRole("dialog", { name: "Mega Strategy Lab" }),
+    ).toBeVisible();
+    await settleViewTransitions(page);
+    await expect(card).toHaveClass(/session-card-suppressed/);
+    await expect(card).toBeVisible();
+    await expect(title).toBeHidden();
+
+    await page.getByRole("button", { name: "Close" }).click();
+    await settleViewTransitions(page);
+    await expect(title).toBeVisible();
+    await expect(card).not.toHaveClass(/session-card-suppressed/);
+  });
+
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
     browser,
     browserName,
