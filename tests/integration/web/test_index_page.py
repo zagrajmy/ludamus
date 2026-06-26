@@ -2,12 +2,12 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Announcement
-from ludamus.adapters.web.django.views import EVENT_PLACEHOLDER_IMAGES, EventInfo
+from ludamus.adapters.web.django.views import EventInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
@@ -41,8 +41,7 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
         start_time=event.start_time,
     )
     return EventInfo.from_list_item(
-        item,
-        cover_image_url=staticfiles_storage.url(EVENT_PLACEHOLDER_IMAGES[cover_index]),
+        item, cover_image_url=placeholder_cover_url(cover_index)
     )
 
 

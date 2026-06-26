@@ -25,6 +25,10 @@ mise tasks          # list all tasks with descriptions
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
+- For any user-facing UI work (pages, forms, tables, modals, empty/error states,
+  copy), use the `product-design` skill (`.claude/skills/product-design/`)
+  *before* building — it routes to the component catalog, reachable-states
+  checklist, Polish copy rules, and a verification checklist.
 
 ## Architecture
 

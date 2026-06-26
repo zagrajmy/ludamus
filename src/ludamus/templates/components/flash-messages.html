@@ -1,0 +1,24 @@
+{% load i18n tessera %}
+{% comment %}
+Flash (Django `messages`) list. Single source for both base.html and
+panel/base.html — each supplies its own positioning wrapper. Behavior
+(transient auto-dismiss, dismiss button) is wired by src/flash.ts.
+{% endcomment %}
+{% for message in messages %}
+    <div class="alert flex items-center {% if message.level_tag == 'error' %}alert-danger{% elif message.level_tag == 'warning' %}alert-warning{% elif message.level_tag == 'success' %}alert-success{% else %}alert-info{% endif %}"
+         data-flash="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}sticky{% else %}transient{% endif %}"
+         {% if message.level_tag == 'error' or message.level_tag == 'warning' %}role="alert" aria-live="assertive"{% else %}role="status" aria-live="polite"{% endif %}>
+        {% if message.level_tag == 'error' or message.level_tag == 'warning' %}
+            {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
+        {% elif message.level_tag == 'success' %}
+            {% icon "check-circle" class="w-5 h-5 mr-3 shrink-0" %}
+        {% else %}
+            {% icon "information-circle" class="w-5 h-5 mr-3 shrink-0" %}
+        {% endif %}
+        <span class="text-sm">{{ message }}</span>
+        <button type="button"
+                data-flash-dismiss
+                class="ml-auto pl-3 shrink-0 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                aria-label="{% translate "Dismiss" %}">{% icon "x-mark" class="w-4 h-4" %}</button>
+    </div>
+{% endfor %}
