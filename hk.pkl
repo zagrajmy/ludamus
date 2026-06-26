@@ -15,13 +15,16 @@ local linters = new Mapping<String, Step> {
   // ponytail: dropped check-json/check-toml/check-yaml — no hk builtin, and a broken
   // pyproject/package.json already fails ruff/poetry/npm/yamllint loudly. The JSONC
   // configs (.vscode, tsconfig) aren't valid strict JSON anyway.
+  // Also dropped pyupgrade: ruff (`select = ["ALL"]`, no UP ignored) enforces it.
 
   // --- Python ---
   ["black"] = Builtins.black
   ["ruff"] = Builtins.ruff
   ["codespell"] {
     glob = List("**/*")
-    // Mirror [tool.codespell].skip — explicit file args bypass codespell's own walk-time skip.
+    // Deliberate trade-off: we run codespell per-file ({{files}}) for fast, scoped
+    // commit feedback, which bypasses codespell's own walk-time `skip`. So this list
+    // mirrors [tool.codespell].skip in pyproject.toml — keep the two in sync.
     exclude = List(
       "**/node_modules/**",
       "tests/e2e/**",
