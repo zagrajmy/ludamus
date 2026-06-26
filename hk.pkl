@@ -1,0 +1,90 @@
+amends "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Builtins.pkl"
+
+// Mirrors the old .pre-commit-config.yaml. Tools come from mise [tools]; the
+// pure-Python tools (black, ruff, codespell, djlint) come from the Poetry venv.
+local linters = new Mapping<String, Step> {
+  // --- File hygiene (was: pre-commit/pre-commit-hooks) ---
+  ["check-added-large-files"] = Builtins.check_added_large_files
+  ["check-merge-conflict"] = Builtins.check_merge_conflict
+  ["detect-private-key"] = Builtins.detect_private_key
+  ["end-of-file-fixer"] = Builtins.newlines
+  ["trailing-whitespace"] = Builtins.trailing_whitespace
+  // ponytail: dropped check-json/check-toml/check-yaml — no hk builtin, and a broken
+  // pyproject/package.json already fails ruff/poetry/npm/yamllint loudly. The JSONC
+  // configs (.vscode, tsconfig) aren't valid strict JSON anyway.
+
+  // --- Python ---
+  ["black"] = Builtins.black
+  ["ruff"] = Builtins.ruff
+  ["codespell"] {
+    glob = List("**/*")
+    // Mirror [tool.codespell].skip — explicit file args bypass codespell's own walk-time skip.
+    exclude = List(
+      "**/node_modules/**",
+      "tests/e2e/**",
+      "**/*.po",
+      "**/*.lock",
+      "**/package-lock.json",
+      "**/vendor/**",
+      "CLAUDE.md",
+      "aube-lock.yaml",
+      "src/ludamus/static/vite/**",
+    )
+    check = "codespell --toml=pyproject.toml {{files}}"
+  }
+
+  // --- Django templates ---
+  ["djlint"] {
+    glob = List("src/**/*.html")
+    check = "djlint {{files}} --profile=django"
+  }
+
+  // --- Config / infra ---
+  ["yamllint"] = Builtins.yamllint
+  ["actionlint"] = Builtins.actionlint
+  ["hadolint"] = Builtins.hadolint
+  ["dockerfmt"] {
+    glob = List("**/Dockerfile*")
+    check = "dockerfmt -c {{files}}"
+    fix = "dockerfmt -w {{files}}"
+  }
+  ["dclint"] = (Builtins.dclint) {
+    // Project compose files live under docker/compose/ and aren't named compose*.yaml.
+    glob = List("docker/compose/*.yml", "docker/compose/*.yaml")
+  }
+  ["markdownlint"] {
+    glob = List("**/*.md")
+    check = "markdownlint-cli2 {{files}}"
+    fix = "markdownlint-cli2 --fix {{files}}"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps {
+      ...linters
+      // Secret-leak scan over staged content (was: local varlock-scan hook).
+      ["varlock"] {
+        check = "aube exec varlock scan --staged"
+      }
+    }
+  }
+  ["commit-msg"] {
+    steps {
+      ["gitlint"] {
+        check = "gitlint --msg-filename {{commit_msg_file}}"
+      }
+    }
+  }
+  // `hk fix` / `hk check` run the same linters over the whole tree (or a ref range).
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+}
