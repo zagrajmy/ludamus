@@ -395,6 +395,12 @@ const setupFallbackLinkHandlers = (): void => {
   }
 };
 
-setupFallbackLinkHandlers();
+// Only when the Navigation API is absent. With it present, the navigate
+// intercept above already opens modals from trigger links; running this too
+// double-opens — the fallback's updateUrl pushState re-fires `navigate`, whose
+// intercept opens again, starting a second View Transition that interrupts the
+// first and collapses the open morph into a plain pop (the card just blinks
+// out instead of morphing into the modal).
+if (!navigation) setupFallbackLinkHandlers();
 
 export { closeModal, openModal };
