@@ -35,9 +35,9 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export PATH=\"\$PATH:$HOME/.local/share/mise/shims\"" >> "$CLAUDE_ENV_FILE"
 fi
 
-# GNU gettext (msgfmt/msgmerge) backs the translation tasks.
+# GNU gettext 1.0 (msgfmt/xgettext) — not a mise tool; see scripts/ensure-gettext.sh
 if command -v apt-get >/dev/null 2>&1; then
-  apt-get install -y gettext >/dev/null 2>&1 || true
+  bash scripts/ensure-gettext.sh >/dev/null 2>&1 || true
 fi
 
 # Installs are best-effort: a blocked dependency (e.g. a registry trust gate)

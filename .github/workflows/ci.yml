@@ -25,8 +25,8 @@ jobs:
       - run: mise install
       - run: mise run p install
       - run: mise run prcheck --jobs 4
-      - name: Install gettext
-        run: sudo apt-get update && sudo apt-get install -y gettext
+      - name: Install GNU gettext 1.0
+        run: bash scripts/ensure-gettext.sh
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
         run: mise run messages-check
 
