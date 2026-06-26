@@ -71,7 +71,7 @@ Pick the mode that matches the task. Each routes to the references it needs.
 | **Implement** | You're building a known change. | Map the reachable states (#2), pick tessera components ([patterns](references/patterns.md)), write translatable copy ([copy](references/copy.md)), then run the Verification checklist. |
 | **Review** | Auditing a diff or page. | Walk the Verification checklist against the change. Cite specifics (`file:line`). Distinguish lint-enforceable misses (file a rule) from judgment calls. |
 | **Copy** | Only language changes. | [copy.md](references/copy.md): action = Verb + Noun, no dead-end errors, Polish term table. Keep `{% translate %}` and update the PL catalog (`mise run messages-check`). |
-| **Harden** | Making an existing screen resilient. | Add the missing reachable states (#2): long content, large values, slow/failed load, empty, constrained width. [reachable-states.md](references/reachable-states.md). |
+| **Harden** | Making an existing screen resilient. | Add the missing reachable states (#2): long content, large values, slow/failed load, empty, constrained width ([reachable-states.md](references/reachable-states.md)), then walk the detail checklist ([interface-quality.md](references/interface-quality.md)). |
 
 ## Decision hierarchy
 
