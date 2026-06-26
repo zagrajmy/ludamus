@@ -68,7 +68,7 @@
             overflow — no body pin, no scroll save/restore, so the page never
             jumps on open/close.
         {% endcomment %}
-        {% block shell_open %}<div id="app-scroll" class="app-scroll relative">{% endblock shell_open %}
+        <div id="app-scroll" class="app-scroll relative">
         {% block body_content %}
             {% block site_navbar %}
                 {% include "components/navbar.html" %}
@@ -147,7 +147,7 @@
                 </footer>
             {% endblock site_footer %}
         {% endblock body_content %}
-        {% block shell_close %}</div>{% endblock shell_close %}
+        </div>
         {% include "components/confirm-dialog.html" %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>

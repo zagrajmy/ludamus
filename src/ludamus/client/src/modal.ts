@@ -135,11 +135,8 @@ const morphTransition = (steps: {
 }): void => {
   steps.before();
   const transition = startViewTransition(steps.swap);
-  const finish = (): void => {
-    steps.settle();
-  };
-  if (transition) void transition.finished.finally(finish);
-  else finish();
+  if (transition) void transition.finished.finally(steps.settle);
+  else steps.settle();
 };
 
 // Non-session modals (anonymous code, proposals) snapshot themselves and blur
@@ -166,9 +163,7 @@ const openModal = (
       morphTransition({
         // Name the card's shared elements so the new snapshot morphs
         // card -> modal. (Scroll locking is pure CSS, keyed off the open dialog.)
-        before: () => {
-          setMorph(card, true);
-        },
+        before: () => setMorph(card, true),
         settle: () => {
           setMorph(dialog, false);
           card.style.visibility = "";

@@ -4,40 +4,24 @@
 // navigation. Persist the container's offset per history entry and restore it on
 // a traversal.
 
-interface NavigationLike {
-  currentEntry?: { key?: string } | null;
-}
-
-interface AppScrollState {
-  __appScrollEntryId?: string;
-}
-
-// Tie the saved offset to the specific *history entry*, not just the URL: two
-// entries can share a URL (the same page visited twice via different
-// navigations) and would otherwise clobber each other in sessionStorage. The
-// Navigation API exposes a stable per-entry key; without it, stamp our own id
-// onto history.state once and reuse it for the life of that entry.
-const historyEntryId = (): string => {
-  const { navigation } = globalThis as { navigation?: NavigationLike };
-  const navKey = navigation?.currentEntry?.key;
-  if (navKey) return navKey;
-
-  const state = globalThis.history.state as AppScrollState | null;
-  if (state?.__appScrollEntryId) return state.__appScrollEntryId;
-
-  const id =
-    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${performance.now()}`;
-  globalThis.history.replaceState(
-    { ...state, __appScrollEntryId: id } satisfies AppScrollState,
-    "",
-  );
-  return id;
+// Tie the saved offset to the specific *history entry* where the Navigation API
+// is available — two entries can share a URL (the same page visited twice via
+// different navigations) and would otherwise clobber each other in
+// sessionStorage. Where it isn't, fall back to the URL; the only cost is that
+// same-URL entries share a slot (a slightly-off scroll on a multi-step Back).
+// (Deliberately not stamping history.state: modal.ts rewrites it for modal URL
+// params, which would wipe any id we put there.)
+const { navigation } = globalThis as {
+  navigation?: { currentEntry?: { key?: string } | null };
 };
+const entryId =
+  navigation?.currentEntry?.key ??
+  `${globalThis.location.pathname}${globalThis.location.search}`;
 
 const root = document.getElementById("app-scroll");
 
 if (root) {
-  const key = `app-scroll:${historyEntryId()}`;
+  const key = `app-scroll:${entryId}`;
 
   // Only restore on a Back/forward traversal — that's what native document
   // scroll restoration does. Restoring on a normal navigation or form-submit
