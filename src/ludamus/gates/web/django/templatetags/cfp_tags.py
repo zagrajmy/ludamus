@@ -9,16 +9,16 @@ from django.utils.translation import gettext as _
 register = template.Library()
 
 _PLACEHOLDER_IMAGES = (
-    "placeholder-images/01.jpg",
-    "placeholder-images/02.jpg",
-    "placeholder-images/03.jpg",
-    "placeholder-images/04.jpg",
-    "placeholder-images/05.jpg",
-    "placeholder-images/06.jpg",
-    "placeholder-images/07.jpg",
-    "placeholder-images/08.jpg",
-    "placeholder-images/09.jpg",
-    "placeholder-images/10.png",
+    "placeholder-images/01.webp",
+    "placeholder-images/02.webp",
+    "placeholder-images/03.webp",
+    "placeholder-images/04.webp",
+    "placeholder-images/05.webp",
+    "placeholder-images/06.webp",
+    "placeholder-images/07.webp",
+    "placeholder-images/08.webp",
+    "placeholder-images/09.webp",
+    "placeholder-images/10.webp",
 )
 
 

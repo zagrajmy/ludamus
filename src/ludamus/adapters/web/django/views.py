@@ -449,16 +449,16 @@ class Auth0LogoutRedirectActionView(RedirectView):
 
 
 EVENT_PLACEHOLDER_IMAGES = [
-    "placeholder-images/01.jpg",  # meeples
-    "placeholder-images/02.jpg",  # chess
-    "placeholder-images/03.jpg",  # cards
-    "placeholder-images/04.jpg",  # dice
-    "placeholder-images/05.jpg",  # tabletop
-    "placeholder-images/06.jpg",  # chess pieces
-    "placeholder-images/07.jpg",  # board game
-    "placeholder-images/08.jpg",  # retro arcade
-    "placeholder-images/09.jpg",  # controller
-    "placeholder-images/10.png",  # arcade
+    "placeholder-images/01.webp",  # meeples
+    "placeholder-images/02.webp",  # chess
+    "placeholder-images/03.webp",  # cards
+    "placeholder-images/04.webp",  # dice
+    "placeholder-images/05.webp",  # tabletop
+    "placeholder-images/06.webp",  # chess pieces
+    "placeholder-images/07.webp",  # board game
+    "placeholder-images/08.webp",  # retro arcade
+    "placeholder-images/09.webp",  # controller
+    "placeholder-images/10.webp",  # arcade
 ]
 
 
