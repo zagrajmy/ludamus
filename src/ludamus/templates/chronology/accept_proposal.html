@@ -39,7 +39,33 @@
                         {% endfor %}
                     </div>
                 {% endif %}
-                {% include "chronology/_accept_proposal_facts.html" %}
+                {% if session.description %}
+                    {% translate "Description" as description_label %}
+                    {% include "chronology/_accept_fact_row.html" with icon="document-text" label=description_label value=session.description %}
+                {% endif %}
+                {% if session.requirements %}
+                    {% translate "Requirements" as requirements_label %}
+                    {% include "chronology/_accept_fact_row.html" with icon="clipboard-document-check" label=requirements_label value=session.requirements %}
+                {% endif %}
+                {% if session.needs %}
+                    {% translate "Special Needs" as needs_label %}
+                    {% include "chronology/_accept_fact_row.html" with icon="sparkles" label=needs_label value=session.needs %}
+                {% endif %}
+                {% if preferred_time_slot_ids %}
+                    <div class="flex gap-3 border-t border-border pt-3 mt-3">
+                        <span class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-bg-tertiary text-foreground-secondary">{% icon "clock" class="w-4 h-4" %}</span>
+                        <div class="min-w-0">
+                            <dt class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</dt>
+                            <dd class="mt-1.5 flex flex-wrap gap-1.5">
+                                {% for slot in time_slots %}
+                                    {% if slot.pk in preferred_time_slot_ids %}
+                                        <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </dd>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
         {# Decision card — sticky on desktop so the action stays in view #}

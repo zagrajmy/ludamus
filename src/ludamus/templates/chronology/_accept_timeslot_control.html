@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load tessera %}
-{# Time-slot picker shared by the accept-proposal layout variants. #}
-{# One slot is a foregone choice — carry it in a hidden input, show it as text. #}
+{# Time-slot picker. Extracted so accept_proposal.html stays scannable: a lone #}
+{# slot collapses to a forced choice, many slots render a grouped select. #}
 {% if time_slots|length == 1 %}
     {% with slot=time_slots.0 %}
         {% with start=slot.start_time|date:"l, M j · G:i" end=slot.end_time|date:"G:i" %}
