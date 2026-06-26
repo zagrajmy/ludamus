@@ -32,8 +32,10 @@ user":
 
 > **Scope notes (post-review):**
 > - An earlier draft proposed new `Person` / `Party` / `PartyMembership` tables.
->   A laziness pass cut them — the connected `User` row already is the durable
->   identity and `manager` already is the party key. No new tables.
+>   A laziness pass cut them from v1 — the connected `User` row already is the
+>   durable identity and `manager` already is the party key. The `Person` split
+>   stays cut; `Party` / `PartyMembership` return in **Phase 2** below, now that
+>   multi-party + real-user co-enrollment are real demand.
 > - A second pass cut **age gating**: `Session.min_age` is never enforced today
 >   (it's a display-only label — see below), and we don't verify age anyway. So
 >   `birth_year` and the age check are dropped. Storing a child's self-asserted
@@ -274,6 +276,84 @@ visible changes are additive:
    ugly. `UserType.CONNECTED`, the `manager` FK, and `MAX_CONNECTED_USERS`
    **stay** — they're load-bearing, not the problem.
 
+## Phase 2 — party membership (multi-party, real-user co-enrollment)
+
+Everything above keeps the single `manager` tree: you plus your login-less
+companions, one party, no real-user co-members. Two things users should be able
+to do and can't:
+
+1. **Enroll together with other *real* users** (each with their own account).
+2. **Belong to more than one party** (your family *and* your gaming crew).
+
+Both need the `manager` self-FK replaced with an explicit membership join — the
+`PartyMembership` table v1 deliberately skipped. Demand has arrived, so it's
+planned here rather than left rejected. This is a later phase: it reshapes the
+enrollment core, so it ships after the v1 claim flow, not with it.
+
+### Model
+
+```text
+Party
+  name           # "Rodzina", "Wtorkowa ekipa"
+  owner -> User  # who can manage the roster (add/remove, rename, disband)
+
+PartyMembership
+  party        -> Party
+  member       -> User                  # real (own login) or login-less companion
+  consent_mode # ACCEPT_BY_DEFAULT | ACCEPT_INVITES
+  status       # ACTIVE | INVITED
+  (unique: party + member)
+```
+
+- **Multi-party** falls out: a user with two `ACTIVE` memberships is in two
+  parties.
+- **Real-user co-enrollment** falls out: a party holds several real members.
+- **Login-less companions stay single-owner** — no agency, no inbox. A managed
+  member's seat is sponsored by the account that created it; multi-party and
+  consent only ever matter for real users.
+
+### Consent — two modes, no role taxonomy
+
+Whether being signed up reaches you as "you're enrolled" or "please accept" is
+**one setting on your membership**, not a guardian/dependent/peer label:
+
+- **`ACCEPT_BY_DEFAULT`** — enrolling you takes the seat immediately and
+  notifies you. Login-less companions are always this; a real user can opt a
+  party they trust into it.
+- **`ACCEPT_INVITES`** — enrolling you creates an invitation you must accept
+  before the seat is yours. Reuses the existing offer/claim seat-hold + expiry:
+  an unaccepted invite releases the seat just like a lapsed waitlist offer. The
+  default when someone adds a real user.
+
+The "nature of the party" is just the default mode chosen when the membership is
+created — nothing more. Joining a party at all is a one-time accept
+(`status: INVITED → ACTIVE`) for real members; each later enrollment then
+follows `consent_mode`.
+
+### Slots — per person
+
+Generalise today's per-manager `effective_manager_id` to a slot owner:
+
+> `effective_slot_owner(member)` = the member's own account if it has a login,
+> else the account sponsoring that login-less companion.
+
+A real user's seat always spends **their own** allowance — enrolling a peer
+can't drain yours, and being in two parties doesn't double yours. A login-less
+companion's seat spends its **sponsor's**, exactly today's manager+dependents
+behaviour. The whole-party promotion math in `specs/enrollment.py` survives the
+rename; only the peer case (each with their own slots *and* their own accept)
+needs re-examining (O-7).
+
+### Migration
+
+The manager tree is a subset, so it backfills: one `Party` per current manager
+(manager as `owner`), each connected user a login-less `ACCEPT_BY_DEFAULT`
+membership sponsored by that manager. Keep `effective_manager_id` derivable from
+the backfilled party during the swap, then retire `User.manager`/`connected`.
+The v1 claim flow still applies — claiming a login-less member converts that
+user in place and flips their membership to a real-user one (now with a login
+and a say).
+
 ## Open questions / decisions needed
 
 - **O-1 — Person vs User.** *Resolved:* keep the login-less `User` row, make it
@@ -291,31 +371,45 @@ visible changes are additive:
   enrollees are nearly the same idea. Unify or keep separate?
 - **O-5 — Axis B (societies).** Deferred entirely; no model built or pre-shaped
   for it in v1. Decide when a real society needs to co-present.
-- **O-7 — Multi-party membership + real-user co-enrollment.** *Un-deferred:* the
-  single-`manager` tree below can't do either. Demand arrived; the design moved
-  to [RFC 0002](0002-party-membership.md). The "cross-owner shared parties"
-  non-goal and the rejected `PartyMembership` model are reopened there.
 - **O-6 — Claim/invite transport.** Email link? Share-code? We have a
   `claim_token` precedent for waitlist offers — reuse the pattern, not the
   column.
+
+Phase-2 (party membership) decisions, gating that build:
+
+- **O-7 — Replace vs augment `manager`.** *Recommendation: replace.* Keeping the
+  manager tree *and* adding memberships means two grouping mechanisms the
+  enrollment logic must reconcile. `PartyMembership` subsumes the manager FK; do
+  it once.
+- **O-8 — Atomic promotion with peers.** Today a waiting *party* is promoted
+  all-or-none. With peers who each have their own slots and their own accept,
+  what's the promotion unit — the per-action enrollment group or the party — and
+  does an unaccepted invite hold a seat meanwhile? (It can reuse the
+  `OFFERED` + expiry hold.)
+- **O-9 — Consent default.** When you add a real user, the membership defaults to
+  `ACCEPT_INVITES`; a login-less companion to `ACCEPT_BY_DEFAULT`. Confirm those
+  defaults, and whether a user can flip a trusted party to `ACCEPT_BY_DEFAULT`
+  for themselves.
 
 ## Non-goals (v1)
 
 - Building presenter collectives / society profiles (Axis B). Not built, not
   pre-shaped.
-- Cross-owner shared companions (two parents co-managing one kid). The one thing
-  that would justify a separate membership table — explicitly deferred.
+- Cross-owner shared companions (two parents co-managing one kid). Not in v1;
+  becomes expressible under Phase 2's membership model, built only on demand.
 - **Age gating / verification.** `Session.min_age` stays the advisory,
   display-only label it is today. No `birth_year`, no enforcement.
 - Per-member payment or ticketing splits.
 
 ## Rejected alternatives
 
-- **A `Person` + `Party` + `PartyMembership` redesign.** The original draft of
-  this RFC. Four-table model with a `MemberRole` enum and a new
-  `request.services.party`, to escape a fake-user smell that's cosmetic and to
-  enable co-ownership that's a non-goal. Classic abstraction ahead of demand;
-  cut by this review.
+- **A `Person` table separate from `User`.** The original draft split every
+  companion into `Person` + an `account` FK. Rejected: the login-less `User` row
+  already is the durable identity, and the claim flow upgrades it in place. The
+  *`Party` / `PartyMembership`* half of that draft is **not** rejected — it
+  returns as Phase 2 above, now that multi-party + real-user co-enrollment are
+  real demand rather than speculation. The lesson held: build the grouping table
+  when the grouping requirement arrives, not before.
 - **Pure Meetup/Luma +N only.** Cheap and clean, but throws away durable named
   companions you re-enroll across events — the "more than +1" the brief asks for.
 - **Age gating.** Considered and dropped: `min_age` is display-only and
