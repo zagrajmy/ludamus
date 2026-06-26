@@ -133,7 +133,9 @@ class TestProposalAcceptPageView:
         self, pending_session, space, staff_client
     ):
         """A lone space is a foregone choice: shown as static text + hidden input."""
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
