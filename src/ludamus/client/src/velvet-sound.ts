@@ -305,11 +305,19 @@ const play = (role: SoundRole): void => {
   engine.play(role);
 };
 
+// Auditions a sound regardless of the global on/off — for explicit "play this"
+// triggers such as the design-page showcase.
+const preview = (role: SoundRole): void => {
+  engine.resume();
+  engine.play(role);
+};
+
 // --- Public API ------------------------------------------------------------
 
 interface VelvetSoundApi {
   readonly enabled: boolean;
   play: (role: SoundRole) => void;
+  preview: (role: SoundRole) => void;
   setEnabled: (on: boolean) => void;
   toggle: () => void;
 }
@@ -319,6 +327,7 @@ const api: VelvetSoundApi = {
     return isEnabled();
   },
   play,
+  preview,
   setEnabled,
   toggle: () => setEnabled(!isEnabled()),
 };
@@ -346,13 +355,18 @@ const CLICK_SELECTOR = 'a[href], button, [role="button"], summary';
 const wire = (): void => {
   syncToggles();
 
-  // The toggle button flips the persisted preference.
+  // The toggle button flips the persisted preference; data-velvet-play buttons
+  // audition a specific sound (the design-page showcase).
   document.addEventListener("click", (event) => {
     const {target} = event;
     if (!(target instanceof Element)) return;
     if (target.closest("[data-velvet-toggle]")) {
       api.toggle();
       return;
+    }
+    const audition = target.closest<HTMLElement>("[data-velvet-play]");
+    if (audition?.dataset.velvetPlay) {
+      preview(audition.dataset.velvetPlay as SoundRole);
     }
   });
 
@@ -363,7 +377,10 @@ const wire = (): void => {
     (event) => {
       const {target} = event;
       if (!(target instanceof Element)) return;
-      if (target.closest("[data-velvet-toggle], [data-no-sound]")) return;
+      if (
+        target.closest("[data-velvet-toggle], [data-velvet-play], [data-no-sound]")
+      )
+        return;
       const control = target.closest(CLICK_SELECTOR);
       if (!control) return;
       if (control.closest("form") && control.matches(SUBMIT_SELECTOR)) return;

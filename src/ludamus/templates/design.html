@@ -179,5 +179,24 @@
             {% endif %}
         </div>
     </div>
+    <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">
+        <code class="absolute top-3 left-3 text-xs text-foreground-muted">velvet-sound.ts</code>
+        <p class="max-w-prose text-center text-sm text-foreground-muted">
+            Procedural interface sounds (Velvet voice), synthesised live with the
+            Web Audio API — no audio files. Press a chip to audition; ambient
+            playback across the app is opt-in via the
+            {% icon "speaker-wave" class="inline w-4 h-4 align-text-bottom" %}
+            toggle in the footer.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-2">
+            <button type="button" data-velvet-play="toggle.on" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toggle on</button>
+            <button type="button" data-velvet-play="toggle.off" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toggle off</button>
+            <button type="button" data-velvet-play="action.send" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Action / send</button>
+            <button type="button" data-velvet-play="ui.confirm" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Confirm</button>
+            <button type="button" data-velvet-play="toast.in" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toast in</button>
+            <button type="button" data-velvet-play="ui.progress" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Progress</button>
+            <button type="button" data-velvet-play="state.error" data-no-sound class="btn btn-danger px-3 py-1.5 text-xs">Error</button>
+        </div>
+    </div>
 </div>
 {% endblock body %}
