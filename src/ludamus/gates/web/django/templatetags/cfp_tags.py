@@ -1,42 +1,23 @@
+from __future__ import annotations
+
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django import template
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-register = template.Library()
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 
-_PLACEHOLDER_IMAGES = (
-    "placeholder-images/01.webp",
-    "placeholder-images/02.webp",
-    "placeholder-images/03.webp",
-    "placeholder-images/04.webp",
-    "placeholder-images/05.webp",
-    "placeholder-images/06.webp",
-    "placeholder-images/07.webp",
-    "placeholder-images/08.webp",
-    "placeholder-images/09.webp",
-    "placeholder-images/10.webp",
-)
+if TYPE_CHECKING:
+    from ludamus.pacts import SessionDTO
+
+register = template.Library()
 
 
 @register.filter
-def cover_image(session: Any) -> str:  # type: ignore[misc] # noqa: ANN401
-    """Return the session cover image URL, falling back to a placeholder.
-
-    The placeholder is picked deterministically from the session pk so it stays
-    stable across reloads instead of flickering between random images.
-
-    Returns:
-        The uploaded cover image URL, or a static placeholder image URL.
-    """
-    url = getattr(session, "cover_image_url", "") or ""
-    if url:
-        return url
-    pk = getattr(session, "pk", 0) or 0
-    return staticfiles_storage.url(_PLACEHOLDER_IMAGES[pk % len(_PLACEHOLDER_IMAGES)])
+def cover_image(session: SessionDTO) -> str:
+    return session.cover_image_url or placeholder_cover_url(session.pk)
 
 
 @register.filter
