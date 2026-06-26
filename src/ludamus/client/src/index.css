@@ -228,7 +228,6 @@ button {
     0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
   --shadow-elevated:
     0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --accent-gradient: linear-gradient(90deg, #f85a3c, #14b89b);
 }
 
 /*
@@ -303,21 +302,6 @@ button:active {
 .no-transitions,
 .no-transitions * {
   transition: none !important;
-}
-
-.gradient-border {
-  position: relative;
-}
-
-.gradient-border::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--accent-gradient);
-  border-radius: 9999px 9999px 0 0;
 }
 
 .live-dot {

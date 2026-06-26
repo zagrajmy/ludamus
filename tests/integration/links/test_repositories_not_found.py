@@ -40,6 +40,25 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_event(MISSING_ID)
 
+    def test_read_presenter_raises_when_session_missing(self):
+        with pytest.raises(NotFoundError):
+            SessionRepository.read_presenter(MISSING_ID)
+
+    def test_read_presenter_returns_none_when_no_presenter(self, event):
+        session = Session.objects.create(
+            event=event,
+            category=None,
+            presenter=None,
+            display_name="Host",
+            title="Presenterless Session",
+            slug="presenterless",
+            status="pending",
+            participants_limit=0,
+            min_age=0,
+        )
+
+        assert SessionRepository.read_presenter(session.pk) is None
+
     def test_lock_raises_when_session_missing(self):
         with pytest.raises(NotFoundError):
             SessionRepository.lock(MISSING_ID)

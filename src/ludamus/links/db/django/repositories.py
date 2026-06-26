@@ -320,6 +320,16 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return SessionDTO.model_validate(session)
 
     @staticmethod
+    def read_presenter(session_id: int) -> UserDTO | None:
+        try:
+            session = Session.objects.select_related("presenter").get(id=session_id)
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        if session.presenter is None:
+            return None
+        return UserDTO.model_validate(session.presenter)
+
+    @staticmethod
     def lock(pk: int) -> None:
         try:
             Session.objects.select_for_update().get(pk=pk)

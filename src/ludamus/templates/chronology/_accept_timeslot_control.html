@@ -1,0 +1,37 @@
+{% load i18n %}
+{% load tessera %}
+{# Time-slot picker. Extracted so accept_proposal.html stays scannable: a lone #}
+{# slot collapses to a forced choice, many slots render a grouped select. #}
+{% if time_slots|length == 1 %}
+    {% with slot=time_slots.0 %}
+        {% with start=slot.start_time|date:"l, M j · G:i" end=slot.end_time|date:"G:i" %}
+            {% include "components/forced-choice.html" with name="time_slot" id="time_slot" value=slot.pk label=start|add:"–"|add:end %}
+        {% endwith %}
+    {% endwith %}
+{% else %}
+    {% select name="time_slot" id="time_slot" required=True %}
+        <option value="">{% translate "Choose a time…" %}</option>
+        {% if preferred_time_slot_ids %}
+            {# The facilitator asked for these — float them to the top so the #}
+            {# obvious choice is the first one, no footnote needed. #}
+            <optgroup label="{% translate "Preferred by the facilitator" %}">
+                {% for slot in time_slots %}
+                    {% if slot.pk in preferred_time_slot_ids %}
+                        <option value="{{ slot.pk }}">{{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}</option>
+                    {% endif %}
+                {% endfor %}
+            </optgroup>
+            <optgroup label="{% translate "Other times" %}">
+                {% for slot in time_slots %}
+                    {% if slot.pk not in preferred_time_slot_ids %}
+                        <option value="{{ slot.pk }}">{{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}</option>
+                    {% endif %}
+                {% endfor %}
+            </optgroup>
+        {% else %}
+            {% for slot in time_slots %}
+                <option value="{{ slot.pk }}">{{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}</option>
+            {% endfor %}
+        {% endif %}
+    {% end_select %}
+{% endif %}
