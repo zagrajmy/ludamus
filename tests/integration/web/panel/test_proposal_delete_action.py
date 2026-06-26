@@ -31,7 +31,7 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _make_session(event, sphere, **kwargs):
+def _make_session(event, **kwargs):
     category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
     defaults = {
         "category": category,
@@ -39,7 +39,7 @@ def _make_session(event, sphere, **kwargs):
         "display_name": "Test Host",
         "title": "Test Session",
         "slug": "test-session",
-        "sphere": sphere,
+        "event": event,
         "participants_limit": 5,
         "status": "pending",
     }
@@ -68,8 +68,8 @@ class TestProposalDeleteActionView:
             kwargs={"slug": event.slug, "proposal_id": proposal_id},
         )
 
-    def test_post_redirects_anonymous_user_to_login(self, client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_anonymous_user_to_login(self, client, event):
+        session = _make_session(event)
         url = self.get_url(event, session.pk)
 
         response = client.post(url)
@@ -80,8 +80,8 @@ class TestProposalDeleteActionView:
         session.refresh_from_db()
         assert session.deleted_at is None
 
-    def test_post_redirects_non_manager_user(self, authenticated_client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_non_manager_user(self, authenticated_client, event):
+        session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -98,7 +98,7 @@ class TestProposalDeleteActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -117,7 +117,7 @@ class TestProposalDeleteActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         agenda_item = _schedule(session, event)
         participation = SessionParticipation.objects.create(
             session=session,
@@ -142,7 +142,7 @@ class TestProposalDeleteActionView:
         # serializes them: the slot is freed once, so exactly one UNASSIGN log is
         # written. Without locking both requests would log the unassignment.
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         _schedule(session, event)
         url = self.get_url(event, session.pk)
 
@@ -180,7 +180,7 @@ class TestProposalDeleteActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         authenticated_client.post(self.get_url(event, session.pk))
 
@@ -214,7 +214,7 @@ class TestProposalDeleteActionView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event, sphere)
+        session = _make_session(other_event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 

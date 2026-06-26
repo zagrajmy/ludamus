@@ -101,7 +101,6 @@ class TestTimetableRevertView:
         )
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -138,7 +137,6 @@ class TestTimetableRevertView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -182,7 +180,6 @@ class TestTimetableRevertView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -222,7 +219,6 @@ class TestTimetableRevertView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -260,7 +256,6 @@ class TestTimetableRevertView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

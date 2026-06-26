@@ -373,29 +373,29 @@ class TestCFPPageView:
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         # Create 3 sessions (2 pending, 1 accepted)
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             title="Pending 1",
             slug="pending-1",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             title="Pending 2",
             slug="pending-2",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             title="Accepted",
             slug="accepted",
-            sphere=sphere,
             participants_limit=5,
             status="scheduled",
         )
@@ -464,30 +464,30 @@ class TestCFPPageView:
         )
         # Category1: 2 sessions, 1 accepted
         Session.objects.create(
+            event=event,
             category=category1,
             presenter=active_user,
             title="RPG 1",
             slug="rpg-1",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         Session.objects.create(
+            event=event,
             category=category1,
             presenter=active_user,
             title="RPG Accepted",
             slug="rpg-accepted",
-            sphere=sphere,
             participants_limit=5,
             status="scheduled",
         )
         # Category2: 1 session, 0 accepted
         Session.objects.create(
+            event=event,
             category=category2,
             presenter=active_user,
             title="Workshop 1",
             slug="workshop-1",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )

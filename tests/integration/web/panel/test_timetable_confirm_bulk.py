@@ -20,11 +20,10 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _scheduled_agenda_item(sphere, event, area, *, track=None):
+def _scheduled_agenda_item(event, area, *, track=None):
     space = SpaceFactory(area=area)
     session = SessionFactory(
         category=ProposalCategoryFactory(event=event),
-        sphere=sphere,
         status="scheduled",
         participants_limit=5,
         min_age=0,
@@ -67,8 +66,8 @@ class TestTimetableConfirmAllView:
         self, authenticated_client, active_user, sphere, event, area
     ):
         sphere.managers.add(active_user)
-        item_a = _scheduled_agenda_item(sphere, event, area)
-        item_b = _scheduled_agenda_item(sphere, event, area)
+        item_a = _scheduled_agenda_item(event, area)
+        item_b = _scheduled_agenda_item(event, area)
 
         response = authenticated_client.post(self.get_url(event))
 
@@ -85,7 +84,7 @@ class TestTimetableConfirmAllView:
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_area = AreaFactory(venue=VenueFactory(event=other_event))
-        other_item = _scheduled_agenda_item(sphere, other_event, other_area)
+        other_item = _scheduled_agenda_item(other_event, other_area)
 
         response = authenticated_client.post(self.get_url(event))
 
@@ -143,8 +142,8 @@ class TestTimetableConfirmBlockView:
     ):
         sphere.managers.add(active_user)
         track = self._track(event)
-        in_block = _scheduled_agenda_item(sphere, event, area, track=track)
-        out_of_block = _scheduled_agenda_item(sphere, event, area)
+        in_block = _scheduled_agenda_item(event, area, track=track)
+        out_of_block = _scheduled_agenda_item(event, area)
 
         response = authenticated_client.post(
             self.get_url(event), data={"track_pk": track.pk}
@@ -164,9 +163,7 @@ class TestTimetableConfirmBlockView:
         other_event = EventFactory(sphere=sphere)
         other_track = self._track(other_event, slug="other-block")
         other_area = AreaFactory(venue=VenueFactory(event=other_event))
-        other_item = _scheduled_agenda_item(
-            sphere, other_event, other_area, track=other_track
-        )
+        other_item = _scheduled_agenda_item(other_event, other_area, track=other_track)
 
         response = authenticated_client.post(
             self.get_url(event), data={"track_pk": other_track.pk}

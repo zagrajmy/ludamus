@@ -12,13 +12,13 @@
     {% if groups|default:"" %}
         {% for group in groups %}
             {% if group.label %}<optgroup label="{{ group.label }}">{% endif %}
-            {% for value, label in group.options %}
-                <option value="{{ value }}"
-                        {% if value|stringformat:"s" == selected|default:""|stringformat:"s" %}selected{% endif %}>
-                    {{ label }}
-                </option>
-            {% endfor %}
-            {% if group.label %}</optgroup>{% endif %}
+                {% for value, label in group.options %}
+                    <option value="{{ value }}"
+                            {% if value|stringformat:"s" == selected|default:""|stringformat:"s" %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                {% endfor %}
+                {% if group.label %}</optgroup>{% endif %}
         {% endfor %}
     {% elif choices|default:"" %}
         {% for value, label in choices %}

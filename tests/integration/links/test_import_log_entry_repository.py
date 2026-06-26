@@ -34,7 +34,7 @@ def _integration(*, event=None, sphere=None) -> EventIntegration:
 
 def _session(sphere) -> Session:
     return Session.objects.create(
-        sphere=sphere,
+        event=EventFactory.create(sphere=sphere),
         title="Talk",
         slug="talk",
         status=SessionStatus.PENDING.value,

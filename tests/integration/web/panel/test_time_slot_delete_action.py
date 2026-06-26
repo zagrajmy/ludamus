@@ -64,10 +64,10 @@ class TestTimeSlotDeleteActionView:
         )
         host = UserFactory(username="host", user_type="active")
         session = Session.objects.create(
+            event=event,
             title="Test",
             slug="test",
             category=category,
-            sphere=sphere,
             presenter=host,
             display_name=host.username,
             status="pending",

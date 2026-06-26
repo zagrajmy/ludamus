@@ -10,10 +10,9 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _make_session(sphere, proposal_category):
+def _make_session(proposal_category):
     return SessionFactory(
         category=proposal_category,
-        sphere=sphere,
         status="pending",
         title="Original title",
         display_name="Original host",
@@ -88,7 +87,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
 
         authenticated_client.post(
             reverse(
@@ -117,7 +116,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
         field = SessionField.objects.create(
             event=event,
             name="System",
@@ -154,7 +153,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
 
         authenticated_client.post(
             reverse(
@@ -180,7 +179,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
 
         authenticated_client.post(
             reverse(

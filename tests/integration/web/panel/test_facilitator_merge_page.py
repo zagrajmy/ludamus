@@ -159,11 +159,11 @@ class TestFacilitatorMergePageView:
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Alice Duplicate",
             title="A Session",
             slug="a-session",
-            sphere=sphere,
             participants_limit=0,
             status="pending",
         )

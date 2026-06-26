@@ -94,7 +94,7 @@ class TestAgendaItemRepositoryListByEvent:
         other_venue = VenueFactory(event=other_event)
         other_area = AreaFactory(venue=other_venue)
         other_space = SpaceFactory(area=other_area)
-        other_session = SessionFactory(sphere=sphere)
+        other_session = SessionFactory(event=other_event)
         AgendaItemFactory(session=other_session, space=other_space)
 
         result = AgendaItemRepository.list_by_event(other_event.pk)
@@ -117,9 +117,9 @@ class TestAgendaItemRepositoryListBySpace:
         assert result[0].pk == agenda_item.pk
         assert result[0].space_id == space.pk
 
-    def test_list_by_space_excludes_other_spaces(self, agenda_item, area, sphere):
+    def test_list_by_space_excludes_other_spaces(self, agenda_item, area):
         other_space = SpaceFactory(area=area)
-        other_session = SessionFactory(sphere=sphere)
+        other_session = SessionFactory(event=area.venue.event)
         other_item = AgendaItemFactory(session=other_session, space=other_space)
 
         result = AgendaItemRepository.list_by_space(agenda_item.space_id)
@@ -193,7 +193,7 @@ class TestAgendaItemRepositoryConfirmAllByEvent:
             area=AreaFactory(venue=VenueFactory(event=other_event))
         )
         other_item = AgendaItemFactory(
-            session=SessionFactory(sphere=sphere), space=other_space
+            session=SessionFactory(event=other_event), space=other_space
         )
 
         AgendaItemRepository.confirm_all_by_event(other_event.pk)
@@ -205,14 +205,14 @@ class TestAgendaItemRepositoryConfirmAllByEvent:
 
 
 class TestAgendaItemRepositoryConfirmAllByTrack:
-    def test_confirms_only_items_in_track(self, agenda_item, event, session, sphere):
+    def test_confirms_only_items_in_track(self, agenda_item, event, session):
         track = Track.objects.create(
             event=event, name="Track", slug="track", is_public=True
         )
         session.tracks.add(track)
         out_space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
         out_item = AgendaItemFactory(
-            session=SessionFactory(sphere=sphere), space=out_space
+            session=SessionFactory(event=event), space=out_space
         )
 
         AgendaItemRepository.confirm_all_by_track(track.pk)
