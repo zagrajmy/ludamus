@@ -384,7 +384,10 @@ if IS_PRODUCTION:
     STORAGES = {
         "default": default_storage_backend,
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            "BACKEND": (
+                "ludamus.edges.staticfiles."
+                "ViteAwareCompressedManifestStaticFilesStorage"
+            )
         },
     }
 else:
