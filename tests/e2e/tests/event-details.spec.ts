@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test";
-import { devices, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { createIosModalContext } from "./helpers/ios-modal";
 
 const settleViewTransitions = (page: Page): Promise<void> =>
   page
@@ -111,10 +113,7 @@ test.describe("Event detail page", () => {
       browserName === "firefox",
       "Firefox does not support mobile emulation",
     );
-    const context = await browser.newContext({
-      ...devices["iPhone 14 Pro"],
-      baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8000",
-    });
+    const context = await createIosModalContext(browser, browserName);
     const page = await context.newPage();
 
     await page.goto("/chronology/event/autumn-open/");
@@ -163,10 +162,7 @@ test.describe("Event detail page", () => {
       browserName === "firefox",
       "Firefox does not support mobile emulation",
     );
-    const context = await browser.newContext({
-      ...devices["iPhone 14 Pro"],
-      baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8000",
-    });
+    const context = await createIosModalContext(browser, browserName);
     const page = await context.newPage();
 
     await page.goto("/chronology/event/autumn-open/");
@@ -250,10 +246,7 @@ test.describe("Event detail page", () => {
       browserName === "firefox",
       "Firefox does not support mobile emulation",
     );
-    const context = await browser.newContext({
-      ...devices["iPhone 14 Pro"],
-      baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8000",
-    });
+    const context = await createIosModalContext(browser, browserName);
     await context.addInitScript(() => {
       Object.defineProperty(window.navigator, "platform", {
         get: () => "iPhone",
