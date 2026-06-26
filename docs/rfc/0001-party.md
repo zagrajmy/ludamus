@@ -6,16 +6,16 @@
 **Status:** 🟡 draft — research + design, no code yet
 **Reworks:** the "Connected users" feature — keeps `User.manager` /
 `User.connected` / `UserType.CONNECTED`, adds age + a claim flow
-**Touches:** Crowd (profiles), Chronology (enrollment age check); the party
-logic in `specs/enrollment.py` is left untouched
+**Touches:** Crowd (profiles, claim flow); the enrollment path and the party
+logic in `specs/enrollment.py` are left untouched
 
 ## TL;DR
 
 "Connected users" is a thin feature carrying too much weight. It creates
-fake login-less `User` rows to model "the people I enroll on behalf of", but
-it can't say how old they are (so it can't satisfy age-gated sessions), it
-can't ever hand a person their own account, and it has nothing to do with the
-*other* grouping the product wants — a society like **Wrocławskie Towarzystwo
+fake login-less `User` rows to model "the people I enroll on behalf of", it
+can never hand a person their own account, bringing a couple of one-off guests
+is as heavy as registering family, and it has nothing to do with the *other*
+grouping the product gestures at — a society like **Wrocławskie Towarzystwo
 Fantastyczne** running a block of sessions under one banner.
 
 This RFC keeps the existing structure — `User.manager` / `User.connected`,
@@ -25,21 +25,27 @@ user":
 
 1. **A headcount** — "I'm bringing +2" (Meetup/Luma). No identity; reuse the
    existing anonymous-enrollment path.
-2. **A named companion** — my kid; reusable across events; gains a birth year so
-   age gates work; *claimable* into a real account on the same row later.
+2. **A named companion** — my kid; reusable across events; *claimable* into a
+   real account on the same row later.
 3. **A linked account** — what a companion *becomes* once claimed; no separate
    model.
 
-> **Scope note (post-review):** an earlier draft proposed new `Person` /
-> `Party` / `PartyMembership` tables. A laziness pass cut them — the connected
-> `User` row already is the durable identity, and `manager` already is the party
-> key. v1 is **two nullable columns (`birth_year`, `claim_token`) and a claim
-> flow**, no new tables. The presenter-collective (society) case is deferred,
-> not pre-shaped.
+> **Scope notes (post-review):**
+> - An earlier draft proposed new `Person` / `Party` / `PartyMembership` tables.
+>   A laziness pass cut them — the connected `User` row already is the durable
+>   identity and `manager` already is the party key. No new tables.
+> - A second pass cut **age gating**: `Session.min_age` is never enforced today
+>   (it's a display-only label — see below), and we don't verify age anyway. So
+>   `birth_year` and the age check are dropped. Storing a child's self-asserted
+>   age to gate against an advisory label is theater.
+>
+> What's left for v1: **one nullable column (`claim_token`) + a claim flow**, a
+> +N headcount path reusing anonymous enrollment, and a reskin. The
+> presenter-collective (society) case is deferred, not pre-shaped.
 
 The win: the implicit "party" already in the waitlist-promotion code is left
-exactly as-is, age-gating becomes possible, and managed companions stop being
-permanent fake accounts — for the cost of a single schema migration.
+exactly as-is, and managed companions stop being permanent fake accounts — for
+the cost of one nullable column.
 
 ## Why now — what's subpar about "Connected users"
 
@@ -68,11 +74,6 @@ Concrete problems:
   When your teenager turns 16 and wants their own account, there's no claim /
   invite path — their enrollment history can't follow them. Cascade-delete
   means losing the manager loses the people.
-- **It can't carry the data the domain needs.** `ConnectedUserForm`
-  (`forms.py:67`) extends `BaseUserForm`, which has exactly one field: `name`.
-  But `Session.min_age` exists. So the headline use case — *enroll my 9-year-old
-  in a kids' RPG that's gated to 8+* — is unrepresentable today. We gate on the
-  manager's nonexistent age, or not at all.
 - **It conflates "headcount" with "identity".** Meetup/Luma let you say "+2"
   in one click. Here, bringing two friends to a board-game night means creating
   two named, persistent, capped fake accounts. That's torture for a one-off
@@ -116,11 +117,11 @@ Two independent axes hide under the word "party":
 This is what "connected users" gestures at. Within it, a member can be one of
 three weights:
 
-| Weight | Example | Needs identity? | Needs age? | Claimable? |
-| ------ | ------- | --------------- | ---------- | ---------- |
-| Headcount | "+2 friends" at a meetup | no | no | no |
-| Named companion | my kid | a name, maybe age | yes | yes |
-| Linked account | my partner | full account | their own | already real |
+| Weight | Example | Needs identity? | Claimable? |
+| ------ | ------- | --------------- | ---------- |
+| Headcount | "+2 friends" at a meetup | no | no |
+| Named companion | my kid | a name | yes |
+| Linked account | my partner | full account | already real |
 
 **Axis B — who is credited with producing a program item (present-together /
 koło, towarzystwo).** "Wrocławskie Towarzystwo Fantastyczne presents these five
@@ -157,21 +158,20 @@ before setting out. Reserve "grupa" — it's overloaded.
 
 The drużyna is already in the schema: it's `User.manager` + `User.connected`,
 and the enrollment engine already groups by it. So v1 is **not new tables** —
-it's two columns and a claim flow on the structure that exists. We add the
-data the domain actually lacks (an age, an exit from fake-account limbo) and
-leave the rest alone.
+it's one column and a claim flow on the structure that exists. We add the one
+thing the domain actually lacks (an exit from fake-account limbo) and leave the
+rest alone.
 
-### The model — two columns, no new tables
+### The model — one column, no new tables
 
 ```text
 User                                  # unchanged, except:
-  birth_year   | null   # PositiveSmallInteger — enough for Session.min_age
   claim_token  | null   # single-use handle to activate a managed row
 ```
 
 A managed companion stays what it is today: a login-less `User` row reached via
 `manager` → `connected`. We stop apologising for it and instead make it
-*claimable* and *age-aware*.
+*claimable*.
 
 - **No `Person` table.** The connected row already *is* the durable identity;
   splitting it into `Person` + `account` FK buys two rows to keep in sync and a
@@ -182,23 +182,24 @@ A managed companion stays what it is today: a login-less `User` row reached via
   party — themselves plus their `connected`. Named, multiple, or co-owned
   rosters ("Rodzina" vs "Ekipa z pracy") is speculative; nobody asked. `manager`
   *is* the party key.
-- **Age lives on the row** (`birth_year`), so `Session.min_age` becomes
-  enforceable per attendee, children included.
+- **No `birth_year`, no age gating.** `Session.min_age` is display-only today —
+  set by the organizer, shown on the card, never compared to anyone. We don't
+  verify age. Adding a column to enforce a self-asserted number against an
+  advisory label is theater; left out. <!-- ponytail: min_age stays the honor-system label it already is -->
 
 ### The three weights, concretely
 
 1. **Headcount (+N).** Don't model named guests — reuse the existing anonymous
    path (`AnonymousEnrollmentService`, `allow_anonymous_enrollment`). The
    enrollment screen gets a stepper ("Bringing: −  2  +") that maps to N
-   anonymous participations. One click, Luma-cheap. No identity, no age, so
-   age-gated sessions hide the stepper with a reason. <!-- ponytail: if anonymous enrollment can't carry a +N count yet, that's the only new bit here -->
-2. **Named companion (managed).** Today's connected `User`, now with optional
-   `birth_year`. Reusable across events. *Claimable*: the owner issues a
-   `claim_token`, shares it; the recipient signs in (Auth0), we attach their
-   auth identity to the **same row** and flip `user_type` to `ACTIVE`. History
-   is intact because it was always one row — no migration of records between a
-   Person and a User. This is the answer to "managed users bother me": managed
-   becomes explicitly *provisional*, not a permanent fake account.
+   anonymous participations. One click, Luma-cheap. No identity needed. <!-- ponytail: if anonymous enrollment can't carry a +N count yet, that's the only new bit here -->
+2. **Named companion (managed).** Today's connected `User`, unchanged in shape.
+   Reusable across events. *Claimable*: the owner issues a `claim_token`, shares
+   it; the recipient signs in (Auth0), we attach their auth identity to the
+   **same row** and flip `user_type` to `ACTIVE`. History is intact because it
+   was always one row — no migration of records between a Person and a User.
+   This is the answer to "managed users bother me": managed becomes explicitly
+   *provisional*, not a permanent fake account.
 3. **Linked account.** A claimed companion *is* this — once activated it's a
    normal `User` with its own login. A pre-existing user joining your party is
    the same claim flow pointed at an account that already authenticates. No
@@ -211,9 +212,8 @@ per-user action (`enroll` / `waitlist` / `cancel`). It stays as is — it alread
 reads `manager.connected`. The waitlist engine (`specs/enrollment.py`,
 `mills/enrollment.py`) already groups by `effective_manager_id` and slot
 accounting (`get_used_slots`) already counts manager + dependents as a unit.
-**Nothing in the enrollment path changes** except adding the `birth_year` age
-check: a connected row whose age is below `Session.min_age` is offered with a
-clear, localized reason instead of an enroll radio.
+**Nothing in the enrollment path changes.** The +N stepper is the only addition,
+and it rides the existing anonymous path rather than the per-user table.
 
 ### Presenter collectives (Axis B) — not built, not pre-shaped
 
@@ -228,9 +228,9 @@ over-engineering this review is removing.
 
 - **One-off guests stop being torture.** Board-game night, +2 friends: a
   stepper, no account creation, no 6-person cap drama.
-- **Families get durable, age-aware rosters.** Add your kids once with their
-  birth year; re-use them every event; age gates Just Work; hand a kid their
-  account when they're ready without losing their con history.
+- **Families get durable rosters.** Add your kids once; re-use them every event;
+  hand a kid their own account when they're ready without losing their con
+  history.
 - **The cap relaxes intentionally.** `MAX_CONNECTED_USERS = 6` was a blunt
   guard against abuse of fake accounts. With headcount guests separated from
   named persons, the limit can move to the dimension that matters (e.g. party
@@ -244,36 +244,32 @@ over-engineering this review is removing.
 Following `docs/agents/architecture.md` and the services migration (new code
 uses `request.services`, never `request.di.uow`):
 
-- **Migration** — add `User.birth_year` and `User.claim_token` (one schema
-  migration, no data backfill — both null for everyone).
-- **specs/** — one pure function: is a connected row old enough for a given
-  `min_age`? `specs/enrollment.py` is untouched; its party grouping already
-  works.
+- **Migration** — add `User.claim_token` (one schema migration, no backfill —
+  null for everyone).
 - **mills/** — a small claim service (issue token, redeem token → activate the
-  row) on `request.services`. The age check is consumed where enrollment
-  options are built. No `PartyService`.
+  row) on `request.services`. No `PartyService`. `specs/enrollment.py` is
+  untouched; its party grouping already works.
 - **gates/** — keep the three `ProfileConnectedUser*` views
-  (`adapters/web/django/views.py:604`); add `birth_year` to `ConnectedUserForm`
-  and a claim action. Re-skin `crowd/user/connected.html` to the drużyna
-  vocabulary with the `tessera` design system. Add the +N stepper to the enroll
-  screen (`chronology/enroll_select.html`) only if anonymous enrollment doesn't
-  already cover it.
-- Tests follow the layer: the age helper + claim logic → unit; views/forms/
-  templates → integration with `assert_response` (`docs/TESTING_STRATEGY.md`,
+  (`adapters/web/django/views.py:604`); add a claim action. Re-skin
+  `crowd/user/connected.html` to the drużyna vocabulary with the `tessera`
+  design system. Add the +N stepper to the enroll screen
+  (`chronology/enroll_select.html`) only if anonymous enrollment doesn't already
+  cover it.
+- Tests follow the layer: claim logic → unit; views/templates → integration with
+  `assert_response` (`docs/TESTING_STRATEGY.md`,
   `docs/agents/testing-assertions.md`).
 
-No new pacts module, no new repositories, no `Party`/`Person` models.
+No new pacts module, no new repositories, no `Party`/`Person` models, no age
+helper.
 
 ## Migration
 
-Almost nothing to migrate — the structure stays. One schema migration adds two
-nullable columns; existing connected users keep working untouched. The visible
-changes are additive:
+Almost nothing to migrate — the structure stays. One schema migration adds a
+single nullable column; existing connected users keep working untouched. The
+visible changes are additive:
 
-1. `birth_year` becomes editable on existing companions (optional; old rows stay
-   null and remain enrollable in un-gated sessions).
-2. The claim flow is new behaviour on existing rows, not a data move.
-3. Rename the user-facing `Powiązane osoby` strings to the drużyna vocabulary;
+1. The claim flow is new behaviour on existing rows, not a data move.
+2. Rename the user-facing `Powiązane osoby` strings to the drużyna vocabulary;
    optionally drop the `username = "connected|…"` sentinel for something less
    ugly. `UserType.CONNECTED`, the `manager` FK, and `MAX_CONNECTED_USERS`
    **stay** — they're load-bearing, not the problem.
@@ -284,9 +280,10 @@ changes are additive:
   claimable. A separate `Person` table was rejected — its only real
   justification (a member co-owned by two managers) is a v1 non-goal, and the
   auth surface on a child is cosmetic, not a bug worth a two-table redesign.
-- **O-2 — Birth year vs full DOB vs self-asserted age.** `min_age` only needs a
-  year. *Recommendation:* `birth_year`, optional, self-asserted; no document
-  checks.
+- **O-2 — Age gating.** *Resolved: not doing it.* `min_age` is never enforced
+  today (display-only), and age is unverified anyway. No `birth_year`, no check.
+  Revisit only if an organizer needs a *hard* block — and even then it's
+  self-asserted theater unless paired with real verification.
 - **O-3 — Where does the cap live?** Per-account (today) vs per-enrollment party
   size vs per-event config. *Recommendation:* per-event configurable max party
   size, defaulting to today's 6.
@@ -304,7 +301,8 @@ changes are additive:
   pre-shaped.
 - Cross-owner shared companions (two parents co-managing one kid). The one thing
   that would justify a separate membership table — explicitly deferred.
-- Identity verification / real age proof.
+- **Age gating / verification.** `Session.min_age` stays the advisory,
+  display-only label it is today. No `birth_year`, no enforcement.
 - Per-member payment or ticketing splits.
 
 ## Rejected alternatives
@@ -314,24 +312,23 @@ changes are additive:
   `request.services.party`, to escape a fake-user smell that's cosmetic and to
   enable co-ownership that's a non-goal. Classic abstraction ahead of demand;
   cut by this review.
-- **Pure Meetup/Luma +N only.** Cheap and clean, but throws away durable kid
-  identities and age-gating — the very thing the product needs *more* than Luma,
-  per the brief.
-- **Keep everything exactly as-is.** Tempting, but `birth_year` (age gating) and
-  the claim flow (the actual fix for "managed bothers me") are real gaps. The
-  difference between this and the proposal is two columns, which is the point.
+- **Pure Meetup/Luma +N only.** Cheap and clean, but throws away durable named
+  companions you re-enroll across events — the "more than +1" the brief asks for.
+- **Age gating.** Considered and dropped: `min_age` is display-only and
+  unverified, so a stored age enforces nothing real. See O-2.
+- **Keep everything exactly as-is.** Tempting, but the claim flow (the actual fix
+  for "managed bothers me") is a real gap. The difference between this and the
+  proposal is one column plus a claim view — which is the point.
 
 ## Definition of done (v1)
 
-- A user can add named companions with an optional birth year and re-use them
-  across events.
-- `Session.min_age` is enforced per attendee, children included, with a clear
-  localized reason when blocked.
+- A user can add named companions and re-use them across events (as today, now
+  under the drużyna vocabulary).
 - A managed companion can be **claimed** into a real, self-login account on the
   same row — enrollment history intact.
 - +N headcount guests work on the enrollment screen (via the existing anonymous
   path, not a new model).
-- Two new nullable `User` columns; no new tables. Whole-party waitlist promotion
-  is untouched. Unit tests for the age + claim logic, integration tests
-  (`assert_response`) for views/forms/templates; Polish strings on the drużyna
+- One new nullable `User` column; no new tables; no age logic. Whole-party
+  waitlist promotion is untouched. Unit tests for the claim logic, integration
+  tests (`assert_response`) for views/templates; Polish strings on the drużyna
   vocabulary.
