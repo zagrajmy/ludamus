@@ -88,9 +88,12 @@ const unlockPage = (): void => {
   style.right = "";
   style.width = "";
   bodyPinned = false;
-  // Restore styles first, then scroll on the next frame (Vaul pattern) so the
-  // un-pin doesn't flash.
-  requestAnimationFrame(() => window.scrollTo(0, pinnedScrollY));
+  // Removing the fixed pin drops the document back to scroll offset 0; restore
+  // the prior offset synchronously, in the same task, so the page paints once at
+  // the right place. Deferring this to rAF lets Safari paint a frame (or several,
+  // when the unlock trails a closing View Transition) at the top first — the
+  // visible "jump to the top and back" on modal close.
+  window.scrollTo(0, pinnedScrollY);
 };
 
 const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
