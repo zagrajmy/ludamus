@@ -35,5 +35,6 @@ All three variants share the same fixes:
 - **One primary action.** "Back to event" is a quiet text link, not a
   half-width button pretending to be equal.
 
-Screenshots in this folder are exploration artifacts (`a-light`, `a-dark`,
-`b-light`, `b-dark`, `c-light`, `c-open`).
+Screenshots in this folder are exploration artifacts: `old-{light,mobile}` (the
+page before this change), plus per variant `{a,b,c}-mobile`, `a-{light,dark}`,
+`b-{light,dark}`, `c-light`, `c-open`.
