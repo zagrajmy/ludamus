@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-24 12:27+0200\n"
+"POT-Creation-Date: 2026-06-26 13:42+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2276,10 +2276,6 @@ msgstr "Wróć"
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
 
-#: src/ludamus/templates/base.html src/ludamus/templates/panel/base.html
-msgid "Dismiss"
-msgstr "Zamknij"
-
 #: src/ludamus/templates/base.html
 msgid "Contact"
 msgstr "Kontakt"
@@ -3555,6 +3551,10 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
+
+#: src/ludamus/templates/components/flash-messages.html
+msgid "Dismiss"
+msgstr "Zamknij"
 
 # Login Required Page
 #: src/ludamus/templates/components/label.html
