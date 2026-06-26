@@ -12,6 +12,7 @@ interface Navigation {
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
 const { navigation } = globalThis as { navigation?: Navigation };
+let ignoredModalNavigationUrl: string | null = null;
 
 // The page scroll is locked while any modal is open by a pure-CSS rule —
 // `body:has(dialog.modal[open]) .app-scroll { overflow: hidden }` (index.css).
@@ -50,7 +51,11 @@ const updateQueryParam = (
     globalThis.history.replaceState({}, "", url);
     return;
   }
+  ignoredModalNavigationUrl = url.href;
   globalThis.history.pushState({}, "", url);
+  setTimeout(() => {
+    if (ignoredModalNavigationUrl === url.href) ignoredModalNavigationUrl = null;
+  }, 0);
 };
 
 const getLinkableByModalId = (
@@ -283,8 +288,11 @@ if (navigation) {
   navigation.addEventListener("navigate", (e) => {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
-
     const url = new URL(e.destination.url);
+    if (url.href === ignoredModalNavigationUrl) {
+      ignoredModalNavigationUrl = null;
+      return;
+    }
     if (url.origin !== location.origin || url.pathname !== location.pathname)
       return;
 
@@ -395,12 +403,6 @@ const setupFallbackLinkHandlers = (): void => {
   }
 };
 
-// Only when the Navigation API is absent. With it present, the navigate
-// intercept above already opens modals from trigger links; running this too
-// double-opens — the fallback's updateUrl pushState re-fires `navigate`, whose
-// intercept opens again, starting a second View Transition that interrupts the
-// first and collapses the open morph into a plain pop (the card just blinks
-// out instead of morphing into the modal).
-if (!navigation) setupFallbackLinkHandlers();
+setupFallbackLinkHandlers();
 
 export { closeModal, openModal };
