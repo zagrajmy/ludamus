@@ -1,8 +1,10 @@
 amends "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Builtins.pkl"
 
-// Mirrors the old .pre-commit-config.yaml. Tools come from mise [tools]; the
-// pure-Python tools (black, ruff, codespell, djlint) come from the Poetry venv.
+// Mirrors the old .pre-commit-config.yaml. Tools are provisioned by mise
+// [tools] (yamllint, actionlint, hadolint, gitlint, dockerfmt), the Poetry venv
+// (black, ruff, codespell, djlint), and the aube workspace (oxfmt, dclint,
+// varlock) — run via `aube exec`.
 local linters = new Mapping<String, Step> {
   // --- File hygiene (was: pre-commit/pre-commit-hooks) ---
   ["check-added-large-files"] = Builtins.check_added_large_files
@@ -41,7 +43,9 @@ local linters = new Mapping<String, Step> {
   }
 
   // --- Frontend (JS/TS/CSS) — oxfmt replaces prettier; Tailwind sorting via .oxfmtrc.json ---
+  // oxfmt is an aube workspace devDep (like varlock/fallow), so run it via `aube exec`.
   ["oxfmt"] = (Builtins.oxfmt) {
+    prefix = "aube exec"
     glob = List(
       "**/*.ts",
       "**/*.tsx",
@@ -65,6 +69,7 @@ local linters = new Mapping<String, Step> {
     fix = "dockerfmt -w {{files}}"
   }
   ["dclint"] = (Builtins.dclint) {
+    prefix = "aube exec"
     // Project compose files live under docker/compose/ and aren't named compose*.yaml.
     glob = List("docker/compose/*.yml", "docker/compose/*.yaml")
   }
