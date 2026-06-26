@@ -378,10 +378,9 @@ button:active {
   .btn {
     --bg: var(--color-primary);
     --y: 2px;
-    /* derived from --color-border, but we're supporting legacy browsers so no color-mix */
+    /* translucent shade derived from --color-border */
     --shade: hsla(30deg, 20.6%, 23%, 0.25);
-    /* top highlight ("scrim") + soft gloss falloff; variants tune these — the
-       filled buttons get a bright highlight, the tonal secondary none */
+    /* top highlight + gloss; variants tune these */
     --hl1: rgba(255, 255, 255, 0.085);
     --hl2: transparent;
 
@@ -395,8 +394,7 @@ button:active {
     font-weight: 500;
     transition: all 0.2s;
     background-color: var(--bg);
-    /* optical vertical centering — trims Outfit's half-leading. Progressive
-       enhancement; older engines ignore it. */
+    /* optical vertical centering (trims Outfit's half-leading) */
     text-box: trim-both cap alphabetic;
     box-shadow:
       inset 0 1px 0 0 var(--hl1),
@@ -411,12 +409,9 @@ button:active {
 
     &:active {
       @apply translate-y-0.5 scale-[99.4%];
-      /* Collapse the 3D lip by driving --y to 0 rather than replacing the whole
-         box-shadow. A box-shadow can only transition smoothly when both states
-         have the same number of layers; swapping a 4-layer resting shadow for a
-         shorter pressed one made the lip snap out of sync with the transform
-         (the "jitter" / vanishing bottom border). Keeping the same layers and
-         only animating the offset lets the lip retract in lockstep. */
+      /* Collapse the lip via --y, not a box-shadow swap: equal layer counts
+         keep box-shadow from snapping a layer in/out, so it stays in sync with
+         the transform (the swap jittered). */
       --y: 0;
     }
 
@@ -452,12 +447,9 @@ button:active {
     cursor: not-allowed;
   }
 
-  /* Filled brand buttons share one recipe: a subtle vertical gradient face
-     (lighter top, deeper bottom; the stops are the brand colour nudged in
-     lightness — no color-mix, legacy support), a white label, the shared 3D lip
-     from .btn, a bright top highlight (the salmon/pink scrim line) and a faint
-     text-shadow. --bg is the gradient's bottom stop so the lip matches. There
-     is no surrounding ring — that read as a grey line on light backgrounds. */
+  /* Filled buttons: vertical gradient face (brand colour, lighter top → deeper
+     bottom), white label, top highlight, text-shadow. --bg is the bottom stop
+     so the shared lip matches. No ring — it read as a grey line on light bg. */
   .btn-primary {
     --bg: #ef4f2d;
     --hl1: rgba(255, 255, 255, 0.3);
@@ -478,10 +470,7 @@ button:active {
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
   }
 
-  /* Dark mode: a heavier label survives halation (white on a saturated fill
-     against the near-black surround), the text-shadow deepens and the top
-     highlight eases off. The pressed-state flatten lives on the base
-     .btn:active, so the variants need no box-shadow override. */
+  /* Dark: heavier label + deeper text-shadow survive halation; highlight eases off. */
   .dark .btn-primary,
   .dark .btn-danger {
     --hl1: rgba(255, 255, 255, 0.22);
@@ -491,12 +480,8 @@ button:active {
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
   }
 
-  /* Secondary: a restrained tonal match. Keeps the light fill, dark text and
-     border, but adopts the shared lip, text-box trim and a subtle dimensional
-     gradient — a translucent overlay that lifts the top and darkens the bottom
-     slightly in both themes without re-specifying the token colour. Its own
-     border defines the edge and the dark text needs no top highlight, so the
-     scrim is switched off. */
+  /* Secondary: tonal match — light fill, dark text, border. Subtle translucent
+     gradient (token-linked), no top highlight; its border does the edge. */
   .btn-secondary {
     --bg: var(--color-bg-secondary);
     --shade: hsla(30deg, 20.6%, 35%, 0.25);
