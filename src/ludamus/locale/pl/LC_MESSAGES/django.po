@@ -6821,3 +6821,69 @@ msgstr "Zniżka została zaktualizowana."
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 msgid "Discount removed successfully."
 msgstr "Zniżka została usunięta."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Profile claimed — it is now your own account."
+msgstr "Profil przejęty — to teraz Twoje własne konto."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid ""
+"You already have an account, so this profile can't be moved into it. Ask the "
+"person who invited you to enroll you directly."
+msgstr ""
+"Masz już konto, więc tego profilu nie można do niego przenieść. Poproś osobę, "
+"która Cię zaprosiła, aby zapisała Cię bezpośrednio."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Could not create a claim link for this person."
+msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid ""
+"Claim link ready. Share it with this person so they can take over their "
+"profile: %(url)s"
+msgstr ""
+"Link przejęcia gotowy. Udostępnij go tej osobie, aby mogła przejąć swój "
+"profil: %(url)s"
+
+#: src/ludamus/adapters/web/django/views.py
+msgid ""
+"You're already signed in. Log out first to claim this profile into a new "
+"account."
+msgstr ""
+"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "This claim link is invalid or has already been used."
+msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Claim your profile"
+msgstr "Przejmij swój profil"
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Make this profile your own account"
+msgstr "Zamień ten profil na swoje własne konto"
+
+#: src/ludamus/templates/crowd/claim.html
+#, python-format
+msgid ""
+"%(manager)s created a profile for %(name)s and invited you to take it over. "
+"Sign in to turn it into your own account — your event sign-ups stay with you."
+msgstr ""
+"%(manager)s utworzył(a) profil dla osoby %(name)s i zaprosił(a) Cię do jego "
+"przejęcia. Zaloguj się, aby zamienić go na swoje własne konto — Twoje zapisy "
+"na wydarzenia zostaną zachowane."
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Sign in and claim"
+msgstr "Zaloguj się i przejmij"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Create a link to let this person take over their profile"
+msgstr "Utwórz link, aby ta osoba mogła przejąć swój profil"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Create claim link"
+msgstr "Utwórz link przejęcia"
