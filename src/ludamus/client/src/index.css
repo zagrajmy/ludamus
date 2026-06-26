@@ -378,8 +378,11 @@ button:active {
   .btn {
     --bg: var(--color-primary);
     --y: 2px;
-    /* derived from --color-border, but we're supporting legacy browsers so no color-mix */
+    /* translucent shade derived from --color-border */
     --shade: hsla(30deg, 20.6%, 23%, 0.25);
+    /* top highlight + gloss; variants tune these */
+    --hl1: rgba(255, 255, 255, 0.085);
+    --hl2: transparent;
 
     position: relative;
     display: inline-flex;
@@ -391,8 +394,11 @@ button:active {
     font-weight: 500;
     transition: all 0.2s;
     background-color: var(--bg);
+    /* optical vertical centering (trims Outfit's half-leading) */
+    text-box: trim-both cap alphabetic;
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.085),
+      inset 0 1px 0 0 var(--hl1),
+      inset 0 3px 5px -3px var(--hl2),
       0 var(--y) 0 0 var(--shade),
       0 var(--y) 0 0 var(--bg);
 
@@ -403,10 +409,10 @@ button:active {
 
     &:active {
       @apply translate-y-0.5 scale-[99.4%];
-      box-shadow:
-        inset 0 0 1px 0 rgba(0, 0, 0, 0.1),
-        0 0px 0 0 rgba(0, 0, 0, 0.25),
-        0 0px 0 0 var(--bg);
+      /* Collapse the lip via --y, not a box-shadow swap: equal layer counts
+         keep box-shadow from snapping a layer in/out, so it stays in sync with
+         the transform (the swap jittered). */
+      --y: 0;
     }
 
     &:focus {
@@ -441,65 +447,63 @@ button:active {
     cursor: not-allowed;
   }
 
+  /* Filled buttons: vertical gradient face (brand colour, lighter top → deeper
+     bottom), white label, top highlight, text-shadow. --bg is the bottom stop
+     so the shared lip matches. No ring — it read as a grey line on light bg. */
   .btn-primary {
-    /* Bright coral face via a subtle vertical gradient — lighter top, deeper
-       bottom — both stops are --color-primary (#f85a3c) nudged in lightness
-       (no color-mix: legacy support). --bg is the bottom stop so the 3D lip
-       matches the gradient base. The white label keeps the brand's bright coral
-       in both themes; the touches below fix dark-mode halation perceptually
-       rather than by recolouring. */
     --bg: #ef4f2d;
+    --hl1: rgba(255, 255, 255, 0.3);
+    --hl2: rgba(255, 255, 255, 0.22);
+
     color: white;
     background-image: linear-gradient(180deg, #fb6953, #ef4f2d);
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
-    /* optical vertical centering — trims Outfit's half-leading. Progressive
-       enhancement; older engines ignore it. */
-    text-box: trim-both cap alphabetic;
-    box-shadow:
-      /* more pronounced top scrim + soft gloss falloff */
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
-      inset 0 3px 5px -3px rgba(255, 255, 255, 0.22),
-      /* hairline definition ring */ 0 0 0 0.5px rgba(61, 55, 50, 0.16),
-      0 var(--y) 0 0 var(--shade),
-      0 var(--y) 0 0 var(--bg);
   }
 
-  .dark .btn-primary {
-    /* heavier label survives the halation; stronger ring separates the button
-       from the near-black surround so the white edges stop blooming. */
+  .btn-danger {
+    --bg: #e23636;
+    --hl1: rgba(255, 255, 255, 0.3);
+    --hl2: rgba(255, 255, 255, 0.22);
+
+    color: white;
+    background-image: linear-gradient(180deg, #f56363, #e23636);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
+  }
+
+  /* Dark: heavier label + deeper text-shadow survive halation; highlight eases off. */
+  .dark .btn-primary,
+  .dark .btn-danger {
+    --hl1: rgba(255, 255, 255, 0.22);
+    --hl2: rgba(255, 255, 255, 0.18);
+
     font-weight: 600;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-      inset 0 3px 5px -3px rgba(255, 255, 255, 0.18),
-      0 0 0 0.5px rgba(0, 0, 0, 0.5),
-      0 var(--y) 0 0 var(--shade),
-      0 var(--y) 0 0 var(--bg);
-
-    /* .dark .btn-primary and .btn:active share specificity, so re-assert the
-       pressed-state flatten here or the resting shadow would win on press. */
-    &:active {
-      box-shadow:
-        inset 0 0 1px 0 rgba(0, 0, 0, 0.1),
-        0 0 0 0 rgba(0, 0, 0, 0.25),
-        0 0 0 0 var(--bg);
-    }
   }
 
+  /* Secondary: tonal match — light fill, dark text, border. Subtle translucent
+     gradient (token-linked), no top highlight; its border does the edge. */
   .btn-secondary {
     --bg: var(--color-bg-secondary);
+    --shade: hsla(30deg, 20.6%, 35%, 0.25);
+    --hl1: transparent;
+
     border: 1px solid var(--color-border);
     color: var(--color-foreground);
-    --shade: hsla(30deg, 20.6%, 35%, 0.25);
+    background-image: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.5),
+      rgba(0, 0, 0, 0.02)
+    );
   }
 
   .dark .btn-secondary {
     --shade: hsla(30deg, 0%, 28%, 0.35);
-  }
 
-  .btn-danger {
-    --bg: var(--color-danger);
-    color: white;
+    background-image: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(0, 0, 0, 0.06)
+    );
   }
 
   .icon-btn {
