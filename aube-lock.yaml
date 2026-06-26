@@ -21,9 +21,6 @@ importers:
 
   src/ludamus/client:
     dependencies:
-      '@fluejs/noscroll':
-        specifier: 1.0.0
-        version: 1.0.0
       '@types/node':
         specifier: ^20.19.0 || >=22.12.0
         version: 24.10.1
@@ -283,9 +280,6 @@ packages:
     resolution: {integrity: sha512-pceEJAFpqmlp4gL+ANyhnNLFGtaHCydEaJCUFZ3TL885RWP2nvOIe4TbbdIGRJwAnw0aa6jtM8QKK0DNCSQlxQ==}
     cpu: [x64]
     os: [win32]
-
-  '@fluejs/noscroll@1.0.0':
-    resolution: {integrity: sha512-fyu6jPL/BzUWkrxpwmG8RC/8LM4Fp2GprYRco2BBTypIl7zDyuipRHg6NcuoTGh4s5fAV8D1DBDMS2aDhuGclg==}
 
   '@hasparus/eslint-config@2.1.1':
     resolution: {integrity: sha512-uWOb5ajrgS6lD64hy103wRIdHUyjY8fxNig4tK2iC4kYKcKBqOZMv1tivJ4jgDJWmdKFoQzQLc0eN1faUj1U3g==}
@@ -3603,8 +3597,6 @@ snapshots:
 
   '@fallow-cli/win32-x64-msvc@2.73.0':
     optional: true
-
-  '@fluejs/noscroll@1.0.0': {}
 
   '@hasparus/eslint-config@2.1.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:

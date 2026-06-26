@@ -1065,5 +1065,19 @@
             pointer-events: auto;
             transform: scale(1) translateY(0);
         }
+
+        /* On narrow screens the right-anchored popover would overflow the left
+           edge (the app-shell reserves a scrollbar gutter that pulls the anchor
+           inward). Pin it to the viewport with even margins instead — a
+           full-width filter sheet that still drops from the trigger. */
+        @media (max-width: 30rem) {
+            .filters-popover-wrapper .filter-panel {
+                position: fixed;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+                max-width: none;
+            }
+        }
     </style>
 {% endblock extra_head %}
