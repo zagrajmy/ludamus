@@ -218,7 +218,12 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
 def _create_spaces(area: Area) -> list[Space]:
     return [
         Space.objects.create(
-            area=area, name=name, slug=slugify(name), capacity=capacity, order=order
+            area=area,
+            name=name,
+            slug=slugify(name),
+            capacity=capacity,
+            order=order,
+            event=area.venue.event,
         )
         for order, (name, capacity) in enumerate(SPACE_SPECS)
     ]

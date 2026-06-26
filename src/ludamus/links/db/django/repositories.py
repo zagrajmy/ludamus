@@ -1194,6 +1194,7 @@ class VenueRepository(VenueRepositoryProtocol):
                 )
                 Space.objects.create(
                     area_id=new_area.pk,
+                    event_id=new_venue.event_id,
                     name=space.name,
                     slug=space_slug,
                     capacity=space.capacity,
@@ -1262,6 +1263,7 @@ class VenueRepository(VenueRepositoryProtocol):
                 )
                 Space.objects.create(
                     area_id=new_area.pk,
+                    event_id=target_event_id,
                     name=space.name,
                     slug=space_slug,
                     capacity=space.capacity,
@@ -1471,7 +1473,7 @@ class SpaceRepository(SpaceRepositoryProtocol):
         Returns:
             SpaceDTO of the created space.
         """
-        Area.objects.select_for_update().get(pk=area_id)
+        area = Area.objects.select_related("venue").select_for_update().get(pk=area_id)
 
         base_slug = slugify(name)
         slug = self.generate_unique_slug(area_id, base_slug)
@@ -1485,6 +1487,7 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
         space = Space.objects.create(
             area_id=area_id,
+            event_id=area.venue.event_id,
             name=name,
             slug=slug,
             capacity=capacity,

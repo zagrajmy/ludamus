@@ -127,6 +127,7 @@ class SpaceFactory(DjangoModelFactory):
     name = Faker("word")
     slug = Sequence(lambda n: f"space-{n}")
     area = SubFactory(AreaFactory)
+    event = LazyAttribute(lambda o: o.area.venue.event)
 
 
 class TimeSlotFactory(DjangoModelFactory):
