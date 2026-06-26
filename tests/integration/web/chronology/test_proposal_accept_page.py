@@ -128,6 +128,65 @@ class TestProposalAcceptPageView:
         assert "<select" in content
         assert 'name="time_slot"' in content
 
+    @pytest.mark.usefixtures("event", "space")
+    def test_get_collapses_single_time_slot_to_forced_choice(
+        self, pending_session, staff_client, time_slot
+    ):
+        # A lone slot is a foregone choice: rendered via the forced-choice
+        # component (hidden input + read-only field the label associates with).
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
+        assert 'id="time_slot"' in content
+        assert 'aria-readonly="true"' in content
+
+    @pytest.mark.usefixtures("space")
+    def test_get_groups_preferred_time_slots_in_picker(
+        self, event, pending_session, staff_client, time_slot
+    ):
+        # A second slot forces the select; the preferred one is floated into its
+        # own optgroup instead of being flagged with a footnote.
+        TimeSlot.objects.create(
+            event=event,
+            start_time=time_slot.end_time,
+            end_time=time_slot.end_time + timedelta(hours=2),
+        )
+        pending_session.time_slots.add(time_slot)
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert '<optgroup label="Preferred by the facilitator">' in content
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    @pytest.mark.parametrize(
+        ("variant", "template"),
+        [
+            ("", "chronology/accept_proposal.html"),
+            ("b", "chronology/accept_proposal_b.html"),
+            ("c", "chronology/accept_proposal_c.html"),
+            ("bogus", "chronology/accept_proposal.html"),
+        ],
+    )
+    def test_get_variant_selects_template(
+        self, pending_session, staff_client, variant, template
+    ):
+        url = self._get_url(pending_session.id, pending_session.event.slug)
+        if variant:
+            url += f"?variant={variant}"
+
+        response = staff_client.get(url)
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == template
+
     @pytest.mark.usefixtures("event", "time_slot")
     def test_get_collapses_single_space_to_static_value(
         self, pending_session, space, staff_client

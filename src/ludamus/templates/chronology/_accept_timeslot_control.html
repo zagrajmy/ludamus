@@ -4,10 +4,9 @@
 {# One slot is a foregone choice — carry it in a hidden input, show it as text. #}
 {% if time_slots|length == 1 %}
     {% with slot=time_slots.0 %}
-        <input type="hidden" name="time_slot" value="{{ slot.pk }}">
-        <p class="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-tertiary text-foreground-secondary">
-            {{ slot.start_time|date:"l, M j · G:i" }}–{{ slot.end_time|date:"G:i" }}
-        </p>
+        {% with start=slot.start_time|date:"l, M j · G:i" end=slot.end_time|date:"G:i" %}
+            {% include "components/forced-choice.html" with name="time_slot" id="time_slot" value=slot.pk label=start|add:"–"|add:end %}
+        {% endwith %}
     {% endwith %}
 {% else %}
     {% select name="time_slot" id="time_slot" required=True %}

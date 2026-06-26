@@ -1862,7 +1862,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
     }
 
     @classmethod
-    def _template(cls, request: HttpRequest) -> str:
+    def _template(cls, request: AuthenticatedRootRequest) -> str:
         return cls._VARIANT_TEMPLATES.get(
             request.GET.get("variant", ""), "chronology/accept_proposal.html"
         )
