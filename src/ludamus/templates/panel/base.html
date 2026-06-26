@@ -372,25 +372,7 @@
             <!-- Messages -->
             {% if messages %}
                 <div class="p-3 sm:p-4 lg:px-8 lg:pt-4 lg:pb-0 space-y-2">
-                    {% for message in messages %}
-                        <div class="alert {% if message.level_tag == 'error' %}alert-error{% elif message.level_tag == 'warning' %}alert-warning{% elif message.level_tag == 'success' %}alert-success{% else %}alert-info{% endif %} flex items-center"
-                             data-flash="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}sticky{% else %}transient{% endif %}">
-                            {% if message.level_tag == 'error' %}
-                                {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
-                            {% elif message.level_tag == 'warning' %}
-                                {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
-                            {% elif message.level_tag == 'success' %}
-                                {% icon "check-circle" class="w-5 h-5 mr-3 shrink-0" %}
-                            {% else %}
-                                {% icon "information-circle" class="w-5 h-5 mr-3 shrink-0" %}
-                            {% endif %}
-                            <span>{{ message }}</span>
-                            <button type="button"
-                                    data-flash-dismiss
-                                    class="ml-auto pl-3 shrink-0 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                                    aria-label="{% translate "Dismiss" %}">{% icon "x-mark" class="w-4 h-4" %}</button>
-                        </div>
-                    {% endfor %}
+                    {% include "components/flash-messages.html" %}
                 </div>
             {% endif %}
             <div class="relative z-0">
