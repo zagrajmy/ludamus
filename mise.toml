@@ -16,8 +16,10 @@ markdownlint-cli2 = "0.22.1"
 [env]
 _.python.venv = { path = ".venv", create = true }
 _.path = "/opt/homebrew/opt/gettext/bin:/usr/local/opt/gettext/bin:/home/linuxbrew/.linuxbrew/opt/gettext/bin"
+LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
 
 [bootstrap.packages]
+"brew:libxml2" = "latest"
 "brew:gettext" = "latest"
 
 [task_config]
