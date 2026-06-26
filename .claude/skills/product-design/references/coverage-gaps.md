@@ -15,8 +15,12 @@ shipped pattern lands here.
   established skeleton/spinner pattern. As htmx adoption grows
   (`docs/refactors/htmx-adoption.md`), we'll need one. Until then: keep partials
   fast and avoid layout shift; don't introduce a bespoke spinner per page.
-- **Toast / transient notifications.** Django `messages` render as alerts on the
-  next page. There's no in-page toast convention. Don't add a one-off.
+- **Toast / transient notifications.** *Resolved for page-load messages.* Django
+  `messages` render via `components/flash-messages.html` (one source for both
+  `base.html` and `panel/base.html`); `src/flash.ts` makes `data-flash="transient"`
+  auto-dismiss (pause on hover/focus, reduced-motion-safe) and wires the dismiss
+  button. **Still open:** raising a toast from an htmx/partial response without a
+  full navigation — no JS API for that yet. Don't hand-roll one; extend `flash.ts`.
 - **Motion / animation.** No catalog of approved transitions. The
   `review-animations` skill and `emil-design-eng` skill hold the craft bar;
   default to little-to-no motion on frequently-seen elements.

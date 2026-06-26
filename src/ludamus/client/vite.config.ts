@@ -39,6 +39,7 @@ export default defineConfig({
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
+        flash: resolve(rootDir, "src/flash.ts"),
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
         index: resolve(rootDir, "src/index.css"),
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
