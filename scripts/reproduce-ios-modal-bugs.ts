@@ -340,12 +340,19 @@ await openUrl(initialUrl.toString(), udid);
 
 await client.command.wait({ ...deviceOptions, durationMs: 3000 });
 
+// Captured just before opening so the close path can assert the page returned
+// to the same scroll position (see the scroll-preservation check after close).
+let preOpenTriggerLabel: string | null = null;
+let preOpenTriggerY: number | null = null;
+
 if (openViaScrolledPage) {
   console.log(`Opening ${targetTitle} from a scrolled page...`);
   console.log(`Pre-scrolling the page (${preOpenScrollSteps} steps) before opening...`);
   await forcePreOpenScroll();
   const trigger = await scrollUntilTriggerInViewport();
   console.log(`Activating modal trigger: ${describeNode(trigger)}`);
+  preOpenTriggerLabel = trigger.label ?? null;
+  preOpenTriggerY = trigger.rect?.y ?? null;
   await clickNodeReference(trigger);
   if (!(await waitForLabel("Close", 5000))) {
     console.warn("The trigger reference did not open the modal; tapping its center.");
@@ -383,6 +390,34 @@ await client.command.wait({ ...deviceOptions, durationMs: 1000 });
 
 if (await hasVisibleText("Close")) {
   failures.push("The modal X / Close button did not close the modal.");
+}
+
+// Scroll-preservation guard. While the modal is open the page is scroll-locked
+// by pinning <body> with `position: fixed; top: -scrollY` (needed so the iOS
+// top-layer Close button stays tappable over a scrolled page). The close must
+// hand the document back to that same offset; if it restores late or to the
+// wrong place, the page jumps — most visibly to the top and back on Mobile
+// Safari. Re-find the trigger we opened from and assert it settled back to the
+// viewport position it held before opening.
+if (openViaScrolledPage && preOpenTriggerLabel && preOpenTriggerY !== null) {
+  await client.command.wait({ ...deviceOptions, durationMs: 600 });
+  const settledSnapshot = await takeSnapshot();
+  const settledTrigger = settledSnapshot.nodes.find(
+    (node) => node.label === preOpenTriggerLabel && !isHiddenDialogLabel(node),
+  );
+  const settledY = settledTrigger?.rect?.y ?? null;
+  if (settledY === null) {
+    failures.push(
+      `After closing, "${preOpenTriggerLabel}" was no longer in the viewport, ` +
+        "so the page did not return to its pre-open scroll position.",
+    );
+  } else if (Math.abs(settledY - preOpenTriggerY) > 200) {
+    failures.push(
+      `The page scroll jumped on close: "${preOpenTriggerLabel}" moved from ` +
+        `y=${Math.round(preOpenTriggerY)} to y=${Math.round(settledY)} ` +
+        "(>200px), so the scroll position was not preserved.",
+    );
+  }
 }
 
 if (failures.length > 0) {
