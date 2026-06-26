@@ -3,8 +3,8 @@
 > Jak mówił Piotr Fronczewski we Baldur's Gate: Przed wyruszeniem w drogę
 > należy zebrać drużynę.
 
-**Status:** 🟡 draft — claim-flow slice implemented; membership model still in
-design
+**Status:** 🟡 claim-flow slice implemented; membership model designed
+(O-7/8/9 resolved), ready to build
 **Reworks:** the "Connected users" feature into a first-class **Party**
 **Touches:** Crowd (profiles, claim flow) now; the enrollment core
 (`specs/enrollment.py`, slot accounting) once the membership model lands
@@ -289,12 +289,16 @@ Both need the `manager` self-FK replaced with an explicit membership join — th
 enrollment core, which is why the claim slice landed first; it is the same
 design, not a separate phase.
 
+A Party is **the group you enroll together** — ephemeral but reusable. A
+drużyna, not a Guild: lightweight, user-made, saved so you can bring the same
+band next time, with none of the public-profile / org weight of Axis B.
+
 ### Model
 
 ```text
-Party
-  name           # "Rodzina", "Wtorkowa ekipa"
-  owner -> User  # who can manage the roster (add/remove, rename, disband)
+Party                          # the enroll-together group; reusable, lightweight
+  name           # "Wtorkowa ekipa", "Rodzina"
+  leader -> User # creates it, enrolls members, holds power of attorney (see Consent)
 
 PartyMembership
   party        -> Party
@@ -307,6 +311,8 @@ PartyMembership
 - **Multi-party** falls out: a user with two `ACTIVE` memberships is in two
   parties.
 - **Real-user co-enrollment** falls out: a party holds several real members.
+- **The party is the promotion unit** (O-8): waitlist promotion still moves a
+  whole party at once.
 - **Login-less companions stay single-owner** — no agency, no inbox. A managed
   member's seat is sponsored by the account that created it; multi-party and
   consent only ever matter for real users.
@@ -317,8 +323,9 @@ Whether being signed up reaches you as "you're enrolled" or "please accept" is
 **one setting on your membership**, not a guardian/dependent/peer label:
 
 - **`ACCEPT_BY_DEFAULT`** — enrolling you takes the seat immediately and
-  notifies you. Login-less companions are always this; a real user can opt a
-  party they trust into it.
+  notifies you. Login-less companions are always this; a real user can grant
+  the **party leader** standing power of attorney to switch their membership to
+  it (O-9) — "I trust this leader to sign me up."
 - **`ACCEPT_INVITES`** — enrolling you creates an invitation you must accept
   before the seat is yours. Reuses the existing offer/claim seat-hold + expiry:
   an unaccepted invite releases the seat just like a lapsed waitlist offer. The
@@ -340,18 +347,41 @@ A real user's seat always spends **their own** allowance — enrolling a peer
 can't drain yours, and being in two parties doesn't double yours. A login-less
 companion's seat spends its **sponsor's**, exactly today's manager+dependents
 behaviour. The whole-party promotion math in `specs/enrollment.py` survives the
-rename; only the peer case (each with their own slots *and* their own accept)
-needs re-examining (O-7).
+rename; the peer case is settled in O-8 — `ACCEPT_INVITES` members get a held
+seat pending accept, and a decliner frees only their own.
 
 ### Migration
 
 The manager tree is a subset, so it backfills: one `Party` per current manager
-(manager as `owner`), each connected user a login-less `ACCEPT_BY_DEFAULT`
+(manager as `leader`), each connected user a login-less `ACCEPT_BY_DEFAULT`
 membership sponsored by that manager. Keep `effective_manager_id` derivable from
 the backfilled party during the swap, then retire `User.manager`/`connected`.
 The claim flow still applies — claiming a login-less member converts that user
 in place and flips their membership to a real-user one (now with a login and a
 say).
+
+### Build sequence
+
+Decisions resolved, so the build can land in safe increments behind the
+backfill, each shippable on its own:
+
+1. **Tables + backfill (no behaviour change).** Add `Party` / `PartyMembership`;
+   data-migrate every `manager` + `connected` into a `HOUSEHOLD`-shaped party
+   (leader + `ACCEPT_BY_DEFAULT` companions). Derive `effective_manager_id` from
+   the party so `specs/enrollment.py` is untouched. The app still reads
+   `manager`; this step is pure groundwork.
+2. **Move grouping + slots onto memberships.** Switch `effective_manager_id` →
+   `effective_slot_owner` and the party grouping to read `PartyMembership`. Same
+   behaviour, new source of truth. Then drop `User.manager`/`connected`.
+3. **Multi-party + real-user co-enrollment.** Party CRUD (create, name, add
+   real/login-less members, leave), membership invites (`status: INVITED`), and
+   the enroll screen reading the chosen party.
+4. **Consent at enrollment.** `ACCEPT_INVITES` members get a held seat (reuse
+   `OFFERED` + expiry + the claim-flow notification plumbing); `ACCEPT_BY_DEFAULT`
+   confirms + notifies; the leader power-of-attorney toggle.
+
+Steps 1–2 are invisible to users and carry the risk (enrollment core); 3–4 are
+the visible feature on top.
 
 ## Open questions / decisions needed
 
@@ -374,21 +404,22 @@ say).
   `claim_token` precedent for waitlist offers — reuse the pattern, not the
   column.
 
-Party-membership decisions, gating that part of the build:
+Party-membership decisions — **resolved**, clearing the build:
 
-- **O-7 — Replace vs augment `manager`.** *Recommendation: replace.* Keeping the
-  manager tree *and* adding memberships means two grouping mechanisms the
-  enrollment logic must reconcile. `PartyMembership` subsumes the manager FK; do
-  it once.
-- **O-8 — Atomic promotion with peers.** Today a waiting *party* is promoted
-  all-or-none. With peers who each have their own slots and their own accept,
-  what's the promotion unit — the per-action enrollment group or the party — and
-  does an unaccepted invite hold a seat meanwhile? (It can reuse the
-  `OFFERED` + expiry hold.)
-- **O-9 — Consent default.** When you add a real user, the membership defaults to
-  `ACCEPT_INVITES`; a login-less companion to `ACCEPT_BY_DEFAULT`. Confirm those
-  defaults, and whether a user can flip a trusted party to `ACCEPT_BY_DEFAULT`
-  for themselves.
+- **O-7 — Replace vs augment `manager`.** *Resolved: replace.* `PartyMembership`
+  subsumes the manager FK; connected rows backfill into memberships and the FK is
+  dropped. One grouping mechanism, no reconciliation.
+- **O-8 — What a Party is / the promotion unit.** *Resolved:* a Party **is the
+  group that enrolls together** — ephemeral but reusable, a drużyna, not a Guild.
+  It stays the unit of whole-party waitlist promotion: a freed block promotes a
+  party only if the whole party fits. `ACCEPT_BY_DEFAULT` members confirm at
+  once; `ACCEPT_INVITES` members get a held seat (reuse `OFFERED` + expiry)
+  pending their accept; a member who declines or lapses frees **only their own**
+  seat — the rest keep theirs.
+- **O-9 — Consent default.** *Resolved:* a login-less companion is
+  `ACCEPT_BY_DEFAULT`; a real user defaults to `ACCEPT_INVITES` and may grant the
+  **party leader** standing `ACCEPT_BY_DEFAULT` — power of attorney, scoped to
+  that one party.
 
 ## Non-goals
 
@@ -429,7 +460,7 @@ Party-membership decisions, gating that part of the build:
   waitlist promotion untouched. Unit tests for the claim logic, integration
   tests (`assert_response`) for views/templates; Polish strings translated.
 
-**Remaining (membership model, gated on O-7/8/9):**
+**Remaining (membership model — O-7/8/9 resolved, ready to build):**
 
 - `Party` + `PartyMembership` replace the `manager` tree; the connected rows
   backfill into memberships.
