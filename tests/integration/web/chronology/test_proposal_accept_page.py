@@ -170,9 +170,8 @@ class TestProposalAcceptPageView:
         content = response.content.decode()
         assert '<optgroup label="Preferred by the facilitator">' in content
 
-    def test_get_renders_host_avatar(
-        self, event, pending_session, space, staff_client, time_slot
-    ):
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_renders_host_avatar(self, pending_session, staff_client):
         response = staff_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -183,9 +182,8 @@ class TestProposalAcceptPageView:
         initials = pending_session.presenter.full_name[:2].upper()
         assert f">{initials}</span>" in response.content.decode()
 
-    def test_get_renders_proposal_detail_rows(
-        self, event, pending_session, space, staff_client, time_slot
-    ):
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_renders_proposal_detail_rows(self, pending_session, staff_client):
         pending_session.description = "A haunted manor one-shot."
         pending_session.requirements = "Bring a pencil."
         pending_session.needs = "A quiet room."
