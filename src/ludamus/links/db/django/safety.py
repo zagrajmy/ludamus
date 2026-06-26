@@ -140,19 +140,20 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         if not signed_up_ids:
             return None
         agenda_item = (
-            AgendaItem.objects.select_related("space__area__venue__event")
+            AgendaItem.objects.select_related("session__event")
             .filter(session_id=session_id)
             .order_by("pk")
             .first()
         )
         if agenda_item is None:
             return None
-        event = agenda_item.space.area.venue.event
+        event = agenda_item.session.event
         # Presenters with a scheduled session in this event who shadowbanned any
         # of the players that just signed up.
         rows = (
             User.objects.filter(
-                presented_sessions__agenda_item__space__area__venue__event_id=event.pk,
+                presented_sessions__event_id=event.pk,
+                presented_sessions__agenda_item__isnull=False,
                 shadowbanned__id__in=signed_up_ids,
             )
             .values_list("pk", "email", "shadowbanned__id")

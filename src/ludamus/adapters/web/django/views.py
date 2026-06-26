@@ -16,7 +16,6 @@ from django.contrib.auth import logout as django_logout
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
@@ -850,14 +849,15 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Get all sessions for this event that are published
         event_sessions = (
-            Session.objects.filter(agenda_item__space__area__venue__event=self.object)
-            .select_related("presenter", "agenda_item__space", "event", "event__sphere")
+            Session.objects.filter(event=self.object, agenda_item__isnull=False)
+            .select_related(
+                "presenter", "agenda_item__space__area__venue", "event", "event__sphere"
+            )
             .prefetch_related(
                 "tags__category",
                 "session_participations__user__manager",
                 "session_participations__user__connected",
                 "field_values__field",
-                "agenda_item__space__area__venue__event__enrollment_configs",
                 "event__enrollment_configs",
             )
             .annotate(
@@ -1018,8 +1018,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         ctx["anonymous_code"] = anonymous_user.slug.removeprefix("code_")
         anonymous_enrollments = SessionParticipation.objects.filter(
-            user_id=anonymous_user.pk,
-            session__agenda_item__space__area__venue__event=self.object,
+            user_id=anonymous_user.pk, session__event=self.object
         ).select_related("session")
         ctx["anonymous_user_enrollments"] = list(anonymous_enrollments)
         return ctx
@@ -1329,7 +1328,7 @@ def _get_session_or_redirect(
         )
     # Hard event ban: a banned user cannot enrol; bounce them back to the
     # (fake-full) event page without revealing the ban.
-    event = session.agenda_item.space.area.venue.event
+    event = session.event
     if request.services.event_bans.is_banned(event_id=event.pk, user_id=viewer_id):
         raise RedirectError(
             reverse("web:chronology:event", kwargs={"slug": event.slug})
@@ -1400,7 +1399,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         context = {
             "session": session,
-            "event": session.agenda_item.space.area.venue.event,
+            "event": session.event,
             "connected_users": self.request.di.uow.connected_users.read_all(
                 self.request.context.current_user_slug
             ),
@@ -1429,7 +1428,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _validate_request(
         session: Session, enrollment_requests: list[EnrollmentRequest] | None = None
     ) -> EnrollmentConfig:
-        event = session.agenda_item.space.area.venue.event
+        event = session.event
         if enrollment_requests and all(
             req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
         ):
@@ -1444,10 +1443,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         if not (enrollment_config := event.get_most_liberal_config(session)):
             raise RedirectError(
-                reverse(
-                    "web:chronology:event",
-                    kwargs={"slug": session.agenda_item.space.area.venue.event.slug},
-                ),
+                reverse("web:chronology:event", kwargs={"slug": session.event.slug}),
                 error=_("No enrollment configuration is available for this session."),
             )
 
@@ -1474,8 +1470,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         # Bulk fetch all participations for the event and users
         user_participations = SessionParticipation.objects.filter(
-            user_id__in=[u.pk for u in all_users],
-            session__agenda_item__space__area__venue__event=session.agenda_item.space.area.venue.event,
+            user_id__in=[u.pk for u in all_users], session__event=session.event
         ).select_related("session__agenda_item")
 
         # Group participations by user for efficient lookup
@@ -1537,11 +1532,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     messages.error(self.request, str(error))
 
             # Check for specific enrollment restrictions and provide helpful messages
-            enrollment_config = (
-                session.agenda_item.space.area.venue.event.get_most_liberal_config(
-                    session
-                )
-            )
+            enrollment_config = session.event.get_most_liberal_config(session)
             if enrollment_config and enrollment_config.restrict_to_configured_users:
                 if not request.di.uow.active_users.read(
                     request.context.current_user_slug
@@ -1554,7 +1545,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     user_email = request.di.uow.active_users.read(
                         request.context.current_user_slug
                     ).email
-                    event = session.agenda_item.space.area.venue.event
+                    event = session.event
                     if not get_user_enrollment_config(
                         event=EventDTO.model_validate(event),
                         user_email=user_email,
@@ -1586,7 +1577,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "chronology/enroll_select.html",
                 {
                     "session": session,
-                    "event": session.agenda_item.space.area.venue.event,
+                    "event": session.event,
                     "connected_users": self.request.di.uow.connected_users.read_all(
                         self.request.context.current_user_slug
                     ),
@@ -1607,9 +1598,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         self._manage_enrollments(form, session, enrollment_config)
 
-        return redirect(
-            "web:chronology:event", slug=session.agenda_item.space.area.venue.event.slug
-        )
+        return redirect("web:chronology:event", slug=session.event.slug)
 
     def _get_enrollment_requests(self, form: forms.Form) -> list[EnrollmentRequest]:
         enrollment_requests = []
@@ -2040,13 +2029,13 @@ def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
 def _validate_anonymous_session_event(
     request: RootRequest, session: Session, *, require_active_enrollment: bool = True
 ) -> Event | HttpResponse:
-    try:
-        event = session.agenda_item.space.area.venue.event
-    except ObjectDoesNotExist:
+    # Unscheduled sessions (no agenda item) have no enrollment to join.
+    if not hasattr(session, "agenda_item"):
         messages.error(
             request, _("No enrollment configuration is available for this session.")
         )
         return _anonymous_event_redirect(request)
+    event = session.event
 
     anonymous_event_id = request.session.get("anonymous_event_id")
     if anonymous_event_id is None or event.id != anonymous_event_id:
@@ -2215,7 +2204,7 @@ class SessionEnrollmentAnonymousPageView(View):
         existing_enrollment = SessionParticipation.objects.filter(
             session=session, user_id=anonymous_user.pk
         ).first()
-        event = session.agenda_item.space.area.venue.event
+        event = session.event
         if existing_enrollment is None and not _event_allows_anonymous_enrollment(
             event, session
         ):
@@ -2275,9 +2264,7 @@ class SessionEnrollmentAnonymousPageView(View):
         ):
             return early_redirect
 
-        return redirect(
-            "web:chronology:event", slug=session.agenda_item.space.area.venue.event.slug
-        )
+        return redirect("web:chronology:event", slug=session.event.slug)
 
 
 class AnonymousLoadActionView(View):
@@ -2313,14 +2300,14 @@ class AnonymousLoadActionView(View):
         # Get user's enrollments to find the event and site
         enrollments = SessionParticipation.objects.filter(
             user_id=anonymous_user.pk
-        ).select_related("session__agenda_item__space__area__venue__event__sphere")
+        ).select_related("session__event__sphere")
 
         if not (first_enrollment := enrollments.first()):
             messages.warning(request, _("No enrollments found for this code."))
             return redirect("web:index")
 
         # Get the first enrollment to determine the event and site
-        event = first_enrollment.session.agenda_item.space.area.venue.event
+        event = first_enrollment.session.event
         site_id = event.sphere.site_id
 
         # Load user into session with proper site association

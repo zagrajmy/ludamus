@@ -15,6 +15,7 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     AreaFactory,
     EventFactory,
+    SessionFactory,
     SpaceFactory,
     VenueFactory,
 )
@@ -104,8 +105,8 @@ class TestEventsPageView:
     def test_session_count_counts_agenda_items(self, client, sphere):
         event = EventFactory(sphere=sphere)
         space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
-        AgendaItemFactory(space=space)
-        AgendaItemFactory(space=space)
+        AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
+        AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
 
         response = client.get(self.URL)
 
