@@ -91,6 +91,7 @@ def _can_join_waitlist(
         user_id=user.pk,
         status=SessionParticipationStatus.WAITING,
         session__event=session.event,
+        session__agenda_item__isnull=False,
     ).count()
     return current_waitlist_count < enrollment_config.max_waitlist_sessions
 
