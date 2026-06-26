@@ -6,6 +6,7 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
@@ -272,6 +273,45 @@ class TestProposalAcceptPageView:
         assert session.agenda_item.session_confirmed
         assert session.agenda_item.start_time == time_slot.start_time
         assert session.agenda_item.end_time == time_slot.end_time
+
+    def test_post_preserves_unique_slug(
+        self, event, pending_session, space, staff_client, staff_user, time_slot
+    ):
+        # Regression: accepting a proposal must not regenerate the slug, which
+        # dropped the uniqueness suffix and collided with an existing session.
+        base_slug = slugify(pending_session.title)
+        pending_session.slug = f"{base_slug}-4"
+        pending_session.save()
+        Session.objects.create(
+            title=pending_session.title,
+            sphere=event.sphere,
+            slug=base_slug,
+            display_name=staff_user.name,
+            participants_limit=10,
+        )
+
+        response = staff_client.post(
+            self._get_url(pending_session.id),
+            data={"space": space.id, "time_slot": time_slot.id},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f"Proposal '{pending_session.title}' has been accepted and "
+                        "added to the agenda."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        session = Session.objects.get(pk=pending_session.pk)
+        assert session.status == "scheduled"
+        assert session.slug == f"{base_slug}-4"
 
     def test_post_wrong_permissions(
         self, event, pending_session, space, authenticated_client, time_slot
