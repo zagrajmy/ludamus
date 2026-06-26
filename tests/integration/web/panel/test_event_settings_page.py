@@ -294,7 +294,7 @@ class TestEventSettingsPageViewPost:
         assert event.cover_image_url.startswith("/media/events/")
 
     def test_updates_session_cover_placeholder_setting(
-        self, authenticated_client, active_user, sphere, event
+        self, *, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         assert not event.use_session_cover_placeholders

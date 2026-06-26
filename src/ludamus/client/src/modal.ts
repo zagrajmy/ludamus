@@ -89,7 +89,15 @@ const startViewTransition = (callback: () => void): ViewTransition | null => {
   return doc.startViewTransition(callback);
 };
 
-const ignoreSkippedTransition = (): undefined => undefined;
+const isSkippedTransitionError = (error: unknown): boolean =>
+  error instanceof DOMException &&
+  error.name === "AbortError" &&
+  error.message.includes("Transition was skipped");
+
+const ignoreSkippedTransition = (error: unknown): void => {
+  if (isSkippedTransitionError(error)) return;
+  throw error;
+};
 
 const MORPH_NAME = "session-morph";
 const CARD_SUPPRESSED = "session-card-suppressed";
@@ -155,7 +163,13 @@ const dismissDialog = (dialog: HTMLDialogElement): void => {
   }
   startViewTransition(() => {
     dialog.close();
-  })?.finished.catch(ignoreSkippedTransition);
+  })?.finished.catch((error) => {
+    try {
+      ignoreSkippedTransition(error);
+    } catch (error_) {
+      console.error(error_);
+    }
+  });
 };
 
 const openModal = async (
