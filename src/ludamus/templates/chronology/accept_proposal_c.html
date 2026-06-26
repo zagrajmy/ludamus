@@ -25,7 +25,7 @@
                     {% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
                 </p>
                 <form method="post"
-                      action="{% url 'web:chronology:session-accept' session_id=session.pk %}?variant=c"
+                      action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}?variant=c"
                       class="mt-5 space-y-5">
                     {% csrf_token %}
                     {% tessera_field form.space %}

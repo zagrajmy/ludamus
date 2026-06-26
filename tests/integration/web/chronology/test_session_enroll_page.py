@@ -35,11 +35,15 @@ from tests.integration.utils import assert_response
 class TestSessionEnrollPageView:
     URL_NAME = "web:chronology:session-enrollment"
 
-    def _get_url(self, session_id: int) -> str:
-        return reverse(self.URL_NAME, kwargs={"session_id": session_id})
+    def _get_url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
 
     def test_get_get_ok(self, active_user, authenticated_client, agenda_item):
-        response = authenticated_client.get(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.get(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -74,7 +78,9 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.OFFERED,
         )
 
-        response = authenticated_client.get(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.get(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -99,8 +105,8 @@ class TestSessionEnrollPageView:
         field = response.context_data["form"].fields[f"user_{active_user.pk}"]
         assert ("cancel", "Decline offer") in list(field.choices)
 
-    def test_get_error_404(self, authenticated_client):
-        response = authenticated_client.get(self._get_url(17))
+    def test_get_error_404(self, authenticated_client, event):
+        response = authenticated_client.get(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -112,7 +118,9 @@ class TestSessionEnrollPageView:
     def test_get_unscheduled_session_rejected(
         self, authenticated_client, pending_session
     ):
-        response = authenticated_client.get(self._get_url(pending_session.pk))
+        response = authenticated_client.get(
+            self._get_url(pending_session.pk, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -134,7 +142,9 @@ class TestSessionEnrollPageView:
             start_time=faker.date_time_between("-10d", "-5d", tzinfo=time_zone),
             end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
         )
-        response = authenticated_client.post(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
@@ -163,7 +173,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -187,7 +197,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -205,7 +215,7 @@ class TestSessionEnrollPageView:
 
     def test_post_invalid_form(self, active_user, agenda_item, authenticated_client):
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "wrong data"},
         )
 
@@ -238,19 +248,21 @@ class TestSessionEnrollPageView:
     def test_post_error_please_select_at_least_one(
         self, agenda_item, authenticated_client
     ):
-        response = authenticated_client.post(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             messages=[(messages.WARNING, "Please select at least one user to enroll.")],
-            url=self._get_url(agenda_item.session.pk),
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
         )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_ok(self, staff_user, agenda_item, staff_client, event):
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -274,7 +286,7 @@ class TestSessionEnrollPageView:
         session.save()
 
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -299,7 +311,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -324,7 +336,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -357,7 +369,7 @@ class TestSessionEnrollPageView:
             mock_form_factory.return_value = mock_form_class
 
             response = authenticated_client.post(
-                self._get_url(agenda_item.session.pk),
+                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
                 data={f"user_{active_user.id}": "cancel"},
             )
 
@@ -385,7 +397,7 @@ class TestSessionEnrollPageView:
             session=agenda_item.session,
             status=SessionParticipationStatus.CONFIRMED,
         )
-        url = self._get_url(agenda_item.session.pk)
+        url = self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
         post_data = {f"user_{active_user.id}": "cancel"}
 
         clients = []
@@ -430,7 +442,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -456,11 +468,11 @@ class TestSessionEnrollPageView:
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post__error_conflict(
-        self, active_user, agenda_item, authenticated_client, event
-    ):
+    def test_post__error_conflict(self, active_user, agenda_item, authenticated_client):
         other_session = SessionFactory(
-            display_name=active_user.name, sphere=event.sphere, participants_limit=10
+            display_name=active_user.name,
+            event=agenda_item.session.event,
+            participants_limit=10,
         )
         AgendaItem.objects.create(
             session=other_session,
@@ -475,7 +487,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -522,7 +534,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -539,7 +551,8 @@ class TestSessionEnrollPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:session-enrollment", kwargs={"session_id": session.id}
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": session.event.slug, "session_id": session.id},
             ),
         )
 
@@ -562,7 +575,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={
                 f"user_{active_user.id}": "cancel",
                 f"user_{connected_user.id}": "enroll",
@@ -594,7 +607,7 @@ class TestSessionEnrollPageView:
         connected_user.is_active = False
         connected_user.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -603,7 +616,8 @@ class TestSessionEnrollPageView:
             HTTPStatus.FOUND,
             messages=[(messages.WARNING, "Please select at least one user to enroll.")],
             url=reverse(
-                "web:chronology:session-enrollment", kwargs={"session_id": session.id}
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": session.event.slug, "session_id": session.id},
             ),
         )
 
@@ -617,7 +631,7 @@ class TestSessionEnrollPageView:
         session.save()
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -644,7 +658,7 @@ class TestSessionEnrollPageView:
         space2 = SpaceFactory(area=area)
         time_slot = TimeSlotFactory(event=event)
 
-        session1 = SessionFactory(sphere=event.sphere)
+        session1 = SessionFactory(event=event)
         AgendaItemFactory(
             session=session1,
             space=space1,
@@ -657,7 +671,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
 
-        session2 = SessionFactory(sphere=event.sphere)
+        session2 = SessionFactory(event=event)
         AgendaItemFactory(
             session=session2,
             space=space2,
@@ -678,7 +692,10 @@ class TestSessionEnrollPageView:
             response = authenticated_client.post(
                 reverse(
                     "web:chronology:session-enrollment",
-                    kwargs={"session_id": session2.id},
+                    kwargs={
+                        "event_slug": session2.event.slug,
+                        "session_id": session2.id,
+                    },
                 ),
                 data={f"user_{active_user.id}": "enroll"},
             )
@@ -704,7 +721,8 @@ class TestSessionEnrollPageView:
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_no_user_selected(self, authenticated_client, agenda_item):
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk), data={}  # No user selections
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={},  # No user selections
         )
 
         assert_response(
@@ -713,7 +731,10 @@ class TestSessionEnrollPageView:
             messages=[(messages.WARNING, "Please select at least one user to enroll.")],
             url=reverse(
                 "web:chronology:session-enrollment",
-                kwargs={"session_id": agenda_item.session.id},
+                kwargs={
+                    "event_slug": agenda_item.session.event.slug,
+                    "session_id": agenda_item.session.id,
+                },
             ),
         )
 
@@ -723,7 +744,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -772,7 +793,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -818,7 +839,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "wrong"},
         )
 
@@ -866,7 +887,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={
                 f"user_{staff_user.id}": "enroll",
                 f"user_{connected_user.id}": "enroll",
@@ -923,7 +944,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -958,7 +979,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -1019,7 +1040,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -1054,7 +1075,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -1106,7 +1127,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -1137,7 +1158,7 @@ class TestSessionEnrollPageView:
             allowed_slots=1,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1154,7 +1175,7 @@ class TestSessionEnrollPageView:
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1200,7 +1221,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "waitlist"},
         )
 
@@ -1260,7 +1281,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1313,7 +1334,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1340,7 +1361,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1386,7 +1407,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.WAITING,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1437,7 +1458,7 @@ class TestSessionEnrollPageView:
             user=active_user, session=agenda_item.session, status="purchased"
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1462,7 +1483,7 @@ class TestSessionEnrollPageView:
             user=active_user, session=agenda_item.session, status="purchased"
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1504,12 +1525,14 @@ class TestSessionEnrollPageView:
         )
 
     def test_post__error_conflict_no_waitlist(
-        self, active_user, agenda_item, authenticated_client, enrollment_config, event
+        self, active_user, agenda_item, authenticated_client, enrollment_config
     ):
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         other_session = SessionFactory(
-            display_name=active_user.name, sphere=event.sphere, participants_limit=10
+            display_name=active_user.name,
+            event=agenda_item.session.event,
+            participants_limit=10,
         )
         AgendaItem.objects.create(
             session=other_session,
@@ -1524,7 +1547,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1571,7 +1594,7 @@ class TestSessionEnrollPageView:
             allowed_slots=0,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1617,7 +1640,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1680,7 +1703,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1725,7 +1748,7 @@ class TestSessionEnrollPageView:
         self, active_user, agenda_item, authenticated_client, event
     ):
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1778,7 +1801,7 @@ class TestSessionEnrollPageView:
             client.force_login(user)
             contenders.append((client, user.pk))
 
-        url = self._get_url(session.pk)
+        url = self._get_url(session.pk, session.event.slug)
         barrier = threading.Barrier(len(contenders))
 
         def enroll(client, user_pk):

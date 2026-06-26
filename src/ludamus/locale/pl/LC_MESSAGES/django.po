@@ -3359,7 +3359,7 @@ msgstr "Punkt programu"
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/panel/parts/import-tabs.html
 msgid "Review"
-msgstr "Przeglądaj"
+msgstr "Przegląd"
 
 #: src/ludamus/templates/chronology/propose/parts/category.html
 msgid "What would you like to propose?"
@@ -3789,7 +3789,7 @@ msgstr "Edycja"
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "No connected users yet"
-msgstr "Brak powiązanych użytkowników"
+msgstr "Brak powiązanych osób"
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "Add your first connected person using the form above."

@@ -51,7 +51,7 @@
                     <p class="mt-0.5 text-sm text-foreground-muted">{% translate "Select a space and time to add this session to the event agenda." %}</p>
                 </div>
                 <form method="post"
-                      action="{% url 'web:chronology:session-accept' session_id=session.pk %}?variant=b"
+                      action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}?variant=b"
                       class="space-y-5">
                     {% csrf_token %}
                     {% tessera_field form.space %}

@@ -694,6 +694,7 @@ test.describe('Backoffice Panel', () => {
     // Create
     await page
       .getByRole('link', { name: 'New Field' })
+      .first()
       .click();
     await page.locator('#id_name').fill('Email');
     await page
@@ -756,6 +757,7 @@ test.describe('Backoffice Panel', () => {
     // Create
     await page
       .getByRole('link', { name: 'New Field' })
+      .first()
       .click();
     await page.locator('#id_name').fill(fieldName);
     await page
@@ -2184,7 +2186,7 @@ test.describe('Backoffice Panel', () => {
     await expect(
       page.getByRole('button', { name: /Merge selected/ }),
     ).toHaveCount(0);
-    await expect(page.locator('.facilitator-checkbox')).toHaveCount(0);
+    await expect(page.getByRole('table').getByRole('checkbox')).toHaveCount(0);
   });
 
   test('merge link opens the merge page with no pre-selection', async ({

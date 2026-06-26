@@ -41,7 +41,7 @@
         </section>
         <hr class="border-border">
         <form method="post"
-              action="{% url 'web:chronology:session-accept' session_id=session.pk %}"
+              action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
               class="space-y-5">
             {% csrf_token %}
             {% tessera_field form.space %}

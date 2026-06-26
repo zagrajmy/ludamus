@@ -15,16 +15,12 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:facilitator-merge' slug=current_event.slug %}"
-               class="btn btn-secondary">
-                {% icon "funnel" class="w-4 h-4 mr-2" %}
-                {% translate "Merge facilitators" %}
-            </a>
-            <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
-               class="btn btn-primary">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "New Facilitator" %}
-            </a>
+            {% url 'panel:facilitator-merge' slug=current_event.slug as merge_url %}
+            {% translate "Merge facilitators" as t_merge %}
+            {% tessera_button t_merge href=merge_url variant="secondary" icon="funnel" %}
+            {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+            {% translate "New Facilitator" as t_new_facilitator %}
+            {% tessera_button t_new_facilitator href=create_url icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -83,11 +79,9 @@
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>
-                <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
-                   class="btn btn-primary inline-flex items-center">
-                    {% icon "plus" class="w-4 h-4 mr-2" %}
-                    {% translate "New Facilitator" %}
-                </a>
+                {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+                {% translate "New Facilitator" as t_new_facilitator %}
+                {% tessera_button t_new_facilitator href=create_url icon="plus" %}
             </div>
         {% endif %}
     {% else %}

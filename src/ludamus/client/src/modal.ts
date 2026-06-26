@@ -1,11 +1,3 @@
-import {
-  disablePageScroll,
-  enablePageScroll,
-  markScrollable,
-  unmarkScrollable,
-} from "@fluejs/noscroll";
-import { initTouchHandler, resetTouchHandler } from "@fluejs/noscroll/touch";
-
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
@@ -21,134 +13,13 @@ interface Navigation {
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
 const { navigation } = globalThis as { navigation?: Navigation };
 
-const scrollLockTargets = new Set<HTMLDialogElement>();
-const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
-let touchHandlerInitialized = false;
-
-// Page scroll lock for open modals. Two cooperating pieces, owned together so
-// they can never desync:
-//   1. `@fluejs/noscroll` disables page scroll and compensates for the
-//      scrollbar width (avoids a desktop layout shift when it disappears).
-//   2. A `position: fixed` body pin. iOS Safari ignores `overflow: hidden` on
-//      <body>, so the document keeps its scroll offset while a modal is open. A
-//      top-layer dialog opened over a scrolled document then hit-tests as if
-//      the page were at the top: taps on the visually-centred Close button land
-//      on the content behind the modal, so the X feels dead. Pinning the body
-//      and offsetting it by the prior scroll forces the document offset to 0,
-//      which truly locks iOS and realigns the modal's hit region. The scroll
-//      position is restored on unlock.
-let pageLocked = false;
-let pinnedScrollY = 0;
-let bodyPinned = false;
-
-// The `position: fixed` body pin (above) is only needed where `overflow: hidden`
-// on a scrolled <body> fails to lock the page and misaligns a top-layer dialog's
-// hit region — i.e. iOS / Safari. Everywhere else `disablePageScroll` alone
-// locks cleanly, and pinning the body would only shift layout (and, during a
-// View Transition, jitter). Restrict the pin like Vaul does.
-const needsBodyPin = (): boolean => {
-  const ua = navigator.userAgent;
-  const iOS =
-    /iP(hone|ad|od)/.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const safari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
-  return iOS || safari;
-};
-
-// While a morph View Transition is in flight, lock/unlock must not run between
-// the two snapshots (it would animate the scroll-offset change). The morph paths
-// lock before / unlock after the transition and suspend this helper in between.
-let scrollLockSuspended = false;
-
-const lockPage = (): void => {
-  if (pageLocked) return;
-  pinnedScrollY = window.scrollY;
-  if (needsBodyPin()) {
-    const { style } = document.body;
-    style.position = "fixed";
-    style.top = `-${pinnedScrollY}px`;
-    style.left = "0";
-    style.right = "0";
-    style.width = "100%";
-    bodyPinned = true;
-  }
-  disablePageScroll();
-  pageLocked = true;
-};
-
-const unlockPage = (): void => {
-  if (!pageLocked) return;
-  enablePageScroll();
-  pageLocked = false;
-  if (!bodyPinned) return;
-  const { style } = document.body;
-  style.position = "";
-  style.top = "";
-  style.left = "";
-  style.right = "";
-  style.width = "";
-  bodyPinned = false;
-  // Restore styles first, then scroll on the next frame (Vaul pattern) so the
-  // un-pin doesn't flash.
-  requestAnimationFrame(() => window.scrollTo(0, pinnedScrollY));
-};
-
-const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
-  const candidates = [dialog, ...dialog.querySelectorAll<HTMLElement>("*")];
-  return candidates.filter((element) => {
-    const { overflowY } = globalThis.getComputedStyle(element);
-    return (
-      (overflowY === "auto" || overflowY === "scroll") &&
-      element.scrollHeight > element.clientHeight
-    );
-  });
-};
-
-const syncPageScrollLock = (): void => {
-  if (scrollLockSuspended) return;
-  const openDialogs = [
-    ...document.querySelectorAll<HTMLDialogElement>("dialog.modal[open]"),
-  ];
-  const openDialogSet = new Set(openDialogs);
-
-  if (openDialogs.length > 0) {
-    lockPage();
-  }
-  if (openDialogs.length > 0 && !touchHandlerInitialized) {
-    initTouchHandler();
-    touchHandlerInitialized = true;
-  }
-
-  for (const dialog of openDialogs) {
-    if (scrollLockTargets.has(dialog)) continue;
-
-    const scrollables = getScrollableElements(dialog);
-    if (scrollables.length > 0) {
-      markScrollable(scrollables);
-      markedScrollables.set(dialog, scrollables);
-    }
-    scrollLockTargets.add(dialog);
-  }
-
-  for (const dialog of scrollLockTargets) {
-    if (openDialogSet.has(dialog)) continue;
-
-    const scrollables = markedScrollables.get(dialog);
-    if (scrollables && scrollables.length > 0) {
-      unmarkScrollable(scrollables);
-    }
-    markedScrollables.delete(dialog);
-    scrollLockTargets.delete(dialog);
-  }
-
-  if (openDialogs.length === 0) {
-    unlockPage();
-    if (touchHandlerInitialized) {
-      resetTouchHandler();
-      touchHandlerInitialized = false;
-    }
-  }
-};
+// The page scroll is locked while any modal is open by a pure-CSS rule —
+// `body:has(dialog.modal[open]) .app-scroll { overflow: hidden }` (index.css).
+// Freezing the app-shell scroll container keeps its offset and moves nothing, so
+// there is no body pin, no scroll save/restore, and nothing for this module to
+// do: the lock can never desync from whether a modal is open. (The document
+// never scrolls under the app-shell, so a top-layer dialog always hit-tests
+// correctly — the iOS dead-Close-button case can't arise.)
 
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
@@ -252,28 +123,20 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   }
 };
 
-// One owner for the morph protocol so open and close can't drift and the
-// scroll-lock ordering is enforced once: run `before` (pre-capture — lock the
-// page / name the outgoing side), suspend the scroll-lock sync so the
-// synchronous `close` event and the body mutation can't land between the two
-// snapshots, swap the DOM inside the View Transition, then on `finished` run
-// `settle` and resume the lock. `before`/`swap`/`settle` carry the only parts
-// that differ between the two directions.
+// One owner for the morph protocol so open and close can't drift: run `before`
+// (pre-capture — name the outgoing side), swap the DOM inside the View
+// Transition, then on `finished` run `settle`. `before`/`swap`/`settle` carry
+// the only parts that differ between the two directions. The page-scroll lock is
+// pure CSS (see top of file), so there is no lock ordering to coordinate here.
 const morphTransition = (steps: {
   before: () => void;
   settle: () => void;
   swap: () => void;
 }): void => {
   steps.before();
-  scrollLockSuspended = true;
   const transition = startViewTransition(steps.swap);
-  const finish = (): void => {
-    steps.settle();
-    scrollLockSuspended = false;
-    syncPageScrollLock();
-  };
-  if (transition) void transition.finished.finally(finish);
-  else finish();
+  if (transition) void transition.finished.finally(steps.settle);
+  else steps.settle();
 };
 
 // Non-session modals (anonymous code, proposals) snapshot themselves and blur
@@ -294,19 +157,13 @@ const openModal = (
   { animate = true, replaceHistory = false, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
-  if (dialog.open) {
-    syncPageScrollLock();
-  } else {
+  if (!dialog.open) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        // Lock scroll before the capture so the body mutation lands in the old
-        // snapshot, not the animated delta; name the card's shared elements so
-        // the new snapshot morphs card -> modal.
-        before: () => {
-          lockPage();
-          setMorph(card, true);
-        },
+        // Name the card's shared elements so the new snapshot morphs
+        // card -> modal. (Scroll locking is pure CSS, keyed off the open dialog.)
+        before: () => setMorph(card, true),
         settle: () => {
           setMorph(dialog, false);
           card.style.visibility = "";
@@ -327,7 +184,6 @@ const openModal = (
       });
     } else {
       dialog.showModal();
-      syncPageScrollLock();
     }
   }
 
@@ -362,7 +218,6 @@ const closeModal = (
       });
     } else {
       dismissDialog(dialog);
-      syncPageScrollLock();
     }
   }
 
@@ -423,23 +278,6 @@ document.addEventListener(
   },
   true,
 );
-
-document.addEventListener("close", syncPageScrollLock, true);
-
-window.addEventListener("pagehide", () => {
-  for (const scrollables of markedScrollables.values()) {
-    if (scrollables.length > 0) {
-      unmarkScrollable(scrollables);
-    }
-  }
-  markedScrollables.clear();
-  scrollLockTargets.clear();
-  unlockPage();
-  if (touchHandlerInitialized) {
-    resetTouchHandler();
-    touchHandlerInitialized = false;
-  }
-});
 
 if (navigation) {
   navigation.addEventListener("navigate", (e) => {

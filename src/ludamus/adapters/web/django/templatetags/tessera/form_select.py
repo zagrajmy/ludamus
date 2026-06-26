@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
-from ._choices import single_required_choice
+from ._choices import render_forced_choice, single_required_choice
 
 if TYPE_CHECKING:
     from django.forms import BoundField
@@ -18,18 +18,8 @@ def render_select(field: BoundField) -> str:
     Returns:
         HTML string of the select element.
     """
-    forced = single_required_choice(field)
-    if forced is not None:
-        value, label = forced
-        return render_to_string(
-            "components/forced-choice.html",
-            {
-                "name": field.html_name,
-                "id": field.id_for_label,
-                "value": value,
-                "label": label,
-            },
-        )
+    if (forced := single_required_choice(field)) is not None:
+        return render_forced_choice(field, forced)
     return render_to_string(
         "components/select.html",
         {
@@ -38,6 +28,7 @@ def render_select(field: BoundField) -> str:
             "groups": _grouped_choices(field),
             "selected": field.value(),
             "required": field.field.required,
+            "disabled": field.field.disabled,
             "has_errors": bool(field.errors),
         },
     )

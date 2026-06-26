@@ -30,7 +30,10 @@ class DjangoUserNotifier:
     def notify_promoted(self, notification: PromotionNotification) -> None:
         url = reverse(
             "web:chronology:session-enrollment",
-            kwargs={"session_id": notification.session_id},
+            kwargs={
+                "event_slug": notification.event_slug,
+                "session_id": notification.session_id,
+            },
         )
         title = _("You're in: a spot opened in %(session)s") % {
             "session": notification.session_title
@@ -96,7 +99,10 @@ class DjangoUserNotifier:
                 body=body,
                 url=reverse(
                     "web:chronology:session-enrollment",
-                    kwargs={"session_id": notification.session_id},
+                    kwargs={
+                        "event_slug": notification.event_slug,
+                        "session_id": notification.session_id,
+                    },
                 ),
                 payload={"session_id": notification.session_id},
             ),
