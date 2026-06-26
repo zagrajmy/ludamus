@@ -25,3 +25,10 @@ def test_non_vite_assets_keep_django_manifest_hash(settings, tmp_path):
     assert hashed_name.startswith("favicon.")
     assert hashed_name.endswith(".ico")
     assert hashed_name != "favicon.ico"
+
+
+def test_file_hash_handles_none_name(settings, tmp_path):
+    settings.WHITENOISE_MANIFEST_STRICT = False
+    storage = ViteAwareCompressedManifestStaticFilesStorage(location=str(tmp_path))
+
+    assert storage.file_hash(None, ContentFile(b"{}")) is not None
