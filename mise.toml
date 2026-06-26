@@ -1,4 +1,5 @@
 [settings]
+experimental = true
 jobs = 1
 
 [hooks]
