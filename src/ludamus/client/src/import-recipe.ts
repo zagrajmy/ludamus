@@ -80,10 +80,7 @@ function syncTarget(select: HTMLSelectElement): void {
     "hidden",
     select.value !== DURATION_TARGET,
   );
-  rowElement(".recipe-overrides", row)?.classList.toggle(
-    "hidden",
-    select.value === "ignore",
-  );
+  rowElement(".recipe-overrides", row)?.classList.toggle("hidden", select.value === "ignore");
 }
 
 function syncFieldType(select: HTMLSelectElement): void {
@@ -184,14 +181,10 @@ document.addEventListener("click", (e) => {
 });
 
 function initRecipe(): void {
-  for (const target of document.querySelectorAll<HTMLSelectElement>(
-    ".recipe-target",
-  )) {
+  for (const target of document.querySelectorAll<HTMLSelectElement>(".recipe-target")) {
     syncTarget(target);
   }
-  for (const fieldType of document.querySelectorAll<HTMLSelectElement>(
-    ".recipe-fieldtype",
-  )) {
+  for (const fieldType of document.querySelectorAll<HTMLSelectElement>(".recipe-fieldtype")) {
     syncFieldType(fieldType);
   }
   // Lock every populated slug in a confirmed row from name-driven auto-sync.
@@ -214,12 +207,8 @@ function initRecipe(): void {
 // selection.
 function initUniqueKeys(root: HTMLElement): void {
   const list = root.querySelector<HTMLElement>("[data-unique-keys-list]");
-  const select = root.querySelector<HTMLSelectElement>(
-    "[data-unique-keys-select]",
-  );
-  const addBtn = root.querySelector<HTMLButtonElement>(
-    "[data-unique-keys-add]",
-  );
+  const select = root.querySelector<HTMLSelectElement>("[data-unique-keys-select]");
+  const addBtn = root.querySelector<HTMLButtonElement>("[data-unique-keys-add]");
   if (!list || !select || !addBtn) return;
 
   const removeEmpty = (): void => {
@@ -278,14 +267,10 @@ function initUniqueKeys(root: HTMLElement): void {
     return li;
   };
 
-  for (const btn of list.querySelectorAll<HTMLButtonElement>(
-    "[data-unique-keys-remove]",
-  )) {
+  for (const btn of list.querySelectorAll<HTMLButtonElement>("[data-unique-keys-remove]")) {
     btn.addEventListener("click", () => {
       const li = btn.closest<HTMLLIElement>("li");
-      const value = li?.querySelector<HTMLInputElement>(
-        "input[name='unique_key_columns']",
-      )?.value;
+      const value = li?.querySelector<HTMLInputElement>("input[name='unique_key_columns']")?.value;
       if (li && value) removeChip(li, value);
     });
   }
@@ -301,9 +286,7 @@ function initUniqueKeys(root: HTMLElement): void {
 }
 
 function initUniqueKeysAll(): void {
-  for (const element of document.querySelectorAll<HTMLElement>(
-    "[data-unique-keys]",
-  )) {
+  for (const element of document.querySelectorAll<HTMLElement>("[data-unique-keys]")) {
     initUniqueKeys(element);
   }
 }

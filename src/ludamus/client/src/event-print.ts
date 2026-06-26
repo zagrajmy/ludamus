@@ -23,9 +23,7 @@ function isEditing(target: EventTarget | null): boolean {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  const isPrintCombo =
-    (event.metaKey || event.ctrlKey) &&
-    (event.key === "p" || event.key === "P");
+  const isPrintCombo = (event.metaKey || event.ctrlKey) && (event.key === "p" || event.key === "P");
   if (!isPrintCombo || event.altKey || event.shiftKey) return;
   // Don't steal the gesture mid-edit — navigating away would discard input.
   if (isEditing(event.target)) return;

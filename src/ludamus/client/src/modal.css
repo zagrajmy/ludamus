@@ -65,11 +65,7 @@
   }
 
   .modal[open]::backdrop {
-    background-color: color-mix(
-      in srgb,
-      var(--color-background) 50%,
-      transparent
-    );
+    background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
     backdrop-filter: blur(4px);
   }
 

@@ -40,6 +40,21 @@ local linters = new Mapping<String, Step> {
     check = "djlint {{files}} --profile=django"
   }
 
+  // --- Frontend (JS/TS/CSS) — oxfmt replaces prettier; Tailwind sorting via .oxfmtrc.json ---
+  ["oxfmt"] = (Builtins.oxfmt) {
+    glob = List(
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.mts",
+      "**/*.cts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/*.css",
+    )
+  }
+
   // --- Config / infra ---
   ["yamllint"] = Builtins.yamllint
   ["actionlint"] = Builtins.actionlint

@@ -47,8 +47,7 @@ const makeArgs = ({
   const calls: Call[] = [];
   const core = {
     info: (message: string) => calls.push(["info", message]),
-    setOutput: (name: string, value: string) =>
-      calls.push(["output", name, value]),
+    setOutput: (name: string, value: string) => calls.push(["output", name, value]),
   };
   const github: ActionArgs["github"] = {
     paginate: async (
@@ -190,9 +189,7 @@ test("does not redeploy a fork PR on synchronize", async () => {
 
   await staging.handlePullRequest(args);
 
-  assert.deepEqual(args.calls, [
-    ["info", "Skipping staging deploy for fork PR #3"],
-  ]);
+  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
 });
 
 test("stale explicit dispatch does not remove another PR staging label", async () => {
@@ -212,10 +209,7 @@ test("stale explicit dispatch does not remove another PR staging label", async (
   assert.deepEqual(args.calls, [
     ["output", "sha", "old-head-sha"],
     ["output", "should_deploy", "false"],
-    [
-      "info",
-      "PR #1 head new-head-sha no longer matches requested old-head-sha",
-    ],
+    ["info", "PR #1 head new-head-sha no longer matches requested old-head-sha"],
   ]);
 });
 
@@ -431,10 +425,7 @@ test("manual dispatch with several associated PRs refuses without mutating label
   assert.deepEqual(args.calls, [
     ["output", "sha", "manual-sha"],
     ["output", "should_deploy", "false"],
-    [
-      "info",
-      "Multiple open PRs for manual-sha; pass pr_number to disambiguate",
-    ],
+    ["info", "Multiple open PRs for manual-sha; pass pr_number to disambiguate"],
   ]);
 });
 
@@ -537,9 +528,7 @@ test("does not dispatch staging deploys for fork pull requests", async () => {
 
   await staging.handlePullRequest(args);
 
-  assert.deepEqual(args.calls, [
-    ["info", "Skipping staging deploy for fork PR #3"],
-  ]);
+  assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
 });
 
 test("does not dispatch or mutate labels for closed pull requests", async () => {

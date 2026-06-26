@@ -18,13 +18,12 @@
   "tailwindCSS.experimental.configFile": "src/ludamus/client/src/index.css",
   "html.format.enable": false,
   "[css]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "oxc.oxc-vscode"
   },
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "oxc.oxc-vscode"
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "prettier.ignorePath": ".prettierignore"
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  }
 }

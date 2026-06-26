@@ -11,9 +11,7 @@ const settleViewTransitions = (page: Page): Promise<void> =>
         !document
           .getAnimations()
           .some((a) =>
-            (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith(
-              "::view-transition",
-            ),
+            (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
           ),
     )
     .then(() => undefined);
@@ -23,12 +21,8 @@ test.describe("Event detail page", () => {
     await page.goto("/chronology/event/autumn-open/");
   });
 
-  test("shows event information and enrollment status pill", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByRole("heading", { name: "Autumn Open Playtest" }),
-    ).toBeVisible();
+  test("shows event information and enrollment status pill", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: "Autumn Open Playtest" })).toBeVisible();
 
     // Status pills are capped at two. This event has enrollment and proposals
     // open, so those win and the lower-priority "Upcoming" pill is dropped.
@@ -38,9 +32,7 @@ test.describe("Event detail page", () => {
     await expect(page.getByText("Upcoming")).toHaveCount(0);
   });
 
-  test("renders session cards with locations and opens detail modal", async ({
-    page,
-  }) => {
+  test("renders session cards with locations and opens detail modal", async ({ page }) => {
     const sessionCards = page.getByRole("article");
     await expect(sessionCards).toHaveCount(3);
 
@@ -69,10 +61,7 @@ test.describe("Event detail page", () => {
     browser,
     browserName,
   }) => {
-    test.skip(
-      browserName === "firefox",
-      "Firefox does not support mobile emulation",
-    );
+    test.skip(browserName === "firefox", "Firefox does not support mobile emulation");
     const context = await browser.newContext({
       ...devices["iPhone 14 Pro"],
       baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8000",
@@ -80,9 +69,7 @@ test.describe("Event detail page", () => {
     const page = await context.newPage();
 
     await page.goto("/chronology/event/autumn-open/");
-    await page
-      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
-      .click();
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
 
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
@@ -126,10 +113,7 @@ test.describe("Event detail page", () => {
     browser,
     browserName,
   }) => {
-    test.skip(
-      browserName === "firefox",
-      "Firefox does not support mobile emulation",
-    );
+    test.skip(browserName === "firefox", "Firefox does not support mobile emulation");
     const context = await browser.newContext({
       ...devices["iPhone 14 Pro"],
       baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8000",
@@ -195,10 +179,7 @@ test.describe("Event detail page", () => {
       .poll(() =>
         closeButton.evaluate((close) => {
           const r = close.getBoundingClientRect();
-          const hit = document.elementFromPoint(
-            r.x + r.width / 2,
-            r.y + r.height / 2,
-          );
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
           return !!(hit && hit.closest("[data-modal-close]"));
         }),
       )
@@ -231,10 +212,7 @@ test.describe("Event detail page", () => {
     browser,
     browserName,
   }) => {
-    test.skip(
-      browserName === "firefox",
-      "Firefox does not support mobile emulation",
-    );
+    test.skip(browserName === "firefox", "Firefox does not support mobile emulation");
     const context = await browser.newContext({
       ...devices["iPhone 14 Pro"],
       baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8000",
@@ -265,14 +243,11 @@ test.describe("Event detail page", () => {
       if (!description) throw new Error("Missing session description");
       description.innerHTML = Array.from(
         { length: 28 },
-        (_, index) =>
-          `<p>Long mobile session description paragraph ${index + 1}.</p>`,
+        (_, index) => `<p>Long mobile session description paragraph ${index + 1}.</p>`,
       ).join("");
     }, sessionId);
 
-    await page
-      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
-      .click();
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
     });
@@ -282,13 +257,8 @@ test.describe("Event detail page", () => {
       const dialog = document.querySelector("dialog[open]");
       // The scroll container has no role of its own; it's the parent of the
       // tab panels, so reach it through them rather than a class hook.
-      const tabContent =
-        dialog?.querySelector('[role="tabpanel"]')?.parentElement;
-      if (
-        !(dialog instanceof HTMLElement) ||
-        !(tabContent instanceof HTMLElement)
-      )
-        return null;
+      const tabContent = dialog?.querySelector('[role="tabpanel"]')?.parentElement;
+      if (!(dialog instanceof HTMLElement) || !(tabContent instanceof HTMLElement)) return null;
 
       const dialogBox = dialog.getBoundingClientRect();
       const tabContentBox = tabContent.getBoundingClientRect();
@@ -302,19 +272,14 @@ test.describe("Event detail page", () => {
     if (mobileModalLayout === null) {
       throw new Error("Mobile modal layout metrics were unavailable");
     }
-    expect(mobileModalLayout.dialogHeight).toBeGreaterThan(
-      mobileModalLayout.viewportHeight * 0.75,
-    );
+    expect(mobileModalLayout.dialogHeight).toBeGreaterThan(mobileModalLayout.viewportHeight * 0.75);
     expect(mobileModalLayout.tabContentHeight).toBeGreaterThan(240);
 
     const touchMoveAllowed = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      const activePanel = dialog?.querySelector(
-        '[role="tabpanel"][data-active]',
-      );
+      const activePanel = dialog?.querySelector('[role="tabpanel"][data-active]');
       const text = activePanel?.querySelector("p");
-      if (!dialog || !(activePanel instanceof HTMLElement) || !text)
-        return false;
+      if (!dialog || !(activePanel instanceof HTMLElement) || !text) return false;
 
       const start = new Event("touchstart", {
         bubbles: true,
@@ -333,10 +298,7 @@ test.describe("Event detail page", () => {
       text.dispatchEvent(start);
       text.dispatchEvent(move);
 
-      return (
-        activePanel.scrollHeight > activePanel.clientHeight &&
-        !move.defaultPrevented
-      );
+      return activePanel.scrollHeight > activePanel.clientHeight && !move.defaultPrevented;
     });
     expect(touchMoveAllowed).toBe(true);
 
@@ -352,22 +314,16 @@ test.describe("Anonymous code modal", () => {
     // banner with "Enter Different Code" only renders for active anonymous
     // sessions on /chronology/event/<slug>/.
     await page.goto("/chronology/event/autumn-open/anonymous/do/activate");
-    await expect(
-      page.getByRole("heading", { name: "Anonymous Mode Active" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Anonymous Mode Active" })).toBeVisible();
   });
 
-  test("opens the code-entry dialog from the banner and cancels back out", async ({
-    page,
-  }) => {
+  test("opens the code-entry dialog from the banner and cancels back out", async ({ page }) => {
     await page.getByRole("link", { name: /Enter Different Code/ }).click();
 
     const dialog = page.getByRole("dialog", { name: "Enter Different Code" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Anonymous Code")).toBeVisible();
-    await expect(
-      dialog.getByRole("button", { name: "Switch to This Code" }),
-    ).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Switch to This Code" })).toBeVisible();
 
     const pageScrollLocked = await page.evaluate(() => {
       const bodyOverflow = getComputedStyle(document.body).overflowY;
@@ -390,9 +346,7 @@ test.describe("Anonymous code modal", () => {
     await expect(dialog).toBeHidden();
   });
 
-  test("rejects an unknown code with a flash message and stays on the event", async ({
-    page,
-  }) => {
+  test("rejects an unknown code with a flash message and stays on the event", async ({ page }) => {
     await page.getByRole("link", { name: /Enter Different Code/ }).click();
     const dialog = page.getByRole("dialog", { name: "Enter Different Code" });
     await dialog.getByLabel("Anonymous Code").fill("zzzz99");
