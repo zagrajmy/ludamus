@@ -46,8 +46,9 @@ def render_input(field: BoundField) -> str:
             "readonly": attrs.get("readonly", False),
             "placeholder": attrs.get("placeholder", ""),
             "maxlength": attrs.get("maxlength", ""),
-            "inputmode": attrs.get("inputmode")
-            or _INPUTMODE_BY_TYPE.get(input_type, ""),
+            "inputmode": (
+                attrs.get("inputmode") or _INPUTMODE_BY_TYPE.get(input_type, "")
+            ),
             "pattern": attrs.get("pattern", ""),
             "autocomplete": attrs.get("autocomplete", ""),
             "spellcheck": spellcheck or "",
