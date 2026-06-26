@@ -12,7 +12,8 @@ interface Navigation {
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
 const { navigation } = globalThis as { navigation?: Navigation };
-let ignoredModalNavigationUrl: string | null = null;
+
+const openingModals = new Set<string>();
 
 // The page scroll is locked while any modal is open by a pure-CSS rule —
 // `body:has(dialog.modal[open]) .app-scroll { overflow: hidden }` (index.css).
@@ -51,11 +52,7 @@ const updateQueryParam = (
     globalThis.history.replaceState({}, "", url);
     return;
   }
-  ignoredModalNavigationUrl = url.href;
   globalThis.history.pushState({}, "", url);
-  setTimeout(() => {
-    if (ignoredModalNavigationUrl === url.href) ignoredModalNavigationUrl = null;
-  }, 0);
 };
 
 const getLinkableByModalId = (
@@ -175,14 +172,16 @@ const openModal = (
   { animate = true, replaceHistory = false, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
-  if (!dialog.open) {
+  if (!dialog.open && !openingModals.has(id)) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
+      openingModals.add(id);
       morphTransition({
         // Name the card's shared elements so the new snapshot morphs
         // card -> modal. (Scroll locking is pure CSS, keyed off the open dialog.)
         before: () => setMorph(card, true),
         settle: () => {
+          openingModals.delete(id);
           setMorph(dialog, false);
           card.style.visibility = "";
           card.style.transition = "";
@@ -302,10 +301,6 @@ if (navigation) {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
     const url = new URL(e.destination.url);
-    if (url.href === ignoredModalNavigationUrl) {
-      ignoredModalNavigationUrl = null;
-      return;
-    }
     if (url.origin !== location.origin || url.pathname !== location.pathname)
       return;
 
