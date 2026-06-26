@@ -1,9 +1,6 @@
 import type { Page } from "@playwright/test";
 import { devices, expect, test } from "@playwright/test";
 
-// Session modals open/close with a View Transition morph. While it runs, the
-// `::view-transition` overlay is the topmost layer, so wait for it to settle
-// before hit-testing or reading the post-transition scroll position.
 const settleViewTransitions = (page: Page): Promise<void> =>
   page
     .waitForFunction(
@@ -30,9 +27,6 @@ test.describe("Event detail page", () => {
       page.getByRole("heading", { name: "Autumn Open Playtest" }),
     ).toBeVisible();
 
-    // Status pills are capped at two. This event has enrollment and proposals
-    // open, so those win and the lower-priority "Upcoming" pill is dropped.
-    // Enrollment status is a compact pill in the hero, not a full-width banner.
     await expect(page.getByText("Enrollment Open")).toBeVisible();
     await expect(page.getByText("Proposals Open")).toBeVisible();
     await expect(page.getByText("Upcoming")).toHaveCount(0);
@@ -65,6 +59,28 @@ test.describe("Event detail page", () => {
     await expect(detailDialog).toBeHidden();
   });
 
+  test("opening session modal does not log Transition was skipped", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      pageErrors.push(error.message);
+    });
+
+    await page
+      .getByRole("link", { name: "Open details for Mega Strategy Lab" })
+      .click();
+
+    await expect(
+      page.getByRole("dialog", { name: "Mega Strategy Lab" }),
+    ).toBeVisible();
+    await settleViewTransitions(page);
+
+    expect(
+      pageErrors.filter((message) => message.includes("Transition was skipped")),
+    ).toEqual([]);
+  });
+
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
     browser,
     browserName,
@@ -87,8 +103,6 @@ test.describe("Event detail page", () => {
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
     });
-    // Wait for the open morph to settle rather than a fixed sleep — its timing
-    // drifts between engines and under CI load.
     await expect(detailDialog).toBeVisible();
     await settleViewTransitions(page);
 
@@ -102,9 +116,6 @@ test.describe("Event detail page", () => {
     });
     expect(pageScrollLocked).toBe(true);
 
-    // iOS turns the start of a tap into a touchmove. The page-scroll lock
-    // must not cancel touchmoves on modal controls, because that makes the
-    // Close button untappable on iOS. Verify it's allowed now.
     const closeTouchMoveAllowed = await closeButton.evaluate((close) => {
       const move = new Event("touchmove", { bubbles: true, cancelable: true });
       Object.defineProperties(move, {
@@ -138,12 +149,6 @@ test.describe("Event detail page", () => {
 
     await page.goto("/chronology/event/autumn-open/");
 
-    // The app-shell keeps the page scroll on #app-scroll, so the *document*
-    // never scrolls — a top-layer dialog always hit-tests over an unscrolled
-    // document, and the iOS dead-Close-button case can't arise by construction.
-    // Scroll the container deep (a spacer guarantees range), then open the modal
-    // with a scripted click so Playwright does not auto-scroll the trigger into
-    // view and reset the offset we set up here.
     const scrolledTop = await page.evaluate(() => {
       const root = document.getElementById("app-scroll");
       if (!root) return -1;
@@ -166,13 +171,8 @@ test.describe("Event detail page", () => {
       name: "Cozy Storytellers Circle",
     });
     await expect(detailDialog).toBeVisible();
-    // Let the open morph finish so the live Close button — not the transition
-    // snapshot overlay — is the hit-test target.
     await settleViewTransitions(page);
 
-    // While the modal is open the background is locked by freezing #app-scroll's
-    // overflow. The document offset is 0 (it always is under the app-shell) so
-    // the modal's hit region lines up with what's drawn — no body pin required.
     const locked = await page.evaluate(() => {
       const root = document.getElementById("app-scroll");
       return {
@@ -185,10 +185,6 @@ test.describe("Event detail page", () => {
     expect(locked.documentScrollY).toBe(0);
     expect(locked.bodyPosition).not.toBe("fixed");
 
-    // The Close button is the real hit-test target at its own centre. Poll: the
-    // open morph briefly paints a View Transition overlay on top (settle timing
-    // differs across engines), and we only care that the button is hittable once
-    // it clears — which is the actual iOS hit-region guarantee under test.
     const closeButton = detailDialog.getByRole("button", { name: "Close" });
     await expect(closeButton).toBeInViewport();
     await expect
@@ -207,9 +203,6 @@ test.describe("Event detail page", () => {
     await closeButton.click();
     await expect(detailDialog).toBeHidden();
     await settleViewTransitions(page);
-    // Unlock restores the container's overflow, and its scroll offset is
-    // unchanged — freezing a scroller preserves its position, so there is
-    // nothing to restore and nothing to jump.
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -250,8 +243,6 @@ test.describe("Event detail page", () => {
     const page = await context.newPage();
 
     await page.goto("/chronology/event/autumn-open/");
-    // Derive the modal id from the card's accessible link (aria-controls =
-    // "session-<pk>") rather than a class hook.
     const controls = await page
       .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
       .getAttribute("aria-controls");
@@ -280,8 +271,6 @@ test.describe("Event detail page", () => {
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      // The scroll container has no role of its own; it's the parent of the
-      // tab panels, so reach it through them rather than a class hook.
       const tabContent =
         dialog?.querySelector('[role="tabpanel"]')?.parentElement;
       if (
@@ -348,9 +337,6 @@ test.describe("Event detail page", () => {
 
 test.describe("Anonymous code modal", () => {
   test.beforeEach(async ({ page }) => {
-    // Drop into anonymous-enrollment mode for an event that allows it; the
-    // banner with "Enter Different Code" only renders for active anonymous
-    // sessions on /chronology/event/<slug>/.
     await page.goto("/chronology/event/autumn-open/anonymous/do/activate");
     await expect(
       page.getByRole("heading", { name: "Anonymous Mode Active" }),

@@ -2,7 +2,11 @@ interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
   hashChange: boolean;
-  intercept: () => void;
+  intercept: (options?: {
+    focusReset?: "after-transition" | "manual";
+    handler?: () => Promise<void> | void;
+    scroll?: "after-transition" | "manual";
+  }) => void;
   navigationType: "push" | "reload" | "replace" | "traverse";
 }
 
@@ -15,13 +19,6 @@ const { navigation } = globalThis as { navigation?: Navigation };
 
 const openingModals = new Set<string>();
 
-// The page scroll is locked while any modal is open by a pure-CSS rule —
-// `body:has(dialog.modal[open]) .app-scroll { overflow: hidden }` (index.css).
-// Freezing the app-shell scroll container keeps its offset and moves nothing, so
-// there is no body pin, no scroll save/restore, and nothing for this module to
-// do: the lock can never desync from whether a modal is open. (The document
-// never scrolls under the app-shell, so a top-layer dialog always hit-tests
-// correctly — the iOS dead-Close-button case can't arise.)
 
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
@@ -92,18 +89,8 @@ const startViewTransition = (callback: () => void): ViewTransition | null => {
   return doc.startViewTransition(callback);
 };
 
-// A view transition rejects `finished` with an AbortError ("Transition was
-// skipped") when it's interrupted — e.g. a second one starts before it ends.
-// That's expected, so swallow it instead of letting it surface as uncaught.
-const ignoreSkippedTransition = (): void => {
-  /* expected on interruption */
-};
+const ignoreSkippedTransition = (): undefined => undefined;
 
-// Shared name that both the session card and its detail modal take on, but only
-// for the duration of a transition (assigned here, cleared in `finished`). With
-// the same name on the outgoing and incoming element, the browser tweens the
-// card's box into the modal's and cross-fades their contents — a layout/
-// shared-element transition with no animation library.
 const MORPH_NAME = "session-morph";
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
@@ -120,11 +107,6 @@ const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   typeof (document as Document & ViewTransitionDocument).startViewTransition ===
     "function";
 
-// Assign (or clear) the shared view-transition-names that drive the morph: the
-// surface itself (card <-> modal box) plus each `data-morph` element (title,
-// author, avatar) so they fly to their counterpart's position instead of
-// cross-fading inside the box. Names are constant — only one card/modal pair
-// holds them at a time — so modal.css can target the groups for timing.
 const setMorph = (root: HTMLElement, active: boolean): void => {
   root.style.viewTransitionName = active ? MORPH_NAME : "";
   for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
@@ -132,69 +114,57 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   }
 };
 
-// One owner for the morph protocol so open and close can't drift: run `before`
-// (pre-capture — name the outgoing side), swap the DOM inside the View
-// Transition, then on `finished` run `settle`. `before`/`swap`/`settle` carry
-// the only parts that differ between the two directions. The page-scroll lock is
-// pure CSS (see top of file), so there is no lock ordering to coordinate here.
 const morphTransition = (steps: {
   before: () => void;
   settle: () => void;
   swap: () => void;
-}): void => {
+}): Promise<void> => {
   steps.before();
   const transition = startViewTransition(steps.swap);
-  // `finished` rejects ("Transition was skipped") when a transition is
-  // interrupted — e.g. a second one starts before this finishes. settle must
-  // still run to clear the morph names and restore the card, so swallow the
-  // skip rejection first; otherwise it surfaces as an uncaught AbortError.
-  if (transition) void transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
-  else steps.settle();
+  if (!transition) {
+    steps.settle();
+    return Promise.resolve();
+  }
+  return transition.finished
+    .catch(ignoreSkippedTransition)
+    .finally(steps.settle);
 };
 
-// Non-session modals (anonymous code, proposals) snapshot themselves and blur
-// out via ::view-transition-old(app-modal); instant close where unsupported.
 const dismissDialog = (dialog: HTMLDialogElement): void => {
   if (!dialog.open) return;
   if (prefersReducedMotion()) {
     dialog.close();
     return;
   }
-  // Swallow the skip rejection (see morphTransition) so an interrupted blur
-  // close doesn't surface as an uncaught AbortError.
   startViewTransition(() => {
     dialog.close();
   })?.finished.catch(ignoreSkippedTransition);
 };
 
-const openModal = (
+const openModal = async (
   id: string,
   { animate = true, replaceHistory = false, updateUrl = true } = {},
-): void => {
+): Promise<void> => {
   const dialog = getDialog(id);
+  let morphPromise: Promise<void> | null = null;
   if (!dialog.open && !openingModals.has(id)) {
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       openingModals.add(id);
-      morphTransition({
-        // Name the card's shared elements so the new snapshot morphs
-        // card -> modal. (Scroll locking is pure CSS, keyed off the open dialog.)
-        before: () => setMorph(card, true),
+      morphPromise = morphTransition({
+        before: () => {
+          card.classList.add("morph-source");
+          setMorph(card, true);
+        },
         settle: () => {
           openingModals.delete(id);
+          card.classList.remove("morph-source");
           setMorph(dialog, false);
-          card.style.visibility = "";
           card.style.transition = "";
         },
         swap: () => {
           setMorph(card, false);
-          // Hide the source card once its snapshot is captured, so it doesn't
-          // show through the cross-fading modal from behind and read as a
-          // duplicate. `transition: none` defeats the card's `duration-100`
-          // transition, which would otherwise swallow the change before the new
-          // snapshot is taken.
           card.style.transition = "none";
-          card.style.visibility = "hidden";
           dialog.showModal();
           setMorph(dialog, true);
         },
@@ -212,6 +182,8 @@ const openModal = (
       });
     }
   }
+
+  if (morphPromise) await morphPromise;
 };
 
 const closeModal = (
@@ -223,8 +195,6 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        // Old snapshot holds the modal; the swap hands the names back to the
-        // card so it collapses into the card.
         before: () => setMorph(dialog, true),
         settle: () => setMorph(card, false),
         swap: () => {
@@ -252,6 +222,8 @@ const closeModal = (
 };
 
 const syncModalsFromUrl = (): void => {
+  if (openingModals.size > 0) return;
+
   const searchParams = new URLSearchParams(globalThis.location.search);
 
   for (const dialog of document.querySelectorAll("dialog.modal[open]")) {
@@ -273,7 +245,7 @@ const syncModalsFromUrl = (): void => {
     const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
-        openModal(modalId, { animate: false, updateUrl: false });
+        void openModal(modalId, { animate: false, updateUrl: false });
         return;
       }
     }
@@ -326,8 +298,13 @@ if (navigation) {
       )
         continue;
 
-      e.intercept();
-      openModal(modalId, { updateUrl: false });
+      e.intercept({
+        focusReset: "manual",
+        async handler() {
+          await openModal(modalId, { updateUrl: false });
+        },
+        scroll: "manual",
+      });
       return;
     }
   });
@@ -366,7 +343,6 @@ document.addEventListener("click", (event) => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-  // Fallback link interception handled by setupFallbackLinkHandlers below.
 
   if (
     !(eventTarget instanceof HTMLDialogElement) ||
@@ -389,9 +365,6 @@ globalThis.addEventListener("popstate", syncModalsFromUrl);
 syncModalsFromUrl();
 setupModalCloseTriggers();
 
-// In browsers without Navigation API (WebKit, older Firefox), attach click
-// handlers directly to modal-trigger links so preventDefault fires before
-// the browser starts navigation.
 const setupFallbackLinkHandlers = (): void => {
   for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const modalId = link.getAttribute("aria-controls");
@@ -406,11 +379,11 @@ const setupFallbackLinkHandlers = (): void => {
 
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      openModal(modalId);
+      void openModal(modalId);
     });
   }
 };
 
-setupFallbackLinkHandlers();
+if (!navigation) setupFallbackLinkHandlers();
 
 export { closeModal, openModal };
