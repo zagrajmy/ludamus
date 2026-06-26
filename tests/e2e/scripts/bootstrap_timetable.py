@@ -117,7 +117,7 @@ def main() -> None:
     # 8-seat room). Placed in the SECOND space, so it never collides with the
     # assign tests — those drop into the first column.
     overflow, _ = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-overflow-demo",
         defaults={
             "title": "Overflow Demo Game",
@@ -165,7 +165,7 @@ def main() -> None:
 
     # Accepted (unscheduled) sessions for assigning via the timetable
     s1, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-rpg-intro",
         defaults={
             "title": "RPG Introduction",
@@ -184,7 +184,7 @@ def main() -> None:
         s1.time_slots.set(slots)  # prefers morning slot
 
     s2, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-dungeon-crawl",
         defaults={
             "title": "Dungeon Crawl",
@@ -203,7 +203,7 @@ def main() -> None:
         s2.time_slots.set(slots)  # prefers morning slot
 
     s3, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-storytelling",
         defaults={
             "title": "Storytelling Workshop",

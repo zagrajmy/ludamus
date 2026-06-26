@@ -13,9 +13,10 @@ def _event_url(slug: str) -> str:
     return reverse("web:chronology:event", kwargs={"slug": slug})
 
 
-def _enroll_url(session_id: int) -> str:
+def _enroll_url(session_id: int, event_slug: str) -> str:
     return reverse(
-        "web:chronology:session-enrollment", kwargs={"session_id": session_id}
+        "web:chronology:session-enrollment",
+        kwargs={"event_slug": event_slug, "session_id": session_id},
     )
 
 
@@ -59,7 +60,7 @@ class TestShadowbanHidesSessions:
         session.save()
         banner.shadowbanned.add(active_user)
 
-        response = authenticated_client.get(_enroll_url(session.pk))
+        response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
         assert_response(
             response,
@@ -79,7 +80,8 @@ class TestShadowbanHidesSessions:
         banner.shadowbanned.add(active_user)
 
         response = authenticated_client.post(
-            _enroll_url(session.pk), data={f"user_{active_user.id}": "enroll"}
+            _enroll_url(session.pk, session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
         )
 
         assert_response(
@@ -105,7 +107,8 @@ class TestShadowbanHidesSessions:
         banner.shadowbanned.add(connected_user)
 
         response = authenticated_client.post(
-            _enroll_url(session.pk), data={f"user_{connected_user.id}": "enroll"}
+            _enroll_url(session.pk, session.event.slug),
+            data={f"user_{connected_user.id}": "enroll"},
         )
 
         assert response.status_code == HTTPStatus.FOUND

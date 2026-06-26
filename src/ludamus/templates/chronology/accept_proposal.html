@@ -76,7 +76,7 @@
             </div>
             <div class="card-body">
                 <form method="post"
-                      action="{% url 'web:chronology:session-accept' session_id=session.pk %}">
+                      action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}">
                     {% csrf_token %}
                     {% tessera_field form.space %}
                     <div class="mb-6">
@@ -95,16 +95,16 @@
                             {% endwith %}
                         {% else %}
                             {% select name="time_slot" id="time_slot" required=True %}
-                            <option value="">{% translate "Select a time slot..." %}</option>
-                            {% for slot in time_slots %}
-                                <option value="{{ slot.pk }}"
-                                        {% if slot.pk in preferred_time_slot_ids %}class="font-bold"{% endif %}>
-                                    {{ slot.start_time|date:"l, M j - G:i" }} - {{ slot.end_time|date:"G:i" }}
-                                    {% if slot.pk in preferred_time_slot_ids %}
-                                        ({% translate "Preferred" %})
-                                    {% endif %}
-                                </option>
-                            {% endfor %}
+                                <option value="">{% translate "Select a time slot..." %}</option>
+                                {% for slot in time_slots %}
+                                    <option value="{{ slot.pk }}"
+                                            {% if slot.pk in preferred_time_slot_ids %}class="font-bold"{% endif %}>
+                                        {{ slot.start_time|date:"l, M j - G:i" }} - {{ slot.end_time|date:"G:i" }}
+                                        {% if slot.pk in preferred_time_slot_ids %}
+                                            ({% translate "Preferred" %})
+                                        {% endif %}
+                                    </option>
+                                {% endfor %}
                             {% end_select %}
                             <p class="mt-1 text-xs text-foreground-muted">{% translate "Preferred time slots are highlighted in bold." %}</p>
                         {% endif %}

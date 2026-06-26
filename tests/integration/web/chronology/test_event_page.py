@@ -346,7 +346,7 @@ class TestEventPageView:
         session = SessionFactory(
             presenter=presenter,
             display_name=presenter.name,
-            sphere=event.sphere,
+            event=event,
             participants_limit=10,
             min_age=0,
         )
@@ -694,12 +694,12 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_session_without_presenter_user(self, client, event, space, sphere):
+    def test_ok_session_without_presenter_user(self, client, event, space):
         display_name = "External Presenter"
         session = SessionFactory(
             presenter=None,
             display_name=display_name,
-            sphere=sphere,
+            event=event,
             participants_limit=10,
             min_age=0,
         )
@@ -2447,22 +2447,21 @@ class TestEventPageEditAffordance:
     def _get_url(self, slug):
         return reverse(self.URL_NAME, kwargs={"slug": slug})
 
-    def _scheduled_session(self, event, sphere, presenter):
+    def _scheduled_session(self, event, presenter):
         category = ProposalCategoryFactory(event=event)
         return SessionFactory(
             category=category,
             presenter=presenter,
             display_name=presenter.name,
-            sphere=sphere,
             participants_limit=10,
             min_age=0,
             status="scheduled",
         )
 
     def test_owner_sees_edit_affordance(
-        self, authenticated_client, event, sphere, active_user, space
+        self, authenticated_client, event, active_user, space
     ):
-        session = self._scheduled_session(event, sphere, active_user)
+        session = self._scheduled_session(event, active_user)
         AgendaItemFactory(session=session, space=space)
         edit_url = reverse(
             "web:chronology:session-edit",
@@ -2479,11 +2478,9 @@ class TestEventPageEditAffordance:
         assert edit_url in content
         assert f'data-edit-open="{session.pk}"' in content
 
-    def test_non_owner_no_edit_affordance(
-        self, authenticated_client, event, sphere, space
-    ):
+    def test_non_owner_no_edit_affordance(self, authenticated_client, event, space):
         other = UserFactory(username="other", email="other@example.com")
-        session = self._scheduled_session(event, sphere, other)
+        session = self._scheduled_session(event, other)
         AgendaItemFactory(session=session, space=space)
         edit_url = reverse(
             "web:chronology:session-edit",
@@ -2501,11 +2498,11 @@ class TestEventPageEditAffordance:
         assert f'data-edit-open="{session.pk}"' not in content
 
     def test_owner_no_affordance_when_opted_out(
-        self, authenticated_client, event, sphere, active_user, space
+        self, authenticated_client, event, active_user, space
     ):
         event.allow_facilitator_session_edit = False
         event.save()
-        session = self._scheduled_session(event, sphere, active_user)
+        session = self._scheduled_session(event, active_user)
         AgendaItemFactory(session=session, space=space)
         edit_url = reverse(
             "web:chronology:session-edit",

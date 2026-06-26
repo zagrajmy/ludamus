@@ -113,9 +113,9 @@ class TestVenueDeleteActionView:
         area = Area.objects.create(venue=venue, name="Test Area", slug="test-area")
         space = Space.objects.create(area=area, name="Test Space", slug="test-space")
         session = Session.objects.create(
+            event=event,
             title="Test Session",
             slug="test-session",
-            sphere=sphere,
             display_name="Test Host",
             participants_limit=10,
         )

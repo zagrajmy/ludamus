@@ -89,7 +89,6 @@ class TestTimetableSessionListPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -107,14 +106,12 @@ class TestTimetableSessionListPartView:
         sphere.managers.add(active_user)
         pending = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
         )
         rejected = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="rejected",
             participants_limit=10,
             min_age=0,
@@ -134,7 +131,6 @@ class TestTimetableSessionListPartView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -158,7 +154,6 @@ class TestTimetableSessionListPartView:
         sphere.managers.add(active_user)
         matching = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             title="HTMX Magic Workshop",
             participants_limit=10,
@@ -166,7 +161,6 @@ class TestTimetableSessionListPartView:
         )
         other = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             title="Board Games Evening",
             participants_limit=10,
@@ -187,17 +181,12 @@ class TestTimetableSessionListPartView:
         other_category = ProposalCategoryFactory(event=event)
         matching = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
         )
         other = SessionFactory(
-            category=other_category,
-            sphere=sphere,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
+            category=other_category, status="pending", participants_limit=10, min_age=0
         )
 
         response = authenticated_client.get(
@@ -228,7 +217,6 @@ class TestTimetableSessionListPartView:
         for index in range(UNSCHEDULED_LIST_LIMIT + 1):
             SessionFactory(
                 category=proposal_category,
-                sphere=sphere,
                 status="pending",
                 title=f"Session {index:03d}",
                 participants_limit=10,

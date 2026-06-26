@@ -152,7 +152,7 @@ class TestPublicEventPrintView:
         assert session.title not in response.content.decode()
 
     def test_full_schedule_label_shown_when_a_session_is_pending(
-        self, client, event, session, space, sphere, active_user
+        self, client, event, session, space, active_user
     ):
         AgendaItemFactory(
             session=session,
@@ -162,7 +162,7 @@ class TestPublicEventPrintView:
             end_time=event.start_time + timedelta(hours=1),
         )
         pending = SessionFactory(
-            presenter=active_user, sphere=sphere, participants_limit=10
+            presenter=active_user, event=event, participants_limit=10
         )
         AgendaItemFactory(
             session=pending,
