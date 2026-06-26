@@ -144,7 +144,7 @@
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/confirm.ts' %}
         <script>
-            (function () {
+            (function() {
                 for (const flash of document.querySelectorAll("[data-flash]")) {
                     const dismiss = () => flash.remove();
                     flash.querySelector("[data-flash-dismiss]")?.addEventListener("click", dismiss);
