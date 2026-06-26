@@ -1692,7 +1692,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
         if existing_participation is None:
             enrollments.skipped_users.append(
-                f"{req.name} ({_('no enrollment to cancel')!s})"
+                _("%(name)s (no enrollment to cancel)") % {"name": req.name}
             )
             return
 
@@ -1712,17 +1712,23 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> None:
         # Check if user is the session presenter
         if session.presenter_id and req.user.pk == session.presenter_id:
-            enrollments.skipped_users.append(f"{req.name} ({_('session host')!s})")
+            enrollments.skipped_users.append(
+                _("%(name)s (session host)") % {"name": req.name}
+            )
             return
 
         # Shadowban: skip without revealing the ban (neutral reason).
         if req.user.pk in shadowbanned_ids:
-            enrollments.skipped_users.append(f"{req.name} ({_('not available')!s})")
+            enrollments.skipped_users.append(
+                _("%(name)s (not available)") % {"name": req.name}
+            )
             return
 
         # Check for time conflicts for confirmed enrollment
         if req.choice == "enroll" and Session.objects.has_conflicts(session, req.user):
-            enrollments.skipped_users.append(f"{req.name} ({_('time conflict')!s})")
+            enrollments.skipped_users.append(
+                _("%(name)s (time conflict)") % {"name": req.name}
+            )
             return
 
         # Use get_or_create to prevent duplicate enrollments in race conditions

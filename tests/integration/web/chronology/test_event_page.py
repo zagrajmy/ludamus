@@ -448,9 +448,22 @@ class TestEventPageView:
         )
         assert session.cover_image_url.encode() in response.content
 
-    def test_shows_placeholder_cover_when_session_has_no_image(
+    def test_hides_placeholder_cover_when_session_has_no_image_by_default(
         self, agenda_item, client, event
     ):
+        session = agenda_item.session
+        assert not session.cover_image_url
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert placeholder_cover_url(session.pk).encode() not in response.content
+
+    def test_shows_placeholder_cover_when_event_opts_in(
+        self, agenda_item, client, event
+    ):
+        event.use_session_cover_placeholders = True
+        event.save(update_fields=["use_session_cover_placeholders"])
         session = agenda_item.session
         assert not session.cover_image_url
 

@@ -16,9 +16,6 @@ run = "aubr varlock django-admin compilemessages -l pl"
 
 [messages-check]
 description = "Fail if the PL catalog is stale (un-extracted strings) or has untranslated/fuzzy entries"
-# Settings env so `django-admin` can import without varlock/.env (the lint CI
-# job has no secrets). makemessages output is deterministic regardless of these
-# values, so dummy test creds are fine.
 env.DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
 env.PYTHONPATH = "src"
 env.ENV = "local"
@@ -35,6 +32,7 @@ env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoi
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 run = '''
 set -eu
+mise bootstrap packages apply --yes
 po=src/ludamus/locale/pl/LC_MESSAGES/django.po
 # 1. Extraction must be current. Back up the catalog, regenerate, and compare
 #    against the backup ignoring the POT-Creation-Date header. Restoring from
@@ -77,6 +75,7 @@ run = "aubr -C src/ludamus/client build"
 [bootstrap]
 description = "Set up the dev environment from scratch (idempotent)"
 run = """
+mise bootstrap packages apply --yes
 poetry install
 aube install
 if [ ! -f .env.local ]; then

@@ -35,16 +35,12 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export PATH=\"\$PATH:$HOME/.local/share/mise/shims\"" >> "$CLAUDE_ENV_FILE"
 fi
 
-# GNU gettext (msgfmt/msgmerge) backs the translation tasks.
-if command -v apt-get >/dev/null 2>&1; then
-  apt-get install -y gettext >/dev/null 2>&1 || true
-fi
-
 # Installs are best-effort: a blocked dependency (e.g. a registry trust gate)
 # must not abort the whole hook. Warn and continue so the rest of the session
 # setup still runs.
 mise trust || echo "WARN: 'mise trust' failed"
 mise install || echo "WARN: 'mise install' failed; some tools may be unavailable"
+mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"
 
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both

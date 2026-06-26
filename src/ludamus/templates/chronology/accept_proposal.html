@@ -20,7 +20,9 @@
             <div class="card-body">
                 <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
                 <p class="mt-1 text-sm text-foreground-muted flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span class="inline-flex items-center gap-1.5">{% include "components/avatar.html" with user=presenter size="size-5" %}{{ session.display_name }}</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        {% include "components/avatar.html" with user=presenter size="size-5" %}
+                    {{ session.display_name }}</span>
                     <span class="opacity-40">·</span>
                     <span class="inline-flex items-center gap-1">{% icon "users" class="w-4 h-4" %}{% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}</span>
                     <span class="opacity-40">·</span>

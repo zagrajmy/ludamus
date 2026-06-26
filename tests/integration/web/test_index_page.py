@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -83,6 +84,7 @@ class TestEventsPageView:
             },
             template_name=["index.html"],
         )
+        assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
     def test_ok_with_event(self, client, event):
         response = client.get(self.URL)
