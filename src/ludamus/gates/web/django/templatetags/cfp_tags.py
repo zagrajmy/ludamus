@@ -2,10 +2,41 @@ import re
 from typing import Any
 
 from django import template
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 register = template.Library()
+
+_PLACEHOLDER_IMAGES = (
+    "placeholder-images/01.jpg",
+    "placeholder-images/02.jpg",
+    "placeholder-images/03.jpg",
+    "placeholder-images/04.jpg",
+    "placeholder-images/05.jpg",
+    "placeholder-images/06.jpg",
+    "placeholder-images/07.jpg",
+    "placeholder-images/08.jpg",
+    "placeholder-images/09.jpg",
+    "placeholder-images/10.png",
+)
+
+
+@register.filter
+def cover_image(session: Any) -> str:  # type: ignore[misc] # noqa: ANN401
+    """Return the session cover image URL, falling back to a placeholder.
+
+    The placeholder is picked deterministically from the session pk so it stays
+    stable across reloads instead of flickering between random images.
+
+    Returns:
+        The uploaded cover image URL, or a static placeholder image URL.
+    """
+    url = getattr(session, "cover_image_url", "") or ""
+    if url:
+        return url
+    pk = getattr(session, "pk", 0) or 0
+    return staticfiles_storage.url(_PLACEHOLDER_IMAGES[pk % len(_PLACEHOLDER_IMAGES)])
 
 
 @register.filter

@@ -1,6 +1,38 @@
+from dataclasses import dataclass
+
 import pytest
 
-from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
+from ludamus.gates.web.django.templatetags.cfp_tags import cover_image, format_duration
+
+
+@dataclass
+class _FakeSession:
+    pk: int
+    cover_image_url: str = ""
+
+
+class TestCoverImage:
+    def test_returns_uploaded_url_when_present(self) -> None:
+        session = _FakeSession(pk=1, cover_image_url="/media/sessions/cover.jpg")
+
+        assert cover_image(session) == "/media/sessions/cover.jpg"
+
+    def test_falls_back_to_placeholder_when_missing(self) -> None:
+        session = _FakeSession(pk=1)
+
+        result = cover_image(session)
+
+        assert "placeholder-images/" in result
+
+    def test_placeholder_is_deterministic_for_same_pk(self) -> None:
+        session = _FakeSession(pk=7)
+
+        assert cover_image(session) == cover_image(_FakeSession(pk=7))
+
+    def test_placeholder_varies_across_sessions(self) -> None:
+        placeholders = {cover_image(_FakeSession(pk=pk)) for pk in range(20)}
+
+        assert len(placeholders) > 1
 
 
 class TestFormatDuration:
