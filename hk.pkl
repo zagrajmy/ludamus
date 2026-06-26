@@ -1,30 +1,20 @@
 amends "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Builtins.pkl"
 
-// Mirrors the old .pre-commit-config.yaml. Tools are provisioned by mise
-// [tools] (yamllint, actionlint, hadolint, gitlint, dockerfmt), the Poetry venv
-// (black, ruff, codespell, djlint), and the aube workspace (oxfmt, dclint,
-// varlock) — run via `aube exec`.
 local linters = new Mapping<String, Step> {
-  // --- File hygiene (was: pre-commit/pre-commit-hooks) ---
+  // File hygiene
   ["check-added-large-files"] = Builtins.check_added_large_files
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["detect-private-key"] = Builtins.detect_private_key
   ["end-of-file-fixer"] = Builtins.newlines
   ["trailing-whitespace"] = Builtins.trailing_whitespace
-  // ponytail: dropped check-json/check-toml/check-yaml — no hk builtin, and a broken
-  // pyproject/package.json already fails ruff/poetry/npm/yamllint loudly. The JSONC
-  // configs (.vscode, tsconfig) aren't valid strict JSON anyway.
-  // Also dropped pyupgrade: ruff (`select = ["ALL"]`, no UP ignored) enforces it.
 
-  // --- Python ---
+  // Python
   ["black"] = Builtins.black
   ["ruff"] = Builtins.ruff
   ["codespell"] {
     glob = List("**/*")
-    // Deliberate trade-off: we run codespell per-file ({{files}}) for fast, scoped
-    // commit feedback, which bypasses codespell's own walk-time `skip`. So this list
-    // mirrors [tool.codespell].skip in pyproject.toml — keep the two in sync.
+    // exclude mirrors [tool.codespell].skip in pyproject.toml
     exclude = List(
       "**/node_modules/**",
       "tests/e2e/**",
@@ -39,14 +29,13 @@ local linters = new Mapping<String, Step> {
     check = "codespell --toml=pyproject.toml {{files}}"
   }
 
-  // --- Django templates ---
+  // Django templates
   ["djlint"] {
     glob = List("src/**/*.html")
     check = "djlint {{files}} --profile=django"
   }
 
-  // --- Frontend (JS/TS/CSS) — oxfmt replaces prettier; Tailwind sorting via .oxfmtrc.json ---
-  // oxfmt is an aube workspace devDep (like varlock/fallow), so run it via `aube exec`.
+  // Frontend — oxfmt (Tailwind sorting via .oxfmtrc.json), run as an aube devDep
   ["oxfmt"] = (Builtins.oxfmt) {
     prefix = "aube exec"
     glob = List(
@@ -62,7 +51,7 @@ local linters = new Mapping<String, Step> {
     )
   }
 
-  // --- Config / infra ---
+  // Config / infra
   ["yamllint"] = Builtins.yamllint
   ["actionlint"] = Builtins.actionlint
   ["hadolint"] = Builtins.hadolint
@@ -73,7 +62,6 @@ local linters = new Mapping<String, Step> {
   }
   ["dclint"] = (Builtins.dclint) {
     prefix = "aube exec"
-    // Project compose files live under docker/compose/ and aren't named compose*.yaml.
     glob = List("docker/compose/*.yml", "docker/compose/*.yaml")
   }
   ["markdownlint"] {
@@ -89,7 +77,6 @@ hooks {
     stash = "git"
     steps {
       ...linters
-      // Secret-leak scan over staged content (was: local varlock-scan hook).
       ["varlock"] {
         check = "aube exec varlock scan --staged"
       }
@@ -102,7 +89,6 @@ hooks {
       }
     }
   }
-  // `hk fix` / `hk check` run the same linters over the whole tree (or a ref range).
   ["fix"] {
     fix = true
     steps = linters
