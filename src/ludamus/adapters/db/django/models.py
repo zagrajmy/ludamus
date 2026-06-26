@@ -131,6 +131,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    # Single-use handle that lets the intended person sign in and take over a
+    # managed (connected) row as their own account. Mirrors the waitlist-offer
+    # claim_token pattern. Empty for active accounts.
+    claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
     shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
         "self",
         symmetrical=False,
@@ -742,7 +746,8 @@ class SessionManager(AliveManager["Session"]):
     # checks (and the default `objects` accessor) skip soft-deleted sessions.
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return (
-            self.get_queryset()
+            self
+            .get_queryset()
             .filter(
                 agenda_item__space__area__venue__event=session.agenda_item.space.area.venue.event,
                 session_participations__user_id=user.pk,
@@ -1542,7 +1547,8 @@ def can_enroll_users(
 ) -> bool:
     # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
     currently_enrolled = set(
-        SessionParticipation.objects.filter(
+        SessionParticipation.objects
+        .filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__agenda_item__space__area__venue__event_id=event.pk,
@@ -1561,7 +1567,8 @@ def can_enroll_users(
 def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
     # Count unique users who hold at least one seat (confirmed or offered)
     return len(
-        SessionParticipation.objects.filter(
+        SessionParticipation.objects
+        .filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__agenda_item__space__area__venue__event_id=event.pk,

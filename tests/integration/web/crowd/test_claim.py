@@ -1,0 +1,245 @@
+import json
+from datetime import UTC, datetime
+from http import HTTPStatus
+from secrets import token_urlsafe
+from unittest.mock import patch
+
+from django.contrib import messages
+from django.contrib.auth.hashers import make_password
+from django.core.cache import cache
+from django.urls import reverse
+
+from ludamus.adapters.db.django.models import User, UserType
+from ludamus.pacts.crowd import ClaimableProfileDTO
+from tests.integration.utils import assert_response
+
+
+def _connected(
+    *, manager, name="Kiddo", slug="kiddo", token="", username="connected|x"
+):
+    return User.objects.create(
+        username=username,
+        slug=slug,
+        name=name,
+        email="",
+        user_type=UserType.CONNECTED,
+        manager=manager,
+        claim_token=token,
+        password=make_password(None),
+    )
+
+
+def _active(*, username, slug, name="Owner"):
+    return User.objects.create(
+        username=username,
+        slug=slug,
+        name=name,
+        user_type=UserType.ACTIVE,
+        password=make_password(None),
+    )
+
+
+class TestProfileConnectedUserClaimLinkActionView:
+    def test_post_issues_link(self, authenticated_client, connected_user):
+        url = reverse(
+            "web:crowd:profile-connected-users-claim-link",
+            kwargs={"slug": connected_user.slug},
+        )
+
+        response = authenticated_client.post(url)
+
+        connected_user.refresh_from_db()
+        assert connected_user.claim_token
+        claim_url = "http://testserver" + reverse(
+            "web:crowd:claim", kwargs={"token": connected_user.claim_token}
+        )
+        expected = (
+            "Claim link ready. Share it with this person so they can take "
+            f"over their profile: {claim_url}"
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/crowd/profile/connected-users/",
+            messages=[(messages.SUCCESS, expected)],
+        )
+
+    def test_post_rejects_other_managers_user(self, authenticated_client):
+        other = _active(username="other", slug="other")
+        kid = _connected(manager=other, slug="otherkid", username="connected|other")
+        url = reverse(
+            "web:crowd:profile-connected-users-claim-link", kwargs={"slug": kid.slug}
+        )
+
+        response = authenticated_client.post(url)
+
+        kid.refresh_from_db()
+        assert not kid.claim_token
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/crowd/profile/connected-users/",
+            messages=[
+                (messages.ERROR, "Could not create a claim link for this person.")
+            ],
+        )
+
+
+class TestClaimPageView:
+    def test_get_shows_landing(self, client, active_user):
+        kid = _connected(manager=active_user, token="tok")
+        url = reverse("web:crowd:claim", kwargs={"token": "tok"})
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/claim.html",
+            context_data={
+                "claimable": ClaimableProfileDTO(
+                    name=kid.name, slug=kid.slug, manager_name=active_user.name
+                ),
+                "token": "tok",
+            },
+        )
+
+    def test_get_invalid_token(self, client):
+        url = reverse("web:crowd:claim", kwargs={"token": "nope"})
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[
+                (
+                    messages.ERROR,
+                    "This claim link is invalid or has already been used.",
+                )
+            ],
+        )
+
+    def test_get_already_signed_in_is_refused(self, authenticated_client):
+        url = reverse("web:crowd:claim", kwargs={"token": "tok"})
+
+        response = authenticated_client.get(url)
+
+        expected = (
+            "You're already signed in. Log out first to claim this "
+            "profile into a new account."
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[(messages.INFO, expected)],
+        )
+
+    def test_post_stashes_token_and_redirects_to_login(self, client, active_user):
+        _connected(manager=active_user, token="tok")
+        url = reverse("web:crowd:claim", kwargs={"token": "tok"})
+
+        response = client.post(url)
+
+        assert client.session["pending_claim_token"] == "tok"
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/crowd/auth0/do/login?next=%2Fcrowd%2Fprofile%2F",
+        )
+
+    def test_post_invalid_token(self, client):
+        url = reverse("web:crowd:claim", kwargs={"token": "nope"})
+
+        response = client.post(url)
+
+        assert "pending_claim_token" not in client.session
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[
+                (
+                    messages.ERROR,
+                    "This claim link is invalid or has already been used.",
+                )
+            ],
+        )
+
+
+class TestClaimRedemptionOnLogin:
+    URL = reverse("web:crowd:auth0:login-callback")
+
+    @staticmethod
+    def _valid_state():
+        state_token = token_urlsafe(32)
+        cache.set(
+            f"oauth_state:{state_token}",
+            json.dumps({
+                "redirect_to": None,
+                "created_at": datetime.now(UTC).isoformat(),
+                "csrf_token": "test_csrf_token",
+            }),
+            timeout=600,
+        )
+        return state_token
+
+    def _arm_claim(self, client, token):
+        session = client.session
+        session["pending_claim_token"] = token
+        session.save()
+
+    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    def test_converts_managed_row_into_account(self, token_mock, client, faker):
+        manager = _active(username="mgr", slug="mgr")
+        kid = _connected(manager=manager, token="claimtok", username="connected|kid")
+        sub = faker.uuid4()
+        token_mock.return_value = {"userinfo": {"sub": sub}}
+        self._arm_claim(client, "claimtok")
+        state_token = self._valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        kid.refresh_from_db()
+        assert kid.user_type == UserType.ACTIVE
+        assert kid.username == f"auth0|{sub}"
+        assert kid.manager_id is None
+        assert not kid.claim_token
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/",
+            messages=[
+                (messages.SUCCESS, "Profile claimed — it is now your own account.")
+            ],
+        )
+
+    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    def test_refuses_when_recipient_already_has_account(
+        self, token_mock, client, faker
+    ):
+        sub = faker.uuid4()
+        _active(username=f"auth0|{sub}", slug="existing", name="Me")
+        manager = _active(username="mgr", slug="mgr")
+        kid = _connected(manager=manager, token="claimtok", username="connected|kid")
+        token_mock.return_value = {"userinfo": {"sub": sub}}
+        self._arm_claim(client, "claimtok")
+        state_token = self._valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        kid.refresh_from_db()
+        assert kid.user_type == UserType.CONNECTED
+        assert kid.claim_token == "claimtok"
+        expected = (
+            "You already have an account, so this profile can't be moved "
+            "into it. Ask the person who invited you to enroll you directly."
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/",
+            messages=[(messages.INFO, expected)],
+        )

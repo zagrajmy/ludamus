@@ -3,6 +3,7 @@ from functools import cached_property
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
+from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
@@ -31,6 +32,10 @@ class Repositories:
     @cached_property
     def connections(self) -> repositories.ConnectionsRepository:
         return repositories.ConnectionsRepository()
+
+    @cached_property
+    def claims(self) -> ClaimRepository:
+        return ClaimRepository()
 
     @cached_property
     def announcements(self) -> repositories.AnnouncementsRepository:
