@@ -197,17 +197,11 @@ class TestProposalAcceptPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        for text in (
-            "A haunted manor one-shot.",
-            "Bring a pencil.",
-            "A quiet room.",
-        ):
+        for text in ("A haunted manor one-shot.", "Bring a pencil.", "A quiet room."):
             assert text in content
 
     @pytest.mark.usefixtures("space", "time_slot")
-    def test_get_without_presenter_still_renders(
-        self, pending_session, staff_client
-    ):
+    def test_get_without_presenter_still_renders(self, pending_session, staff_client):
         pending_session.presenter = None
         pending_session.save()
 
