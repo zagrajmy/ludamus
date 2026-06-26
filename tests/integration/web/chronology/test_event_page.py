@@ -28,6 +28,7 @@ from ludamus.adapters.web.django.entities import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -446,6 +447,17 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
         assert session.cover_image_url.encode() in response.content
+
+    def test_shows_placeholder_cover_when_session_has_no_image(
+        self, agenda_item, client, event
+    ):
+        session = agenda_item.session
+        assert not session.cover_image_url
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert placeholder_cover_url(session.pk).encode() in response.content
 
     def test_ok_superuser_proposal(
         self, authenticated_client, event, active_user, pending_session

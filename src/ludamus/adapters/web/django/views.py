@@ -15,7 +15,6 @@ from django.contrib import messages
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
@@ -58,6 +57,7 @@ from ludamus.gates.web.django.entities import (
     RootRequest,
     UserInfo,
 )
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.mills import (
     AcceptProposalService,
     AnonymousEnrollmentService,
@@ -448,20 +448,6 @@ class Auth0LogoutRedirectActionView(RedirectView):
         return redirect_url
 
 
-EVENT_PLACEHOLDER_IMAGES = [
-    "placeholder-images/01.jpg",  # meeples
-    "placeholder-images/02.jpg",  # chess
-    "placeholder-images/03.jpg",  # cards
-    "placeholder-images/04.jpg",  # dice
-    "placeholder-images/05.jpg",  # tabletop
-    "placeholder-images/06.jpg",  # chess pieces
-    "placeholder-images/07.jpg",  # board game
-    "placeholder-images/08.jpg",  # retro arcade
-    "placeholder-images/09.jpg",  # controller
-    "placeholder-images/10.png",  # arcade
-]
-
-
 class DesignPageView(TemplateView):
     request: RootRequest
     template_name = "design.html"
@@ -535,11 +521,7 @@ class EventsPageView(TemplateView):
         # Uploaded cover when present, otherwise a placeholder cycled by position.
         return [
             EventInfo.from_list_item(
-                item,
-                cover_image_url=item.cover_image_url
-                or staticfiles_storage.url(
-                    EVENT_PLACEHOLDER_IMAGES[i % len(EVENT_PLACEHOLDER_IMAGES)]
-                ),
+                item, cover_image_url=item.cover_image_url or placeholder_cover_url(i)
             )
             for i, item in enumerate(items)
         ]
