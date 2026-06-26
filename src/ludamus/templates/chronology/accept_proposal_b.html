@@ -19,25 +19,20 @@
         {# Details card #}
         <div class="card">
             <div class="card-body">
-                <div class="flex items-start gap-3">
-                    <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary-light text-primary">{% icon "document-text" class="w-5 h-5" %}</span>
-                    <div class="min-w-0">
-                        <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
-                        <p class="mt-1 text-sm text-foreground-muted flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <span class="inline-flex items-center gap-1">{% icon "user" class="w-4 h-4" %}{{ session.display_name }}</span>
-                            <span class="opacity-40">·</span>
-                            <span class="inline-flex items-center gap-1">{% icon "users" class="w-4 h-4" %}{% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}</span>
-                            <span class="opacity-40">·</span>
-                            <span class="inline-flex items-center gap-1">{% icon "calendar" class="w-4 h-4" %}{% translate "submitted" %} {{ session.creation_time|date:"M j, Y" }}</span>
-                        </p>
-                        {% if session.contact_email %}
-                            <p class="mt-1 text-sm">
-                                <a href="mailto:{{ session.contact_email }}"
-                                   class="text-primary hover:underline">{{ session.contact_email }}</a>
-                            </p>
-                        {% endif %}
-                    </div>
-                </div>
+                <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
+                <p class="mt-1 text-sm text-foreground-muted flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span class="inline-flex items-center gap-1">{% icon "user" class="w-4 h-4" %}{{ session.display_name }}</span>
+                    <span class="opacity-40">·</span>
+                    <span class="inline-flex items-center gap-1">{% icon "users" class="w-4 h-4" %}{% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}</span>
+                    <span class="opacity-40">·</span>
+                    <span class="inline-flex items-center gap-1">{% icon "calendar" class="w-4 h-4" %}{% translate "submitted" %} {{ session.creation_time|date:"M j, Y" }}</span>
+                </p>
+                {% if session.contact_email %}
+                    <p class="mt-1 text-sm">
+                        <a href="mailto:{{ session.contact_email }}"
+                           class="text-primary hover:underline">{{ session.contact_email }}</a>
+                    </p>
+                {% endif %}
                 {% if field_values %}
                     <div class="mt-4 flex flex-wrap gap-1.5">
                         {% for fv in field_values %}
@@ -51,12 +46,9 @@
         {# Decision card — sticky on desktop so the action stays in view #}
         <div class="card lg:sticky lg:top-6">
             <div class="card-body">
-                <div class="flex items-start gap-3 mb-5">
-                    <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary-light text-primary">{% icon "calendar-days" class="w-5 h-5" %}</span>
-                    <div>
-                        <h3 class="text-base font-semibold text-foreground">{% translate "Schedule it" %}</h3>
-                        <p class="mt-0.5 text-sm text-foreground-muted">{% translate "Select a space and time to add this session to the event agenda." %}</p>
-                    </div>
+                <div class="mb-5">
+                    <h3 class="text-base font-semibold text-foreground">{% translate "Schedule it" %}</h3>
+                    <p class="mt-0.5 text-sm text-foreground-muted">{% translate "Select a space and time to add this session to the event agenda." %}</p>
                 </div>
                 <form method="post"
                       action="{% url 'web:chronology:session-accept' session_id=session.pk %}?variant=b"
