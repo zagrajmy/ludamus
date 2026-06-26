@@ -291,6 +291,10 @@ visible changes are additive:
   enrollees are nearly the same idea. Unify or keep separate?
 - **O-5 — Axis B (societies).** Deferred entirely; no model built or pre-shaped
   for it in v1. Decide when a real society needs to co-present.
+- **O-7 — Multi-party membership + real-user co-enrollment.** *Un-deferred:* the
+  single-`manager` tree below can't do either. Demand arrived; the design moved
+  to [RFC 0002](0002-party-membership.md). The "cross-owner shared parties"
+  non-goal and the rejected `PartyMembership` model are reopened there.
 - **O-6 — Claim/invite transport.** Email link? Share-code? We have a
   `claim_token` precedent for waitlist offers — reuse the pattern, not the
   column.
