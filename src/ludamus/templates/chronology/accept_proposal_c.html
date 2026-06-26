@@ -59,18 +59,6 @@
                     </div>
                 {% endif %}
                 {% include "chronology/_accept_proposal_facts.html" %}
-                {% if preferred_time_slot_ids %}
-                    <div>
-                        <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</p>
-                        <div class="mt-1.5 flex flex-wrap gap-1.5">
-                            {% for slot in time_slots %}
-                                {% if slot.pk in preferred_time_slot_ids %}
-                                    <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endif %}
                 <p class="text-xs text-foreground-muted">{% translate "Submitted" %} {{ session.creation_time|date:"M j, Y G:i" }}</p>
             </div>
         </details>

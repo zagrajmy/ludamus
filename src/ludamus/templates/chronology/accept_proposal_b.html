@@ -19,46 +19,45 @@
         {# Details card #}
         <div class="card">
             <div class="card-body">
-                <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
-                <p class="mt-1 text-sm text-foreground-muted">
-                    {{ session.display_name }}
-                    <span class="px-1.5 opacity-50">·</span>
-                    {% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
-                    <span class="px-1.5 opacity-50">·</span>
-                    {% translate "submitted" %} {{ session.creation_time|date:"M j, Y" }}
-                </p>
-                {% if session.contact_email %}
-                    <p class="mt-1 text-sm">
-                        <a href="mailto:{{ session.contact_email }}"
-                           class="text-primary hover:underline">{{ session.contact_email }}</a>
-                    </p>
-                {% endif %}
+                <div class="flex items-start gap-3">
+                    <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary-light text-primary">{% icon "document-text" class="w-5 h-5" %}</span>
+                    <div class="min-w-0">
+                        <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
+                        <p class="mt-1 text-sm text-foreground-muted flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span class="inline-flex items-center gap-1">{% icon "user" class="w-4 h-4" %}{{ session.display_name }}</span>
+                            <span class="opacity-40">·</span>
+                            <span class="inline-flex items-center gap-1">{% icon "users" class="w-4 h-4" %}{% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}</span>
+                            <span class="opacity-40">·</span>
+                            <span class="inline-flex items-center gap-1">{% icon "calendar" class="w-4 h-4" %}{% translate "submitted" %} {{ session.creation_time|date:"M j, Y" }}</span>
+                        </p>
+                        {% if session.contact_email %}
+                            <p class="mt-1 text-sm">
+                                <a href="mailto:{{ session.contact_email }}"
+                                   class="text-primary hover:underline">{{ session.contact_email }}</a>
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
                 {% if field_values %}
-                    <div class="mt-3 flex flex-wrap gap-1.5">
+                    <div class="mt-4 flex flex-wrap gap-1.5">
                         {% for fv in field_values %}
                             {% include "components/_field_pill.html" with value=fv.value|format_field_value icon=fv.field_icon title=fv.field_name size="sm" %}
                         {% endfor %}
                     </div>
                 {% endif %}
-                <div class="mt-4">{% include "chronology/_accept_proposal_facts.html" %}</div>
-                {% if preferred_time_slot_ids %}
-                    <div class="mt-4">
-                        <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</p>
-                        <div class="mt-1.5 flex flex-wrap gap-1.5">
-                            {% for slot in time_slots %}
-                                {% if slot.pk in preferred_time_slot_ids %}
-                                    <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endif %}
+                {% include "chronology/_accept_proposal_facts.html" %}
             </div>
         </div>
         {# Decision card — sticky on desktop so the action stays in view #}
-        <div class="card gradient-border lg:sticky lg:top-6">
+        <div class="card lg:sticky lg:top-6">
             <div class="card-body">
-                <h3 class="text-sm font-semibold uppercase tracking-wide text-foreground-muted mb-4">{% translate "Schedule it" %}</h3>
+                <div class="flex items-start gap-3 mb-5">
+                    <span class="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary-light text-primary">{% icon "calendar-days" class="w-5 h-5" %}</span>
+                    <div>
+                        <h3 class="text-base font-semibold text-foreground">{% translate "Schedule it" %}</h3>
+                        <p class="mt-0.5 text-sm text-foreground-muted">{% translate "Select a space and time to add this session to the event agenda." %}</p>
+                    </div>
+                </div>
                 <form method="post"
                       action="{% url 'web:chronology:session-accept' session_id=session.pk %}?variant=b"
                       class="space-y-5">
@@ -68,14 +67,19 @@
                         {% translate "Time slot" as time_slot_label %}
                         {% include "components/label.html" with for_id="time_slot" text=time_slot_label required=True %}
                         <div class="mt-1">{% include "chronology/_accept_timeslot_control.html" %}</div>
+                        <p class="mt-1 text-sm text-foreground-muted">{% translate "Pick the start time for this session." %}</p>
                     </div>
-                    <div class="pt-1 space-y-3">
+                    <div class="[&_.btn]:w-full space-y-3 pt-1">
                         {% translate "Accept and add to agenda" as accept_label %}
-                        {% tessera_button accept_label icon="check" full_width_mobile=True %}
-                        <a href="{% url 'web:chronology:event' slug=event.slug %}"
-                           class="block text-center text-sm text-foreground-muted hover:text-foreground transition-colors">
-                            {% translate "Back to event" %}
-                        </a>
+                        {% tessera_button accept_label icon="calendar-days" %}
+                        <div class="flex items-center gap-3 text-xs text-foreground-muted">
+                            <hr class="flex-1">
+                            <span>{% translate "or" %}</span>
+                            <hr class="flex-1">
+                        </div>
+                        {% url 'web:chronology:event' slug=event.slug as event_url %}
+                        {% translate "Back to event" as back_label %}
+                        {% tessera_button back_label href=event_url variant="secondary" icon="arrow-left" %}
                     </div>
                 </form>
             </div>

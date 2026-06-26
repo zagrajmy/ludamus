@@ -6,7 +6,7 @@ Three alternative layouts for the "Accept Proposal" page, selectable live via a
 | Variant | URL | Idea |
 | --- | --- | --- |
 | **A — Focused decision** (default) | `…/accept/` | One column. Proposal is quiet reference up top; the where/when decision is the hero below. |
-| **B — Split** | `…/accept/?variant=b` | Proposal stays beside the decision on a sticky pane, so context never scrolls away. The decision card carries the brand gradient accent. |
+| **B — Split (chosen)** | `…/accept/?variant=b` | Two cards side by side: proposal on the left, a sticky decision card on the right. On mobile they stack Details → Decision. Both are plain card surfaces — text never sits on a coloured fill. |
 | **C — Decision first** | `…/accept/?variant=c` | Leads with the only required action; the full proposal waits behind a "View full proposal" disclosure. |
 
 The default (no param) renders Variant A, so existing tests and links are
@@ -32,8 +32,12 @@ All three variants share the same fixes:
 - **Brand, not Bootstrap.** Coral primary, teal preferred-slot pills, the
   squircle cards and 3D button from the tessera design system; no ad-hoc
   `bg-info` / `bg-success` headers.
-- **One primary action.** "Back to event" is a quiet text link, not a
-  half-width button pretending to be equal.
+- **One clear primary action.** The accept button leads; "Back to event" is
+  secondary (a quiet link in A/C, an outline button under an "or" divider in B).
+
+Note: this change also removes the coral→teal `gradient-border` accent strip
+**app-wide** (it was also on the event hero card) — the class, the
+`--accent-gradient` token, and both usages are gone.
 
 Screenshots in this folder are exploration artifacts: `old-{light,mobile}` (the
 page before this change), plus per variant `{a,b,c}-mobile`, `a-{light,dark}`,

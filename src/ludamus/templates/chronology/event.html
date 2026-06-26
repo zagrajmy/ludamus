@@ -40,7 +40,7 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden {% if not event.cover_image_url %}gradient-border{% endif %} mb-8 bg-bg-secondary"
+    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
