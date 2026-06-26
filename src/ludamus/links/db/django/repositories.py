@@ -1471,7 +1471,11 @@ class SpaceRepository(SpaceRepositoryProtocol):
         Returns:
             SpaceDTO of the created space.
         """
-        area = Area.objects.select_related("venue").select_for_update().get(pk=area_id)
+        area = (
+            Area.objects.select_related("venue")
+            .select_for_update(of=("self",))
+            .get(pk=area_id)
+        )
 
         base_slug = slugify(name)
         slug = self.generate_unique_slug(area_id, base_slug)
