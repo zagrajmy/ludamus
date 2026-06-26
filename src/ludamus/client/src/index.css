@@ -411,10 +411,13 @@ button:active {
 
     &:active {
       @apply translate-y-0.5 scale-[99.4%];
-      box-shadow:
-        inset 0 0 1px 0 rgba(0, 0, 0, 0.1),
-        0 0px 0 0 rgba(0, 0, 0, 0.25),
-        0 0px 0 0 var(--bg);
+      /* Collapse the 3D lip by driving --y to 0 rather than replacing the whole
+         box-shadow. A box-shadow can only transition smoothly when both states
+         have the same number of layers; swapping a 4-layer resting shadow for a
+         shorter pressed one made the lip snap out of sync with the transform
+         (the "jitter" / vanishing bottom border). Keeping the same layers and
+         only animating the offset lets the lip retract in lockstep. */
+      --y: 0;
     }
 
     &:focus {
