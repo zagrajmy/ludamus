@@ -8,9 +8,10 @@ from ludamus.adapters.db.django.models import (
 from tests.integration.conftest import UserFactory
 
 
-def _enroll_url(session_id: int) -> str:
+def _enroll_url(session_id: int, event_slug: str) -> str:
     return reverse(
-        "web:chronology:session-enrollment", kwargs={"session_id": session_id}
+        "web:chronology:session-enrollment",
+        kwargs={"event_slug": event_slug, "session_id": session_id},
     )
 
 
@@ -32,7 +33,7 @@ class TestPlayerShadowbanWarning:
         _confirm(agenda_item.session, banned)
 
         content = authenticated_client.get(
-            _enroll_url(agenda_item.session.pk)
+            _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug)
         ).content.decode()
 
         assert "Players you shadowbanned are already signed up here" in content
@@ -47,7 +48,7 @@ class TestPlayerShadowbanWarning:
         _confirm(agenda_item.session, other)
 
         content = authenticated_client.get(
-            _enroll_url(agenda_item.session.pk)
+            _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug)
         ).content.decode()
 
         assert "Players you shadowbanned are already signed up here" not in content

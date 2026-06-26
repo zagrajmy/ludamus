@@ -72,8 +72,8 @@ class TestCFPDeleteActionView:
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
         Session.objects.create(
+            event=event,
             category=category,
-            sphere=sphere,
             presenter=active_user,
             display_name=active_user.username,
             title="Test Proposal",

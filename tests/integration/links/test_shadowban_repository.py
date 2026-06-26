@@ -52,9 +52,9 @@ class TestReadEventSignup:
             is None
         )
 
-    def test_returns_none_for_unscheduled_session(self, sphere):
+    def test_returns_none_for_unscheduled_session(self):
         # A session with no agenda item is not on any event timetable.
-        session = SessionFactory(sphere=sphere)
+        session = SessionFactory()
 
         assert (
             ShadowbanRepository.read_event_signup(
@@ -65,13 +65,13 @@ class TestReadEventSignup:
 
 
 class TestListSessionShadowbanned:
-    def test_returns_banned_participants_with_ban_date(self, active_user, sphere):
+    def test_returns_banned_participants_with_ban_date(self, active_user):
         player = UserFactory(
             username="bp", email="bp@example.com", name="Banned Player"
         )
         other = UserFactory(username="op", email="op@example.com", name="Other Player")
         active_user.shadowbanned.add(player)
-        session = SessionFactory(sphere=sphere)
+        session = SessionFactory()
         SessionParticipation.objects.create(
             session=session,
             user=player,
@@ -90,9 +90,9 @@ class TestListSessionShadowbanned:
         assert [w.user.pk for w in warnings] == [player.pk]
         assert warnings[0].shadowbanned_at is not None
 
-    def test_empty_when_no_banned_participants(self, active_user, sphere):
+    def test_empty_when_no_banned_participants(self, active_user):
         player = UserFactory(username="np", email="np@example.com", name="Nice Player")
-        session = SessionFactory(sphere=sphere)
+        session = SessionFactory()
         SessionParticipation.objects.create(
             session=session,
             user=player,

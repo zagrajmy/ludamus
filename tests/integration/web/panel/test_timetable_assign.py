@@ -165,7 +165,6 @@ class TestTimetableAssignView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -197,7 +196,6 @@ class TestTimetableAssignView:
         space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -227,7 +225,6 @@ class TestTimetableAssignView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -261,7 +258,6 @@ class TestTimetableAssignView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="rejected",
             participants_limit=10,
             min_age=0,
@@ -289,7 +285,6 @@ class TestTimetableAssignView:
         new_space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -330,7 +325,6 @@ class TestTimetableAssignView:
         other_event = EventFactory(sphere=sphere)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -362,7 +356,6 @@ class TestTimetableAssignView:
         )
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -433,7 +426,6 @@ class TestTimetableUnassignView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="scheduled",
             participants_limit=10,
             min_age=0,
@@ -459,7 +451,6 @@ class TestTimetableUnassignView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -481,7 +472,6 @@ class TestTimetableUnassignView:
         )
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            sphere=sphere,
             status="scheduled",
             participants_limit=10,
             min_age=0,

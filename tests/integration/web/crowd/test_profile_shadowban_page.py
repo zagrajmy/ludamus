@@ -124,12 +124,12 @@ class TestProfileShadowbanPageView:
         )
 
     def test_get_lists_player_met_in_own_session(
-        self, authenticated_client, active_user, sphere
+        self, authenticated_client, active_user
     ):
         player = UserFactory(
             username="player5", email="player5@example.com", name="Player Five"
         )
-        session = SessionFactory(sphere=sphere, presenter=active_user)
+        session = SessionFactory(presenter=active_user)
         SessionParticipation.objects.create(
             session=session,
             user=player,

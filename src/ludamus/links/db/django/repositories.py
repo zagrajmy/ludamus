@@ -551,13 +551,13 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return result
 
     @staticmethod
-    def slug_exists(sphere_id: int, slug: str) -> bool:
-        return Session.objects.filter(sphere_id=sphere_id, slug=slug).exists()
+    def slug_exists(event_id: int, slug: str) -> bool:
+        return Session.objects.filter(event_id=event_id, slug=slug).exists()
 
     @staticmethod
-    def find_id_by_slug(sphere_id: int, slug: str) -> int | None:
+    def find_id_by_slug(event_id: int, slug: str) -> int | None:
         return (
-            Session.objects.filter(sphere_id=sphere_id, slug=slug)
+            Session.objects.filter(event_id=event_id, slug=slug)
             .values_list("id", flat=True)
             .first()
         )

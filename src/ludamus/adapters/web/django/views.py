@@ -869,13 +869,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Get all sessions for this event that are published
         event_sessions = (
             Session.objects.filter(agenda_item__space__area__venue__event=self.object)
-            .select_related("presenter", "agenda_item__space", "sphere")
+            .select_related("presenter", "agenda_item__space", "event", "event__sphere")
             .prefetch_related(
                 "tags__category",
                 "session_participations__user__manager",
                 "session_participations__user__connected",
                 "field_values__field",
                 "agenda_item__space__area__venue__event__enrollment_configs",
+                "event__enrollment_configs",
             )
             .annotate(
                 enrolled_count_cached=Count(
@@ -1321,11 +1322,13 @@ class Enrollments:
 
 
 def _get_session_or_redirect(
-    request: AuthenticatedRootRequest, session_id: int
+    request: AuthenticatedRootRequest, event_slug: str, session_id: int
 ) -> Session:
     try:
         session = Session.objects.get(
-            sphere_id=request.context.current_sphere_id, id=session_id
+            event__slug=event_slug,
+            event__sphere_id=request.context.current_sphere_id,
+            id=session_id,
         )
     except Session.DoesNotExist:
         raise RedirectError(
@@ -1408,8 +1411,10 @@ class NotificationsMarkReadView(LoginRequiredMixin, View):
 class SessionEnrollPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
-    def get(self, request: AuthenticatedRootRequest, session_id: int) -> HttpResponse:
-        session = _get_session_or_redirect(request, session_id)
+    def get(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        session = _get_session_or_redirect(request, event_slug, session_id)
 
         context = {
             "session": session,
@@ -1525,8 +1530,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         return user_data
 
-    def post(self, request: AuthenticatedRootRequest, session_id: int) -> HttpResponse:
-        session = _get_session_or_redirect(request, session_id)
+    def post(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        session = _get_session_or_redirect(request, event_slug, session_id)
 
         # Initialize form with POST data
         form_class = create_enrollment_form(
@@ -1658,7 +1665,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             raise RedirectError(
                 reverse(
                     "web:chronology:session-enrollment",
-                    kwargs={"session_id": session.id},
+                    kwargs={"event_slug": session.event.slug, "session_id": session.id},
                 )
             )
 
@@ -1840,7 +1847,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             raise RedirectError(
                 reverse(
                     "web:chronology:session-enrollment",
-                    kwargs={"session_id": session.id},
+                    kwargs={"event_slug": session.event.slug, "session_id": session.id},
                 ),
                 warning=_("Please select at least one user to enroll."),
             )
@@ -1849,7 +1856,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 class ProposalAcceptPageView(LoginRequiredMixin, View):
     @staticmethod
     def _get_session_and_event(
-        request: AuthenticatedRootRequest, session_id: int
+        request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> tuple[SessionDTO, EventDTO]:
         session_repository = request.di.uow.sessions
         try:
@@ -1860,6 +1867,11 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             ) from exception
 
         event = session_repository.read_event(session.pk)
+
+        if event.slug != event_slug:
+            raise RedirectError(
+                reverse("web:index"), error=_("Session not found.")
+            ) from None
 
         if session.status != SessionStatus.PENDING:
             raise RedirectError(
@@ -1899,8 +1911,10 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             "field_values": field_values,
         }
 
-    def get(self, request: AuthenticatedRootRequest, session_id: int) -> HttpResponse:
-        session, event = self._get_session_and_event(request, session_id)
+    def get(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        session, event = self._get_session_and_event(request, event_slug, session_id)
         session_repository = request.di.uow.sessions
 
         self._check_spaces(session, session_repository)
@@ -1915,8 +1929,10 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             self._build_context(request, session, event, form),
         )
 
-    def post(self, request: AuthenticatedRootRequest, session_id: int) -> HttpResponse:
-        session, event = self._get_session_and_event(request, session_id)
+    def post(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        session, event = self._get_session_and_event(request, event_slug, session_id)
 
         form_class = create_proposal_acceptance_form(event)
         form = form_class(data=request.POST)
@@ -2062,7 +2078,11 @@ def _validate_anonymous_session_event(
 
 
 def _validate_anonymous_enrollment_request(
-    request: RootRequest, session_id: int, *, require_active_enrollment: bool = True
+    request: RootRequest,
+    event_slug: str,
+    session_id: int,
+    *,
+    require_active_enrollment: bool = True,
 ) -> tuple[Session, UserDTO] | HttpResponse:
     if not request.session.get("anonymous_enrollment_active"):
         messages.error(request, _("Anonymous enrollment is not active."))
@@ -2076,7 +2096,9 @@ def _validate_anonymous_enrollment_request(
 
     try:
         session = Session.objects.get(
-            id=session_id, sphere__site_id=request.context.current_site_id
+            id=session_id,
+            event__slug=event_slug,
+            event__sphere__site_id=request.context.current_site_id,
         )
     except Session.DoesNotExist:
         messages.error(request, _("Session not found."))
@@ -2142,7 +2164,9 @@ def _enroll_anonymous_user(
             ),
         )
         return redirect(
-            "web:chronology:session-enrollment-anonymous", session_id=session_id
+            "web:chronology:session-enrollment-anonymous",
+            event_slug=session.event.slug,
+            session_id=session_id,
         )
 
     with transaction.atomic():
@@ -2184,12 +2208,16 @@ def _enroll_anonymous_user(
 
 class SessionEnrollmentAnonymousPageView(View):
     @staticmethod
-    def get(request: RootRequest, session_id: int) -> HttpResponse:
+    def get(request: RootRequest, event_slug: str, session_id: int) -> HttpResponse:
         if request.context.current_user_slug:
-            return redirect("web:chronology:session-enrollment", session_id=session_id)
+            return redirect(
+                "web:chronology:session-enrollment",
+                event_slug=event_slug,
+                session_id=session_id,
+            )
 
         result = _validate_anonymous_enrollment_request(
-            request, session_id, require_active_enrollment=False
+            request, event_slug, session_id, require_active_enrollment=False
         )
         if isinstance(result, HttpResponse):
             return result
@@ -2220,12 +2248,17 @@ class SessionEnrollmentAnonymousPageView(View):
         return TemplateResponse(request, "chronology/anonymous_enroll.html", context)
 
     @staticmethod
-    def post(request: RootRequest, session_id: int) -> HttpResponse:
+    def post(request: RootRequest, event_slug: str, session_id: int) -> HttpResponse:
         if request.context.current_user_slug:
-            return redirect("web:chronology:session-enrollment", session_id=session_id)
+            return redirect(
+                "web:chronology:session-enrollment",
+                event_slug=event_slug,
+                session_id=session_id,
+            )
 
         result = _validate_anonymous_enrollment_request(
             request,
+            event_slug,
             session_id,
             require_active_enrollment=request.POST.get("action", "enroll") != "cancel",
         )
@@ -2239,7 +2272,9 @@ class SessionEnrollmentAnonymousPageView(View):
         if not anonymous_user.name:
             messages.error(request, _("Name is required."))
             return redirect(
-                "web:chronology:session-enrollment-anonymous", session_id=session_id
+                "web:chronology:session-enrollment-anonymous",
+                event_slug=event_slug,
+                session_id=session_id,
             )
 
         request.di.uow.anonymous_users.update(anonymous_user.slug, UserData(name=name))
@@ -2289,9 +2324,7 @@ class AnonymousLoadActionView(View):
         # Get user's enrollments to find the event and site
         enrollments = SessionParticipation.objects.filter(
             user_id=anonymous_user.pk
-        ).select_related(
-            "session__agenda_item__space__area__venue__event", "session__sphere"
-        )
+        ).select_related("session__agenda_item__space__area__venue__event__sphere")
 
         if not (first_enrollment := enrollments.first()):
             messages.warning(request, _("No enrollments found for this code."))
@@ -2299,7 +2332,7 @@ class AnonymousLoadActionView(View):
 
         # Get the first enrollment to determine the event and site
         event = first_enrollment.session.agenda_item.space.area.venue.event
-        site_id = first_enrollment.session.sphere.site_id
+        site_id = event.sphere.site_id
 
         # Load user into session with proper site association
         request.session["anonymous_user_code"] = code

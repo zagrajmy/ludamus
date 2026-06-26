@@ -70,12 +70,12 @@ class TestProposalDetailPageView:
             event=other_event, name="RPG", slug="rpg"
         )
         session = Session.objects.create(
+            event=other_event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Other Event Session",
             slug="other-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -96,12 +96,12 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=None,
             display_name="Anonymous Host",
             title="Session Without Presenter",
             slug="no-presenter",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -137,12 +137,12 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Session With Cover",
             slug="with-cover",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
             cover_image=SimpleUploadedFile(
@@ -167,11 +167,11 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Session With Email",
             slug="session-with-email",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
             contact_email="anna@example.com",
@@ -215,11 +215,11 @@ class TestProposalDetailPageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Session With Slots",
             slug="session-with-slots",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -258,11 +258,11 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Anonymous",
             title="Imported session",
             slug="imported",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -337,7 +337,7 @@ class TestProposalDetailPageView:
             display_name="Puller",
         )
         session = Session.objects.create(
-            sphere=sphere,
+            event=event,
             title="Focused",
             slug="focused",
             status="pending",

@@ -608,7 +608,7 @@
                                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-200 dark:bg-neutral-700 text-foreground-secondary">{{ pending.participants_limit }}</span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
+                                    <a href="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=pending.pk %}"
                                        class="btn btn-primary text-xs inline-flex items-center">
                                         {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review & accept" %}
                                     </a>
@@ -862,13 +862,13 @@
                         {% if data.is_enrollment_available and not event_banned %}
                             {% if current_user %}
                                 {% if data.user_enrolled or data.user_waiting %}
-                                    <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                                    <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
                                        class="btn text-sm bg-warning text-white">
                                         {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
                                     </a>
                                 {% else %}
                                     {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
-                                        <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                                        <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
                                            class="btn btn-primary text-sm">
                                             {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
                                         </a>
@@ -876,12 +876,12 @@
                                 {% endif %}
                             {% elif request.session.anonymous_enrollment_active %}
                                 {% if data.user_enrolled or data.user_waiting %}
-                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
                                        class="btn text-sm bg-warning text-white">
                                         {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
                                     </a>
                                 {% else %}
-                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
                                        class="btn btn-primary text-sm">
                                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
                                     </a>

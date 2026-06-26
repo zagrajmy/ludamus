@@ -13,15 +13,15 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _make_session(event, sphere, **kwargs):
+def _make_session(event, **kwargs):
     category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
     defaults = {
+        "event": event,
         "category": category,
         "presenter": None,
         "display_name": "Host",
         "title": "Test Session",
         "slug": "test-session",
-        "sphere": sphere,
         "participants_limit": 0,
         "status": "pending",
     }
@@ -47,8 +47,8 @@ class TestProposalSetFacilitatorsActionView:
             kwargs={"slug": event.slug, "proposal_id": proposal_id},
         )
 
-    def test_post_redirects_anonymous_user_to_login(self, client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_anonymous_user_to_login(self, client, event):
+        session = _make_session(event)
         url = self.get_url(event, session.pk)
 
         response = client.post(url, data={})
@@ -57,8 +57,8 @@ class TestProposalSetFacilitatorsActionView:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
-    def test_post_redirects_non_manager_user(self, authenticated_client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_non_manager_user(self, authenticated_client, event):
+        session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk), data={})
 
@@ -91,7 +91,7 @@ class TestProposalSetFacilitatorsActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
@@ -115,7 +115,7 @@ class TestProposalSetFacilitatorsActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Bob", slug="bob", user=None
         )
@@ -153,7 +153,7 @@ class TestProposalSetFacilitatorsActionView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event, sphere)
+        session = _make_session(other_event)
 
         response = authenticated_client.post(self.get_url(event, session.pk), data={})
 

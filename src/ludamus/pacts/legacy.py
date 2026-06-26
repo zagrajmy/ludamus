@@ -400,6 +400,7 @@ class SessionData(TypedDict, total=False):
     cover_image: UploadedFileProtocol
     description: str
     duration: str
+    event_id: int
     min_age: int
     needs: str
     participants_limit: int
@@ -407,7 +408,6 @@ class SessionData(TypedDict, total=False):
     display_name: str
     requirements: str
     slug: str
-    sphere_id: int
     status: SessionStatus
     title: str
 
@@ -965,9 +965,9 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         session_ids: Iterable[int],
     ) -> dict[int, list[TimeSlotDTO]]: ...
     @staticmethod
-    def slug_exists(sphere_id: int, slug: str) -> bool: ...
+    def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
-    def find_id_by_slug(sphere_id: int, slug: str) -> int | None: ...
+    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]
