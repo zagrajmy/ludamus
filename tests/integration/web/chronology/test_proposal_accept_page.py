@@ -21,6 +21,7 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SpaceDTO,
     TimeSlotDTO,
+    UserDTO,
 )
 from tests.integration.utils import assert_response
 
@@ -72,6 +73,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -96,6 +98,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -127,6 +130,85 @@ class TestProposalAcceptPageView:
         content = response.content.decode()
         assert "<select" in content
         assert 'name="time_slot"' in content
+
+    @pytest.mark.usefixtures("event", "space")
+    def test_get_collapses_single_time_slot_to_forced_choice(
+        self, pending_session, staff_client, time_slot
+    ):
+        # A lone slot is a foregone choice: rendered via the forced-choice
+        # component (hidden input + read-only field the label associates with).
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert (
+            f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
+        )
+        assert 'id="time_slot"' in content
+        assert 'aria-readonly="true"' in content
+
+    @pytest.mark.usefixtures("space")
+    def test_get_groups_preferred_time_slots_in_picker(
+        self, event, pending_session, staff_client, time_slot
+    ):
+        # A second slot forces the select; the preferred one is floated into its
+        # own optgroup instead of being flagged with a footnote.
+        TimeSlot.objects.create(
+            event=event,
+            start_time=time_slot.end_time,
+            end_time=time_slot.end_time + timedelta(hours=2),
+        )
+        pending_session.time_slots.add(time_slot)
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert '<optgroup label="Preferred by the facilitator">' in content
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_renders_host_avatar(self, pending_session, staff_client):
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        # The host's avatar renders for the presenter: with no avatar image the
+        # tessera component shows the initials placeholder (first two letters).
+        initials = pending_session.presenter.full_name[:2].upper()
+        assert f">{initials}</span>" in response.content.decode()
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_renders_proposal_detail_rows(self, pending_session, staff_client):
+        pending_session.description = "A haunted manor one-shot."
+        pending_session.requirements = "Bring a pencil."
+        pending_session.needs = "A quiet room."
+        pending_session.save()
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        for text in ("A haunted manor one-shot.", "Bring a pencil.", "A quiet room."):
+            assert text in content
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_without_presenter_still_renders(self, pending_session, staff_client):
+        pending_session.presenter = None
+        pending_session.save()
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["presenter"] is None
 
     @pytest.mark.usefixtures("event", "time_slot")
     def test_get_collapses_single_space_to_static_value(
@@ -256,6 +338,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [],
@@ -330,6 +413,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -367,6 +451,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -404,6 +489,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -451,6 +537,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -498,6 +585,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
