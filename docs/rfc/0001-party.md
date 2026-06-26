@@ -3,11 +3,11 @@
 > Jak mówił Piotr Fronczewski we Baldur's Gate: Przed wyruszeniem w drogę
 > należy zebrać drużynę.
 
-**Status:** 🟡 draft — research + design, no code yet
-**Reworks:** the "Connected users" feature — keeps `User.manager` /
-`User.connected` / `UserType.CONNECTED`, adds age + a claim flow
-**Touches:** Crowd (profiles, claim flow); the enrollment path and the party
-logic in `specs/enrollment.py` are left untouched
+**Status:** 🟡 draft — claim-flow slice implemented; membership model still in
+design
+**Reworks:** the "Connected users" feature into a first-class **Party**
+**Touches:** Crowd (profiles, claim flow) now; the enrollment core
+(`specs/enrollment.py`, slot accounting) once the membership model lands
 
 ## TL;DR
 
@@ -31,23 +31,19 @@ user":
    model.
 
 > **Scope notes (post-review):**
-> - An earlier draft proposed new `Person` / `Party` / `PartyMembership` tables.
->   A laziness pass cut them from v1 — the connected `User` row already is the
->   durable identity and `manager` already is the party key. The `Person` split
->   stays cut; `Party` / `PartyMembership` return in **Phase 2** below, now that
->   multi-party + real-user co-enrollment are real demand.
-> - A second pass cut **age gating**: `Session.min_age` is never enforced today
->   (it's a display-only label — see below), and we don't verify age anyway. So
->   `birth_year` and the age check are dropped. Storing a child's self-asserted
->   age to gate against an advisory label is theater.
->
-> What's left for v1: **one nullable column (`claim_token`) + a claim flow**, a
-> +N headcount path reusing anonymous enrollment, and a reskin. The
-> presenter-collective (society) case is deferred, not pre-shaped.
+> - An earlier draft proposed a `Person` table split from `User`. Cut: the
+>   connected `User` row already is the durable identity, and the claim flow
+>   upgrades it in place. The `Party` / `PartyMembership` tables stay — they are
+>   what makes multi-party and real-user co-enrollment possible (below).
+> - **Age gating** was cut: `Session.min_age` is never enforced today (a
+>   display-only label — see below), and we don't verify age anyway. Storing a
+>   child's self-asserted age to gate against an advisory label is theater.
 
-The win: the implicit "party" already in the waitlist-promotion code is left
-exactly as-is, and managed companions stop being permanent fake accounts — for
-the cost of one nullable column.
+The design lands in slices. The **claim flow** shipped first — it rides the
+existing `manager` structure and needs no new tables, so managed companions stop
+being permanent fake accounts for the cost of one nullable column. The
+**membership model** (multi-party, real-user co-enrollment) is the rest of the
+same design, still in flight.
 
 ## Why now — what's subpar about "Connected users"
 
@@ -159,12 +155,12 @@ before setting out. Reserve "grupa" — it's overloaded.
 ## Proposal
 
 The drużyna is already in the schema: it's `User.manager` + `User.connected`,
-and the enrollment engine already groups by it. So v1 is **not new tables** —
-it's one column and a claim flow on the structure that exists. We add the one
-thing the domain actually lacks (an exit from fake-account limbo) and leave the
-rest alone.
+and the enrollment engine already groups by it. The first slice — the **claim
+flow** — needs no new tables; it rides that existing structure and adds the one
+thing the domain most lacks (an exit from fake-account limbo). The membership
+model that follows generalises it.
 
-### The model — one column, no new tables
+### The claim slice — one column, no new tables
 
 ```text
 User                                  # unchanged, except:
@@ -179,11 +175,12 @@ A managed companion stays what it is today: a login-less `User` row reached via
   splitting it into `Person` + `account` FK buys two rows to keep in sync and a
   null-handling branch everywhere a member is read. The fake username
   (`connected|…`) is cosmetic — rename the convention if it offends; don't
-  reshape the schema around it. <!-- ponytail: User self-FK is the party; add Person only if a member must be co-owned by two managers (a v1 non-goal) -->
-- **No `Party` / `PartyMembership` tables.** A user has exactly one implicit
-  party — themselves plus their `connected`. Named, multiple, or co-owned
-  rosters ("Rodzina" vs "Ekipa z pracy") is speculative; nobody asked. `manager`
-  *is* the party key.
+  reshape the schema around it. <!-- ponytail: co-ownership is PartyMembership's job (below), not a reason to split User into Person -->
+- **No new tables *for the claim slice*.** Claiming rides the existing
+  `manager` structure — a user has one implicit party, themselves plus their
+  `connected`. The `Party` / `PartyMembership` tables arrive with the membership
+  model below, where named, multiple, and co-owned rosters become real
+  requirements; the claim flow doesn't need them.
 - **No `birth_year`, no age gating.** `Session.min_age` is display-only today —
   set by the organizer, shown on the card, never compared to anyone. We don't
   verify age. Adding a column to enforce a self-asserted number against an
@@ -219,7 +216,7 @@ and it rides the existing anonymous path rather than the per-user table.
 
 ### Presenter collectives (Axis B) — not built, not pre-shaped
 
-Out of scope for v1, and we do **not** contort the v1 model to anticipate it.
+Out of scope, and we do **not** contort the model to anticipate it.
 When a society like WTF actually needs to co-present sessions, revisit then —
 likely by letting a `Session` point at a `Sphere`/`Track`-style group, reusing
 the M2M-of-managers pattern those models already have. Until that requirement is
@@ -241,10 +238,12 @@ over-engineering this review is removing.
 - **Societies get a banner** — later — without us shipping a second grouping
   feature.
 
-## Architecture & layering (GLIMPSE)
+## Architecture & layering (GLIMPSE) — claim slice
 
-Following `docs/agents/architecture.md` and the services migration (new code
-uses `request.services`, never `request.di.uow`):
+How the landed claim flow sits in the layers, following
+`docs/agents/architecture.md` and the services migration (new code uses
+`request.services`, never `request.di.uow`). The membership model will add the
+`Party` aggregate noted in its own section:
 
 - **Migration** — add `User.claim_token` (one schema migration, no backfill —
   null for everyone).
@@ -261,8 +260,8 @@ uses `request.services`, never `request.di.uow`):
   `assert_response` (`docs/TESTING_STRATEGY.md`,
   `docs/agents/testing-assertions.md`).
 
-No new pacts module, no new repositories, no `Party`/`Person` models, no age
-helper.
+For the claim slice: no new pacts module, no new repositories, no `Party` model,
+no age helper. The membership model adds those.
 
 ## Migration
 
@@ -276,19 +275,19 @@ visible changes are additive:
    ugly. `UserType.CONNECTED`, the `manager` FK, and `MAX_CONNECTED_USERS`
    **stay** — they're load-bearing, not the problem.
 
-## Phase 2 — party membership (multi-party, real-user co-enrollment)
+## Party membership (multi-party, real-user co-enrollment)
 
-Everything above keeps the single `manager` tree: you plus your login-less
-companions, one party, no real-user co-members. Two things users should be able
-to do and can't:
+The claim slice rides the single `manager` tree: you plus your login-less
+companions, one party, no real-user co-members. That tree can't express two
+things the same design needs:
 
 1. **Enroll together with other *real* users** (each with their own account).
 2. **Belong to more than one party** (your family *and* your gaming crew).
 
 Both need the `manager` self-FK replaced with an explicit membership join — the
-`PartyMembership` table v1 deliberately skipped. Demand has arrived, so it's
-planned here rather than left rejected. This is a later phase: it reshapes the
-enrollment core, so it ships after the v1 claim flow, not with it.
+`PartyMembership` table. It's the larger half of the work and reshapes the
+enrollment core, which is why the claim slice landed first; it is the same
+design, not a separate phase.
 
 ### Model
 
@@ -350,15 +349,15 @@ The manager tree is a subset, so it backfills: one `Party` per current manager
 (manager as `owner`), each connected user a login-less `ACCEPT_BY_DEFAULT`
 membership sponsored by that manager. Keep `effective_manager_id` derivable from
 the backfilled party during the swap, then retire `User.manager`/`connected`.
-The v1 claim flow still applies — claiming a login-less member converts that
-user in place and flips their membership to a real-user one (now with a login
-and a say).
+The claim flow still applies — claiming a login-less member converts that user
+in place and flips their membership to a real-user one (now with a login and a
+say).
 
 ## Open questions / decisions needed
 
 - **O-1 — Person vs User.** *Resolved:* keep the login-less `User` row, make it
-  claimable. A separate `Person` table was rejected — its only real
-  justification (a member co-owned by two managers) is a v1 non-goal, and the
+  claimable. A separate `Person` table was rejected — co-ownership (its only real
+  justification) is the membership model's job via `PartyMembership`, and the
   auth surface on a child is cosmetic, not a bug worth a two-table redesign.
 - **O-2 — Age gating.** *Resolved: not doing it.* `min_age` is never enforced
   today (display-only), and age is unverified anyway. No `birth_year`, no check.
@@ -370,12 +369,12 @@ and a say).
 - **O-4 — Merge with anonymous enrollment?** Headcount guests and anonymous
   enrollees are nearly the same idea. Unify or keep separate?
 - **O-5 — Axis B (societies).** Deferred entirely; no model built or pre-shaped
-  for it in v1. Decide when a real society needs to co-present.
+  for it. Decide when a real society needs to co-present.
 - **O-6 — Claim/invite transport.** Email link? Share-code? We have a
   `claim_token` precedent for waitlist offers — reuse the pattern, not the
   column.
 
-Phase-2 (party membership) decisions, gating that build:
+Party-membership decisions, gating that part of the build:
 
 - **O-7 — Replace vs augment `manager`.** *Recommendation: replace.* Keeping the
   manager tree *and* adding memberships means two grouping mechanisms the
@@ -391,12 +390,12 @@ Phase-2 (party membership) decisions, gating that build:
   defaults, and whether a user can flip a trusted party to `ACCEPT_BY_DEFAULT`
   for themselves.
 
-## Non-goals (v1)
+## Non-goals
 
 - Building presenter collectives / society profiles (Axis B). Not built, not
   pre-shaped.
-- Cross-owner shared companions (two parents co-managing one kid). Not in v1;
-  becomes expressible under Phase 2's membership model, built only on demand.
+- Cross-owner shared companions (two parents co-managing one kid). Becomes
+  expressible under the membership model, but built only on demand.
 - **Age gating / verification.** `Session.min_age` stays the advisory,
   display-only label it is today. No `birth_year`, no enforcement.
 - Per-member payment or ticketing splits.
@@ -406,10 +405,10 @@ Phase-2 (party membership) decisions, gating that build:
 - **A `Person` table separate from `User`.** The original draft split every
   companion into `Person` + an `account` FK. Rejected: the login-less `User` row
   already is the durable identity, and the claim flow upgrades it in place. The
-  *`Party` / `PartyMembership`* half of that draft is **not** rejected — it
-  returns as Phase 2 above, now that multi-party + real-user co-enrollment are
-  real demand rather than speculation. The lesson held: build the grouping table
-  when the grouping requirement arrives, not before.
+  *`Party` / `PartyMembership`* half of that draft is **not** rejected — it is
+  the membership model above, justified once multi-party + real-user
+  co-enrollment became real requirements. The lesson held: build the grouping
+  table when the grouping requirement arrives, not before — and it just did.
 - **Pure Meetup/Luma +N only.** Cheap and clean, but throws away durable named
   companions you re-enroll across events — the "more than +1" the brief asks for.
 - **Age gating.** Considered and dropped: `min_age` is display-only and
@@ -418,15 +417,26 @@ Phase-2 (party membership) decisions, gating that build:
   for "managed bothers me") is a real gap. The difference between this and the
   proposal is one column plus a claim view — which is the point.
 
-## Definition of done (v1)
+## Definition of done
 
-- A user can add named companions and re-use them across events (as today, now
-  under the drużyna vocabulary).
+**Landed (claim slice):**
+
+- A user can add named companions and re-use them across events, under the
+  drużyna vocabulary.
 - A managed companion can be **claimed** into a real, self-login account on the
   same row — enrollment history intact.
+- One new nullable `User` column; no new tables; no age logic. Whole-party
+  waitlist promotion untouched. Unit tests for the claim logic, integration
+  tests (`assert_response`) for views/templates; Polish strings translated.
+
+**Remaining (membership model, gated on O-7/8/9):**
+
+- `Party` + `PartyMembership` replace the `manager` tree; the connected rows
+  backfill into memberships.
+- A user can belong to several parties and enroll alongside other real users,
+  with consent following each membership's `ACCEPT_BY_DEFAULT` /
+  `ACCEPT_INVITES` setting.
 - +N headcount guests work on the enrollment screen (via the existing anonymous
   path, not a new model).
-- One new nullable `User` column; no new tables; no age logic. Whole-party
-  waitlist promotion is untouched. Unit tests for the claim logic, integration
-  tests (`assert_response`) for views/templates; Polish strings on the drużyna
-  vocabulary.
+- Slot accounting moves from per-manager to per-person; the enrollment grouping
+  and promotion logic in `specs/enrollment.py` is updated, not bypassed.
