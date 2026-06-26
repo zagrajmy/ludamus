@@ -32,7 +32,7 @@ env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoi
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 run = '''
 set -eu
-bash scripts/ensure-gettext.sh
+mise bootstrap packages apply --yes
 po=src/ludamus/locale/pl/LC_MESSAGES/django.po
 # 1. Extraction must be current. Back up the catalog, regenerate, and compare
 #    against the backup ignoring the POT-Creation-Date header. Restoring from
@@ -75,6 +75,7 @@ run = "aubr -C src/ludamus/client build"
 [bootstrap]
 description = "Set up the dev environment from scratch (idempotent)"
 run = """
+mise bootstrap packages apply --yes
 poetry install
 aube install
 if [ ! -f .env.local ]; then
