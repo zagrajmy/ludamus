@@ -69,20 +69,6 @@
                             {% endif %}
                         {% endif %}
                         <input type="hidden" name="scope" value="{{ selected_scope }}">
-                        {% if spaces and show_space_control %}
-                            <div class="flex flex-col gap-1">
-                                <label class="text-sm font-semibold text-foreground-secondary"
-                                       for="id_space">{% translate "Space" %}</label>
-                                {% select id="id_space" name="space" %}
-                                    {% for space in spaces %}
-                                        <option value="{{ space.pk }}"
-                                                {% if selected_space == space.pk|stringformat:"s" %}selected{% endif %}>
-                                            {{ space.name }}
-                                        </option>
-                                    {% endfor %}
-                                {% end_select %}
-                            </div>
-                        {% endif %}
                         {% if tracks and show_track_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
@@ -100,7 +86,7 @@
                         {% if show_range_controls %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
-                                       for="id_start">{% translate "Area pages — start" %}</label>
+                                       for="id_start">{% translate "Start" %}</label>
                                 <input type="datetime-local"
                                        id="id_start"
                                        name="start"

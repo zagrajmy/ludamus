@@ -26,7 +26,6 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
-    PrintSpaceOptionDTO,
     PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
@@ -128,12 +127,6 @@ class PrintMaterialsService:
         self._time_slots = time_slots
         self._tracks = tracks
 
-    def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]:
-        return [
-            PrintSpaceOptionDTO(pk=space.pk, name=space.name, slug=space.slug)
-            for space in self._scoped_spaces(event_pk, None, None, None)
-        ]
-
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]:
         return [
             PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
@@ -150,7 +143,7 @@ class PrintMaterialsService:
         confirmed_only: bool = False,
     ) -> DoorCardsDocumentDTO:
         event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, scope_space_pks, None, None)
+        spaces = self._scoped_spaces(event_pk, scope_space_pks, None)
         items_by_space = self._group_by_space(
             self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
         )
@@ -211,7 +204,7 @@ class PrintMaterialsService:
     ) -> PrintTimetableDocumentDTO:
         event = self._events.read(query.event_pk)
         spaces = self._scoped_spaces(
-            query.event_pk, query.scope_space_pks, query.space_pks, query.track_pk
+            query.event_pk, query.scope_space_pks, query.track_pk
         )
         all_items = (
             self._agenda_items.list_by_track(query.track_pk)
@@ -260,11 +253,10 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (one venue/area) is a subset by construction, so it
-            # is never "the whole program"; completeness only applies unscoped.
+            # A scoped print (one space subtree) is a subset by construction, so
+            # it is never "the whole program"; completeness only applies unscoped.
             is_complete=(
                 query.scope_space_pks is None
-                and query.space_pks is None
                 and query.track_pk is None
                 and _is_complete(all_items)
             ),
@@ -276,9 +268,7 @@ class PrintMaterialsService:
     ) -> AreaScheduleDocumentDTO:
         range_start, range_end = query.time_range
         event = self._events.read(query.event_pk)
-        spaces = self._scoped_spaces(
-            query.event_pk, query.scope_space_pks, query.space_pks, None
-        )
+        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
         grouped = self._group_by_space(
             self._agenda_items.list_by_event(query.event_pk),
             confirmed_only=query.confirmed_only,
@@ -354,7 +344,6 @@ class PrintMaterialsService:
         self,
         event_pk: int,
         scope_space_pks: frozenset[int] | None,
-        space_pks: frozenset[int] | None,
         track_pk: int | None,
     ) -> list[SpaceDTO]:
         all_nodes = self._spaces.list_by_event(event_pk)
@@ -366,14 +355,9 @@ class PrintMaterialsService:
         if track_pk is not None:
             track_space_pks = frozenset(self._tracks.list_space_pks(track_pk))
             spaces = [s for s in spaces if s.pk in track_space_pks]
-        scoped = (
-            spaces
-            if scope_space_pks is None
-            else [s for s in spaces if s.pk in scope_space_pks]
-        )
-        if space_pks is None:
-            return scoped
-        return [s for s in scoped if s.pk in space_pks]
+        if scope_space_pks is None:
+            return spaces
+        return [s for s in spaces if s.pk in scope_space_pks]
 
     @staticmethod
     def _group_by_space(

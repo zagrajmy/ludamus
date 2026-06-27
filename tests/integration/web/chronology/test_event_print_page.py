@@ -31,10 +31,9 @@ def _assert_print_ok(
     *,
     logo="",
     selected_scope="",
-    selected_space=None,
     selected_track=None,
     range_hours=6,
-    material="event-timetable",
+    material="timetable",
     session_list_available=False,
     tracks_available=False,
 ):
@@ -43,31 +42,18 @@ def _assert_print_ok(
     assert "<svg" in ctx["qr_svg"]
     assert isinstance(ctx["range_start_value"], str)
     assert ctx["range_start_value"]
-    if selected_space is None:
-        selected_space = ctx["selected_space"]
     if selected_track is None:
         selected_track = ctx["selected_track"]
-    expected_options = [
-        "area-descriptions",
-        "area-timetable",
-        "space-timetable",
-        "venue-timetable",
-    ]
+    expected_options = ["timetable", "timetable-descriptions"]
     # The track scope is only offered when the event actually has tracks.
     if tracks_available:
         expected_options.append("track-timetable")
-    expected_options.append("event-timetable")
     if session_list_available:
         expected_options.append("session-list")
     assert [option.value for option in ctx["material_options"]] == expected_options
-    show_scope_control = material in {
-        "area-descriptions",
-        "area-timetable",
-        "venue-timetable",
-    }
-    show_space_control = material == "space-timetable"
+    show_scope_control = material in {"timetable", "timetable-descriptions"}
     show_track_control = material == "track-timetable"
-    show_range_controls = material == "area-descriptions"
+    show_range_controls = material == "timetable-descriptions"
     assert_response(
         response,
         HTTPStatus.OK,
@@ -80,16 +66,13 @@ def _assert_print_ok(
             "session_list": ANY,
             "qr_svg": ctx["qr_svg"],
             "print_scopes": ANY,
-            "spaces": ANY,
             "tracks": ANY,
             "material_options": ctx["material_options"],
             "material": material,
             "show_scope_control": show_scope_control,
-            "show_space_control": show_space_control,
             "show_track_control": show_track_control,
             "show_range_controls": show_range_controls,
             "selected_scope": selected_scope,
-            "selected_space": selected_space,
             "selected_track": selected_track,
             "range_start_value": ctx["range_start_value"],
             "range_hours": range_hours,
@@ -127,9 +110,11 @@ class TestPublicEventPrintView:
     ):
         _confirmed_item(event, session, space)
 
-        response = client.get(self._url(event.slug), {"material": "area-descriptions"})
+        response = client.get(
+            self._url(event.slug), {"material": "timetable-descriptions"}
+        )
 
-        _assert_print_ok(response, material="area-descriptions")
+        _assert_print_ok(response, material="timetable-descriptions")
         content = response.content.decode()
         assert session.title in content
         assert session.description in content
@@ -229,10 +214,7 @@ class TestPublicEventPrintView:
         response = client.get(f"{self._url(event.slug)}?scope={parent.pk}")
 
         _assert_print_ok(
-            response,
-            logo="events/logo.png",
-            selected_scope=str(parent.pk),
-            material="area-timetable",
+            response, logo="events/logo.png", selected_scope=str(parent.pk)
         )
         content = response.content.decode()
         assert "events/logo.png" in content
@@ -354,14 +336,12 @@ class TestPublicEventPrintView:
         )
         assert response.context_data["selected_track"] == "focused-track"
 
-    def test_space_timetable_scoped_to_selected_space(
-        self, client, event, session, space
-    ):
+    def test_timetable_scoped_to_a_single_room(self, client, event, session, space):
+        # A single room is now a scope like any other node (no separate "space"
+        # material): pick the leaf in the scope picker.
         _confirmed_item(event, session, space)
 
-        response = client.get(
-            self._url(event.slug), {"material": "space-timetable", "space": space.pk}
-        )
+        response = client.get(f"{self._url(event.slug)}?scope={space.pk}")
 
         assert_response(
             response,
@@ -369,8 +349,8 @@ class TestPublicEventPrintView:
             template_name="chronology/print.html",
             context_data=ANY,
         )
-        assert response.context_data["material"] == "space-timetable"
-        assert response.context_data["selected_space"] == str(space.pk)
+        assert response.context_data["material"] == "timetable"
+        assert response.context_data["selected_scope"] == str(space.pk)
         assert session.title in response.content.decode()
 
     def test_track_timetable_scoped_to_selected_track(

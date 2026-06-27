@@ -47,14 +47,17 @@ def _service():
 
 
 class TestListPrintScopes:
-    def test_lists_non_leaf_nodes_with_paths(self):
+    def test_lists_every_node_with_paths(self):
         result = _service().list_print_scopes(1)
 
         assert [(s.pk, s.name) for s in result] == [
             (1, "Budynek A"),
             (10, "Budynek A > Parter"),
+            (100, "Budynek A > Parter > Sala 1"),
             (20, "Budynek A > Piętro"),
+            (200, "Budynek A > Piętro > Sala 2"),
             (2, "Budynek B"),
+            (30, "Budynek B > Hala"),
         ]
 
 

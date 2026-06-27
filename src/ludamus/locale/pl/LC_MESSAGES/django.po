@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 19:26+0200\n"
+"POT-Creation-Date: 2026-06-27 20:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -659,7 +659,6 @@ msgstr "Wybierz przestrzeń..."
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/print.html
 msgid "Space"
 msgstr "Przestrzeń"
 
@@ -699,28 +698,17 @@ msgid "Sphere not found"
 msgstr "Sfera nie została znaleziona."
 
 #: src/ludamus/adapters/web/django/print_views.py
-msgid "Area with descriptions"
-msgstr "Strefa z opisami"
+#: src/ludamus/templates/chronology/print.html
+msgid "Timetable"
+msgstr "Harmonogram"
 
 #: src/ludamus/adapters/web/django/print_views.py
-msgid "Area timetable"
-msgstr "Harmonogram strefy"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Space timetable"
-msgstr "Harmonogram przestrzeni"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Venue timetable"
-msgstr "Harmonogram lokalizacji"
+msgid "Timetable with descriptions"
+msgstr "Harmonogram z opisami"
 
 #: src/ludamus/adapters/web/django/print_views.py
 msgid "Track timetable"
 msgstr "Harmonogram bloku"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Event timetable"
-msgstr "Harmonogram wydarzenia"
 
 #: src/ludamus/adapters/web/django/print_views.py
 msgid "Session list"
@@ -866,27 +854,22 @@ msgid "%(name)s (time conflict)"
 msgstr "%(name)s (konflikt czasowy)"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -907,7 +890,6 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -1199,7 +1181,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1664,7 +1645,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -3276,8 +3256,9 @@ msgid "Whole event"
 msgstr "Całe wydarzenie"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Area pages — start"
-msgstr "Strony stref — początek"
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Start"
+msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Hours"
@@ -3298,10 +3279,6 @@ msgstr "Brak stron"
 #: src/ludamus/templates/chronology/print.html
 msgid "Print preview"
 msgstr "Podgląd wydruku"
-
-#: src/ludamus/templates/chronology/print.html
-msgid "Timetable"
-msgstr "Harmonogram"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "No confirmed sessions scheduled yet."
@@ -5382,10 +5359,6 @@ msgid "Allow custom values"
 msgstr "Zezwól na własne wartości"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Start"
-msgstr "Początek"
-
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "End"
 msgstr "Koniec"
 
@@ -5876,11 +5849,12 @@ msgstr ""
 #: src/ludamus/templates/panel/print-materials.html
 msgid ""
 "Open a print-ready page, then use your browser to save it as a PDF or print "
-"it. Use the venue / area menu to print a single venue or area."
+"it. Use the scope menu to print a single space — a room, a floor, or a whole "
+"building."
 msgstr ""
 "Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub wydrukuj w "
-"przeglądarce. Użyj menu lokalizacji / strefy, aby wydrukować pojedynczą "
-"lokalizację lub strefę."
+"przeglądarce. Użyj menu zakresu, aby wydrukować pojedynczą przestrzeń — salę, "
+"piętro lub cały budynek."
 
 #: src/ludamus/templates/panel/print/base.html
 msgid "or press Ctrl+P (⌘P on Mac)"
@@ -6218,6 +6192,10 @@ msgid "New top-level space"
 msgstr "Nowa przestrzeń najwyższego poziomu"
 
 #: src/ludamus/templates/panel/spaces.html
+msgid "Could not save the new order. Reloading the page."
+msgstr "Nie udało się zapisać nowej kolejności. Ponowne ładowanie strony."
+
+#: src/ludamus/templates/panel/spaces.html
 msgid ""
 "No spaces yet. Add a top-level space to start building your event's layout."
 msgstr ""
@@ -6551,6 +6529,21 @@ msgstr "Czy na pewno chcesz usunąć ten blok programowy?"
 msgid "No tracks yet. Add a track to organize proposals by thematic area."
 msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
+
+#~ msgid "Area timetable"
+#~ msgstr "Harmonogram strefy"
+
+#~ msgid "Space timetable"
+#~ msgstr "Harmonogram przestrzeni"
+
+#~ msgid "Venue timetable"
+#~ msgstr "Harmonogram lokalizacji"
+
+#~ msgid "Event timetable"
+#~ msgstr "Harmonogram wydarzenia"
+
+#~ msgid "Area pages — start"
+#~ msgstr "Strony stref — początek"
 
 #~ msgid "Venue or area not found."
 #~ msgstr "Lokalizacja lub strefa nie została znaleziona."

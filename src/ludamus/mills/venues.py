@@ -41,15 +41,16 @@ class VenuesService(VenuesServiceProtocol):
         self._spaces = spaces
 
     def list_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]:
-        # Every non-leaf node is a printable scope, labelled by its tree path.
+        # Every node is a printable scope at any level — a single room, a whole
+        # floor, a building — labelled by its full tree path. resolve_scope maps
+        # the chosen node to the leaf rooms beneath it (a leaf maps to itself).
         scopes: list[PrintScopeOptionDTO] = []
 
         def walk(node: SpaceNodeDTO, prefix: str) -> None:
             path = f"{prefix} > {node.name}" if prefix else node.name
-            if not node.is_leaf:
-                scopes.append(PrintScopeOptionDTO(pk=node.pk, name=path))
-                for child in node.children:
-                    walk(child, path)
+            scopes.append(PrintScopeOptionDTO(pk=node.pk, name=path))
+            for child in node.children:
+                walk(child, path)
 
         for root in self._spaces.list_tree(event_pk):
             walk(root, "")

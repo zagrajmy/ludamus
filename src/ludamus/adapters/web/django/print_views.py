@@ -22,13 +22,13 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import EventDTO
-    from ludamus.pacts.printing import PrintOptionDTO, PrintSpaceOptionDTO
+    from ludamus.pacts.printing import PrintOptionDTO
 
     type _LazyStr = str | _StrPromise
 
 
 DocumentKind = Literal["area_schedule", "session_list", "timetable"]
-ScopeKind = Literal["event", "area", "space", "track"]
+ScopeKind = Literal["event", "scope", "track"]
 
 
 @dataclass(frozen=True)
@@ -43,11 +43,7 @@ class MaterialSpec:
     # they are derived rather than stored (keeps the specs from drifting).
     @property
     def show_scope_control(self) -> bool:
-        return self.scope_kind == "area"
-
-    @property
-    def show_space_control(self) -> bool:
-        return self.scope_kind == "space"
+        return self.scope_kind == "scope"
 
     @property
     def show_track_control(self) -> bool:
@@ -58,29 +54,24 @@ class MaterialSpec:
         return self.document_kind == "area_schedule"
 
 
-AREA_DESCRIPTIONS = "area-descriptions"
-AREA_TIMETABLE = "area-timetable"
-SPACE_TIMETABLE = "space-timetable"
-VENUE_TIMETABLE = "venue-timetable"
+TIMETABLE = "timetable"
+TIMETABLE_DESCRIPTIONS = "timetable-descriptions"
 TRACK_TIMETABLE = "track-timetable"
-EVENT_TIMETABLE = "event-timetable"
 SESSION_LIST = "session-list"
+# One timetable material, scopable to any space-tree node (a single room, a
+# whole floor, a building) or left unscoped for the whole event — the Scope
+# picker covers every level, so there is no separate venue/area/space material.
 MATERIAL_SPECS = (
+    MaterialSpec(TIMETABLE, _("Timetable"), "timetable", scope_kind="scope"),
     MaterialSpec(
-        AREA_DESCRIPTIONS,
-        _("Area with descriptions"),
+        TIMETABLE_DESCRIPTIONS,
+        _("Timetable with descriptions"),
         "area_schedule",
-        scope_kind="area",
+        scope_kind="scope",
     ),
-    MaterialSpec(AREA_TIMETABLE, _("Area timetable"), "timetable", scope_kind="area"),
-    MaterialSpec(
-        SPACE_TIMETABLE, _("Space timetable"), "timetable", scope_kind="space"
-    ),
-    MaterialSpec(VENUE_TIMETABLE, _("Venue timetable"), "timetable", scope_kind="area"),
     MaterialSpec(
         TRACK_TIMETABLE, _("Track timetable"), "timetable", scope_kind="track"
     ),
-    MaterialSpec(EVENT_TIMETABLE, _("Event timetable"), "timetable"),
     MaterialSpec(
         SESSION_LIST, _("Session list"), "session_list", requires_session_list=True
     ),
@@ -110,14 +101,6 @@ def _available_materials(
     )
 
 
-def _space_pks(
-    material: MaterialSpec, selected_space_pk: int | None
-) -> frozenset[int] | None:
-    if material.scope_kind != "space" or selected_space_pk is None:
-        return None
-    return frozenset({selected_space_pk})
-
-
 def _track_pk(material: MaterialSpec, track: PrintOptionDTO | None) -> int | None:
     if material.scope_kind != "track" or track is None:
         return None
@@ -136,22 +119,17 @@ def _scope_pk(raw: str | None) -> int | None:
 def _timetable_scope_pks(
     material: MaterialSpec, scope_space_pks: frozenset[int] | None
 ) -> frozenset[int] | None:
-    if material.scope_kind != "area":
+    if material.scope_kind != "scope":
         return None
     return scope_space_pks
 
 
 def _timetable_scope_name(
-    material: MaterialSpec,
-    scope_name: str | None,
-    space_scope_name: str | None,
-    track: PrintOptionDTO | None,
+    material: MaterialSpec, scope_name: str | None, track: PrintOptionDTO | None
 ) -> str | None:
-    if material.scope_kind == "space":
-        return space_scope_name
     if material.scope_kind == "track":
         return track.name if track else None
-    if material.scope_kind == "area":
+    if material.scope_kind == "scope":
         return scope_name
     return None
 
@@ -188,12 +166,6 @@ class PublicEventPrintView(View):
         range_end = range_start + timedelta(hours=range_hours)
 
         service = request.services.print_materials
-        spaces = service.list_spaces(event.pk)
-        selected_space_pk = self._selected_space_pk(spaces)
-        space_scope_name = next(
-            (space.name for space in spaces if space.pk == selected_space_pk), None
-        )
-
         tracks = service.list_tracks(event.pk)
         selected_track = self._selected_track(tracks)
         session_list_candidate = service.build_session_list(
@@ -203,7 +175,7 @@ class PublicEventPrintView(View):
             session_list_available=session_list_candidate is not None,
             tracks_available=bool(tracks),
         )
-        material_spec = self._resolve_material(material_options, scope_pk)
+        material_spec = self._resolve_material(material_options)
 
         timetable = None
         area_schedule = None
@@ -228,13 +200,9 @@ class PublicEventPrintView(View):
                     scope_space_pks=_timetable_scope_pks(
                         material_spec, scope.space_pks
                     ),
-                    space_pks=_space_pks(material_spec, selected_space_pk),
                     track_pk=_track_pk(material_spec, selected_track),
                     scope_name=_timetable_scope_name(
-                        material_spec,
-                        scope.scope_name,
-                        space_scope_name,
-                        selected_track,
+                        material_spec, scope.scope_name, selected_track
                     ),
                     confirmed_only=True,
                 )
@@ -256,16 +224,13 @@ class PublicEventPrintView(View):
                 "session_list": session_list,
                 "qr_svg": qr_svg(event_url, xmldecl=False),
                 "print_scopes": request.services.venues.list_print_scopes(event.pk),
-                "spaces": spaces,
                 "tracks": tracks,
                 "material_options": material_options,
                 "material": material_spec.value,
                 "show_scope_control": material_spec.show_scope_control,
-                "show_space_control": material_spec.show_space_control,
                 "show_track_control": material_spec.show_track_control,
                 "show_range_controls": material_spec.show_range_controls,
                 "selected_scope": str(scope_pk) if scope_pk is not None else "",
-                "selected_space": str(selected_space_pk or ""),
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
                     localtime(range_start, tz).strftime("%Y-%m-%dT%H:%M")
@@ -275,18 +240,15 @@ class PublicEventPrintView(View):
         )
 
     def _resolve_material(
-        self, available_materials: tuple[MaterialSpec, ...], scope_pk: int | None
+        self, available_materials: tuple[MaterialSpec, ...]
     ) -> MaterialSpec:
+        # The timetable is the default; it carries the Scope picker, so a scoped
+        # request needs no special-casing here.
         available_by_value = {spec.value: spec for spec in available_materials}
-        if raw_material := self.request.GET.get("material"):
-            material = MATERIAL_SPECS_BY_VALUE.get(raw_material)
-        elif scope_pk is not None:
-            material = MATERIAL_SPECS_BY_VALUE[AREA_TIMETABLE]
-        else:
-            material = MATERIAL_SPECS_BY_VALUE[EVENT_TIMETABLE]
+        material = MATERIAL_SPECS_BY_VALUE.get(self.request.GET.get("material") or "")
         if material and material.value in available_by_value:
             return material
-        return MATERIAL_SPECS_BY_VALUE[EVENT_TIMETABLE]
+        return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
 
     def _resolve_range(self, event: EventDTO, tz: tzinfo) -> tuple[datetime, int]:
         hours = self.DEFAULT_RANGE_HOURS
@@ -301,18 +263,10 @@ class PublicEventPrintView(View):
                     start = parsed if parsed.tzinfo else make_aware(parsed, tz)
         return start, hours
 
-    def _selected_space_pk(self, spaces: list[PrintSpaceOptionDTO]) -> int | None:
-        raw = self.request.GET.get("space") or ""
-        with suppress(ValueError):
-            selected = int(raw)
-            if any(space.pk == selected for space in spaces):
-                return selected
-        return spaces[0].pk if spaces else None
-
     def _selected_track(self, tracks: list[PrintOptionDTO]) -> PrintOptionDTO | None:
         if slug := self.request.GET.get("track") or "":
             # A stale/invalid slug must not silently print the whole event; fall
-            # back to the first track, mirroring `_selected_space_pk`.
+            # back to the first track.
             selected = next((track for track in tracks if track.slug == slug), None)
             if selected is not None:
                 return selected

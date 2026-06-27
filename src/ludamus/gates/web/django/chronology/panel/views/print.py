@@ -2,8 +2,8 @@
 
 Served as standalone print pages; the organizer prints via the browser
 (Save-as-PDF or Ctrl/Cmd+P). Rendered in the request's active locale;
-session titles stay as authored. An optional ``?venue=<slug>`` (and
-``&area=<slug>``) scopes the document to one venue or area.
+session titles stay as authored. An optional ``?scope=<pk>`` scopes the
+document to one space-tree node at any level (a room, a floor, a building).
 """
 
 from __future__ import annotations
