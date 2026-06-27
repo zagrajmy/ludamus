@@ -576,9 +576,14 @@ class Space(models.Model):
 
     def clean(self) -> None:
         super().clean()
+        self._validate_same_event()
         self._validate_acyclic_and_depth()
         self._validate_leaf_parent()
         self._validate_root_slug_unique()
+
+    def _validate_same_event(self) -> None:
+        if self.parent is not None and self.parent.event_id != self.event_id:
+            raise ValidationError(_("A space must belong to its parent's event."))
 
     def _validate_acyclic_and_depth(self) -> None:
         # Climb the parent chain. Revisiting self is a cycle; exceeding the max

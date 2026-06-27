@@ -1675,6 +1675,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             kids = children_by_parent.get(space.pk, [])
             return SpaceNodeDTO(
                 pk=space.pk,
+                event_id=space.event_id,
                 parent_id=space.parent_id,
                 name=space.name,
                 slug=space.slug,
@@ -1796,10 +1797,54 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             slug = f"{base_slug}-{token_urlsafe(3)}"
         return slug
 
+    @transaction.atomic
+    def duplicate(self, pk: int, new_name: str) -> SpaceNodeDTO:
+        try:
+            source = Space.objects.get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        clone = self._clone_subtree(
+            source, event_id=source.event_id, parent_id=source.parent_id, name=new_name
+        )
+        return self._node(clone)
+
+    @transaction.atomic
+    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceNodeDTO:
+        try:
+            source = Space.objects.get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        # The copied subtree becomes a root in the target event.
+        clone = self._clone_subtree(source, event_id=target_event_id, parent_id=None)
+        return self._node(clone)
+
+    def _clone_subtree(
+        self,
+        source: Space,
+        *,
+        event_id: int,
+        parent_id: int | None,
+        name: str | None = None,
+    ) -> Space:
+        clone_name = name if name is not None else source.name
+        clone = Space.objects.create(
+            event_id=event_id,
+            parent_id=parent_id,
+            name=clone_name,
+            slug=self.generate_unique_slug(event_id, parent_id, slugify(clone_name)),
+            capacity=source.capacity,
+            description=source.description,
+            order=source.order,
+        )
+        for child in Space.objects.filter(parent_id=source.pk).order_by("order"):
+            self._clone_subtree(child, event_id=event_id, parent_id=clone.pk)
+        return clone
+
     @staticmethod
     def _node(space: Space) -> SpaceNodeDTO:
         return SpaceNodeDTO(
             pk=space.pk,
+            event_id=space.event_id,
             parent_id=space.parent_id,
             name=space.name,
             slug=space.slug,

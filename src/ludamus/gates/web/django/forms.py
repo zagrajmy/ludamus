@@ -445,7 +445,7 @@ class TimeSlotForm(forms.Form):
 
 
 class SpaceForm(forms.Form):
-    """Form for creating/editing spaces within an area."""
+    """Form for creating/editing a space tree node."""
 
     name = forms.CharField(
         max_length=255,
@@ -458,8 +458,25 @@ class SpaceForm(forms.Form):
     capacity = forms.IntegerField(
         required=False,
         min_value=1,
+        label=_("Capacity"),
+        help_text=_("Only meaningful for the innermost spaces that hold sessions."),
         error_messages={"min_value": _("Capacity must be at least 1.")},
     )
+    description = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+
+
+def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
+    target_event_field = forms.ChoiceField(
+        label=_("Target Event"),
+        choices=events,
+        error_messages={
+            "required": _("Please select a target event."),
+            "invalid_choice": _("Invalid event selection."),
+        },
+    )
+    return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
 class TrackForm(forms.Form):

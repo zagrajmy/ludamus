@@ -5,7 +5,12 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.venues import AreaRefDTO, PrintScopeDTO, VenueWithAreasDTO
+from ludamus.pacts.venues import (
+    AreaRefDTO,
+    PrintScopeDTO,
+    SpaceTreeServiceProtocol,
+    VenueWithAreasDTO,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts import AreaRepositoryProtocol, VenueRepositoryProtocol
@@ -52,7 +57,7 @@ class VenuesService:
         return PrintScopeDTO(area_pks=frozenset({area.pk}), scope_name=area.name)
 
 
-class SpaceTreeService:
+class SpaceTreeService(SpaceTreeServiceProtocol):
     def __init__(
         self, transaction: TransactionProtocol, spaces: SpaceTreeRepositoryProtocol
     ) -> None:
@@ -61,6 +66,9 @@ class SpaceTreeService:
 
     def list_tree(self, event_pk: int) -> list[SpaceNodeDTO]:
         return self._spaces.list_tree(event_pk)
+
+    def read(self, pk: int) -> SpaceNodeDTO:
+        return self._spaces.read(pk)
 
     def create(
         self,
@@ -88,6 +96,12 @@ class SpaceTreeService:
 
     def reorder(self, *, parent_id: int | None, child_pks: list[int]) -> None:
         self._spaces.reorder(parent_id, child_pks)
+
+    def duplicate(self, *, pk: int, new_name: str) -> SpaceNodeDTO:
+        return self._spaces.duplicate(pk, new_name)
+
+    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceNodeDTO:
+        return self._spaces.copy_to_event(pk, target_event_id)
 
     def delete_space(self, pk: int) -> bool:
         # Leaf or branch: a subtree holding any scheduled session is undeletable;

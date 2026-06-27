@@ -1,0 +1,130 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Venues" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Venues" %}
+{% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are venues?" as t_info_title %}
+    {% translate "Organise the physical layout of your event as a tree: buildings contain floors or wings, which contain the individual rooms that hold sessions. Nest spaces as deeply as you need; only the innermost rooms take a capacity." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Physical Locations" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+        {% translate "New top-level space" as t_new_space %}
+        {% tessera_button t_new_space href=new_space_url icon="plus" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="p-4">
+        {% if current_event %}
+            {% if tree %}
+                <div class="card p-4">
+                    <ul id="space-root-list" class="space-list" data-parent-pk="">
+                        {% for node in tree %}
+                            {% include "panel/_space_tree_node.html" with node=node %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                <script>
+                    (function() {
+                        // Action dropdowns.
+                        document.querySelectorAll('.action-dropdown-toggle').forEach(button => {
+                            button.addEventListener('click', e => {
+                                e.stopPropagation();
+                                const menu = button.nextElementSibling;
+                                const isOpen = !menu.classList.contains('hidden');
+                                document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
+                                document.querySelectorAll('.action-dropdown-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
+                                if (!isOpen) {
+                                    menu.classList.remove('hidden');
+                                    button.setAttribute('aria-expanded', 'true');
+                                }
+                            });
+                        });
+                        document.addEventListener('click', () => {
+                            document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
+                            document.querySelectorAll('.action-dropdown-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
+                        });
+                    })();
+                    (function() {
+                        // Drag-reorder within each sibling list (no reparenting).
+                        const reorderUrl = '{% url "panel:space-reorder" slug=current_event.slug %}';
+                        const csrfToken = '{{ csrf_token }}';
+                        let dragged = null;
+
+                        function directChildren(list) {
+                            return Array.from(list.children).filter(el => el.classList.contains('space-node'));
+                        }
+
+                        function saveOrder(list) {
+                            const parentPk = list.dataset.parentPk;
+                            const spaceIds = directChildren(list).map(li => parseInt(li.dataset.spaceId, 10));
+                            fetch(reorderUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': csrfToken
+                                },
+                                body: JSON.stringify({
+                                    parent_pk: parentPk === '' ? null : parseInt(parentPk, 10),
+                                    space_ids: spaceIds
+                                })
+                            });
+                        }
+
+                        document.querySelectorAll('.space-list').forEach(list => {
+                            list.addEventListener('dragstart', e => {
+                                const li = e.target.closest('.space-node');
+                                if (li && directChildren(list).includes(li)) {
+                                    dragged = li;
+                                    li.style.opacity = '0.5';
+                                }
+                            });
+                            list.addEventListener('dragend', e => {
+                                const li = e.target.closest('.space-node');
+                                if (li && dragged && directChildren(list).includes(dragged)) {
+                                    li.style.opacity = '1';
+                                    saveOrder(list);
+                                }
+                                dragged = null;
+                            });
+                            list.addEventListener('dragover', e => {
+                                if (!dragged || !directChildren(list).includes(dragged)) return;
+                                const target = e.target.closest('.space-node');
+                                if (!target || target === dragged || !directChildren(list).includes(target)) return;
+                                e.preventDefault();
+                                const rect = target.getBoundingClientRect();
+                                const before = e.clientY < rect.top + rect.height / 2;
+                                list.insertBefore(dragged, before ? target : target.nextSibling);
+                            });
+                        });
+                    })();
+                </script>
+            {% else %}
+                <div class="card p-8 text-center">
+                    <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-neutral-300 mx-auto" %}</div>
+                    <p class="text-foreground-muted mb-4">
+                        {% translate "No spaces yet. Add a top-level space to start building your event's layout." %}
+                    </p>
+                    {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+                    {% translate "New top-level space" as t_new_space %}
+                    {% tessera_button t_new_space href=new_space_url icon="plus" %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}
