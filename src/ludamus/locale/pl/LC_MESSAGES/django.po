@@ -3669,6 +3669,14 @@ msgstr "Oznacz wszystkie jako przeczytane"
 msgid "No notifications yet."
 msgstr "Brak powiadomień."
 
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Interface sound (Velvet)"
+msgstr "Dźwięk interfejsu (Velvet)"
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Toggle interface sound"
+msgstr "Przełącz dźwięk interfejsu"
+
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"
 msgstr "Wybierz motyw:"
@@ -6937,11 +6945,3 @@ msgstr ""
 #~ msgid "No venues yet. Venues will be managed here once available."
 #~ msgstr ""
 #~ "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
-
-#: src/ludamus/templates/components/sound_switcher.html
-msgid "Interface sound (Velvet)"
-msgstr "Dźwięk interfejsu (Velvet)"
-
-#: src/ludamus/templates/components/sound_switcher.html
-msgid "Toggle interface sound"
-msgstr "Przełącz dźwięk interfejsu"

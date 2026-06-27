@@ -28,7 +28,7 @@ interface Voice {
   pitchVarPct: number;
   reverbWet: number;
   sub: number;
-  transient: { amt: number; hz: number; ms: number; shape: FilterShape; };
+  transient: { amt: number; hz: number; ms: number; shape: FilterShape };
   volJitterPct: number;
   waveform: Waveform;
 }
@@ -128,6 +128,8 @@ const ROLES: Record<string, Role> = {
 
 export type SoundRole = keyof typeof ROLES;
 
+const isRole = (value: string): value is SoundRole => value in ROLES;
+
 const rand = (min: number, max: number): number =>
   min + Math.random() * (max - min);
 
@@ -187,7 +189,7 @@ class VelvetEngine {
     if (this.ctx?.state === "suspended") void this.ctx.resume();
   }
 
-  play(role: SoundRole, voice: Voice = VELVET): void {
+  play(role: SoundRole): void {
     this.build();
     const { ctx } = this;
     if (!ctx) return;
@@ -195,7 +197,7 @@ class VelvetEngine {
     if (!def) return;
     const t0 = ctx.currentTime + 0.002;
     for (const hit of def.hits) {
-      this.scheduleHit(t0 + (hit.dt ?? 0), voice, def, hit);
+      this.scheduleHit(t0 + (hit.dt ?? 0), VELVET, def, hit);
     }
     globalThis.dispatchEvent(new CustomEvent("uisound", { detail: { role } }));
   }
@@ -358,16 +360,15 @@ const wire = (): void => {
   // The toggle button flips the persisted preference; data-velvet-play buttons
   // audition a specific sound (the design-page showcase).
   document.addEventListener("click", (event) => {
-    const {target} = event;
+    const { target } = event;
     if (!(target instanceof Element)) return;
     if (target.closest("[data-velvet-toggle]")) {
       api.toggle();
       return;
     }
     const audition = target.closest<HTMLElement>("[data-velvet-play]");
-    if (audition?.dataset.velvetPlay) {
-      preview(audition.dataset.velvetPlay as SoundRole);
-    }
+    const role = audition?.dataset.velvetPlay;
+    if (role && isRole(role)) preview(role);
   });
 
   // Soft tap on interactive controls. Submit controls are skipped here so the
@@ -375,10 +376,12 @@ const wire = (): void => {
   document.addEventListener(
     "pointerdown",
     (event) => {
-      const {target} = event;
+      const { target } = event;
       if (!(target instanceof Element)) return;
       if (
-        target.closest("[data-velvet-toggle], [data-velvet-play], [data-no-sound]")
+        target.closest(
+          "[data-velvet-toggle], [data-velvet-play], [data-no-sound]",
+        )
       )
         return;
       const control = target.closest(CLICK_SELECTOR);
@@ -400,7 +403,7 @@ const wire = (): void => {
 
   // Checkbox / switch flips.
   document.addEventListener("change", (event) => {
-    const {target} = event;
+    const { target } = event;
     if (target instanceof HTMLInputElement && target.type === "checkbox") {
       play(target.checked ? "toggle.on" : "toggle.off");
     }
