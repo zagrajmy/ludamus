@@ -1547,14 +1547,12 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]:
-        """List all spaces for an event, ordered by name.
+        """List every space (tree node) for an event, ordered by order/name.
 
         Returns:
             List of SpaceDTO objects for the event.
         """
-        spaces = Space.objects.filter(event_id=event_pk).order_by(
-            *Space.HIERARCHICAL_ORDER
-        )
+        spaces = Space.objects.filter(event_id=event_pk).order_by("order", "name")
 
         return [SpaceDTO.model_validate(space) for space in spaces]
 

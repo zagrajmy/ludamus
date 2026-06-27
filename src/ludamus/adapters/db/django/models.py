@@ -522,16 +522,7 @@ class DomainEnrollmentConfig(models.Model):
 
 
 class Space(models.Model):
-    """Bookable room/location within an area."""
-
-    HIERARCHICAL_ORDER: ClassVar = (
-        "area__venue__order",
-        "area__venue__name",
-        "area__order",
-        "area__name",
-        "order",
-        "name",
-    )
+    """A node in the event's space tree (building → … → bookable room)."""
 
     # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")

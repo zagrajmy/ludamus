@@ -383,7 +383,7 @@ def create_proposal_acceptance_form(event: EventDTO) -> type[forms.Form]:
     spaces = (
         Space.objects.filter(event_id=event.pk, children__isnull=True)
         .select_related("parent")
-        .order_by(*Space.HIERARCHICAL_ORDER)
+        .order_by("order", "name")
     )
 
     # Build grouped choices keyed by the leaf's parent-path string

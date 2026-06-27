@@ -309,6 +309,7 @@ class SpaceDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     area_id: int | None
+    parent_id: int | None = None
     capacity: int | None
     creation_time: datetime
     modification_time: datetime

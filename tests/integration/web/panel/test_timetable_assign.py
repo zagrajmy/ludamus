@@ -32,7 +32,7 @@ def _empty_grid():
     return TimetableGridDTO(
         spaces=[],
         columns=[],
-        venue_groups=[],
+        groups=[],
         time_labels=[],
         total_minutes=0,
         event_start_iso="",
