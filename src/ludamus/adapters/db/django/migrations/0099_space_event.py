@@ -4,7 +4,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0098_drop_session_sphere")]
+    dependencies = [("db_main", "0099_event_use_session_cover_placeholders")]
 
     operations = [
         migrations.AddField(
