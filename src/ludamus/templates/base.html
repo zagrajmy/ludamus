@@ -70,60 +70,58 @@
             jumps on open/close.
         {% endcomment %}
         <div id="app-scroll" class="app-scroll relative">
-        {% block body_content %}
-            {% block site_navbar %}
-                {% include "components/navbar.html" %}
-            {% endblock site_navbar %}
-            {% block main_region %}
-                <!-- Flash Messages -->
-                {% if messages %}
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">
-                        {% include "components/flash-messages.html" %}
-                    </div>
-                {% endif %}
-                <!-- Main Content -->
-                <main class="grow flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full mb-8">
-                    <!-- Page Header -->
-                    {% block header_section %}
-                        <div class="mb-6 text-center">
-                            {% block header %}
-                            {% endblock header %}
-                            {% block description %}
-                                <p class="mt-2 text-sm sm:text-base text-foreground-muted">
-                                    {% block description_text %}
-                                    {% endblock description_text %}
+            {% block body_content %}
+                {% block site_navbar %}
+                    {% include "components/navbar.html" %}
+                {% endblock site_navbar %}
+                {% block main_region %}
+                    <!-- Flash Messages -->
+                    {% if messages %}
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">{% include "components/flash-messages.html" %}</div>
+                    {% endif %}
+                    <!-- Main Content -->
+                    <main class="grow flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full mb-8">
+                        <!-- Page Header -->
+                        {% block header_section %}
+                            <div class="mb-6 text-center">
+                                {% block header %}
+                                {% endblock header %}
+                                {% block description %}
+                                    <p class="mt-2 text-sm sm:text-base text-foreground-muted">
+                                        {% block description_text %}
+                                        {% endblock description_text %}
+                                    </p>
+                                {% endblock description %}
+                            </div>
+                        {% endblock header_section %}
+                        {% block body %}
+                        {% endblock body %}
+                    </main>
+                {% endblock main_region %}
+                {% block site_footer %}
+                    <footer class="border-t py-6 bg-bg-secondary border-border">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div class="flex justify-end mb-4">{% include "components/theme_switcher.html" %}</div>
+                            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
+                                <p class="text-center sm:text-left">
+                                    © {% now "Y" %} Radosław Ganczarek.
+                                    <a href="https://github.com/zagrajmy/ludamus"
+                                       class="hover:underline text-primary">Source code</a>
+                                    available under BSD-3-Clause license.
                                 </p>
-                            {% endblock description %}
-                        </div>
-                    {% endblock header_section %}
-                    {% block body %}
-                    {% endblock body %}
-                </main>
-            {% endblock main_region %}
-            {% block site_footer %}
-                <footer class="border-t py-6 bg-bg-secondary border-border">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div class="flex justify-end mb-4">{% include "components/theme_switcher.html" %}</div>
-                        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
-                            <p class="text-center sm:text-left">
-                                © {% now "Y" %} Radosław Ganczarek.
-                                <a href="https://github.com/zagrajmy/ludamus"
-                                   class="hover:underline text-primary">Source code</a>
-                                available under BSD-3-Clause license.
-                            </p>
-                            <div class="flex flex-wrap justify-center sm:justify-end gap-4">
-                                <a href="mailto:{{ SUPPORT_EMAIL }}"
-                                   class="hover:underline text-primary">{% translate "Contact" %}</a>
-                                <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' %}"
-                                   class="hover:underline text-primary">{% translate "Privacy Policy" %}</a>
-                                <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/terms-of-service/' %}"
-                                   class="hover:underline text-primary">{% translate "Terms of Service" %}</a>
+                                <div class="flex flex-wrap justify-center sm:justify-end gap-4">
+                                    <a href="mailto:{{ SUPPORT_EMAIL }}"
+                                       class="hover:underline text-primary">{% translate "Contact" %}</a>
+                                    <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' %}"
+                                       class="hover:underline text-primary">{% translate "Privacy Policy" %}</a>
+                                    <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/terms-of-service/' %}"
+                                       class="hover:underline text-primary">{% translate "Terms of Service" %}</a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </footer>
-            {% endblock site_footer %}
-        {% endblock body_content %}
+                    </footer>
+                {% endblock site_footer %}
+            {% endblock body_content %}
         </div>
         {% include "components/confirm-dialog.html" %}
         <!-- Scripts -->
