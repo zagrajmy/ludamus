@@ -28,7 +28,7 @@
                     {% endif %}
                 {% endif %}
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 -translate-y-px">
                 {% if request.user.is_authenticated %}
                     {% include "components/notifications.html" %}
                     <!-- User dropdown menu -->
@@ -75,7 +75,7 @@
                         </div>
                     </div>
                 {% else %}
-                    {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm" show_icon="" text="" %}
+                    {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm -translate-y-[.5px]" show_icon="" text="" %}
                 {% endif %}
             </div>
         </div>
