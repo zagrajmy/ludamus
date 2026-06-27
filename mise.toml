@@ -355,7 +355,7 @@ description = "Analyze frontend TypeScript: dead code, duplication, complexity"
 run = "aube exec -C src/ludamus/client fallow"
 
 [tasks.lint-client]
-description = "Lint frontend TypeScript (ESLint, CI-blocking)"
+description = "Lint frontend TypeScript (oxlint, CI-blocking)"
 run = "aubr -C src/ludamus/client lint"
 
 
