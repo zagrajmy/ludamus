@@ -158,16 +158,21 @@ class TestArea:
 
 
 class TestSpace:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
-        space_name = faker.word()
+    def test_str_root(self, faker):
+        name = faker.word()
 
-        venue = Venue(name=venue_name)
-        area = Area(name=area_name, venue=venue)
-        space = Space(name=space_name, area=area)
+        assert str(Space(name=name)) == name
 
-        assert str(space) == f"{venue_name} > {area_name} > {space_name}"
+    def test_str_nested(self, faker):
+        root_name = faker.word()
+        mid_name = faker.word()
+        leaf_name = faker.word()
+
+        root = Space(name=root_name)
+        mid = Space(name=mid_name, parent=root)
+        leaf = Space(name=leaf_name, parent=mid)
+
+        assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
 class TestTimeSlot:

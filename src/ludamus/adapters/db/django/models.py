@@ -532,15 +532,22 @@ class Space(models.Model):
         "name",
     )
 
-    # Owner - spaces belong to an area
-    area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="spaces")
     # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")
+    # Tree - null parent = root node; nodes form the venue->...->room hierarchy
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
+    )
+    # Legacy owner - nullable during the tree migration, dropped in Deploy 3 Step 5
+    area = models.ForeignKey(
+        "Area", on_delete=models.CASCADE, related_name="spaces", null=True, blank=True
+    )
     # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField(blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
     # Time
@@ -552,12 +559,14 @@ class Space(models.Model):
         ordering: ClassVar = ["order", "name"]
         constraints = (
             models.UniqueConstraint(
-                fields=("slug", "area"), name="space_has_unique_slug_and_area"
+                fields=("slug", "parent"), name="space_has_unique_slug_and_parent"
             ),
         )
 
     def __str__(self) -> str:
-        return f"{self.area.venue.name} > {self.area.name} > {self.name}"
+        # "Root > ... > Leaf" path, recursing up via str(parent). ponytail: lazy
+        # parent loads (one query per level) — fine for admin/debug __str__.
+        return f"{self.parent} > {self.name}" if self.parent else self.name
 
 
 class Venue(models.Model):

@@ -1614,10 +1614,16 @@ class SpaceRepository(SpaceRepositoryProtocol):
         """
         try:
             space = Space.objects.select_for_update().select_related("area").get(pk=pk)
-            Area.objects.select_for_update().get(pk=space.area_id)
         except Space.DoesNotExist as err:
             msg = f"Space with pk '{pk}' not found"
             raise NotFoundError(msg) from err
+
+        # ponytail: legacy leaf-only update path; the tree-aware repo lands in
+        # Deploy-3 Step 4.3 and supersedes this whole method.
+        if space.area_id is None:
+            msg = f"Space with pk '{pk}' not found"
+            raise NotFoundError(msg)
+        Area.objects.select_for_update().get(pk=space.area_id)
 
         needs_save = False
 
