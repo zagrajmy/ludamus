@@ -15,13 +15,11 @@ from ludamus.mills.chronology import (
 )
 from ludamus.pacts import (
     AgendaItemDTO,
-    AreaDTO,
     NotFoundError,
     ScheduleChangeAction,
     SessionStatus,
     SpaceDTO,
     TimeSlotDTO,
-    VenueDTO,
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
@@ -60,29 +58,7 @@ class TestBuildGridOverlappingSessions:
         uow.events.read.return_value = event
 
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-        venue = VenueDTO(
-            address="",
-            areas_count=1,
-            creation_time=now,
-            modification_time=now,
-            name="Venue 1",
-            order=0,
-            pk=1,
-            slug="venue-1",
-        )
-        area = AreaDTO(
-            creation_time=now,
-            description="",
-            modification_time=now,
-            name="Area 1",
-            order=0,
-            pk=1,
-            slug="area-1",
-            spaces_count=1,
-            venue_id=1,
-        )
         space = SpaceDTO(
-            area_id=1,
             capacity=None,
             creation_time=now,
             modification_time=now,
@@ -92,8 +68,6 @@ class TestBuildGridOverlappingSessions:
             slug="room-1",
         )
         uow.spaces.list_by_event.return_value = [space]
-        uow.venues.list_by_event.return_value = [venue]
-        uow.areas.list_by_venue.return_value = [area]
         uow.time_slots.list_by_event.return_value = [
             TimeSlotDTO(
                 pk=1,

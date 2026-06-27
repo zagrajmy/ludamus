@@ -178,14 +178,14 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_filters_by_track(
-        self, authenticated_client, active_user, sphere, event, space, area
+        self, authenticated_client, active_user, sphere, event, space
     ):
         sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="My Track", slug="my-track", is_public=True
         )
         track.spaces.add(space)
-        other_space = SpaceFactory(area=area)
+        other_space = SpaceFactory(event=event)
 
         response = authenticated_client.get(
             self.get_url(event), {"track": str(track.pk)}
@@ -198,7 +198,7 @@ class TestTimetablePageView:
         assert other_space.pk not in space_pks
 
     def test_auto_selects_single_managed_track(
-        self, authenticated_client, active_user, sphere, event, space, area
+        self, authenticated_client, active_user, sphere, event, space
     ):
         sphere.managers.add(active_user)
         track = Track.objects.create(
@@ -206,7 +206,7 @@ class TestTimetablePageView:
         )
         track.spaces.add(space)
         track.managers.add(active_user)
-        other_space = SpaceFactory(area=area)
+        other_space = SpaceFactory(event=event)
 
         response = authenticated_client.get(self.get_url(event))
 

@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError
 from ludamus.adapters.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
-    Area,
     Connection,
     DomainEnrollmentConfig,
     Encounter,
@@ -40,7 +39,6 @@ from ludamus.adapters.db.django.models import (
     Track,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 
 
@@ -138,23 +136,6 @@ class TestFacilitator:
         display_name = faker.name()
 
         assert str(Facilitator(display_name=display_name)) == display_name
-
-
-class TestVenue:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(Venue(name=name)) == name
-
-
-class TestArea:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
-
-        area = Area(name=area_name, venue=Venue(name=venue_name))
-
-        assert str(area) == f"{venue_name} > {area_name}"
 
 
 class TestSpace:

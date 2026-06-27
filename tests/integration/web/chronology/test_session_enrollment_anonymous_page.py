@@ -177,7 +177,7 @@ class TestSessionEnrollmentAnonymousPageView:
             HTTPStatus.OK,
             context_data={
                 "session": agenda_item.session,
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "anonymous_user": UserDTO.model_validate(user),
                 "anonymous_code": user.slug.removeprefix("code_"),
                 "needs_user_data": True,
@@ -213,8 +213,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
 
@@ -279,8 +278,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -317,8 +315,7 @@ class TestSessionEnrollmentAnonymousPageView:
             HTTPStatus.FOUND,
             messages=[(messages.WARNING, "No enrollment found to cancel.")],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -371,8 +368,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert not SessionParticipation.objects.filter(
@@ -471,8 +467,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -510,8 +505,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert not SessionParticipation.objects.filter(
@@ -564,8 +558,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert not SessionParticipation.objects.filter(
@@ -591,7 +584,7 @@ class TestSessionEnrollmentAnonymousPageView:
             session=session2,
             start_time=agenda_item.start_time,
             end_time=agenda_item.end_time,
-            space__area__venue__event=agenda_item.space.area.venue.event,
+            space__event=agenda_item.space.event,
         )
         SessionParticipation.objects.create(
             session=session2, user=user, status=SessionParticipationStatus.CONFIRMED
@@ -667,8 +660,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -710,8 +702,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)

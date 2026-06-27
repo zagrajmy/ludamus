@@ -526,13 +526,9 @@ class Space(models.Model):
 
     # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")
-    # Tree - null parent = root node; nodes form the venue->...->room hierarchy
+    # Tree - null parent = root node; nodes form the building->...->room hierarchy
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
-    )
-    # Legacy owner - nullable during the tree migration, dropped in Deploy 3 Step 5
-    area = models.ForeignKey(
-        "Area", on_delete=models.CASCADE, related_name="spaces", null=True, blank=True
     )
     # ID
     name = models.CharField(max_length=255)
@@ -615,64 +611,6 @@ class Space(models.Model):
             raise ValidationError(
                 {"slug": _("A root space with this slug already exists.")}
             )
-
-
-class Venue(models.Model):
-    """Physical location/building for an event."""
-
-    # Owner - venues belong to an event
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="venues")
-    # ID
-    name = models.CharField(max_length=255)
-    slug = models.SlugField()
-    # Details
-    address = models.TextField(blank=True, default="")
-    # Ordering
-    order = models.PositiveIntegerField(default=0)
-    # Time
-    creation_time = models.DateTimeField(auto_now_add=True)
-    modification_time = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "venue"
-        ordering: ClassVar = ["order", "name"]
-        constraints = (
-            models.UniqueConstraint(
-                fields=("slug", "event"), name="venue_has_unique_slug_and_event"
-            ),
-        )
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class Area(models.Model):
-    """Subdivision within a venue (floor, wing, section)."""
-
-    # Owner - areas belong to a venue
-    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="areas")
-    # ID
-    name = models.CharField(max_length=255)
-    slug = models.SlugField()
-    # Details
-    description = models.TextField(blank=True, default="")
-    # Ordering
-    order = models.PositiveIntegerField(default=0)
-    # Time
-    creation_time = models.DateTimeField(auto_now_add=True)
-    modification_time = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "area"
-        ordering: ClassVar = ["order", "name"]
-        constraints = (
-            models.UniqueConstraint(
-                fields=("slug", "venue"), name="area_has_unique_slug_and_venue"
-            ),
-        )
-
-    def __str__(self) -> str:
-        return f"{self.venue.name} > {self.name}"
 
 
 class TimeSlot(models.Model):

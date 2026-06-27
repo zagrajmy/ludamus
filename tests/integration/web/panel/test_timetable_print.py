@@ -48,11 +48,10 @@ class TestTimetablePrintView:
         event,
         session,
         space,
-        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
-        empty_space = SpaceFactory(area=area, name="Empty Hall")
+        empty_space = SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,
@@ -81,11 +80,10 @@ class TestTimetablePrintView:
         event,
         session,
         space,
-        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
-        empty_space = SpaceFactory(area=area, name="Empty Hall")
+        empty_space = SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,

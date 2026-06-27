@@ -130,9 +130,7 @@ class PrintMaterialsService:
 
     def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]:
         return [
-            PrintSpaceOptionDTO(
-                pk=space.pk, name=space.name, slug=space.slug, area_id=space.area_id
-            )
+            PrintSpaceOptionDTO(pk=space.pk, name=space.name, slug=space.slug)
             for space in self._scoped_spaces(event_pk, None, None, None)
         ]
 

@@ -164,7 +164,7 @@ class TestPublicEventPrintView:
         )
         AgendaItemFactory(
             session=pending,
-            space=SpaceFactory(area=space.area, name="Side Room"),
+            space=SpaceFactory(event=space.event, name="Side Room"),
             session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),

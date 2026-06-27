@@ -89,14 +89,6 @@ class Repositories:
         return repositories.TrackRepository()
 
     @cached_property
-    def venues(self) -> repositories.VenueRepository:
-        return repositories.VenueRepository()
-
-    @cached_property
-    def areas(self) -> repositories.AreaRepository:
-        return repositories.AreaRepository()
-
-    @cached_property
     def facilitators(self) -> repositories.FacilitatorRepository:
         return repositories.FacilitatorRepository()
 

@@ -832,8 +832,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
             .select_related("sphere")
             .prefetch_related(
-                "venues__areas__spaces__agenda_items__session__field_values__field",
-                "venues__areas__spaces__agenda_items__session__session_participations__user",
+                "spaces__agenda_items__session__field_values__field",
+                "spaces__agenda_items__session__session_participations__user",
                 "enrollment_configs",
             )
         )

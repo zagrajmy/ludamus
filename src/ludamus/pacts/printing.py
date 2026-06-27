@@ -21,7 +21,7 @@ class PrintOptionDTO(BaseModel):
 
 
 class PrintSpaceOptionDTO(PrintOptionDTO):
-    area_id: int | None
+    pass
 
 
 class PrintSessionDTO(BaseModel):
