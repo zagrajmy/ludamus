@@ -45,7 +45,10 @@ class SwitcherNode(template.Node):
 
     def render(self, context: template.Context) -> str:
         resolved = {k: v.resolve(context) for k, v in self.attrs.items()}
-        name = str(resolved.get("name", "switcher"))
+        if not (name := resolved.get("name")):
+            msg = "'switcher' requires a name"
+            raise template.TemplateSyntaxError(msg)
+        name = str(name)
         selected = resolved.get("selected")
         aria_label = resolved.get("aria_label")
 
@@ -87,6 +90,7 @@ class SegmentNode(template.Node):
 
     def __init__(
         self,
+        *,
         nodelist: template.NodeList,
         value: FilterExpression,
         attrs: dict[str, FilterExpression],
@@ -98,7 +102,10 @@ class SegmentNode(template.Node):
     def render(self, context: template.Context) -> str:
         resolved = {k: v.resolve(context) for k, v in self.attrs.items()}
         value = str(self.value.resolve(context))
-        name = str(context.get(_NAME_KEY, "switcher"))
+        if (name := context.get(_NAME_KEY)) is None:
+            msg = "'segment' must be used inside 'switcher'"
+            raise template.TemplateSyntaxError(msg)
+        name = str(name)
         checked = context.get(_SELECTED_KEY) == value
         seg_icon = resolved.get("icon")
         title = resolved.get("title")
@@ -151,4 +158,4 @@ def do_segment(parser: Parser, token: Token) -> SegmentNode:
 
     nodelist = parser.parse(("end_segment",))
     parser.delete_first_token()
-    return SegmentNode(nodelist, value, attrs)
+    return SegmentNode(nodelist=nodelist, value=value, attrs=attrs)

@@ -199,7 +199,6 @@ class VelvetEngine {
     for (const hit of def.hits) {
       this.scheduleHit(t0 + (hit.dt ?? 0), VELVET, def, hit);
     }
-    globalThis.dispatchEvent(new CustomEvent("uisound", { detail: { role } }));
   }
 
   private scheduleHit(time: number, v: Voice, def: Role, hit: Hit): void {

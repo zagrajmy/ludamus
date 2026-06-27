@@ -276,6 +276,10 @@ class TestIconToggle:
         html = self._render("data_role=False")
         assert "data-role" not in html
 
+    def test_rejects_non_data_attr(self) -> None:
+        with pytest.raises(ValueError, match="only accepts data_"):
+            self._render('class="leak"')
+
     def test_escapes_data_attr_value(self) -> None:
         tpl = Template(
             "{% load tessera %}"
@@ -332,4 +336,17 @@ class TestSwitcher:
             Template(
                 "{% load tessera %}{% switcher %}"
                 "{% segment %}X{% end_segment %}{% end_switcher %}"
+            )
+
+    def test_requires_name(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires a name"):
+            Template(
+                "{% load tessera %}{% switcher %}"
+                '{% segment "a" %}A{% end_segment %}{% end_switcher %}'
+            ).render(Context())
+
+    def test_segment_outside_switcher_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="must be used inside"):
+            Template('{% load tessera %}{% segment "a" %}A{% end_segment %}').render(
+                Context()
             )

@@ -24,10 +24,14 @@ _OFF_ICON_CLASS = "w-4 h-4 group-aria-pressed:hidden"
 
 def _data_attrs(attrs: dict[str, object]) -> str:
     # ``data_velvet_toggle=True`` -> ``data-velvet-toggle``; a value renders
-    # ``name="value"``. format_html escapes values; bare names are Python
-    # identifiers, so escaping them is a no-op.
+    # ``name="value"``. Only ``data_*`` extras are allowed, so a typo can't
+    # leak ``class``/``aria_label`` onto the button. format_html escapes values;
+    # bare names are Python identifiers, so escaping them is a no-op.
     pairs = []
     for key, value in attrs.items():
+        if not key.startswith("data_"):
+            msg = f"icon_toggle only accepts data_* extra attrs, got {key!r}"
+            raise ValueError(msg)
         name = key.replace("_", "-")
         if value is True:
             pairs.append((name,))
