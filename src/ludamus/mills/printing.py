@@ -363,9 +363,8 @@ class PrintMaterialsService:
         spaces = sorted(
             (s for s in all_nodes if s.pk not in parent_pks), key=_space_order
         )
-        if track_pk is not None and (
-            track_space_pks := frozenset(self._tracks.list_space_pks(track_pk))
-        ):
+        if track_pk is not None:
+            track_space_pks = frozenset(self._tracks.list_space_pks(track_pk))
             spaces = [s for s in spaces if s.pk in track_space_pks]
         scoped = (
             spaces

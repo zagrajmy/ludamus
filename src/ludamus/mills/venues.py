@@ -1,5 +1,3 @@
-"""Space-tree read-side service backing the print scope menus."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -9,6 +7,7 @@ from ludamus.pacts.venues import (
     PrintScopeDTO,
     PrintScopeOptionDTO,
     SpaceTreeServiceProtocol,
+    VenuesServiceProtocol,
 )
 
 if TYPE_CHECKING:
@@ -22,16 +21,22 @@ def _leaf_pks(node: SpaceNodeDTO) -> list[int]:
     return [pk for child in node.children for pk in _leaf_pks(child)]
 
 
-def _find(nodes: list[SpaceNodeDTO], pk: int) -> SpaceNodeDTO | None:
+def _find_with_path(
+    nodes: list[SpaceNodeDTO], pk: int, prefix: str = ""
+) -> tuple[SpaceNodeDTO, str] | None:
+    # Returns the node and its full tree path (same "a > b > c" format the print
+    # scope picker shows), so the resolved scope_name can't collide across
+    # branches that share a leaf name.
     for node in nodes:
+        path = f"{prefix} > {node.name}" if prefix else node.name
         if node.pk == pk:
-            return node
-        if found := _find(node.children, pk):
+            return node, path
+        if found := _find_with_path(node.children, pk, path):
             return found
     return None
 
 
-class VenuesService:
+class VenuesService(VenuesServiceProtocol):
     def __init__(self, spaces: SpaceTreeRepositoryProtocol) -> None:
         self._spaces = spaces
 
@@ -56,9 +61,11 @@ class VenuesService:
         if scope_pk is None:
             return PrintScopeDTO()
 
-        if (node := _find(self._spaces.list_tree(event_pk), scope_pk)) is None:
+        found = _find_with_path(self._spaces.list_tree(event_pk), scope_pk)
+        if found is None:
             raise NotFoundError
-        return PrintScopeDTO(space_pks=frozenset(_leaf_pks(node)), scope_name=node.name)
+        node, path = found
+        return PrintScopeDTO(space_pks=frozenset(_leaf_pks(node)), scope_name=path)
 
 
 class SpaceTreeService(SpaceTreeServiceProtocol):
@@ -98,8 +105,10 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
             pk=pk, name=name, capacity=capacity, description=description
         )
 
-    def reorder(self, *, parent_id: int | None, child_pks: list[int]) -> None:
-        self._spaces.reorder(parent_id, child_pks)
+    def reorder(
+        self, *, parent_id: int | None, child_pks: list[int], event_id: int
+    ) -> None:
+        self._spaces.reorder(parent_id, child_pks, event_id)
 
     def duplicate(self, *, pk: int, new_name: str) -> SpaceNodeDTO:
         return self._spaces.duplicate(pk, new_name)

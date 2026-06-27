@@ -380,8 +380,6 @@ class TimeSlotForm(forms.Form):
 
 
 class SpaceForm(forms.Form):
-    """Form for creating/editing a space tree node."""
-
     name = forms.CharField(
         max_length=255,
         strip=True,

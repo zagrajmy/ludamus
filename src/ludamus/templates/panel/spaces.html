@@ -66,20 +66,27 @@
                             return Array.from(list.children).filter(el => el.classList.contains('space-node'));
                         }
 
-                        function saveOrder(list) {
+                        async function saveOrder(list) {
                             const parentPk = list.dataset.parentPk;
                             const spaceIds = directChildren(list).map(li => parseInt(li.dataset.spaceId, 10));
-                            fetch(reorderUrl, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRFToken': csrfToken
-                                },
-                                body: JSON.stringify({
-                                    parent_pk: parentPk === '' ? null : parseInt(parentPk, 10),
-                                    space_ids: spaceIds
-                                })
-                            });
+                            try {
+                                const response = await fetch(reorderUrl, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRFToken': csrfToken
+                                    },
+                                    body: JSON.stringify({
+                                        parent_pk: parentPk === '' ? null : parseInt(parentPk, 10),
+                                        space_ids: spaceIds
+                                    })
+                                });
+                                if (!response.ok) throw new Error('Reorder failed');
+                            } catch (err) {
+                                // Re-sync from the server so the UI can't drift from persisted order.
+                                alert('{% translate "Could not save the new order. Reloading the page." %}');
+                                window.location.reload();
+                            }
                         }
 
                         document.querySelectorAll('.space-list').forEach(list => {

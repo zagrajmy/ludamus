@@ -201,7 +201,7 @@ class TestSpaceTreeRepositoryMutations:
             description="",
         )
 
-        repo.reorder(root.pk, [b.pk, a.pk])
+        repo.reorder(root.pk, [b.pk, a.pk], event.pk)
 
         assert Space.objects.get(pk=b.pk).order == 0
         assert Space.objects.get(pk=a.pk).order == 1

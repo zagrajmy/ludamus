@@ -549,6 +549,14 @@ class Space(models.Model):
             models.UniqueConstraint(
                 fields=("slug", "parent"), name="space_has_unique_slug_and_parent"
             ),
+            # SQL treats NULL parents as distinct, so the constraint above can't
+            # police roots; a partial unique index enforces root slug uniqueness
+            # per event at the DB level (mirrors _validate_root_slug_unique).
+            models.UniqueConstraint(
+                fields=("event", "slug"),
+                condition=models.Q(parent__isnull=True),
+                name="space_root_has_unique_slug_per_event",
+            ),
         )
 
     def __str__(self) -> str:

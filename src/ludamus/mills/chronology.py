@@ -307,7 +307,15 @@ class TimetableService:
         require_session_in_event(self._uow.sessions, session_pk, event_pk)
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
-        if space_pk not in {s.pk for s in self._uow.spaces.list_by_event(event_pk)}:
+        # Only leaf spaces (bookable rooms) may hold a session; a branch node
+        # would violate the leaf-only invariant the timetable grid relies on.
+        leaf_pks = {
+            s.pk
+            for s in self._leaves_in_tree_order(
+                self._uow.spaces.list_by_event(event_pk)
+            )
+        }
+        if space_pk not in leaf_pks:
             raise NotFoundError
 
     def _clear_existing_assignment(

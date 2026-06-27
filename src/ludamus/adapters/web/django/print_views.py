@@ -177,10 +177,9 @@ class PublicEventPrintView(View):
         if not published and not _is_manager(request):
             raise Http404
 
+        scope_pk = _scope_pk(request.GET.get("scope"))
         try:
-            scope = request.services.venues.resolve_scope(
-                event.pk, _scope_pk(request.GET.get("scope"))
-            )
+            scope = request.services.venues.resolve_scope(event.pk, scope_pk)
         except NotFoundError as exc:
             raise Http404 from exc
 
@@ -204,7 +203,7 @@ class PublicEventPrintView(View):
             session_list_available=session_list_candidate is not None,
             tracks_available=bool(tracks),
         )
-        material_spec = self._resolve_material(material_options)
+        material_spec = self._resolve_material(material_options, scope_pk)
 
         timetable = None
         area_schedule = None
@@ -265,7 +264,7 @@ class PublicEventPrintView(View):
                 "show_space_control": material_spec.show_space_control,
                 "show_track_control": material_spec.show_track_control,
                 "show_range_controls": material_spec.show_range_controls,
-                "selected_scope": request.GET.get("scope") or "",
+                "selected_scope": str(scope_pk) if scope_pk is not None else "",
                 "selected_space": str(selected_space_pk or ""),
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
@@ -276,12 +275,12 @@ class PublicEventPrintView(View):
         )
 
     def _resolve_material(
-        self, available_materials: tuple[MaterialSpec, ...]
+        self, available_materials: tuple[MaterialSpec, ...], scope_pk: int | None
     ) -> MaterialSpec:
         available_by_value = {spec.value: spec for spec in available_materials}
         if raw_material := self.request.GET.get("material"):
             material = MATERIAL_SPECS_BY_VALUE.get(raw_material)
-        elif self.request.GET.get("scope"):
+        elif scope_pk is not None:
             material = MATERIAL_SPECS_BY_VALUE[AREA_TIMETABLE]
         else:
             material = MATERIAL_SPECS_BY_VALUE[EVENT_TIMETABLE]

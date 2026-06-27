@@ -75,7 +75,7 @@ class TestResolveScope:
         scope = _service().resolve_scope(1, 10)
 
         assert scope.space_pks == frozenset({100})
-        assert scope.scope_name == "Parter"
+        assert scope.scope_name == "Budynek A > Parter"
 
     def test_unknown_scope_raises(self):
         with pytest.raises(NotFoundError):

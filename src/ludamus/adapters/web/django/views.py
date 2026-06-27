@@ -33,6 +33,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.db.django.models import (
     MAX_CONNECTED_USERS,
+    SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
     Event,
@@ -848,7 +849,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         event_sessions = (
             Session.objects.filter(event=self.object, agenda_item__isnull=False)
             .select_related(
-                "presenter", "agenda_item__space__parent", "event", "event__sphere"
+                # str(space) walks the whole ancestor chain, so eager-load every
+                # level up to the max nesting depth to avoid per-row parent queries.
+                "presenter",
+                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+                "event",
+                "event__sphere",
             )
             .prefetch_related(
                 "tags__category",

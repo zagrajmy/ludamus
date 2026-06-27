@@ -268,6 +268,7 @@ class TestAssignUnassignScope:
         )
         space = MagicMock()
         space.pk = 1
+        space.parent_id = None  # a childless root is a leaf (a bookable room)
         mock_uow.spaces.list_by_event.return_value = [space]
         mock_uow.agenda_items.read_by_session.return_value = None
         session = MagicMock()

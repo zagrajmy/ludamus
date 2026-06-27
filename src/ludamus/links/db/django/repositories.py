@@ -1033,7 +1033,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             slug=slug,
             capacity=capacity,
             description=description,
-            order=(max_order or -1) + 1,
+            order=(max_order if max_order is not None else -1) + 1,
         )
         space.full_clean()
         space.save()
@@ -1064,10 +1064,14 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         Space.objects.filter(pk=pk).delete()
 
     @staticmethod
-    def reorder(parent_id: int | None, child_pks: list[int]) -> None:
+    def reorder(parent_id: int | None, child_pks: list[int], event_id: int) -> None:
+        # Constrain by event so a root-level reorder (parent_id=None) can only
+        # touch spaces belonging to the caller's event, never another event's.
         space_map = {
             space.pk: space
-            for space in Space.objects.filter(parent_id=parent_id, pk__in=child_pks)
+            for space in Space.objects.filter(
+                event_id=event_id, parent_id=parent_id, pk__in=child_pks
+            )
         }
         for order, pk in enumerate(child_pks):
             space = space_map.get(pk)

@@ -318,7 +318,7 @@ class SpaceReorderActionView(PanelAccessMixin, View):
         sphere_id = self.request.context.current_sphere_id
         try:
             # Validate the event exists in the manager's sphere (access guard).
-            self.request.di.uow.events.read_by_slug(slug, sphere_id)
+            event = self.request.services.events.read_by_slug(sphere_id, slug)
         except NotFoundError:
             return JsonResponse({"error": "Event not found"}, status=404)
 
@@ -326,12 +326,20 @@ class SpaceReorderActionView(PanelAccessMixin, View):
             data = json.loads(self.request.body)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
+        if not isinstance(data, dict):
+            return JsonResponse({"error": "Expected a JSON object"}, status=400)
 
-        if (space_ids := data.get("space_ids")) is None:
-            return JsonResponse({"error": "Missing space_ids"}, status=400)
+        space_ids = data.get("space_ids")
+        if not isinstance(space_ids, list) or not all(
+            isinstance(pk, int) for pk in space_ids
+        ):
+            return JsonResponse({"error": "Invalid space_ids"}, status=400)
 
-        # parent_pk is null for the root level.
+        parent_pk = data.get("parent_pk")  # null for the root level
+        if parent_pk is not None and not isinstance(parent_pk, int):
+            return JsonResponse({"error": "Invalid parent_pk"}, status=400)
+
         self.request.services.space_tree.reorder(
-            parent_id=data.get("parent_pk"), child_pks=space_ids
+            parent_id=parent_pk, child_pks=space_ids, event_id=event.pk
         )
         return JsonResponse({"success": True})
