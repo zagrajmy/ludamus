@@ -3,10 +3,7 @@
 
 const EDIT_ERROR_TIMEOUT_MS = 6000;
 
-const setSessionEditMode = (
-  dialog: HTMLElement | null,
-  editing: boolean,
-): void => {
+const setSessionEditMode = (dialog: HTMLElement | null, editing: boolean): void => {
   if (!dialog) return;
   const tabs = dialog.querySelector<HTMLElement>("[data-session-tabs]");
   const editform = dialog.querySelector<HTMLElement>('[id$="-editform"]');
@@ -24,12 +21,12 @@ const showSessionEditError = (dialog: HTMLElement | null): void => {
   const tabs = dialog?.querySelector<HTMLElement>("[data-session-tabs]");
   if (!dialog || !tabs || dialog.querySelector("[data-edit-error]")) return;
   const alert = document.createElement("div");
-  alert.setAttribute("data-edit-error", "");
+  alert.dataset.editError = "";
   alert.setAttribute("role", "alert");
   alert.className = "mx-6 mt-4 alert alert-danger text-sm shrink-0";
   alert.textContent = dialog.dataset.editErrorLabel ?? "";
   tabs.parentNode?.insertBefore(alert, tabs);
-  window.setTimeout(() => alert.remove(), EDIT_ERROR_TIMEOUT_MS);
+  globalThis.setTimeout(() => alert.remove(), EDIT_ERROR_TIMEOUT_MS);
 };
 
 document.addEventListener("click", (e) => {
@@ -58,12 +55,13 @@ document.body.addEventListener("htmx:sendError", rollbackSessionEdit);
 document.body.addEventListener("htmx:afterSwap", (e) => {
   const root = e.target;
   if (!(root instanceof Element)) return;
-  const forms = root.matches('form[id$="-edit-form"]')
-    ? [root]
-    : [...root.querySelectorAll('form[id$="-edit-form"]')];
-  forms.forEach((form) => {
+  const forms =
+    root instanceof HTMLFormElement && root.matches('form[id$="-edit-form"]')
+      ? [root]
+      : [...root.querySelectorAll<HTMLFormElement>('form[id$="-edit-form"]')];
+  for (const form of forms) {
     const save = form.querySelector<HTMLElement>("[data-edit-save]");
-    if (form.hasAttribute("data-just-saved")) {
+    if (Object.hasOwn(form.dataset, "justSaved")) {
       form.addEventListener(
         "input",
         () => {
@@ -71,20 +69,18 @@ document.body.addEventListener("htmx:afterSwap", (e) => {
           save.classList.remove("bg-success", "text-white");
           save.classList.add("btn-primary");
           save.textContent = save.dataset.saveLabel ?? "";
-          form.removeAttribute("data-just-saved");
+          delete form.dataset.justSaved;
         },
         { once: true },
       );
     } else {
       form.querySelector<HTMLElement>('[name="title"]')?.focus();
     }
-  });
+  }
 });
 
 // Restore the read view if a session dialog is closed while editing, so
 // reopening it never lands in a stale edit state.
-document
-  .querySelectorAll<HTMLDialogElement>('dialog[id^="session-"]')
-  .forEach((dialog) => {
-    dialog.addEventListener("close", () => setSessionEditMode(dialog, false));
-  });
+for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog[id^="session-"]')) {
+  dialog.addEventListener("close", () => setSessionEditMode(dialog, false));
+}

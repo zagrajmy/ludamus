@@ -59,11 +59,6 @@ crowd_urls: list[URLPattern | URLResolver] = [
         views.ProfileConnectedUserDeleteActionView.as_view(),
         name="profile-connected-users-delete",
     ),
-    path(
-        "user/<slug:user_slug>/parts/discord-username",
-        views.UserDiscordUsernameComponentView.as_view(),
-        name="user-discord-username",
-    ),
 ]
 
 chronology_urls = [
@@ -71,12 +66,12 @@ chronology_urls = [
     path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
     path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
     path(
-        "session/<int:session_id>/enrollment/",
+        "event/<str:event_slug>/session/<int:session_id>/enrollment/",
         views.SessionEnrollPageView.as_view(),
         name="session-enrollment",
     ),
     path(
-        "session/<int:session_id>/accept/",
+        "event/<str:event_slug>/session/<int:session_id>/accept/",
         views.ProposalAcceptPageView.as_view(),
         name="session-accept",
     ),
@@ -86,7 +81,7 @@ chronology_urls = [
         name="event-anonymous-activate",
     ),
     path(
-        "session/<int:session_id>/enrollment/anonymous",
+        "event/<str:event_slug>/session/<int:session_id>/enrollment/anonymous",
         views.SessionEnrollmentAnonymousPageView.as_view(),
         name="session-enrollment-anonymous",
     ),

@@ -5,7 +5,7 @@
             data-menu-button
             aria-controls="navbar-notifications-panel"
             aria-expanded="false"
-            class="relative w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-all duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50 text-foreground-secondary"
+            class="relative w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors duration-150 hover:bg-bg-tertiary focus:outline-none focus-visible:bg-bg-tertiary text-foreground-secondary hover:text-foreground-primary"
             aria-label="{% translate "Notifications" %}{% if navbar_notifications.unread_count %} ({{ navbar_notifications.unread_count }} {% translate "unread" %}){% endif %}">
         {% icon "bell" class="w-5 h-5" %}
         {% if navbar_notifications.unread_count %}

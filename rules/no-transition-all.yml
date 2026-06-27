@@ -1,0 +1,15 @@
+id: no-transition-all
+language: html
+severity: warning
+rule:
+  kind: attribute
+  regex: 'class="[^"]*\btransition-all\b'
+message: |
+  Don't animate every property — list the ones that actually change.
+  `transition-all` (and CSS `transition: all`) animates layout-affecting
+  properties too, which is wasteful and causes jank. Name the real properties:
+    transition-all              → transition-[border-color,box-shadow]
+    (button hover/press)        → transition-[transform,box-shadow]
+    (ring/focus only)           → transition-shadow
+  Tailwind's plain `transition` is also fine (a curated list, not `all`).
+  See .claude/skills/product-design/references/interface-quality.md.

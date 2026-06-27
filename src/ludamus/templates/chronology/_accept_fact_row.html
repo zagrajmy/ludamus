@@ -1,0 +1,11 @@
+{% load tessera %}
+{# One labelled proposal-detail row: icon chip + term/value. Args: icon, label, value. #}
+<div class="flex gap-3 border-t border-border pt-3 mt-3">
+    <span class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-bg-tertiary text-foreground-secondary">{% icon icon class="w-4 h-4" %}</span>
+    <div class="min-w-0">
+        <dt class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{{ label }}</dt>
+        <dd class="mt-0.5 text-sm text-foreground-secondary">
+            {{ value }}
+        </dd>
+    </div>
+</div>

@@ -471,6 +471,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, tz=get_current_timezone()
         )
         context["track_progress"] = overview.track_progress(current_event.pk)
+        context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)

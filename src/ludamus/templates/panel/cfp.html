@@ -86,7 +86,7 @@
                             <form method="post"
                                   action="{% url 'panel:cfp-delete' event_slug=current_event.slug category_slug=category.slug %}"
                                   class="inline"
-                                  onsubmit="return confirm('{% translate "Are you sure you want to delete this session type?" %}');">
+                                  data-confirm="{% translate "Are you sure you want to delete this session type?" %}">
                                 {% csrf_token %}
                                 <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
                             </form>
@@ -97,9 +97,12 @@
         {% end_tessera_table %}
     {% else %}
         <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
-            <p class="text-foreground-muted">
+            <p class="text-foreground-muted mb-4">
                 {% translate "No session types yet. Add a session type to allow hosts to submit proposals." %}
             </p>
+            {% url 'panel:cfp-create' slug=current_event.slug as create_url %}
+            {% translate "New Session Type" as t_create %}
+            {% tessera_button t_create href=create_url icon="plus" %}
         </div>
     {% endif %}
 </div>

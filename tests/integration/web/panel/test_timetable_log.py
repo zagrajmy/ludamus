@@ -113,7 +113,6 @@ class TestTimetableLogPageView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -147,7 +146,6 @@ class TestTimetableLogPageView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -179,14 +177,12 @@ class TestTimetableLogPageView:
         space_b = SpaceFactory(area=area)
         session_a = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
         )
         session_b = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

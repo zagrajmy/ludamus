@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Seed timetable data for Playwright end-to-end tests.
 
-Creates a track with spaces, accepted sessions (unscheduled), and a
-category for the ``autumn-open`` event so the timetable e2e tests can
-exercise search, assign, unassign, conflict detection, and log/revert.
+Creates a DEDICATED ``sunhaven-festival`` event (separate from the read-only
+``autumn-open`` event) with a track, spaces, a category, a time slot, and
+accepted (unscheduled) sessions so the timetable e2e tests can exercise
+search, assign, unassign, conflict detection, and log/revert.
+
+The timetable tests MUTATE shared state (they schedule/unschedule sessions).
+Keeping them on their own event means that mutation can never leak onto the
+``autumn-open`` public page that ``event-details`` / ``event-filters`` read,
+which is what makes the suite safe to run with parallel workers.
 
 Run after ``bootstrap_data.py`` and ``bootstrap_facilitators.py``.
 
@@ -14,7 +20,7 @@ Usage:
 from __future__ import annotations
 
 import sys
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -27,9 +33,12 @@ import django  # noqa: E402
 
 django.setup()
 
+from django.utils import timezone  # noqa: E402
 from django.utils.timezone import get_current_timezone  # noqa: E402
 
 from ludamus.adapters.db.django.models import (  # noqa: E402
+    AgendaItem,
+    Area,
     Event,
     Facilitator,
     ProposalCategory,
@@ -38,16 +47,55 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     TimeSlot,
     TimeSlotRequirement,
     Track,
+    Venue,
 )
 
 
 def main() -> None:
-    event = Event.objects.get(slug="autumn-open")
+    # Reuse the sphere created by bootstrap_data.py, but build a dedicated
+    # event so timetable mutations stay isolated from the public-page tests.
+    sphere = Event.objects.get(slug="autumn-open").sphere
 
-    # Time slot — morning block; leaves 12-14 free for panel e2e tests
-    # that create/edit/delete their own slots.
     local_tz = get_current_timezone()
-    event_day = event.start_time.astimezone(local_tz).date()
+    now = timezone.now()
+    event_day = (now + timedelta(days=22)).date()
+    start = datetime.combine(event_day, time(10, 0), tzinfo=local_tz)
+    event, _ = Event.objects.get_or_create(
+        sphere=sphere,
+        slug="sunhaven-festival",
+        defaults={
+            "name": "Sunhaven Game Festival",
+            "description": (
+                "A sunny weekend festival of tabletop roleplaying and "
+                "indie board games."
+            ),
+            "start_time": start,
+            "end_time": start + timedelta(hours=10),
+            "publication_time": now - timedelta(days=2),
+        },
+    )
+
+    # Venue hierarchy — two spaces so the grid renders two assignable columns.
+    venue, _ = Venue.objects.get_or_create(
+        event=event,
+        slug="meadowbrook-pavilion",
+        defaults={"name": "Meadowbrook Pavilion"},
+    )
+    area, _ = Area.objects.get_or_create(
+        venue=venue, slug="festival-hall", defaults={"name": "Festival Hall"}
+    )
+    space_a, _ = Space.objects.get_or_create(
+        area=area,
+        slug="garden-table",
+        defaults={"name": "Garden Table", "capacity": 8, "event": event},
+    )
+    space_b, _ = Space.objects.get_or_create(
+        area=area,
+        slug="willow-table",
+        defaults={"name": "Willow Table", "capacity": 8, "event": event},
+    )
+
+    # Time slot — morning block; gives the overview "capacity hours" a value.
     slot, _ = TimeSlot.objects.get_or_create(
         event=event,
         start_time=datetime.combine(event_day, time(10, 0), tzinfo=local_tz),
@@ -68,7 +116,35 @@ def main() -> None:
             defaults={"is_required": False, "order": order},
         )
 
-    # Track — link existing spaces
+    # A pre-scheduled, over-capacity session so the conflict panel exercises
+    # its "conflict" rendering path (capacity_exceeded: a 24-seat session in an
+    # 8-seat room). Placed in the SECOND space, so it never collides with the
+    # assign tests — those drop into the first column.
+    overflow, _ = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-overflow-demo",
+        defaults={
+            "title": "Overflow Demo Game",
+            "display_name": "Casey Rivers",
+            "description": "Intentionally over-capacity to surface a room conflict.",
+            "duration": "PT2H",
+            "participants_limit": 24,
+            "min_age": 0,
+            "status": "pending",
+            "category": cat,
+        },
+    )
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=overflow,
+        defaults={
+            "session_confirmed": True,
+            "start_time": slot.start_time,
+            "end_time": slot.end_time,
+        },
+    )
+
+    # Track — link the spaces created above.
     track, _ = Track.objects.get_or_create(
         event=event,
         slug="rpg-track",
@@ -77,15 +153,23 @@ def main() -> None:
     # Don't add manager — the e2e-manager is a sphere manager which gives
     # access to all tracks. Adding them as track manager would cause
     # auto-selection in the proposals page, hiding proposals from other tracks.
-    spaces = Space.objects.filter(area__venue__event=event)
-    track.spaces.set(spaces)
+    track.spaces.set([space_a, space_b])
 
-    # Get a facilitator for the conflict test
-    alice = Facilitator.objects.get(event=event, slug="alice-morgan")
+    # Facilitators for this event (the conflict test needs a shared host).
+    alice, _ = Facilitator.objects.get_or_create(
+        event=event,
+        slug="alice-morgan",
+        defaults={"display_name": "Alice Morgan", "user": None},
+    )
+    bob, _ = Facilitator.objects.get_or_create(
+        event=event,
+        slug="bob-chen",
+        defaults={"display_name": "Bob Chen", "user": None},
+    )
 
     # Accepted (unscheduled) sessions for assigning via the timetable
     s1, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-rpg-intro",
         defaults={
             "title": "RPG Introduction",
@@ -104,7 +188,7 @@ def main() -> None:
         s1.time_slots.set(slots)  # prefers morning slot
 
     s2, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-dungeon-crawl",
         defaults={
             "title": "Dungeon Crawl",
@@ -123,7 +207,7 @@ def main() -> None:
         s2.time_slots.set(slots)  # prefers morning slot
 
     s3, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-storytelling",
         defaults={
             "title": "Storytelling Workshop",
@@ -138,7 +222,6 @@ def main() -> None:
     )
     if created:
         s3.tracks.add(track)
-        bob = Facilitator.objects.get(event=event, slug="bob-chen")
         s3.facilitators.add(bob)
         # no preferred time slot for s3
 

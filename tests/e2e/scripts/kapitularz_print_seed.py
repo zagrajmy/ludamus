@@ -218,7 +218,12 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
 def _create_spaces(area: Area) -> list[Space]:
     return [
         Space.objects.create(
-            area=area, name=name, slug=slugify(name), capacity=capacity, order=order
+            area=area,
+            name=name,
+            slug=slugify(name),
+            capacity=capacity,
+            order=order,
+            event=area.venue.event,
         )
         for order, (name, capacity) in enumerate(SPACE_SPECS)
     ]
@@ -303,7 +308,7 @@ def _create_sessions(
         duration_hours = (1, 1, 2, 2, 3)[index % 5]
         title = _title(index, spec.track_slug)
         session = Session.objects.create(
-            sphere=event.sphere,
+            event=event,
             title=title,
             slug=f"kapitularz-print-session-{index:03}",
             display_name=facilitator.display_name,

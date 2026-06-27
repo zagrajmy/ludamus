@@ -76,7 +76,7 @@
                             <td class="px-6 py-3 text-right">
                                 <form method="post"
                                       action="{% url 'panel:ban-delete' slug=current_event.slug pk=ban.pk %}"
-                                      onsubmit="return confirm('{% translate "Remove this ban?" %}')">
+                                      data-confirm="{% translate "Remove this ban?" %}">
                                     {% csrf_token %}
                                     {% translate "Remove" as t_remove %}
                                     {% tessera_button t_remove variant="secondary" size="sm" full_width_mobile=False %}

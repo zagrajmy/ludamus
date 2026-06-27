@@ -12,6 +12,12 @@
     border: 1px solid var(--color-border);
     border-radius: 1rem;
     @apply shadow-lg;
+  }
+
+  .modal[open] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
     transition:
       opacity 0.35s var(--ease-spring-a-bit),
       transform 0.35s var(--ease-spring-a-bit),
@@ -19,17 +25,16 @@
       display 0.35s allow-discrete;
   }
 
-  .modal[open] {
-    opacity: 1;
-    pointer-events: auto;
-    transform: scale(1) translateY(0);
+  .modal[open]:not([id^="session-"]) {
+    view-transition-name: app-modal;
   }
 
   .modal:not([open]) {
     display: none;
   }
 
-  .modal:not([open]), .modal:not([open]) * {
+  .modal:not([open]),
+  .modal:not([open]) * {
     pointer-events: none !important;
   }
 
@@ -43,9 +48,9 @@
   .modal::backdrop {
     background-color: transparent;
     transition:
-      display 0.15s allow-discrete,
-      overlay 0.15s allow-discrete,
-      background-color 0.15s;
+      display 0.2s allow-discrete,
+      overlay 0.2s allow-discrete,
+      background-color 0.2s var(--ease-out);
   }
 
   .modal[open]::backdrop {
@@ -57,5 +62,124 @@
     .modal[open]::backdrop {
       background-color: transparent;
     }
+  }
+}
+
+.session-card.session-card-suppressed {
+  @apply pointer-events-none border-dashed bg-neutral-100 dark:bg-neutral-800/60;
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.session-card.session-card-suppressed > * {
+  visibility: hidden;
+}
+
+::view-transition-group(session-morph),
+::view-transition-group(morph-title),
+::view-transition-group(morph-host),
+::view-transition-group(morph-avatar),
+::view-transition-group(morph-desc) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+:root:not(:has(dialog.modal[id^="session-"][open])) {
+  --vt-morph-duration: var(--vt-morph-exit-duration);
+}
+
+::view-transition-old(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+  opacity: 0;
+}
+
+::view-transition-new(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(morph-title),
+::view-transition-old(morph-host),
+::view-transition-old(morph-desc) {
+  animation: none;
+  opacity: 0;
+}
+
+::view-transition-old(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.55);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-new(session-morph) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-group(app-modal) {
+  animation-duration: 0.26s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(app-modal) {
+  animation: modal-close-out 0.26s var(--ease-out) both;
+}
+
+::view-transition-new(app-modal) {
+  animation: none;
+}
+
+@keyframes modal-close-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+    filter: blur(6px);
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(app-modal) {
+    animation: modal-close-fade 0.15s ease both;
+  }
+
+  @keyframes modal-close-fade {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @starting-style {
+    .modal[open] {
+      transform: none;
+    }
+  }
+
+  .modal,
+  .modal[open] {
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+
+  ::view-transition-group(session-morph),
+  ::view-transition-group(morph-title),
+  ::view-transition-group(morph-host),
+  ::view-transition-group(morph-avatar),
+  ::view-transition-group(morph-desc),
+  ::view-transition-old(session-morph),
+  ::view-transition-new(session-morph),
+  ::view-transition-old(morph-title),
+  ::view-transition-old(morph-host),
+  ::view-transition-old(morph-desc),
+  ::view-transition-old(morph-avatar),
+  ::view-transition-new(morph-avatar) {
+    animation: none;
   }
 }

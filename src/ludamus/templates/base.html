@@ -86,85 +86,81 @@
             }
         </style>
         {% vite_asset 'src/menu.ts' %}
+        {% vite_asset 'src/flash.ts' %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
-    <body class="{% block body_class %}relative flex flex-col min-h-screen font-sans antialiased bg-background text-foreground{% endblock body_class %}">
-        {% block body_content %}
-            {% block site_navbar %}
-                {% include "components/navbar.html" %}
-            {% endblock site_navbar %}
-            {% block main_region %}
-                <!-- Flash Messages -->
-                {% if messages %}
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">
-                        {% for message in messages %}
-                            <div class="alert flex items-center {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'info' %}alert-info{% else %}alert-default{% endif %}"
-                                 {% if message.tags == 'error' or message.tags == 'warning' %}role="alert"{% else %}role="status"{% endif %}
-                                 aria-live="{% if message.tags == 'error' or message.tags == 'warning' %}assertive{% else %}polite{% endif %}">
-                                {% if message.tags == 'error' %}
-                                    {% heroicon_outline "exclamation-triangle" class="w-5 h-5 mr-3" %}
-                                {% elif message.tags == 'warning' %}
-                                    {% heroicon_outline "exclamation-triangle" class="w-5 h-5 mr-3" %}
-                                {% elif message.tags == 'success' %}
-                                    {% heroicon_outline "check-circle" class="w-5 h-5 mr-3" %}
-                                {% elif message.tags == 'info' %}
-                                    {% heroicon_outline "information-circle" class="w-5 h-5 mr-3" %}
-                                {% else %}
-                                    {% heroicon_outline "chat-bubble-left-ellipsis" class="w-5 h-5 mr-3" %}
-                                {% endif %}
-                                <span class="text-sm">{{ message }}</span>
+    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}">
+        {% comment %}
+            App-shell scroll container: the document itself never scrolls, an
+            inner element owns the scroll. A top-layer <dialog> then always
+            hit-tests over an unscrolled document (the iOS dead-Close-button bug
+            can't happen) and the background is locked by freezing this element's
+            overflow — no body pin, no scroll save/restore, so the page never
+            jumps on open/close.
+        {% endcomment %}
+        <div id="app-scroll" class="app-scroll relative">
+            {% block body_content %}
+                {% block site_navbar %}
+                    {% include "components/navbar.html" %}
+                {% endblock site_navbar %}
+                {% block main_region %}
+                    <!-- Flash Messages -->
+                    {% if messages %}
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">{% include "components/flash-messages.html" %}</div>
+                    {% endif %}
+                    <!-- Main Content -->
+                    <main class="grow flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full mb-8">
+                        <!-- Page Header -->
+                        {% block header_section %}
+                            <div class="mb-6 text-center">
+                                {% block header %}
+                                {% endblock header %}
+                                {% block description %}
+                                    <p class="mt-2 text-sm sm:text-base text-foreground-muted">
+                                        {% block description_text %}
+                                        {% endblock description_text %}
+                                    </p>
+                                {% endblock description %}
                             </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-                <!-- Main Content -->
-                <main class="grow flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full mb-8">
-                    <!-- Page Header -->
-                    {% block header_section %}
-                        <div class="mb-6 text-center">
-                            {% block header %}
-                            {% endblock header %}
-                            {% block description %}
-                                <p class="mt-2 text-sm sm:text-base text-foreground-muted">
-                                    {% block description_text %}
-                                    {% endblock description_text %}
+                        {% endblock header_section %}
+                        {% block body %}
+                        {% endblock body %}
+                    </main>
+                {% endblock main_region %}
+                {% block site_footer %}
+                    <footer class="border-t py-6 bg-bg-secondary border-border">
+                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div class="flex justify-end mb-4">{% include "components/theme_switcher.html" %}</div>
+                            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
+                                <p class="text-center sm:text-left">
+                                    © {% now "Y" %} Radosław Ganczarek.
+                                    <a href="https://github.com/zagrajmy/ludamus"
+                                       class="hover:underline text-primary">Source code</a>
+                                    available under BSD-3-Clause license.
                                 </p>
-                            {% endblock description %}
-                        </div>
-                    {% endblock header_section %}
-                    {% block body %}
-                    {% endblock body %}
-                </main>
-            {% endblock main_region %}
-            {% block site_footer %}
-                <footer class="border-t py-6 bg-bg-secondary border-border">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div class="flex justify-end mb-4">{% include "components/theme_switcher.html" %}</div>
-                        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
-                            <p class="text-center sm:text-left">
-                                © {% now "Y" %} Radosław Ganczarek.
-                                <a href="https://github.com/zagrajmy/ludamus"
-                                   class="hover:underline text-primary">Source code</a>
-                                available under BSD-3-Clause license.
-                            </p>
-                            <div class="flex flex-wrap justify-center sm:justify-end gap-4">
-                                <a href="mailto:{{ SUPPORT_EMAIL }}"
-                                   class="hover:underline text-primary">{% translate "Contact" %}</a>
-                                <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' %}"
-                                   class="hover:underline text-primary">{% translate "Privacy Policy" %}</a>
-                                <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/terms-of-service/' %}"
-                                   class="hover:underline text-primary">{% translate "Terms of Service" %}</a>
+                                <div class="flex flex-wrap justify-center sm:justify-end gap-4">
+                                    <a href="mailto:{{ SUPPORT_EMAIL }}"
+                                       class="hover:underline text-primary">{% translate "Contact" %}</a>
+                                    <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' %}"
+                                       class="hover:underline text-primary">{% translate "Privacy Policy" %}</a>
+                                    <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/terms-of-service/' %}"
+                                       class="hover:underline text-primary">{% translate "Terms of Service" %}</a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </footer>
-            {% endblock site_footer %}
-        {% endblock body_content %}
+                    </footer>
+                {% endblock site_footer %}
+            {% endblock body_content %}
+        </div>
+        <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
+        {% include "components/confirm-dialog.html" %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
+        {% vite_asset 'src/app-scroll.ts' %}
+        {% vite_asset 'src/confirm.ts' %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>

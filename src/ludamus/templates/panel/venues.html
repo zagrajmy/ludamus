@@ -95,7 +95,7 @@
                                         <hr class="my-1">
                                         <form method="post"
                                               action="{% url 'panel:venue-delete' slug=current_event.slug venue_slug=venue.slug %}"
-                                              onsubmit="return confirm('{% translate "Are you sure you want to delete this venue?" %}');">
+                                              data-confirm="{% translate "Are you sure you want to delete this venue?" %}">
                                             {% csrf_token %}
                                             <button type="submit"
                                                     class="flex items-center w-full px-4 py-2 text-sm text-danger hover:bg-danger-bg rounded-b-lg">
@@ -189,7 +189,12 @@
             </script>
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No venues yet. Venues will be managed here once available." %}</p>
+                <p class="text-foreground-muted mb-4">
+                    {% translate "No venues yet. Create your first venue to start building your event's locations." %}
+                </p>
+                {% url 'panel:venue-create' slug=current_event.slug as new_venue_url %}
+                {% translate "New Venue" as t_new_venue %}
+                {% tessera_button t_new_venue href=new_venue_url icon="plus" %}
             </div>
         {% endif %}
     {% else %}

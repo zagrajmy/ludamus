@@ -1,3 +1,5 @@
+import re
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -11,6 +13,7 @@ from ludamus.adapters.db.django.models import (
     SessionField,
     SessionFieldValue,
     Space,
+    TimeSlot,
 )
 from ludamus.pacts import (
     EventDTO,
@@ -18,18 +21,26 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SpaceDTO,
     TimeSlotDTO,
+    UserDTO,
 )
 from tests.integration.utils import assert_response
+
+
+def _has_option(content: str, value: int, label: str) -> bool:
+    pattern = rf'<option value="{value}"[^>]*>\s*{re.escape(label)}\s*</option>'
+    return re.search(pattern, content) is not None
 
 
 class TestProposalAcceptPageView:
     URL_NAME = "web:chronology:session-accept"
 
-    def _get_url(self, session_id: int) -> str:
-        return reverse(self.URL_NAME, kwargs={"session_id": session_id})
+    def _get_url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
 
-    def test_get_error_proposal_not_found(self, staff_client):
-        response = staff_client.get(self._get_url(17))
+    def test_get_error_proposal_not_found(self, staff_client, event):
+        response = staff_client.get(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -41,7 +52,9 @@ class TestProposalAcceptPageView:
     def test_get_error_session_exists(self, event, pending_session, staff_client):
         pending_session.status = "scheduled"
         pending_session.save()
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -51,13 +64,16 @@ class TestProposalAcceptPageView:
         )
 
     def test_get_ok(self, event, pending_session, space, staff_client, time_slot):
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -73,13 +89,16 @@ class TestProposalAcceptPageView:
     ):
         pending_session.time_slots.add(time_slot)
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -91,19 +110,122 @@ class TestProposalAcceptPageView:
         )
         assert "Preferred Time Slots" in response.content.decode()
 
-    @pytest.mark.usefixtures("event", "time_slot")
-    def test_get_shows_spaces_grouped_by_venue_area(
-        self, pending_session, venue, area, space, staff_client
+    @pytest.mark.usefixtures("space")
+    def test_get_renders_select_for_multiple_time_slots(
+        self, event, pending_session, staff_client, time_slot
     ):
-        """Test that space dropdown shows optgroups grouped by Venue > Area."""
-        response = staff_client.get(self._get_url(pending_session.id))
+        # A second slot means there's a real choice, so the tessera select
+        # renders instead of the single-slot read-only collapse.
+        TimeSlot.objects.create(
+            event=event,
+            start_time=time_slot.end_time,
+            end_time=time_slot.end_time + timedelta(hours=2),
+        )
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # Verify optgroup with "Venue > Area" label is present
-        assert f'<optgroup label="{venue.name} &gt; {area.name}">' in content
-        # Verify space is within the optgroup
-        assert f'<option value="{space.id}">{space.name}</option>' in content
+        assert "<select" in content
+        assert 'name="time_slot"' in content
+
+    @pytest.mark.usefixtures("event", "space")
+    def test_get_collapses_single_time_slot_to_forced_choice(
+        self, pending_session, staff_client, time_slot
+    ):
+        # A lone slot is a foregone choice: rendered via the forced-choice
+        # component (hidden input + read-only field the label associates with).
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert (
+            f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
+        )
+        assert 'id="time_slot"' in content
+        assert 'aria-readonly="true"' in content
+
+    @pytest.mark.usefixtures("space")
+    def test_get_groups_preferred_time_slots_in_picker(
+        self, event, pending_session, staff_client, time_slot
+    ):
+        # A second slot forces the select; the preferred one is floated into its
+        # own optgroup instead of being flagged with a footnote.
+        TimeSlot.objects.create(
+            event=event,
+            start_time=time_slot.end_time,
+            end_time=time_slot.end_time + timedelta(hours=2),
+        )
+        pending_session.time_slots.add(time_slot)
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert '<optgroup label="Preferred by the facilitator">' in content
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_renders_host_avatar(self, pending_session, staff_client):
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        # The host's avatar renders for the presenter: with no avatar image the
+        # tessera component shows the initials placeholder (first two letters).
+        initials = pending_session.presenter.full_name[:2].upper()
+        assert f">{initials}</span>" in response.content.decode()
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_renders_proposal_detail_rows(self, pending_session, staff_client):
+        pending_session.description = "A haunted manor one-shot."
+        pending_session.requirements = "Bring a pencil."
+        pending_session.needs = "A quiet room."
+        pending_session.save()
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        for text in ("A haunted manor one-shot.", "Bring a pencil.", "A quiet room."):
+            assert text in content
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_without_presenter_still_renders(self, pending_session, staff_client):
+        pending_session.presenter = None
+        pending_session.save()
+
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["presenter"] is None
+
+    @pytest.mark.usefixtures("event", "time_slot")
+    def test_get_collapses_single_space_to_static_value(
+        self, pending_session, space, staff_client
+    ):
+        """A lone space is a foregone choice: shown as static text + hidden input."""
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        # No dropdown to operate — the value is carried in a hidden input and
+        # the lone space is shown as static text (so no space optgroup renders).
+        assert f'<input type="hidden" name="space" value="{space.id}"' in content
+        assert space.name in content
+        assert "<optgroup" not in content
 
     @pytest.mark.usefixtures("time_slot")
     def test_get_shows_multiple_spaces_in_same_area(
@@ -112,21 +234,25 @@ class TestProposalAcceptPageView:
         """Test that multiple spaces in same area are grouped together."""
         # Create a second space in the same area
         second_space = Space.objects.create(
-            area=area, name="Second Room", slug="second-room"
+            area=area, name="Second Room", slug="second-room", event=area.venue.event
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
         # Verify optgroup with "Venue > Area" label is present
         assert f'<optgroup label="{venue.name} &gt; {area.name}">' in content
         # Verify both spaces are within the optgroup
-        assert f'<option value="{space.id}">{space.name}</option>' in content
-        assert f'<option value="{second_space.id}">Second Room</option>' in content
+        assert _has_option(content, space.id, space.name)
+        assert _has_option(content, second_space.id, "Second Room")
 
     def test_get_error_no_space(self, event, pending_session, staff_client):
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -142,7 +268,9 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_error_no_time_slot(self, event, pending_session, staff_client):
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -160,7 +288,9 @@ class TestProposalAcceptPageView:
         )
 
     def test_get_wrong_permissions(self, event, pending_session, authenticated_client):
-        response = authenticated_client.get(self._get_url(pending_session.id))
+        response = authenticated_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -174,8 +304,8 @@ class TestProposalAcceptPageView:
             url=f"/chronology/event/{event.slug}/",
         )
 
-    def test_post_error_proposal_not_found(self, staff_client):
-        response = staff_client.post(self._get_url(17))
+    def test_post_error_proposal_not_found(self, staff_client, event):
+        response = staff_client.post(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -187,7 +317,9 @@ class TestProposalAcceptPageView:
     def test_post_error_session_exists(self, event, pending_session, staff_client):
         pending_session.status = "scheduled"
         pending_session.save()
-        response = staff_client.post(self._get_url(pending_session.id))
+        response = staff_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -197,13 +329,16 @@ class TestProposalAcceptPageView:
         )
 
     def test_post_invalid_form(self, event, pending_session, staff_client, time_slot):
-        response = staff_client.post(self._get_url(pending_session.id))
+        response = staff_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [],
@@ -218,7 +353,7 @@ class TestProposalAcceptPageView:
         self, active_user, event, pending_session, space, staff_client, time_slot
     ):
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
@@ -249,7 +384,7 @@ class TestProposalAcceptPageView:
         self, event, pending_session, space, authenticated_client, time_slot
     ):
         response = authenticated_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
@@ -269,7 +404,7 @@ class TestProposalAcceptPageView:
         self, event, pending_session, space, staff_client, time_slot
     ):
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": 99999, "time_slot": time_slot.id},
         )
 
@@ -278,6 +413,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -292,8 +428,8 @@ class TestProposalAcceptPageView:
         self, staff_user, event, pending_session, space, staff_client, time_slot
     ):
         other_session = Session.objects.create(
+            event=event,
             title="Other Session",
-            sphere=event.sphere,
             slug="other-session",
             display_name=staff_user.name,
             participants_limit=10,
@@ -306,7 +442,7 @@ class TestProposalAcceptPageView:
         )
 
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
@@ -315,6 +451,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -343,13 +480,16 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value=["RPG"]
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -388,13 +528,16 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value="D&D 5e"
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],
@@ -433,13 +576,16 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value=True
         )
 
-        response = staff_client.get(self._get_url(pending_session.id))
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "spaces": [SpaceDTO.model_validate(space)],

@@ -21,6 +21,10 @@ class Repositories:
         return repositories.PersonalDataFieldRepository()
 
     @cached_property
+    def host_personal_data(self) -> repositories.HostPersonalDataRepository:
+        return repositories.HostPersonalDataRepository()
+
+    @cached_property
     def proposal_categories(self) -> repositories.ProposalCategoryRepository:
         return repositories.ProposalCategoryRepository()
 
@@ -89,9 +93,21 @@ class Repositories:
         return repositories.AreaRepository()
 
     @cached_property
+    def facilitators(self) -> repositories.FacilitatorRepository:
+        return repositories.FacilitatorRepository()
+
+    @cached_property
+    def import_log_entries(self) -> repositories.ImportLogEntryRepository:
+        return repositories.ImportLogEntryRepository()
+
+    @cached_property
     def shadowban(self) -> ShadowbanRepository:
         return ShadowbanRepository()
 
     @cached_property
     def event_bans(self) -> EventBanRepository:
         return EventBanRepository()
+
+    @cached_property
+    def discounts(self) -> repositories.DiscountRepository:
+        return repositories.DiscountRepository()

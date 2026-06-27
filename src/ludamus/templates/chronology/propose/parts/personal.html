@@ -6,7 +6,7 @@
     {% include "chronology/propose/parts/_login_nudge.html" %}
     <h2 class="text-lg font-semibold mb-1">{% translate "Your Information" %}</h2>
     <p class="text-sm text-foreground-muted mb-5">
-        {% blocktranslate %}Your details — private by default. A 👁 marks what attendees will see.{% endblocktranslate %}
+        {% blocktranslate %}Your details — private by default. An 👁 marks what attendees will see.{% endblocktranslate %}
     </p>
     <form method="post"
           hx-post="{% url 'web:chronology:session-propose-personal' event_slug=event.slug %}"

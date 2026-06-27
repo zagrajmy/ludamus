@@ -19,14 +19,10 @@ const getConfirmDialog = (): HTMLDialogElement | null => {
   return element instanceof HTMLDialogElement ? element : null;
 };
 
-const requestConfirm = (
-  message: string,
-  acceptLabel: string | null,
-  run: () => void,
-): void => {
+const requestConfirm = (message: string, acceptLabel: string | null, run: () => void): void => {
   const dialog = getConfirmDialog();
   if (!dialog) {
-    if (window.confirm(message)) run();
+    if (globalThis.confirm(message)) run();
     return;
   }
 
@@ -74,7 +70,7 @@ document.addEventListener(
 document.addEventListener(
   "click",
   (event) => {
-    const target = event.target;
+    const { target } = event;
     if (!(target instanceof Element)) return;
 
     const link = target.closest("a[data-confirm]");
@@ -85,14 +81,14 @@ document.addEventListener(
 
     event.preventDefault();
     requestConfirm(message, link.dataset.confirmAction ?? null, () => {
-      window.location.assign(link.href);
+      globalThis.location.assign(link.href);
     });
   },
   true,
 );
 
 document.addEventListener("click", (event) => {
-  const target = event.target;
+  const { target } = event;
   if (!(target instanceof Element)) return;
   if (!target.closest("[data-confirm-accept]")) return;
 

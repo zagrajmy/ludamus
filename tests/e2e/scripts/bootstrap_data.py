@@ -36,6 +36,7 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Encounter,
     EnrollmentConfig,
     Event,
+    EventProposalSettings,
     Notification,
     ProposalCategory,
     Session,
@@ -107,6 +108,7 @@ def _create_event(
     publication_offset: timedelta,
     enrollment_banner: str | None = None,
     allow_anonymous: bool = False,
+    allow_anonymous_proposals: bool = False,
     proposals_open: bool = False,
 ) -> Event:
     now = timezone.now()
@@ -144,6 +146,11 @@ def _create_event(
             allow_anonymous_enrollment=allow_anonymous,
         )
 
+    if allow_anonymous_proposals:
+        EventProposalSettings.objects.create(
+            event=event, allow_anonymous_proposals=True
+        )
+
     return event
 
 
@@ -168,11 +175,12 @@ def _create_area(venue: Venue, *, name: str, slug: str, description: str = "") -
 def _create_space(
     area: Area, *, name: str, slug: str, capacity: int | None = None
 ) -> Space:
-    return Space.objects.create(area=area, name=name, slug=slug, capacity=capacity)
+    return Space.objects.create(
+        area=area, name=name, slug=slug, capacity=capacity, event=area.venue.event
+    )
 
 
 def _create_session(
-    sphere: Sphere,
     event: Event,
     space: Space,
     *,
@@ -184,7 +192,7 @@ def _create_session(
     duration_hours: int,
 ) -> Session:
     session = Session.objects.create(
-        sphere=sphere,
+        event=event,
         display_name=presenter,
         title=title,
         slug=slug,
@@ -281,7 +289,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     area = _create_area(venue, name="Demo Area", slug="demo-area")
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
-        sphere=sphere,
+        event=event,
         display_name="Demo GM",
         title="Waitlist Promotion Demo",
         slug="waitlist-promotion-demo",
@@ -325,6 +333,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         json.dumps(
             {
                 "session_id": session.pk,
+                "event_slug": event.slug,
                 "superuser_id": superuser.pk,
                 "waiter_email": waiter.email,
                 "session_title": session.title,
@@ -333,6 +342,94 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         ),
         encoding="utf-8",
     )
+
+
+# Dedicated event for the backoffice panel e2e tests. panel.spec mutates
+# venues, CFP config and facilitators, so it gets its own event — keeping
+# autumn-open read-only for the public-page specs makes the suite safe to run
+# with parallel workers.
+def _create_panel_lab_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Frostfire Game Convention",
+        slug="frostfire-con",
+        description=(
+            "A mid-winter gathering for roleplayers and board gamers, "
+            "with open tables from dawn till midnight."
+        ),
+        start_offset=timedelta(days=20),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(
+        event,
+        name="Aurora Convention Hall",
+        slug="aurora-hall",
+        address="5 Glacier Parade, Northport",
+    )
+    north_wing = _create_area(
+        venue,
+        name="North Wing",
+        slug="north-wing",
+        description="The central gaming area with multiple tables.",
+    )
+    hearth_lounge = _create_area(
+        venue,
+        name="Hearth Lounge",
+        slug="hearth-lounge",
+        description="A cozy space for smaller gatherings.",
+    )
+    _create_space(north_wing, name="Frost Gallery", slug="frost-gallery", capacity=30)
+    _create_space(hearth_lounge, name="Ember Corner", slug="ember-corner", capacity=12)
+
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
+# Dedicated event for the cover-image upload e2e tests. cover-images.spec
+# writes the event's cover image and asserts the initial "no cover yet" state,
+# so it needs an event nothing else mutates.
+def _create_cover_lab_event(sphere: Sphere) -> Event:
+    return _create_event(
+        sphere,
+        name="Lakeside Tabletop Weekend",
+        slug="lakeside-weekend",
+        description=("A laid-back weekend of board games and one-shots by the lake."),
+        start_offset=timedelta(days=21),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+
+
+def _create_anon_proposals_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Open Mic Proposals",
+        slug="open-mic",
+        description="Drop-in showcase — pitch a one-shot, no account required.",
+        start_offset=timedelta(days=15),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+        allow_anonymous_proposals=True,
+    )
+    ProposalCategory.objects.create(
+        event=event,
+        name="Open Mic",
+        slug="open-mic",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
 
 
 def main() -> None:
@@ -489,7 +586,6 @@ def main() -> None:
     tester = User.objects.get(username="e2e-tester")
 
     _create_session(
-        sphere,
         upcoming_event,
         east_wing_space,
         title="Mega Strategy Lab",
@@ -501,7 +597,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Cozy Storytellers Circle",
@@ -513,7 +608,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Przygoda w Mieście Neonów",
@@ -545,7 +639,7 @@ def main() -> None:
         end_time=upcoming_event.start_time + timedelta(hours=2),
     )
     pending_session = Session.objects.create(
-        sphere=sphere,
+        event=upcoming_event,
         presenter=tester,
         display_name="E2E Tester",
         contact_email="e2e@test.local",
@@ -561,6 +655,12 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    # Dedicated events for the mutating panel / cover-image specs, so they
+    # never write to autumn-open (kept read-only for the public-page specs).
+    _create_panel_lab_event(sphere)
+    _create_cover_lab_event(sphere)
+    _create_anon_proposals_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

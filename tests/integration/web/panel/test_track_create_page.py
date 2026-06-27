@@ -157,7 +157,9 @@ class TestTrackCreatePageView:
         sphere.managers.add(active_user)
         venue = Venue.objects.create(event=event, name="Hall", slug="hall")
         area = Area.objects.create(venue=venue, name="Wing A", slug="wing-a")
-        space = Space.objects.create(area=area, name="Room 1", slug="room-1")
+        space = Space.objects.create(
+            area=area, name="Room 1", slug="room-1", event=area.venue.event
+        )
 
         response = authenticated_client.post(
             self.get_url(event),

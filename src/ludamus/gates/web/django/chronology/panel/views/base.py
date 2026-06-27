@@ -150,6 +150,18 @@ def cfp_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
+def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
+    return {
+        "proposal": reverse(
+            "panel:import-integration", kwargs={"slug": slug, "pk": pk}
+        ),
+        "review": reverse("panel:import-review", kwargs={"slug": slug, "pk": pk}),
+        "json": reverse("panel:import-json", kwargs={"slug": slug, "pk": pk}),
+        "run": reverse("panel:import-run", kwargs={"slug": slug, "pk": pk}),
+        "log": reverse("panel:import-log", kwargs={"slug": slug, "pk": pk}),
+    }
+
+
 def make_unique_slug(
     name: str, default: str, check_exists: Callable[[str], bool]
 ) -> str:

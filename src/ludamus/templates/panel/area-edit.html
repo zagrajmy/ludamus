@@ -67,7 +67,7 @@
                 <p class="text-sm text-foreground-muted mb-4">{% translate "Deleting an area cannot be undone." %}</p>
                 <form method="post"
                       action="{% url 'panel:area-delete' slug=current_event.slug venue_slug=venue.slug area_slug=area.slug %}"
-                      onsubmit="return confirm('{% translate "Are you sure you want to delete this area?" %}');">
+                      data-confirm="{% translate "Are you sure you want to delete this area?" %}">
                     {% csrf_token %}
                     <button type="submit"
                             class="btn bg-danger text-white hover:bg-danger/90 flex items-center">

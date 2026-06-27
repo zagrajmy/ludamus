@@ -13,9 +13,6 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <button type="button"
-                    onclick="document.getElementById('proposal-settings-form').reset()"
-                    class="btn btn-secondary">{% translate "Cancel Changes" %}</button>
             <button type="submit"
                     form="proposal-settings-form"
                     class="btn btn-primary flex items-center">
@@ -47,10 +44,7 @@
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Proposal Description" %}</h3>
                         <p class="text-sm text-foreground-muted mb-6">{% translate "Displayed on the first page of the proposal form." %}</p>
-                        <textarea name="proposal_description"
-                                  id="id_proposal_description"
-                                  rows="4"
-                                  class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.proposal_description.value|default:'' }}</textarea>
+                        {% include "components/textarea.html" with name="proposal_description" id="id_proposal_description" rows="4" value=form.proposal_description.value|default:"" only %}
                     </div>
                 </div>
                 <!-- Proposal Dates -->
@@ -71,13 +65,18 @@
                                 </div>
                             </div>
                             <p class="text-sm text-foreground-muted">{% translate "Leave both empty to disable proposals." %}</p>
-                            <label class="flex items-center">
-                                <input type="checkbox"
-                                       name="apply_dates_to_categories"
-                                       class="rounded border-border text-primary focus:ring-primary">
-                                <span class="ml-2 text-sm text-foreground-secondary">{% translate "Apply these dates to all proposal categories" %}</span>
-                            </label>
+                            {% translate "Apply these dates to all proposal categories" as t_apply_dates %}
+                            {% include "components/checkbox-field.html" with name="apply_dates_to_categories" label=t_apply_dates checked=form.apply_dates_to_categories.value only %}
                         </div>
+                    </div>
+                </div>
+                <!-- Anonymous proposals -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Anonymous proposals" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-6">{% translate "Let people submit proposals without logging in. They provide a contact email instead of an account." %}</p>
+                        {% translate "Allow anonymous proposal submissions" as t_allow_anon %}
+                        {% include "components/checkbox-field.html" with name="allow_anonymous_proposals" label=t_allow_anon checked=form.allow_anonymous_proposals.value only %}
                     </div>
                 </div>
             </div>

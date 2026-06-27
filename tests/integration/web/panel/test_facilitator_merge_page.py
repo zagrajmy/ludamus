@@ -115,6 +115,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=f1.pk,
                         slug="alice",
@@ -122,6 +123,7 @@ class TestFacilitatorMergePageView:
                         session_count=0,
                     ),
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Bob",
                         pk=f2.pk,
                         slug="bob",
@@ -157,11 +159,11 @@ class TestFacilitatorMergePageView:
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Alice Duplicate",
             title="A Session",
             slug="a-session",
-            sphere=sphere,
             participants_limit=0,
             status="pending",
         )
@@ -206,6 +208,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=f1.pk,
                         slug="alice",
@@ -213,6 +216,7 @@ class TestFacilitatorMergePageView:
                         session_count=0,
                     ),
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Bob",
                         pk=f2.pk,
                         slug="bob",
@@ -248,6 +252,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=facilitator.pk,
                         slug="alice",

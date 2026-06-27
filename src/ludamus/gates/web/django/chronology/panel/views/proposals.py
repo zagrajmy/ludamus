@@ -68,6 +68,9 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             search=search,
             track_pk=filter_track_pk,
         )
+        context["deleted_proposals"] = (
+            self.request.di.uow.sessions.list_deleted_by_event(current_event.pk)
+        )
         context["session_fields"] = filterable_fields
         context["filter_search"] = search or ""
         context["filter_fields"] = {
@@ -105,17 +108,36 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_facilitators = self.request.di.uow.sessions.read_facilitators(
             proposal_id
         )
+        preferred_time_slots = self.request.di.uow.sessions.read_preferred_time_slots(
+            proposal_id
+        )
         presenter = None
         if session.presenter_id is not None:
             presenter = self.request.di.uow.active_users.read_by_id(
                 session.presenter_id
             )
+        import_log_entry = self.request.services.import_log.log_entry_for_session(
+            proposal_id
+        )
+        import_log_integration = None
+        if import_log_entry is not None:
+            try:
+                import_log_integration = self.request.services.event_integrations.get(
+                    current_event.pk, import_log_entry.integration_id
+                )
+            except NotFoundError:
+                # Defensive: the linked integration doesn't belong to this
+                # event (deleted, or stale link). Hide the back-link cleanly.
+                import_log_entry = None
 
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
+        context["preferred_time_slots"] = preferred_time_slots
+        context["import_log_entry"] = import_log_entry
+        context["import_log_integration"] = import_log_integration
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
 
 
@@ -318,16 +340,16 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
         title = form.cleaned_data["title"]
-        sphere_id = self.request.context.current_sphere_id
         session_slug = make_unique_slug(
             title,
             "session",
-            lambda s: self.request.di.uow.sessions.slug_exists(sphere_id, s),
+            lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
         )
 
         self.request.di.uow.sessions.create(
             SessionData(
                 category_id=int(form.cleaned_data["category_id"]),
+                event_id=current_event.pk,
                 contact_email=form.cleaned_data.get("contact_email") or "",
                 description=form.cleaned_data.get("description") or "",
                 display_name=form.cleaned_data["display_name"],
@@ -338,7 +360,6 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 presenter_id=None,
                 requirements=form.cleaned_data.get("requirements") or "",
                 slug=session_slug,
-                sphere_id=sphere_id,
                 status=SessionStatus.PENDING,
                 title=title,
             ),
@@ -374,6 +395,50 @@ class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
             session.pk, {"status": SessionStatus.REJECTED}
         )
         messages.success(self.request, _("Proposal rejected."))
+        return redirect("panel:proposals", slug=slug)
+
+
+class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self.request.services.session_deletion.soft_delete(
+                event_pk=current_event.pk,
+                session_pk=proposal_id,
+                user_pk=self.request.user.pk,
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        messages.success(self.request, _("Session deleted."))
+        return redirect("panel:proposals", slug=slug)
+
+
+class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self.request.services.session_deletion.restore(
+                event_pk=current_event.pk, session_pk=proposal_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        messages.success(self.request, _("Session restored."))
         return redirect("panel:proposals", slug=slug)
 
 

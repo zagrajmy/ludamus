@@ -24,7 +24,10 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise install
       - run: mise run p install
+      - run: mise bootstrap packages apply --yes
       - run: mise run prcheck --jobs 4
+      - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
+        run: mise run messages-check
 
   varlock-scan:
     runs-on: ubuntu-latest
@@ -53,6 +56,10 @@ jobs:
       - run: mise install
       - name: install deps
         run: aube install --no-optional
+      # Blocking: ESLint (@hasparus/eslint-config) must pass with zero errors
+      # and zero warnings before the build is considered green.
+      - name: Lint frontend TypeScript (eslint)
+        run: mise run lint-client
       # Non-blocking: fallow surfaces dead code, duplication, and
       # complexity hotspots as a report without failing the build.
       - name: Analyze frontend TypeScript (fallow)

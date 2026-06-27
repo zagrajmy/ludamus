@@ -15,9 +15,10 @@ def _event_url(slug: str) -> str:
     return reverse("web:chronology:event", kwargs={"slug": slug})
 
 
-def _enroll_url(session_id: int) -> str:
+def _enroll_url(session_id: int, event_slug: str) -> str:
     return reverse(
-        "web:chronology:session-enrollment", kwargs={"session_id": session_id}
+        "web:chronology:session-enrollment",
+        kwargs={"event_slug": event_slug, "session_id": session_id},
     )
 
 
@@ -54,7 +55,7 @@ class TestEventBanFakeFull:
         EventBan.objects.create(event=event, user=active_user)
 
         response = authenticated_client.post(
-            _enroll_url(agenda_item.session.pk),
+            _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -68,7 +69,9 @@ class TestEventBanFakeFull:
     ):
         EventBan.objects.create(event=event, user=active_user)
 
-        response = authenticated_client.get(_enroll_url(agenda_item.session.pk))
+        response = authenticated_client.get(
+            _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert response.status_code == HTTPStatus.FOUND
         assert response.url == _event_url(event.slug)

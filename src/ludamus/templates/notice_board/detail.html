@@ -194,13 +194,9 @@
                         <div>
                             <div class="font-medium text-foreground">{{ creator.full_name|default:creator.name }}</div>
                             {% if creator.discord_username %}
-                                <button class="btn btn-secondary text-xs mt-1"
-                                        hx-get="{% url 'web:crowd:user-discord-username' user_slug=creator.slug %}"
-                                        hx-swap="outerHTML"
-                                        hx-trigger="click once">
-                                    {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %}
-                                    {% translate "Show Discord" %}
-                                </button>
+                                <div class="mt-1">
+                                    {% include "crowd/user/parts/discord_username.html" with discord_username=creator.discord_username %}
+                                </div>
                             {% endif %}
                         </div>
                     </div>

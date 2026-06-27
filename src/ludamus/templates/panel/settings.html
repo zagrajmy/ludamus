@@ -13,9 +13,6 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <button type="button"
-                    onclick="document.getElementById('settings-form').reset()"
-                    class="btn btn-secondary">{% translate "Cancel Changes" %}</button>
             <button type="submit"
                     form="settings-form"
                     class="btn btn-primary flex items-center">
@@ -137,6 +134,13 @@
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Schedule confirmation" %}</h3>
                         {% tessera_field form.auto_confirm_sessions %}
+                    </div>
+                </div>
+                <!-- Session cards -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session cards" %}</h3>
+                        {% tessera_field form.use_session_cover_placeholders %}
                     </div>
                 </div>
             </div>

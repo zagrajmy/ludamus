@@ -1,7 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NotRequired,
+    Protocol,
+    TypedDict,
+    runtime_checkable,
+)
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -86,6 +94,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
 class FacilitatorListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     pk: int
     session_count: int
@@ -391,6 +400,7 @@ class SessionData(TypedDict, total=False):
     cover_image: UploadedFileProtocol
     description: str
     duration: str
+    event_id: int
     min_age: int
     needs: str
     participants_limit: int
@@ -398,7 +408,6 @@ class SessionData(TypedDict, total=False):
     display_name: str
     requirements: str
     slug: str
-    sphere_id: int
     status: SessionStatus
     title: str
 
@@ -521,6 +530,7 @@ class EventDTO(BaseModel):
     slug: str
     sphere_id: int
     start_time: datetime
+    use_session_cover_placeholders: bool = False
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -758,6 +768,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
     auto_confirm_sessions: bool
+    use_session_cover_placeholders: bool
 
 
 @dataclass
@@ -911,13 +922,22 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         tag_ids: Iterable[int],
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
+        track_ids: Iterable[int] = (),
     ) -> int: ...
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
     @staticmethod
+    def read_presenter(session_id: int) -> UserDTO | None: ...
+    @staticmethod
     def lock(pk: int) -> None: ...
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
+    @staticmethod
+    def soft_delete(pk: int) -> None: ...
+    @staticmethod
+    def restore(pk: int, event_pk: int) -> None: ...
+    @staticmethod
+    def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod
@@ -949,13 +969,19 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         session_ids: Iterable[int],
     ) -> dict[int, list[TimeSlotDTO]]: ...
     @staticmethod
-    def slug_exists(sphere_id: int, slug: str) -> bool: ...
+    def slug_exists(event_id: int, slug: str) -> bool: ...
+    @staticmethod
+    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]
     ) -> None: ...
     @staticmethod
     def read_field_values(session_id: int) -> list[SessionFieldValueDTO]: ...
+    @staticmethod
+    def delete_field_values_for_fields(
+        session_id: int, field_ids: list[int]
+    ) -> int: ...
     @staticmethod
     def list_sessions_by_event(
         event_id: int,
@@ -965,7 +991,13 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         track_pk: int | None = None,
     ) -> list[SessionListItemDTO]: ...
     @staticmethod
+    def read_track_ids(session_id: int) -> list[int]: ...
+    @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
+    @staticmethod
+    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None: ...
+    @staticmethod
+    def clear_field_values(session_id: int) -> None: ...
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
@@ -987,6 +1019,8 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
 
 class TrackRepositoryProtocol(Protocol):
     def create(self, data: TrackCreateData) -> TrackDTO: ...
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
     @staticmethod
     def read(pk: int) -> TrackDTO: ...
     @staticmethod
@@ -1139,6 +1173,8 @@ class SpaceRepositoryProtocol(Protocol):
 class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split planned
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
+    @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
     def get_category_stats(event_id: int) -> dict[int, CategoryStats]: ...
@@ -1209,6 +1245,7 @@ class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split p
 
 class PersonalDataFieldCreateData(TypedDict):
     name: str
+    slug: NotRequired[str]
     question: str
     field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
@@ -1230,6 +1267,7 @@ class PersonalDataFieldUpdateData(TypedDict):
 
 class SessionFieldCreateData(TypedDict):
     name: str
+    slug: NotRequired[str]
     question: str
     field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
@@ -1258,6 +1296,8 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int: ...
+    @staticmethod
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
@@ -1275,6 +1315,8 @@ class SessionFieldRepositoryProtocol(Protocol):
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int: ...
+    @staticmethod
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
@@ -1288,6 +1330,10 @@ class TimeSlotRepositoryProtocol(Protocol):
     def create(
         event_id: int, start_time: datetime, end_time: datetime
     ) -> TimeSlotDTO: ...
+    @staticmethod
+    def get_or_create(
+        event_id: int, start_time: datetime, end_time: datetime
+    ) -> int: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1305,6 +1351,9 @@ class TimeSlotRepositoryProtocol(Protocol):
 class EventProposalSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
+    def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
 
 
 class EventSettingsRepositoryProtocol(Protocol):
@@ -1402,7 +1451,15 @@ class HostPersonalDataRepositoryProtocol(Protocol):
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
     @staticmethod
+    def list_field_ids_for_facilitator_event(
+        facilitator_id: int, event_id: int
+    ) -> list[int]: ...
+    @staticmethod
     def delete_by_facilitators(facilitator_ids: list[int]) -> None: ...
+    @staticmethod
+    def delete_for_facilitator_fields(
+        facilitator_id: int, field_ids: list[int]
+    ) -> int: ...
 
 
 class ScheduleChangeAction(StrEnum):

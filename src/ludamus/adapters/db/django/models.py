@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import sys
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, ClassVar, Never, cast
+from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.contrib.sites.models import Site
@@ -25,6 +25,8 @@ from ludamus.pacts import (
     UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -36,6 +38,37 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 DEFAULT_NAME = "Andrzej"
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+
+
+_SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
+
+
+class AliveManager(models.Manager[_SoftDeleteT]):
+    # The default `objects` manager hides soft-deleted rows so every existing
+    # read (including reverse relations like `category.sessions`) excludes them
+    # automatically. Reach soft-deleted rows through `all_objects`.
+    def get_queryset(self) -> models.QuerySet[_SoftDeleteT]:
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class SoftDeleteModel(models.Model):
+    # Null `deleted_at` = alive; a timestamp = deleted (reversible). The default
+    # `objects` manager hides deleted rows; `all_objects` includes everything.
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    objects: ClassVar = AliveManager()
+    all_objects: ClassVar = models.Manager()
+
+    class Meta:
+        abstract = True
+
+    def soft_delete(self) -> None:
+        self.deleted_at = timezone.now()
+        self.save(update_fields=["deleted_at"])
+
+    def restore(self) -> None:
+        self.deleted_at = None
+        self.save(update_fields=["deleted_at"])
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -121,7 +154,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def initials(self) -> str:
-        """Return user initials (first letter of each word in name)."""
         name = self.name or self.username or ""
         return "".join(word[0].upper() for word in name.split() if word)[:2] or "?"
 
@@ -231,6 +263,7 @@ class Event(models.Model):
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
+    use_session_cover_placeholders = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
     # turn off for a draft → confirm workflow on large events.
     auto_confirm_sessions = models.BooleanField(default=True)
@@ -501,6 +534,8 @@ class Space(models.Model):
 
     # Owner - spaces belong to an area
     area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="spaces")
+    # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")
     # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
@@ -705,12 +740,14 @@ class Facilitator(models.Model):
         return self.display_name
 
 
-class SessionManager(models.Manager["Session"]):
+class SessionManager(AliveManager["Session"]):
+    # Inherits the alive-only `get_queryset` from AliveManager so conflict
+    # checks (and the default `objects` accessor) skip soft-deleted sessions.
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return (
             self.get_queryset()
             .filter(
-                agenda_item__space__area__venue__event=session.agenda_item.space.area.venue.event,
+                event_id=session.event_id,
                 session_participations__user_id=user.pk,
                 session_participations__status=SessionParticipationStatus.CONFIRMED,
             )
@@ -729,12 +766,12 @@ class SessionManager(models.Manager["Session"]):
         )
 
 
-class Session(models.Model):
+class Session(SoftDeleteModel):
     """Session model."""
 
     # Owner
-    sphere = models.ForeignKey(
-        "Sphere", on_delete=models.CASCADE, related_name="sessions"
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="event_sessions"
     )
     presenter = models.ForeignKey(
         User,
@@ -760,6 +797,8 @@ class Session(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
+    # purge the stored file during hard garbage-collection of dead sessions.
     cover_image = models.ImageField(upload_to="sessions/", blank=True)
     requirements = models.TextField(blank=True)
     needs = models.TextField(default="", blank=True)
@@ -793,13 +832,14 @@ class Session(models.Model):
         "Track", blank=True, related_name="sessions"
     )
 
-    objects = SessionManager()
+    objects: ClassVar = SessionManager()
+    all_objects: ClassVar = models.Manager()
 
     class Meta:
         db_table = "session"
         constraints = (
             models.UniqueConstraint(
-                fields=["slug", "sphere"], name="session_unique_slug_in_sphere"
+                fields=["slug", "event"], name="session_unique_slug_in_event"
             ),
             models.CheckConstraint(
                 condition=Q(min_age__gte=0, min_age__lte=80),
@@ -836,10 +876,9 @@ class Session(models.Model):
 
     @property
     def effective_participants_limit(self) -> int:
-        """Get effective participants limit considering enrollment config percentage."""
         if self.participants_limit == 0:
             return 0
-        event = self.agenda_item.space.area.venue.event
+        event = self.event
         if enrollment_config := event.get_most_liberal_config(self):
             return math.ceil(
                 self.participants_limit * enrollment_config.percentage_slots / 100
@@ -856,14 +895,11 @@ class Session(models.Model):
     @property
     def is_enrollment_available(self) -> bool:
         """Check if enrollment is available for this session under any active config."""
-        active_configs = (
-            self.agenda_item.space.area.venue.event.get_active_enrollment_configs()
-        )
+        active_configs = self.event.get_active_enrollment_configs()
         return any(config.is_session_eligible(self) for config in active_configs)
 
     @property
     def full_participant_info(self) -> str:  # pragma: no cover
-        """Get complete participant information display."""
         # TODO(@fancysnake): This is used in templates. Rewrite to pass static values
         # ZAG-16
         if self.effective_participants_limit == 0:
@@ -1510,7 +1546,7 @@ def can_enroll_users(
         SessionParticipation.objects.filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
-            session__agenda_item__space__area__venue__event_id=event.pk,
+            session__event_id=event.pk,
         )
         .values_list("user_id", flat=True)
         .distinct()
@@ -1529,7 +1565,7 @@ def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
         SessionParticipation.objects.filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
-            session__agenda_item__space__area__venue__event_id=event.pk,
+            session__event_id=event.pk,
         )
         .values_list("user", flat=True)
         .distinct()
@@ -1571,6 +1607,37 @@ class Connection(models.Model):
         return bool(self.secret)
 
 
+class Discount(SoftDeleteModel):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="discounts")
+    facilitator = models.ForeignKey(
+        Facilitator, on_delete=models.CASCADE, related_name="discounts"
+    )
+    kind = models.CharField(
+        max_length=10, choices=[(k.value, k.name.title()) for k in DiscountKind]
+    )
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    note = models.CharField(max_length=255, blank=True, default="")
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "discount"
+        ordering = ("-creation_time",)
+        constraints = (
+            # Partial constraint: only alive (non-soft-deleted) rows count, so a
+            # fresh discount can be assigned after a prior one is soft-deleted
+            # without colliding with the dead row.
+            models.UniqueConstraint(
+                fields=("event", "facilitator"),
+                condition=Q(deleted_at__isnull=True),
+                name="discount_unique_alive_per_event_facilitator",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.facilitator} - {self.kind} {self.value}"
+
+
 class Announcement(models.Model):
     sphere = models.ForeignKey(
         Sphere, on_delete=models.CASCADE, related_name="announcements"
@@ -1605,6 +1672,8 @@ class EventIntegration(models.Model):
     )
     display_name = models.CharField(max_length=255)
     config_json = models.TextField(default="{}")
+    settings_json = models.TextField(default="{}")
+    questions_snapshot_json = models.TextField(default="[]")
 
     class Meta:
         db_table = "event_integration"
@@ -1618,3 +1687,44 @@ class EventIntegration(models.Model):
 
     def __str__(self) -> str:
         return self.display_name
+
+
+class ImportLogEntry(models.Model):
+    integration = models.ForeignKey(
+        EventIntegration, on_delete=models.CASCADE, related_name="log_entries"
+    )
+    row_index = models.IntegerField()
+    status = models.CharField(
+        max_length=16, choices=[(s.value, s.value) for s in ImportLogStatus]
+    )
+    reason = models.TextField(blank=True, default="")
+    response_json = models.TextField(default="{}")
+    title = models.CharField(max_length=255, blank=True, default="")
+    display_name = models.CharField(max_length=255, blank=True, default="")
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="import_log_entries",
+    )
+    attempted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "import_log_entry"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("integration", "row_index"), name="ile_unique_integration_row"
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=("integration", "status", "-attempted_at"),
+                name="ile_int_status_at_idx",
+            ),
+            models.Index(fields=("session",), name="ile_session_idx"),
+        )
+        ordering = ("-attempted_at", "-pk")
+
+    def __str__(self) -> str:
+        return f"{self.integration_id}/{self.row_index} {self.status}"

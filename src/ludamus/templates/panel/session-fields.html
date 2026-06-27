@@ -115,7 +115,7 @@
                             <form method="post"
                                   action="{% url 'panel:session-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"
                                   class="inline"
-                                  onsubmit="return confirm('{% translate "Are you sure you want to delete this field?" %}');">
+                                  data-confirm="{% translate "Are you sure you want to delete this field?" %}">
                                 {% csrf_token %}
                                 <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
                             </form>
@@ -126,7 +126,10 @@
         {% end_tessera_table %}
     {% else %}
         <div class="card p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No session fields defined. Add fields to classify sessions." %}</p>
+            <p class="text-foreground-muted mb-4">{% translate "No session fields defined. Add fields to classify sessions." %}</p>
+            {% url 'panel:session-field-create' slug=current_event.slug as create_url %}
+            {% translate "New Field" as t_create %}
+            {% tessera_button t_create href=create_url icon="plus" %}
         </div>
     {% endif %}
 </div>

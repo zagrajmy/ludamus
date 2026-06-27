@@ -19,12 +19,16 @@ mise tasks          # list all tasks with descriptions
   - is the info we're showing redundant?
   - are we asking for needless clicks? like showing a form with one selectable
     option?
-- Use agent-browser to take screenshots of affected pages and include
-  before/after images in the PR description. Run tools/binaries via `aubx`
-  (e.g. `aubx agent-browser`).
+- Include screenshots of affected pages in the PR description. With a server
+  running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
+  resolve against `localhost:8000`; wraps `aubx agent-browser`).
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
+- For any user-facing UI work (pages, forms, tables, modals, empty/error states,
+  copy), use the `product-design` skill (`.claude/skills/product-design/`)
+  *before* building — it routes to the component catalog, reachable-states
+  checklist, Polish copy rules, and a verification checklist.
 
 ## Architecture
 
@@ -72,6 +76,19 @@ Strict rules:
 ## Rules
 
 - Views return DTOs to templates, never models
+- A class that implements a `Protocol` must declare it as a base class, so the
+  intent is explicit and the type checker verifies conformance. Exception: very
+  generic protocols (e.g. `TransactionProtocol`, structural callbacks) where
+  multiple unrelated implementations exist by duck-typing.
+- Functions/methods with 3+ parameters (excluding `self`) must take them as
+  keyword-only with `*,`:
+
+  ```python
+  def fun(a: int, b: str) -> int: ...
+  def method(self, a: int, b: str) -> int: ...
+  def fun(*, a: int, b: str, precision: int) -> int: ...
+  ```
+
 - Avoid docstrings unless absolutely unavoidable. Code should be
   self-explanatory; the Arrange-Act-Assert structure in tests should be obvious
   from the code itself. Docstrings are stale the day they're committed. Keep

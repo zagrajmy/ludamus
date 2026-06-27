@@ -317,6 +317,14 @@ class TestRenderSelect:
         html = render_select(form["color"])
         assert "border-danger" in html
 
+    def test_disabled_select_renders_disabled(self) -> None:
+        form = SimpleForm()
+        form.fields["color"].disabled = True
+        html = render_select(form["color"])
+        assert "<select" in html
+        select_tag = html.split("<select", 1)[1].split(">", 1)[0]
+        assert "disabled" in select_tag
+
 
 # ---------------------------------------------------------------------------
 # render_textarea — direct coverage
@@ -449,6 +457,81 @@ class TestTesseraFormLayout:
 # ---------------------------------------------------------------------------
 # tessera_button — variant, size
 # ---------------------------------------------------------------------------
+
+
+class SingleChoiceForm(forms.Form):
+    required_one = forms.ChoiceField(
+        choices=[("", "Choose…"), ("x", "Only option")], widget=Select, required=True
+    )
+    optional_one = forms.ChoiceField(
+        choices=[("", "Choose…"), ("x", "Only option")], widget=Select, required=False
+    )
+    required_two = forms.ChoiceField(
+        choices=[("", "Choose…"), ("a", "A"), ("b", "B")], widget=Select, required=True
+    )
+    radio_one = forms.ChoiceField(
+        choices=[("x", "Only option")], widget=RadioSelect, required=True
+    )
+
+
+class GroupedChoiceForm(forms.Form):
+    two_in_group = forms.ChoiceField(
+        choices=[("", "Choose…"), ("Venue > Area", [("1", "Room A"), ("2", "Room B")])],
+        widget=Select,
+        required=True,
+    )
+    one_in_group = forms.ChoiceField(
+        choices=[("", "Choose…"), ("Venue > Area", [("1", "Room A")])],
+        widget=Select,
+        required=True,
+    )
+
+
+class TestSingleOptionRendering:
+    def test_select_collapses_to_hidden_input(self) -> None:
+        html = render_select(SingleChoiceForm()["required_one"])
+        assert '<input type="hidden" name="required_one" value="x"' in html
+        assert "Only option" in html
+        assert "<select" not in html
+
+    def test_optional_single_option_keeps_select(self) -> None:
+        # Optional: the user may legitimately pick nothing, so keep the dropdown.
+        html = render_select(SingleChoiceForm()["optional_one"])
+        assert "<select" in html
+
+    def test_select_kept_for_multiple_options(self) -> None:
+        html = render_select(SingleChoiceForm()["required_two"])
+        assert "<select" in html
+        assert "<input" not in html
+
+    def test_disabled_single_option_keeps_select(self) -> None:
+        form = SingleChoiceForm()
+        form.fields["required_one"].disabled = True
+        html = render_select(form["required_one"])
+        assert "<select" in html
+
+    def test_collapses_single_option_inside_optgroup(self) -> None:
+        html = render_select(GroupedChoiceForm()["one_in_group"])
+        assert '<input type="hidden" name="one_in_group" value="1"' in html
+        assert "Room A" in html
+        assert "<select" not in html
+
+    def test_select_renders_optgroups_for_multiple(self) -> None:
+        html = render_select(GroupedChoiceForm()["two_in_group"])
+        assert '<optgroup label="Venue &gt; Area">' in html
+        assert "Room A" in html
+        assert "Room B" in html
+
+    def test_radio_group_collapses_to_hidden_input(self) -> None:
+        html = render_multi_choice_field(SingleChoiceForm()["radio_one"], is_radio=True)
+        assert '<input type="hidden" name="radio_one" value="x"' in html
+        assert 'type="radio"' not in html
+
+    def test_tessera_field_collapses_single_option_select(self) -> None:
+        html = tessera_field(SingleChoiceForm()["required_one"])
+        assert '<input type="hidden" name="required_one" value="x"' in html
+        assert "<select" not in html
+        assert "Required one" in html  # the label still renders
 
 
 class TestTesseraButtonBranches:

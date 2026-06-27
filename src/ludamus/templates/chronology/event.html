@@ -40,7 +40,7 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden {% if not event.cover_image_url %}gradient-border{% endif %} mb-8 bg-bg-secondary"
+    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
@@ -288,7 +288,7 @@
                         </span>
                         {% translate "Search sessions..." as filter_placeholder %}
                         <input type="text"
-                               class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-all duration-150"
+                               class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
                                id="session-filter"
                                placeholder="{{ filter_placeholder }}"
                                aria-label="{{ filter_placeholder }}"
@@ -296,7 +296,7 @@
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-all duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
                                 aria-controls="filter-panel">
@@ -311,7 +311,7 @@
                                     <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                            for="status-filter">{% translate "Status" %}</label>
                                     <select id="status-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All statuses" %}</option>
                                         <option value="available">{% translate "Available spots" %}</option>
                                         <option value="full">{% translate "Full" %}</option>
@@ -326,7 +326,7 @@
                                     <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                            for="venue-filter">{% translate "Venue" %}</label>
                                     <select id="venue-filter"
-                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All venues" %}</option>
                                     </select>
                                 </div>
@@ -336,14 +336,14 @@
                                     </label>
                                     <div class="flex items-center gap-2">
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] grow font-medium bg-bg-secondary text-foreground transition-all duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="min-age-filter"
                                                placeholder="{% translate "Min" %}"
                                                min="0"
                                                max="99">
                                         <span class="text-xs font-bold text-foreground-muted">–</span>
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="max-age-filter"
                                                placeholder="{% translate "Max" %}"
                                                min="0"
@@ -355,7 +355,7 @@
                                         <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                                for="day-filter">{% translate "Day" %}</label>
                                         <select id="day-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                             <option value="">{% translate "All days" %}</option>
                                         </select>
                                     </div>
@@ -363,7 +363,7 @@
                                         <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                                for="hour-filter">{% translate "Hour" %}</label>
                                         <select id="hour-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                             <option value="">{% translate "All hours" %}</option>
                                         </select>
                                     </div>
@@ -373,7 +373,7 @@
                                         <div class="flex flex-col gap-1.5 grow">
                                             <label class="text-[0.625rem] font-bold uppercase tracking-widest grow text-foreground-muted"
                                                    for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
-                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150 tag-filter"
+                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
                                                     data-category="{{ field.slug }}"
                                                     id="tag-filter-{{ field.slug }}">
                                                 <option value="">{% translate "All" %} {{ field.name }}</option>
@@ -517,18 +517,20 @@
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
         <div class="mt-12 text-center">
-            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary">
+            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">
                     {% icon "plus" class="w-8 h-8 text-coral-500" %}
                 </div>
                 <h3 class="text-xl font-bold mb-2 text-foreground">{% translate "Want to host a session?" %}</h3>
                 <p class="mb-4 max-w-md text-foreground-muted">
-                    {% translate "Got a game you're dying to play? Propose your own session and find players!" %}
+                    {% blocktranslate trimmed %}
+                        Got a game you're dying to play?
+                        <br class="max-xl:hidden" />
+                        Propose your own session and find players!
+                    {% endblocktranslate %}
                 </p>
                 <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
-                   class="btn btn-primary text-base shadow-lg shadow-coral-500/25">
-                    {% translate "Propose a session" %}
-                </a>
+                   class="btn btn-primary text-base">{% translate "Propose a session" %}</a>
             </div>
         </div>
     {% endif %}
@@ -608,18 +610,10 @@
                                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-200 dark:bg-neutral-700 text-foreground-secondary">{{ pending.participants_limit }}</span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    <div class="flex flex-col gap-1.5 grow">
-                                        <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
-                                           class="btn btn-primary text-xs">
-                                            {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Accept" %}
-                                        </a>
-                                        <a href="?proposal={{ pending.pk }}"
-                                           class="btn btn-secondary text-xs"
-                                           aria-controls="proposalModal{{ pending.pk }}"
-                                           aria-haspopup="dialog">
-                                            {% icon "eye" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review" %}
-                                        </a>
-                                    </div>
+                                    <a href="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=pending.pk %}"
+                                       class="btn btn-primary text-xs inline-flex items-center">
+                                        {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review & accept" %}
+                                    </a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -627,82 +621,6 @@
                 </table>
             </div>
         </div>
-        <!-- Proposal Review Modals -->
-        {% for pending in pending_sessions %}
-            <dialog id="proposalModal{{ pending.pk }}"
-                    class="modal"
-                    aria-labelledby="proposalModal{{ pending.pk }}-title">
-                <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-                    <h3 id="proposalModal{{ pending.pk }}-title"
-                        class="text-lg font-semibold text-foreground">{{ pending.title }}</h3>
-                    <button type="button"
-                            data-modal-close="proposalModal{{ pending.pk }}"
-                            aria-label="{% translate "Close" %}"
-                            class="p-1 rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-                        {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                    </button>
-                </div>
-                <div class="px-6 py-4 text-foreground">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-3">
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Host" %}</h4>
-                                <p>{{ pending.display_name }}</p>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Participants Limit" %}</h4>
-                                <p>{{ pending.participants_limit }}</p>
-                            </div>
-                            {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
-                            {% if pending.tags %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Tags" %}</h4>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% for tag in pending.tags %}
-                                            {% include "components/_field_pill.html" with value=tag.name size="sm" %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="space-y-3">
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Submitted" %}</h4>
-                                <p>{{ pending.creation_time|date:"F j, Y G:i" }}</p>
-                            </div>
-                            {% if pending.time_slots %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Preferred Time Slots" %}</h4>
-                                    {% for slot in pending.time_slots %}<div class="text-sm">{{ slot }}</div>{% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% if pending.description %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Description" %}</h4>
-                            <p>{{ pending.description }}</p>
-                        </div>
-                    {% endif %}
-                    {% if pending.requirements %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Requirements" %}</h4>
-                            <p>{{ pending.requirements }}</p>
-                        </div>
-                    {% endif %}
-                    {% if pending.needs %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Special Needs" %}</h4>
-                            <p>{{ pending.needs }}</p>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="px-6 py-4 flex justify-end gap-2 border-t border-border">
-                    <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
-                       class="btn btn-primary text-sm">{% icon "check" class="w-4 h-4" variant="mini" %} {% translate "Accept Proposal" %}</a>
-                </div>
-            </dialog>
-        {% endfor %}
     {% endif %}
     <!-- Session Detail Modals -->
     {% for data in sessions %}
@@ -713,7 +631,8 @@
             <!-- Header -->
             <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
                 <h3 id="session-{{ data.session.pk }}-title"
-                    class="text-lg font-semibold text-foreground">{{ data.session.title }}</h3>
+                    class="text-lg font-semibold text-foreground"
+                    data-morph="title">{{ data.session.title }}</h3>
                 <button type="button"
                         data-modal-close="session-{{ data.session.pk }}"
                         aria-label="{% translate "Close" %}"
@@ -753,9 +672,11 @@
                          data-active>
                         <!-- Host & location -->
                         <div class="flex items-center gap-3 mb-6 flex-wrap">
-                            {% include "components/avatar.html" with user=data.presenter size="size-10" %}
+                            <span class="shrink-0" data-morph="avatar">
+                                {% include "components/avatar.html" with user=data.presenter size="size-10" %}
+                            </span>
                             <div class="flex items-center gap-3 flex-wrap min-w-0">
-                                <div class="font-medium text-foreground">{{ data.presenter.full_name }}</div>
+                                <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
                                 {% if data.location_label %}
                                     <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
                                         {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
@@ -764,14 +685,9 @@
                                 {% endif %}
                                 {% if data.presenter.pk %}
                                     {% with host=data.presenter %}
-                                        {% if host and host.slug and host.discord_username %}
+                                        {% if host.discord_username %}
                                             <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-                                            <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                    hx-get="{% url 'web:crowd:user-discord-username' user_slug=host.slug %}"
-                                                    hx-swap="outerHTML"
-                                                    hx-trigger="click once">
-                                                {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %} {% translate "Show Discord" %}
-                                            </button>
+                                            {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
                                         {% endif %}
                                     {% endwith %}
                                 {% endif %}
@@ -781,9 +697,8 @@
                             <!-- Description -->
                             <div class="mb-6">
                                 <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground-muted">
-                                    {{ data.session.description|render_markdown }}
-                                </div>
+                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground"
+                                     data-morph="desc">{{ data.session.description|render_markdown }}</div>
                             </div>
                         {% endif %}
                         {% if data.field_values %}
@@ -833,16 +748,12 @@
                                     </div>
                                 </div>
                             {% endif %}
-                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                                <div class="font-medium text-foreground">
-                                    {% if data.session.min_age > 0 %}
-                                        {{ data.session.min_age }}+ {% translate "years" %}
-                                    {% else %}
-                                        {% translate "All ages" %}
-                                    {% endif %}
+                            {% if data.session.min_age > 0 %}
+                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
+                                    <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
                                 </div>
-                            </div>
+                            {% endif %}
                         </div>
                         <!-- Enrollment Status for Authenticated Users -->
                         {% if current_user and data.user_enrolled %}
@@ -883,16 +794,9 @@
                                                     <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    {% with user=participation.user %}
-                                                        {% if user and user.slug and user.discord_username %}
-                                                            <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                                    hx-get="{% url 'web:crowd:user-discord-username' user_slug=user.slug %}"
-                                                                    hx-swap="outerHTML"
-                                                                    hx-trigger="click once">
-                                                                {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %}
-                                                            </button>
-                                                        {% endif %}
-                                                    {% endwith %}
+                                                    {% if participation.user.discord_username %}
+                                                        {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
+                                                    {% endif %}
                                                     {% if participation.user.pk == current_user.pk %}
                                                         <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
                                                     {% endif %}
@@ -960,13 +864,13 @@
                         {% if data.is_enrollment_available and not event_banned %}
                             {% if current_user %}
                                 {% if data.user_enrolled or data.user_waiting %}
-                                    <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                                    <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
                                        class="btn text-sm bg-warning text-white">
                                         {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
                                     </a>
                                 {% else %}
                                     {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
-                                        <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                                        <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
                                            class="btn btn-primary text-sm">
                                             {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
                                         </a>
@@ -974,12 +878,12 @@
                                 {% endif %}
                             {% elif request.session.anonymous_enrollment_active %}
                                 {% if data.user_enrolled or data.user_waiting %}
-                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
                                        class="btn text-sm bg-warning text-white">
                                         {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
                                     </a>
                                 {% else %}
-                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
                                        class="btn btn-primary text-sm">
                                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
                                     </a>
@@ -1162,6 +1066,20 @@
             opacity: 1;
             pointer-events: auto;
             transform: scale(1) translateY(0);
+        }
+
+        /* On narrow screens the right-anchored popover would overflow the left
+           edge (the app-shell reserves a scrollbar gutter that pulls the anchor
+           inward). Pin it to the viewport with even margins instead — a
+           full-width filter sheet that still drops from the trigger. */
+        @media (max-width: 30rem) {
+            .filters-popover-wrapper .filter-panel {
+                position: fixed;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+                max-width: none;
+            }
         }
     </style>
 {% endblock extra_head %}

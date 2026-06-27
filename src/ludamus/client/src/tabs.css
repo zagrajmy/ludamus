@@ -3,21 +3,21 @@
     display: flex;
     border-bottom: 1px solid var(--color-border);
   }
-  
+
   .tab-trigger {
     border-bottom: 2px solid transparent;
     color: var(--color-foreground-muted);
   }
-  
+
   .tab-trigger[aria-selected="true"] {
     border-bottom-color: var(--color-primary);
     color: var(--color-primary);
   }
-  
+
   .tab-content {
     display: grid;
   }
-  
+
   .tab-panel {
     grid-area: 1 / 1;
     visibility: hidden;
@@ -25,11 +25,10 @@
     pointer-events: none;
     overflow-y: auto;
   }
-  
+
   .tab-panel[data-active] {
     visibility: visible;
     opacity: 1;
     pointer-events: auto;
   }
-  
 }

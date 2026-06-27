@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import HeatmapDTO
+from ludamus.pacts.chronology import CapacityHoursDTO, HeatmapDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
@@ -15,6 +15,17 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 def _empty_heatmap():
     return HeatmapDTO(spaces=[], rows=[], days=[])
+
+
+def _empty_capacity_hours():
+    return CapacityHoursDTO(
+        room_count=0,
+        slot_hours=0.0,
+        capacity_hours=0.0,
+        scheduled_hours=0.0,
+        hours_to_fill=0.0,
+        filled_pct=0,
+    )
 
 
 class TestTimetableOverviewPageView:
@@ -84,6 +95,7 @@ class TestTimetableOverviewPageView:
                 "active_nav": "timetable",
                 "heatmap": _empty_heatmap(),
                 "track_progress": [],
+                "capacity_hours": _empty_capacity_hours(),
                 "slug": event.slug,
                 "tab_urls": {
                     "timetable": reverse(
@@ -126,7 +138,6 @@ class TestTimetableOverviewPageView:
         track.spaces.add(space)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -141,6 +152,48 @@ class TestTimetableOverviewPageView:
         assert progress[0].track_name == "Test Track"
         assert progress[0].accepted_count == 1
         assert progress[0].scheduled_count == 0
+        assert progress[0].unassigned_count == 1
+        assert "(1 unassigned)" in response.content.decode()
+
+    def test_capacity_hours_reports_hours_left_to_fill(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        proposal_category,
+        area,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(area=area)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = event.start_time
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        # 1 room * 2h slot = 2h capacity; 1h scheduled => 1h left, 50% filled.
+        assert response.context["capacity_hours"] == CapacityHoursDTO(
+            room_count=1,
+            slot_hours=2.0,
+            capacity_hours=2.0,
+            scheduled_hours=1.0,
+            hours_to_fill=1.0,
+            filled_pct=50,
+        )
+        assert time_slot is not None
 
     def test_heatmap_shows_scheduled_cell_status(
         self,
@@ -156,7 +209,6 @@ class TestTimetableOverviewPageView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

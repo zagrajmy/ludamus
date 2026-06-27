@@ -12,7 +12,7 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
             name="18+",

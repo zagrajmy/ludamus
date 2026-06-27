@@ -74,8 +74,8 @@ class SessionFieldValueInline(admin.TabularInline):  # type: ignore [type-arg]
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "status", "display_name", "category", "sphere")
-    list_filter = ("status", "sphere")
+    list_display = ("title", "status", "display_name", "category", "event")
+    list_filter = ("status", "event")
     search_fields = ("title", "display_name")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("title",)}
     inlines = (SessionFieldValueInline,)
