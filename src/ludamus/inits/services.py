@@ -15,6 +15,7 @@ from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.chronology import (
     EventIntegrationsService,
+    ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
     SessionDeletionService,
@@ -131,6 +132,10 @@ class Services:
             self._repos.agenda_items,
             ScheduleChangeLogRepository(),
         )
+
+    @cached_property
+    def proposal_status(self) -> ProposalStatusService:
+        return ProposalStatusService(self._transaction, self._repos.sessions)
 
     @cached_property
     def session_self_edit(self) -> SessionSelfEditService:

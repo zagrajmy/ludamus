@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 18:47+0200\n"
+"POT-Creation-Date: 2026-06-29 19:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1520,6 +1520,14 @@ msgstr "Zgłoszenie zostało zaktualizowane."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal created successfully."
 msgstr "Zgłoszenie zostało utworzone."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Proposal accepted."
+msgstr "Zgłoszenie zostało zaakceptowane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Proposal put on hold."
+msgstr "Zgłoszenie zostało wstrzymane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal rejected."
@@ -4242,6 +4250,29 @@ msgstr "Zarejestruj się"
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
 
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Pending"
+msgstr "Oczekujące"
+
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+msgid "Accepted"
+msgstr "Zaakceptowane"
+
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+msgid "On hold"
+msgstr "Wstrzymane"
+
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Rejected"
+msgstr "Odrzucone"
+
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Scheduled"
+msgstr "Zaplanowane"
+
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
 msgid "Reorder %(name)s — use the arrow keys"
@@ -5925,6 +5956,14 @@ msgid "Proposal Details"
 msgstr "Szczegóły zgłoszenia"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+msgid "Accept"
+msgstr "Zaakceptuj"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Hold"
+msgstr "Wstrzymaj"
+
+#: src/ludamus/templates/panel/proposal-detail.html
 msgid "Are you sure you want to reject this proposal?"
 msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
 
@@ -6044,19 +6083,6 @@ msgstr "Filtruj"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Created"
 msgstr "Utworzono"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Pending"
-msgstr "Oczekujące"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Rejected"
-msgstr "Odrzucone"
-
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Scheduled"
-msgstr "Zaplanowane"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
@@ -6889,9 +6915,6 @@ msgstr ""
 
 #~ msgid "Save this code to access your enrollments later"
 #~ msgstr "Zachowaj ten kod, aby później mieć dostęp do swoich zapisów"
-
-#~ msgid "Accept"
-#~ msgstr "Zaakceptuj"
 
 #~ msgid "Tags"
 #~ msgstr "Tagi"

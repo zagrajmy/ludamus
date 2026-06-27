@@ -15,17 +15,37 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <div class="flex items-center space-x-3">
+        <div class="flex flex-wrap items-center gap-3">
+            {% include "panel/_proposal_status_badge.html" with status=proposal.status %}
             <a href="{% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk %}"
                class="btn btn-secondary">{% translate "Edit" %}</a>
-            {% if proposal.status == "pending" %}
-                <form method="post"
-                      action="{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk %}"
-                      data-confirm="{% translate "Are you sure you want to reject this proposal?" %}"
-                      data-confirm-action="{% translate "Reject" %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger">{% translate "Reject" %}</button>
-                </form>
+            {% if proposal.status != "scheduled" %}
+                {% if proposal.status != "accepted" %}
+                    <form method="post"
+                          action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">
+                        {% csrf_token %}
+                        {% translate "Accept" as accept_label %}
+                        {% tessera_button accept_label variant="primary" %}
+                    </form>
+                {% endif %}
+                {% if proposal.status != "on_hold" %}
+                    <form method="post"
+                          action="{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk %}">
+                        {% csrf_token %}
+                        {% translate "Hold" as hold_label %}
+                        {% tessera_button hold_label variant="secondary" %}
+                    </form>
+                {% endif %}
+                {% if proposal.status != "rejected" %}
+                    <form method="post"
+                          action="{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk %}"
+                          data-confirm="{% translate "Are you sure you want to reject this proposal?" %}"
+                          data-confirm-action="{% translate "Reject" %}">
+                        {% csrf_token %}
+                        {% translate "Reject" as reject_label %}
+                        {% tessera_button reject_label variant="danger" %}
+                    </form>
+                {% endif %}
             {% endif %}
             <form method="post"
                   action="{% url 'panel:proposal-delete' slug=current_event.slug proposal_id=proposal.pk %}"

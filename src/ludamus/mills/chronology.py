@@ -547,6 +547,40 @@ class SessionDeletionService:
             self._sessions.restore(session_pk, event_pk)
 
 
+class ProposalStatusService:
+    def __init__(
+        self, transaction: TransactionProtocol, sessions: SessionRepositoryProtocol
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ACCEPTED
+        )
+
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ON_HOLD
+        )
+
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.REJECTED
+        )
+
+    def _set_status(
+        self, *, event_pk: int, session_pk: int, status: SessionStatus
+    ) -> None:
+        with self._transaction.atomic():
+            # Lock first, then re-check event membership under the lock so a
+            # concurrent request can't move the session to another event between
+            # the check and the write (TOCTOU). `lock` raises for missing/dead.
+            self._sessions.lock(session_pk)
+            require_session_in_event(self._sessions, session_pk, event_pk)
+            self._sessions.update(session_pk, {"status": status})
+
+
 class ConflictDetectionService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
