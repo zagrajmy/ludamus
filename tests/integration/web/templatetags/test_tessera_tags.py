@@ -235,7 +235,7 @@ class TestIconToggle:
     def _render(self, extra: str = "") -> str:
         tpl = Template(
             "{% load tessera %}"
-            '{% icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
+            '{% tessera_icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
             'label="Toggle sound" ' + extra + " %}"
         )
         return tpl.render(Context())
@@ -283,7 +283,7 @@ class TestIconToggle:
     def test_escapes_data_attr_value(self) -> None:
         tpl = Template(
             "{% load tessera %}"
-            '{% icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
+            '{% tessera_icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
             "label=lbl data_role=bad %}"
         )
         html = tpl.render(Context({"lbl": "x", "bad": '"><script>alert(1)</script>'}))
@@ -294,11 +294,12 @@ class TestSwitcher:
     def _render(self, *, selected: str = "light") -> str:
         tpl = Template(
             "{% load tessera %}"
-            '{% switcher name="theme" selected="' + selected + '" %}'
-            '{% segment "system" icon="computer-desktop" %}System{% end_segment %}'
-            '{% segment "light" icon="sun" %}Light{% end_segment %}'
-            '{% segment "dark" icon="moon" %}Dark{% end_segment %}'
-            "{% end_switcher %}"
+            '{% tessera_switcher name="theme" selected="' + selected + '" %}'
+            '{% tessera_segment "system" icon="computer-desktop" %}System'
+            "{% end_tessera_segment %}"
+            '{% tessera_segment "light" icon="sun" %}Light{% end_tessera_segment %}'
+            '{% tessera_segment "dark" icon="moon" %}Dark{% end_tessera_segment %}'
+            "{% end_tessera_switcher %}"
         )
         return tpl.render(Context())
 
@@ -334,19 +335,21 @@ class TestSwitcher:
     def test_segment_missing_value_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
             Template(
-                "{% load tessera %}{% switcher %}"
-                "{% segment %}X{% end_segment %}{% end_switcher %}"
+                "{% load tessera %}{% tessera_switcher %}"
+                "{% tessera_segment %}X{% end_tessera_segment %}"
+                "{% end_tessera_switcher %}"
             )
 
     def test_requires_name(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="requires a name"):
             Template(
-                "{% load tessera %}{% switcher %}"
-                '{% segment "a" %}A{% end_segment %}{% end_switcher %}'
+                "{% load tessera %}{% tessera_switcher %}"
+                '{% tessera_segment "a" %}A{% end_tessera_segment %}'
+                "{% end_tessera_switcher %}"
             ).render(Context())
 
     def test_segment_outside_switcher_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="must be used inside"):
-            Template('{% load tessera %}{% segment "a" %}A{% end_segment %}').render(
-                Context()
-            )
+            Template(
+                '{% load tessera %}{% tessera_segment "a" %}A{% end_tessera_segment %}'
+            ).render(Context())

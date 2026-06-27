@@ -41,7 +41,7 @@ def _data_attrs(attrs: dict[str, object]) -> str:
 
 
 @register.simple_tag
-def icon_toggle(
+def tessera_icon_toggle(
     *,
     on_icon: str,
     off_icon: str,
@@ -59,7 +59,7 @@ def icon_toggle(
         HTML string of the toggle button.
 
     Usage:
-        {% icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark"
+        {% tessera_icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark"
             label=toggle_label data_velvet_toggle=True %}
     """
     on_html = render_icon(on_icon, **{"class": _ON_ICON_CLASS})

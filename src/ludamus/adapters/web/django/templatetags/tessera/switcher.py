@@ -1,4 +1,4 @@
-"""{% switcher %} / {% segment %} — a segmented radio control primitive.
+"""{% tessera_switcher %} / {% tessera_segment %} — a segmented radio control.
 
 A generic, Tailwind-styled segmented control modelled on the theme switcher's
 look. The selected segment is highlighted purely with ``peer-checked`` — no
@@ -35,7 +35,7 @@ _SELECTED_KEY = "_switcher_selected"
 
 
 class SwitcherNode(template.Node):
-    """Renders a ``<fieldset>`` radio group wrapping ``{% segment %}`` children."""
+    """Renders a ``<fieldset>`` radio group wrapping segment children."""
 
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
@@ -46,7 +46,7 @@ class SwitcherNode(template.Node):
     def render(self, context: template.Context) -> str:
         resolved = {k: v.resolve(context) for k, v in self.attrs.items()}
         if not (name := resolved.get("name")):
-            msg = "'switcher' requires a name"
+            msg = "'tessera_switcher' requires a name"
             raise template.TemplateSyntaxError(msg)
         name = str(name)
         selected = resolved.get("selected")
@@ -69,15 +69,15 @@ class SwitcherNode(template.Node):
         )
 
 
-@register.tag("switcher")
-def do_switcher(parser: Parser, token: Token) -> SwitcherNode:
-    """Parse ``{% switcher name=.. selected=.. %}...{% end_switcher %}``.
+@register.tag("tessera_switcher")
+def tessera_switcher(parser: Parser, token: Token) -> SwitcherNode:
+    """Parse a ``{% tessera_switcher %}...{% end_tessera_switcher %}`` block.
 
     Returns:
         A SwitcherNode rendering a themed segmented radio group.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("end_switcher",))
+    nodelist = parser.parse(("end_tessera_switcher",))
     parser.delete_first_token()
     return SwitcherNode(nodelist, attrs)
 
@@ -103,7 +103,7 @@ class SegmentNode(template.Node):
         resolved = {k: v.resolve(context) for k, v in self.attrs.items()}
         value = str(self.value.resolve(context))
         if (name := context.get(_NAME_KEY)) is None:
-            msg = "'segment' must be used inside 'switcher'"
+            msg = "'tessera_segment' must be used inside 'tessera_switcher'"
             raise template.TemplateSyntaxError(msg)
         name = str(name)
         checked = context.get(_SELECTED_KEY) == value
@@ -135,9 +135,9 @@ class SegmentNode(template.Node):
         )
 
 
-@register.tag("segment")
-def do_segment(parser: Parser, token: Token) -> SegmentNode:
-    """Parse ``{% segment "value" icon=.. title=.. %} label {% end_segment %}``.
+@register.tag("tessera_segment")
+def tessera_segment(parser: Parser, token: Token) -> SegmentNode:
+    """Parse a ``{% tessera_segment "value" %}...{% end_tessera_segment %}`` block.
 
     Returns:
         A SegmentNode rendering one radio segment of a switcher.
@@ -156,6 +156,6 @@ def do_segment(parser: Parser, token: Token) -> SegmentNode:
         key, _, raw = bit.partition("=")
         attrs[key] = parser.compile_filter(raw)
 
-    nodelist = parser.parse(("end_segment",))
+    nodelist = parser.parse(("end_tessera_segment",))
     parser.delete_first_token()
     return SegmentNode(nodelist=nodelist, value=value, attrs=attrs)

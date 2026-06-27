@@ -40,11 +40,11 @@
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} switcher {% templatetag closeblock %}</code>
-            {% switcher name="design-switcher" selected="b" aria_label="Example switcher" %}
-                {% segment "a" icon="list-bullet" title="List" %}List view{% end_segment %}
-                {% segment "b" icon="squares-2x2" title="Grid" %}Grid view{% end_segment %}
-                {% segment "c" icon="map" title="Map" %}Map view{% end_segment %}
-            {% end_switcher %}
+            {% tessera_switcher name="design-switcher" selected="b" aria_label="Example switcher" %}
+                {% tessera_segment "a" icon="list-bullet" title="List" %}List view{% end_tessera_segment %}
+                {% tessera_segment "b" icon="squares-2x2" title="Grid" %}Grid view{% end_tessera_segment %}
+                {% tessera_segment "c" icon="map" title="Map" %}Map view{% end_tessera_segment %}
+            {% end_tessera_switcher %}
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} icon {% templatetag closeblock %}</code>
