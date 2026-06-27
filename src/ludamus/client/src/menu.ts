@@ -3,8 +3,7 @@
 // click-outside to dismiss — replacing the previous hover/focus-within-only
 // reveal so the menus are usable without a pointer and are axe-clean.
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const init = (root: HTMLElement): void => {
   const button = root.querySelector<HTMLElement>("[data-menu-button]");

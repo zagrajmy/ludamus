@@ -12,6 +12,11 @@ poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 "ast-grep" = "0.42.1"
 markdownlint-cli2 = "0.22.1"
 "github:endevco/aube" = "latest"
+hk = "1.48.0"
+yamllint = "1.38.0"
+actionlint = "1.7.12"
+hadolint = "2.14.0"
+"github:reteps/dockerfmt" = "0.5.2"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -26,9 +31,9 @@ LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
 includes = ["tasks.toml"]
 
 [tasks.update]
-description = "Update all dependencies: pre-commit hooks, pip, Poetry packages"
+description = "Update all dependencies: mise tools, pip, Poetry packages"
 run = """
-pre-commit autoupdate
+mise upgrade
 pip install -U pip
 pip install -U poetry
 poetry update
@@ -385,4 +390,3 @@ run = [
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
 run = [{ task = "check" }, { task = "diff-cover" }, { task = "shitcheck" }]
-

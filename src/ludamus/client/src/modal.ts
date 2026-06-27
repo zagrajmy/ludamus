@@ -19,7 +19,6 @@ const { navigation } = globalThis as { navigation?: Navigation };
 
 const openingModals = new Set<string>();
 
-
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLDialogElement)) {
@@ -52,9 +51,7 @@ const updateQueryParam = (
   globalThis.history.pushState({}, "", url);
 };
 
-const getLinkableByModalId = (
-  id: string,
-): { paramName: string; paramValue: string } | null => {
+const getLinkableByModalId = (id: string): { paramName: string; paramValue: string } | null => {
   const link = document.querySelector(`a[href][aria-controls="${id}"]`);
   if (!link) return null;
 
@@ -121,8 +118,7 @@ const releaseSessionCard = (id: string): void => {
 const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
   !prefersReducedMotion() &&
-  typeof (document as Document & ViewTransitionDocument).startViewTransition ===
-    "function";
+  typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
 
 const setSubMorph = (root: HTMLElement, active: boolean): void => {
   for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
@@ -150,9 +146,7 @@ const morphTransition = (steps: {
     steps.settle();
     return Promise.resolve();
   }
-  return transition.finished
-    .catch(ignoreSkippedTransition)
-    .finally(steps.settle);
+  return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
 const dismissDialog = (dialog: HTMLDialogElement): void => {
@@ -245,9 +239,7 @@ const closeModal = (
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
-    const current = new URLSearchParams(globalThis.location.search).get(
-      linkable.paramName,
-    );
+    const current = new URLSearchParams(globalThis.location.search).get(linkable.paramName);
     if (current === linkable.paramValue) {
       updateQueryParam(linkable.paramName, null, { replaceHistory });
     }
@@ -269,11 +261,7 @@ const syncModalsFromUrl = (): void => {
     if (!href || !modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      continue;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
     const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
@@ -289,11 +277,7 @@ document.addEventListener(
   "cancel",
   (event) => {
     const { target } = event;
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      return;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) return;
 
     event.preventDefault();
     closeModal(target.id);
@@ -306,8 +290,7 @@ if (navigation) {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
     const url = new URL(e.destination.url);
-    if (url.origin !== location.origin || url.pathname !== location.pathname)
-      return;
+    if (url.origin !== location.origin || url.pathname !== location.pathname) return;
 
     for (const link of document.querySelectorAll("a[href][aria-controls]")) {
       const href = link.getAttribute("href");
@@ -319,17 +302,11 @@ if (navigation) {
 
       const matches =
         hrefUrl.searchParams.size > 0 &&
-        [...hrefUrl.searchParams].every(
-          ([k, v]) => url.searchParams.get(k) === v,
-        );
+        [...hrefUrl.searchParams].every(([k, v]) => url.searchParams.get(k) === v);
       if (!matches) continue;
 
       const target = document.getElementById(modalId);
-      if (
-        !(target instanceof HTMLDialogElement) ||
-        !target.classList.contains("modal")
-      )
-        continue;
+      if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
       e.intercept({
         focusReset: "manual",
@@ -376,11 +353,7 @@ document.addEventListener("click", (event) => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-
-  if (
-    !(eventTarget instanceof HTMLDialogElement) ||
-    !eventTarget.classList.contains("modal")
-  )
+  if (!(eventTarget instanceof HTMLDialogElement) || !eventTarget.classList.contains("modal"))
     return;
 
   const rect = eventTarget.getBoundingClientRect();
@@ -404,11 +377,7 @@ const setupFallbackLinkHandlers = (): void => {
     if (!modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      continue;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
     link.addEventListener("click", (e) => {
       e.preventDefault();

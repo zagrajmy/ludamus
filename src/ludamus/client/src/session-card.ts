@@ -15,11 +15,7 @@ const activeFeedback = new WeakMap<HTMLElement, CopyFeedback>();
 // second click while feedback is still showing reuses the saved originals and
 // resets the timer, so the transient state can never be captured as the
 // baseline and the button can't get stranded in the success/error look.
-const flashCopyFeedback = (
-  button: HTMLElement,
-  className: string,
-  html?: string,
-): void => {
+const flashCopyFeedback = (button: HTMLElement, className: string, html?: string): void => {
   const existing = activeFeedback.get(button);
   const original = existing ?? {
     className: button.className,
@@ -55,13 +51,7 @@ document.addEventListener("click", (e) => {
 
   navigator.clipboard
     .writeText(text)
-    .then(() =>
-      flashCopyFeedback(
-        button,
-        "btn bg-success text-white p-1 copy-discord",
-        "✓",
-      ),
-    )
+    .then(() => flashCopyFeedback(button, "btn bg-success text-white p-1 copy-discord", "✓"))
     .catch((error: unknown) => {
       console.error("Copy failed:", error);
       flashCopyFeedback(button, "btn btn-danger p-1 copy-discord");
