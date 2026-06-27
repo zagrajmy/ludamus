@@ -347,17 +347,85 @@ const syncToggles = (): void => {
   }
 };
 
-// --- Auto-wiring -----------------------------------------------------------
+// --- Sound triggers --------------------------------------------------------
+
+// One declarative row per "this interaction sounds like that". `resolve` reads
+// the role from the event (or null to stay silent). To make a new interaction
+// audible, add a row here — never another addEventListener.
+interface SoundTrigger {
+  readonly capture?: boolean;
+  readonly resolve: (event: Event) => SoundRole | null;
+  readonly type: keyof DocumentEventMap;
+}
 
 const SUBMIT_SELECTOR =
   'button[type="submit"], button:not([type]), [type="submit"]';
-const CLICK_SELECTOR = 'a[href], button, [role="button"], summary';
+const TAP_SELECTOR = 'a[href], button, [role="button"], summary';
+const OPT_OUT_SELECTOR =
+  "[data-velvet-toggle], [data-velvet-play], [data-no-sound]";
 
-const wire = (): void => {
-  syncToggles();
+const SOUND_TRIGGERS: readonly SoundTrigger[] = [
+  {
+    capture: true,
+    resolve: (event) =>
+      event.target instanceof HTMLFormElement ? "action.send" : null,
+    type: "submit",
+  },
+  {
+    // Soft tap on interactive controls. Submit controls are skipped so the
+    // submit trigger plays the richer action.send instead of doubling up.
+    capture: true,
+    resolve: (event) => {
+      const { target } = event;
+      if (!(target instanceof Element)) return null;
+      if (target.closest(OPT_OUT_SELECTOR)) return null;
+      const control = target.closest(TAP_SELECTOR);
+      if (!control) return null;
+      if (control.closest("form") && control.matches(SUBMIT_SELECTOR)) {
+        return null;
+      }
+      return "toggle.on";
+    },
+    type: "pointerdown",
+  },
+  {
+    resolve: (event) => {
+      const { target } = event;
+      if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
+        return null;
+      }
+      return target.checked ? "toggle.on" : "toggle.off";
+    },
+    type: "change",
+  },
+];
 
-  // The toggle button flips the persisted preference; data-velvet-play buttons
-  // audition a specific sound (the design-page showcase).
+// The single place listeners are registered: every declared trigger, plus a
+// loosely-coupled hook so any code can request a sound without importing this
+// module — `dispatchEvent(new CustomEvent("velvet:play", {detail:{role}}))`.
+const registerSoundListeners = (): void => {
+  for (const trigger of SOUND_TRIGGERS) {
+    document.addEventListener(
+      trigger.type,
+      (event) => {
+        const role = trigger.resolve(event);
+        if (role) play(role);
+      },
+      trigger.capture ?? false,
+    );
+  }
+  document.addEventListener("velvet:play", (event) => {
+    const role = (event as CustomEvent<{ role?: string }>).detail?.role;
+    if (role !== undefined && isRole(role)) play(role);
+  });
+};
+
+// --- Controls --------------------------------------------------------------
+
+// The footer toggle flips the persisted preference; data-velvet-play buttons
+// audition a specific sound (the design-page showcase); storage keeps every
+// toggle in sync across tabs.
+const wireControls = (): void => {
   document.addEventListener("click", (event) => {
     const { target } = event;
     if (!(target instanceof Element)) return;
@@ -367,63 +435,32 @@ const wire = (): void => {
     }
     const audition = target.closest<HTMLElement>("[data-velvet-play]");
     const role = audition?.dataset.velvetPlay;
-    if (role && isRole(role)) preview(role);
+    if (role !== undefined && isRole(role)) preview(role);
   });
 
-  // Soft tap on interactive controls. Submit controls are skipped here so the
-  // submit handler plays the richer action.send instead of doubling up.
-  document.addEventListener(
-    "pointerdown",
-    (event) => {
-      const { target } = event;
-      if (!(target instanceof Element)) return;
-      if (
-        target.closest(
-          "[data-velvet-toggle], [data-velvet-play], [data-no-sound]",
-        )
-      )
-        return;
-      const control = target.closest(CLICK_SELECTOR);
-      if (!control) return;
-      if (control.closest("form") && control.matches(SUBMIT_SELECTOR)) return;
-      play("toggle.on");
-    },
-    true,
-  );
-
-  // Form submissions get the action sound.
-  document.addEventListener(
-    "submit",
-    (event) => {
-      if (event.target instanceof HTMLFormElement) play("action.send");
-    },
-    true,
-  );
-
-  // Checkbox / switch flips.
-  document.addEventListener("change", (event) => {
-    const { target } = event;
-    if (target instanceof HTMLInputElement && target.type === "checkbox") {
-      play(target.checked ? "toggle.on" : "toggle.off");
-    }
-  });
-
-  // Server-rendered flash messages announce themselves once on load.
-  const alert = document.querySelector(".alert");
-  if (alert) {
-    if (alert.classList.contains("alert-danger")) play("state.error");
-    else if (alert.classList.contains("alert-success")) play("ui.confirm");
-    else play("toast.in");
-  }
-
-  // Cross-tab preference sync.
   globalThis.addEventListener("storage", (event) => {
     if (event.key === STORAGE_KEY) syncToggles();
   });
 };
 
+// Server-rendered flash messages announce themselves once on load.
+const announceFlash = (): void => {
+  const alert = document.querySelector(".alert");
+  if (!alert) return;
+  if (alert.classList.contains("alert-danger")) play("state.error");
+  else if (alert.classList.contains("alert-success")) play("ui.confirm");
+  else play("toast.in");
+};
+
+const init = (): void => {
+  syncToggles();
+  registerSoundListeners();
+  wireControls();
+  announceFlash();
+};
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", wire);
+  document.addEventListener("DOMContentLoaded", init);
 } else {
-  wire();
+  init();
 }

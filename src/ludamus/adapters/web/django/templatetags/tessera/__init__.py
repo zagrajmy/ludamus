@@ -25,6 +25,7 @@ from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
 from .icon_toggle import icon_toggle
 from .select import SelectNode, do_select
+from .switcher import SegmentNode, SwitcherNode, do_segment, do_switcher
 from .table import TableNode, do_tessera_table
 from .tabs import (
     TAB_ACTIVE_CLASS,
@@ -35,17 +36,20 @@ from .tabs import (
     do_tab,
     do_tabs,
 )
-from .theme_switcher import theme_switcher
 
 __all__ = [
     "TAB_ACTIVE_CLASS",
     "TAB_INACTIVE_CLASS",
     "TAB_NAV_CLASS",
+    "SegmentNode",
     "SelectNode",
+    "SwitcherNode",
     "TabNode",
     "TableNode",
     "TabsNode",
+    "do_segment",
     "do_select",
+    "do_switcher",
     "do_tab",
     "do_tabs",
     "do_tessera_table",
@@ -56,5 +60,4 @@ __all__ = [
     "tessera_errors",
     "tessera_field",
     "tessera_form",
-    "theme_switcher",
 ]

@@ -228,7 +228,7 @@ class TestTabs:
 
 
 ICON_TOGGLE_ICONS = 2
-THEME_SWITCHER_ICONS = 3
+SWITCHER_SEGMENTS = 3
 
 
 class TestIconToggle:
@@ -242,8 +242,8 @@ class TestIconToggle:
 
     def test_renders_toggle_button(self) -> None:
         html = self._render()
-        assert 'class="icon-toggle"' in html
         assert 'type="button"' in html
+        assert "rounded-full" in html
 
     def test_defaults_to_unpressed(self) -> None:
         assert 'aria-pressed="false"' in self._render()
@@ -255,10 +255,10 @@ class TestIconToggle:
         html = self._render()
         assert '<span class="sr-only">Toggle sound</span>' in html
 
-    def test_renders_both_icons(self) -> None:
+    def test_swaps_icons_by_aria_pressed(self) -> None:
         html = self._render()
-        assert "icon-toggle-on" in html
-        assert "icon-toggle-off" in html
+        assert "group-aria-pressed:block" in html
+        assert "group-aria-pressed:hidden" in html
         assert html.count("<svg") == ICON_TOGGLE_ICONS
 
     def test_renders_title(self) -> None:
@@ -286,24 +286,50 @@ class TestIconToggle:
         assert "<script>alert(1)" not in html
 
 
-class TestThemeSwitcher:
-    def _render(self) -> str:
-        return Template("{% load tessera %}{% theme_switcher %}").render(Context())
+class TestSwitcher:
+    def _render(self, *, selected: str = "light") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% switcher name="theme" selected="' + selected + '" %}'
+            '{% segment "system" icon="computer-desktop" %}System{% end_segment %}'
+            '{% segment "light" icon="sun" %}Light{% end_segment %}'
+            '{% segment "dark" icon="moon" %}Dark{% end_segment %}'
+            "{% end_switcher %}"
+        )
+        return tpl.render(Context())
 
-    def test_renders_switcher(self) -> None:
+    def test_renders_radiogroup(self) -> None:
         html = self._render()
-        assert "theme-switcher" in html
-        assert "theme-indicator" in html
+        assert "<fieldset" in html
+        assert 'role="radiogroup"' in html
 
-    def test_renders_three_theme_radios(self) -> None:
+    def test_renders_a_segment_per_value(self) -> None:
         html = self._render()
         assert 'value="system"' in html
         assert 'value="light"' in html
         assert 'value="dark"' in html
+        assert html.count("<svg") == SWITCHER_SEGMENTS
 
-    def test_system_is_default_checked(self) -> None:
+    def test_segments_share_the_group_name(self) -> None:
+        assert self._render().count('name="theme"') == SWITCHER_SEGMENTS
+
+    def test_selected_segment_is_checked(self) -> None:
+        html = self._render(selected="light")
+        assert re.search(r'id="theme-light"[^>]*\schecked', html)
+        assert not re.search(r'id="theme-system"[^>]*\schecked', html)
+
+    def test_uses_peer_checked_styling(self) -> None:
+        assert "peer-checked:bg-bg-secondary" in self._render()
+
+    def test_renders_segment_labels(self) -> None:
         html = self._render()
-        assert re.search(r'id="theme-system"[^>]*\schecked', html)
+        assert "System" in html
+        assert "Light" in html
+        assert "Dark" in html
 
-    def test_renders_icons(self) -> None:
-        assert self._render().count("<svg") == THEME_SWITCHER_ICONS
+    def test_segment_missing_value_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
+            Template(
+                "{% load tessera %}{% switcher %}"
+                "{% segment %}X{% end_segment %}{% end_switcher %}"
+            )
