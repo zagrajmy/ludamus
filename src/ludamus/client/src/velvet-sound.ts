@@ -18,13 +18,8 @@ interface Voice {
   baseHz: number;
   bodyDropPct: number;
   bodyLp: number;
-  click: number;
-  clickHz?: number;
-  clickMs?: number;
   decayMs: number;
   layerSpreadMs: number;
-  ping: number;
-  pingHz?: number;
   pitchVarPct: number;
   reverbWet: number;
   sub: number;
@@ -56,10 +51,8 @@ const VELVET: Voice = {
   baseHz: 104,
   bodyDropPct: 7,
   bodyLp: 520,
-  click: 0,
   decayMs: 72,
   layerSpreadMs: 10,
-  ping: 0,
   pitchVarPct: 7,
   reverbWet: 0.42,
   sub: 0.57,
