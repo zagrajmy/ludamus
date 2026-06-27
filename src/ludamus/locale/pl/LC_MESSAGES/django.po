@@ -821,7 +821,7 @@ msgstr "Proszę przejrzeć opcje zapisu poniżej."
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "%(name)s (no enrollment to cancel)"
-msgstr "%(name)s (brak zapisu do anulowania.)"
+msgstr "%(name)s (brak zapisu do anulowania)"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
