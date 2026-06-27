@@ -638,7 +638,7 @@ msgstr "%(user)s nie może się zapisać: zapisy niedostępne"
 
 #: adapters/web/django/forms.py
 msgid "Ungrouped"
-msgstr ""
+msgstr "Bez grupy"
 
 #: adapters/web/django/forms.py
 msgid "Select a space..."
