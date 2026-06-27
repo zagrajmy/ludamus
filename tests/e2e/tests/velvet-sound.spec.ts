@@ -43,7 +43,10 @@ test.describe("segmented switcher", () => {
       page.getByRole("radio", { name: /list view/i }),
     ).not.toBeChecked();
 
-    await page.getByRole("radio", { name: /list view/i }).check();
+    // Click the visible segment (its icon carries a "List" tooltip), the way a
+    // person does — the radio itself is sr-only, so checking it directly would
+    // click a hidden element.
+    await page.getByTitle("List", { exact: true }).click();
 
     await expect(page.getByRole("radio", { name: /list view/i })).toBeChecked();
     await expect(
