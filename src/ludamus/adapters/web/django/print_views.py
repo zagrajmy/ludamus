@@ -124,12 +124,21 @@ def _track_pk(material: MaterialSpec, track: PrintOptionDTO | None) -> int | Non
     return track.pk
 
 
-def _timetable_area_pks(
-    material: MaterialSpec, area_pks: frozenset[int] | None
+def _scope_pk(raw: str | None) -> int | None:
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _timetable_scope_pks(
+    material: MaterialSpec, scope_space_pks: frozenset[int] | None
 ) -> frozenset[int] | None:
     if material.scope_kind != "area":
         return None
-    return area_pks
+    return scope_space_pks
 
 
 def _timetable_scope_name(
@@ -170,9 +179,7 @@ class PublicEventPrintView(View):
 
         try:
             scope = request.services.venues.resolve_scope(
-                event.pk,
-                request.GET.get("venue") or None,
-                request.GET.get("area") or None,
+                event.pk, _scope_pk(request.GET.get("scope"))
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -207,7 +214,7 @@ class PublicEventPrintView(View):
                 AreaScheduleQueryDTO(
                     event_pk=event.pk,
                     time_range=(range_start, range_end),
-                    area_pks=scope.area_pks,
+                    scope_space_pks=scope.space_pks,
                     scope_name=scope.scope_name,
                     confirmed_only=True,
                 )
@@ -219,7 +226,9 @@ class PublicEventPrintView(View):
                 PrintTimetableQueryDTO(
                     event_pk=event.pk,
                     tz=tz,
-                    area_pks=_timetable_area_pks(material_spec, scope.area_pks),
+                    scope_space_pks=_timetable_scope_pks(
+                        material_spec, scope.space_pks
+                    ),
                     space_pks=_space_pks(material_spec, selected_space_pk),
                     track_pk=_track_pk(material_spec, selected_track),
                     scope_name=_timetable_scope_name(
@@ -247,7 +256,7 @@ class PublicEventPrintView(View):
                 "area_schedule": area_schedule,
                 "session_list": session_list,
                 "qr_svg": qr_svg(event_url, xmldecl=False),
-                "venues": request.services.venues.list_with_areas(event.pk),
+                "print_scopes": request.services.venues.list_print_scopes(event.pk),
                 "spaces": spaces,
                 "tracks": tracks,
                 "material_options": material_options,
@@ -256,8 +265,7 @@ class PublicEventPrintView(View):
                 "show_space_control": material_spec.show_space_control,
                 "show_track_control": material_spec.show_track_control,
                 "show_range_controls": material_spec.show_range_controls,
-                "selected_venue": request.GET.get("venue") or "",
-                "selected_area": request.GET.get("area") or "",
+                "selected_scope": request.GET.get("scope") or "",
                 "selected_space": str(selected_space_pk or ""),
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
@@ -273,10 +281,8 @@ class PublicEventPrintView(View):
         available_by_value = {spec.value: spec for spec in available_materials}
         if raw_material := self.request.GET.get("material"):
             material = MATERIAL_SPECS_BY_VALUE.get(raw_material)
-        elif self.request.GET.get("area"):
+        elif self.request.GET.get("scope"):
             material = MATERIAL_SPECS_BY_VALUE[AREA_TIMETABLE]
-        elif self.request.GET.get("venue"):
-            material = MATERIAL_SPECS_BY_VALUE[VENUE_TIMETABLE]
         else:
             material = MATERIAL_SPECS_BY_VALUE[EVENT_TIMETABLE]
         if material and material.value in available_by_value:

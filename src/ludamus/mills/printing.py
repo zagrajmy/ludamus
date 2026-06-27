@@ -147,12 +147,12 @@ class PrintMaterialsService:
         event_pk: int,
         tz: tzinfo,
         *,
-        area_pks: frozenset[int] | None = None,
+        scope_space_pks: frozenset[int] | None = None,
         scope_name: str | None = None,
         confirmed_only: bool = False,
     ) -> DoorCardsDocumentDTO:
         event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, area_pks, None, None)
+        spaces = self._scoped_spaces(event_pk, scope_space_pks, None, None)
         items_by_space = self._group_by_space(
             self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
         )
@@ -213,7 +213,7 @@ class PrintMaterialsService:
     ) -> PrintTimetableDocumentDTO:
         event = self._events.read(query.event_pk)
         spaces = self._scoped_spaces(
-            query.event_pk, query.area_pks, query.space_pks, query.track_pk
+            query.event_pk, query.scope_space_pks, query.space_pks, query.track_pk
         )
         all_items = (
             self._agenda_items.list_by_track(query.track_pk)
@@ -265,7 +265,7 @@ class PrintMaterialsService:
             # A scoped print (one venue/area) is a subset by construction, so it
             # is never "the whole program"; completeness only applies unscoped.
             is_complete=(
-                query.area_pks is None
+                query.scope_space_pks is None
                 and query.space_pks is None
                 and query.track_pk is None
                 and _is_complete(all_items)
@@ -279,7 +279,7 @@ class PrintMaterialsService:
         range_start, range_end = query.time_range
         event = self._events.read(query.event_pk)
         spaces = self._scoped_spaces(
-            query.event_pk, query.area_pks, query.space_pks, None
+            query.event_pk, query.scope_space_pks, query.space_pks, None
         )
         grouped = self._group_by_space(
             self._agenda_items.list_by_event(query.event_pk),
@@ -355,17 +355,24 @@ class PrintMaterialsService:
     def _scoped_spaces(
         self,
         event_pk: int,
-        area_pks: frozenset[int] | None,
+        scope_space_pks: frozenset[int] | None,
         space_pks: frozenset[int] | None,
         track_pk: int | None,
     ) -> list[SpaceDTO]:
-        spaces = sorted(self._spaces.list_by_event(event_pk), key=_space_order)
+        all_nodes = self._spaces.list_by_event(event_pk)
+        # Only leaves (childless nodes) are bookable rooms worth printing.
+        parent_pks = {n.parent_id for n in all_nodes if n.parent_id is not None}
+        spaces = sorted(
+            (s for s in all_nodes if s.pk not in parent_pks), key=_space_order
+        )
         if track_pk is not None and (
             track_space_pks := frozenset(self._tracks.list_space_pks(track_pk))
         ):
             spaces = [s for s in spaces if s.pk in track_space_pks]
         scoped = (
-            spaces if area_pks is None else [s for s in spaces if s.area_id in area_pks]
+            spaces
+            if scope_space_pks is None
+            else [s for s in spaces if s.pk in scope_space_pks]
         )
         if space_pks is None:
             return scoped

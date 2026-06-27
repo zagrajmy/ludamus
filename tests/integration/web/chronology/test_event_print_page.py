@@ -5,7 +5,7 @@ from unittest.mock import ANY
 from django.urls import reverse
 from django.utils import timezone
 
-from ludamus.adapters.db.django.models import Track
+from ludamus.adapters.db.django.models import Space, Track
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -30,8 +30,7 @@ def _assert_print_ok(
     response,
     *,
     logo="",
-    selected_venue="",
-    selected_area="",
+    selected_scope="",
     selected_space=None,
     selected_track=None,
     range_hours=6,
@@ -80,7 +79,7 @@ def _assert_print_ok(
             "area_schedule": ANY,
             "session_list": ANY,
             "qr_svg": ctx["qr_svg"],
-            "venues": ANY,
+            "print_scopes": ANY,
             "spaces": ANY,
             "tracks": ANY,
             "material_options": ctx["material_options"],
@@ -89,8 +88,7 @@ def _assert_print_ok(
             "show_space_control": show_space_control,
             "show_track_control": show_track_control,
             "show_range_controls": show_range_controls,
-            "selected_venue": selected_venue,
-            "selected_area": selected_area,
+            "selected_scope": selected_scope,
             "selected_space": selected_space,
             "selected_track": selected_track,
             "range_start_value": ctx["range_start_value"],
@@ -217,26 +215,28 @@ class TestPublicEventPrintView:
         _assert_print_ok(response)
         assert session.title in response.content.decode()
 
-    def test_scoped_to_venue_shows_logo_capacity_and_scope_name(
-        self, client, event, session, venue, space
+    def test_scoped_to_node_shows_logo_capacity_and_scope_name(
+        self, client, event, session, space
     ):
         event.logo = "events/logo.png"
         event.save()
+        parent = Space.objects.create(event=event, name="Hall", slug="hall")
+        space.parent = parent
         space.capacity = 30
         space.save()
         _confirmed_item(event, session, space)
 
-        response = client.get(f"{self._url(event.slug)}?venue={venue.slug}")
+        response = client.get(f"{self._url(event.slug)}?scope={parent.pk}")
 
         _assert_print_ok(
             response,
             logo="events/logo.png",
-            selected_venue=venue.slug,
-            material="venue-timetable",
+            selected_scope=str(parent.pk),
+            material="area-timetable",
         )
         content = response.content.decode()
         assert "events/logo.png" in content
-        assert venue.name in content
+        assert "Hall" in content
         assert "Full schedule" in content
         assert "30" in content
 
@@ -251,23 +251,6 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response, logo="spheres/brand.png")
         assert "spheres/brand.png" in response.content.decode()
-
-    def test_scoped_to_area_resolves_area_scope(
-        self, client, event, session, venue, area, space
-    ):
-        _confirmed_item(event, session, space)
-
-        response = client.get(
-            f"{self._url(event.slug)}?venue={venue.slug}&area={area.slug}"
-        )
-
-        _assert_print_ok(
-            response,
-            selected_venue=venue.slug,
-            selected_area=area.slug,
-            material="area-timetable",
-        )
-        assert area.name in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
         self, client, event, session, space
@@ -289,8 +272,8 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response, range_hours=hours)
 
-    def test_unknown_venue_is_not_found(self, client, event):
-        response = client.get(f"{self._url(event.slug)}?venue=does-not-exist")
+    def test_unknown_scope_is_not_found(self, client, event):
+        response = client.get(f"{self._url(event.slug)}?scope=987654")
 
         assert_response_404(response)
 

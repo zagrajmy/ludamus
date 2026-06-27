@@ -1,60 +1,64 @@
-"""Venue/area read-side service backing the print scope menus."""
+"""Space-tree read-side service backing the print scope menus."""
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.venues import (
-    AreaRefDTO,
     PrintScopeDTO,
+    PrintScopeOptionDTO,
     SpaceTreeServiceProtocol,
-    VenueWithAreasDTO,
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import AreaRepositoryProtocol, VenueRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import SpaceNodeDTO, SpaceTreeRepositoryProtocol
 
 
+def _leaf_pks(node: SpaceNodeDTO) -> list[int]:
+    if node.is_leaf:
+        return [node.pk]
+    return [pk for child in node.children for pk in _leaf_pks(child)]
+
+
+def _find(nodes: list[SpaceNodeDTO], pk: int) -> SpaceNodeDTO | None:
+    for node in nodes:
+        if node.pk == pk:
+            return node
+        if found := _find(node.children, pk):
+            return found
+    return None
+
+
 class VenuesService:
-    def __init__(
-        self, venues: VenueRepositoryProtocol, areas: AreaRepositoryProtocol
-    ) -> None:
-        self._venues = venues
-        self._areas = areas
+    def __init__(self, spaces: SpaceTreeRepositoryProtocol) -> None:
+        self._spaces = spaces
 
-    def list_with_areas(self, event_pk: int) -> list[VenueWithAreasDTO]:
-        areas_by_venue: dict[int, list[AreaRefDTO]] = defaultdict(list)
-        for area in self._areas.list_by_event(event_pk):
-            areas_by_venue[area.venue_id].append(
-                AreaRefDTO(name=area.name, slug=area.slug)
-            )
-        return [
-            VenueWithAreasDTO(
-                name=venue.name, slug=venue.slug, areas=areas_by_venue.get(venue.pk, [])
-            )
-            for venue in self._venues.list_by_event(event_pk)
-        ]
+    def list_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]:
+        # Every non-leaf node is a printable scope, labelled by its tree path.
+        scopes: list[PrintScopeOptionDTO] = []
 
-    def resolve_scope(
-        self, event_pk: int, venue_slug: str | None, area_slug: str | None
-    ) -> PrintScopeDTO:
-        # Resolve ?venue=/&area= slugs to the area pks to render and a display
-        # name. Raises NotFoundError on an unknown slug.
-        if not venue_slug:
+        def walk(node: SpaceNodeDTO, prefix: str) -> None:
+            path = f"{prefix} > {node.name}" if prefix else node.name
+            if not node.is_leaf:
+                scopes.append(PrintScopeOptionDTO(pk=node.pk, name=path))
+                for child in node.children:
+                    walk(child, path)
+
+        for root in self._spaces.list_tree(event_pk):
+            walk(root, "")
+        return scopes
+
+    def resolve_scope(self, event_pk: int, scope_pk: int | None) -> PrintScopeDTO:
+        # Resolve ?scope=<pk> to the leaf pks beneath that node and a display
+        # name. Raises NotFoundError on an unknown / cross-event pk.
+        if scope_pk is None:
             return PrintScopeDTO()
 
-        venue = self._venues.read_by_slug(event_pk, venue_slug)
-        if not area_slug:
-            area_pks = frozenset(
-                area.pk for area in self._areas.list_by_venue(venue.pk)
-            )
-            return PrintScopeDTO(area_pks=area_pks, scope_name=venue.name)
-
-        area = self._areas.read_by_slug(venue.pk, area_slug)
-        return PrintScopeDTO(area_pks=frozenset({area.pk}), scope_name=area.name)
+        if (node := _find(self._spaces.list_tree(event_pk), scope_pk)) is None:
+            raise NotFoundError
+        return PrintScopeDTO(space_pks=frozenset(_leaf_pks(node)), scope_name=node.name)
 
 
 class SpaceTreeService(SpaceTreeServiceProtocol):

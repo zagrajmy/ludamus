@@ -33,7 +33,7 @@ class PrintSessionDTO(BaseModel):
 class PrintTimetableQueryDTO:
     event_pk: int
     tz: tzinfo
-    area_pks: frozenset[int] | None = None
+    scope_space_pks: frozenset[int] | None = None
     space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None
@@ -44,7 +44,7 @@ class PrintTimetableQueryDTO:
 class AreaScheduleQueryDTO:
     event_pk: int
     time_range: tuple[datetime, datetime]
-    area_pks: frozenset[int] | None = None
+    scope_space_pks: frozenset[int] | None = None
     space_pks: frozenset[int] | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
@@ -163,7 +163,7 @@ class PrintMaterialsServiceProtocol(Protocol):
         event_pk: int,
         tz: tzinfo,
         *,
-        area_pks: frozenset[int] | None = None,
+        scope_space_pks: frozenset[int] | None = None,
         scope_name: str | None = None,
         confirmed_only: bool = False,
     ) -> DoorCardsDocumentDTO: ...

@@ -89,7 +89,7 @@ class Services:
 
     @cached_property
     def venues(self) -> VenuesService:
-        return VenuesService(self._repos.venues, self._repos.areas)
+        return VenuesService(self._repos.space_tree)
 
     @cached_property
     def space_tree(self) -> SpaceTreeService:
