@@ -369,6 +369,52 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:proposals", slug=slug)
 
 
+class ProposalAcceptActionView(PanelAccessMixin, EventContextMixin, View):
+    """Mark a proposal accepted (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self.request.services.proposal_status.mark_accepted(
+                event_pk=current_event.pk, session_pk=proposal_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        messages.success(self.request, _("Proposal accepted."))
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+
+class ProposalHoldActionView(PanelAccessMixin, EventContextMixin, View):
+    """Put a proposal on hold / reserve list (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self.request.services.proposal_status.mark_on_hold(
+                event_pk=current_event.pk, session_pk=proposal_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        messages.success(self.request, _("Proposal put on hold."))
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+
 class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
     """Reject a proposal (POST only)."""
 
@@ -381,21 +427,15 @@ class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            session = self.request.di.uow.sessions.read(proposal_id)
+            self.request.services.proposal_status.mark_rejected(
+                event_pk=current_event.pk, session_pk=proposal_id
+            )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        session_event = self.request.di.uow.sessions.read_event(proposal_id)
-        if session_event.pk != current_event.pk:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        self.request.di.uow.sessions.update(
-            session.pk, {"status": SessionStatus.REJECTED}
-        )
         messages.success(self.request, _("Proposal rejected."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
 
 class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):

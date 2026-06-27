@@ -236,6 +236,8 @@ class LocationData(TypedDict):
 
 class SessionStatus(StrEnum):
     PENDING = auto()
+    ACCEPTED = auto()
+    ON_HOLD = auto()
     REJECTED = auto()
     SCHEDULED = auto()
 

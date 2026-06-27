@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
+        ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
@@ -79,6 +80,8 @@ class ServicesProtocol(Protocol):
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
+    @property
+    def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property

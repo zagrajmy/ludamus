@@ -150,19 +150,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.display_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                {% if proposal.status == "pending" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
-                                        {% translate "Pending" %}
-                                    </span>
-                                {% elif proposal.status == "rejected" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
-                                        {% translate "Rejected" %}
-                                    </span>
-                                {% elif proposal.status == "scheduled" %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">
-                                        {% translate "Scheduled" %}
-                                    </span>
-                                {% endif %}
+                                {% include "panel/_proposal_status_badge.html" with status=proposal.status %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
                                 {{ proposal.creation_time|date:"d M Y H:i" }}
