@@ -29,13 +29,14 @@ from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Iterator
 
     from ludamus.pacts import EventDTO, UserDTO
 
 
 MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
+SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 
@@ -567,6 +568,57 @@ class Space(models.Model):
         # "Root > ... > Leaf" path, recursing up via str(parent). ponytail: lazy
         # parent loads (one query per level) — fine for admin/debug __str__.
         return f"{self.parent} > {self.name}" if self.parent else self.name
+
+    def iter_ancestors(self) -> Iterator[Space]:
+        if self.parent is not None:
+            yield self.parent
+            yield from self.parent.iter_ancestors()
+
+    def clean(self) -> None:
+        super().clean()
+        self._validate_acyclic_and_depth()
+        self._validate_leaf_parent()
+        self._validate_root_slug_unique()
+
+    def _validate_acyclic_and_depth(self) -> None:
+        # Climb the parent chain. Revisiting self is a cycle; exceeding the max
+        # depth (a runaway climb also implies a cycle) is rejected. Lazy
+        # iteration stops at the first violation, so a cycle never loops forever.
+        seen = {self.pk}
+        for depth, ancestor in enumerate(self.iter_ancestors(), start=2):
+            if ancestor.pk in seen:
+                raise ValidationError(_("A space cannot be its own ancestor."))
+            seen.add(ancestor.pk)
+            if depth > SPACE_MAX_DEPTH:
+                raise ValidationError(
+                    _("Spaces can be nested at most %(max)d levels deep.")
+                    % {"max": SPACE_MAX_DEPTH}
+                )
+
+    def _validate_leaf_parent(self) -> None:
+        # Attaching under a parent turns that parent into a branch; a branch
+        # cannot also hold a scheduled session.
+        if self.parent is not None and self.parent.agenda_items.exists():
+            raise ValidationError(
+                _("A space holding a scheduled session cannot contain other spaces.")
+            )
+
+    def _validate_root_slug_unique(self) -> None:
+        # The (slug, parent) DB constraint can't police roots (SQL treats NULL
+        # parents as distinct), so root slug uniqueness lives here.
+        if self.parent_id is not None:
+            return
+        clash = (
+            Space.objects.filter(
+                event_id=self.event_id, parent__isnull=True, slug=self.slug
+            )
+            .exclude(pk=self.pk)
+            .exists()
+        )
+        if clash:
+            raise ValidationError(
+                {"slug": _("A root space with this slug already exists.")}
+            )
 
 
 class Venue(models.Model):

@@ -9,6 +9,8 @@ from ludamus.pacts.venues import AreaRefDTO, PrintScopeDTO, VenueWithAreasDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts import AreaRepositoryProtocol, VenueRepositoryProtocol
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.venues import SpaceNodeDTO, SpaceTreeRepositoryProtocol
 
 
 class VenuesService:
@@ -48,3 +50,50 @@ class VenuesService:
 
         area = self._areas.read_by_slug(venue.pk, area_slug)
         return PrintScopeDTO(area_pks=frozenset({area.pk}), scope_name=area.name)
+
+
+class SpaceTreeService:
+    def __init__(
+        self, transaction: TransactionProtocol, spaces: SpaceTreeRepositoryProtocol
+    ) -> None:
+        self._transaction = transaction
+        self._spaces = spaces
+
+    def list_tree(self, event_pk: int) -> list[SpaceNodeDTO]:
+        return self._spaces.list_tree(event_pk)
+
+    def create(
+        self,
+        *,
+        event_id: int,
+        parent_id: int | None,
+        name: str,
+        capacity: int | None,
+        description: str,
+    ) -> SpaceNodeDTO:
+        return self._spaces.create(
+            event_id=event_id,
+            parent_id=parent_id,
+            name=name,
+            capacity=capacity,
+            description=description,
+        )
+
+    def update(
+        self, *, pk: int, name: str, capacity: int | None, description: str
+    ) -> SpaceNodeDTO:
+        return self._spaces.update(
+            pk=pk, name=name, capacity=capacity, description=description
+        )
+
+    def reorder(self, *, parent_id: int | None, child_pks: list[int]) -> None:
+        self._spaces.reorder(parent_id, child_pks)
+
+    def delete_space(self, pk: int) -> bool:
+        # Leaf or branch: a subtree holding any scheduled session is undeletable;
+        # otherwise the FK cascade removes the whole subtree.
+        with self._transaction.atomic():
+            if self._spaces.subtree_has_sessions(pk):
+                return False
+            self._spaces.delete(pk)
+            return True

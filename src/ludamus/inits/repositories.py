@@ -77,6 +77,10 @@ class Repositories:
         return repositories.SpaceRepository()
 
     @cached_property
+    def space_tree(self) -> repositories.SpaceTreeRepository:
+        return repositories.SpaceTreeRepository()
+
+    @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:
         return repositories.TimeSlotRepository()
 

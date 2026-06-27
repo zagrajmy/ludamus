@@ -25,6 +25,45 @@ class PrintScopeDTO(BaseModel):
     scope_name: str | None = None
 
 
+class SpaceNodeDTO(BaseModel):
+    # One node of the Space tree. Roots have parent_id None; capacity/description
+    # are meaningful only on leaves (is_leaf). depth: root = 1.
+    pk: int
+    parent_id: int | None
+    name: str
+    slug: str
+    capacity: int | None
+    description: str
+    order: int
+    depth: int
+    is_leaf: bool
+    children: list[SpaceNodeDTO] = []
+
+
+class SpaceTreeRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_tree(event_pk: int) -> list[SpaceNodeDTO]: ...
+    def read(self, pk: int) -> SpaceNodeDTO: ...
+    def create(
+        self,
+        *,
+        event_id: int,
+        parent_id: int | None,
+        name: str,
+        capacity: int | None,
+        description: str,
+    ) -> SpaceNodeDTO: ...
+    def update(
+        self, *, pk: int, name: str, capacity: int | None, description: str
+    ) -> SpaceNodeDTO: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+    @staticmethod
+    def reorder(parent_id: int | None, child_pks: list[int]) -> None: ...
+    @staticmethod
+    def subtree_has_sessions(pk: int) -> bool: ...
+
+
 class VenuesServiceProtocol(Protocol):
     def list_with_areas(self, event_pk: int) -> list[VenueWithAreasDTO]: ...
     def resolve_scope(

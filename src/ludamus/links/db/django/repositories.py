@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
@@ -164,6 +165,7 @@ from ludamus.pacts.submissions import (
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+from ludamus.pacts.venues import SpaceNodeDTO, SpaceTreeRepositoryProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1658,6 +1660,156 @@ class SpaceRepository(SpaceRepositoryProtocol):
             slug = f"{base_slug}-{token_urlsafe(3)}"
 
         return slug
+
+
+class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
+    @staticmethod
+    def list_tree(event_pk: int) -> list[SpaceNodeDTO]:
+        # One query for the whole event; assemble the tree in Python.
+        spaces = list(Space.objects.filter(event_id=event_pk).order_by("order", "name"))
+        children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
+        for space in spaces:
+            children_by_parent[space.parent_id].append(space)
+
+        def build(space: Space, depth: int) -> SpaceNodeDTO:
+            kids = children_by_parent.get(space.pk, [])
+            return SpaceNodeDTO(
+                pk=space.pk,
+                parent_id=space.parent_id,
+                name=space.name,
+                slug=space.slug,
+                capacity=space.capacity,
+                description=space.description,
+                order=space.order,
+                depth=depth,
+                is_leaf=not kids,
+                children=[build(kid, depth + 1) for kid in kids],
+            )
+
+        return [build(root, 1) for root in children_by_parent.get(None, [])]
+
+    def read(self, pk: int) -> SpaceNodeDTO:
+        try:
+            space = Space.objects.get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        return self._node(space)
+
+    @transaction.atomic
+    def create(
+        self,
+        *,
+        event_id: int,
+        parent_id: int | None,
+        name: str,
+        capacity: int | None,
+        description: str,
+    ) -> SpaceNodeDTO:
+        slug = self.generate_unique_slug(event_id, parent_id, slugify(name))
+        max_order = Space.objects.filter(
+            event_id=event_id, parent_id=parent_id
+        ).aggregate(top=Max("order"))["top"]
+        space = Space(
+            event_id=event_id,
+            parent_id=parent_id,
+            name=name,
+            slug=slug,
+            capacity=capacity,
+            description=description,
+            order=(max_order or -1) + 1,
+        )
+        space.full_clean()
+        space.save()
+        return self._node(space)
+
+    @transaction.atomic
+    def update(
+        self, *, pk: int, name: str, capacity: int | None, description: str
+    ) -> SpaceNodeDTO:
+        try:
+            space = Space.objects.select_for_update().get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        if space.name != name:
+            space.slug = self.generate_unique_slug(
+                space.event_id, space.parent_id, slugify(name), exclude_pk=pk
+            )
+            space.name = name
+        space.capacity = capacity
+        space.description = description
+        space.full_clean()
+        space.save()
+        return self._node(space)
+
+    @staticmethod
+    def delete(pk: int) -> None:
+        # FK parent on_delete=CASCADE removes the whole subtree.
+        Space.objects.filter(pk=pk).delete()
+
+    @staticmethod
+    def reorder(parent_id: int | None, child_pks: list[int]) -> None:
+        space_map = {
+            space.pk: space
+            for space in Space.objects.filter(parent_id=parent_id, pk__in=child_pks)
+        }
+        for order, pk in enumerate(child_pks):
+            space = space_map.get(pk)
+            if space is not None and space.order != order:
+                space.order = order
+                space.save(update_fields=["order", "modification_time"])
+
+    @staticmethod
+    def subtree_has_sessions(pk: int) -> bool:
+        event_pk = Space.objects.values_list("event_id", flat=True).get(pk=pk)
+        children_by_parent: dict[int, list[int]] = defaultdict(list)
+        for child_pk, parent_pk in Space.objects.filter(event_id=event_pk).values_list(
+            "pk", "parent_id"
+        ):
+            children_by_parent[parent_pk].append(child_pk)
+
+        subtree: list[int] = []
+
+        def collect(node_pk: int) -> None:
+            subtree.append(node_pk)
+            for child_pk in children_by_parent.get(node_pk, []):
+                collect(child_pk)
+
+        collect(pk)
+        return AgendaItem.objects.filter(space_id__in=subtree).exists()
+
+    @staticmethod
+    def generate_unique_slug(
+        event_id: int,
+        parent_id: int | None,
+        base_slug: str,
+        exclude_pk: int | None = None,
+    ) -> str:
+        slug = base_slug
+        for _ in range(4):
+            query = Space.objects.filter(
+                event_id=event_id, parent_id=parent_id, slug=slug
+            )
+            if exclude_pk:
+                query = query.exclude(pk=exclude_pk)
+            if not query.exists():
+                return slug
+            slug = f"{base_slug}-{token_urlsafe(3)}"
+        return slug
+
+    @staticmethod
+    def _node(space: Space) -> SpaceNodeDTO:
+        return SpaceNodeDTO(
+            pk=space.pk,
+            parent_id=space.parent_id,
+            name=space.name,
+            slug=space.slug,
+            capacity=space.capacity,
+            description=space.description,
+            order=space.order,
+            depth=1 + sum(1 for _ in space.iter_ancestors()),
+            is_leaf=not space.children.exists(),
+            children=[],
+        )
 
 
 class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: PLR0904
