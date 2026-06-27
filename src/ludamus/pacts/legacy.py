@@ -229,9 +229,13 @@ class PendingSessionDTO(BaseModel):
 
 
 class LocationData(TypedDict):
-    space: SpaceDTO
-    area: AreaDTO | None  # TODO(fancysnake): Fix after merging venues
-    venue: VenueDTO | None  # TODO(fancysnake): Fix after merging venues
+    # Tree location of a scheduled leaf: its name, its immediate parent (the
+    # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
+    # path used as a display label.
+    space_name: str
+    parent_slug: str
+    parent_name: str
+    path: str
 
 
 class SessionStatus(StrEnum):
