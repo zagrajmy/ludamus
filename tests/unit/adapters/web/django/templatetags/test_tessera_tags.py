@@ -225,3 +225,85 @@ class TestTabs:
             Template(
                 "{% load tessera %}{% tabs %}{% tab %}X{% end_tab %}{% end_tabs %}"
             )
+
+
+ICON_TOGGLE_ICONS = 2
+THEME_SWITCHER_ICONS = 3
+
+
+class TestIconToggle:
+    def _render(self, extra: str = "") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
+            'label="Toggle sound" ' + extra + " %}"
+        )
+        return tpl.render(Context())
+
+    def test_renders_toggle_button(self) -> None:
+        html = self._render()
+        assert 'class="icon-toggle"' in html
+        assert 'type="button"' in html
+
+    def test_defaults_to_unpressed(self) -> None:
+        assert 'aria-pressed="false"' in self._render()
+
+    def test_pressed_sets_aria_pressed(self) -> None:
+        assert 'aria-pressed="true"' in self._render("pressed=True")
+
+    def test_renders_accessible_label(self) -> None:
+        html = self._render()
+        assert '<span class="sr-only">Toggle sound</span>' in html
+
+    def test_renders_both_icons(self) -> None:
+        html = self._render()
+        assert "icon-toggle-on" in html
+        assert "icon-toggle-off" in html
+        assert html.count("<svg") == ICON_TOGGLE_ICONS
+
+    def test_renders_title(self) -> None:
+        assert 'title="Sound (Velvet)"' in self._render('title="Sound (Velvet)"')
+
+    def test_boolean_data_attr_is_bare(self) -> None:
+        html = self._render("data_velvet_toggle=True")
+        assert "data-velvet-toggle" in html
+        assert 'data-velvet-toggle="' not in html
+
+    def test_valued_data_attr(self) -> None:
+        assert 'data-role="switch"' in self._render('data_role="switch"')
+
+    def test_skips_falsy_data_attr(self) -> None:
+        html = self._render("data_role=False")
+        assert "data-role" not in html
+
+    def test_escapes_data_attr_value(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
+            "label=lbl data_role=bad %}"
+        )
+        html = tpl.render(Context({"lbl": "x", "bad": '"><script>alert(1)</script>'}))
+        assert "<script>alert(1)" not in html
+
+
+class TestThemeSwitcher:
+    def _render(self) -> str:
+        return Template("{% load tessera %}{% theme_switcher %}").render(Context())
+
+    def test_renders_switcher(self) -> None:
+        html = self._render()
+        assert "theme-switcher" in html
+        assert "theme-indicator" in html
+
+    def test_renders_three_theme_radios(self) -> None:
+        html = self._render()
+        assert 'value="system"' in html
+        assert 'value="light"' in html
+        assert 'value="dark"' in html
+
+    def test_system_is_default_checked(self) -> None:
+        html = self._render()
+        assert re.search(r'id="theme-system"[^>]*\schecked', html)
+
+    def test_renders_icons(self) -> None:
+        assert self._render().count("<svg") == THEME_SWITCHER_ICONS

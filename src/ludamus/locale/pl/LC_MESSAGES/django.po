@@ -948,7 +948,9 @@ msgstr ""
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
-msgstr "Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: %(title)s"
+msgstr ""
+"Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: "
+"%(title)s"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -3670,12 +3672,12 @@ msgid "No notifications yet."
 msgstr "Brak powiadomień."
 
 #: src/ludamus/templates/components/sound_switcher.html
-msgid "Interface sound (Velvet)"
-msgstr "Dźwięk interfejsu (Velvet)"
-
-#: src/ludamus/templates/components/sound_switcher.html
 msgid "Toggle interface sound"
 msgstr "Przełącz dźwięk interfejsu"
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Interface sound (Velvet)"
+msgstr "Dźwięk interfejsu (Velvet)"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"

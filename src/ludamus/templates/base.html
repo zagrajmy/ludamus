@@ -2,6 +2,7 @@
 {% load static %}
 {% load django_vite %}
 {% load heroicons %}
+{% load tessera %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -103,7 +104,7 @@
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                             <div class="flex justify-end items-center gap-2 mb-4">
                                 {% include "components/sound_switcher.html" %}
-                                {% include "components/theme_switcher.html" %}
+                                {% theme_switcher %}
                             </div>
                             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
                                 <p class="text-center sm:text-left">

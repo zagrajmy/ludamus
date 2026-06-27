@@ -344,7 +344,6 @@ const syncToggles = (): void => {
     "[data-velvet-toggle]",
   )) {
     el.setAttribute("aria-pressed", on ? "true" : "false");
-    el.dataset.on = on ? "1" : "0";
   }
 };
 

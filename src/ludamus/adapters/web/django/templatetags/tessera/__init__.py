@@ -23,6 +23,7 @@ Usage:
 from ._registry import register
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
+from .icon_toggle import icon_toggle
 from .select import SelectNode, do_select
 from .table import TableNode, do_tessera_table
 from .tabs import (
@@ -34,6 +35,7 @@ from .tabs import (
     do_tab,
     do_tabs,
 )
+from .theme_switcher import theme_switcher
 
 __all__ = [
     "TAB_ACTIVE_CLASS",
@@ -48,9 +50,11 @@ __all__ = [
     "do_tabs",
     "do_tessera_table",
     "icon",
+    "icon_toggle",
     "register",
     "tessera_button",
     "tessera_errors",
     "tessera_field",
     "tessera_form",
+    "theme_switcher",
 ]
