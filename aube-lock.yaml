@@ -68,6 +68,9 @@ importers:
       eslint:
         specifier: ^9
         version: 9.39.4(jiti@2.7.0)
+      oxfmt:
+        specifier: 0.56.0
+        version: 0.56.0
       postcss-nested:
         specifier: 7.0.2
         version: 7.0.2(postcss@8.5.15)

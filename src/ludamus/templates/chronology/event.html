@@ -517,18 +517,20 @@
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
         <div class="mt-12 text-center">
-            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary">
+            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">
                     {% icon "plus" class="w-8 h-8 text-coral-500" %}
                 </div>
                 <h3 class="text-xl font-bold mb-2 text-foreground">{% translate "Want to host a session?" %}</h3>
                 <p class="mb-4 max-w-md text-foreground-muted">
-                    {% translate "Got a game you're dying to play? Propose your own session and find players!" %}
+                    {% blocktranslate trimmed %}
+                        Got a game you're dying to play?
+                        <br class="max-xl:hidden" />
+                        Propose your own session and find players!
+                    {% endblocktranslate %}
                 </p>
                 <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
-                   class="btn btn-primary text-base shadow-lg shadow-coral-500/25">
-                    {% translate "Propose a session" %}
-                </a>
+                   class="btn btn-primary text-base">{% translate "Propose a session" %}</a>
             </div>
         </div>
     {% endif %}

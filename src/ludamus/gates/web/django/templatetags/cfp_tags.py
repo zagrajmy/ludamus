@@ -15,9 +15,14 @@ if TYPE_CHECKING:
 register = template.Library()
 
 
-@register.filter
-def cover_image(session: SessionDTO) -> str:
-    return session.cover_image_url or placeholder_cover_url(session.pk)
+@register.simple_tag(takes_context=True)
+def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
+    if session.cover_image_url:
+        return session.cover_image_url
+    event = context.get("event")
+    if getattr(event, "use_session_cover_placeholders", False):
+        return placeholder_cover_url(session.pk)
+    return ""
 
 
 @register.filter

@@ -20,6 +20,16 @@ from .entities import EventInfo, ParticipationInfo, SessionData, build_display_f
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
 
+for _dto in (
+    AgendaItemDTO,
+    EventInfo,
+    SessionDTO,
+    SessionFieldValueDTO,
+    SpaceDTO,
+    VenueDTO,
+):
+    _dto.model_rebuild()
+
 
 def _mock_user(full_name: str, pk: int, slug: str, username: str) -> UserInfo:
     return UserInfo(

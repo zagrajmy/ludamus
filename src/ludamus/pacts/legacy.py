@@ -530,6 +530,7 @@ class EventDTO(BaseModel):
     slug: str
     sphere_id: int
     start_time: datetime
+    use_session_cover_placeholders: bool = False
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -767,6 +768,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
     auto_confirm_sessions: bool
+    use_session_cover_placeholders: bool
 
 
 @dataclass

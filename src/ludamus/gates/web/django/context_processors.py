@@ -56,7 +56,10 @@ def support(request: HttpRequest) -> dict[str, str]:  # noqa: ARG001
 
 
 def static_version(request: HttpRequest) -> dict[str, str]:  # noqa: ARG001
-    return {"STATIC_VERSION": settings.STATIC_VERSION}
+    return {
+        "COMMIT_SHA": settings.COMMIT_SHA,
+        "STATIC_VERSION": settings.STATIC_VERSION,
+    }
 
 
 class CurrentUserContextData(TypedDict):

@@ -140,6 +140,13 @@ class EventSettingsForm(forms.Form):
             "the schedule. Turn off to confirm items manually."
         ),
     )
+    use_session_cover_placeholders = forms.BooleanField(
+        required=False,
+        label=_("Use placeholder images for sessions without a cover image"),
+        help_text=_(
+            "When off, sessions without uploaded images are shown as text-only cards."
+        ),
+    )
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
