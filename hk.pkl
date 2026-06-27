@@ -29,10 +29,15 @@ local linters = new Mapping<String, Step> {
     check = "codespell --toml=pyproject.toml {{files}}"
   }
 
-  // Django templates
+  // Django templates — lint, plus reformat-on-commit (mirrors djlint / djlint-format tasks)
   ["djlint"] {
     glob = List("src/**/*.html")
     check = "djlint {{files}} --profile=django"
+  }
+  ["djlint-format"] {
+    glob = List("src/**/*.html")
+    check = "djlint {{files}} --check --format-css --format-js --profile=django"
+    fix = "djlint {{files}} --reformat --format-css --format-js --profile=django"
   }
 
   // Frontend — oxfmt (Tailwind sorting via .oxfmtrc.json), run as an aube devDep
