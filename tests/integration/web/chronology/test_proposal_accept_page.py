@@ -234,7 +234,7 @@ class TestProposalAcceptPageView:
         """Test that multiple spaces in same area are grouped together."""
         # Create a second space in the same area
         second_space = Space.objects.create(
-            area=area, name="Second Room", slug="second-room"
+            area=area, name="Second Room", slug="second-room", event=area.venue.event
         )
 
         response = staff_client.get(

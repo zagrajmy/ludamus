@@ -411,7 +411,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     @staticmethod
     def read_spaces(session_id: int) -> list[SpaceDTO]:
         spaces = Space.objects.filter(
-            area__venue__event__proposal_categories__sessions__id=session_id
+            event__proposal_categories__sessions__id=session_id
         )
         return [SpaceDTO.model_validate(space) for space in spaces]
 
@@ -831,9 +831,9 @@ class EventRepository(EventRepositoryProtocol):
         sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]:
         agenda_item_count = (
-            AgendaItem.objects.filter(space__area__venue__event=OuterRef("pk"))
+            AgendaItem.objects.filter(session__event=OuterRef("pk"))
             .order_by()
-            .values("space__area__venue__event")
+            .values("session__event")
             .annotate(count=Count("pk"))
             .values("count")
         )
@@ -891,10 +891,8 @@ class EventRepository(EventRepositoryProtocol):
             EventStatsData with raw counts and IDs for business logic processing.
         """
         sessions = Session.objects.filter(category__event_id=event_id)
-        scheduled = Session.objects.filter(
-            agenda_item__space__area__venue__event_id=event_id
-        )
-        spaces = Space.objects.filter(area__venue__event_id=event_id)
+        scheduled = Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
+        spaces = Space.objects.filter(event_id=event_id)
 
         return EventStatsData(
             pending_proposals=sessions.filter(status=SessionStatus.PENDING).count(),
@@ -1194,6 +1192,7 @@ class VenueRepository(VenueRepositoryProtocol):
                 )
                 Space.objects.create(
                     area_id=new_area.pk,
+                    event_id=new_venue.event_id,
                     name=space.name,
                     slug=space_slug,
                     capacity=space.capacity,
@@ -1262,6 +1261,7 @@ class VenueRepository(VenueRepositoryProtocol):
                 )
                 Space.objects.create(
                     area_id=new_area.pk,
+                    event_id=target_event_id,
                     name=space.name,
                     slug=space_slug,
                     capacity=space.capacity,
@@ -1471,7 +1471,11 @@ class SpaceRepository(SpaceRepositoryProtocol):
         Returns:
             SpaceDTO of the created space.
         """
-        Area.objects.select_for_update().get(pk=area_id)
+        area = (
+            Area.objects.select_related("venue")
+            .select_for_update(of=("self",))
+            .get(pk=area_id)
+        )
 
         base_slug = slugify(name)
         slug = self.generate_unique_slug(area_id, base_slug)
@@ -1485,6 +1489,7 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
         space = Space.objects.create(
             area_id=area_id,
+            event_id=area.venue.event_id,
             name=name,
             slug=slug,
             capacity=capacity,
@@ -1545,7 +1550,7 @@ class SpaceRepository(SpaceRepositoryProtocol):
         Returns:
             List of SpaceDTO objects for the event.
         """
-        spaces = Space.objects.filter(area__venue__event_id=event_pk).order_by(
+        spaces = Space.objects.filter(event_id=event_pk).order_by(
             *Space.HIERARCHICAL_ORDER
         )
 

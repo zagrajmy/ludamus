@@ -85,10 +85,14 @@ def main() -> None:
         venue=venue, slug="festival-hall", defaults={"name": "Festival Hall"}
     )
     space_a, _ = Space.objects.get_or_create(
-        area=area, slug="garden-table", defaults={"name": "Garden Table", "capacity": 8}
+        area=area,
+        slug="garden-table",
+        defaults={"name": "Garden Table", "capacity": 8, "event": event},
     )
     space_b, _ = Space.objects.get_or_create(
-        area=area, slug="willow-table", defaults={"name": "Willow Table", "capacity": 8}
+        area=area,
+        slug="willow-table",
+        defaults={"name": "Willow Table", "capacity": 8, "event": event},
     )
 
     # Time slot — morning block; gives the overview "capacity hours" a value.

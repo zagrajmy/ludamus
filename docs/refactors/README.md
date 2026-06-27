@@ -18,6 +18,7 @@ lands; keep the table below in sync._
 | 4 | [`links/db/django` layout (split fat repositories)](links-db-layout.md) | 🔴 not started | Split `repositories.py` by aggregate group |
 | 5 | [Panel object-scope authorization (IDOR)](panel-object-scope-authz.md) | 🟢 active branch | Audit `venues.py` and `proposals.py`, then `facilitators.py` |
 | 6 | [HTMX adoption (frontend)](htmx-adoption.md) | 🟡 in progress | Convert one more multi-step/list page to HTMX partials |
+| 7 | [Scoped query boundaries (baked-in invariant filters)](scoped-query-boundaries.md) | 🔴 not started | Add `Session.scheduled` manager, switch the two public call sites |
 
 Legend: 🟢 healthy/active · 🟡 partially done, steady-state · 🔴 not started.
 

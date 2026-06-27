@@ -90,7 +90,8 @@ def _can_join_waitlist(
     current_waitlist_count = SessionParticipation.objects.filter(
         user_id=user.pk,
         status=SessionParticipationStatus.WAITING,
-        session__agenda_item__space__area__venue__event=session.agenda_item.space.area.venue.event,
+        session__event=session.event,
+        session__agenda_item__isnull=False,
     ).count()
     return current_waitlist_count < enrollment_config.max_waitlist_sessions
 
@@ -295,11 +296,9 @@ def create_enrollment_form(
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
     ticket_api: TicketAPIProtocol,
 ) -> type[forms.Form]:
-    enrollment_config = (
-        session.agenda_item.space.area.venue.event.get_most_liberal_config(session)
-    )
+    enrollment_config = session.event.get_most_liberal_config(session)
     current_user_enrollment_config = get_user_enrollment_config(
-        event=EventDTO.model_validate(session.agenda_item.space.area.venue.event),
+        event=EventDTO.model_validate(session.event),
         user_email=current_user.email,
         enrollment_config_repo=enrollment_config_repo,
         ticket_api=ticket_api,
@@ -381,7 +380,7 @@ def create_enrollment_form(
 def create_proposal_acceptance_form(event: EventDTO) -> type[forms.Form]:
     # Query spaces with related area and venue for proper grouping
     spaces = (
-        Space.objects.filter(area__venue__event_id=event.pk)
+        Space.objects.filter(event_id=event.pk)
         .select_related("area__venue")
         .order_by(*Space.HIERARCHICAL_ORDER)
     )
@@ -421,7 +420,7 @@ def create_proposal_acceptance_form(event: EventDTO) -> type[forms.Form]:
         if not (space_id := self.cleaned_data.get("space")):  # pragma: no cover
             raise ValidationError(_("This field is required."))
         try:
-            return Space.objects.get(pk=int(space_id), area__venue__event_id=event.pk)
+            return Space.objects.get(pk=int(space_id), event_id=event.pk)
         except (Space.DoesNotExist, ValueError) as e:
             raise ValidationError(_("Invalid space selection.")) from e
 

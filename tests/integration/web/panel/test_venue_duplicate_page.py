@@ -123,8 +123,20 @@ class TestVenueDuplicatePageView:
         area = Area.objects.create(
             venue=venue, name="Ground Floor", slug="ground-floor"
         )
-        Space.objects.create(area=area, name="Room 101", slug="room-101", capacity=50)
-        Space.objects.create(area=area, name="Room 102", slug="room-102", capacity=30)
+        Space.objects.create(
+            area=area,
+            name="Room 101",
+            slug="room-101",
+            capacity=50,
+            event=area.venue.event,
+        )
+        Space.objects.create(
+            area=area,
+            name="Room 102",
+            slug="room-102",
+            capacity=30,
+            event=area.venue.event,
+        )
 
         response = authenticated_client.post(
             self.get_url(event, venue), {"name": "Main Hall Copy"}

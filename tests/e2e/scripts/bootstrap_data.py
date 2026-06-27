@@ -175,7 +175,9 @@ def _create_area(venue: Venue, *, name: str, slug: str, description: str = "") -
 def _create_space(
     area: Area, *, name: str, slug: str, capacity: int | None = None
 ) -> Space:
-    return Space.objects.create(area=area, name=name, slug=slug, capacity=capacity)
+    return Space.objects.create(
+        area=area, name=name, slug=slug, capacity=capacity, event=area.venue.event
+    )
 
 
 def _create_session(

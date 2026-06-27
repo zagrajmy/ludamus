@@ -68,13 +68,13 @@ class TestSpaceReorderActionView:
         venue = Venue.objects.create(event=event, name="Main Hall", slug="main-hall")
         area = Area.objects.create(venue=venue, name="East Wing", slug="east-wing")
         space1 = Space.objects.create(
-            area=area, name="Space 1", slug="space-1", order=0
+            area=area, name="Space 1", slug="space-1", order=0, event=area.venue.event
         )
         space2 = Space.objects.create(
-            area=area, name="Space 2", slug="space-2", order=1
+            area=area, name="Space 2", slug="space-2", order=1, event=area.venue.event
         )
         space3 = Space.objects.create(
-            area=area, name="Space 3", slug="space-3", order=2
+            area=area, name="Space 3", slug="space-3", order=2, event=area.venue.event
         )
 
         # Reorder: 3, 1, 2
@@ -137,10 +137,10 @@ class TestSpaceReorderActionView:
         area1 = Area.objects.create(venue=venue, name="Area 1", slug="area-1")
         area2 = Area.objects.create(venue=venue, name="Area 2", slug="area-2")
         space1 = Space.objects.create(
-            area=area1, name="Space 1", slug="space-1", order=0
+            area=area1, name="Space 1", slug="space-1", order=0, event=area1.venue.event
         )
         space2 = Space.objects.create(
-            area=area2, name="Space 2", slug="space-2", order=0
+            area=area2, name="Space 2", slug="space-2", order=0, event=area2.venue.event
         )
 
         # Try to reorder with space from different area

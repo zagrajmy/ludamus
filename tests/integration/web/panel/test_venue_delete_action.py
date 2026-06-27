@@ -111,7 +111,9 @@ class TestVenueDeleteActionView:
         sphere.managers.add(active_user)
         venue = Venue.objects.create(event=event, name="Main Hall", slug="main-hall")
         area = Area.objects.create(venue=venue, name="Test Area", slug="test-area")
-        space = Space.objects.create(area=area, name="Test Space", slug="test-space")
+        space = Space.objects.create(
+            area=area, name="Test Space", slug="test-space", event=area.venue.event
+        )
         session = Session.objects.create(
             event=event,
             title="Test Session",

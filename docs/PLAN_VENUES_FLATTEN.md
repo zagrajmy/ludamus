@@ -133,26 +133,28 @@ directly — no DTO change.
 
 ---
 
-## Deployment 2 — Space gains tree shape; queries leave the deep chain
+## Deployment 2 — Space gains a direct `event`; queries leave the deep chain
 
-Additive schema plus a code switch to the new paths. `Venue` / `Area` still
-exist and the panel still drives them. Reversible.
+Additive schema plus a code switch to the new paths. Mirrors Deployment 1: just
+denormalize `event` onto `Space` and move reads off the deep chain. `Venue` /
+`Area` still exist and the panel still drives them. Reversible.
 
-### Step 2 — add and backfill `Space.event` + `Space.parent`
+The tree shape (`parent`, `description`, root/mid nodes, `area` nullable) is
+**deliberately deferred to Step 4**, where the panel rewrite is its only
+consumer. Building it here would force `Space.area` nullable, breaking every
+`space.area.venue.name` display walk with throwaway None-guards in code Step 4
+rewrites anyway. Nothing in Deployment 2 reads `parent`/`description`.
 
-- Migration A (additive): add nullable `event` FK, nullable `parent` self-FK,
-  and `description` to `Space`.
-- Migration B (data):
-  - each `Venue` → a root `Space` (`parent=None`, `event=venue.event`,
-    `description=venue.address`, carry `order`);
-  - each `Area` → a mid `Space` (`parent=` its venue's new root,
-    `description=area.description`);
-  - each existing `Space` (a leaf) → set `parent=` its area's new mid space and
-    `event=area.venue.event`. `AgendaItem.space` FKs are untouched — leaves keep
-    their identity.
+### Step 2 — add and backfill `Space.event`
+
+- Migration A (additive): add nullable `event = FK(Event, related_name="spaces")`.
+- Migration B (data): backfill `event = area.venue.event` for every (leaf) space.
+  `AgendaItem.space` FKs are untouched.
 - Migration C (finalize): make `Space.event` non-null.
-- Not user-visible yet (the panel still edits Venue/Area). Verify the tree in a
-  shell.
+- Every Space-creation path sets `event_id` (repo `create`, the two venue-copy
+  paths). `SpaceFactory.event` defaults to `area.venue.event`; raw
+  `Space.objects.create(...)` in tests pass `event=` explicitly.
+- Not user-visible. Verify in a shell.
 
 ### Step 3 — move every query off `space__area__venue__event`
 
@@ -172,12 +174,20 @@ exist and the panel still drives them. Reversible.
 The destructive deployment: new UI first in the same release, then the table
 drops. Ships last.
 
-### Step 4 — rewrite the "Venues" panel as one recursive Space CRUD
+### Step 4 — build the tree, then rewrite "Venues" as one recursive Space CRUD
 
+- Schema: make `Space.area` nullable, add `parent` self-FK and `description`
+  (deferred from Step 2 — see Deployment 2 note).
+- Data migration (the tree-build deferred from Step 2): each `Venue` → a root
+  `Space` (`parent=None`, `description=venue.address`, carry `order`); each
+  `Area` → a mid `Space` (`parent=` its venue's new root,
+  `description=area.description`); each existing leaf `Space` → `parent=` its
+  area's new mid. `AgendaItem.space` FKs untouched — leaves keep their identity.
 - Collapse the three view sets (`Venue*`, `Area*`, `Space*` in
   `panel/views/venues.py`) and three repositories into one `Space` tree CRUD:
   create (optional `parent`), edit, delete, reorder, with the leaf-only and
-  depth-7 guards from the Space service.
+  depth-7 guards from the Space service. The `space.area.venue.name` display
+  walks get rewritten to the tree here.
 - One set of templates renders the tree; section keeps the name "Venues".
 - DTOs: one `SpaceNode`/tree DTO replaces the Venue/Area/Space DTOs in
   `pacts/venues.py`.

@@ -534,6 +534,8 @@ class Space(models.Model):
 
     # Owner - spaces belong to an area
     area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="spaces")
+    # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")
     # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()

@@ -167,7 +167,13 @@ class TestAreaDetailPageView:
         sphere.managers.add(active_user)
         venue = Venue.objects.create(event=event, name="Main Hall", slug="main-hall")
         area = Area.objects.create(venue=venue, name="East Wing", slug="east-wing")
-        Space.objects.create(area=area, name="Room 101", slug="room-101", capacity=50)
+        Space.objects.create(
+            area=area,
+            name="Room 101",
+            slug="room-101",
+            capacity=50,
+            event=area.venue.event,
+        )
 
         response = authenticated_client.get(self.get_url(event, venue, area))
 
