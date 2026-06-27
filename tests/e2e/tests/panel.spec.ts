@@ -7,6 +7,16 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const acceptConfirmModal = (page: Page) =>
   page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();
 
+/** Open a space-tree node's "More actions" menu; returns the menu locator. */
+const openSpaceMenu = async (page: Page, name: string): Promise<Locator> => {
+  const toggle = page.getByRole("button", {
+    name: `More actions for ${name}`,
+    exact: true,
+  });
+  await toggle.click();
+  return page.locator(".relative.inline-block", { has: toggle }).locator(".action-dropdown-menu");
+};
+
 /** Build an HH:MM string by adding minutes to a base hour:minute. */
 function timeHHMM(hour: number, minute: number, addMinutes: number = 0): string {
   const d = new Date(2000, 0, 1, hour, minute + addMinutes);
@@ -162,271 +172,89 @@ test.describe("Backoffice Panel", () => {
 
   // --- Step 2: Venues List, Create, Detail, Edit ---
 
-  test("lists venues for the event", async ({ page }) => {
+  test("lists the space tree for the event", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
 
-    await expect(
-      page.getByRole("cell", { name: "Aurora Convention Hall", exact: true }),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: "New Venue" })).toBeVisible();
+    await expect(page.getByText("Aurora Convention Hall", { exact: true })).toBeVisible();
+    await expect(page.getByText("Hearth Lounge", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New top-level space" })).toBeVisible();
   });
 
-  test("creates a new venue", async ({ page }) => {
+  test("creates a top-level space", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    await page.getByRole("link", { name: "New Venue" }).click();
+    await page.getByRole("link", { name: "New top-level space" }).click();
 
     await page.locator("#id_name").fill("Community Library");
-    await page.locator("#id_address").fill("456 Book Lane");
-    await page.getByRole("button", { name: "Create Venue" }).click();
-
-    await expect(page.getByText("Venue created successfully.")).toBeVisible();
-    await expect(page.getByText("Community Library").first()).toBeVisible();
-  });
-
-  test("views venue detail with areas", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/");
-
-    await expect(page.getByRole("heading", { name: "Aurora Convention Hall" })).toBeVisible();
-    await expect(page.getByText("North Wing")).toBeVisible();
-    await expect(page.getByText("Hearth Lounge")).toBeVisible();
-    await expect(page.getByRole("link", { name: "New Area" })).toBeVisible();
-  });
-
-  test("edits a venue", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/edit/");
-
-    const nameInput = page.locator("#id_name");
-    await expect(nameInput).toHaveValue("Aurora Convention Hall");
-
-    const addressInput = page.locator("#id_address");
-    await addressInput.fill("999 Updated Avenue");
-    await page.getByRole("button", { name: "Save" }).click();
-
-    await expect(page.getByText("Venue updated successfully.")).toBeVisible();
-
-    // Restore original address
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/edit/");
-    await addressInput.fill("5 Glacier Parade, Northport");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Venue updated successfully.")).toBeVisible();
-  });
-
-  // --- Step 3: Venue Structure, Duplicate, Copy, Delete ---
-
-  test("shows venue structure overview", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/structure/");
-
-    await expect(page.getByRole("heading", { name: "Venue Structure" })).toBeVisible();
-
-    await page.getByRole("link", { name: "Aurora Convention Hall", exact: true }).click();
-    await expect(page).toHaveURL(/\/venues\/aurora-hall\/$/);
-    await expect(page.getByRole("heading", { name: "Aurora Convention Hall" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "North Wing", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Hearth Lounge", exact: true })).toBeVisible();
-
-    await page.getByRole("link", { name: "Spaces" }).first().click();
-    await expect(page.getByRole("heading", { name: "Hearth Lounge" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Ember Corner", exact: true })).toBeVisible();
-  });
-
-  test("duplicates a venue", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/");
-
-    // Open dropdown for Aurora Convention Hall (use exact cell match
-    // to avoid also matching "Aurora Convention Hall (Copy)" rows)
-    const row = page.getByRole("row").filter({
-      has: page.getByRole("cell", {
-        name: "Aurora Convention Hall",
-        exact: true,
-      }),
-    });
-    await row.locator(".action-dropdown-toggle").click();
-    await row.locator(".action-dropdown-menu").getByRole("link", { name: "Duplicate" }).click();
-
-    // Verify pre-filled name
-    await expect(page.locator("#id_name")).toHaveValue("Aurora Convention Hall (Copy)");
-
-    await page.getByRole("button", { name: "Duplicate Venue" }).click();
-
-    await expect(page.getByText("Venue duplicated successfully.")).toBeVisible();
-  });
-
-  test("copies a venue to another event", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/");
-
-    // Use exact cell match to avoid matching "Aurora Convention Hall (Copy)"
-    const row = page.getByRole("row").filter({
-      has: page.getByRole("cell", {
-        name: "Aurora Convention Hall",
-        exact: true,
-      }),
-    });
-    await row.locator(".action-dropdown-toggle").click();
-    await page.getByRole("link", { name: "Copy" }).click();
-
-    // Select target event
-    await page.locator("#id_target_event").selectOption({
-      label: "Retro Mini Jam",
-    });
-    await page.getByRole("button", { name: "Copy to Event" }).click();
-
-    await expect(page.getByText("Venue copied to Retro Mini Jam successfully.")).toBeVisible();
-  });
-
-  test("deletes a venue", async ({ page }) => {
-    // First create a throwaway venue
-    await page.goto("/panel/event/frostfire-con/venues/create/");
-    await page.locator("#id_name").fill("Temp Venue To Delete");
-    await page.getByRole("button", { name: "Create Venue" }).click();
-    await expect(page.getByText("Venue created successfully.")).toBeVisible();
-
-    // Now delete it from the venues list
-    await page.goto("/panel/event/frostfire-con/venues/");
-
-    await page
-      .locator("tr", { hasText: "Temp Venue To Delete" })
-      .locator(".action-dropdown-toggle")
-      .click();
-
-    // The delete is a form inside the dropdown
-    await page
-      .locator("tr", { hasText: "Temp Venue To Delete" })
-      .locator(".action-dropdown-menu")
-      .getByRole("button", { name: /Delete/i })
-      .click();
-    await acceptConfirmModal(page);
-
-    await expect(page.getByText("Venue deleted successfully.")).toBeVisible();
-  });
-
-  // --- Step 4: Areas CRUD ---
-
-  test("creates an area in a venue", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/");
-    await page.getByRole("link", { name: "New Area" }).click();
-
-    await page.locator("#id_name").fill("Workshop Room");
-    await page.locator("#id_description").fill("A room for workshops");
-    await page.getByRole("button", { name: "Create Area" }).click();
-
-    await expect(page.getByText("Area created successfully.")).toBeVisible();
-  });
-
-  test("views area detail with spaces", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/");
-
-    // Click "Spaces" link for North Wing
-    await page
-      .locator("tr", { hasText: "North Wing" })
-      .getByRole("link", { name: "Spaces" })
-      .click();
-
-    await expect(page.getByRole("heading", { name: "North Wing" })).toBeVisible();
-    await expect(page.getByText("Frost Gallery")).toBeVisible();
-  });
-
-  test("edits an area", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/edit/");
-
-    const nameInput = page.locator("#id_name");
-    await expect(nameInput).toHaveValue("North Wing");
-
-    const descInput = page.locator("#id_description");
-    await descInput.fill("Updated description for main hall");
-    await page.getByRole("button", { name: "Save" }).click();
-
-    await expect(page.getByText("Area updated successfully.")).toBeVisible();
-
-    // Restore
-    await page.locator("tr", { hasText: "North Wing" }).getByRole("link", { name: "Edit" }).click();
-    await descInput.fill("The central gaming area with multiple tables.");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Area updated successfully.")).toBeVisible();
-  });
-
-  test("deletes an area", async ({ page }) => {
-    // Create throwaway area first
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/");
-    await page.getByRole("link", { name: "New Area" }).click();
-    await page.locator("#id_name").fill("Temp Area To Delete");
-    await page.getByRole("button", { name: "Create Area" }).click();
-    await expect(page.getByText("Area created successfully.")).toBeVisible();
-
-    // Navigate back to venue detail and delete
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/");
-
-    const row = page.locator("tr", {
-      hasText: "Temp Area To Delete",
-    });
-    await row.locator(".action-dropdown-toggle").click();
-    await row
-      .locator(".action-dropdown-menu")
-      .getByRole("button", { name: /Delete/i })
-      .click();
-    await acceptConfirmModal(page);
-
-    await expect(page.getByText("Area deleted successfully.")).toBeVisible();
-  });
-
-  // --- Step 5: Spaces CRUD ---
-
-  test("creates a space in an area", async ({ page }) => {
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/");
-    await page.getByRole("link", { name: "New Space" }).click();
-
-    await page.locator("#id_name").fill("North Alcove");
-    await page.locator("#id_capacity").fill("15");
-    await page.getByRole("button", { name: "Create Space" }).click();
+    await page.locator("#id_description").fill("456 Book Lane");
+    await page.getByRole("button", { name: "Create space" }).click();
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
+    await expect(page.getByText("Community Library", { exact: true })).toBeVisible();
+  });
+
+  test("creates a nested space inside a parent", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/venues/");
+    await page.getByRole("link", { name: "Add a space inside Aurora Convention Hall" }).click();
+
+    await page.locator("#id_name").fill("Workshop Room");
+    await page.locator("#id_capacity").fill("15");
+    await page.getByRole("button", { name: "Create space" }).click();
+
+    await expect(page.getByText("Space created successfully.")).toBeVisible();
+    await expect(page.getByText("Workshop Room", { exact: true })).toBeVisible();
   });
 
   test("edits a space", async ({ page }) => {
-    await page.goto(
-      "/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/spaces/frost-gallery/edit/",
-    );
+    await page.goto("/panel/event/frostfire-con/venues/");
+    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
 
-    const nameInput = page.locator("#id_name");
-    await expect(nameInput).toHaveValue("Frost Gallery");
+    await expect(page.locator("#id_name")).toHaveValue("Frost Gallery");
 
-    const capacityInput = page.locator("#id_capacity");
-    await capacityInput.fill("40");
+    await page.locator("#id_capacity").fill("40");
     await page.getByRole("button", { name: "Save" }).click();
-
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
 
     // Restore original capacity
-    await page
-      .locator("tr", { hasText: "Frost Gallery" })
-      .getByRole("link", { name: "Edit" })
-      .click();
-    await capacityInput.fill("30");
+    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    await page.locator("#id_capacity").fill("30");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
   });
 
+  // --- Tree node actions: Duplicate, Copy, Delete ---
+
+  test("duplicates a space", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/venues/");
+
+    const menu = await openSpaceMenu(page, "Aurora Convention Hall");
+    await menu.getByRole("button", { name: "Duplicate" }).click();
+
+    await expect(page.getByText("Space duplicated successfully.")).toBeVisible();
+  });
+
+  test("copies a space to another event", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/venues/");
+
+    const menu = await openSpaceMenu(page, "Aurora Convention Hall");
+    await menu.getByRole("link", { name: "Copy to event" }).click();
+
+    await page.locator("#id_target_event").selectOption({ label: "Retro Mini Jam" });
+    await page.getByRole("button", { name: "Copy" }).click();
+
+    await expect(page.getByText("Space copied to Retro Mini Jam successfully.")).toBeVisible();
+  });
+
   test("deletes a space", async ({ page }) => {
-    // Create throwaway space first
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/");
-    await page.getByRole("link", { name: "New Space" }).click();
+    // Create a throwaway top-level space first.
+    await page.goto("/panel/event/frostfire-con/venues/");
+    await page.getByRole("link", { name: "New top-level space" }).click();
     await page.locator("#id_name").fill("Temp Space To Delete");
-    await page.getByRole("button", { name: "Create Space" }).click();
+    await page.getByRole("button", { name: "Create space" }).click();
     await expect(page.getByText("Space created successfully.")).toBeVisible();
 
-    // Delete from area detail
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/");
-
-    const row = page.locator("tr", {
-      hasText: "Temp Space To Delete",
-    });
-    await row.locator(".action-dropdown-toggle").click();
-    await row
-      .locator(".action-dropdown-menu")
-      .getByRole("button", { name: /Delete/i })
-      .click();
-
-    // Confirm in the styled dialog that replaced the native confirm()
-    await page.locator("#confirm-dialog").getByRole("button", { name: "Delete" }).click();
+    const menu = await openSpaceMenu(page, "Temp Space To Delete");
+    await menu.getByRole("button", { name: "Delete" }).click();
+    await acceptConfirmModal(page);
 
     await expect(page.getByText("Space deleted successfully.")).toBeVisible();
   });
@@ -1242,187 +1070,52 @@ test.describe("Backoffice Panel", () => {
 
   // --- Reorder Tests ---
 
-  test("reorders venues via JSON endpoint", async ({ page }) => {
-    // Create a second venue for reordering
-    await page.goto("/panel/event/frostfire-con/venues/create/");
-    await page.locator("#id_name").fill("Reorder Test Venue");
-    await page.locator("#id_address").fill("123 Reorder St");
-    await page.getByRole("button", { name: "Create Venue" }).click();
-    await expect(page.getByText("Venue created successfully.")).toBeVisible();
+  test("reorders sibling spaces via JSON endpoint", async ({ page }) => {
+    // Need >=2 top-level spaces — create a throwaway root.
+    await page.goto("/panel/event/frostfire-con/venues/");
+    await page.getByRole("link", { name: "New top-level space" }).click();
+    await page.locator("#id_name").fill("Reorder Test Space");
+    await page.getByRole("button", { name: "Create space" }).click();
+    await expect(page.getByText("Space created successfully.")).toBeVisible();
 
-    // Navigate to venues page
     await page.goto("/panel/event/frostfire-con/venues/");
 
-    // Extract venue IDs from data-venue-id attributes
-    const venueIds = await page
-      .locator(".venue-row")
-      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-venue-id"))));
-    expect(venueIds.length).toBeGreaterThanOrEqual(2);
+    // Top-level node ids from the root sibling list.
+    const ids = await page
+      .locator("#space-root-list > li.space-node")
+      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
+    expect(ids.length).toBeGreaterThanOrEqual(2);
+    const reversed = [...ids].reverse();
 
-    // Reverse the order
-    const reversed = [...venueIds].reverse();
-
-    // Extract CSRF token from the delete form on the page
     const csrfToken = await page.locator('input[name="csrfmiddlewaretoken"]').first().inputValue();
 
-    // Call reorder endpoint via fetch
-    const response = await page.evaluate(
-      async ({ ids, token }) => {
+    // Reorder the root level (parent_pk null) via the single space endpoint.
+    const status = await page.evaluate(
+      async ({ order, token }) => {
         const res = await fetch("/panel/event/frostfire-con/venues/do/reorder", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-CSRFToken": token,
           },
-          body: JSON.stringify({ venue_ids: ids }),
+          body: JSON.stringify({ parent_pk: null, space_ids: order }),
         });
         return res.status;
       },
-      { ids: reversed, token: csrfToken },
+      { order: reversed, token: csrfToken },
     );
-    expect(response).toBe(200);
+    expect(status).toBe(200);
 
-    // Reload and verify order changed
     await page.reload();
     const newIds = await page
-      .locator(".venue-row")
-      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-venue-id"))));
+      .locator("#space-root-list > li.space-node")
+      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(newIds).toEqual(reversed);
 
-    // Clean up: delete "Reorder Test Venue"
-    await page
-      .locator("tr", { hasText: "Reorder Test Venue" })
-      .locator(".action-dropdown-toggle")
-      .click();
-    await page
-      .locator("tr", { hasText: "Reorder Test Venue" })
-      .locator(".action-dropdown-menu")
-      .getByRole("button", { name: /Delete/i })
-      .click();
+    // Clean up: delete the throwaway root.
+    const menu = await openSpaceMenu(page, "Reorder Test Space");
+    await menu.getByRole("button", { name: "Delete" }).click();
     await acceptConfirmModal(page);
-    await expect(page.getByText("Venue deleted successfully.")).toBeVisible();
-  });
-
-  test("reorders areas via JSON endpoint", async ({ page }) => {
-    // Aurora Convention Hall has North Wing and Hearth Lounge
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/");
-
-    // Extract area IDs
-    const areaIds = await page
-      .locator(".area-row")
-      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-area-id"))));
-    expect(areaIds.length).toBeGreaterThanOrEqual(2);
-
-    // Reverse the order
-    const reversed = [...areaIds].reverse();
-
-    // Extract CSRF token from a form on the page
-    const csrfToken = await page.locator('input[name="csrfmiddlewaretoken"]').first().inputValue();
-
-    // Call reorder endpoint
-    const response = await page.evaluate(
-      async ({ ids, token }) => {
-        const res = await fetch("/panel/event/frostfire-con/venues/aurora-hall/areas/do/reorder", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": token,
-          },
-          body: JSON.stringify({ area_ids: ids }),
-        });
-        return res.status;
-      },
-      { ids: reversed, token: csrfToken },
-    );
-    expect(response).toBe(200);
-
-    // Reload and verify order changed
-    await page.reload();
-    const newIds = await page
-      .locator(".area-row")
-      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-area-id"))));
-    expect(newIds).toEqual(reversed);
-
-    // Restore original order
-    await page.evaluate(
-      async ({ ids, token }) => {
-        await fetch("/panel/event/frostfire-con/venues/aurora-hall/areas/do/reorder", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": token,
-          },
-          body: JSON.stringify({ area_ids: ids }),
-        });
-      },
-      { ids: areaIds, token: csrfToken },
-    );
-  });
-
-  test("reorders spaces via JSON endpoint", async ({ page }) => {
-    // Create a second space in North Wing for reordering
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/");
-    await page.getByRole("link", { name: "New Space" }).click();
-    await page.locator("#id_name").fill("Reorder Test Space");
-    await page.locator("#id_capacity").fill("10");
-    await page.getByRole("button", { name: "Create Space" }).click();
-    await expect(page.getByText("Space created successfully.")).toBeVisible();
-
-    // Navigate back to area detail
-    await page.goto("/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/");
-
-    // Extract space IDs
-    const spaceIds = await page
-      .locator(".space-row")
-      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
-    expect(spaceIds.length).toBeGreaterThanOrEqual(2);
-
-    // Reverse the order
-    const reversed = [...spaceIds].reverse();
-
-    // Extract CSRF token from a form on the page
-    const csrfToken = await page.locator('input[name="csrfmiddlewaretoken"]').first().inputValue();
-
-    // Call reorder endpoint
-    const response = await page.evaluate(
-      async ({ ids, token }) => {
-        const res = await fetch(
-          "/panel/event/frostfire-con/venues/aurora-hall/areas/north-wing/spaces/do/reorder",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRFToken": token,
-            },
-            body: JSON.stringify({ space_ids: ids }),
-          },
-        );
-        return res.status;
-      },
-      { ids: reversed, token: csrfToken },
-    );
-    expect(response).toBe(200);
-
-    // Reload and verify order changed
-    await page.reload();
-    const newIds = await page
-      .locator(".space-row")
-      .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
-    expect(newIds).toEqual(reversed);
-
-    // Clean up: delete "Reorder Test Space"
-    const reorderRow = page.locator("tr", {
-      hasText: "Reorder Test Space",
-    });
-    await reorderRow.locator(".action-dropdown-toggle").click();
-    await reorderRow
-      .locator(".action-dropdown-menu")
-      .getByRole("button", { name: /Delete/i })
-      .click();
-
-    // Confirm in the styled dialog that replaced the native confirm()
-    await page.locator("#confirm-dialog").getByRole("button", { name: "Delete" }).click();
-
     await expect(page.getByText("Space deleted successfully.")).toBeVisible();
   });
 

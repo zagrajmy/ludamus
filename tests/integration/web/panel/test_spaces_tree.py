@@ -195,6 +195,44 @@ class TestSpaceCreate:
             },
         )
 
+    def test_get_child_form_foreign_parent_redirects(
+        self, manager_client, event, sphere
+    ):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.get(self._child_url(event, foreign.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+    def test_create_child_under_session_leaf_rerenders(self, manager_client, event):
+        # A leaf already holding a session cannot become a branch; the
+        # invariant surfaces as a form error and the page re-renders.
+        parent = _root(event, "Hall")
+        AgendaItemFactory(space=parent)
+
+        response = manager_client.post(
+            self._child_url(event, parent.pk), data={"name": "Room"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-form.html",
+            context_data={
+                **_base_context(event, rooms=1),
+                "parent": _node(parent, depth=1, is_leaf=True),
+                "node": None,
+                "form": ANY,
+            },
+        )
+        assert not Space.objects.filter(name="Room").exists()
+
 
 class TestSpaceEdit:
     @staticmethod
@@ -245,6 +283,46 @@ class TestSpaceEdit:
             url=_venues_url(event),
         )
 
+    def test_get_edit_foreign_node_redirects(self, manager_client, event, sphere):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.get(self._url(event, foreign.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+    def test_edit_under_session_branch_rerenders(self, manager_client, event):
+        # Renaming a child whose parent now holds a session re-surfaces the
+        # leaf-only rule as a form error.
+        parent = _root(event, "Hall")
+        child = Space.objects.create(
+            event=event, parent=parent, name="Room", slug="room"
+        )
+        AgendaItemFactory(space=parent)
+
+        response = manager_client.post(
+            self._url(event, child.pk), data={"name": "Renamed"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-form.html",
+            context_data={
+                **_base_context(event, rooms=2),
+                "parent": None,
+                "node": _node(child, depth=2, is_leaf=True),
+                "form": ANY,
+            },
+        )
+        child.refresh_from_db()
+        assert child.name == "Room"
+
 
 class TestSpaceDelete:
     @staticmethod
@@ -282,6 +360,30 @@ class TestSpaceDelete:
         )
         assert Space.objects.filter(pk=root.pk).exists()
 
+    def test_delete_missing_node(self, manager_client, event):
+        response = manager_client.post(self._url(event, 987654))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+    def test_delete_foreign_node(self, manager_client, event, sphere):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.post(self._url(event, foreign.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+        assert Space.objects.filter(pk=foreign.pk).exists()
+
 
 class TestSpaceDuplicate:
     def test_duplicate_subtree(self, manager_client, event):
@@ -300,6 +402,96 @@ class TestSpaceDuplicate:
         )
         assert Space.objects.filter(event=event, name="Hall (Copy)").exists()
 
+    def test_duplicate_missing_node(self, manager_client, event):
+        response = manager_client.post(
+            reverse("panel:space-duplicate", kwargs={"slug": event.slug, "pk": 987654})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+    def test_duplicate_foreign_node(self, manager_client, event, sphere):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.post(
+            reverse(
+                "panel:space-duplicate", kwargs={"slug": event.slug, "pk": foreign.pk}
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+
+class TestSpaceCopy:
+    @staticmethod
+    def _url(event, pk):
+        return reverse("panel:space-copy", kwargs={"slug": event.slug, "pk": pk})
+
+    def test_get_foreign_node_redirects(self, manager_client, event, sphere):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.get(self._url(event, foreign.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+    def test_get_without_other_events_warns(self, manager_client, event):
+        node = _root(event, "Hall")
+
+        response = manager_client.get(self._url(event, node.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.WARNING, "No other events available to copy to.")],
+            url=_venues_url(event),
+        )
+
+    def test_post_foreign_node_redirects(self, manager_client, event, sphere):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.post(self._url(event, foreign.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+
+    def test_post_invalid_form_rerenders(self, manager_client, event):
+        # No other events => empty choices => the target_event field is invalid.
+        node = _root(event, "Hall")
+
+        response = manager_client.post(self._url(event, node.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-copy.html",
+            context_data={
+                **_base_context(event, rooms=1),
+                "node": _node(node, depth=1, is_leaf=True),
+                "form": ANY,
+            },
+        )
+
 
 class TestSpaceReorder:
     def test_reorder_roots(self, manager_client, event):
@@ -317,3 +509,12 @@ class TestSpaceReorder:
         second.refresh_from_db()
         assert second.order == 0
         assert first.order == 1
+
+    def test_reorder_unknown_event_returns_404(self, manager_client):
+        response = manager_client.post(
+            reverse("panel:space-reorder", kwargs={"slug": "missing-event"}),
+            data=json.dumps({"parent_pk": None, "space_ids": []}),
+            content_type="application/json",
+        )
+
+        assert_response(response, HTTPStatus.NOT_FOUND)
