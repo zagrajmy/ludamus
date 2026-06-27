@@ -41,21 +41,17 @@ class ClaimService:
     def read_claimable(self, token: str) -> ClaimableProfileDTO | None:
         return self._claims.read_claimable(token)
 
-    def redeem(
-        self, *, token: str, username: str, email: str, avatar_url: str
-    ) -> ClaimResultDTO:
+    def redeem(self, *, token: str, username: str) -> ClaimResultDTO:
         with self._transaction.atomic():
-            if self._claims.read_claimable(token) is None:
-                return ClaimResultDTO(outcome=ClaimOutcome.INVALID)
             # The recipient already authenticates as someone else; converting
-            # this row would collide on username. Refusing keeps the
+            # this row would collide on the unique username. Refusing keeps the
             # same-row conversion clean — merging into an existing account is a
             # deliberate non-goal for now.
             if self._claims.username_exists(username):
                 return ClaimResultDTO(outcome=ClaimOutcome.ALREADY_AUTHENTICATED)
-            slug = self._claims.convert(
-                token=token, username=username, email=email, avatar_url=avatar_url
-            )
+            # convert returns None for an unknown/spent token, so it is the sole
+            # authority on validity — no separate read-back probe.
+            slug = self._claims.convert(token=token, username=username)
             if slug is None:
                 return ClaimResultDTO(outcome=ClaimOutcome.INVALID)
             return ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug=slug)

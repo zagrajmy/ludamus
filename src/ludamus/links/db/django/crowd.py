@@ -39,9 +39,10 @@ class ClaimRepository(ClaimRepositoryProtocol):
         return User.objects.filter(username=username).exists()
 
     @staticmethod
-    def convert(
-        *, token: str, username: str, email: str, avatar_url: str
-    ) -> str | None:
+    def convert(*, token: str, username: str) -> str | None:
+        # Email/avatar from the provider are applied afterwards by the login
+        # callback's _apply_user_updates (with its own collision handling), so
+        # this stays a pure identity flip and never duplicates that rule.
         user = User.objects.filter(
             claim_token=token, user_type=UserType.CONNECTED
         ).first()
@@ -52,9 +53,5 @@ class ClaimRepository(ClaimRepositoryProtocol):
         user.manager = None
         user.password = make_password(None)
         user.claim_token = ""
-        if email and not User.objects.filter(email=email).exclude(pk=user.pk).exists():
-            user.email = email
-        if avatar_url:
-            user.avatar_url = avatar_url
         user.save()
         return user.slug

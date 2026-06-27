@@ -332,10 +332,7 @@ class Auth0LoginCallbackActionView(RedirectView):
         if not token:
             return None
         result = self.request.services.claims.redeem(
-            token=token,
-            username=userinfo.username,
-            email=userinfo.email or "",
-            avatar_url=userinfo.picture or "",
+            token=token, username=userinfo.username
         )
         if result.outcome == ClaimOutcome.CONVERTED:
             messages.success(

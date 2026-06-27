@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import User, UserType
+from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.pacts.crowd import ClaimableProfileDTO
 from tests.integration.utils import assert_response
 
@@ -243,3 +244,27 @@ class TestClaimRedemptionOnLogin:
             url="http://testserver/",
             messages=[(messages.INFO, expected)],
         )
+
+
+class TestClaimRepository:
+    def test_read_claimable_ignores_non_connected_row(self):
+        owner = _active(username="owner", slug="owner")
+        owner.claim_token = "tok"
+        owner.save()
+
+        assert ClaimRepository.read_claimable("tok") is None
+
+    def test_convert_is_single_use(self):
+        manager = _active(username="mgr", slug="mgr")
+        kid = _connected(manager=manager, token="tok", username="connected|kid")
+
+        slug = ClaimRepository.convert(token="tok", username="auth0|new")
+
+        assert slug == kid.slug
+        kid.refresh_from_db()
+        assert kid.user_type == UserType.ACTIVE
+        assert kid.manager_id is None
+        assert not kid.claim_token
+        # The token is spent: a second redemption finds nothing.
+        assert ClaimRepository.convert(token="tok", username="auth0|other") is None
+        assert ClaimRepository.read_claimable("tok") is None

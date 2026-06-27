@@ -19,8 +19,10 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, *, claimable=None, existing_usernames=(), converted_slug="kid"):
-        self._claimable = claimable
+    def __init__(
+        self, *, token_valid=True, existing_usernames=(), converted_slug="kid"
+    ):
+        self._token_valid = token_valid
         self._existing = set(existing_usernames)
         self._converted_slug = converted_slug
         self.issued = []
@@ -28,16 +30,18 @@ class FakeRepo:
 
     def issue_token(self, *, manager_slug, user_slug, token):
         self.issued.append((manager_slug, user_slug, token))
-        return self._claimable is not None
+        return self._token_valid
 
     def read_claimable(self, token):  # noqa: ARG002
-        return self._claimable
+        return _claimable() if self._token_valid else None
 
     def username_exists(self, username):
         return username in self._existing
 
-    def convert(self, *, token, username, email, avatar_url):
-        self.converted.append((token, username, email, avatar_url))
+    def convert(self, *, token, username):
+        if not self._token_valid:
+            return None
+        self.converted.append((token, username))
         return self._converted_slug
 
 
@@ -47,7 +51,7 @@ def _claimable(name="Kid", slug="kid", manager_name="Parent"):
 
 class TestIssue:
     def test_returns_token_and_persists_in_transaction(self):
-        repo = FakeRepo(claimable=_claimable())
+        repo = FakeRepo(token_valid=True)
         transaction = FakeTransaction()
         service = ClaimService(transaction, repo)
 
@@ -58,7 +62,7 @@ class TestIssue:
         assert repo.issued == [("parent", "kid", token)]
 
     def test_returns_none_when_row_not_found(self):
-        repo = FakeRepo(claimable=None)
+        repo = FakeRepo(token_valid=False)
         service = ClaimService(FakeTransaction(), repo)
 
         assert service.issue(manager_slug="parent", user_slug="ghost") is None
@@ -66,36 +70,32 @@ class TestIssue:
 
 class TestRedeem:
     def test_converts_managed_row_into_account(self):
-        repo = FakeRepo(claimable=_claimable(), converted_slug="kid")
+        repo = FakeRepo(token_valid=True, converted_slug="kid")
         transaction = FakeTransaction()
         service = ClaimService(transaction, repo)
 
-        result = service.redeem(
-            token="t", username="auth0|new", email="k@example.com", avatar_url="pic"
-        )
+        result = service.redeem(token="t", username="auth0|new")
 
         assert transaction.entered == 1
         assert result.outcome == ClaimOutcome.CONVERTED
         assert result.user_slug == "kid"
-        assert repo.converted == [("t", "auth0|new", "k@example.com", "pic")]
+        assert repo.converted == [("t", "auth0|new")]
 
     def test_refuses_when_recipient_already_has_account(self):
-        repo = FakeRepo(claimable=_claimable(), existing_usernames=["auth0|me"])
+        repo = FakeRepo(token_valid=True, existing_usernames=["auth0|me"])
         service = ClaimService(FakeTransaction(), repo)
 
-        result = service.redeem(token="t", username="auth0|me", email="", avatar_url="")
+        result = service.redeem(token="t", username="auth0|me")
 
         assert result.outcome == ClaimOutcome.ALREADY_AUTHENTICATED
         assert not result.user_slug
         assert repo.converted == []
 
     def test_invalid_when_token_unknown(self):
-        repo = FakeRepo(claimable=None)
+        repo = FakeRepo(token_valid=False)
         service = ClaimService(FakeTransaction(), repo)
 
-        result = service.redeem(
-            token="bad", username="auth0|new", email="", avatar_url=""
-        )
+        result = service.redeem(token="bad", username="auth0|new")
 
         assert result.outcome == ClaimOutcome.INVALID
         assert repo.converted == []
