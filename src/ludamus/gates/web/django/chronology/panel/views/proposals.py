@@ -506,7 +506,9 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         choices = [(c.pk, c.name) for c in categories]
-        form_class = create_proposal_form(choices)
+        facilitators = self.request.di.uow.facilitators.list_by_event(current_event.pk)
+        facilitator_choices = [(f.pk, f.display_name) for f in facilitators]
+        form_class = create_proposal_form(choices, facilitator_choices)
         return form_class(data) if data is not None else form_class()
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -536,7 +538,10 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
         )
 
-        self.request.di.uow.sessions.create(
+        # The form's MultipleChoiceField already validated each id against the
+        # event's facilitators, so the cleaned list is event-scoped.
+        facilitator_ids = [int(fid) for fid in form.cleaned_data["facilitator_ids"]]
+        proposal_id = self.request.di.uow.sessions.create(
             SessionData(
                 category_id=int(form.cleaned_data["category_id"]),
                 event_id=current_event.pk,
@@ -554,9 +559,10 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 title=title,
             ),
             tag_ids=[],
+            facilitator_ids=facilitator_ids,
         )
         messages.success(self.request, _("Proposal created successfully."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
 
 class ProposalAcceptActionView(PanelAccessMixin, EventContextMixin, View):
