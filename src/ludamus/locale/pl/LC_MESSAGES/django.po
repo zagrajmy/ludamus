@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 20:58+0200\n"
+"POT-Creation-Date: 2026-06-28 10:22+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4240,6 +4240,12 @@ msgid "Reorder %(name)s — use the arrow keys"
 msgstr "Zmień kolejność: %(name)s — użyj strzałek"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Room"
+msgstr "Sala"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
 msgstr "Grupa"
 
@@ -5635,11 +5641,6 @@ msgstr "%(age)s+"
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Assignment"
 msgstr "Przypisanie"
-
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Room"
-msgstr "Sala"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Reassign"
