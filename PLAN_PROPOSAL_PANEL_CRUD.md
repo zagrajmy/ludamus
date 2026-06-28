@@ -320,39 +320,37 @@ clicking through to the facilitator-edit page.
 - Tests: integration (render, save, foreign-event facilitator ignored)
   plus a unit test for the service's event-scoping + save path.
 
-### Step 7 — Detail-page polish + "no delete" policy enforcement
+### Step 7 — Detail-page polish (presenter-card rename)
 
-Demoable outcome: detail page reflects the new edit surface, drops the
-duplicate "Facilitator" header at the top, and clearly shows no Delete
-button anywhere.
+Demoable outcome: the proposal-detail page no longer has the misleading
+duplicate "Facilitator" heading at the top — it reads "Presenter",
+naming what the card actually shows.
 
-- Detail page (`proposal-detail.html`):
-  - Status row (from Step 1).
-  - Track chips (Step 3) — each chip links to track detail page.
-  - Time-slot preferences read-out (Step 4).
-  - Category badge (Step 2).
-  - Read-only metadata + scheduling/change-log surface (Step 9): slug,
-    creation_time, modification_time, agenda-item placement + link,
-    schedule-change-log list. ImportLogEntry link is already present.
-  - "Edit" button as today.
-- **Resolve the duplicate-name confusion.** Today the template renders
-  two cards under similar headings: the top card is titled
-  `{% translate "Facilitator" %}` but actually shows
-  `proposal.display_name` (the canonical presenter byline) + linked
-  presenter `User` + contact email; the bottom card is titled
-  "Facilitators" and lists the assigned `Facilitator` rows with their
-  own cached names. Rename the top card to a heading that names what
-  it actually contains — e.g. "Presenter" — making it the single
-  authoritative surface for "who is running this". The bottom card
-  stays as the entity-list — same data, but its visible role is now
-  navigation (LINK to facilitator-detail in Step 8) + read-only
-  cached-name context, not naming-source-of-truth. Catalog the new
-  heading string in `locale/pl/LC_MESSAGES/django.po`.
-- Confirm there is no Delete button, link, or URL anywhere in the panel.
-  Grep `panel:proposal-delete` to verify; if a stub exists, remove it.
-- Documentation: a one-paragraph "Editing proposals" section in
-  `docs/agents/architecture.md` or a sibling doc, linking the new
-  service.
+The rest of the detail-page surface this step originally bundled already
+landed in earlier steps: status row (Step 1), track chips (Step 3),
+time-slot read-out (Step 4), category badge (Step 2). The read-only
+metadata + scheduling/change-log surface is **Step 9**.
+
+- **Shipped:** renamed the top card heading from `Facilitator` to
+  **`Presenter`** in `proposal-detail.html`. The card already shows
+  `proposal.display_name` (the canonical byline) + linked presenter
+  `User` + contact email, so it is now the single authoritative
+  "who is running this" surface. The bottom "Facilitators" entity-list
+  stays (Step 8 adds links to it). New `Presenter` string catalogued in
+  `locale/pl/LC_MESSAGES/django.po`.
+
+- **"No-delete policy" dropped — decision: keep the soft-delete.** The
+  panel already has a complete, tested **soft-delete + restore** flow
+  (`ProposalDeleteActionView` / `ProposalRestoreActionView`,
+  `session_deletion` service, the deleted-proposals restore section on
+  the list page). Because it is reversible — not the destructive delete
+  the original request disallowed — it stays as-is. The Delete button on
+  the detail page remains. The "Out of scope: deleting proposals" line
+  below refers to *hard* deletion, which still does not exist.
+
+- Documentation deferred: the plan itself documents the edit surface;
+  a dedicated `docs/agents` write-up can follow if needed (the new
+  services are `session_content_edit` and `host_personal_data`).
 
 ### Step 8 — Link facilitators on proposal detail to their facilitator page
 

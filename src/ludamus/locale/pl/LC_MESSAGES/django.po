@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 08:16+0000\n"
+"POT-Creation-Date: 2026-06-28 09:12+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5993,8 +5993,7 @@ msgid "View import log"
 msgstr "Zobacz dziennik importu"
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Facilitator"
+msgid "Presenter"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -6028,7 +6027,8 @@ msgstr "Dane osobowe twórcy programu"
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Personal-data answers for each assigned facilitator."
-msgstr "Odpowiedzi z danymi osobowymi dla każdego przypisanego twórcy programu."
+msgstr ""
+"Odpowiedzi z danymi osobowymi dla każdego przypisanego twórcy programu."
 
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Settings"
@@ -6098,6 +6098,10 @@ msgstr "Szukaj po prowadzącym lub wartościach pól"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Facilitator"
+msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Created"
