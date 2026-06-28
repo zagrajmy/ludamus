@@ -171,12 +171,58 @@ class TestSpaceTreeRepositoryMutations:
 
         capacity = 12
         updated = repo.update(
-            pk=node.pk, name="Lounge", capacity=capacity, description="comfy"
+            pk=node.pk,
+            name="Lounge",
+            capacity=capacity,
+            description="comfy",
+            parent_id=None,
         )
 
         assert updated.slug == "lounge"
         assert updated.capacity == capacity
         assert updated.description == "comfy"
+
+    def test_update_reparents_and_appends_to_new_siblings(self, event, repo):
+        source = repo.create(
+            event_id=event.pk,
+            parent_id=None,
+            name="Source",
+            capacity=None,
+            description="",
+        )
+        target = repo.create(
+            event_id=event.pk,
+            parent_id=None,
+            name="Target",
+            capacity=None,
+            description="",
+        )
+        existing = repo.create(
+            event_id=event.pk,
+            parent_id=target.pk,
+            name="Existing",
+            capacity=None,
+            description="",
+        )
+        moved = repo.create(
+            event_id=event.pk,
+            parent_id=source.pk,
+            name="Moved",
+            capacity=None,
+            description="",
+        )
+
+        updated = repo.update(
+            pk=moved.pk,
+            name="Moved",
+            capacity=None,
+            description="",
+            parent_id=target.pk,
+        )
+
+        assert updated.parent_id == target.pk
+        # Appended after the pre-existing child of the new parent.
+        assert updated.order == Space.objects.get(pk=existing.pk).order + 1
 
     def test_reorder_sets_order(self, event, repo):
         root = repo.create(

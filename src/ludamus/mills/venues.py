@@ -100,11 +100,41 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         )
 
     def update(
-        self, *, pk: int, name: str, capacity: int | None, description: str
+        self,
+        *,
+        pk: int,
+        name: str,
+        capacity: int | None,
+        description: str,
+        parent_id: int | None,
     ) -> SpaceNodeDTO:
         return self._spaces.update(
-            pk=pk, name=name, capacity=capacity, description=description
+            pk=pk,
+            name=name,
+            capacity=capacity,
+            description=description,
+            parent_id=parent_id,
         )
+
+    def list_reparent_targets(self, *, pk: int, event_pk: int) -> list[tuple[int, str]]:
+        # Valid new parents for the node: every space in the event except the
+        # node itself, its descendants (a cycle), and spaces already holding a
+        # scheduled session (a leaf-with-session can't become a branch). Root is
+        # offered separately by the caller as the "Top level" option.
+        blocked = self._spaces.space_pks_with_sessions(event_pk)
+        targets: list[tuple[int, str]] = []
+
+        def walk(node: SpaceNodeDTO, prefix: str, *, under_self: bool) -> None:
+            path = f"{prefix} > {node.name}" if prefix else node.name
+            skip = under_self or node.pk == pk
+            if not skip and node.pk not in blocked:
+                targets.append((node.pk, path))
+            for child in node.children:
+                walk(child, path, under_self=skip)
+
+        for root in self._spaces.list_tree(event_pk):
+            walk(root, "", under_self=False)
+        return targets
 
     def reorder(
         self, *, parent_id: int | None, child_pks: list[int], event_id: int

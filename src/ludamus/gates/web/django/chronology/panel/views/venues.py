@@ -20,7 +20,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.gates.web.django.forms import SpaceForm, create_space_copy_form
+from ludamus.gates.web.django.forms import (
+    SpaceEditForm,
+    SpaceForm,
+    create_space_copy_form,
+)
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
@@ -132,6 +136,14 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
             raise NotFoundError
         return node
 
+    def _parent_choices(self, node_pk: int, event_pk: int) -> list[tuple[str, str]]:
+        # "Top level" (empty value) reparents to root; the rest are eligible
+        # targets (no self, no descendants, no session-holding spaces).
+        targets = self.request.services.space_tree.list_reparent_targets(
+            pk=node_pk, event_pk=event_pk
+        )
+        return [("", _("Top level"))] + [(str(pk), name) for pk, name in targets]
+
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -142,16 +154,19 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
 
-        context["active_nav"] = "venues"
-        context["parent"] = None
-        context["node"] = node
-        context["form"] = SpaceForm(
+        form = SpaceEditForm(
             initial={
                 "name": node.name,
                 "capacity": node.capacity,
                 "description": node.description,
-            }
+                "parent": node.parent_id or "",
+            },
+            parent_choices=self._parent_choices(node.pk, current_event.pk),
         )
+        context["active_nav"] = "venues"
+        context["parent"] = None
+        context["node"] = node
+        context["form"] = form
         return TemplateResponse(self.request, "panel/space-form.html", context)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
@@ -164,14 +179,19 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
 
-        form = SpaceForm(self.request.POST)
+        form = SpaceEditForm(
+            self.request.POST,
+            parent_choices=self._parent_choices(node.pk, current_event.pk),
+        )
         if form.is_valid():
+            parent_raw = form.cleaned_data.get("parent")
             try:
                 self.request.services.space_tree.update(
                     pk=node.pk,
                     name=form.cleaned_data["name"],
                     capacity=form.cleaned_data.get("capacity"),
                     description=form.cleaned_data.get("description") or "",
+                    parent_id=int(parent_raw) if parent_raw else None,
                 )
             except ValidationError as exc:
                 form.add_error(None, exc.messages[0])

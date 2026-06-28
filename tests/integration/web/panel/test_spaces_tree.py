@@ -296,9 +296,74 @@ class TestSpaceEdit:
             url=_venues_url(event),
         )
 
-    def test_edit_under_session_branch_rerenders(self, manager_client, event):
-        # Renaming a child whose parent now holds a session re-surfaces the
-        # leaf-only rule as a form error.
+    def test_reparent_to_top_level(self, manager_client, event):
+        parent = _root(event, "Hall")
+        child = Space.objects.create(
+            event=event, parent=parent, name="Room", slug="room", capacity=8
+        )
+
+        response = manager_client.post(
+            self._url(event, child.pk),
+            data={"name": "Room", "capacity": "8", "parent": ""},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space updated successfully.")],
+            url=_venues_url(event),
+        )
+        child.refresh_from_db()
+        assert child.parent_id is None
+
+    def test_reparent_under_another_node(self, manager_client, event):
+        source = _root(event, "Hall")
+        target = _root(event, "Annex")
+        child = Space.objects.create(
+            event=event, parent=source, name="Room", slug="room", capacity=8
+        )
+
+        response = manager_client.post(
+            self._url(event, child.pk),
+            data={"name": "Room", "capacity": "8", "parent": str(target.pk)},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space updated successfully.")],
+            url=_venues_url(event),
+        )
+        child.refresh_from_db()
+        assert child.parent_id == target.pk
+
+    def test_reparent_under_own_descendant_rejected(self, manager_client, event):
+        # Moving a node under its own child would create a cycle, so the child
+        # is never an offered choice; posting it is rejected and re-renders.
+        root = _root(event, "Hall")
+        child = Space.objects.create(event=event, parent=root, name="Room", slug="room")
+
+        response = manager_client.post(
+            self._url(event, root.pk), data={"name": "Hall", "parent": str(child.pk)}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-form.html",
+            context_data={
+                **_base_context(event, rooms=2),
+                "parent": None,
+                "node": _node(root, depth=1, is_leaf=False),
+                "form": ANY,
+            },
+        )
+        root.refresh_from_db()
+        assert root.parent_id is None
+
+    def test_reparent_under_session_holder_rejected(self, manager_client, event):
+        # A space holding a scheduled session can't become a parent, so it is
+        # not an allowed target; posting it is rejected and re-renders.
         parent = _root(event, "Hall")
         child = Space.objects.create(
             event=event, parent=parent, name="Room", slug="room"
@@ -306,7 +371,8 @@ class TestSpaceEdit:
         AgendaItemFactory(space=parent)
 
         response = manager_client.post(
-            self._url(event, child.pk), data={"name": "Renamed"}
+            self._url(event, child.pk),
+            data={"name": "Renamed", "parent": str(parent.pk)},
         )
 
         assert_response(
@@ -322,6 +388,7 @@ class TestSpaceEdit:
         )
         child.refresh_from_db()
         assert child.name == "Room"
+        assert child.parent_id == parent.pk
 
 
 class TestSpaceDelete:

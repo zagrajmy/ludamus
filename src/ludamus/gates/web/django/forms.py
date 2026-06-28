@@ -1,7 +1,7 @@
 """Django forms for panel views."""
 
 from decimal import Decimal
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -398,6 +398,24 @@ class SpaceForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+
+
+class SpaceEditForm(SpaceForm):
+    # Editing additionally allows reparenting; the view supplies the eligible
+    # targets (no self, descendants, or session-holding spaces). The empty
+    # choice ("Top level") moves the space to the root.
+    def __init__(
+        self, *args: Any, parent_choices: list[tuple[str, str]], **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["parent"] = forms.ChoiceField(
+            required=False,
+            label=_("Parent"),
+            help_text=_(
+                "Move this space elsewhere, or choose Top level to flatten it."
+            ),
+            choices=parent_choices,
+        )
 
 
 def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:

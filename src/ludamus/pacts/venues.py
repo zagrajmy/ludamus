@@ -50,7 +50,13 @@ class SpaceTreeRepositoryProtocol(Protocol):
         description: str,
     ) -> SpaceNodeDTO: ...
     def update(
-        self, *, pk: int, name: str, capacity: int | None, description: str
+        self,
+        *,
+        pk: int,
+        name: str,
+        capacity: int | None,
+        description: str,
+        parent_id: int | None,
     ) -> SpaceNodeDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
@@ -58,6 +64,8 @@ class SpaceTreeRepositoryProtocol(Protocol):
     def reorder(parent_id: int | None, child_pks: list[int], event_id: int) -> None: ...
     @staticmethod
     def subtree_has_sessions(pk: int) -> bool: ...
+    @staticmethod
+    def space_pks_with_sessions(event_id: int) -> frozenset[int]: ...
     def duplicate(self, pk: int, new_name: str) -> SpaceNodeDTO: ...
     def copy_to_event(self, pk: int, target_event_id: int) -> SpaceNodeDTO: ...
 
@@ -75,8 +83,17 @@ class SpaceTreeServiceProtocol(Protocol):
         description: str,
     ) -> SpaceNodeDTO: ...
     def update(
-        self, *, pk: int, name: str, capacity: int | None, description: str
+        self,
+        *,
+        pk: int,
+        name: str,
+        capacity: int | None,
+        description: str,
+        parent_id: int | None,
     ) -> SpaceNodeDTO: ...
+    def list_reparent_targets(
+        self, *, pk: int, event_pk: int
+    ) -> list[tuple[int, str]]: ...
     def reorder(
         self, *, parent_id: int | None, child_pks: list[int], event_id: int
     ) -> None: ...

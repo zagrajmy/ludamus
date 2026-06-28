@@ -1041,17 +1041,36 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
     @transaction.atomic
     def update(
-        self, *, pk: int, name: str, capacity: int | None, description: str
+        self,
+        *,
+        pk: int,
+        name: str,
+        capacity: int | None,
+        description: str,
+        parent_id: int | None,
     ) -> SpaceNodeDTO:
         try:
             space = Space.objects.select_for_update().get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
-        if space.name != name:
-            space.slug = self.generate_unique_slug(
-                space.event_id, space.parent_id, slugify(name), exclude_pk=pk
-            )
+        parent_changed = space.parent_id != parent_id
+        # Re-derive the slug whenever the name or parent changes, so it stays
+        # unique among the (new) siblings. full_clean() below is the backstop
+        # for cycles, depth, and the leaf-with-session rule.
+        if space.name != name or parent_changed:
             space.name = name
+            space.parent_id = parent_id
+            space.slug = self.generate_unique_slug(
+                space.event_id, parent_id, slugify(name), exclude_pk=pk
+            )
+        if parent_changed:
+            # Append to the end of the new parent's sibling list.
+            max_order = (
+                Space.objects.filter(event_id=space.event_id, parent_id=parent_id)
+                .exclude(pk=pk)
+                .aggregate(top=Max("order"))["top"]
+            )
+            space.order = (max_order if max_order is not None else -1) + 1
         space.capacity = capacity
         space.description = description
         space.full_clean()
@@ -1097,6 +1116,16 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
         collect(pk)
         return AgendaItem.objects.filter(space_id__in=subtree).exists()
+
+    @staticmethod
+    def space_pks_with_sessions(event_id: int) -> frozenset[int]:
+        # Spaces that directly hold a scheduled session — these can't become a
+        # parent (a leaf-with-session can't turn into a branch). One query.
+        return frozenset(
+            AgendaItem.objects.filter(space__event_id=event_id)
+            .values_list("space_id", flat=True)
+            .distinct()
+        )
 
     @staticmethod
     def generate_unique_slug(
