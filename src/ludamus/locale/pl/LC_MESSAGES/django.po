@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 09:56+0000\n"
+"POT-Creation-Date: 2026-06-28 10:22+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3268,6 +3268,7 @@ msgstr "Pełny harmonogram"
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposals.html
 msgid "Display Name"
 msgstr "Nazwa wyświetlana"
 
@@ -5628,6 +5629,7 @@ msgstr "Powrót do podsumowania"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Previous"
 msgstr "Poprzednia"
@@ -5643,6 +5645,7 @@ msgstr "Pytanie %(position)s z %(total)s — %(question)s"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
@@ -6267,12 +6270,23 @@ msgid "Search by facilitator or field values"
 msgstr "Szukaj po prowadzącym lub wartościach pól"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "All categories"
+msgstr "Wszystkie kategorie"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Facilitator"
-msgstr "Prowadzący"
+#, python-format
+msgid ""
+"\n"
+"                            Page %(page)s of %(total)s\n"
+"                        "
+msgstr ""
+"\n"
+"                            Strona %(page)s z %(total)s\n"
+"                        "
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
@@ -6946,6 +6960,9 @@ msgid ""
 msgstr ""
 "Brak lokalizacji. Utwórz pierwszą lokalizację, aby rozpocząć budowanie "
 "struktury wydarzenia."
+
+#~ msgid "Facilitator"
+#~ msgstr "Prowadzący"
 
 #~ msgid "Select space and time slot for"
 #~ msgstr "Wybierz przestrzeń i przedział czasowy dla"

@@ -72,6 +72,24 @@
                                placeholder="{% translate "Search by facilitator or field values" %}"
                                class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
                     </div>
+                    {% if categories %}
+                        <div class="w-full sm:w-48 min-w-0">
+                            <label for="filter-category"
+                                   title="{% translate "Category" %}"
+                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                {% translate "Category" %}
+                            </label>
+                            <select id="filter-category"
+                                    name="category"
+                                    class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                <option value="">{% translate "All categories" %}</option>
+                                {% for c in categories %}
+                                    <option value="{{ c.pk }}"
+                                            {% if filter_category_pk == c.pk %}selected{% endif %}>{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
                     {% for field in session_fields %}
                         <div class="w-full sm:w-48 min-w-0">
                             <label for="filter-field-{{ field.pk }}"
@@ -160,6 +178,25 @@
                     {% endfor %}
                 </tbody>
             {% end_tessera_table %}
+            {% if page_obj.paginator.num_pages > 1 %}
+                <div class="flex items-center justify-between mt-4 text-sm">
+                    <span class="text-foreground-muted">
+                        {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
+                            Page {{ page }} of {{ total }}
+                        {% endblocktranslate %}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        {% if page_obj.has_previous %}
+                            <a href="{% querystring page=page_obj.previous_page_number %}"
+                               class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
+                        {% endif %}
+                        {% if page_obj.has_next %}
+                            <a href="{% querystring page=page_obj.next_page_number %}"
+                               class="btn btn-secondary text-sm">{% translate "Next" %}</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>

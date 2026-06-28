@@ -991,6 +991,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         field_filters: dict[int, str] | None = None,
         search: str | None = None,
         track_pk: int | None = None,
+        category_pk: int | None = None,
     ) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_track_ids(session_id: int) -> list[int]: ...

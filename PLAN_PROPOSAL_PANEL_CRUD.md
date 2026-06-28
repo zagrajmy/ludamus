@@ -482,6 +482,27 @@ surface (C3's schedule half).
 
 ### Step 10 — Proposals list view polish: pagination + facilitator column trim
 
+**Shipped** in two commits — 10a (column trim + relabel) and 10b
+(category filter + pagination).
+
+- **10a:** the "Facilitator" column (which shows the session byline) was
+  relabelled **"Display Name"** (per resolved Q7) on both the active and
+  deleted tables, and the cell capped with `max-w-xs truncate` +
+  `title="…"`.
+- **10b — category filter:** a "Category" `<select>` ("All categories"
+  default) above the table; `?category=<id>` threads through the view to a
+  new `category_pk` arg on `list_sessions_by_event`, validated against the
+  event's categories (foreign ids ignored). Preserved across page links by
+  the built-in `{% querystring %}` tag (Django 6).
+- **10b — pagination:** the view paginates the already-loaded list with
+  Django's `Paginator` (page size 50). `page_obj` goes in context
+  (`ANY` in tests); a Prev/Next strip uses `{% querystring %}` so all
+  filters survive page navigation. `get_page` clamps bad pages (non-int →
+  1, out-of-range → last). Repo-level slicing deferred (ponytail comment).
+- Tests: category filter (incl. foreign-event ignored), 60-row pagination
+  (page sizes + clamping), byline trim/relabel render; the 11 exact-context
+  list tests gained `page_obj`/`categories`/`filter_category_pk`.
+
 Demoable outcome: the proposals list (`panel/proposals.html`) becomes
 usable at scale — long display names no longer blow up row width, and
 the list paginates instead of returning everything in one page.
