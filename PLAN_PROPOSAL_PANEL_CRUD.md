@@ -656,10 +656,38 @@ as today.
 
 ### Step 12 — Facilitator binding on hand-created proposals
 
+**Shipped** (per resolved Q4: **existing facilitator only**, no inline
+create; the facilitator select comes **first** in the form).
+
+- `create_proposal_form` gained an optional `facilitators` param — when
+  passed (create variant only), it adds a **required**
+  `facilitator_ids` `MultipleChoiceField`. The choices are the event's
+  facilitators, so each id is validated against them: "at least one" comes
+  free from `required`, and a foreign-event id fails `invalid_choice`
+  (event-scoping without a manual check). The shared edit reuse of the
+  factory passes no facilitators, so the edit form is unchanged.
+- `ProposalCreatePageView` passes the validated `facilitator_ids` to the
+  existing `sessions.create(..., facilitator_ids=...)` (the repo already
+  accepts them and returns the new pk) and redirects to
+  `panel:proposal-detail`. **No new service** — ponytail: the repo call
+  already attaches in one step, and the importer uses the same path; a
+  create-service wrapper for one existing call is scaffolding.
+- Template: the facilitator checkbox list is the **first** field; when the
+  event has no facilitators it shows a notice + link to
+  `panel:facilitator-create` instead of an unsatisfiable required field.
+- Tests: bind existing → attached + redirect to detail; no facilitator →
+  validation error, no session; foreign-event id → rejected.
+
+> Note: the Step-5-deferred migration of the create path off
+> `request.di.uow.sessions.create` is **not** done here — it would mean
+> wrapping a single existing repo call in a new service purely for
+> architectural tidiness. Left for the broader services-migration task,
+> same as the dead `ProposalSetFacilitatorsActionView` endpoint.
+
 Demoable outcome: when an organizer adds a new proposal by hand from the
 panel, they bind it to an existing facilitator (picked from the event's
-facilitators) or create a new facilitator inline, in the same form — no
-separate trip to the facilitator list first.
+facilitators), in the same form — no separate trip to the facilitator list
+first.
 
 Today `ProposalCreatePageView` creates the `Session` but leaves
 facilitator attachment to the existing `ProposalSetFacilitatorsActionView`

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 16:33+0000\n"
+"POT-Creation-Date: 2026-06-28 16:51+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1912,6 +1912,14 @@ msgstr "— Wybierz kategorię —"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Invalid category selection."
 msgstr "Nieprawidłowy wybór kategorii."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Please select at least one facilitator."
+msgstr "Wybierz przynajmniej jednego twórcę programu."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Invalid facilitator selection."
+msgstr "Nieprawidłowy wybór twórcy programu."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
@@ -4465,6 +4473,7 @@ msgstr "Zgłoszenia"
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Facilitators"
@@ -5985,6 +5994,14 @@ msgstr "Nie zaplanowano przedziałów czasowych."
 #: src/ludamus/templates/panel/proposals.html
 msgid "Create Session"
 msgstr "Utwórz punkt programu"
+
+#: src/ludamus/templates/panel/proposal-create.html
+msgid "This event has no facilitators yet."
+msgstr "To wydarzenie nie ma jeszcze twórców programu."
+
+#: src/ludamus/templates/panel/proposal-create.html
+msgid "Create one first"
+msgstr "Najpierw utwórz twórcę programu"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Proposal Details"
