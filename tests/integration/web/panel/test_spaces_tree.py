@@ -361,6 +361,36 @@ class TestSpaceEdit:
         root.refresh_from_db()
         assert root.parent_id is None
 
+    def test_reparent_exceeding_max_depth_rejected(self, manager_client, event):
+        # The parent picker doesn't check depth, so a node at the deepest level
+        # is still offered; moving another node under it would exceed the limit,
+        # and the model's full_clean() raises ValidationError the view catches.
+        parent = None
+        for i in range(7):
+            parent = Space.objects.create(
+                event=event, parent=parent, name=f"L{i}", slug=f"l{i}"
+            )
+        deepest = parent
+        node = _root(event, "Mover")
+
+        response = manager_client.post(
+            self._url(event, node.pk), data={"name": "Mover", "parent": str(deepest.pk)}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-form.html",
+            context_data={
+                **_base_context(event, rooms=8),
+                "parent": None,
+                "node": _node(node, depth=1, is_leaf=True),
+                "form": ANY,
+            },
+        )
+        node.refresh_from_db()
+        assert node.parent_id is None
+
     def test_reparent_under_session_holder_rejected(self, manager_client, event):
         # A space holding a scheduled session can't become a parent, so it is
         # not an allowed target; posting it is rejected and re-renders.
@@ -576,6 +606,32 @@ class TestSpaceReorder:
         second.refresh_from_db()
         assert second.order == 0
         assert first.order == 1
+
+    def _reorder(self, manager_client, event, payload):
+        return manager_client.post(
+            reverse("panel:space-reorder", kwargs={"slug": event.slug}),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_reorder_non_object_body_returns_400(self, manager_client, event):
+        response = self._reorder(manager_client, event, [1, 2, 3])
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
+
+    def test_reorder_invalid_space_ids_returns_400(self, manager_client, event):
+        response = self._reorder(
+            manager_client, event, {"parent_pk": None, "space_ids": ["nope"]}
+        )
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
+
+    def test_reorder_invalid_parent_pk_returns_400(self, manager_client, event):
+        response = self._reorder(
+            manager_client, event, {"parent_pk": "nope", "space_ids": []}
+        )
+
+        assert_response(response, HTTPStatus.BAD_REQUEST)
 
     def test_reorder_unknown_event_returns_404(self, manager_client):
         response = manager_client.post(

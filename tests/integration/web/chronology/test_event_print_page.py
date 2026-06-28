@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ludamus.adapters.db.django.models import Space, Track
+from ludamus.pacts.venues import PrintScopeOptionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -14,6 +15,10 @@ from tests.integration.conftest import (
     TimeSlotFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
+
+
+def _scope(space, name=None):
+    return PrintScopeOptionDTO(pk=space.pk, name=name or space.name)
 
 
 def _confirmed_item(event, session, space):
@@ -36,7 +41,10 @@ def _assert_print_ok(
     material="timetable",
     session_list_available=False,
     tracks_available=False,
+    print_scopes=None,
 ):
+    if print_scopes is None:
+        print_scopes = []
     ctx = response.context_data
     assert isinstance(ctx["qr_svg"], str)
     assert "<svg" in ctx["qr_svg"]
@@ -65,7 +73,7 @@ def _assert_print_ok(
             "area_schedule": ANY,
             "session_list": ANY,
             "qr_svg": ctx["qr_svg"],
-            "print_scopes": ANY,
+            "print_scopes": print_scopes,
             "tracks": ANY,
             "material_options": ctx["material_options"],
             "material": material,
@@ -97,7 +105,7 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        _assert_print_ok(response)
+        _assert_print_ok(response, print_scopes=[_scope(space)])
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content
@@ -114,7 +122,9 @@ class TestPublicEventPrintView:
             self._url(event.slug), {"material": "timetable-descriptions"}
         )
 
-        _assert_print_ok(response, material="timetable-descriptions")
+        _assert_print_ok(
+            response, material="timetable-descriptions", print_scopes=[_scope(space)]
+        )
         content = response.content.decode()
         assert session.title in content
         assert session.description in content
@@ -131,7 +141,7 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        _assert_print_ok(response)
+        _assert_print_ok(response, print_scopes=[_scope(space)])
         assert session.title not in response.content.decode()
 
     def test_full_schedule_label_shown_when_a_session_is_pending(
@@ -197,7 +207,7 @@ class TestPublicEventPrintView:
 
         response = authenticated_client.get(self._url(event.slug))
 
-        _assert_print_ok(response)
+        _assert_print_ok(response, print_scopes=[_scope(space)])
         assert session.title in response.content.decode()
 
     def test_scoped_to_node_shows_logo_capacity_and_scope_name(
@@ -214,7 +224,13 @@ class TestPublicEventPrintView:
         response = client.get(f"{self._url(event.slug)}?scope={parent.pk}")
 
         _assert_print_ok(
-            response, logo="events/logo.png", selected_scope=str(parent.pk)
+            response,
+            logo="events/logo.png",
+            selected_scope=str(parent.pk),
+            print_scopes=[
+                _scope(parent, "Hall"),
+                _scope(space, f"Hall > {space.name}"),
+            ],
         )
         content = response.content.decode()
         assert "events/logo.png" in content
@@ -231,7 +247,9 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        _assert_print_ok(response, logo="spheres/brand.png")
+        _assert_print_ok(
+            response, logo="spheres/brand.png", print_scopes=[_scope(space)]
+        )
         assert "spheres/brand.png" in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
@@ -243,7 +261,7 @@ class TestPublicEventPrintView:
             f"{self._url(event.slug)}?hours=nope&start=2026-13-40T99:99"
         )
 
-        _assert_print_ok(response)
+        _assert_print_ok(response, print_scopes=[_scope(space)])
 
     def test_explicit_start_and_hours_are_applied(self, client, event, session, space):
         _confirmed_item(event, session, space)
@@ -252,12 +270,23 @@ class TestPublicEventPrintView:
 
         response = client.get(f"{self._url(event.slug)}?start={start}&hours={hours}")
 
-        _assert_print_ok(response, range_hours=hours)
+        _assert_print_ok(response, range_hours=hours, print_scopes=[_scope(space)])
 
     def test_unknown_scope_is_not_found(self, client, event):
         response = client.get(f"{self._url(event.slug)}?scope=987654")
 
         assert_response_404(response)
+
+    def test_non_integer_scope_falls_back_to_full_event(
+        self, client, event, session, space
+    ):
+        # A non-numeric scope param can't name a node, so it's ignored and the
+        # whole event renders.
+        _confirmed_item(event, session, space)
+
+        response = client.get(f"{self._url(event.slug)}?scope=not-a-number")
+
+        _assert_print_ok(response, print_scopes=[_scope(space)])
 
     def test_event_without_venues_renders_empty_states(self, client, sphere):
         bare = EventFactory(sphere=sphere, slug="bare-event")
@@ -301,6 +330,7 @@ class TestPublicEventPrintView:
             material="session-list",
             session_list_available=True,
             tracks_available=True,
+            print_scopes=[_scope(space)],
         )
         content = response.content.decode()
         assert '<option value="session-list"' in content
