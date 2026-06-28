@@ -5,41 +5,65 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 ~12 top-level members or 1000 lines.
 """
 
-from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SiteDTO, SphereDTO
 
 
-class ConnectionProvider(StrEnum):
-    GOOGLE = "google"
+class DuplicateConnectionDisplayNameError(Exception):
+    pass
 
 
-class ConnectionCheckStatus(StrEnum):
-    UNKNOWN = "unknown"
-    OK = "ok"
-    AUTH_FAILED = "auth_failed"
-    NETWORK_ERROR = "network_error"
+class ConnectionInUseError(Exception):
+    pass
 
 
-@dataclass(frozen=True)
-class CheckResult:
-    status: ConnectionCheckStatus
-    detail: str
+class AnnouncementDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    sphere_id: int
+    title: str
+    content: str
+    is_published: bool
+    creation_time: datetime
+    modification_time: datetime
 
 
-class CredentialAuthError(Exception):
-    """Raised when a credential auth check returns a non-`ok` status."""
+class AnnouncementData(BaseModel):
+    title: str = Field(max_length=255)
+    content: str = Field(max_length=50000)
+    is_published: bool
 
-    def __init__(self, status: ConnectionCheckStatus, detail: str) -> None:
-        self.status = status
-        self.detail = detail
-        super().__init__(f"{status.value}: {detail}")
+
+class AnnouncementsRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_for_sphere(sphere_id: int) -> list[AnnouncementDTO]: ...
+    @staticmethod
+    def list_published(sphere_id: int) -> list[AnnouncementDTO]: ...
+    @staticmethod
+    def get(sphere_id: int, pk: int) -> AnnouncementDTO: ...
+    @staticmethod
+    def create(sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    @staticmethod
+    def update(sphere_id: int, pk: int, *, data: AnnouncementData) -> AnnouncementDTO: ...
+    @staticmethod
+    def delete(sphere_id: int, pk: int) -> None: ...
+
+
+class AnnouncementsServiceProtocol(Protocol):
+    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]: ...
+    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]: ...
+    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO: ...
+    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    def update(
+        self, sphere_id: int, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO: ...
+    def delete(self, sphere_id: int, pk: int) -> None: ...
 
 
 class ConnectionDTO(BaseModel):
@@ -47,18 +71,8 @@ class ConnectionDTO(BaseModel):
 
     pk: int
     sphere_id: int
-    service: ConnectionProvider
     display_name: str
-    has_credentials: bool
-    last_check_status: ConnectionCheckStatus = ConnectionCheckStatus.UNKNOWN
-    last_check_label: str = ""
-    last_check_detail: str = ""
-    last_check_at: datetime | None = None
-
-
-class ConnectionWriteDict(TypedDict):
-    service: ConnectionProvider
-    display_name: str
+    has_secret: bool
 
 
 class ConnectionsRepositoryProtocol(Protocol):
@@ -67,13 +81,13 @@ class ConnectionsRepositoryProtocol(Protocol):
     @staticmethod
     def get(sphere_id: int, pk: int) -> ConnectionDTO: ...
     @staticmethod
-    def create(sphere_id: int, data: ConnectionWriteDict) -> ConnectionDTO: ...
+    def create(sphere_id: int, display_name: str) -> ConnectionDTO: ...
     @staticmethod
-    def update(sphere_id: int, pk: int, data: ConnectionWriteDict) -> ConnectionDTO: ...
+    def update(sphere_id: int, pk: int, *, display_name: str) -> ConnectionDTO: ...
     @staticmethod
-    def update_credentials(sphere_id: int, pk: int, blob: bytes) -> None: ...
+    def update_secret(sphere_id: int, pk: int, *, blob: bytes) -> None: ...
     @staticmethod
-    def update_last_check(sphere_id: int, pk: int, result: CheckResult) -> None: ...
+    def read_secret(sphere_id: int, pk: int) -> bytes: ...
     @staticmethod
     def delete(sphere_id: int, pk: int) -> None: ...
 
@@ -82,30 +96,45 @@ class EncryptorProtocol(Protocol):
     def encrypt(self, plaintext: bytes) -> bytes: ...
 
 
-class DocsApiProtocol(Protocol):
-    @staticmethod
-    def check_credentials(plaintext: bytes) -> CheckResult: ...
+class DecryptorProtocol(Protocol):
+    def decrypt(self, blob: bytes) -> bytes: ...
 
 
 class ConnectionsServiceProtocol(Protocol):
     def list_for_sphere(self, sphere_id: int) -> list[ConnectionDTO]: ...
     def get(self, sphere_id: int, pk: int) -> ConnectionDTO: ...
     def create(
-        self,
-        sphere_id: int,
-        data: ConnectionWriteDict,
-        credentials_plaintext: bytes | None = None,
+        self, sphere_id: int, display_name: str, secret_plaintext: bytes | None = None
     ) -> ConnectionDTO: ...
     def update(
         self,
         sphere_id: int,
         pk: int,
-        data: ConnectionWriteDict,
-        credentials_plaintext: bytes | None = None,
+        display_name: str,
+        secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO: ...
     def delete(self, sphere_id: int, pk: int) -> None: ...
+
+
+class EventsServiceProtocol(Protocol):
+    def list_for_sphere(
+        self, sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]: ...
+    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
 
 
 class SpherePanelServiceProtocol(Protocol):
     def is_manager(self, sphere_id: int, user_slug: str) -> bool: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
+    def read(self, sphere_id: int) -> SphereDTO: ...
+    def update_settings(
+        self,
+        sphere_id: int,
+        *,
+        allow_facilitator_session_edit: bool,
+        logo: str | None = None,
+    ) -> None: ...
+
+
+class SitesServiceProtocol(Protocol):
+    def read_site(self, sphere_id: int) -> SiteDTO: ...

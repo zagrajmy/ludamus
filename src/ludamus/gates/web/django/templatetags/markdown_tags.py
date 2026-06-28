@@ -8,13 +8,13 @@ from ludamus.mills import render_markdown as _render_markdown
 
 register = template.Library()
 
-_HEADING_RE = re.compile(r"<(/?)h([1-6])>")
+_HEADING_RE = re.compile(r"<(/?)h([1-6])(\s[^>]*)?>")
 
 
 def _shift_headings(html: str) -> str:
     def _sub(m: Match[str]) -> str:
-        slash, level = m.group(1), int(m.group(2))
-        return f"<{slash}h{min(level + 2, 6)}>"
+        slash, level, attrs = m.group(1), int(m.group(2)), m.group(3) or ""
+        return f"<{slash}h{min(level + 2, 6)}{'' if slash else attrs}>"
     return _HEADING_RE.sub(_sub, html)
 
 
@@ -22,4 +22,4 @@ def _shift_headings(html: str) -> str:
 def render_markdown(text: str) -> str:
     if not text:
         return ""
-    return mark_safe(_shift_headings(_render_markdown(text)))  # noqa: S308
+    return mark_safe(_shift_headings(_render_markdown(text)))

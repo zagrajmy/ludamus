@@ -7,38 +7,72 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.multiverse import ConnectionCheckStatus, CredentialAuthError
-
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EventDTO,
+        EventListItemDTO,
         EventRepositoryProtocol,
+        SiteDTO,
+        SphereDTO,
         SphereRepositoryProtocol,
+        SphereUpdateData,
     )
     from ludamus.pacts.multiverse import (
+        AnnouncementData,
+        AnnouncementDTO,
+        AnnouncementsRepositoryProtocol,
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
-        ConnectionWriteDict,
-        DocsApiProtocol,
         EncryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
 
 
+class AnnouncementsService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        announcements: AnnouncementsRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._announcements = announcements
+
+    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]:
+        return self._announcements.list_for_sphere(sphere_id)
+
+    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]:
+        return self._announcements.list_published(sphere_id)
+
+    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO:
+        return self._announcements.get(sphere_id, pk)
+
+    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
+        with self._transaction.atomic():
+            return self._announcements.create(sphere_id, data)
+
+    def update(
+        self, sphere_id: int, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO:
+        with self._transaction.atomic():
+            return self._announcements.update(sphere_id, pk, data=data)
+
+    def delete(self, sphere_id: int, pk: int) -> None:
+        with self._transaction.atomic():
+            self._announcements.delete(sphere_id, pk)
+
+
 class ConnectionsService:
-    """CRUD + encrypted-credential lifecycle for sphere-scoped connections."""
+    """CRUD + encrypted-secret lifecycle for sphere-scoped connections."""
 
     def __init__(
         self,
         transaction: TransactionProtocol,
         connections: ConnectionsRepositoryProtocol,
         encryptor: EncryptorProtocol,
-        docs_api: DocsApiProtocol,
     ) -> None:
         self._transaction = transaction
         self._connections = connections
         self._encryptor = encryptor
-        self._docs_api = docs_api
 
     def list_for_sphere(self, sphere_id: int) -> list[ConnectionDTO]:
         return self._connections.list_for_sphere(sphere_id)
@@ -47,49 +81,29 @@ class ConnectionsService:
         return self._connections.get(sphere_id, pk)
 
     def create(
-        self,
-        sphere_id: int,
-        data: ConnectionWriteDict,
-        credentials_plaintext: bytes | None = None,
+        self, sphere_id: int, display_name: str, secret_plaintext: bytes | None = None
     ) -> ConnectionDTO:
-        if credentials_plaintext is None:
-            with self._transaction.atomic():
-                return self._connections.create(sphere_id, data)
-
-        # Probe before any write so an invalid credential leaves no row.
-        result = self._docs_api.check_credentials(credentials_plaintext)
-        if result.status is not ConnectionCheckStatus.OK:
-            raise CredentialAuthError(result.status, result.detail)
-
         with self._transaction.atomic():
-            connection = self._connections.create(sphere_id, data)
-            self._connections.update_last_check(sphere_id, connection.pk, result)
-            blob = self._encryptor.encrypt(credentials_plaintext)
-            self._connections.update_credentials(sphere_id, connection.pk, blob)
+            connection = self._connections.create(sphere_id, display_name)
+            if secret_plaintext is not None:
+                blob = self._encryptor.encrypt(secret_plaintext)
+                self._connections.update_secret(sphere_id, connection.pk, blob=blob)
             return connection
 
     def update(
         self,
         sphere_id: int,
         pk: int,
-        data: ConnectionWriteDict,
-        credentials_plaintext: bytes | None = None,
+        display_name: str,
+        secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO:
-        if credentials_plaintext is None:
-            with self._transaction.atomic():
-                return self._connections.update(sphere_id, pk, data)
-
-        # Probe before any write so a rejected credential leaves the
-        # stored credential and its last-check status untouched.
-        result = self._docs_api.check_credentials(credentials_plaintext)
-        if result.status is not ConnectionCheckStatus.OK:
-            raise CredentialAuthError(result.status, result.detail)
-
         with self._transaction.atomic():
-            connection = self._connections.update(sphere_id, pk, data)
-            self._connections.update_last_check(sphere_id, pk, result)
-            blob = self._encryptor.encrypt(credentials_plaintext)
-            self._connections.update_credentials(sphere_id, pk, blob)
+            connection = self._connections.update(
+                sphere_id, pk, display_name=display_name
+            )
+            if secret_plaintext is not None:
+                blob = self._encryptor.encrypt(secret_plaintext)
+                self._connections.update_secret(sphere_id, pk, blob=blob)
             return connection
 
     def delete(self, sphere_id: int, pk: int) -> None:
@@ -97,12 +111,33 @@ class ConnectionsService:
             self._connections.delete(sphere_id, pk)
 
 
+class EventsService:
+    """Read-side loader for the public events listing page."""
+
+    def __init__(self, events: EventRepositoryProtocol) -> None:
+        self._events = events
+
+    def list_for_sphere(
+        self, sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]:
+        return self._events.list_for_events_page(
+            sphere_id, include_unpublished=include_unpublished
+        )
+
+    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
+        return self._events.read_by_slug(slug, sphere_id)
+
+
 class SpherePanelService:
     """Read-side context loader for the multiverse sphere panel."""
 
     def __init__(
-        self, spheres: SphereRepositoryProtocol, events: EventRepositoryProtocol
+        self,
+        transaction: TransactionProtocol,
+        spheres: SphereRepositoryProtocol,
+        events: EventRepositoryProtocol,
     ) -> None:
+        self._transaction = transaction
         self._spheres = spheres
         self._events = events
 
@@ -111,3 +146,33 @@ class SpherePanelService:
 
     def list_events(self, sphere_id: int) -> list[EventDTO]:
         return self._events.list_by_sphere(sphere_id)
+
+    def read(self, sphere_id: int) -> SphereDTO:
+        return self._spheres.read(sphere_id)
+
+    def update_settings(
+        self,
+        sphere_id: int,
+        *,
+        allow_facilitator_session_edit: bool,
+        logo: str | None = None,
+    ) -> None:
+        data: SphereUpdateData = {
+            "allow_facilitator_session_edit": allow_facilitator_session_edit
+        }
+        # Only overwrite the logo when a new file was uploaded, so saving the
+        # form without re-picking a file keeps the existing logo.
+        if logo is not None:
+            data["logo"] = logo
+        with self._transaction.atomic():
+            self._spheres.update(sphere_id, data)
+
+
+class SitesService:
+    """Read-side loader for a sphere's site (domain lookup)."""
+
+    def __init__(self, spheres: SphereRepositoryProtocol) -> None:
+        self._spheres = spheres
+
+    def read_site(self, sphere_id: int) -> SiteDTO:
+        return self._spheres.read_site(sphere_id)
