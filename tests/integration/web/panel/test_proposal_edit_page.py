@@ -276,6 +276,7 @@ class TestProposalEditPageView:
         response = authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated Title",
                 "display_name": "New Host",
                 "description": "Updated description",
@@ -305,6 +306,70 @@ class TestProposalEditPageView:
         assert session.min_age == new_min_age
         assert session.duration == "2h"
 
+    def test_post_reassigns_category(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        new_category = ProposalCategory.objects.create(
+            event=event, name="Board games", slug="board-games"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": new_category.pk,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.category_id == new_category.pk
+
+    def test_post_ignores_category_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        original_category_id = session.category_id
+        other_event = EventFactory(sphere=sphere)
+        foreign_category = ProposalCategory.objects.create(
+            event=other_event, name="Foreign", slug="foreign"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": foreign_category.pk,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data=ANY,
+        )
+        assert response.context["form"].errors
+        session.refresh_from_db()
+        assert session.category_id == original_category_id
+
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_raising_capacity_promotes_waiter(
         self, authenticated_client, active_user, sphere, event, waiter
@@ -325,6 +390,7 @@ class TestProposalEditPageView:
         response = authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated",
                 "display_name": "Host",
                 "description": "d",
@@ -364,6 +430,7 @@ class TestProposalEditPageView:
         response = authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated Title",
                 "display_name": "New Host",
                 "cover_image": image,
@@ -398,6 +465,7 @@ class TestProposalEditPageView:
         response = authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated Title",
                 "display_name": "New Host",
                 "cover_image-clear": "on",
@@ -429,6 +497,7 @@ class TestProposalEditPageView:
         authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Test Session",
                 "display_name": "Test Host",
                 "participants_limit": 5,
@@ -490,6 +559,7 @@ class TestProposalEditPageView:
         authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated",
                 "display_name": "Host",
                 "participants_limit": 5,
@@ -520,6 +590,7 @@ class TestProposalEditPageView:
         authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated",
                 "display_name": "Host",
                 "participants_limit": 5,
@@ -550,6 +621,7 @@ class TestProposalEditPageView:
         authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated",
                 "display_name": "Host",
                 "participants_limit": 5,
@@ -662,6 +734,7 @@ class TestProposalEditPageView:
         authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated title only",
                 "display_name": "Host",
                 "participants_limit": 5,
@@ -687,6 +760,7 @@ class TestProposalEditPageView:
         authenticated_client.post(
             self.get_url(event, session.pk),
             data={
+                "category_id": session.category_id,
                 "title": "Updated title only",
                 "display_name": "Host",
                 "participants_limit": 5,

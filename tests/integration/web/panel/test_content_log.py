@@ -95,6 +95,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Updated title",
                 "display_name": "Original host",
                 "participants_limit": 5,
@@ -132,6 +133,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Original title",
                 "display_name": "Original host",
                 "participants_limit": 5,
@@ -161,6 +163,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Original title",
                 "display_name": "Original host",
                 "description": "",
@@ -187,6 +190,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Updated title",
                 "display_name": "Original host",
                 "participants_limit": 5,
