@@ -207,7 +207,10 @@
                 {% if facilitators %}
                     <ul class="space-y-1">
                         {% for f in facilitators %}
-                            <li class="text-foreground text-sm">{{ f.display_name }}</li>
+                            <li class="text-sm">
+                                <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=f.slug %}"
+                                   class="text-primary hover:underline">{{ f.display_name }}</a>
+                            </li>
                         {% endfor %}
                     </ul>
                 {% else %}

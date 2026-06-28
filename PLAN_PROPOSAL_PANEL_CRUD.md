@@ -354,6 +354,13 @@ metadata + scheduling/change-log surface is **Step 9**.
 
 ### Step 8 — Link facilitators on proposal detail to their facilitator page
 
+**Shipped.** Each row in the bottom "Facilitators" card on
+`proposal-detail.html` is now an `<a>` to `panel:facilitator-detail`
+(`slug=current_event.slug`, `facilitator_slug=f.slug`), styled with the
+existing `text-primary hover:underline` treatment. `FacilitatorDTO`
+already carried `slug`, so no service/repo change. A detail integration
+test asserts the rendered `href`.
+
 Demoable outcome: from the proposal-detail page, the organizer clicks
 into a facilitator row in the "Facilitators" card and lands on that
 facilitator's detail page — where the linked `User`, personal-data

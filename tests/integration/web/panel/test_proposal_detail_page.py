@@ -9,6 +9,7 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     Connection,
     EventIntegration,
+    Facilitator,
     ImportLogEntry,
     ProposalCategory,
     Session,
@@ -284,6 +285,39 @@ class TestProposalDetailPageView:
                 "import_log_integration": None,
             },
             contains="Preferred time slots",
+        )
+
+    def test_facilitators_card_links_to_facilitator_detail(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Session With Facilitator",
+            slug="session-with-facilitator",
+            participants_limit=4,
+            status="pending",
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        facilitator_url = reverse(
+            "panel:facilitator-detail",
+            kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data=ANY,
+            contains=[f'href="{facilitator_url}"', "Alice"],
         )
 
     def test_renders_track_chips_linking_to_track_page(
