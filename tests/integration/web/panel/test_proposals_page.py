@@ -834,6 +834,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
@@ -881,6 +883,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         field_id=field.pk,

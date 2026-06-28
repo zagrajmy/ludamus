@@ -397,15 +397,30 @@ recognizable link target but not the source of truth.
 
 ### Step 9 — Detail-page read-only metadata, scheduling placement, and change log
 
-Demoable outcome: from the proposal-detail page, the organizer sees
-the slug, when the proposal was created and last modified, where it is
-placed on the schedule (with a click-through to that timetable view),
-and a chronological list of past placement changes.
+**Shipped.** Done with plain view reads + repo methods — no new DTOs or
+read service (the heavier `ProposalDetailExtrasDTO` / `AgendaItemDetailDTO`
+the plan sketched were unnecessary). Also delivers Part C's schedule-log
+surface (C3's schedule half).
 
-Covers the remaining "R" / "R L" cells in the field matrix:
-`slug`, `creation_time`, `modification_time`, `agenda_item`,
-`schedule_change_logs`. `ImportLogEntry` is already rendered + linked
-at the top of the template — confirm only.
+- **Metadata strip** below the breadcrumb: `Slug · Created · Last
+  modified`, from `SessionDTO` (already carried all three), timestamps via
+  `|date:"DATETIME_FORMAT"`, slug monospaced + `select-all`.
+- **Placement card** (only when scheduled): the view reads
+  `agenda_items.read_by_session(proposal_id)` → `AgendaItemDTO | None`.
+  Per resolved Q1, "scheduled" is inferred from the agenda item existing,
+  not a status. Card shows "Scheduled in {space}, {start} – {end}" with a
+  "View on timetable" link to `panel:timetable?date=YYYY-MM-DD` (the
+  timetable accepts a `date` param).
+- **Schedule-change-log card**: new repo method
+  `ScheduleChangeLogRepository.list_by_session(session_id)` (+ protocol);
+  the view passes the list, the template reuses the existing
+  Assigned/Removed/Reverted labels + `old → new` space rendering from
+  `timetable-log.html`. Newest first (model default ordering).
+- `ImportLogEntry` link was already present — confirmed.
+- Tests: unscheduled (metadata present, no placement/schedule cards),
+  scheduled (placement card + `?date=` timetable href), schedule-log
+  renders an entry. Exact-context detail tests gained `agenda_item: None`
+  - `schedule_logs: []`.
 
 - **Service** `ProposalDetailReadService` (extend the existing detail
   view's data path, or fold into `ProposalEditService` from Step 5

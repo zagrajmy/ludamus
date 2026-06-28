@@ -1517,6 +1517,9 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     ) -> list[ScheduleChangeLogDTO]: ...
 
     @staticmethod
+    def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
     def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
 
     @staticmethod
