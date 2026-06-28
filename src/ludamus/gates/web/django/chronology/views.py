@@ -91,14 +91,12 @@ def _wizard_cover_initial(wizard: dict[str, Any]) -> str | None:
     return None
 
 
-def _pop_wizard_cover(wizard: dict[str, Any]) -> ContentFile[bytes] | None:
+def _load_wizard_cover(wizard: dict[str, Any]) -> ContentFile[bytes] | None:
     path = wizard.get(_WIZARD_COVER_KEY)
-    wizard.pop(_WIZARD_COVER_KEY, None)
     if not path or not default_storage.exists(path):
         return None
     with default_storage.open(path) as stored:
         data = stored.read()
-    default_storage.delete(path)
     return ContentFile(data, name=PurePosixPath(path).name)
 
 
@@ -974,9 +972,9 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        cover = _pop_wizard_cover(wizard)
+        cover = _load_wizard_cover(wizard)
         result = service.submit(event, wizard, cover_image=cover)
-
+        _delete_wizard_cover(wizard)
         del request.session[_session_key(event_slug)]
 
         messages.success(
