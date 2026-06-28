@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 09:12+0000\n"
+"POT-Creation-Date: 2026-06-28 09:56+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5404,6 +5404,7 @@ msgid "Field name"
 msgstr "Nazwa pola"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/proposal-detail.html
 msgid "Slug"
 msgstr "Slug"
 
@@ -5978,6 +5979,30 @@ msgstr ""
 "harmonogramu."
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Created"
+msgstr "Utworzono"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Last modified"
+msgstr "Ostatnia modyfikacja"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+#, python-format
+msgid ""
+"\n"
+"                            Scheduled in %(space)s, %(start)s – %(end)s\n"
+"                        "
+msgstr ""
+"\n"
+"                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
+"                        "
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "View on timetable"
+msgstr "Zobacz w harmonogramie"
+
+#: src/ludamus/templates/panel/proposal-detail.html
 #, python-format
 msgid ""
 "\n"
@@ -6004,6 +6029,25 @@ msgstr "Preferowane przedziały czasowe"
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."
 msgstr "Brak przypisanych twórców programu."
+
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Schedule changes"
+msgstr "Zmiany w harmonogramie"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Assigned"
+msgstr "Przypisano"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Removed"
+msgstr "Usunięto"
+
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Reverted"
+msgstr "Cofnięto"
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Edit Proposal"
@@ -6102,10 +6146,6 @@ msgstr "Filtruj"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Facilitator"
 msgstr "Prowadzący"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Created"
-msgstr "Utworzono"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
@@ -6397,18 +6437,6 @@ msgstr "Wyczyść filtry"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Assigned"
-msgstr "Przypisano"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Removed"
-msgstr "Usunięto"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Reverted"
-msgstr "Cofnięto"
 
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Are you sure you want to revert this change?"

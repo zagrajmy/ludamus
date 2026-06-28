@@ -61,6 +61,15 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
         return [_to_dto(log) for log in qs]
 
     @staticmethod
+    def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]:
+        qs = (
+            ScheduleChangeLog.objects.filter(session_id=session_id)
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
+        )
+        return [_to_dto(log) for log in qs]
+
+    @staticmethod
     def latest_pks_by_session(event_pk: int) -> dict[int, int]:
         latest: dict[int, int] = {}
         for session_id, pk in (

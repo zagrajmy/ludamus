@@ -12,6 +12,7 @@ from ludamus.adapters.db.django.models import (
     Facilitator,
     ImportLogEntry,
     ProposalCategory,
+    ScheduleChangeLog,
     Session,
     TimeSlot,
     Track,
@@ -23,7 +24,13 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
 )
 from ludamus.pacts.submissions import ImportLogEntryDTO
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    AreaFactory,
+    EventFactory,
+    SpaceFactory,
+    VenueFactory,
+)
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -128,6 +135,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -227,6 +236,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -277,6 +288,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -285,6 +298,108 @@ class TestProposalDetailPageView:
                 "import_log_integration": None,
             },
             contains="Preferred time slots",
+        )
+
+    def test_unscheduled_proposal_shows_metadata_without_placement(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Unscheduled",
+            slug="unscheduled",
+            participants_limit=4,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data=ANY,
+            contains=["Slug", "Created", "Last modified", "unscheduled"],
+            not_contains=["View on timetable", "Schedule changes"],
+        )
+
+    def test_scheduled_proposal_shows_placement_with_timetable_link(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Scheduled",
+            slug="scheduled-proposal",
+            participants_limit=4,
+            status="pending",
+        )
+        space = SpaceFactory(
+            name="Main Hall", area=AreaFactory(venue=VenueFactory(event=event))
+        )
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+        timetable_url = reverse("panel:timetable", kwargs={"slug": event.slug})
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data=ANY,
+            contains=[
+                "View on timetable",
+                "Main Hall",
+                f'href="{timetable_url}?date=2026-07-01"',
+            ],
+        )
+
+    def test_renders_schedule_change_log(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="With Log",
+            slug="with-log",
+            participants_limit=4,
+            status="pending",
+        )
+        space = SpaceFactory(
+            name="Main Hall", area=AreaFactory(venue=VenueFactory(event=event))
+        )
+        ScheduleChangeLog.objects.create(
+            event=event,
+            session=session,
+            user=active_user,
+            action="assign",
+            new_space=space,
+            new_start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            new_end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data=ANY,
+            contains=["Schedule changes", "Assigned", "Main Hall"],
         )
 
     def test_facilitators_card_links_to_facilitator_detail(
@@ -361,6 +476,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [TrackDTO.model_validate(track)],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -424,6 +541,8 @@ class TestProposalDetailPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,

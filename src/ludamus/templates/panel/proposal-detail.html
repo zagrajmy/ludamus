@@ -70,6 +70,24 @@
                 <li class="text-foreground font-medium">{{ proposal.title }}</li>
             </ol>
         </nav>
+        <div class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-muted">
+            <span>{% translate "Slug" %}: <span class="font-mono select-all">{{ proposal.slug }}</span></span>
+            <span>{% translate "Created" %}: {{ proposal.creation_time|date:"DATETIME_FORMAT" }}</span>
+            <span>{% translate "Last modified" %}: {{ proposal.modification_time|date:"DATETIME_FORMAT" }}</span>
+        </div>
+        {% if agenda_item %}
+            <div class="card mb-6">
+                <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-foreground">
+                        {% blocktranslate with space=agenda_item.space_name start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
+                            Scheduled in {{ space }}, {{ start }} – {{ end }}
+                        {% endblocktranslate %}
+                    </p>
+                    <a class="btn btn-tertiary text-sm"
+                       href="{% url 'panel:timetable' slug=current_event.slug %}?date={{ agenda_item.start_time|date:'Y-m-d' }}">{% translate "View on timetable" %}</a>
+                </div>
+            </div>
+        {% endif %}
         {% if import_log_entry and import_log_integration %}
             <div class="card mb-6">
                 <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -218,5 +236,38 @@
                 {% endif %}
             </div>
         </div>
+        {% if schedule_logs %}
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Schedule changes" %}</h3>
+                    <ul class="space-y-2 text-sm">
+                        {% for log in schedule_logs %}
+                            <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span class="text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"DATETIME_FORMAT" }}</span>
+                                {% if log.action == "assign" %}
+                                    <span class="text-success-text font-medium">{% translate "Assigned" %}</span>
+                                {% elif log.action == "unassign" %}
+                                    <span class="text-danger-text font-medium">{% translate "Removed" %}</span>
+                                {% elif log.action == "revert" %}
+                                    <span class="text-warning-text font-medium">{% translate "Reverted" %}</span>
+                                {% else %}
+                                    <span>{{ log.action }}</span>
+                                {% endif %}
+                                <span class="text-foreground-secondary">
+                                    {% if log.old_space_name and log.new_space_name %}
+                                        {{ log.old_space_name }} → {{ log.new_space_name }}
+                                    {% elif log.new_space_name %}
+                                        → {{ log.new_space_name }}
+                                    {% elif log.old_space_name %}
+                                        {{ log.old_space_name }} →
+                                    {% endif %}
+                                </span>
+                                <span class="text-foreground-muted">· {{ log.user_name|default:"—" }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
     {% endif %}
 {% endblock content %}

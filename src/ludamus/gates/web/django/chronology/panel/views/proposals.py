@@ -160,10 +160,17 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
             if t.pk in track_ids
         ]
 
+        agenda_item = self.request.di.uow.agenda_items.read_by_session(proposal_id)
+        schedule_logs = self.request.di.uow.schedule_change_logs.list_by_session(
+            proposal_id
+        )
+
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["category_name"] = category_name
         context["proposal_tracks"] = proposal_tracks
+        context["agenda_item"] = agenda_item
+        context["schedule_logs"] = schedule_logs
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
