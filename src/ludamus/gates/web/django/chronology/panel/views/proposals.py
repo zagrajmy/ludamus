@@ -33,7 +33,12 @@ if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse, QueryDict
 
-    from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionFieldDTO
+    from ludamus.pacts import (
+        EventDTO,
+        FacilitatorListItemDTO,
+        SessionFieldDTO,
+        TrackDTO,
+    )
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -139,9 +144,17 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
                 (c.name for c in categories if c.pk == session.category_id), None
             )
 
+        track_ids = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
+        proposal_tracks = [
+            t
+            for t in self.request.di.uow.tracks.list_by_event(current_event.pk)
+            if t.pk in track_ids
+        ]
+
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["category_name"] = category_name
+        context["proposal_tracks"] = proposal_tracks
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
@@ -167,6 +180,21 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
     def _category_choices(self, event_pk: int) -> list[tuple[int, str]]:
         categories = self.request.di.uow.proposal_categories.list_by_event(event_pk)
         return [(c.pk, c.name) for c in categories]
+
+    def _get_track_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[TrackDTO], set[int]]:
+        all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
+        assigned_pks = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
+        return all_tracks, assigned_pks
+
+    def _collect_track_ids(self, event_pk: int) -> list[int] | None:
+        if self.request.POST.get("tracks_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist("track_ids")
+        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
+        valid_pks = {t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)}
+        return list(submitted_ids & valid_pks)
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("facilitators_submitted") != "1":
@@ -247,9 +275,14 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             }
         )
         session_fields = self._get_session_fields(current_event.pk, proposal_id)
+        all_tracks, assigned_track_pks = self._get_track_context(
+            current_event.pk, proposal_id
+        )
         context["all_facilitators"] = all_facilitators
         context["assigned_facilitator_pks"] = assigned_pks
         context["session_fields"] = session_fields
+        context["all_tracks"] = all_tracks
+        context["assigned_track_pks"] = assigned_track_pks
         return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
@@ -275,12 +308,17 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 current_event.pk, proposal_id
             )
             session_fields = self._get_session_fields(current_event.pk, proposal_id)
+            all_tracks, assigned_track_pks = self._get_track_context(
+                current_event.pk, proposal_id
+            )
             context["active_nav"] = "proposals"
             context["proposal"] = session
             context["form"] = form
             context["all_facilitators"] = all_facilitators
             context["assigned_facilitator_pks"] = assigned_pks
             context["session_fields"] = session_fields
+            context["all_tracks"] = all_tracks
+            context["assigned_track_pks"] = assigned_track_pks
             return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
         update_data: SessionUpdateData = {
@@ -308,6 +346,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 update=update_data,
                 field_values=field_values,
                 facilitator_ids=self._collect_facilitator_ids(current_event.pk),
+                track_ids=self._collect_track_ids(current_event.pk),
             ),
         )
 

@@ -13,8 +13,9 @@ from ludamus.adapters.db.django.models import (
     ProposalCategory,
     Session,
     TimeSlot,
+    Track,
 )
-from ludamus.pacts import EventDTO, SessionDTO, TimeSlotDTO
+from ludamus.pacts import EventDTO, SessionDTO, TimeSlotDTO, TrackDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -125,6 +126,7 @@ class TestProposalDetailPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
+                "proposal_tracks": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -196,6 +198,7 @@ class TestProposalDetailPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
+                "proposal_tracks": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -245,6 +248,7 @@ class TestProposalDetailPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
+                "proposal_tracks": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
@@ -253,6 +257,57 @@ class TestProposalDetailPageView:
                 "import_log_integration": None,
             },
             contains="Preferred time slots",
+        )
+
+    def test_renders_track_chips_linking_to_track_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Session With Track",
+            slug="session-with-track",
+            participants_limit=4,
+            status="pending",
+        )
+        session.tracks.add(track)
+        track_url = reverse(
+            "panel:track-edit", kwargs={"slug": event.slug, "track_slug": track.slug}
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [TrackDTO.model_validate(track)],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
+            contains=[f'href="{track_url}"', "Main Track"],
         )
 
     def test_imported_proposal_renders_back_link_to_log(
@@ -307,6 +362,7 @@ class TestProposalDetailPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
+                "proposal_tracks": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,

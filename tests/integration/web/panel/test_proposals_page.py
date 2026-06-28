@@ -833,6 +833,7 @@ class TestProposalDetailPageView:
                 "active_nav": "proposals",
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
+                "proposal_tracks": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
@@ -879,6 +880,7 @@ class TestProposalDetailPageView:
                 "active_nav": "proposals",
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
+                "proposal_tracks": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         field_id=field.pk,
