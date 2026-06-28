@@ -36,26 +36,7 @@
                     </ul>
                 </div>
                 <script>
-                    (function() {
-                        // Action dropdowns.
-                        document.querySelectorAll('.action-dropdown-toggle').forEach(button => {
-                            button.addEventListener('click', e => {
-                                e.stopPropagation();
-                                const menu = button.nextElementSibling;
-                                const isOpen = !menu.classList.contains('hidden');
-                                document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
-                                document.querySelectorAll('.action-dropdown-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
-                                if (!isOpen) {
-                                    menu.classList.remove('hidden');
-                                    button.setAttribute('aria-expanded', 'true');
-                                }
-                            });
-                        });
-                        document.addEventListener('click', () => {
-                            document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
-                            document.querySelectorAll('.action-dropdown-toggle').forEach(b => b.setAttribute('aria-expanded', 'false'));
-                        });
-                    })();
+                    // Action dropdowns are handled by the shared menu.ts disclosure widget.
                     (function() {
                         // Drag-reorder within each sibling list (no reparenting).
                         const reorderUrl = '{% url "panel:space-reorder" slug=current_event.slug %}';
@@ -119,7 +100,7 @@
                 </script>
             {% else %}
                 <div class="card p-8 text-center">
-                    <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-neutral-300 mx-auto" %}</div>
+                    <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
                     <p class="text-foreground-muted mb-4">
                         {% translate "No spaces yet. Add a top-level space to start building your event's layout." %}
                     </p>

@@ -7,12 +7,14 @@
                   aria-hidden="true">{% icon "bars-3" class="w-4 h-4" %}</span>
             {% if node.is_leaf %}
                 {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-green-500" %}
+                <span class="sr-only">{% translate "Room" %}</span>
             {% else %}
                 {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-blue-500" %}
+                <span class="sr-only">{% translate "Group" %}</span>
             {% endif %}
             <span class="truncate font-medium text-foreground">{{ node.name }}</span>
             {% if node.is_leaf and node.capacity %}
-                <span class="ml-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-foreground-muted">
+                <span class="ml-1 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs text-foreground-muted">
                     {% blocktranslate count counter=node.capacity %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
                 </span>
             {% endif %}
@@ -28,15 +30,18 @@
                aria-label="{% blocktranslate with name=node.name %}Edit {{ name }}{% endblocktranslate %}">
                 {% icon "pencil-square" class="w-4 h-4" %}
             </a>
-            <div class="relative inline-block">
+            <div class="relative inline-block" data-menu>
                 <button type="button"
-                        class="action-dropdown-toggle icon-btn"
+                        data-menu-button
+                        class="icon-btn"
                         aria-haspopup="true"
                         aria-expanded="false"
                         aria-label="{% blocktranslate with name=node.name %}More actions for {{ name }}{% endblocktranslate %}">
                     {% icon "ellipsis-horizontal" class="w-4 h-4" %}
                 </button>
-                <div class="action-dropdown-menu absolute right-0 z-10 mt-2 hidden w-44 rounded-lg border border-border bg-bg-secondary shadow-lg">
+                <div data-menu-panel
+                     hidden
+                     class="absolute right-0 z-10 mt-2 w-44 rounded-lg border border-border bg-bg-secondary shadow-lg">
                     <form method="post"
                           action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
                         {% csrf_token %}
