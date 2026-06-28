@@ -161,7 +161,7 @@ def delete_stored_file(field_file: object, old_name: str) -> None:
         return
     try:
         storage.delete(old_name)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except OSError:
         logger.warning(
             "Best-effort cleanup of replaced file %r failed", old_name, exc_info=True
         )
@@ -303,7 +303,9 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None:
         if "cover_image" not in data:
-            Session.objects.filter(id=pk).update(**data)
+            updated = Session.objects.filter(id=pk).update(**data)
+            if not updated:
+                raise NotFoundError
             return
         try:
             session = Session.objects.get(id=pk)
@@ -2730,7 +2732,7 @@ class AnnouncementsRepository(AnnouncementsRepositoryProtocol):
         return AnnouncementDTO.model_validate(announcement)
 
     @staticmethod
-    def update(sphere_id: int, pk: int, data: AnnouncementData) -> AnnouncementDTO:
+    def update(sphere_id: int, pk: int, *, data: AnnouncementData) -> AnnouncementDTO:
         try:
             announcement = Announcement.objects.get(pk=pk, sphere_id=sphere_id)
         except Announcement.DoesNotExist as exc:
@@ -2781,7 +2783,7 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
-    def update(sphere_id: int, pk: int, display_name: str) -> ConnectionDTO:
+    def update(sphere_id: int, pk: int, *, display_name: str) -> ConnectionDTO:
         try:
             connection = Connection.objects.get(pk=pk, sphere_id=sphere_id)
         except Connection.DoesNotExist as exc:
@@ -2796,7 +2798,7 @@ class ConnectionsRepository(ConnectionsRepositoryProtocol):
         return ConnectionDTO.model_validate(connection)
 
     @staticmethod
-    def update_secret(sphere_id: int, pk: int, blob: bytes) -> None:
+    def update_secret(sphere_id: int, pk: int, *, blob: bytes) -> None:
         updated = Connection.objects.filter(pk=pk, sphere_id=sphere_id).update(
             secret=blob
         )
