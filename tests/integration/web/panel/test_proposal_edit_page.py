@@ -11,7 +11,9 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     Facilitator,
+    HostPersonalData,
     Notification,
+    PersonalDataField,
     ProposalCategory,
     Session,
     SessionField,
@@ -194,6 +196,7 @@ class TestProposalEditPageView:
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
             },
         )
 
@@ -711,6 +714,105 @@ class TestProposalEditPageView:
 
         assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
 
+    def test_get_renders_facilitator_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        PersonalDataField.objects.create(
+            event=event,
+            name="Nickname",
+            question="Your nickname?",
+            slug="nick",
+            field_type="text",
+            order=0,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data=ANY,
+            contains=["Alice", f'name="facilitator_{facilitator.pk}_personal_nick"'],
+        )
+
+    def test_post_saves_facilitator_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_vegan": "true",
+            },
+        )
+
+        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        assert hpd.value is True
+
+    def test_post_ignores_personal_data_for_facilitator_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        other_event = EventFactory(sphere=sphere)
+        foreign_facilitator = Facilitator.objects.create(
+            event=other_event, display_name="Bob", slug="bob", user=None
+        )
+        PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [foreign_facilitator.pk],
+                f"facilitator_{foreign_facilitator.pk}_personal_vegan": "true",
+            },
+        )
+
+        assert not HostPersonalData.objects.filter(
+            facilitator=foreign_facilitator
+        ).exists()
+
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -744,6 +846,7 @@ class TestProposalEditPageView:
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
             },
         )
         assert response.context["form"].errors

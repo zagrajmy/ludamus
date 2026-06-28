@@ -293,20 +293,32 @@ Demoable outcome: from a proposal-edit page the organizer can also see
 and edit the personal-data fields of each assigned facilitator without
 clicking through to the facilitator-edit page.
 
-- Read-only first: render each assigned facilitator's `HostPersonalData`
-  in a collapsible block on `proposal-edit.html`, sourcing from the
-  same `personal_data_fields` + `host_personal_data` repos used in
-  `FacilitatorEditPageView`.
-- Then writable: a single POST handler accepts both
-  `session_field_<slug>` and `facilitator_<fid>_personal_<slug>` keys.
-  Personal-data writes go through a new service method
-  `FacilitatorService.update_personal_data(*, event_id, facilitator_id,
-  entries)` that wraps the same `HostPersonalDataRepository.save` call.
-- Concurrency: a proposal may have multiple facilitators; the form
-  groups personal-data inputs per facilitator. If a facilitator is
-  shared between two proposals, last write wins — accept this for v1
-  since the same is already true of the dedicated facilitator-edit page.
-- Tests: integration test covering the combined save path.
+- **Shipped (read + write in one pass).** Each assigned facilitator gets
+  a collapsible `<details>` block (native HTML) on `proposal-edit.html`,
+  sourced from the same `personal_data_fields` + `host_personal_data`
+  repos as `FacilitatorEditPageView`.
+- **Shared partial:** the personal-field input markup was extracted into
+  `panel/_personal_data_fields.html`, parameterized by a `name_prefix`,
+  and `facilitator-edit.html` was refactored to include it (prefix
+  `personal`). The proposal-edit blocks use prefix
+  `facilitator_<fid>_personal` so each facilitator's inputs are namespaced
+  (id + name carry the prefix → no cross-facilitator collisions).
+- **New service** `HostPersonalDataService.update_personal_data(*,
+  event_id, facilitator_id, entries)` in
+  `mills/submissions/personal_data_fields.py`, wired onto
+  `request.services.host_personal_data`. It owns the transaction and
+  event-scoping (`facilitators.read(id).event_id == event_id` else
+  `NotFoundError`), then calls `HostPersonalDataRepository.save`. The
+  proposal-edit POST calls it per facilitator.
+- **Markers:** a `personal_data_submitted` hidden field guards the write
+  (partial POSTs leave personal data untouched); a
+  `personal_data_facilitator_ids` hidden field per block tells the POST
+  which facilitators' inputs to parse. The view's `_collect_personal_data`
+  intersects those ids with the event's facilitators for scoping.
+- Concurrency: last-write-wins per facilitator (same as the dedicated
+  facilitator-edit page) — accepted for v1.
+- Tests: integration (render, save, foreign-event facilitator ignored)
+  plus a unit test for the service's event-scoping + save path.
 
 ### Step 7 — Detail-page polish + "no delete" policy enforcement
 
