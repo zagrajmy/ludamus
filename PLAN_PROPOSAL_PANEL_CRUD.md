@@ -778,22 +778,26 @@ lookup for dynamic ones).
    inline write, log nothing.
 3. **`Facilitator` entity edits** — display_name, accreditation_type.
 
-### Step C1 — Log M2M assignment changes in `ContentChangeLog`
+### Step C1 — Log M2M assignment changes in `ContentChangeLog` ✅
 
-Demoable outcome: changing a proposal's facilitators, tracks, or
-time-slots from the edit form adds a `from X → to Y` row to the content
-log.
+**Shipped.** Changing a proposal's facilitators / tracks / time-slots from
+the edit form now adds an `old → new` row to the content log.
 
-- In `SessionContentEditService.apply`, read each M2M's **old**
-  membership before `set_*`, compare to the new list, and append a
-  `{field: "facilitators"|"tracks"|"time_slots", field_id: None, old, new}`
-  entry when changed. `old`/`new` are human-readable (names, comma-joined)
-  since the template renders them directly.
-- Add `facilitators` / `tracks` / `time_slots` labels to
-  `content_field_label` (`cfp_tags.py`). No content-log template change
-  otherwise — it already iterates `changes`.
-- Tests: editing each M2M writes one entry with the right old→new names;
-  a no-op edit writes nothing.
+- `SessionContentEditService.apply` reads each M2M's **old** membership
+  before `set_*` and the **new** membership after, then `_append_m2m_change`
+  appends `{field, field_id: None, old, new}` when they differ. Names are
+  comma-joined and **sorted**, so a pure reorder isn't logged. Identity-only,
+  like the core-field diff.
+- Names come from `read_facilitators` (display_name), a new
+  `SessionRepository.read_tracks` (+ protocol), and
+  `read_preferred_time_slots` (ISO start - end labels).
+- `content_field_label` (`cfp_tags.py`) gained `facilitators` / `tracks` /
+  `time_slots` labels — plus `category` (which Step 2 logged but never
+  labelled). No content-log template change — it already iterates `changes`.
+- Tests: integration (facilitator change logged; re-submitting the same set
+  logs nothing). The pure helper is exercised through the integration path
+  (importing the private `_append_m2m_change` directly trips the
+  no-private-import lint rule, and `noqa` is disallowed).
 
 ### Step C2 — Log personal-data edits
 

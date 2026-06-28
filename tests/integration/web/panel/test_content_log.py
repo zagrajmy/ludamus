@@ -3,7 +3,11 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ContentChangeLog, SessionField
+from ludamus.adapters.db.django.models import (
+    ContentChangeLog,
+    Facilitator,
+    SessionField,
+)
 from tests.integration.conftest import SessionFactory
 from tests.integration.utils import assert_response
 
@@ -112,6 +116,68 @@ class TestContentLogRecordsEdits:
             "old": "Original title",
             "new": "Updated title",
         } in log.changes
+
+    def test_editing_facilitators_records_m2m_change(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(proposal_category)
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:proposal-edit",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+            data={
+                "category_id": session.category_id,
+                "title": "Original title",
+                "display_name": "Original host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitators_submitted": "1",
+                "facilitator_ids": [alice.pk],
+            },
+        )
+
+        log = ContentChangeLog.objects.get(session=session)
+        assert {
+            "field": "facilitators",
+            "field_id": None,
+            "old": "",
+            "new": "Alice",
+        } in log.changes
+
+    def test_resubmitting_same_facilitators_logs_no_m2m_change(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(proposal_category)
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(alice)
+
+        authenticated_client.post(
+            reverse(
+                "panel:proposal-edit",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated title",
+                "display_name": "Original host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitators_submitted": "1",
+                "facilitator_ids": [alice.pk],
+            },
+        )
+
+        log = ContentChangeLog.objects.get(session=session)
+        assert not any(c["field"] == "facilitators" for c in log.changes)
 
     def test_editing_a_session_field_records_field_change(
         self, authenticated_client, active_user, sphere, event, proposal_category
