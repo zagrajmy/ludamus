@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
@@ -50,6 +51,9 @@ if TYPE_CHECKING:
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
 
 
+_PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
+
+
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
     """List submitted proposals for an event."""
 
@@ -76,12 +80,30 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
 
-        context["proposals"] = self.request.di.uow.sessions.list_sessions_by_event(
+        categories = self.request.di.uow.proposal_categories.list_by_event(
+            current_event.pk
+        )
+        category_raw = self.request.GET.get("category", "").strip()
+        filter_category_pk = int(category_raw) if category_raw.isdigit() else None
+        if filter_category_pk not in {c.pk for c in categories}:
+            filter_category_pk = None
+
+        all_proposals = self.request.di.uow.sessions.list_sessions_by_event(
             current_event.pk,
             field_filters=field_filters or None,
             search=search,
             track_pk=filter_track_pk,
+            category_pk=filter_category_pk,
         )
+        # ponytail: paginate the already-loaded list in the view. The repo
+        # loads all matching rows today anyway; DB-level slicing is a future
+        # concern if an event's proposal count grows past a few thousand.
+        page_obj = Paginator(all_proposals, _PROPOSALS_PAGE_SIZE).get_page(
+            self.request.GET.get("page")
+        )
+
+        context["proposals"] = list(page_obj.object_list)
+        context["page_obj"] = page_obj
         context["deleted_proposals"] = (
             self.request.di.uow.sessions.list_deleted_by_event(current_event.pk)
         )
@@ -94,6 +116,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["all_tracks"] = sorted_tracks
         context["managed_track_pks"] = managed_pks
         context["filter_track_pk"] = filter_track_pk
+        context["categories"] = categories
+        context["filter_category_pk"] = filter_category_pk
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 

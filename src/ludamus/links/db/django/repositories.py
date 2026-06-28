@@ -621,10 +621,14 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         field_filters: dict[int, str] | None = None,
         search: str | None = None,
         track_pk: int | None = None,
+        category_pk: int | None = None,
     ) -> list[SessionListItemDTO]:
         qs = Session.objects.filter(category__event_id=event_id).select_related(
             "presenter", "category"
         )
+
+        if category_pk is not None:
+            qs = qs.filter(category_id=category_pk)
 
         if field_filters:
             for field_id, value in field_filters.items():
