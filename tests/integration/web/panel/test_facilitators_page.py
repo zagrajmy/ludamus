@@ -1,6 +1,7 @@
 """Integration tests for /panel/event/<slug>/facilitators/ page."""
 
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -10,6 +11,11 @@ from ludamus.pacts import EventDTO, FacilitatorListItemDTO
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+_PAGE_SIZE = 50
+_SEED_COUNT = 60
+_LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
+_TOTAL_PAGES = 2
 
 
 def _base_context(event):
@@ -81,7 +87,7 @@ class TestFacilitatorsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
-            context_data={**_base_context(event), "facilitators": []},
+            context_data={**_base_context(event), "facilitators": [], "page_obj": ANY},
         )
 
     def test_get_lists_facilitators_for_event(
@@ -110,5 +116,23 @@ class TestFacilitatorsPageView:
                         session_count=0,
                     )
                 ],
+                "page_obj": ANY,
             },
         )
+
+    def test_paginates_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        for i in range(_SEED_COUNT):
+            Facilitator.objects.create(
+                event=event, display_name=f"F{i}", slug=f"f-{i}", user=None
+            )
+
+        page1 = authenticated_client.get(self.get_url(event))
+        page2 = authenticated_client.get(self.get_url(event), {"page": "2"})
+
+        assert len(page1.context["facilitators"]) == _PAGE_SIZE
+        assert page1.context["page_obj"].paginator.num_pages == _TOTAL_PAGES
+        assert len(page2.context["facilitators"]) == _LAST_PAGE_COUNT
+        assert page2.context["page_obj"].number == _TOTAL_PAGES

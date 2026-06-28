@@ -564,6 +564,30 @@ the list paginates instead of returning everything in one page.
 
 ### Step 11 — Facilitator views: read-only name, sessions list, pagination
 
+**Shipped.**
+
+- **Edit form drops `display_name`:** new `FacilitatorEditForm`
+  (accreditation_type only); the create path keeps `FacilitatorForm`
+  (display_name required at creation). The edit POST no longer passes
+  `display_name` to `FacilitatorUpdateData`, so a posted value is ignored
+  (test asserts the cache is unchanged). The edit template renders the
+  cached name read-only with a hint pointing at the proposal's display
+  name.
+- **Detail surface:** read-only cached `display_name` + hint; linked
+  `User` rendered as name · email (`active_users.read_by_id`, "—" when
+  `user_id is None`); slug as a monospace debug aid; a **Sessions** card
+  listing every attached session via new
+  `SessionRepository.list_by_facilitator` (+ protocol) returning
+  `SessionListItemDTO`, each row linking to `panel:proposal-detail` with a
+  status badge.
+- **List pagination:** `FacilitatorsPageView` paginates with Django's
+  `Paginator` (page size 50), same Prev/Next `{% querystring %}` strip as
+  the proposals list.
+- Tests: edit (no display_name input, cache unchanged), detail (sessions
+  link, linked-user name+email; exact-context blocks gained
+  `linked_user`/`sessions`), list pagination; `Sessions` /
+  `No sessions attached.` translated.
+
 Demoable outcome: the facilitator list page paginates; the facilitator
 detail page shows the linked user, slug, the cached display name
 (read-only), and the list of attached sessions with a link to each

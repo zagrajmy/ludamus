@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 10:22+0000\n"
+"POT-Creation-Date: 2026-06-28 16:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -113,7 +113,6 @@ msgstr "Wpisz oddzielone przecinkami"
 
 #: src/ludamus/adapters/db/django/models.py
 #: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "None"
 msgstr "Brak"
@@ -2857,6 +2856,7 @@ msgstr "Przełącz na Ten Kod"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Sessions"
@@ -5028,9 +5028,16 @@ msgid "Facilitator Details"
 msgstr "Szczegóły twórcy programu"
 
 #: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-edit.html
 msgid "e.g., Jan Kowalski"
 msgstr "np. Jan Kowalski"
+
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid ""
+"Cached name from the submission wizard. The canonical byline is the "
+"proposal's display name."
+msgstr ""
+"Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest nazwa "
+"wyświetlana zgłoszenia."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -5038,9 +5045,14 @@ msgid "Linked User"
 msgstr "Powiązany użytkownik"
 
 #: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Linked"
-msgstr "Powiązany"
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Slug"
+msgstr "Slug"
+
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "No sessions attached."
+msgstr "Brak przypisanych punktów programu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "No personal information provided."
@@ -5049,6 +5061,14 @@ msgstr "Brak danych osobowych."
 #: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Edit Facilitator"
 msgstr "Edytuj twórcę programu"
+
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid ""
+"Cached name from the submission wizard — edit the proposal's display name to "
+"change the byline."
+msgstr ""
+"Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
+"zgłoszenia, aby zmienić byline."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"
@@ -5105,6 +5125,38 @@ msgstr "Twórcy programu"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Merge facilitators"
 msgstr "Scal twórców programu"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Linked"
+msgstr "Powiązany"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+#, python-format
+msgid ""
+"\n"
+"                            Page %(page)s of %(total)s\n"
+"                        "
+msgstr ""
+"\n"
+"                            Strona %(page)s z %(total)s\n"
+"                        "
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators yet."
@@ -5532,11 +5584,6 @@ msgid "Field name"
 msgstr "Nazwa pola"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Slug"
-msgstr "Slug"
-
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Field type"
 msgstr "Typ pola"
 
@@ -5628,13 +5675,6 @@ msgid "Back to summary"
 msgstr "Powrót do podsumowania"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/parts/import-review-region.html
 msgid "Jump to question"
 msgstr "Przejdź do pytania"
 
@@ -5642,13 +5682,6 @@ msgstr "Przejdź do pytania"
 #, python-format
 msgid "Question %(position)s of %(total)s — %(question)s"
 msgstr "Pytanie %(position)s z %(total)s — %(question)s"
-
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
 
 #: src/ludamus/templates/panel/parts/import-review-region.html
 msgid "Save and finish"
@@ -6276,17 +6309,6 @@ msgstr "Wszystkie kategorie"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
-
-#: src/ludamus/templates/panel/proposals.html
-#, python-format
-msgid ""
-"\n"
-"                            Page %(page)s of %(total)s\n"
-"                        "
-msgstr ""
-"\n"
-"                            Strona %(page)s z %(total)s\n"
-"                        "
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."

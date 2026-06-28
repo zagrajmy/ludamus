@@ -1,12 +1,19 @@
 """Integration tests for the facilitator detail page."""
 
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Facilitator, PersonalDataField
+from ludamus.adapters.db.django.models import (
+    Facilitator,
+    PersonalDataField,
+    ProposalCategory,
+    Session,
+)
 from ludamus.pacts import EventDTO, FacilitatorDTO, PersonalDataFieldDTO
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -55,6 +62,54 @@ class TestFacilitatorDetailPageView:
         return reverse(
             "panel:facilitator-detail",
             kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
+        )
+
+    def test_get_renders_sessions_linking_to_proposal_detail(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Attached Session",
+            slug="attached-session",
+            participants_limit=4,
+            status="pending",
+        )
+        session.facilitators.add(facilitator)
+        proposal_url = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data=ANY,
+            contains=[f'href="{proposal_url}"', "Attached Session"],
+        )
+
+    def test_get_shows_linked_user_name_and_email(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        linked = UserFactory(name="Bob Builder", email="bob@example.com")
+        _make_facilitator(event, user=linked)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data=ANY,
+            contains=["Bob Builder", "bob@example.com"],
         )
 
     def test_get_redirects_anonymous_user_to_login(self, client, event):
@@ -123,9 +178,11 @@ class TestFacilitatorDetailPageView:
             context_data={
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
+                "sessions": [],
             },
         )
 
@@ -167,8 +224,10 @@ class TestFacilitatorDetailPageView:
             context_data={
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [(field_dto, None)],
                 "has_personal_data": False,
+                "sessions": [],
             },
         )
