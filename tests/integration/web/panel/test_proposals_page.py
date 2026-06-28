@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -146,6 +147,32 @@ class TestProposalsPageView:
         content = response.content.decode()
         assert "Rejected" in content
         assert "Scheduled" in content
+
+    def test_list_trims_byline_column_and_relabels_header(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        long_name = "A Very Long Submission Byline That Would Blow Up The Row Width"
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name=long_name,
+            title="Wide Byline",
+            slug="wide-byline",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=ANY,
+            contains=["Display Name", f'title="{long_name}"', "max-w-xs truncate"],
+        )
 
     def test_returns_proposals_in_context(
         self, authenticated_client, active_user, sphere, event
