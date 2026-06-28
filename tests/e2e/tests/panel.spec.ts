@@ -14,7 +14,7 @@ const openSpaceMenu = async (page: Page, name: string): Promise<Locator> => {
     exact: true,
   });
   await toggle.click();
-  return page.locator(".relative.inline-block", { has: toggle }).locator(".action-dropdown-menu");
+  return page.locator("[data-menu]", { has: toggle }).locator("[data-menu-panel]");
 };
 
 /** Build an HH:MM string by adding minutes to a base hour:minute. */
