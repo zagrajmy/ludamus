@@ -207,27 +207,25 @@ edit form.
 Demoable outcome: organizer assigns one or more tracks to a proposal
 from the edit form; track chips render on the detail page.
 
-- `SessionRepository.set_session_tracks` already exists and is called
-  from `mills/legacy.py` and `mills/submissions.py`. Surface it from a
-  service method `ProposalEditService.set_tracks(*, event_id,
-  proposal_id, track_ids)` with event-scope validation against
-  `TrackRepository.list_by_event(event_pk)`.
-- Track-manager permission check: the panel already differentiates
-  "managed" tracks (`managed_track_pks`) on the list page. Organizer
-  permission to assign any track on the event is assumed for now (no
-  per-track restriction). Confirm with product before shipping; default
-  is "any organizer can assign any track on the event".
-- Template: multi-select (compact, since tracks are typically few) on
-  `proposal-edit.html`. Detail page: track chips render in their own
-  card; each chip is an `<a>` to the track's panel detail page
-  (`panel:track-detail` or equivalent — confirm the actual URL name
-  when implementing). Match the link styling used on the facilitator
-  chips introduced in Step 8.
-- Tests: include a case that submits a track from a different event and
-  verifies it's ignored (matching the existing pattern from facilitator
-  assignment). Assert on the rendered template that each track chip on
-  the detail page renders as an anchor pointing at the track's panel
-  page.
+- **Shipped:** `track_ids` rides the existing
+  `SessionContentEditData` / `session_content_edit.apply` service (same
+  pattern as `facilitator_ids`) — no new service method. The repo's
+  `set_session_tracks` / `read_track_ids` were already in the protocol.
+- **Event-scope validation** lives in the view's `_collect_track_ids`,
+  which intersects submitted ids with `tracks.list_by_event(event_pk)`
+  before passing them to the service (mirrors `_collect_facilitator_ids`).
+- **Permissions:** per resolved Q3, **any organizer can assign any track**
+  on the event — no per-track restriction.
+- Template: compact checkbox list (tracks are few) with a
+  `tracks_submitted` hidden marker on `proposal-edit.html`. Detail page:
+  track chips in their own card; each chip is an `<a>` to
+  **`panel:track-edit`** (`slug`, `track_slug`) — there is no
+  `track-detail` page, and the edit page is the de-facto track page.
+  Styled as bordered pills (`border-border` → `hover:border-primary`).
+- Tests: assignment persists; a track from a different event is filtered
+  out; a partial POST without the `tracks_submitted` marker preserves
+  existing tracks; the detail page renders each chip as an anchor to
+  `panel:track-edit`.
 
 ### Step 4 — Time-slot preferences
 

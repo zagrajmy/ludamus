@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 17:44+0200\n"
+"POT-Creation-Date: 2026-06-28 07:10+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1240,6 +1240,8 @@ msgstr "Blok programowy"
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Category"
 msgstr "Kategoria"
@@ -3451,6 +3453,8 @@ msgstr ""
 
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
 #: src/ludamus/templates/panel/tracks.html
@@ -6129,6 +6133,10 @@ msgstr "Brak przypisanych twórców programu."
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Edit Proposal"
 msgstr "Edytuj zgłoszenie"
+
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Assign this proposal to one or more programme tracks."
+msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
 
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Settings"

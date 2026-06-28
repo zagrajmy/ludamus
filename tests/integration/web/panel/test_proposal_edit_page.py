@@ -18,6 +18,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
 )
 from ludamus.pacts import EventDTO, SessionDTO
 from ludamus.pacts.legacy import NotificationKind
@@ -187,6 +188,8 @@ class TestProposalEditPageView:
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
                 "session_fields": [],
+                "all_tracks": [],
+                "assigned_track_pks": set(),
             },
         )
 
@@ -511,6 +514,78 @@ class TestProposalEditPageView:
 
         assert list(session.facilitators.values_list("pk", flat=True)) == [alice.pk]
 
+    def test_post_assigns_tracks(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "tracks_submitted": "1",
+                "track_ids": [track.pk],
+            },
+        )
+
+        assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
+
+    def test_post_ignores_track_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        other_event = EventFactory(sphere=sphere)
+        foreign_track = Track.objects.create(
+            event=other_event, name="Foreign", slug="foreign", is_public=True
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "tracks_submitted": "1",
+                "track_ids": [foreign_track.pk],
+            },
+        )
+
+        assert not session.tracks.exists()
+
+    def test_partial_post_without_tracks_marker_preserves_tracks(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session.tracks.add(track)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated title only",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
+
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -540,6 +615,8 @@ class TestProposalEditPageView:
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
                 "session_fields": [],
+                "all_tracks": [],
+                "assigned_track_pks": set(),
             },
         )
         assert response.context["form"].errors

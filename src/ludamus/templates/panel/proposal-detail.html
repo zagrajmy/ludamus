@@ -171,6 +171,21 @@
                 </dl>
             </div>
         </div>
+        {% if proposal_tracks %}
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Tracks" %}</h3>
+                    <div class="flex flex-wrap gap-2">
+                        {% for t in proposal_tracks %}
+                            <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=t.slug %}"
+                               class="inline-flex items-center rounded-full border border-border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
+                                {{ t.name }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
         {% if preferred_time_slots %}
             <div class="card mb-6">
                 <div class="card-body">
