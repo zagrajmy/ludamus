@@ -33,15 +33,13 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_display_name">{% translate "Display Name" %}</label>
-                            <input type="text"
-                                   name="display_name"
-                                   id="id_display_name"
-                                   value="{{ form.display_name.value|default:'' }}"
-                                   class="w-full border {% if form.display_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                   placeholder="{% translate "e.g., Jan Kowalski" %}">
-                            {% if form.display_name.errors %}<p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>{% endif %}
+                            <dt class="text-xs text-foreground-muted">{% translate "Display Name" %}</dt>
+                            <dd class="text-foreground">
+                                {{ facilitator.display_name }}
+                            </dd>
+                            <p class="mt-1 text-xs text-foreground-muted">
+                                {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
+                            </p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"

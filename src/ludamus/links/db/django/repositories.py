@@ -395,6 +395,25 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         ]
 
     @staticmethod
+    def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]:
+        qs = (
+            Session.objects.filter(facilitators__id=facilitator_id)
+            .select_related("category")
+            .order_by("-creation_time")
+        )
+        return [
+            SessionListItemDTO(
+                pk=s.pk,
+                title=s.title,
+                display_name=s.display_name,
+                category_name=s.category.name if s.category else "",
+                status=SessionStatus(s.status),
+                creation_time=s.creation_time,
+            )
+            for s in qs
+        ]
+
+    @staticmethod
     def read_event(session_id: int) -> EventDTO:
         try:
             event = Event.objects.select_related("proposal_settings").get(

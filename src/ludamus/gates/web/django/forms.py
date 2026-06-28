@@ -492,7 +492,7 @@ def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditF
 
 
 class FacilitatorForm(forms.Form):
-    """Form for creating/editing a facilitator."""
+    """Form for creating a facilitator (display_name is required at creation)."""
 
     display_name = forms.CharField(
         max_length=255,
@@ -502,6 +502,20 @@ class FacilitatorForm(forms.Form):
             "required": _("Display name is required."),
         },
     )
+    accreditation_type = forms.ChoiceField(
+        choices=AccreditationType.choices,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+class FacilitatorEditForm(forms.Form):
+    # No display_name: it is a read-only cache (the canonical byline lives on
+    # the session), so the panel edit form only touches accreditation_type.
     accreditation_type = forms.ChoiceField(
         choices=AccreditationType.choices,
         initial=AccreditationType.NONE,
