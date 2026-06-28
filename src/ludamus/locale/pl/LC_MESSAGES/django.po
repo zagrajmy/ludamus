@@ -1594,6 +1594,10 @@ msgid "Space created successfully."
 msgstr "Przestrzeń została utworzona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
+msgid "Top level"
+msgstr "Najwyższy poziom"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 msgid "Space updated successfully."
 msgstr "Przestrzeń została zaktualizowana."
 
@@ -1845,6 +1849,16 @@ msgstr ""
 #: src/ludamus/gates/web/django/forms.py
 msgid "Capacity must be at least 1."
 msgstr "Pojemność musi wynosić co najmniej 1."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Parent"
+msgstr "Element nadrzędny"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Move this space elsewhere, or choose Top level to flatten it."
+msgstr ""
+"Przenieś tę przestrzeń w inne miejsce lub wybierz Najwyższy poziom, aby ją "
+"spłaszczyć."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Target Event"
@@ -4219,6 +4233,15 @@ msgstr "Zarejestruj się"
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "Reorder %(name)s — use the arrow keys"
+msgstr "Zmień kolejność: %(name)s — użyj strzałek"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+msgid "Group"
+msgstr "Grupa"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
