@@ -658,148 +658,86 @@ hand-added proposal exist with zero facilitators.
 
 ---
 
-## Part C — Edit-history audit trail
+## Part C — Complete the existing change-log (no new dependency)
 
-### Goal
+**Decision (2026-06-28):** drop `django-simple-history` /
+`django-reversion`. The codebase already ships a working, tested audit
+trail — `ContentChangeLog` (session content edits) and
+`ScheduleChangeLog` (timetable placement), browsable on the
+`panel:content-log` page, plus `ImportLogEntry` for provenance. That
+already satisfies the request ("changelog", not "rollback") for session
+content + scheduling. Adding a parallel per-row history system would mean
+a new dependency, per-model history tables, a migration, acting-user
+plumbing, and *two* audit surfaces to reconcile. Instead we close the
+genuine gaps by extending the log we already have.
 
-Every mutation of `Session` and `Facilitator` (and arguably their value
-side-tables `SessionFieldValue`, `HostPersonalData`) should leave a
-durable trace that an organizer can browse. The trace must capture
-*what* changed, *who* changed it, and *when*, and survive deletes of
-related objects (e.g., a facilitator gone shouldn't erase the history of
-proposals they were attached to).
+### What the existing `ContentChangeLog` captures today
 
-### Option comparison
+Written by `SessionContentEditService.apply` via `diff_session_content`:
+core session columns (title, display_name, description, contact_email,
+duration, participants_limit, min_age, cover_image, **category**) and
+dynamic **session-field values** — each as `{field, field_id, old, new}`,
+with acting user + timestamp. Rendered on `panel/content-log.html`
+(`change.field|content_field_label` for core fields, `field_names`
+lookup for dynamic ones).
 
-#### Option 1 — `django-simple-history`
+### Gaps to close
 
-Per-row, per-model history table. Every save creates a row in
-`HistoricalSession` / `HistoricalFacilitator` with all field values plus
-`history_user`, `history_date`, `history_type` (`+/-/~`), and
-`history_change_reason`.
+1. **M2M assignment** — facilitators / tracks / time-slots. `apply()`
+   writes them but `diff_session_content` does not diff them, so changes
+   go unlogged. (Q5 confirmed these M2Ms are worth tracking.)
+2. **`HostPersonalData`** — personal-data answers, including the Step 6
+   inline write, log nothing.
+3. **`Facilitator` entity edits** — display_name, accreditation_type.
 
-Pros:
+### Step C1 — Log M2M assignment changes in `ContentChangeLog`
 
-- One table per tracked model; trivial mental model.
-- Built-in `model_instance.history.as_of(datetime)` for point-in-time
-  reads — useful for "what did this proposal look like when accepted?"
-- Diffing between any two history rows is one method call.
-- Admin integration; we don't use Django admin but custom panel views
-  can read the history table directly.
-- Pure-Django; no signals magic that breaks under bulk operations as
-  long as we route mutations through the ORM (already the case via
-  repos).
-- Tracks M2M changes if you opt in per relation (`HistoricalRecords` +
-  `m2m_fields`), so facilitators / tags / tracks / time_slots history
-  is recoverable.
+Demoable outcome: changing a proposal's facilitators, tracks, or
+time-slots from the edit form adds a `from X → to Y` row to the content
+log.
 
-Cons:
+- In `SessionContentEditService.apply`, read each M2M's **old**
+  membership before `set_*`, compare to the new list, and append a
+  `{field: "facilitators"|"tracks"|"time_slots", field_id: None, old, new}`
+  entry when changed. `old`/`new` are human-readable (names, comma-joined)
+  since the template renders them directly.
+- Add `facilitators` / `tracks` / `time_slots` labels to
+  `content_field_label` (`cfp_tags.py`). No content-log template change
+  otherwise — it already iterates `changes`.
+- Tests: editing each M2M writes one entry with the right old→new names;
+  a no-op edit writes nothing.
 
-- Table-size growth is linear with edits. Not a worry at our scale.
-- "Who changed it" requires plumbing the request user into the
-  ORM-save path. The library has a middleware that does this; with our
-  service layer we'd inject the user via service methods instead.
-- Bulk updates (`.update(...)`) bypass model `save()` and so bypass
-  history. Our repos overwhelmingly use `.save()` and field-by-field
-  M2M `.set(...)`, both of which trigger signals correctly. Worth an
-  explicit audit pass.
+### Step C2 — Log personal-data edits
 
-#### Option 2 — `django-reversion`
+Demoable outcome: editing a facilitator's personal-data answers leaves a
+trace.
 
-Revision-based. A "revision" groups changes to multiple models; each
-revision links to one or more "versions" (a JSON snapshot per object).
-Designed around the admin's "save together" pattern.
+- **Model fit caveat:** `ContentChangeLog` is session-scoped (`session`
+  FK required); `HostPersonalData` is facilitator+event-scoped. Two
+  viable shapes — pick when implementing:
+  - (a) When edited via the **proposal-edit inline path** (a session is
+    in context), attach the diff to that session's `ContentChangeLog`,
+    labelled per facilitator. Leaves the dedicated facilitator-edit page
+    path unlogged.
+  - (b) Make `ContentChangeLog.session` nullable and add a nullable
+    `facilitator` FK, so both edit paths log uniformly. One migration;
+    the content-log page groups by session-or-facilitator.
+- Recommendation: (b) if facilitator-edit auditing matters; (a) if only
+  the proposal-edit surface needs it. Confirm before building.
+- Tests: an inline personal-data edit writes a log entry; event-scoping
+  preserved.
 
-Pros:
+### Step C3 (optional) — Per-proposal history view on the detail page
 
-- Cross-model revisions (e.g., "user X accepted proposal Y" can group
-  the Session row change + a comment + related-object changes into one
-  revision).
-- JSON-based snapshots — schema changes don't break old history.
-- Revert-to-revision is a first-class operation.
+Demoable outcome: the proposal-detail page shows this proposal's edits
+without leaving for the event-wide log.
 
-Cons:
-
-- Requires wrapping mutations in `with reversion.create_revision():`
-  blocks. With a service layer that's mechanical but pervasive.
-- JSON snapshots are awkward to query for "find all proposals where the
-  category changed". Simple-history's flat schema is friendlier here.
-- M2M tracking exists but is fiddlier than simple-history's
-  `m2m_fields`.
-- "Point-in-time read" is more verbose than simple-history's `as_of`.
-
-#### Recommendation
-
-**`django-simple-history`.** Reasons:
-
-- Our audit need is dominated by per-row "what changed on this
-  proposal" questions, which is exactly what simple-history is shaped
-  for.
-- The service-layer migration already gives us a clean place to attach
-  the acting user without the library's middleware.
-- M2M tracking for facilitators / tags / tracks / time_slots is a
-  declared opt-in, fits our model.
-- Revert-to-revision (reversion's strength) is not on the requirements
-  list. The user asked for "changelog", not "rollback".
-
-### Stepped rollout
-
-Sequenced after Part B so the history captures the new mutation paths
-from the start.
-
-#### Step H1 — Install and configure (no UI yet)
-
-- Add `django-simple-history` to `pyproject.toml`.
-- Add `simple_history` to `INSTALLED_APPS` in `edges/settings.py`.
-- Add `HistoricalRecords()` to `Session` and `Facilitator` with M2M opt-in
-  for: `Session.facilitators`, `Session.tracks`, `Session.time_slots`.
-  (`Session.tags` is legacy — not tracked; see Step 5.)
-- Migration auto-generated.
-- Acting-user wiring: extend each service method that mutates a
-  `Session` or `Facilitator` to accept `actor_user_id: int` (or
-  `actor: UserDTO`). The service sets `_history_user` on the model
-  before save, using a thin helper in `links/db/django/repositories.py`
-  that calls `model._history_user = actor` before `.save()`. Views pass
-  `request.user.pk`.
-- Verify: open a Django shell after running the new migration; mutate a
-  session through the service; confirm a `HistoricalSession` row
-  appears with the correct user, timestamp, and change type.
-- No tests yet (no UI; smoke verification via shell).
-
-#### Step H2 — Panel surface: history tab on proposal detail
-
-Demoable outcome: organizer sees a chronological list of edits on a
-proposal's detail page.
-
-- New view `ProposalHistoryPageView` and template fragment (a tab on
-  the existing detail page, not a separate URL).
-- Service method `ProposalHistoryService.list_for_session(session_id)`
-  returns a list of `ProposalHistoryEntryDTO` with: timestamp, actor
-  display name (or `None` for system / import), change type, and a
-  per-field "before → after" diff computed via simple-history's
-  `diff_against`.
-- Pagination not needed in v1 (we don't expect more than a few dozen
-  edits per proposal). Add later if needed.
-- Special-case the import path: when the importer creates or updates a
-  proposal, the `_history_user` is `None` (system); the UI renders this
-  as "Imported from {integration name}" using the existing
-  `ImportLogEntry` link already present in `ProposalDetailPageView`.
-- Tests: integration test that edits a proposal three times through
-  three different users and verifies the history list contents.
-
-#### Step H3 — Facilitator history surface
-
-Same shape as H2 but on the facilitator detail page. Shares the DTO
-pattern; the service method differs.
-
-#### Step H4 — Personal-data + session-field-value history
-
-The side-tables `SessionFieldValue` and `HostPersonalData` are the
-high-churn surfaces; history-tracking them is what makes the trail
-genuinely useful. Tracking them via simple-history is two more
-`HistoricalRecords()` declarations + one more migration. UI: fold their
-changes into the existing proposal-history / facilitator-history list
-(not separate tabs).
+- Filter `ContentChangeLog` + `ScheduleChangeLog` to one session
+  (`list_by_session`) and render a compact history card on
+  `proposal-detail.html`. This also delivers the Step 9 "schedule-change-
+  log list" surface from the same data. The import provenance is already
+  linked at the top of the page.
+- No new dependency, no new model — a read + a template card.
 
 ---
 
