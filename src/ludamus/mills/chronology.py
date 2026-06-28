@@ -80,6 +80,7 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
+        TimeSlotDTO,
         TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
@@ -994,6 +995,22 @@ def _core_comparisons(
     return comparisons
 
 
+def _time_slot_labels(slots: list[TimeSlotDTO]) -> list[str]:
+    return [f"{s.start_time.isoformat()} - {s.end_time.isoformat()}" for s in slots]
+
+
+def _append_m2m_change(
+    changes: list[ContentFieldChange], field: str, before: list[str], after: list[str]
+) -> None:
+    # M2M membership change rendered as a comma-joined name list (sorted so
+    # reordering alone isn't logged as a change). Identity-only, like the
+    # core-field diff.
+    old = ", ".join(sorted(before))
+    new = ", ".join(sorted(after))
+    if old != new:
+        changes.append({"field": field, "field_id": None, "old": old, "new": new})
+
+
 def diff_session_content(
     old_session: SessionDTO,
     update: SessionUpdateData,
@@ -1061,15 +1078,34 @@ class SessionContentEditService:
                     for fv in old_values
                 ]
             )
+            m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
+                before = [
+                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                ]
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
+                after = [
+                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                ]
+                _append_m2m_change(m2m_changes, "facilitators", before, after)
             if data.track_ids is not None:
+                before = [t.name for t in self._sessions.read_tracks(session_id)]
                 self._sessions.set_session_tracks(session_id, data.track_ids)
+                after = [t.name for t in self._sessions.read_tracks(session_id)]
+                _append_m2m_change(m2m_changes, "tracks", before, after)
             if data.time_slot_ids is not None:
+                before = _time_slot_labels(
+                    self._sessions.read_preferred_time_slots(session_id)
+                )
                 self._sessions.set_time_slots(session_id, data.time_slot_ids)
+                after = _time_slot_labels(
+                    self._sessions.read_preferred_time_slots(session_id)
+                )
+                _append_m2m_change(m2m_changes, "time_slots", before, after)
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )
+            changes.extend(m2m_changes)
             if changes:
                 log_data: ContentChangeLogData = {
                     "event_id": event_id,

@@ -72,6 +72,10 @@ def content_field_label(field_key: str) -> str:
         "min_age": _("Minimum age"),
         "duration": _("Duration"),
         "cover_image": _("Cover image"),
+        "category": _("Category"),
+        "facilitators": _("Facilitators"),
+        "tracks": _("Tracks"),
+        "time_slots": _("Time slots"),
     }
     return labels.get(field_key, field_key)
 
