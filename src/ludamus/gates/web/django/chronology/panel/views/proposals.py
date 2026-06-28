@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
+    HostPersonalDataEntry,
     NotFoundError,
     SessionContentEditData,
     SessionData,
@@ -35,11 +36,18 @@ if TYPE_CHECKING:
 
     from ludamus.pacts import (
         EventDTO,
+        FacilitatorDTO,
         FacilitatorListItemDTO,
+        PersonalDataFieldDTO,
         SessionFieldDTO,
         TimeSlotDTO,
         TrackDTO,
     )
+
+    PersonalFieldItems = list[
+        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
+    ]
+    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -216,6 +224,59 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         }
         return list(submitted_ids & valid_pks)
 
+    def _get_facilitator_personal_data(
+        self, event_pk: int, proposal_id: int
+    ) -> FacilitatorPersonalData:
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        if not fields:
+            return []
+        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        result: FacilitatorPersonalData = []
+        for facilitator in assigned:
+            values = self.request.di.uow.host_personal_data.read_for_facilitator_event(
+                facilitator.pk, event_pk
+            )
+            items = [(field, values.get(field.slug)) for field in fields]
+            result.append(
+                (facilitator, f"facilitator_{facilitator.pk}_personal", items)
+            )
+        return result
+
+    def _collect_personal_data(
+        self, event_pk: int
+    ) -> dict[int, list[HostPersonalDataEntry]] | None:
+        if self.request.POST.get("personal_data_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
+        submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
+        valid_pks = {
+            f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
+        }
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        result: dict[int, list[HostPersonalDataEntry]] = {}
+        for facilitator_id in submitted_ids & valid_pks:
+            entries: list[HostPersonalDataEntry] = []
+            for field in fields:
+                key = f"facilitator_{facilitator_id}_personal_{field.slug}"
+                if field.field_type == "checkbox":
+                    value: str | list[str] | bool = self.request.POST.get(key) == "true"
+                elif field.is_multiple:
+                    value = self.request.POST.getlist(key)
+                else:
+                    value = self.request.POST.get(key, "")
+                    if field.allow_custom and not value:
+                        value = self.request.POST.get(f"{key}_custom", "")
+                entries.append(
+                    HostPersonalDataEntry(
+                        facilitator_id=facilitator_id,
+                        event_id=event_pk,
+                        field_id=field.pk,
+                        value=value,
+                    )
+                )
+            result[facilitator_id] = entries
+        return result
+
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("facilitators_submitted") != "1":
             return None
@@ -306,6 +367,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["assigned_track_pks"] = assigned_track_pks
         context["all_time_slots"] = all_time_slots
         context["assigned_time_slot_pks"] = assigned_time_slot_pks
+        context["facilitator_personal_data"] = self._get_facilitator_personal_data(
+            current_event.pk, proposal_id
+        )
         return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
@@ -347,6 +411,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["assigned_track_pks"] = assigned_track_pks
             context["all_time_slots"] = all_time_slots
             context["assigned_time_slot_pks"] = assigned_time_slot_pks
+            context["facilitator_personal_data"] = self._get_facilitator_personal_data(
+                current_event.pk, proposal_id
+            )
             return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
         update_data: SessionUpdateData = {
@@ -376,6 +443,14 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 time_slot_ids=self._collect_time_slot_ids(current_event.pk),
             ),
         )
+
+        if (personal_data := self._collect_personal_data(current_event.pk)) is not None:
+            for facilitator_id, entries in personal_data.items():
+                self.request.services.host_personal_data.update_personal_data(
+                    event_id=current_event.pk,
+                    facilitator_id=facilitator_id,
+                    entries=entries,
+                )
 
         # T2: raising (or unlimiting) capacity frees seats — promote waiters.
         new_limit = form.cleaned_data.get("participants_limit") or 0

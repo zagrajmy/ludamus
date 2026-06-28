@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import FieldUsageSummary
+from ludamus.pacts import FieldUsageSummary, NotFoundError
 from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -10,6 +10,9 @@ from ludamus.pacts.submissions import (
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
+        FacilitatorRepositoryProtocol,
+        HostPersonalDataEntry,
+        HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
@@ -106,3 +109,38 @@ class CFPPersonalDataFieldService:
             return False
         self._fields.delete(field.pk)
         return True
+
+
+class HostPersonalDataService:
+    """Organizer edits of a facilitator's per-event personal-data answers.
+
+    The shared write path for the dedicated facilitator-edit page and the
+    inline personal-data blocks on the proposal-edit page; owns the
+    transactional boundary and event scoping.
+    """
+
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        facilitators: FacilitatorRepositoryProtocol,
+        host_personal_data: HostPersonalDataRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._facilitators = facilitators
+        self._host_personal_data = host_personal_data
+
+    def update_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[HostPersonalDataEntry],
+    ) -> None:
+        with self._transaction.atomic():
+            # Event scoping: a facilitator named in the request must belong to
+            # the panel's event, or it is cross-event tampering.
+            if self._facilitators.read(facilitator_id).event_id != event_id:
+                raise NotFoundError
+            if entries:
+                self._host_personal_data.save(entries)

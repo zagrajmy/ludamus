@@ -279,6 +279,30 @@
                     </div>
                 </div>
             {% endif %}
+            {% if facilitator_personal_data %}
+                <div class="card mt-6">
+                    <div class="card-body">
+                        <input type="hidden" name="personal_data_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitator personal data" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Personal-data answers for each assigned facilitator." %}
+                        </p>
+                        <div class="space-y-3">
+                            {% for facilitator, name_prefix, items in facilitator_personal_data %}
+                                <details class="border border-border rounded-lg">
+                                    <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ facilitator.display_name }}</summary>
+                                    <div class="px-4 pb-4 pt-2">
+                                        <input type="hidden"
+                                               name="personal_data_facilitator_ids"
+                                               value="{{ facilitator.pk }}">
+                                        {% include "panel/_personal_data_fields.html" with fields=items name_prefix=name_prefix %}
+                                    </div>
+                                </details>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </form>
         {% vite_asset 'src/encounter-form.ts' %}
         <script>

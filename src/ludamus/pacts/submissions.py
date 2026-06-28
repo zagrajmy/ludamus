@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         FacilitatorRepositoryProtocol,
         FieldUsageSummary,
+        HostPersonalDataEntry,
         HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
@@ -338,3 +339,13 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         category_requirements: dict[int, bool],
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
+
+
+class HostPersonalDataServiceProtocol(Protocol):
+    def update_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[HostPersonalDataEntry],
+    ) -> None: ...
