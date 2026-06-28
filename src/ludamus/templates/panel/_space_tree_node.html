@@ -3,8 +3,11 @@
 <li class="space-node" draggable="true" data-space-id="{{ node.pk }}">
     <div class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-bg-tertiary">
         <div class="flex min-w-0 items-center gap-2">
-            <span class="drag-handle cursor-move text-foreground-muted"
-                  aria-hidden="true">{% icon "bars-3" class="w-4 h-4" %}</span>
+            <button type="button"
+                    class="drag-handle icon-btn cursor-move text-foreground-muted"
+                    aria-label="{% blocktranslate with name=node.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
+                {% icon "bars-3" class="w-4 h-4" %}
+            </button>
             {% if node.is_leaf %}
                 {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-green-500" %}
                 <span class="sr-only">{% translate "Room" %}</span>

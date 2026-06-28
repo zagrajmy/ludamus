@@ -1,5 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
+{% load django_vite %}
 {% load tessera %}
 {% block title_prefix %}
     {% translate "Venues" %} -
@@ -28,76 +29,20 @@
     <div class="p-4">
         {% if current_event %}
             {% if tree %}
+                {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
                 <div class="card p-4">
-                    <ul id="space-root-list" class="space-list" data-parent-pk="">
+                    <ul id="space-root-list"
+                        class="space-list"
+                        data-parent-pk=""
+                        data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}"
+                        data-csrf="{{ csrf_token }}"
+                        data-reorder-error="{{ t_reorder_error }}">
                         {% for node in tree %}
                             {% include "panel/_space_tree_node.html" with node=node %}
                         {% endfor %}
                     </ul>
                 </div>
-                <script>
-                    // Action dropdowns are handled by the shared menu.ts disclosure widget.
-                    (function() {
-                        // Drag-reorder within each sibling list (no reparenting).
-                        const reorderUrl = '{% url "panel:space-reorder" slug=current_event.slug %}';
-                        const csrfToken = '{{ csrf_token }}';
-                        let dragged = null;
-
-                        function directChildren(list) {
-                            return Array.from(list.children).filter(el => el.classList.contains('space-node'));
-                        }
-
-                        async function saveOrder(list) {
-                            const parentPk = list.dataset.parentPk;
-                            const spaceIds = directChildren(list).map(li => parseInt(li.dataset.spaceId, 10));
-                            try {
-                                const response = await fetch(reorderUrl, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRFToken': csrfToken
-                                    },
-                                    body: JSON.stringify({
-                                        parent_pk: parentPk === '' ? null : parseInt(parentPk, 10),
-                                        space_ids: spaceIds
-                                    })
-                                });
-                                if (!response.ok) throw new Error('Reorder failed');
-                            } catch (err) {
-                                // Re-sync from the server so the UI can't drift from persisted order.
-                                alert('{% translate "Could not save the new order. Reloading the page." %}');
-                                window.location.reload();
-                            }
-                        }
-
-                        document.querySelectorAll('.space-list').forEach(list => {
-                            list.addEventListener('dragstart', e => {
-                                const li = e.target.closest('.space-node');
-                                if (li && directChildren(list).includes(li)) {
-                                    dragged = li;
-                                    li.style.opacity = '0.5';
-                                }
-                            });
-                            list.addEventListener('dragend', e => {
-                                const li = e.target.closest('.space-node');
-                                if (li && dragged && directChildren(list).includes(dragged)) {
-                                    li.style.opacity = '1';
-                                    saveOrder(list);
-                                }
-                                dragged = null;
-                            });
-                            list.addEventListener('dragover', e => {
-                                if (!dragged || !directChildren(list).includes(dragged)) return;
-                                const target = e.target.closest('.space-node');
-                                if (!target || target === dragged || !directChildren(list).includes(target)) return;
-                                e.preventDefault();
-                                const rect = target.getBoundingClientRect();
-                                const before = e.clientY < rect.top + rect.height / 2;
-                                list.insertBefore(dragged, before ? target : target.nextSibling);
-                            });
-                        });
-                    })();
-                </script>
+                {% vite_asset 'src/space-tree.ts' %}
             {% else %}
                 <div class="card p-8 text-center">
                     <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
