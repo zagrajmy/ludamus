@@ -333,34 +333,40 @@ class TimetableService:
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
-        self._require_session_in_event(session_pk, event_pk)
-        self._require_space_in_event(placement.space_pk, event_pk)
-        self._clear_existing_assignment(session_pk, event_pk, user_pk)
-        session = self._uow.sessions.read(session_pk)
-        if session.status != SessionStatus.PENDING:
-            msg = f"Session {session_pk} is not in PENDING status"
-            raise ValueError(msg)
-        event = self._uow.sessions.read_event(session_pk)
-        self._uow.agenda_items.create(
-            {
+        with self._uow.atomic():
+            self._require_session_in_event(session_pk, event_pk)
+            self._require_space_in_event(placement.space_pk, event_pk)
+            # Lock the target Space row before creating the placement so a
+            # concurrent subtree delete (which locks the same rows before its
+            # no-sessions check) can't cascade this AgendaItem away in the gap
+            # between that check and the delete.
+            self._uow.spaces.lock(placement.space_pk)
+            self._clear_existing_assignment(session_pk, event_pk, user_pk)
+            session = self._uow.sessions.read(session_pk)
+            if session.status != SessionStatus.PENDING:
+                msg = f"Session {session_pk} is not in PENDING status"
+                raise ValueError(msg)
+            event = self._uow.sessions.read_event(session_pk)
+            self._uow.agenda_items.create(
+                {
+                    "session_id": session_pk,
+                    "space_id": placement.space_pk,
+                    "start_time": placement.start_time,
+                    "end_time": placement.end_time,
+                    "session_confirmed": event.auto_confirm_sessions,
+                }
+            )
+            self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
+            log_data: ScheduleChangeLogData = {
+                "event_id": event.pk,
                 "session_id": session_pk,
-                "space_id": placement.space_pk,
-                "start_time": placement.start_time,
-                "end_time": placement.end_time,
-                "session_confirmed": event.auto_confirm_sessions,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": placement.space_pk,
+                "new_start_time": placement.start_time,
+                "new_end_time": placement.end_time,
             }
-        )
-        self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        log_data: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": session_pk,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.ASSIGN,
-            "new_space_id": placement.space_pk,
-            "new_start_time": placement.start_time,
-            "new_end_time": placement.end_time,
-        }
-        self._uow.schedule_change_logs.create(log_data)
+            self._uow.schedule_change_logs.create(log_data)
 
     def unassign_session(
         self, session_pk: int, event_pk: int, user_pk: int | None = None

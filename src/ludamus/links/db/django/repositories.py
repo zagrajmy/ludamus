@@ -973,6 +973,13 @@ class SpaceRepository(SpaceRepositoryProtocol):
         return AgendaItem.objects.filter(space_id=pk).exists()
 
     @staticmethod
+    def lock(pk: int) -> None:
+        try:
+            Space.objects.select_for_update().get(pk=pk)
+        except Space.DoesNotExist as exception:
+            raise NotFoundError from exception
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]:
         spaces = Space.objects.filter(event_id=event_pk).order_by("order", "name")
         return [SpaceDTO.model_validate(space) for space in spaces]
@@ -1115,6 +1122,12 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 collect(child_pk)
 
         collect(pk)
+        # Lock the subtree's Space rows (deterministic pk order) so a concurrent
+        # session assignment to any leaf below serialises behind this
+        # check-then-delete — assign_session locks the same Space row first,
+        # so its AgendaItem can't slip in before the cascade. Safe because the
+        # sole caller runs inside delete_space's atomic() block.
+        list(Space.objects.select_for_update().filter(pk__in=subtree).order_by("pk"))
         return AgendaItem.objects.filter(space_id__in=subtree).exists()
 
     @staticmethod
