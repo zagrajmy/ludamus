@@ -1552,6 +1552,7 @@ class SessionContentEditData:
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
+    time_slot_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):

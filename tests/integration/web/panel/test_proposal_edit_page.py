@@ -1,5 +1,6 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/edit/ page."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -18,6 +19,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    TimeSlot,
     Track,
 )
 from ludamus.pacts import EventDTO, SessionDTO
@@ -190,6 +192,8 @@ class TestProposalEditPageView:
                 "session_fields": [],
                 "all_tracks": [],
                 "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
             },
         )
 
@@ -586,6 +590,110 @@ class TestProposalEditPageView:
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
+    def test_post_assigns_time_slots(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "time_slots_submitted": "1",
+                "time_slot_ids": [slot.pk],
+            },
+        )
+
+        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+
+    def test_post_ignores_time_slot_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        other_event = EventFactory(sphere=sphere)
+        foreign_slot = TimeSlot.objects.create(
+            event=other_event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "time_slots_submitted": "1",
+                "time_slot_ids": [foreign_slot.pk],
+            },
+        )
+
+        assert not session.time_slots.exists()
+
+    def test_post_clears_time_slots_when_marker_present_and_none_selected(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+        session.time_slots.add(slot)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "time_slots_submitted": "1",
+            },
+        )
+
+        assert not session.time_slots.exists()
+
+    def test_partial_post_without_time_slots_marker_preserves_time_slots(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+        session.time_slots.add(slot)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated title only",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -617,6 +725,8 @@ class TestProposalEditPageView:
                 "session_fields": [],
                 "all_tracks": [],
                 "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
             },
         )
         assert response.context["form"].errors
