@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-29 19:44+0200\n"
+"POT-Creation-Date: 2026-06-28 07:32+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6004,6 +6004,7 @@ msgid "Facilitator"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Preferred time slots"
 msgstr "Preferowane przedziały czasowe"
 
@@ -6018,6 +6019,14 @@ msgstr "Edytuj zgłoszenie"
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Assign this proposal to one or more programme tracks."
 msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
+
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid ""
+"Time slots the facilitator prefers for this session. These are preferences, "
+"not a final schedule."
+msgstr ""
+"Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
+"programu. To preferencje, a nie ostateczny harmonogram."
 
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Settings"

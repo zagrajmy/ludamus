@@ -1065,6 +1065,8 @@ class SessionContentEditService:
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
             if data.track_ids is not None:
                 self._sessions.set_session_tracks(session_id, data.track_ids)
+            if data.time_slot_ids is not None:
+                self._sessions.set_time_slots(session_id, data.time_slot_ids)
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )

@@ -232,17 +232,23 @@ from the edit form; track chips render on the detail page.
 Demoable outcome: organizer can review and edit the facilitator's
 preferred time slots from the edit form.
 
-- Repo: `SessionRepository.read_time_slots(session_pk)` and
-  `set_time_slots(session_pk, time_slot_pks)`. Check the model for
-  existing methods first (`PendingSessionDTO` already carries
-  `time_slots`, so a reader exists; the setter likely does not).
-- Service: `ProposalEditService.set_time_slots(*, event_id, proposal_id,
-  time_slot_ids)`; validates that every supplied slot belongs to the
-  event.
-- Template: multi-select grouped by day on `proposal-edit.html`. The
-  organizer-facing copy makes clear these are *facilitator preferences*,
-  not a scheduling decision.
-- Tests: include event-scoping check; empty selection is allowed.
+- **Shipped:** `time_slot_ids` rides the existing
+  `SessionContentEditData` / `session_content_edit.apply` (same pattern as
+  `facilitator_ids` / `track_ids`). Repo `set_time_slots` (writes the
+  `time_slots` M2M) and `read_preferred_time_slot_ids` were already in the
+  protocol — no new repo or service method.
+- **Event-scope validation** in the view's `_collect_time_slot_ids`
+  (intersect with `time_slots.list_by_event(event_pk)`).
+- Template: checkbox list with a `time_slots_submitted` marker on
+  `proposal-edit.html`; copy makes clear these are *facilitator
+  preferences*, not a scheduling decision. Detail page already renders
+  the preferred slots, unchanged.
+  <!-- ponytail: flat list, not grouped-by-day — matches the existing
+  detail-page rendering and avoids event-timezone bucketing. Group by day
+  if slot counts grow large enough to need it. -->
+- Tests: assignment persists; foreign-event slot is filtered out; the
+  `time_slots_submitted` marker with no selection clears the slots (empty
+  selection allowed); a partial POST without the marker preserves them.
 
 ### Step 5 — Migrate `ProposalEditPageView` to a service + retire legacy fields
 

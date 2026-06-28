@@ -37,6 +37,7 @@ if TYPE_CHECKING:
         EventDTO,
         FacilitatorListItemDTO,
         SessionFieldDTO,
+        TimeSlotDTO,
         TrackDTO,
     )
 
@@ -196,6 +197,25 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         valid_pks = {t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)}
         return list(submitted_ids & valid_pks)
 
+    def _get_time_slot_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[TimeSlotDTO], set[int]]:
+        all_time_slots = self.request.di.uow.time_slots.list_by_event(event_pk)
+        assigned_pks = set(
+            self.request.di.uow.sessions.read_preferred_time_slot_ids(proposal_id)
+        )
+        return all_time_slots, assigned_pks
+
+    def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
+        if self.request.POST.get("time_slots_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist("time_slot_ids")
+        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
+        valid_pks = {
+            ts.pk for ts in self.request.di.uow.time_slots.list_by_event(event_pk)
+        }
+        return list(submitted_ids & valid_pks)
+
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("facilitators_submitted") != "1":
             return None
@@ -278,11 +298,16 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_tracks, assigned_track_pks = self._get_track_context(
             current_event.pk, proposal_id
         )
+        all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
+            current_event.pk, proposal_id
+        )
         context["all_facilitators"] = all_facilitators
         context["assigned_facilitator_pks"] = assigned_pks
         context["session_fields"] = session_fields
         context["all_tracks"] = all_tracks
         context["assigned_track_pks"] = assigned_track_pks
+        context["all_time_slots"] = all_time_slots
+        context["assigned_time_slot_pks"] = assigned_time_slot_pks
         return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
@@ -311,6 +336,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             all_tracks, assigned_track_pks = self._get_track_context(
                 current_event.pk, proposal_id
             )
+            all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
+                current_event.pk, proposal_id
+            )
             context["active_nav"] = "proposals"
             context["proposal"] = session
             context["form"] = form
@@ -319,6 +347,8 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["session_fields"] = session_fields
             context["all_tracks"] = all_tracks
             context["assigned_track_pks"] = assigned_track_pks
+            context["all_time_slots"] = all_time_slots
+            context["assigned_time_slot_pks"] = assigned_time_slot_pks
             return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
         update_data: SessionUpdateData = {
@@ -347,6 +377,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 field_values=field_values,
                 facilitator_ids=self._collect_facilitator_ids(current_event.pk),
                 track_ids=self._collect_track_ids(current_event.pk),
+                time_slot_ids=self._collect_time_slot_ids(current_event.pk),
             ),
         )
 
