@@ -31,7 +31,7 @@ def _expected_event_info() -> EventInfo:
     start = FROZEN_NOW + timedelta(days=7)
     end = start + timedelta(hours=6)
     return EventInfo(
-        cover_image_url=staticfiles_storage.url("placeholder-images/01.jpg"),
+        cover_image_url=staticfiles_storage.url("placeholder-images/01.webp"),
         description=(
             "Design system preview event. Use this to debug the "
             "event card in isolation."

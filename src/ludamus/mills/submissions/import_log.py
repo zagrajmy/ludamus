@@ -100,7 +100,6 @@ class ImportLogService:
         target_idx, target_row = located
         with self._transaction.atomic():
             result = self._engine.import_rows(
-                sphere_id=sphere_id,
                 event_id=event_id,
                 integration_pk=integration.pk,
                 settings=settings,

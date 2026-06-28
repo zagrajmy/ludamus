@@ -9,27 +9,20 @@ let assignBackUrl: string | null = null;
 let assignPreferredSlots: PreferredSlot[] = [];
 
 declare const htmx: {
-  ajax: (
-    method: string,
-    url: string,
-    opts: { swap: string; target: string },
-  ) => void;
+  ajax: (method: string, url: string, opts: { swap: string; target: string }) => void;
 };
 
-const banner = (): HTMLElement =>
-  document.getElementById("assign-mode-banner")!;
+const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!;
 
 const grid = (): HTMLElement => document.getElementById("timetable-grid")!;
 
-const calendar = (): HTMLElement | null =>
-  document.getElementById("timetable-calendar");
+const calendar = (): HTMLElement | null => document.getElementById("timetable-calendar");
 
 const columns = (): NodeListOf<HTMLElement> =>
   document.querySelectorAll<HTMLElement>(".timetable-column");
 
 const csrfToken = (): string =>
-  (document.querySelector("[name=csrfmiddlewaretoken]") as HTMLInputElement)
-    .value;
+  (document.querySelector("[name=csrfmiddlewaretoken]") as HTMLInputElement).value;
 
 function pxPerMinute(cal: HTMLElement): number {
   const raw = getComputedStyle(cal).getPropertyValue("--minute-px").trim();
@@ -55,10 +48,7 @@ function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
 }
 
 function clearPreferredSlotOverlays(): void {
-  for (const el of document.querySelectorAll<HTMLElement>(
-    ".timetable-preferred-slot",
-  ))
-    el.remove();
+  for (const el of document.querySelectorAll<HTMLElement>(".timetable-preferred-slot")) el.remove();
 }
 
 function renderPreferredSlotOverlays(): void {
@@ -143,9 +133,7 @@ document.addEventListener("click", (e) => {
 
   // Grid column click during assignment mode
   if (assignSessionPk) {
-    const col = target.closest<HTMLElement>(
-      ".timetable-column.assign-mode-active",
-    );
+    const col = target.closest<HTMLElement>(".timetable-column.assign-mode-active");
     if (col) {
       const spacePk = col.dataset.spacePk!;
       const cal = calendar()!;
@@ -188,25 +176,14 @@ document.addEventListener("click", (e) => {
             }
           } else {
             alert(
-              `Could not place session (server returned ${resp.status}). ` +
-                `Please try again.`,
+              `Could not place session (server returned ${resp.status}). ` + `Please try again.`,
             );
-            enterAssignMode(
-              sessionPkAtClick,
-              durationAtClick,
-              backUrlAtClick,
-              slotsAtClick,
-            );
+            enterAssignMode(sessionPkAtClick, durationAtClick, backUrlAtClick, slotsAtClick);
           }
         })
         .catch(() => {
           alert("Network error placing session. Please try again.");
-          enterAssignMode(
-            sessionPkAtClick,
-            durationAtClick,
-            backUrlAtClick,
-            slotsAtClick,
-          );
+          enterAssignMode(sessionPkAtClick, durationAtClick, backUrlAtClick, slotsAtClick);
         });
       return;
     }

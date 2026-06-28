@@ -24,9 +24,7 @@ const waiterState = path.join(e2eDir, ".auth-state-waiter.json");
 
 const readMail = (): string[] => {
   if (!fs.existsSync(mailDir)) return [];
-  return fs
-    .readdirSync(mailDir)
-    .map((file) => fs.readFileSync(path.join(mailDir, file), "utf8"));
+  return fs.readdirSync(mailDir).map((file) => fs.readFileSync(path.join(mailDir, file), "utf8"));
 };
 
 const clearMail = (): void => {
@@ -47,13 +45,11 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
   });
   const adminPage = await adminContext.newPage();
   await adminPage.goto(
-    `/chronology/session/${scenario.session_id}/enrollment/`,
+    `/chronology/event/${scenario.event_slug}/session/${scenario.session_id}/enrollment/`,
   );
   // The superuser is the only user on this page, so its cancel radio is unique.
   await adminPage.getByRole("radio", { name: /Cancel enrollment/i }).check();
-  await adminPage
-    .getByRole("button", { name: /Enroll Selected Users/ })
-    .click();
+  await adminPage.getByRole("button", { name: /Enroll Selected Users/ }).click();
   await adminPage.waitForURL(/\/chronology\/event\//);
   await adminContext.close();
 
@@ -63,8 +59,7 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
       () =>
         readMail().filter(
           (mail) =>
-            mail.includes(`To: ${scenario.waiter_email}`) &&
-            mail.includes(scenario.session_title),
+            mail.includes(`To: ${scenario.waiter_email}`) && mail.includes(scenario.session_title),
         ).length,
       { timeout: 10_000 },
     )

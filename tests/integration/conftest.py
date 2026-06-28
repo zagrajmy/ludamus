@@ -127,6 +127,7 @@ class SpaceFactory(DjangoModelFactory):
     name = Faker("word")
     slug = Sequence(lambda n: f"space-{n}")
     area = SubFactory(AreaFactory)
+    event = LazyAttribute(lambda o: o.area.venue.event)
 
 
 class TimeSlotFactory(DjangoModelFactory):
@@ -169,8 +170,8 @@ class SessionFactory(DjangoModelFactory):
     display_name = Faker("name")
     contact_email = Faker("email")
     category = SubFactory("tests.integration.conftest.ProposalCategoryFactory")
+    event = LazyAttribute(lambda o: o.category.event if o.category else EventFactory())
     participants_limit = Faker("random_int", min=2, max=20)
-    sphere = SubFactory(SphereFactory)
     status = "pending"
 
 
@@ -338,11 +339,12 @@ def time_slot(event):
 
 
 @pytest.fixture(name="session")
-def session_fixture(active_user, sphere):
+def session_fixture(active_user, event):
     return SessionFactory(
+        event=event,
+        category=None,
         presenter=active_user,
         display_name=active_user.full_name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
     )
@@ -354,12 +356,11 @@ def proposal_category_fixture(event):
 
 
 @pytest.fixture(name="pending_session")
-def pending_session_fixture(proposal_category, active_user, sphere):
+def pending_session_fixture(proposal_category, active_user):
     return SessionFactory(
         category=proposal_category,
         presenter=active_user,
         display_name=active_user.name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
         status="pending",

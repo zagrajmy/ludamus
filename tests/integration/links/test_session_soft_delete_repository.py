@@ -7,38 +7,38 @@ from tests.integration.conftest import ProposalCategoryFactory, SessionFactory
 
 
 class TestSessionRepositorySoftDelete:
-    def test_soft_delete_sets_deleted_at(self, sphere):
-        session = SessionFactory(sphere=sphere)
+    def test_soft_delete_sets_deleted_at(self):
+        session = SessionFactory()
 
         SessionRepository.soft_delete(session.pk)
 
         dead = Session.all_objects.get(pk=session.pk)
         assert dead.deleted_at is not None
 
-    def test_default_manager_excludes_soft_deleted(self, sphere):
-        session = SessionFactory(sphere=sphere)
+    def test_default_manager_excludes_soft_deleted(self):
+        session = SessionFactory()
 
         SessionRepository.soft_delete(session.pk)
 
         assert not Session.objects.filter(pk=session.pk).exists()
 
-    def test_all_objects_includes_soft_deleted(self, sphere):
-        session = SessionFactory(sphere=sphere)
+    def test_all_objects_includes_soft_deleted(self):
+        session = SessionFactory()
 
         SessionRepository.soft_delete(session.pk)
 
         assert Session.all_objects.filter(pk=session.pk).exists()
 
-    def test_repository_read_raises_not_found_for_soft_deleted(self, sphere):
-        session = SessionFactory(sphere=sphere)
+    def test_repository_read_raises_not_found_for_soft_deleted(self):
+        session = SessionFactory()
 
         SessionRepository.soft_delete(session.pk)
 
         with pytest.raises(NotFoundError):
             SessionRepository.read(session.pk)
 
-    def test_restore_brings_session_back_to_default_manager(self, sphere):
-        session = SessionFactory(sphere=sphere)
+    def test_restore_brings_session_back_to_default_manager(self):
+        session = SessionFactory()
         SessionRepository.soft_delete(session.pk)
 
         Session.all_objects.get(pk=session.pk).restore()
@@ -46,8 +46,8 @@ class TestSessionRepositorySoftDelete:
         restored = Session.objects.get(pk=session.pk)
         assert restored.deleted_at is None
 
-    def test_soft_delete_already_deleted_raises_not_found(self, sphere):
-        session = SessionFactory(sphere=sphere)
+    def test_soft_delete_already_deleted_raises_not_found(self):
+        session = SessionFactory()
         SessionRepository.soft_delete(session.pk)
 
         with pytest.raises(NotFoundError):
@@ -59,9 +59,9 @@ class TestSessionRepositorySoftDelete:
 
 
 class TestSessionRepositoryRestore:
-    def test_restore_clears_deleted_at(self, sphere):
+    def test_restore_clears_deleted_at(self):
         category = ProposalCategoryFactory()
-        session = SessionFactory(sphere=sphere, category=category)
+        session = SessionFactory(category=category)
         SessionRepository.soft_delete(session.pk)
 
         SessionRepository.restore(session.pk, category.event.pk)
@@ -73,17 +73,17 @@ class TestSessionRepositoryRestore:
         with pytest.raises(NotFoundError):
             SessionRepository.restore(999999, 999999)
 
-    def test_restore_alive_session_raises_not_found(self, sphere):
+    def test_restore_alive_session_raises_not_found(self):
         category = ProposalCategoryFactory()
-        session = SessionFactory(sphere=sphere, category=category)
+        session = SessionFactory(category=category)
 
         with pytest.raises(NotFoundError):
             SessionRepository.restore(session.pk, category.event.pk)
 
-    def test_restore_wrong_event_raises_not_found(self, sphere):
+    def test_restore_wrong_event_raises_not_found(self):
         category = ProposalCategoryFactory()
         other_category = ProposalCategoryFactory()
-        session = SessionFactory(sphere=sphere, category=category)
+        session = SessionFactory(category=category)
         SessionRepository.soft_delete(session.pk)
 
         with pytest.raises(NotFoundError):
@@ -91,13 +91,13 @@ class TestSessionRepositoryRestore:
 
 
 class TestSessionRepositoryListDeletedByEvent:
-    def test_returns_only_deleted_sessions_for_event(self, sphere):
+    def test_returns_only_deleted_sessions_for_event(self):
         category = ProposalCategoryFactory()
         event_pk = category.event.pk
-        deleted = SessionFactory(sphere=sphere, category=category)
+        deleted = SessionFactory(category=category)
         SessionRepository.soft_delete(deleted.pk)
-        SessionFactory(sphere=sphere, category=category)  # alive, same event
-        other_deleted = SessionFactory(sphere=sphere)  # different event
+        SessionFactory(category=category)  # alive, same event
+        other_deleted = SessionFactory()  # different event
         SessionRepository.soft_delete(other_deleted.pk)
 
         result = SessionRepository.list_deleted_by_event(event_pk)

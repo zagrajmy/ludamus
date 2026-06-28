@@ -1899,9 +1899,9 @@ class TestCFPEditPageView:
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
 
         response = authenticated_client.get(self.get_url(event, category))
 
@@ -1948,9 +1948,9 @@ class TestCFPEditPageView:
         other_category = ProposalCategory.objects.create(
             event=event, name="Workshops", slug="workshops"
         )
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=other_category, sphere=sphere, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=other_category, status="pending")
 
         response = authenticated_client.get(self.get_url(event, category))
 
@@ -2008,7 +2008,7 @@ class TestCFPEditPageView:
         HostPersonalData.objects.create(
             user=host, event=event, field=email_field, value="host@example.com"
         )
-        SessionFactory.create(category=category, presenter=host, sphere=event.sphere)
+        SessionFactory.create(category=category, presenter=host)
 
         # Action: remove the field requirement (don't include it in POST)
         authenticated_client.post(
@@ -2037,7 +2037,7 @@ class TestCFPEditPageView:
         )
         # Setup: existing proposal without the field requirement
         host = UserFactory.create()
-        SessionFactory.create(category=category, presenter=host, sphere=event.sphere)
+        SessionFactory.create(category=category, presenter=host)
         assert not HostPersonalData.objects.filter(
             user=host, event=event, field=email_field
         ).exists()

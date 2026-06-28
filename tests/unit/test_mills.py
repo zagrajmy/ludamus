@@ -1127,7 +1127,7 @@ class TestProposalImportService(_ImportServiceMocks):
         )
         sessions.create.assert_any_call(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "My Talk",
                 "description": "",
@@ -1159,7 +1159,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.created == 1
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 5,
+                "event_id": 6,
                 "status": SessionStatus.PENDING,
                 "title": "Talk",
                 "description": "",
@@ -1191,7 +1191,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.created == 1
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "My Talk",
                 "description": "",
@@ -1223,7 +1223,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.created == 1
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "My Talk",
                 "description": "",
@@ -1279,7 +1279,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.skipped == 0
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "Talk",
                 "description": "",
@@ -1317,7 +1317,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.skipped == 0
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "Talk",
                 "description": "",
@@ -1413,7 +1413,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.skipped == 1
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "Other",
                 "description": "",
@@ -1523,7 +1523,7 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.skipped == 0
         sessions.create.assert_called_once_with(
             {
-                "sphere_id": 1,
+                "event_id": 2,
                 "status": SessionStatus.PENDING,
                 "title": "Talk",
                 "description": "",

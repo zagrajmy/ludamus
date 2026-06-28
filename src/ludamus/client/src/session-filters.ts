@@ -8,10 +8,7 @@ const byId = <T extends HTMLElement = HTMLElement>(id: string): T => {
   return el as T;
 };
 
-const requireChild = <T extends HTMLElement>(
-  parent: HTMLElement,
-  selector: string,
-): T => {
+const requireChild = <T extends HTMLElement>(parent: HTMLElement, selector: string): T => {
   const el = parent.querySelector<T>(selector);
   if (!el) throw new Error(`Event filters: missing ${selector}`);
   return el;
@@ -36,15 +33,10 @@ const initSessionFilters = (): void => {
   const filterChipsBar = byId("active-filter-chips");
   const filterCountBadge = byId("active-filter-count");
 
-  const filterChipsInner = requireChild<HTMLElement>(
-    filterChipsBar,
-    "[data-filter-chips-inner]",
-  );
+  const filterChipsInner = requireChild<HTMLElement>(filterChipsBar, "[data-filter-chips-inner]");
 
   const filterNoResults = document.getElementById("filter-no-results");
-  const clearFiltersFromNoResults = document.getElementById(
-    "clear-filters-from-no-results",
-  );
+  const clearFiltersFromNoResults = document.getElementById("clear-filters-from-no-results");
   const sessionCards = document.querySelectorAll<HTMLElement>(".session-card");
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
@@ -84,17 +76,11 @@ const initSessionFilters = (): void => {
     const description = descEl ? (descEl.textContent ?? "") : "";
     cardHaystacks.set(
       card,
-      normalizeText(
-        `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description}`,
-      ),
+      normalizeText(`${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description}`),
     );
   }
 
-  const addOption = (
-    select: HTMLSelectElement,
-    value: string,
-    label: string,
-  ) => {
+  const addOption = (select: HTMLSelectElement, value: string, label: string) => {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
@@ -108,9 +94,7 @@ const initSessionFilters = (): void => {
     const { day } = card.dataset;
     if (day && !dayMap.has(day)) dayMap.set(day, card.dataset.dayLabel ?? day);
   }
-  for (const [value, label] of [...dayMap.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  ))
+  for (const [value, label] of [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0])))
     addOption(dayFilter, value, label);
   if (dayMap.size > 1) {
     document.getElementById("day-filter-group")?.classList.remove("hidden");
@@ -128,9 +112,7 @@ const initSessionFilters = (): void => {
   }
   // Reveal the shared Day/Hour row when either filter is in play.
   if (dayMap.size > 1 || hourSet.size > 1) {
-    document
-      .getElementById("day-hour-filter-group")
-      ?.classList.remove("hidden");
+    document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
 
   // Populate venue filter dropdown from session data.
@@ -141,18 +123,14 @@ const initSessionFilters = (): void => {
       venueMap.set(venueSlug, card.dataset.venueName ?? venueSlug);
     }
   }
-  for (const [slug, name] of [...venueMap.entries()].sort((a, b) =>
-    a[1].localeCompare(b[1]),
-  ))
+  for (const [slug, name] of [...venueMap.entries()].sort((a, b) => a[1].localeCompare(b[1])))
     addOption(venueFilter, slug, name);
   if (venueMap.size > 1) {
     document.getElementById("venue-filter-group")?.classList.remove("hidden");
   }
 
   // Populate options for each tag filter category created by the template.
-  for (const select of document.querySelectorAll<HTMLSelectElement>(
-    ".tag-filter",
-  )) {
+  for (const select of document.querySelectorAll<HTMLSelectElement>(".tag-filter")) {
     const categorySlug = select.dataset.category;
     if (!categorySlug) continue;
     tagFilters[categorySlug] = select;
@@ -162,9 +140,7 @@ const initSessionFilters = (): void => {
     for (const card of sessionCards) {
       const tagCategoriesData = card.dataset.tagCategories;
       if (!tagCategoriesData) continue;
-      for (const pair of tagCategoriesData
-        .split(";")
-        .filter((pair) => pair.trim())) {
+      for (const pair of tagCategoriesData.split(";").filter((pair) => pair.trim())) {
         const [cardCategorySlug, tagName] = pair.split(":");
         if (cardCategorySlug === categorySlug && tagName) {
           categoryTags.add(tagName.trim());
@@ -177,9 +153,7 @@ const initSessionFilters = (): void => {
   }
 
   function filterSessions(): void {
-    const searchTokens = normalizeText(sessionFilter.value)
-      .split(/\s+/)
-      .filter(Boolean);
+    const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const statusValue = statusFilter.value;
     const dayValue = dayFilter.value;
     const hourValue = hourFilter.value;
@@ -220,12 +194,9 @@ const initSessionFilters = (): void => {
       if (venueValue) show &&= card.dataset.venue === venueValue;
 
       if (minAgeValue || maxAgeValue) {
-        const sessionMinAge =
-          Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
-        if (minAgeValue)
-          show &&= sessionMinAge >= Number.parseInt(minAgeValue, 10);
-        if (maxAgeValue)
-          show &&= sessionMinAge <= Number.parseInt(maxAgeValue, 10);
+        const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
+        if (minAgeValue) show &&= sessionMinAge >= Number.parseInt(minAgeValue, 10);
+        if (maxAgeValue) show &&= sessionMinAge <= Number.parseInt(maxAgeValue, 10);
       }
 
       if (Object.keys(activeTagFilters).length > 0) {
@@ -242,14 +213,8 @@ const initSessionFilters = (): void => {
             `(?:^|;)${escapedCategory}:${requiredTag}(?:;|$)`,
             "i",
           );
-          const simpleTagPattern = new RegExp(
-            String.raw`\b${requiredTag}\b`,
-            "i",
-          );
-          if (
-            !categoryPattern.test(cardTagCategories) &&
-            !simpleTagPattern.test(cardTags)
-          ) {
+          const simpleTagPattern = new RegExp(String.raw`\b${requiredTag}\b`, "i");
+          if (!categoryPattern.test(cardTagCategories) && !simpleTagPattern.test(cardTags)) {
             matchesAllFilters = false;
           }
         }
@@ -261,9 +226,7 @@ const initSessionFilters = (): void => {
     }
 
     // Hide empty time slot sections.
-    for (const section of document.querySelectorAll<HTMLElement>(
-      ".time-slot-section",
-    )) {
+    for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid");
       if (cardGrid) {
         const visibleCards = cardGrid.querySelectorAll(
@@ -288,14 +251,10 @@ const initSessionFilters = (): void => {
       tagFilters[categorySlug].value = "";
     }
 
-    for (const section of document.querySelectorAll<HTMLElement>(
-      ".time-slot-section",
-    )) {
+    for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       section.style.display = "";
     }
-    for (const cardContainer of document.querySelectorAll<HTMLElement>(
-      ".session-card-wrapper",
-    )) {
+    for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-card-wrapper")) {
       cardContainer.style.display = "";
     }
 
@@ -372,13 +331,10 @@ const initSessionFilters = (): void => {
     const visibleCards = document.querySelectorAll(
       '.session-card-wrapper:not([style*="display: none"])',
     );
-    const anyFilterActive =
-      chips.length > 0 || sessionFilter.value.trim() !== "";
+    const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {
       filterNoResults.style.display =
-        anyFilterActive && visibleCards.length === 0 && sessionCards.length > 0
-          ? ""
-          : "none";
+        anyFilterActive && visibleCards.length === 0 && sessionCards.length > 0 ? "" : "none";
     }
   }
 
@@ -396,9 +352,7 @@ const initSessionFilters = (): void => {
   });
 
   // Close filter panel when clicking outside or focus leaves.
-  const filtersWrapper = filterToggle.closest<HTMLElement>(
-    ".filters-popover-wrapper",
-  );
+  const filtersWrapper = filterToggle.closest<HTMLElement>(".filters-popover-wrapper");
   if (filtersWrapper) {
     const closePanel = (): void => {
       filterPanel.classList.remove("is-open");
@@ -406,11 +360,7 @@ const initSessionFilters = (): void => {
     };
     document.addEventListener("click", (e) => {
       const target = e.target as Node | null;
-      if (
-        filterPanel.classList.contains("is-open") &&
-        target &&
-        !filtersWrapper.contains(target)
-      ) {
+      if (filterPanel.classList.contains("is-open") && target && !filtersWrapper.contains(target)) {
         closePanel();
       }
     });

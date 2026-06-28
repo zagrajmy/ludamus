@@ -12,7 +12,7 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _make_session(event, sphere, **kwargs):
+def _make_session(event, **kwargs):
     category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
     defaults = {
         "category": category,
@@ -20,7 +20,7 @@ def _make_session(event, sphere, **kwargs):
         "display_name": "Test Host",
         "title": "Test Session",
         "slug": "test-session",
-        "sphere": sphere,
+        "event": event,
         "participants_limit": 5,
         "status": "pending",
     }
@@ -28,8 +28,8 @@ def _make_session(event, sphere, **kwargs):
     return Session.objects.create(**defaults)
 
 
-def _make_deleted_session(event, sphere, **kwargs):
-    session = _make_session(event, sphere, **kwargs)
+def _make_deleted_session(event, **kwargs):
+    session = _make_session(event, **kwargs)
     session.soft_delete()
     return session
 
@@ -42,8 +42,8 @@ class TestProposalRestoreActionView:
             kwargs={"slug": event.slug, "proposal_id": proposal_id},
         )
 
-    def test_post_redirects_anonymous_user_to_login(self, client, event, sphere):
-        session = _make_deleted_session(event, sphere)
+    def test_post_redirects_anonymous_user_to_login(self, client, event):
+        session = _make_deleted_session(event)
         url = self.get_url(event, session.pk)
 
         response = client.post(url)
@@ -54,8 +54,8 @@ class TestProposalRestoreActionView:
         session.refresh_from_db()
         assert session.deleted_at is not None
 
-    def test_post_redirects_non_manager_user(self, authenticated_client, event, sphere):
-        session = _make_deleted_session(event, sphere)
+    def test_post_redirects_non_manager_user(self, authenticated_client, event):
+        session = _make_deleted_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -72,7 +72,7 @@ class TestProposalRestoreActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_deleted_session(event, sphere)
+        session = _make_deleted_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -89,7 +89,7 @@ class TestProposalRestoreActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -105,7 +105,7 @@ class TestProposalRestoreActionView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_deleted_session(other_event, sphere)
+        session = _make_deleted_session(other_event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -139,14 +139,14 @@ class TestProposalRestoreActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        pending = _make_deleted_session(event, sphere, title="Lost Adventure")
+        pending = _make_deleted_session(event, title="Lost Adventure")
         rejected = Session.objects.create(
             category=pending.category,
             presenter=None,
             display_name="Test Host",
             title="Cancelled Quest",
             slug="cancelled-quest",
-            sphere=sphere,
+            event=event,
             participants_limit=5,
             status="rejected",
         )

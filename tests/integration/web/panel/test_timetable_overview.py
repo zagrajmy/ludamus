@@ -138,7 +138,6 @@ class TestTimetableOverviewPageView:
         track.spaces.add(space)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -170,7 +169,6 @@ class TestTimetableOverviewPageView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -211,7 +209,6 @@ class TestTimetableOverviewPageView:
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

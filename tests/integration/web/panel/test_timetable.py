@@ -234,7 +234,6 @@ class TestTimetablePageView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

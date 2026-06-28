@@ -1,5 +1,21 @@
 # TODO
 
+Tasks are grouped by **type**, not by workflow status. `✅` marks a done task;
+`🚧` marks one already in progress.
+
+## Group definitions
+
+- **features** — new functionality the user can see: a new page, option, or
+  capability on the product.
+- **edits** — refactors and improvements that don't change a feature, but
+  improve architecture or performance. Touches production code.
+- **chores** — tasks not connected to production code: documentation,
+  deployment, CI, repo hygiene, dev tooling, tests, and observability/ops.
+- **spikes** — investigation, experiments, trying things that might not work.
+- **bugs** — things that don't behave as expected and need fixing.
+
+When in doubt where a task belongs, ask.
+
 ```mermaid
 ---
 config:
@@ -7,104 +23,19 @@ config:
     ticketBaseUrl: 'https://github.com/zagrajmy/ludamus/issues/#TICKET#'
 ---
 kanban
-  Wishlist
-    [Don't use soubdomain names in URLS]@{ assigned: 'refactor' }
-    [Extract common view boilerplate]@{ assigned: 'refactor' }
-    [Component Views should be tested only in e2e tests]@{ assigned: 'tests' }
-    [Links should be passed only to mills]@{ assigned: 'GLIMPSE' }
-    [Split mills/pacts/inits into packages per GLIMPSE layer rules]@{
-      assigned: 'GLIMPSE'
-    }
-    [Split check_proposal_rate_limit into query + command]@{
-      assigned: 'GLIMPSE'
-    }
-    [Technical debt markers tracking]@{ assigned: 'agent-readiness' }
-    [Feature flag system]@{ assigned: 'agent-readiness' }
-    [Automated release notes]@{ assigned: 'agent-readiness' }
-    [Automated deployment pipelines]@{ assigned: 'agent-readiness' }
-    [Test suite duration monitoring]@{ assigned: 'agent-readiness' }
-    [Auto-generated technical docs]@{ assigned: 'agent-readiness' }
-    [Architecture diagrams]@{ assigned: 'agent-readiness' }
-    [Add screenshots/demo to README]@{ assigned: 'pre-launch' }
-    [Public docs/ARCHITECTURE.md - human-oriented version]@{
-      assigned: 'pre-launch'
-    }
-    [Review and clean up docs/ directory]@{ assigned: 'pre-launch' }
-    [Seed data management command - factory_boy + Faker]@{
-      assigned: 'pre-launch'
-    }
-    [Request tracing]@{ assigned: 'agent-readiness' }
-    [Engineering telemetry]@{ assigned: 'agent-readiness' }
-    [Sentry with source maps]@{ assigned: 'agent-readiness' }
-    [PagerDuty/alert rules]@{ assigned: 'agent-readiness' }
-    [Incident response playbooks]@{ assigned: 'agent-readiness' }
-    [Real-time deploy impact]@{ assigned: 'agent-readiness' }
-    [Log sanitization/scrubbing]@{ assigned: 'agent-readiness' }
-    [Analytics instrumentation]@{ assigned: 'agent-readiness' }
-    [Errors to actionable issues]@{ assigned: 'agent-readiness' }
-
-  Epics
-    [Migrate to HTMX]@{ assigned: 'frontend', ticket: 10 }
+  features
     [Add FastAPI API for MCP]@{ assigned: 'mcp' }
-    [Consider refactoring registration to event sourcing]@{
-      assigned: 'refactor'
-    }
-
-  Backlog
-    [Add blurred image placeholders - Plaiceholder-style progressive blur]@{
+    [Add blurred image placeholders - progressive blur]@{
       assigned: 'frontend'
     }
     [Door cards - printable room schedules]@{ assigned: 'panel' }
     [Konwencik app sync]@{ assigned: 'panel' }
-    [Add gh cli]@{ assigned: 'agent-readiness' }
-    [Isolated/parallel test execution]@{ assigned: 'agent-readiness' }
-    [AGENTS.md file]@{ assigned: 'agent-readiness' }
-    [Claude skills definitions]@{ assigned: 'agent-readiness' }
-    [Issue templates - YAML forms, config.yml, disable blank issues]@{
-      assigned: 'pre-launch'
-    }
-    [PR template - checklist, under 40 lines]@{ assigned: 'pre-launch' }
-    [Development container configuration]@{ assigned: 'agent-readiness' }
-    [CODEOWNERS file]@{ assigned: 'pre-launch' }
-    [Structured logging]@{ assigned: 'agent-readiness' }
     [Support Markdown in Session.description]@{
       assigned: 'sessions'
       ticket: 9
     }
-    [Sphere creation command]@{ assigned: 'management', ticket: 14 }
-    [Changelog - Keep a Changelog format, consider CalVer]@{
-      assigned: 'pre-launch'
-      ticket: 23
-    }
-    [Resolve TODO comments - convert to GitHub issues]@{
-      assigned: 'pre-launch'
-    }
-    [Enable GitHub Discussions - Announcements, Ideas, Q&A, General, Show & Tell]@{
-      assigned: 'pre-launch'
-    }
-    [Label taxonomy + 3-5 good-first-issue starter issues]@{
-      assigned: 'pre-launch'
-    }
-    [Venues rework]@{ assigned: 'panel', ticket: 155 }
-    [Drop HostPersonalData.user FK after 0061 deploys, unify read path]@{
-      assigned: 'GLIMPSE'
-    }
-
-  Roadmap
-    [Expand README.md - description, features, architecture, quick start]@{
-      assigned: 'pre-launch'
-    }
-    [Create CONTRIBUTING.md - dev setup, tests, code style, PR process]@{
-      assigned: 'pre-launch'
-    }
-    [Create CODE_OF_CONDUCT.md - Contributor Covenant v2.1]@{
-      assigned: 'pre-launch'
-    }
-    [Create SECURITY.md - vulnerability reporting, responsible disclosure]@{
-      assigned: 'pre-launch'
-    }
-    [Clean up internal files - gitignore or remove task/plan files, mockups]@{
-      assigned: 'pre-launch'
+    [Event settings - discount tiers, submission periods]@{
+      assigned: 'panel'
     }
     [Session hosts list - discount tiers and confirmation workflow]@{
       assigned: 'panel'
@@ -122,24 +53,131 @@ kanban
     [Claim imported proposals - link by email confirmation]@{
       assigned: 'user-proposals'
     }
+    [🚧 Import connections - sphere CRUD]@{ assigned: 'import' }
+    [🚧 Event integration configuration]@{ assigned: 'import' }
+    [Email verification]@{ assigned: 'crowd' }
+    [Import connections - deletion guard]@{ assigned: 'import' }
+    [Create event]@{ assigned: 'panel' }
+    [Agenda builder session search]@{ assigned: 'agenda' }
+    [Filter spaces in the agenda builder]@{ assigned: 'agenda' }
+    [Import proposals]@{ assigned: 'import' }
+    [Apply mapping - provision event entities]@{ assigned: 'import' }
+    [Import mapping]@{ assigned: 'import' }
+    [Proposal review]@{ assigned: 'proposals' }
+    [Proposal category ordering]@{ assigned: 'proposals' }
+    [✅ Program categories - configurable submission forms]@{
+      assigned: 'panel'
+    }
+    [✅ Proposals management - filterable list and accept/reject]@{
+      assigned: 'panel'
+    }
+    [✅ Timetable builder - drag-and-drop scheduling and conflicts]@{
+      assigned: 'panel'
+    }
 
-  Sprint
-    [Event settings - discount tiers, submission periods]@{ assigned: 'panel' }
+  edits
+    [Don't use subdomain names in URLs]@{ assigned: 'refactor' }
+    [Extract common view boilerplate]@{ assigned: 'refactor' }
+    [Links should be passed only to mills]@{ assigned: 'GLIMPSE' }
+    [Split mills/pacts/inits into packages per GLIMPSE layer rules]@{
+      assigned: 'GLIMPSE'
+    }
+    [Split check_proposal_rate_limit into query + command]@{
+      assigned: 'GLIMPSE'
+    }
+    [Drop HostPersonalData.user FK after 0061 deploys, unify read path]@{
+      assigned: 'GLIMPSE'
+    }
+    [Feature flag system]@{ assigned: 'agent-readiness' }
+    [Migrate to HTMX]@{ assigned: 'frontend', ticket: 10 }
+    [Venues rework]@{ assigned: 'panel', ticket: 155 }
+    [GLIMPSE strangler: adapters → layered tree]@{ assigned: 'GLIMPSE' }
+    [UoW → Services: request.di.uow → request.services]@{
+      assigned: 'GLIMPSE'
+    }
+    [Legacy module split: legacy.py → per-subdomain]@{ assigned: 'GLIMPSE' }
+    [links/db/django layout - split fat repositories]@{ assigned: 'GLIMPSE' }
+    [Panel object-scope authorization - close IDOR holes]@{
+      assigned: 'GLIMPSE'
+    }
 
-  Done
-    [Test coverage thresholds]@{ assigned: 'agent-readiness' }
-    [TypeScript/mypy strict mode]@{ assigned: 'agent-readiness' }
-    [Reasonable Cyclomatic Complexity thresholds]@{
+  chores
+    [Expand README.md - description, features, quick start]@{
+      assigned: 'pre-launch'
+    }
+    [Add screenshots/demo to README]@{ assigned: 'pre-launch' }
+    [Create CONTRIBUTING.md - dev setup, tests, code style]@{
+      assigned: 'pre-launch'
+    }
+    [Create CODE_OF_CONDUCT.md - Contributor Covenant v2.1]@{
+      assigned: 'pre-launch'
+    }
+    [Create SECURITY.md - vulnerability reporting]@{ assigned: 'pre-launch' }
+    [Public docs/ARCHITECTURE.md - human-oriented version]@{
+      assigned: 'pre-launch'
+    }
+    [Auto-generated technical docs]@{ assigned: 'agent-readiness' }
+    [Architecture diagrams]@{ assigned: 'agent-readiness' }
+    [Review and clean up docs/ directory]@{ assigned: 'pre-launch' }
+    [Clean up internal files - gitignore or remove task/plan files]@{
+      assigned: 'pre-launch'
+    }
+    [Changelog - Keep a Changelog format, consider CalVer]@{
+      assigned: 'pre-launch'
+      ticket: 23
+    }
+    [AGENTS.md file]@{ assigned: 'agent-readiness' }
+    [Claude skills definitions]@{ assigned: 'agent-readiness' }
+    [Add gh cli]@{ assigned: 'agent-readiness' }
+    [Development container configuration]@{ assigned: 'agent-readiness' }
+    [Issue templates - YAML forms, config.yml, disable blank issues]@{
+      assigned: 'pre-launch'
+    }
+    [PR template - checklist, under 40 lines]@{ assigned: 'pre-launch' }
+    [CODEOWNERS file]@{ assigned: 'pre-launch' }
+    [Enable GitHub Discussions]@{ assigned: 'pre-launch' }
+    [Label taxonomy + 3-5 good-first-issue starter issues]@{
+      assigned: 'pre-launch'
+    }
+    [Resolve TODO comments - convert to GitHub issues]@{
+      assigned: 'pre-launch'
+    }
+    [Seed data management command - factory_boy + Faker]@{
+      assigned: 'pre-launch'
+    }
+    [Sphere creation command]@{ assigned: 'management', ticket: 14 }
+    [Component Views should be tested only in e2e tests]@{ assigned: 'tests' }
+    [Isolated/parallel test execution]@{ assigned: 'agent-readiness' }
+    [Test suite duration monitoring]@{ assigned: 'agent-readiness' }
+    [Technical debt markers tracking]@{ assigned: 'agent-readiness' }
+    [Automated release notes]@{ assigned: 'agent-readiness' }
+    [Automated deployment pipelines]@{ assigned: 'agent-readiness' }
+    [Real-time deploy impact]@{ assigned: 'agent-readiness' }
+    [Request tracing]@{ assigned: 'agent-readiness' }
+    [Structured logging]@{ assigned: 'agent-readiness' }
+    [Engineering telemetry]@{ assigned: 'agent-readiness' }
+    [Sentry with source maps]@{ assigned: 'agent-readiness' }
+    [Analytics instrumentation]@{ assigned: 'agent-readiness' }
+    [Log sanitization/scrubbing]@{ assigned: 'agent-readiness' }
+    [PagerDuty/alert rules]@{ assigned: 'agent-readiness' }
+    [Incident response playbooks]@{ assigned: 'agent-readiness' }
+    [Errors to actionable issues]@{ assigned: 'agent-readiness' }
+    [✅ Test coverage thresholds]@{ assigned: 'agent-readiness' }
+    [✅ TypeScript/mypy strict mode]@{ assigned: 'agent-readiness' }
+    [✅ Reasonable Cyclomatic Complexity thresholds]@{
       assigned: 'agent-readiness'
     }
-    [Dead code detection tooling]@{ assigned: 'agent-readiness' }
-    [Program categories - configurable submission forms]@{ assigned: 'panel' }
-    [Duplicate code detection tooling]@{ assigned: 'agent-readiness' }
-    [Proposals management - filterable list and accept/reject workflow]@{
+    [✅ Dead code detection tooling]@{ assigned: 'agent-readiness' }
+    [✅ Duplicate code detection tooling]@{ assigned: 'agent-readiness' }
+    [✅ Add project URLs to pyproject.toml]@{ assigned: 'pre-launch' }
+
+  spikes
+    [Consider refactoring registration to event sourcing]@{
+      assigned: 'refactor'
+    }
+
+  bugs
+    [Agenda: switch day during assign shows wrong red space]@{
       assigned: 'panel'
     }
-    [Timetable builder - drag-and-drop scheduling and conflict detection]@{
-      assigned: 'panel'
-    }
-    [Add project URLs to pyproject.toml]@{ assigned: 'pre-launch' }
 ```

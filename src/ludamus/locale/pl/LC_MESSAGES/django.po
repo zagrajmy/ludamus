@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-24 12:27+0200\n"
+"POT-Creation-Date: 2026-06-26 23:27+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -641,6 +641,7 @@ msgid "Select the space where this session will take place"
 msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/print/timetable.html
 msgid "Time slot"
@@ -651,7 +652,6 @@ msgid "Select the time slot for this session"
 msgstr "Wybierz przedział czasowy dla tego punktu programu"
 
 #: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Select a time slot..."
 msgstr "Wybierz przedział czasowy..."
 
@@ -819,22 +819,47 @@ msgid "Please review the enrollment options below."
 msgstr "Proszę przejrzeć opcje zapisu poniżej."
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid "%(name)s (no enrollment to cancel)"
+msgstr "%(name)s (brak zapisu do anulowania.)"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid "%(name)s (session host)"
+msgstr "%(name)s (twórca programu)"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid "%(name)s (not available)"
+msgstr "%(name)s (niedostępne)"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid "%(name)s (time conflict)"
+msgstr "%(name)s (konflikt czasowy)"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -855,6 +880,7 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -922,7 +948,7 @@ msgstr ""
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
-msgstr "Sesja jest pełna. Zostałeś dodany do listy oczekujących na: %(title)s"
+msgstr "Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: %(title)s"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -1148,6 +1174,7 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1655,6 +1682,7 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
+#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -1714,6 +1742,17 @@ msgid ""
 msgstr ""
 "Gdy włączone, punkt programu jest potwierdzany w chwili umieszczenia go w "
 "harmonogramie. Wyłącz, aby potwierdzać punkty ręcznie."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Use placeholder images for sessions without a cover image"
+msgstr "Używaj obrazów zastępczych dla punktów programu bez okładki"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"When off, sessions without uploaded images are shown as text-only cards."
+msgstr ""
+"Gdy wyłączone, punkty programu bez przesłanych obrazów są pokazywane jako "
+"karty z samym tekstem."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Allow facilitators to edit their own sessions"
@@ -2276,10 +2315,6 @@ msgstr "Wróć"
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
 
-#: src/ludamus/templates/base.html src/ludamus/templates/panel/base.html
-msgid "Dismiss"
-msgstr "Zamknij"
-
 #: src/ludamus/templates/base.html
 msgid "Contact"
 msgstr "Kontakt"
@@ -2291,6 +2326,18 @@ msgstr "Polityka prywatności"
 #: src/ludamus/templates/base.html
 msgid "Terms of Service"
 msgstr "Regulamin"
+
+#: src/ludamus/templates/chronology/_accept_timeslot_control.html
+msgid "Choose a time…"
+msgstr "Wybierz godzinę…"
+
+#: src/ludamus/templates/chronology/_accept_timeslot_control.html
+msgid "Preferred by the facilitator"
+msgstr "Preferowane przez twórcę programu"
+
+#: src/ludamus/templates/chronology/_accept_timeslot_control.html
+msgid "Other times"
+msgstr "Pozostałe godziny"
 
 #: src/ludamus/templates/chronology/_session_card.html
 #, python-format
@@ -2343,42 +2390,21 @@ msgid "Accept Proposal"
 msgstr "Zaakceptuj zgłoszenie"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Select space and time slot for"
-msgstr "Wybierz przestrzeń i przedział czasowy dla"
+msgid "Pick a space and time, then add it to the agenda."
+msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Host"
-msgstr "Prowadzący"
+#, python-format
+msgid "%(limit)s seat"
+msgid_plural "%(limit)s seats"
+msgstr[0] "%(limit)s miejsce"
+msgstr[1] "%(limit)s miejsca"
+msgstr[2] "%(limit)s miejsc"
+msgstr[3] "%(limit)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Participants Limit"
-msgstr "Limit uczestników"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Contact Email"
-msgstr "Email kontaktowy"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Submitted"
-msgstr "Przesłane"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Session fields"
-msgstr "Pola punktu programu"
+msgid "submitted"
+msgstr "zgłoszono"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Special Needs"
@@ -2391,29 +2417,30 @@ msgid "Preferred Time Slots"
 msgstr "Preferowane przedziały czasowe"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Assign to Schedule"
-msgstr "Przypisz do harmonogramu"
+msgid "Schedule it"
+msgstr "Zaplanuj"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Time Slot"
-msgstr "Wybrany przedział czasowy:"
+msgid "Select a space and time to add this session to the event agenda."
+msgstr ""
+"Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do harmonogramu "
+"wydarzenia."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Preferred"
-msgstr "Preferowany"
+msgid "Pick the start time for this session."
+msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Preferred time slots are highlighted in bold."
-msgstr "Preferowane przedziały czasowe są pogrubione."
+msgid "Accept and add to agenda"
+msgstr "Zaakceptuj i dodaj do harmonogramu"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Accept and Add to Agenda"
-msgstr "Zaakceptuj i dodaj do programu"
+#: src/ludamus/templates/notice_board/_rsvp_inline.html
+msgid "or"
+msgstr "lub"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "Back to Event"
+msgid "Back to event"
 msgstr "Powrót do wydarzenia"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
@@ -2433,6 +2460,12 @@ msgstr "Twój Anonimowy Kod"
 #: src/ludamus/templates/chronology/event.html
 msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/event.html
+msgid "Host"
+msgstr "Prowadzący"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
@@ -2494,6 +2527,11 @@ msgstr "Podaj swoje imię, aby dokończyć zapis."
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Name"
 msgstr "Imię"
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Back to Event"
+msgstr "Powrót do wydarzenia"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Cancel Enrollment"
@@ -2971,10 +3009,11 @@ msgstr "Chcesz poprowadzić punkt programu?"
 
 #: src/ludamus/templates/chronology/event.html
 msgid ""
-"Got a game you're dying to play? Propose your own session and find players!"
+"Got a game you're dying to play? <br class=\"max-xl:hidden\" /> Propose your "
+"own session and find players!"
 msgstr ""
-"Masz grę, w którą koniecznie chcesz zagrać? Zgłoś własny punkt programu i "
-"znajdź graczy!"
+"Masz grę, w którą koniecznie chcesz zagrać?<br class=\"max-xl:hidden\" /> "
+"Zgłoś własny punkt programu i znajdź graczy!"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Propose a session"
@@ -2988,6 +3027,10 @@ msgstr "Oczekujące zgłoszenia"
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Proposal"
 msgstr "Zgłoszenie"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Submitted"
+msgstr "Przesłane"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Preferred Times"
@@ -3225,6 +3268,22 @@ msgstr "Nazwa wyświetlana"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Contact Email"
+msgstr "Email kontaktowy"
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Participants Limit"
+msgstr "Limit uczestników"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
@@ -3555,6 +3614,10 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
+
+#: src/ludamus/templates/components/flash-messages.html
+msgid "Dismiss"
+msgstr "Zamknij"
 
 # Login Required Page
 #: src/ludamus/templates/components/label.html
@@ -4087,10 +4150,6 @@ msgstr "Dołącz"
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Join with account"
 msgstr "Dołącz z kontem"
-
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "or"
-msgstr "lub"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
@@ -6235,6 +6294,10 @@ msgstr "Uprawnienia twórców programu"
 msgid "Schedule confirmation"
 msgstr "Potwierdzanie harmonogramu"
 
+#: src/ludamus/templates/panel/settings.html
+msgid "Session cards"
+msgstr "Karty punktów programu"
+
 #: src/ludamus/templates/panel/space-create.html
 #: src/ludamus/templates/panel/space-edit.html
 #: src/ludamus/templates/panel/track-create.html
@@ -6804,6 +6867,24 @@ msgid ""
 msgstr ""
 "Brak lokalizacji. Utwórz pierwszą lokalizację, aby rozpocząć budowanie "
 "struktury wydarzenia."
+
+#~ msgid "Select space and time slot for"
+#~ msgstr "Wybierz przestrzeń i przedział czasowy dla"
+
+#~ msgid "Session fields"
+#~ msgstr "Pola punktu programu"
+
+#~ msgid "Assign to Schedule"
+#~ msgstr "Przypisz do harmonogramu"
+
+#~ msgid "Time Slot"
+#~ msgstr "Wybrany przedział czasowy:"
+
+#~ msgid "Preferred"
+#~ msgstr "Preferowany"
+
+#~ msgid "Preferred time slots are highlighted in bold."
+#~ msgstr "Preferowane przedziały czasowe są pogrubione."
 
 #~ msgid "no enrollment to cancel"
 #~ msgstr "brak zapisu do anulowania."

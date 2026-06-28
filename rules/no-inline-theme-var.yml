@@ -15,5 +15,5 @@ message: |
     background-color: var(--theme-warning-bg) → bg-warning-bg
     color: var(--theme-warning-text)          → text-warning-text
   Non-color tokens moved too: shadows are --shadow-card / --shadow-dropdown /
-  --shadow-elevated, the accent gradient is --accent-gradient.
+  --shadow-elevated.
   If you must use var() inline, use --color-*, not --theme-*.

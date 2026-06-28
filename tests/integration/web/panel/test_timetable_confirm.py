@@ -25,11 +25,10 @@ class TestTimetableConfirmView:
         return reverse("panel:timetable-confirm", kwargs={"slug": event.slug})
 
     @staticmethod
-    def _scheduled_agenda_item(sphere, event, area):
+    def _scheduled_agenda_item(event, area):
         space = SpaceFactory(area=area)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
-            sphere=sphere,
             status="scheduled",
             participants_limit=5,
             min_age=0,
@@ -86,7 +85,7 @@ class TestTimetableConfirmView:
         self, authenticated_client, active_user, sphere, event, area
     ):
         sphere.managers.add(active_user)
-        agenda_item = self._scheduled_agenda_item(sphere, event, area)
+        agenda_item = self._scheduled_agenda_item(event, area)
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -102,7 +101,7 @@ class TestTimetableConfirmView:
         self, authenticated_client, active_user, sphere, event, area
     ):
         sphere.managers.add(active_user)
-        agenda_item = self._scheduled_agenda_item(sphere, event, area)
+        agenda_item = self._scheduled_agenda_item(event, area)
         agenda_item.session_confirmed = True
         agenda_item.save()
 
@@ -122,7 +121,7 @@ class TestTimetableConfirmView:
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_area = AreaFactory(venue=VenueFactory(event=other_event))
-        other_item = self._scheduled_agenda_item(sphere, other_event, other_area)
+        other_item = self._scheduled_agenda_item(other_event, other_area)
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -137,7 +136,7 @@ class TestTimetableConfirmView:
         self, authenticated_client, active_user, sphere, event, area
     ):
         sphere.managers.add(active_user)
-        agenda_item = self._scheduled_agenda_item(sphere, event, area)
+        agenda_item = self._scheduled_agenda_item(event, area)
 
         response = authenticated_client.post(
             self.get_url(event),

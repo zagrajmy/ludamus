@@ -160,6 +160,54 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* App-shell: <body> is a fixed viewport box and the inner .app-scroll element
+   owns the page scroll, so the document never scrolls under a top-layer dialog.
+   That removes the iOS top-layer hit-test offset (dead Close button) and lets a
+   modal lock the background by freezing .app-scroll's overflow — no body pin, no
+   scroll save/restore, so the page can't jump or flash the top on open/close.
+   Layouts that still scroll the document (panel, print) opt out of both. */
+.app-shell {
+  height: 100dvh;
+  overflow: hidden;
+  /* No scrollbar lives on <body> here, so don't reserve a blank gutter strip. */
+  scrollbar-gutter: auto;
+}
+
+.app-scroll {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Lock the page scroll while any modal is open. Freezing the container keeps its
+   offset and moves nothing (no body pin, no scroll save/restore), so the page
+   can't jump or flash the top on open/close. `scrollbar-gutter: stable` above
+   reserves the scrollbar space so flipping overflow doesn't shift the layout.
+   The dialog lives in the top layer, so this never clips it. */
+body:has(dialog.modal[open]) .app-scroll {
+  overflow: hidden;
+}
+
+/* Paged media must flow down the document, not live inside a fixed-height
+   scrollport — otherwise only the first viewport prints. Collapse the app-shell
+   box back to normal flow for printing. */
+@media print {
+  .app-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-scroll {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+}
+
 a,
 button {
   cursor: pointer;
@@ -176,11 +224,8 @@ button {
    * still composes with ring-* / inset-shadow utilities.
    */
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-dropdown:
-    0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-elevated:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --accent-gradient: linear-gradient(90deg, #f85a3c, #14b89b);
+  --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
 /*
@@ -257,21 +302,6 @@ button:active {
   transition: none !important;
 }
 
-.gradient-border {
-  position: relative;
-}
-
-.gradient-border::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--accent-gradient);
-  border-radius: 9999px 9999px 0 0;
-}
-
 .live-dot {
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -330,8 +360,11 @@ button:active {
   .btn {
     --bg: var(--color-primary);
     --y: 2px;
-    /* derived from --color-border, but we're supporting legacy browsers so no color-mix */
+    /* translucent shade derived from --color-border */
     --shade: hsla(30deg, 20.6%, 23%, 0.25);
+    /* top highlight + gloss; variants tune these */
+    --hl1: rgba(255, 255, 255, 0.085);
+    --hl2: transparent;
 
     position: relative;
     display: inline-flex;
@@ -341,10 +374,16 @@ button:active {
     border-radius: 1rem;
     padding: 0.625rem 1rem;
     font-weight: 500;
-    transition: all 0.2s;
+    /* Only transform (press) and box-shadow (depth via --y) animate on state. */
+    transition:
+      transform 0.2s,
+      box-shadow 0.2s;
     background-color: var(--bg);
+    /* optical vertical centering (trims Outfit's half-leading) */
+    text-box: trim-both cap alphabetic;
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.085),
+      inset 0 1px 0 0 var(--hl1),
+      inset 0 3px 5px -3px var(--hl2),
       0 var(--y) 0 0 var(--shade),
       0 var(--y) 0 0 var(--bg);
 
@@ -355,10 +394,10 @@ button:active {
 
     &:active {
       @apply translate-y-0.5 scale-[99.4%];
-      box-shadow:
-        inset 0 0 1px 0 rgba(0, 0, 0, 0.1),
-        0 0px 0 0 rgba(0, 0, 0, 0.25),
-        0 0px 0 0 var(--bg);
+      /* Collapse the lip via --y, not a box-shadow swap: equal layer counts
+         keep box-shadow from snapping a layer in/out, so it stays in sync with
+         the transform (the swap jittered). */
+      --y: 0px; /* 0px, not 0, so the focus-ring calc() below stays valid */
     }
 
     &:focus {
@@ -366,21 +405,16 @@ button:active {
     }
 
     &:focus-visible:after {
-      @apply pointer-events-none transition-all duration-150;
+      /* Only `bottom` shifts across hover/active states. */
+      @apply pointer-events-none transition-[bottom] duration-150;
       content: "";
       position: absolute;
       inset: -2px;
-      bottom: -4px;
+      /* track the 3D lip via --y so the ring follows it in every state
+         (incl. hover-while-pressed), no per-state overrides */
+      bottom: calc(-2px - var(--y));
       border: 1px solid var(--color-primary);
       border-radius: 18px;
-    }
-
-    &:hover:focus-visible:after {
-      bottom: -3px;
-    }
-
-    &:active:focus-visible:after {
-      bottom: -2px;
     }
   }
 
@@ -393,66 +427,55 @@ button:active {
     cursor: not-allowed;
   }
 
+  /* Filled buttons: vertical gradient face (brand colour, lighter top → deeper
+     bottom), white label, top highlight, text-shadow. --bg is the bottom stop
+     so the shared lip matches. No ring — it read as a grey line on light bg. */
   .btn-primary {
-    /* Bright coral face via a subtle vertical gradient — lighter top, deeper
-       bottom — both stops are --color-primary (#f85a3c) nudged in lightness
-       (no color-mix: legacy support). --bg is the bottom stop so the 3D lip
-       matches the gradient base. The white label keeps the brand's bright coral
-       in both themes; the touches below fix dark-mode halation perceptually
-       rather than by recolouring. */
     --bg: #ef4f2d;
+    --hl1: rgba(255, 255, 255, 0.3);
+    --hl2: rgba(255, 255, 255, 0.22);
+
     color: white;
     background-image: linear-gradient(180deg, #fb6953, #ef4f2d);
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
-    /* optical vertical centering — trims Outfit's half-leading. Progressive
-       enhancement; older engines ignore it. */
-    text-box: trim-both cap alphabetic;
-    box-shadow:
-      /* more pronounced top scrim + soft gloss falloff */
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
-      inset 0 3px 5px -3px rgba(255, 255, 255, 0.22),
-      /* hairline definition ring */
-      0 0 0 0.5px rgba(61, 55, 50, 0.16),
-      0 var(--y) 0 0 var(--shade),
-      0 var(--y) 0 0 var(--bg);
   }
 
-  .dark .btn-primary {
-    /* heavier label survives the halation; stronger ring separates the button
-       from the near-black surround so the white edges stop blooming. */
+  .btn-danger {
+    --bg: #e23636;
+    --hl1: rgba(255, 255, 255, 0.3);
+    --hl2: rgba(255, 255, 255, 0.22);
+
+    color: white;
+    background-image: linear-gradient(180deg, #f56363, #e23636);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
+  }
+
+  /* Dark: heavier label + deeper text-shadow survive halation; highlight eases off. */
+  .dark .btn-primary,
+  .dark .btn-danger {
+    --hl1: rgba(255, 255, 255, 0.22);
+    --hl2: rgba(255, 255, 255, 0.18);
+
     font-weight: 600;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-      inset 0 3px 5px -3px rgba(255, 255, 255, 0.18),
-      0 0 0 0.5px rgba(0, 0, 0, 0.5),
-      0 var(--y) 0 0 var(--shade),
-      0 var(--y) 0 0 var(--bg);
-
-    /* .dark .btn-primary and .btn:active share specificity, so re-assert the
-       pressed-state flatten here or the resting shadow would win on press. */
-    &:active {
-      box-shadow:
-        inset 0 0 1px 0 rgba(0, 0, 0, 0.1),
-        0 0 0 0 rgba(0, 0, 0, 0.25),
-        0 0 0 0 var(--bg);
-    }
   }
 
+  /* Secondary: tonal match — light fill, dark text, border. Subtle translucent
+     gradient (token-linked), no top highlight; its border does the edge. */
   .btn-secondary {
     --bg: var(--color-bg-secondary);
+    --shade: hsla(30deg, 20.6%, 35%, 0.25);
+    --hl1: transparent;
+
     border: 1px solid var(--color-border);
     color: var(--color-foreground);
-    --shade: hsla(30deg, 20.6%, 35%, 0.25);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0.02));
   }
 
   .dark .btn-secondary {
     --shade: hsla(30deg, 0%, 28%, 0.35);
-  }
 
-  .btn-danger {
-    --bg: var(--color-danger);
-    color: white;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.06));
   }
 
   .icon-btn {
@@ -477,7 +500,7 @@ button:active {
     box-shadow: inset 0 -2px 1px -1px var(--color-border);
 
     position: relative;
-    @apply before:bg-foreground rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
+    @apply rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:bg-foreground before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
   }
 
   .icon-btn:hover {

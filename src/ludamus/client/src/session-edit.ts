@@ -3,10 +3,7 @@
 
 const EDIT_ERROR_TIMEOUT_MS = 6000;
 
-const setSessionEditMode = (
-  dialog: HTMLElement | null,
-  editing: boolean,
-): void => {
+const setSessionEditMode = (dialog: HTMLElement | null, editing: boolean): void => {
   if (!dialog) return;
   const tabs = dialog.querySelector<HTMLElement>("[data-session-tabs]");
   const editform = dialog.querySelector<HTMLElement>('[id$="-editform"]');
@@ -84,8 +81,6 @@ document.body.addEventListener("htmx:afterSwap", (e) => {
 
 // Restore the read view if a session dialog is closed while editing, so
 // reopening it never lands in a stale edit state.
-for (const dialog of document.querySelectorAll<HTMLDialogElement>(
-  'dialog[id^="session-"]',
-)) {
+for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog[id^="session-"]')) {
   dialog.addEventListener("close", () => setSessionEditMode(dialog, false));
 }

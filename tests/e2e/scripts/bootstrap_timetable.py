@@ -85,10 +85,14 @@ def main() -> None:
         venue=venue, slug="festival-hall", defaults={"name": "Festival Hall"}
     )
     space_a, _ = Space.objects.get_or_create(
-        area=area, slug="garden-table", defaults={"name": "Garden Table", "capacity": 8}
+        area=area,
+        slug="garden-table",
+        defaults={"name": "Garden Table", "capacity": 8, "event": event},
     )
     space_b, _ = Space.objects.get_or_create(
-        area=area, slug="willow-table", defaults={"name": "Willow Table", "capacity": 8}
+        area=area,
+        slug="willow-table",
+        defaults={"name": "Willow Table", "capacity": 8, "event": event},
     )
 
     # Time slot — morning block; gives the overview "capacity hours" a value.
@@ -117,7 +121,7 @@ def main() -> None:
     # 8-seat room). Placed in the SECOND space, so it never collides with the
     # assign tests — those drop into the first column.
     overflow, _ = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-overflow-demo",
         defaults={
             "title": "Overflow Demo Game",
@@ -165,7 +169,7 @@ def main() -> None:
 
     # Accepted (unscheduled) sessions for assigning via the timetable
     s1, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-rpg-intro",
         defaults={
             "title": "RPG Introduction",
@@ -184,7 +188,7 @@ def main() -> None:
         s1.time_slots.set(slots)  # prefers morning slot
 
     s2, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-dungeon-crawl",
         defaults={
             "title": "Dungeon Crawl",
@@ -203,7 +207,7 @@ def main() -> None:
         s2.time_slots.set(slots)  # prefers morning slot
 
     s3, created = Session.objects.get_or_create(
-        sphere=event.sphere,
+        event=event,
         slug="timetable-storytelling",
         defaults={
             "title": "Storytelling Workshop",

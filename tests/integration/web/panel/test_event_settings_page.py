@@ -293,6 +293,26 @@ class TestEventSettingsPageViewPost:
         assert event.cover_image
         assert event.cover_image_url.startswith("/media/events/")
 
+    def test_updates_session_cover_placeholder_setting(
+        self, *, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        assert not event.use_session_cover_placeholders
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={**self._post_data(event), "use_session_cover_placeholders": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.use_session_cover_placeholders
+
     def test_removes_cover_image(
         self, authenticated_client, active_user, sphere, event
     ):

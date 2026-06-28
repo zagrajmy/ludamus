@@ -35,10 +35,12 @@ export default defineConfig({
     outDir: resolve(rootDir, "../static/vite"),
     rollupOptions: {
       input: {
+        "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
+        flash: resolve(rootDir, "src/flash.ts"),
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
         index: resolve(rootDir, "src/index.css"),
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
@@ -55,8 +57,7 @@ export default defineConfig({
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {
     cors: {
-      origin:
-        /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
+      origin: /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
     },
     host: "0.0.0.0",
     port: Number(process.env.VITE_PORT ?? 5173),

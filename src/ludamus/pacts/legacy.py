@@ -400,6 +400,7 @@ class SessionData(TypedDict, total=False):
     cover_image: UploadedFileProtocol
     description: str
     duration: str
+    event_id: int
     min_age: int
     needs: str
     participants_limit: int
@@ -407,7 +408,6 @@ class SessionData(TypedDict, total=False):
     display_name: str
     requirements: str
     slug: str
-    sphere_id: int
     status: SessionStatus
     title: str
 
@@ -530,6 +530,7 @@ class EventDTO(BaseModel):
     slug: str
     sphere_id: int
     start_time: datetime
+    use_session_cover_placeholders: bool = False
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -767,6 +768,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
     auto_confirm_sessions: bool
+    use_session_cover_placeholders: bool
 
 
 @dataclass
@@ -925,6 +927,8 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
     @staticmethod
+    def read_presenter(session_id: int) -> UserDTO | None: ...
+    @staticmethod
     def lock(pk: int) -> None: ...
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
@@ -965,9 +969,9 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         session_ids: Iterable[int],
     ) -> dict[int, list[TimeSlotDTO]]: ...
     @staticmethod
-    def slug_exists(sphere_id: int, slug: str) -> bool: ...
+    def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
-    def find_id_by_slug(sphere_id: int, slug: str) -> int | None: ...
+    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]

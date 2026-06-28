@@ -253,7 +253,9 @@ class TestSpaceCreatePageView:
         sphere.managers.add(active_user)
         venue = Venue.objects.create(event=event, name="Main Hall", slug="main-hall")
         area = Area.objects.create(venue=venue, name="East Wing", slug="east-wing")
-        Space.objects.create(area=area, name="Room 101", slug="room-101")
+        Space.objects.create(
+            area=area, name="Room 101", slug="room-101", event=area.venue.event
+        )
 
         authenticated_client.post(
             self.get_url(event, venue, area), {"name": "Room 101"}

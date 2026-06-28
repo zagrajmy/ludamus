@@ -34,7 +34,7 @@ env = environ.Env(
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
     # Static files
-    GIT_COMMIT_SHA=(str, "1"),
+    GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     # Google Cloud Storage (media) — set all three to enable GCS
@@ -263,8 +263,10 @@ MIDDLEWARE_SKIP_PREFIXES = (
     "/media/",
 )
 
+
 # Cache busting version for static files (set via GIT_COMMIT_SHA env var during build)
-STATIC_VERSION = env("GIT_COMMIT_SHA")[:8]
+COMMIT_SHA = env("GIT_COMMIT_SHA").strip()[:8] or "unknown"
+STATIC_VERSION = COMMIT_SHA
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -382,7 +384,10 @@ if IS_PRODUCTION:
     STORAGES = {
         "default": default_storage_backend,
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            "BACKEND": (
+                "ludamus.edges.staticfiles."
+                "ViteAwareCompressedManifestStaticFilesStorage"
+            )
         },
     }
 else:
