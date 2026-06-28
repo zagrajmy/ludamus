@@ -481,6 +481,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                     event_id=current_event.pk,
                     facilitator_id=facilitator_id,
                     entries=entries,
+                    user_id=self.request.context.current_user_id,
                 )
 
         # T2: raising (or unlimiting) capacity frees seats — promote waiters.
@@ -727,4 +728,9 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         service = self.request.services.session_content_edit
         context["logs"] = service.list_log(current_event.pk)
         context["field_names"] = service.list_field_names(current_event.pk)
+        facilitator_service = self.request.services.host_personal_data
+        context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
+        context["facilitator_field_names"] = facilitator_service.list_field_names(
+            current_event.pk
+        )
         return TemplateResponse(self.request, "panel/content-log.html", context)

@@ -3,7 +3,14 @@ from contextlib import contextmanager
 import pytest
 
 from ludamus.mills.submissions.personal_data_fields import HostPersonalDataService
-from ludamus.pacts import FacilitatorDTO, HostPersonalDataEntry, NotFoundError
+from ludamus.pacts import (
+    FacilitatorDTO,
+    HostPersonalDataEntry,
+    NotFoundError,
+    PersonalDataFieldDTO,
+)
+
+_USER_ID = 7
 
 
 @contextmanager
@@ -19,24 +26,48 @@ class FakeTransaction:
 class FakeFacilitators:
     def __init__(self, facilitator):
         self._facilitator = facilitator
+        self.updated = []
 
     def read(self, pk):
         if self._facilitator is None or self._facilitator.pk != pk:
             raise NotFoundError
         return self._facilitator
 
+    def update(self, pk, data):
+        self.updated.append((pk, data))
+
 
 class FakeHostPersonalData:
-    def __init__(self):
+    def __init__(self, existing=None):
         self.saved = []
+        self._existing = existing or {}
 
     def save(self, entries):
         self.saved.append(entries)
 
+    def read_for_facilitator_event(self, _facilitator_id, _event_id):
+        return dict(self._existing)
 
-def _facilitator(pk=1, event_id=10):
+
+class FakePersonalDataFields:
+    def __init__(self, fields=()):
+        self._fields = list(fields)
+
+    def list_by_event(self, _event_id):
+        return self._fields
+
+
+class FakeChangeLogs:
+    def __init__(self):
+        self.created = []
+
+    def create(self, data):
+        self.created.append(data)
+
+
+def _facilitator(pk=1, event_id=10, accreditation_type="none"):
     return FacilitatorDTO(
-        accreditation_type="none",
+        accreditation_type=accreditation_type,
         display_name="Alice",
         event_id=event_id,
         pk=pk,
@@ -45,18 +76,34 @@ def _facilitator(pk=1, event_id=10):
     )
 
 
-def _entry(facilitator_id=1, event_id=10):
+def _field(pk=5, slug="vegan"):
+    return PersonalDataFieldDTO(
+        field_type="checkbox", name="Vegan", order=0, pk=pk, question="?", slug=slug
+    )
+
+
+def _entry(*, facilitator_id=1, event_id=10, field_id=5, value=True):
     return HostPersonalDataEntry(
-        facilitator_id=facilitator_id, event_id=event_id, field_id=5, value=True
+        facilitator_id=facilitator_id, event_id=event_id, field_id=field_id, value=value
+    )
+
+
+def _service(*, facilitators, host_personal_data, fields=(), change_logs=None):
+    return HostPersonalDataService(
+        transaction=FakeTransaction(),
+        facilitators=facilitators,
+        host_personal_data=host_personal_data,
+        personal_data_fields=FakePersonalDataFields(fields),
+        facilitator_change_logs=change_logs or FakeChangeLogs(),
     )
 
 
 def test_saves_entries_when_facilitator_belongs_to_event():
     repo = FakeHostPersonalData()
-    service = HostPersonalDataService(
-        transaction=FakeTransaction(),
+    service = _service(
         facilitators=FakeFacilitators(_facilitator()),
         host_personal_data=repo,
+        fields=[_field()],
     )
 
     service.update_personal_data(event_id=10, facilitator_id=1, entries=[_entry()])
@@ -66,8 +113,7 @@ def test_saves_entries_when_facilitator_belongs_to_event():
 
 def test_rejects_facilitator_from_other_event():
     repo = FakeHostPersonalData()
-    service = HostPersonalDataService(
-        transaction=FakeTransaction(),
+    service = _service(
         facilitators=FakeFacilitators(_facilitator(event_id=99)),
         host_personal_data=repo,
     )
@@ -80,12 +126,72 @@ def test_rejects_facilitator_from_other_event():
 
 def test_empty_entries_skips_save():
     repo = FakeHostPersonalData()
-    service = HostPersonalDataService(
-        transaction=FakeTransaction(),
-        facilitators=FakeFacilitators(_facilitator()),
-        host_personal_data=repo,
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()), host_personal_data=repo
     )
 
     service.update_personal_data(event_id=10, facilitator_id=1, entries=[])
 
     assert not repo.saved
+
+
+def test_personal_data_change_is_logged():
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        host_personal_data=FakeHostPersonalData(existing={}),
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value=True)], user_id=_USER_ID
+    )
+
+    assert len(logs.created) == 1
+    entry = logs.created[0]
+    assert entry["facilitator_id"] == 1
+    assert entry["user_id"] == _USER_ID
+    assert {"field": "", "field_id": 5, "old": None, "new": True} in entry["changes"]
+
+
+def test_unchanged_personal_data_logs_nothing():
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        host_personal_data=FakeHostPersonalData(existing={"vegan": True}),
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value=True)]
+    )
+
+    assert not logs.created
+
+
+def test_update_facilitator_logs_accreditation_change():
+    logs = FakeChangeLogs()
+    facilitators = FakeFacilitators(_facilitator(accreditation_type="none"))
+    service = _service(
+        facilitators=facilitators,
+        host_personal_data=FakeHostPersonalData(),
+        change_logs=logs,
+    )
+
+    service.update_facilitator(
+        event_id=10,
+        facilitator_id=1,
+        accreditation_type="honorary",
+        entries=[],
+        user_id=_USER_ID,
+    )
+
+    assert facilitators.updated == [(1, {"accreditation_type": "honorary"})]
+    assert {
+        "field": "accreditation_type",
+        "field_id": None,
+        "old": "none",
+        "new": "honorary",
+    } in logs.created[0]["changes"]

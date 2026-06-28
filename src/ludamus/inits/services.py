@@ -72,6 +72,8 @@ class Services:
             transaction=self._transaction,
             facilitators=self._repos.facilitators,
             host_personal_data=self._repos.host_personal_data,
+            personal_data_fields=self._repos.personal_data_fields,
+            facilitator_change_logs=self._repos.facilitator_change_logs,
         )
 
     @cached_property

@@ -799,25 +799,33 @@ the edit form now adds an `old → new` row to the content log.
   (importing the private `_append_m2m_change` directly trips the
   no-private-import lint rule, and `noqa` is disallowed).
 
-### Step C2 — Log personal-data edits
+### Step C2 — Facilitator change log (personal data + accreditation) ✅
 
-Demoable outcome: editing a facilitator's personal-data answers leaves a
-trace.
+**Shipped.** Resolved the session-FK model-fit problem with a **dedicated
+facilitator-scoped log** rather than bending `ContentChangeLog`.
 
-- **Model fit caveat:** `ContentChangeLog` is session-scoped (`session`
-  FK required); `HostPersonalData` is facilitator+event-scoped. Two
-  viable shapes — pick when implementing:
-  - (a) When edited via the **proposal-edit inline path** (a session is
-    in context), attach the diff to that session's `ContentChangeLog`,
-    labelled per facilitator. Leaves the dedicated facilitator-edit page
-    path unlogged.
-  - (b) Make `ContentChangeLog.session` nullable and add a nullable
-    `facilitator` FK, so both edit paths log uniformly. One migration;
-    the content-log page groups by session-or-facilitator.
-- Recommendation: (b) if facilitator-edit auditing matters; (a) if only
-  the proposal-edit surface needs it. Confirm before building.
-- Tests: an inline personal-data edit writes a log entry; event-scoping
-  preserved.
+- New **`FacilitatorChangeLog`** model (event + facilitator + user +
+  `changes` JSON), migration `0103`, repo + protocol + uow/repos wiring.
+  Mirrors `ContentChangeLog` but keyed by facilitator, sidestepping the
+  required `session` FK.
+- `HostPersonalDataService` now owns the audit: `_diff_personal_data`
+  (blank-aware, skips no-ops) builds the change list; `update_personal_data`
+  (proposal-edit inline path) logs personal-data changes;
+  `update_facilitator` (dedicated facilitator-edit page) updates
+  accreditation + personal data and logs both in one entry. Both take
+  `user_id`. The facilitator-edit view was migrated off
+  `uow.facilitators.update` / `uow.host_personal_data.save` onto the
+  service (so the accreditation write is audited).
+- **Captured:** personal-data answer changes + `accreditation_type`.
+  `display_name` is the read-only cache, not panel-editable, so never
+  logged.
+- **Surface:** a "Facilitator changes" section on the event-wide
+  `panel:content-log` page (own table, reusing the
+  field-id→name + `content_field_label` render pattern;
+  `accreditation_type` added to `content_field_label`).
+- Tests: unit (personal-data logged / no-op skipped / accreditation
+  logged / event-scoping) + integration (facilitator-edit logs both
+  fields; the content-log page renders the facilitator section).
 
 ### Step C3 (optional) — Per-proposal history view on the detail page
 

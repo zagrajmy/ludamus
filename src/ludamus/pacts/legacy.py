@@ -1584,6 +1584,34 @@ class ContentChangeLogRepositoryProtocol(Protocol):
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
 
 
+class FacilitatorChangeLogData(TypedDict):
+    event_id: int
+    facilitator_id: int
+    user_id: int | None
+    changes: list[ContentFieldChange]
+
+
+class FacilitatorChangeLogDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    facilitator_id: int
+    facilitator_name: str
+    user_id: int | None
+    user_name: str
+    changes: list[ContentFieldChange]
+    creation_time: datetime
+
+
+class FacilitatorChangeLogRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: FacilitatorChangeLogData) -> None: ...
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
+
+
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
