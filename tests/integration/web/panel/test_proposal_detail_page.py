@@ -233,7 +233,7 @@ class TestProposalDetailPageView:
                 "import_log_entry": None,
                 "import_log_integration": None,
             },
-            contains=["Contact Email", 'href="mailto:anna@example.com"'],
+            contains=["Presenter", "Contact Email", 'href="mailto:anna@example.com"'],
         )
 
     def test_renders_preferred_time_slots_when_attached(
