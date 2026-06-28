@@ -923,11 +923,11 @@ def _diff_field_values(
     return changes
 
 
-def _core_comparisons(
+def _text_comparisons(
     old_session: SessionDTO, update: SessionUpdateData
 ) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
     # Keys are accessed literally (not in a loop) so the TypedDict / DTO field
-    # types stay statically known. cover_image is handled separately.
+    # types stay statically known.
     comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
     if "title" in update:
         comparisons.append(("title", old_session.title, update["title"]))
@@ -949,6 +949,18 @@ def _core_comparisons(
         comparisons.append(
             ("contact_email", old_session.contact_email, update["contact_email"])
         )
+    if "duration" in update:
+        comparisons.append(("duration", old_session.duration, update["duration"]))
+    return comparisons
+
+
+def _core_comparisons(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
+    # cover_image is handled separately.
+    comparisons = _text_comparisons(old_session, update)
+    if "category_id" in update:
+        comparisons.append(("category", old_session.category_id, update["category_id"]))
     if "participants_limit" in update:
         comparisons.append(
             (
@@ -959,8 +971,6 @@ def _core_comparisons(
         )
     if "min_age" in update:
         comparisons.append(("min_age", old_session.min_age, update["min_age"]))
-    if "duration" in update:
-        comparisons.append(("duration", old_session.duration, update["duration"]))
     return comparisons
 
 

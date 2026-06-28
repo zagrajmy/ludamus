@@ -179,21 +179,24 @@ button continues to work.
 Demoable outcome: organizer can change a proposal's category from the
 edit form.
 
-- Extend `SessionEditForm` (and the dynamic factory `create_proposal_form`)
-  by lifting the `category_id` `ChoiceField` from the create-only factory
-  into the base form, defaulting to the current category. The factory
-  collapses to a thin alias once the field is shared.
-- New service method `ProposalEditService.reassign_category(*, event_id,
-  proposal_id, category_id)` — or fold this into the broader
-  `ProposalEditService` introduced in Step 5 below. For Step 2, ship the
-  minimal method.
-- Wire `ProposalEditPageView` to pass the chosen category through the
-  service rather than through `request.di.uow.sessions.update(...)` for
-  this field only. (The other fields stay on the legacy path for now —
-  Step 5 migrates them en masse so the test churn is bounded.)
-- Template: add a `<select>` for category just under the title field on
-  `proposal-edit.html`. Show the category name on `proposal-detail.html`
-  if not already shown.
+- **Shipped:** the existing `create_proposal_form(choices)` factory already
+  produces a `SessionEditForm` subclass with a required `category_id`
+  `ChoiceField`. Rather than lift the field onto the base form (which would
+  force a required category onto the facilitator self-edit path that also
+  uses `SessionEditForm`, and fight django-stubs typing), the edit view now
+  **reuses the same factory** for its GET/POST. Self-edit keeps the plain
+  `SessionEditForm` and is untouched. The `ChoiceField` is scoped to the
+  event's categories, so a foreign-event category fails `invalid_choice`
+  validation for free (event-scoping without an extra check).
+- **No new service method.** `ProposalEditPageView` already routes through
+  `request.services.session_content_edit.apply(...)` (Step 5 was partly
+  done). Category reassignment rides that existing service: `category_id`
+  is added to the `SessionUpdateData`, which the repo's generic `update`
+  already persists. `diff_session_content` records a `category` change in
+  the content-change-log.
+- Template: category `<select>` rendered just under the title field on
+  `proposal-edit.html`; category name shown in the Details card on
+  `proposal-detail.html` (`category_name` context key).
 - Tests: integration test that posting a new `category_id` updates the
   proposal; verify category-required session/personal-data fields
   re-resolve correctly (a category swap can change which fields are
@@ -774,46 +777,34 @@ changes into the existing proposal-history / facilitator-history list
 
 ---
 
-## Open questions (to confirm before starting Step 1)
+## Resolved decisions (answered 2026-06-28)
 
-1. **Status mapping at scheduling time**: when a proposal currently in
-   `ACCEPTED` gets placed on the timetable, does it auto-flip to
-   `SCHEDULED`, or is `SCHEDULED` orthogonal to `ACCEPTED`? Current code
-   treats `SCHEDULED` as a terminal status. Cleanest model is:
-   `ACCEPTED` is a precondition for scheduling; placement transitions
-   to `SCHEDULED`. Need to confirm what the existing schedule editor
-   does with proposals whose status is not `SCHEDULED`.
-2. **`ON_HOLD` semantics**: is it intended as "reserve list" (FIFO
-   pool waiting for a scheduling slot) or just a parking lot? The label
-   in the UI should match.
-3. **Track-assignment permissions**: any organizer, or only the track's
-   designated manager? The existing `managed_track_pks` plumbing hints
-   the latter is meaningful elsewhere.
-4. **Personal-data inline editing** (Step 6): is this actually wanted
-   on the proposal edit page, or only on the facilitator edit page? The
-   request reads "Session models fields, sessionfields and personalfields"
-   — `personalfields` could mean "expose them on the proposal page" or
-   "make sure the existing facilitator-edit page still covers them"
-   (already does).
-5. **History scope**: tracking M2Ms (facilitators, tracks, time_slots)
-   doubles the history-row volume. Worth it? Recommendation is yes —
-   those are the most operator-visible changes.
-6. **Legacy field cleanup blast radius** (Step 5): removing
-   `requirements`, `needs`, `tags` from the panel surface is confirmed.
-   Open: leave the columns + data on the model (proposed) versus
-   actually dropping them in a follow-up migration. Recommendation:
-   leave alone; an unrelated reader / export might still consume them.
-7. **List "Facilitator" column relabel** (Step 10): the column
-   currently labeled "Facilitator" actually shows
-   `session.display_name` (the submission byline). Acceptable to
-   rename to "Byline" / "Submitted as", or keep the existing label and
-   only trim the width?
-8. **Cached-name hint copy** (Step 11): the facilitator-detail page
-   will render a hint like "wizard auto-fill cache — see proposal
-   display name for canonical value" near the read-only display name.
-   Confirm wording / whether to surface this at all. Risk of being
-   too internal-implementation-y; the alternative is to omit the hint
-   and rely on the read-only styling alone.
+1. **Status mapping at scheduling time**: `SCHEDULED` is **orthogonal** and
+   not needed as a status. "Scheduled" is inferred from the existence of an
+   `agenda_item` (`agenda_item_id is not None`), not from a status value.
+   `PENDING` / `ACCEPTED` / `ON_HOLD` / `REJECTED` are the real states;
+   placement is a separate axis. Follow-up for later steps: stop treating
+   `SCHEDULED` as a status and infer placement from the agenda item.
+2. **`ON_HOLD` semantics**: **reserve list**.
+3. **Track-assignment permissions**: **any organizer** can assign any track
+   on the event. Organizers are assigned to tracks only for convenience,
+   not as an access restriction.
+4. **Hand-created proposal facilitator binding** (Step 12): allow **only
+   selecting an existing facilitator** (no inline create). The facilitator
+   select must come **first** in the form so the organizer doesn't have to
+   abandon a filled-in form to go create a missing facilitator first.
+5. **History scope**: **yes** — track the M2Ms (facilitators, tracks,
+   time_slots).
+6. **Legacy field cleanup blast radius** (Step 5): **leave the columns +
+   data on the model**; only drop them from the panel surface.
+7. **List "Facilitator" column relabel** (Step 10): **yes, relabel** — use
+   "Display name" (the session byline) instead of the misleading
+   "Facilitator".
+8. **Facilitator display name** (Step 11): the canonical display name lives
+   on the **session**, because a facilitator can participate in sessions
+   facilitated by groups. Surface the session's display name as the
+   canonical byline; the facilitator row's cached name is read-only context
+   only.
 
 ---
 

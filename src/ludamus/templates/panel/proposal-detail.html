@@ -138,6 +138,14 @@
             <div class="card-body">
                 <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Details" %}</h3>
                 <dl class="grid grid-cols-2 gap-4">
+                    {% if category_name %}
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Category" %}</dt>
+                            <dd class="text-foreground">
+                                {{ category_name }}
+                            </dd>
+                        </div>
+                    {% endif %}
                     <div>
                         <dt class="text-xs text-foreground-muted">{% translate "Participants Limit" %}</dt>
                         <dd class="text-foreground">

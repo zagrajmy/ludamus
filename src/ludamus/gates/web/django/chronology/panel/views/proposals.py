@@ -18,7 +18,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import SessionEditForm, create_proposal_form
+from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
     NotFoundError,
     SessionContentEditData,
@@ -130,8 +130,18 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
                 # event (deleted, or stale link). Hide the back-link cleanly.
                 import_log_entry = None
 
+        category_name = None
+        if session.category_id is not None:
+            categories = self.request.di.uow.proposal_categories.list_by_event(
+                current_event.pk
+            )
+            category_name = next(
+                (c.name for c in categories if c.pk == session.category_id), None
+            )
+
         context["active_nav"] = "proposals"
         context["proposal"] = session
+        context["category_name"] = category_name
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
@@ -153,6 +163,10 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
+
+    def _category_choices(self, event_pk: int) -> list[tuple[int, str]]:
+        categories = self.request.di.uow.proposal_categories.list_by_event(event_pk)
+        return [(c.pk, c.name) for c in categories]
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("facilitators_submitted") != "1":
@@ -214,9 +228,10 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_facilitators, assigned_pks = self._get_facilitator_context(
             current_event.pk, proposal_id
         )
+        form_class = create_proposal_form(self._category_choices(current_event.pk))
         context["active_nav"] = "proposals"
         context["proposal"] = session
-        context["form"] = SessionEditForm(
+        context["form"] = form_class(
             initial={
                 "title": session.title,
                 "display_name": session.display_name,
@@ -227,6 +242,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "participants_limit": session.participants_limit,
                 "min_age": session.min_age,
                 "duration": session.duration,
+                "category_id": session.category_id,
                 "cover_image": session.cover_image_url or None,
             }
         )
@@ -252,7 +268,8 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        form = SessionEditForm(self.request.POST, self.request.FILES)
+        form_class = create_proposal_form(self._category_choices(current_event.pk))
+        form = form_class(self.request.POST, self.request.FILES)
         if not form.is_valid():
             all_facilitators, assigned_pks = self._get_facilitator_context(
                 current_event.pk, proposal_id
@@ -267,6 +284,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
         update_data: SessionUpdateData = {
+            "category_id": int(form.cleaned_data["category_id"]),
             "title": form.cleaned_data["title"],
             "display_name": form.cleaned_data["display_name"],
             "description": form.cleaned_data.get("description") or "",
