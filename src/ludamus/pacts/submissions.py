@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
+        FacilitatorChangeLogDTO,
         FacilitatorRepositoryProtocol,
         FieldUsageSummary,
         HostPersonalDataEntry,
@@ -348,4 +349,16 @@ class HostPersonalDataServiceProtocol(Protocol):
         event_id: int,
         facilitator_id: int,
         entries: list[HostPersonalDataEntry],
+        user_id: int | None = None,
     ) -> None: ...
+    def update_facilitator(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        accreditation_type: str,
+        entries: list[HostPersonalDataEntry],
+        user_id: int | None = None,
+    ) -> None: ...
+    def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]: ...
+    def list_field_names(self, event_id: int) -> dict[int, str]: ...

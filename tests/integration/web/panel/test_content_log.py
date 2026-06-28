@@ -6,6 +6,8 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     ContentChangeLog,
     Facilitator,
+    FacilitatorChangeLog,
+    PersonalDataField,
     SessionField,
 )
 from tests.integration.conftest import SessionFactory
@@ -178,6 +180,77 @@ class TestContentLogRecordsEdits:
 
         log = ContentChangeLog.objects.get(session=session)
         assert not any(c["field"] == "facilitators" for c in log.changes)
+
+    def test_facilitator_edit_logs_accreditation_and_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            accreditation_type="none",
+        )
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-edit",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+            data={"accreditation_type": "honorary", "personal_vegan": "true"},
+        )
+
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert {
+            "field": "accreditation_type",
+            "field_id": None,
+            "old": "none",
+            "new": "honorary",
+        } in log.changes
+        assert {
+            "field": "",
+            "field_id": field.pk,
+            "old": None,
+            "new": True,
+        } in log.changes
+
+    def test_facilitator_changes_render_on_content_log_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            accreditation_type="none",
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-edit",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+            data={"accreditation_type": "honorary"},
+        )
+        response = authenticated_client.get(
+            reverse("panel:content-log", kwargs={"slug": event.slug})
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert len(response.context["facilitator_logs"]) == 1
+        assert response.context["facilitator_logs"][0].facilitator_id == facilitator.pk
+        assert "Facilitator changes" in response.content.decode()
 
     def test_editing_a_session_field_records_field_change(
         self, authenticated_client, active_user, sphere, event, proposal_category

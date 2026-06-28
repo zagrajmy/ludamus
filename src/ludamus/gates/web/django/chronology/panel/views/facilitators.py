@@ -23,7 +23,6 @@ from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
     FacilitatorMergeError,
-    FacilitatorUpdateData,
     HostPersonalDataEntry,
     NotFoundError,
 )
@@ -230,13 +229,6 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                 self.request, "panel/facilitator-edit.html", context
             )
 
-        self.request.di.uow.facilitators.update(
-            facilitator.pk,
-            FacilitatorUpdateData(
-                accreditation_type=form.cleaned_data["accreditation_type"]
-            ),
-        )
-
         all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
             current_event.pk
         )
@@ -259,8 +251,13 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                     value=value,
                 )
             )
-        if entries:
-            self.request.di.uow.host_personal_data.save(entries)
+        self.request.services.host_personal_data.update_facilitator(
+            event_id=current_event.pk,
+            facilitator_id=facilitator.pk,
+            accreditation_type=form.cleaned_data["accreditation_type"],
+            entries=entries,
+            user_id=self.request.context.current_user_id,
+        )
 
         messages.success(self.request, _("Facilitator updated successfully."))
         return redirect(

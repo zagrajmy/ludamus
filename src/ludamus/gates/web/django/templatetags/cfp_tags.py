@@ -76,6 +76,7 @@ def content_field_label(field_key: str) -> str:
         "facilitators": _("Facilitators"),
         "tracks": _("Tracks"),
         "time_slots": _("Time slots"),
+        "accreditation_type": _("Accreditation type"),
     }
     return labels.get(field_key, field_key)
 
