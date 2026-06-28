@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 10:22+0200\n"
+"POT-Creation-Date: 2026-06-28 18:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4751,7 +4751,6 @@ msgstr ""
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/session-fields.html
 #: src/ludamus/templates/panel/settings.html
-#: src/ludamus/templates/panel/spaces.html
 #: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "No events available. Create an event to get started."
