@@ -197,6 +197,27 @@ class TestProposalEditPageView:
             },
         )
 
+    def test_get_does_not_render_legacy_requirements_needs_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data=ANY,
+            not_contains=[
+                'name="requirements"',
+                'name="needs"',
+                "Some requirements",
+                "Some needs",
+            ],
+        )
+
     # POST tests
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
@@ -289,8 +310,6 @@ class TestProposalEditPageView:
                 "title": "Updated Title",
                 "display_name": "New Host",
                 "description": "Updated description",
-                "requirements": "",
-                "needs": "",
                 "contact_email": "",
                 "participants_limit": new_limit,
                 "min_age": new_min_age,
@@ -403,8 +422,6 @@ class TestProposalEditPageView:
                 "title": "Updated",
                 "display_name": "Host",
                 "description": "d",
-                "requirements": "",
-                "needs": "",
                 "contact_email": "",
                 "participants_limit": raised_limit,
                 "min_age": 0,

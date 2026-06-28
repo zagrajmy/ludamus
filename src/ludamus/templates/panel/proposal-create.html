@@ -86,24 +86,6 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_requirements">{% translate "Requirements" %}</label>
-                            <textarea name="requirements"
-                                      id="id_requirements"
-                                      rows="3"
-                                      class="w-full border {% if form.requirements.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.requirements.value|default:'' }}</textarea>
-                            {% if form.requirements.errors %}<p class="mt-1 text-sm text-danger">{{ form.requirements.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_needs">{% translate "Needs" %}</label>
-                            <textarea name="needs"
-                                      id="id_needs"
-                                      rows="3"
-                                      class="w-full border {% if form.needs.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.needs.value|default:'' }}</textarea>
-                            {% if form.needs.errors %}<p class="mt-1 text-sm text-danger">{{ form.needs.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_contact_email">{% translate "Contact Email" %}</label>
                             <input type="email"
                                    name="contact_email"

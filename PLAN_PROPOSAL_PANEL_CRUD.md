@@ -252,35 +252,40 @@ preferred time slots from the edit form.
 
 ### Step 5 — Migrate `ProposalEditPageView` to a service + retire legacy fields
 
-Demoable outcome: no visible change for the editable surface — but
-`request.di.uow.sessions` disappears from the panel proposal views,
-and the legacy `requirements`, `needs`, `tags` fields no longer
-appear in the form or on the detail page.
+Demoable outcome: the legacy `requirements`, `needs`, `tags` fields no
+longer appear in the panel create / edit forms or on the detail page;
+the editable surface is otherwise unchanged.
 
-- Consolidate `ProposalEditService` to expose a single
-  `update_basic_fields(*, event_id, proposal_id, data: ProposalEditData)`
-  method covering title, display_name, description, contact_email,
-  participants_limit, min_age, duration (plus category from Step 2 if
-  folded in). **Excludes** `requirements`, `needs`, `tags` — legacy.
-- Replace the direct `request.di.uow.sessions.update(...)` call in
-  `ProposalEditPageView.post`.
-- Strip `requirements` and `needs` fields from `SessionEditForm` and
-  the dynamic `create_proposal_form` factory in
-  `gates/web/django/forms.py`. Remove their rendering blocks from
-  `panel/proposal-edit.html` and the read-out blocks from
-  `panel/proposal-detail.html`. No new migration — model columns are
-  left in place, the data is simply no longer surfaced via the panel.
-- Confirm `tags` is not exposed on either template (Step 3 added
-  tracks, not tags); if a tag chip render is left over from older
-  work, drop it.
-- Move facilitator assignment in the same view to a service method
-  (`ProposalEditService.set_facilitators`) and retire the duplicate code
-  path in `ProposalSetFacilitatorsActionView` (it can call the same
-  service).
-- Tests: existing integration tests that asserted on requirements /
-  needs / tags need updating — the assertions should disappear, not be
-  rewritten to accept empty values. If a fixture path needs touching,
-  prefer adjusting fixtures over the assertions.
+- **Update path already migrated.** Steps 2–4 routed
+  `ProposalEditPageView.post` through `request.services.session_content_edit`
+  (no `request.di.uow.sessions.update(...)` left in the edit view), so the
+  "consolidate into a service" goal landed earlier. No new service method.
+- **`requirements` / `needs` retired from the panel only (surgical, per
+  the scope decision).** Removed from the panel create + edit templates,
+  from `ProposalEditPageView` GET initial / POST update, and the read-out
+  blocks on `proposal-detail.html`. The create view hardcodes them to `""`.
+  `SessionEditForm` **keeps** both fields because it is shared with the
+  facilitator self-edit (`web:chronology:session-edit`), which still
+  surfaces them — stripping the shared form would have removed them there
+  too. Model columns + data stay (Q6).
+- `tags` is **already not exposed** in the panel (the `{% load cfp_tags %}`
+  in `proposal-detail.html` is a template-tag library, not the `Tag`
+  model). No-op — confirmed.
+- Tests: regression tests assert the panel edit form and detail page no
+  longer render `requirements` / `needs`; the obsolete keys were dropped
+  from the create / edit POST fixtures.
+
+**Deferred out of Step 5** (kept minimal per the surgical scope):
+
+- `ProposalSetFacilitatorsActionView` still writes via
+  `request.di.uow.sessions.set_facilitators`. It is registered
+  (`panel:proposal-set-facilitators`) but **not referenced by any
+  template** — the inline facilitators block on the edit form replaced it.
+  Fold it into the service (or delete the dead endpoint) alongside the
+  create-path migration.
+- `ProposalCreatePageView` still calls `request.di.uow.sessions.create`.
+  Migrate it in **Step 12**, which overhauls the create path for
+  facilitator binding.
 
 ### Step 6 — Personal-data inline on proposal edit
 
