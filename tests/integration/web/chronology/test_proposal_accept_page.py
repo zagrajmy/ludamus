@@ -391,14 +391,14 @@ class TestProposalAcceptPageView:
         pending_session.save()
         Session.objects.create(
             title=pending_session.title,
-            sphere=event.sphere,
+            event=event,
             slug=base_slug,
             display_name=staff_user.name,
             participants_limit=10,
         )
 
         response = staff_client.post(
-            self._get_url(pending_session.id),
+            self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
 
