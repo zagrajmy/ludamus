@@ -60,7 +60,9 @@
                 {% for col in grid.columns %}
                     <div class="flex-1 min-w-36 px-3 py-2 border-l border-neutral-700 text-center">
                         <div class="text-sm font-medium text-white">{{ col.space.name }}</div>
-                        {% if col.space.capacity %}<div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>{% endif %}
+                        {% if col.space.capacity %}
+                            <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
