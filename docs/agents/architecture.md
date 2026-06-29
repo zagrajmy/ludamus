@@ -428,7 +428,7 @@ Internal areas (Chronology-owned):
 | Event settings | `EventSettingsPageView` | `settings.html` |
 | Time slots | `TimeSlotsPageView` | `time-slot*.html` |
 | Tracks | `TracksPageView` | `track-*.html` |
-| Venues / Areas / Spaces | `VenuesPageView` | `venue-*.html` |
+| Venues (Space tree) | `SpacesPageView` + `Space*` CRUD | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 

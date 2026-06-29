@@ -12,11 +12,9 @@ from ludamus.pacts import (
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 
 
@@ -91,9 +89,7 @@ class TestAgendaItemRepositoryListByEvent:
 
     def test_list_by_event_excludes_other_events(self, agenda_item, sphere):
         other_event = EventFactory(sphere=sphere)
-        other_venue = VenueFactory(event=other_event)
-        other_area = AreaFactory(venue=other_venue)
-        other_space = SpaceFactory(area=other_area)
+        other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(event=other_event)
         AgendaItemFactory(session=other_session, space=other_space)
 
@@ -117,9 +113,9 @@ class TestAgendaItemRepositoryListBySpace:
         assert result[0].pk == agenda_item.pk
         assert result[0].space_id == space.pk
 
-    def test_list_by_space_excludes_other_spaces(self, agenda_item, area):
-        other_space = SpaceFactory(area=area)
-        other_session = SessionFactory(event=area.venue.event)
+    def test_list_by_space_excludes_other_spaces(self, agenda_item):
+        other_space = SpaceFactory(event=agenda_item.space.event)
+        other_session = SessionFactory(event=agenda_item.space.event)
         other_item = AgendaItemFactory(session=other_session, space=other_space)
 
         result = AgendaItemRepository.list_by_space(agenda_item.space_id)
@@ -158,8 +154,8 @@ class TestAgendaItemRepositoryListByTrack:
 
 
 class TestAgendaItemRepositoryUpdate:
-    def test_update_changes_space(self, agenda_item, area):
-        new_space = SpaceFactory(area=area)
+    def test_update_changes_space(self, agenda_item):
+        new_space = SpaceFactory(event=agenda_item.space.event)
         data = AgendaItemUpdateData(space_id=new_space.pk)
 
         AgendaItemRepository.update(agenda_item.pk, data)
@@ -189,9 +185,7 @@ class TestAgendaItemRepositoryConfirmAllByEvent:
 
     def test_does_not_touch_other_events(self, agenda_item, sphere):
         other_event = EventFactory(sphere=sphere)
-        other_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=other_event))
-        )
+        other_space = SpaceFactory(event=other_event)
         other_item = AgendaItemFactory(
             session=SessionFactory(event=other_event), space=other_space
         )
@@ -210,7 +204,7 @@ class TestAgendaItemRepositoryConfirmAllByTrack:
             event=event, name="Track", slug="track", is_public=True
         )
         session.tracks.add(track)
-        out_space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        out_space = SpaceFactory(event=event)
         out_item = AgendaItemFactory(
             session=SessionFactory(event=event), space=out_space
         )

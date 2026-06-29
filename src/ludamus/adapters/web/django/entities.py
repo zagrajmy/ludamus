@@ -109,18 +109,8 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
 
     @property
     def location_label(self) -> str:
-        """Comma-separated location from venue, area, space."""
-        parts: list[str] = []
-        venue = self.loc.get("venue")
-        if venue and venue.name.strip():
-            parts.append(venue.name)
-        area = self.loc.get("area")
-        if area and area.name.strip():
-            parts.append(area.name)
-        space = self.loc.get("space")
-        if space and space.name.strip():
-            parts.append(space.name)
-        return ", ".join(parts)
+        # Full "Root > ... > Leaf" tree path of the scheduled space.
+        return self.loc.get("path", "")
 
 
 class EventInfo(EventListItemDTO):

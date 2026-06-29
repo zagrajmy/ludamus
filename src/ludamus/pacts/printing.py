@@ -20,10 +20,6 @@ class PrintOptionDTO(BaseModel):
     slug: str
 
 
-class PrintSpaceOptionDTO(PrintOptionDTO):
-    area_id: int | None
-
-
 class PrintSessionDTO(BaseModel):
     title: str
     presenter_name: str
@@ -33,8 +29,7 @@ class PrintSessionDTO(BaseModel):
 class PrintTimetableQueryDTO:
     event_pk: int
     tz: tzinfo
-    area_pks: frozenset[int] | None = None
-    space_pks: frozenset[int] | None = None
+    scope_space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
@@ -44,8 +39,7 @@ class PrintTimetableQueryDTO:
 class AreaScheduleQueryDTO:
     event_pk: int
     time_range: tuple[datetime, datetime]
-    area_pks: frozenset[int] | None = None
-    space_pks: frozenset[int] | None = None
+    scope_space_pks: frozenset[int] | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
 
@@ -156,14 +150,13 @@ class PrintSessionListDocumentDTO(BaseModel):
 
 
 class PrintMaterialsServiceProtocol(Protocol):
-    def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]: ...
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]: ...
     def build_door_cards(
         self,
         event_pk: int,
         tz: tzinfo,
         *,
-        area_pks: frozenset[int] | None = None,
+        scope_space_pks: frozenset[int] | None = None,
         scope_name: str | None = None,
         confirmed_only: bool = False,
     ) -> DoorCardsDocumentDTO: ...

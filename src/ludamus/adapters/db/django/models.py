@@ -29,13 +29,14 @@ from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Iterator
 
     from ludamus.pacts import EventDTO, UserDTO
 
 
 MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
+SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 
@@ -521,26 +522,20 @@ class DomainEnrollmentConfig(models.Model):
 
 
 class Space(models.Model):
-    """Bookable room/location within an area."""
+    """A node in the event's space tree (building → … → bookable room)."""
 
-    HIERARCHICAL_ORDER: ClassVar = (
-        "area__venue__order",
-        "area__venue__name",
-        "area__order",
-        "area__name",
-        "order",
-        "name",
-    )
-
-    # Owner - spaces belong to an area
-    area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="spaces")
     # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")
+    # Tree - null parent = root node; nodes form the building->...->room hierarchy
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
+    )
     # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField(blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
     # Time
@@ -552,70 +547,78 @@ class Space(models.Model):
         ordering: ClassVar = ["order", "name"]
         constraints = (
             models.UniqueConstraint(
-                fields=("slug", "area"), name="space_has_unique_slug_and_area"
+                fields=("slug", "parent"), name="space_has_unique_slug_and_parent"
             ),
-        )
-
-    def __str__(self) -> str:
-        return f"{self.area.venue.name} > {self.area.name} > {self.name}"
-
-
-class Venue(models.Model):
-    """Physical location/building for an event."""
-
-    # Owner - venues belong to an event
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="venues")
-    # ID
-    name = models.CharField(max_length=255)
-    slug = models.SlugField()
-    # Details
-    address = models.TextField(blank=True, default="")
-    # Ordering
-    order = models.PositiveIntegerField(default=0)
-    # Time
-    creation_time = models.DateTimeField(auto_now_add=True)
-    modification_time = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "venue"
-        ordering: ClassVar = ["order", "name"]
-        constraints = (
+            # SQL treats NULL parents as distinct, so the constraint above can't
+            # police roots; a partial unique index enforces root slug uniqueness
+            # per event at the DB level (mirrors _validate_root_slug_unique).
             models.UniqueConstraint(
-                fields=("slug", "event"), name="venue_has_unique_slug_and_event"
+                fields=("event", "slug"),
+                condition=models.Q(parent__isnull=True),
+                name="space_root_has_unique_slug_per_event",
             ),
         )
 
     def __str__(self) -> str:
-        return self.name
+        # "Root > ... > Leaf" path, recursing up via str(parent). ponytail: lazy
+        # parent loads (one query per level) — fine for admin/debug __str__.
+        return f"{self.parent} > {self.name}" if self.parent else self.name
 
+    def iter_ancestors(self) -> Iterator[Space]:
+        if self.parent is not None:
+            yield self.parent
+            yield from self.parent.iter_ancestors()
 
-class Area(models.Model):
-    """Subdivision within a venue (floor, wing, section)."""
+    def clean(self) -> None:
+        super().clean()
+        self._validate_same_event()
+        self._validate_acyclic_and_depth()
+        self._validate_leaf_parent()
+        self._validate_root_slug_unique()
 
-    # Owner - areas belong to a venue
-    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="areas")
-    # ID
-    name = models.CharField(max_length=255)
-    slug = models.SlugField()
-    # Details
-    description = models.TextField(blank=True, default="")
-    # Ordering
-    order = models.PositiveIntegerField(default=0)
-    # Time
-    creation_time = models.DateTimeField(auto_now_add=True)
-    modification_time = models.DateTimeField(auto_now=True)
+    def _validate_same_event(self) -> None:
+        if self.parent is not None and self.parent.event_id != self.event_id:
+            raise ValidationError(_("A space must belong to its parent's event."))
 
-    class Meta:
-        db_table = "area"
-        ordering: ClassVar = ["order", "name"]
-        constraints = (
-            models.UniqueConstraint(
-                fields=("slug", "venue"), name="area_has_unique_slug_and_venue"
-            ),
+    def _validate_acyclic_and_depth(self) -> None:
+        # Climb the parent chain. Revisiting self is a cycle; exceeding the max
+        # depth (a runaway climb also implies a cycle) is rejected. Lazy
+        # iteration stops at the first violation, so a cycle never loops forever.
+        seen = {self.pk}
+        for depth, ancestor in enumerate(self.iter_ancestors(), start=2):
+            if ancestor.pk in seen:
+                raise ValidationError(_("A space cannot be its own ancestor."))
+            seen.add(ancestor.pk)
+            if depth > SPACE_MAX_DEPTH:
+                raise ValidationError(
+                    _("Spaces can be nested at most %(max)d levels deep.")
+                    % {"max": SPACE_MAX_DEPTH}
+                )
+
+    def _validate_leaf_parent(self) -> None:
+        # Attaching under a parent turns that parent into a branch; a branch
+        # cannot also hold a scheduled session.
+        if self.parent is not None and self.parent.agenda_items.exists():
+            raise ValidationError(
+                _("A space holding a scheduled session cannot contain other spaces.")
+            )
+
+    def _validate_root_slug_unique(self) -> None:
+        # The (slug, parent) DB constraint can't police roots (SQL treats NULL
+        # parents as distinct), so root slug uniqueness lives here.
+        if self.parent_id is not None:
+            return
+        clash = (
+            Space.objects.filter(
+                event_id=self.event_id, parent__isnull=True, slug=self.slug
+            )
+            .exclude(pk=self.pk)
+            .exists()
         )
-
-    def __str__(self) -> str:
-        return f"{self.venue.name} > {self.name}"
+        if clash:
+            raise ValidationError(
+                {"slug": _("A root space with this slug already exists.")}
+            )
 
 
 class TimeSlot(models.Model):

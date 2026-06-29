@@ -8,20 +8,18 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import Track
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _scheduled_agenda_item(event, area, *, track=None):
-    space = SpaceFactory(area=area)
+def _scheduled_agenda_item(event, *, track=None):
+    space = SpaceFactory(event=event)
     session = SessionFactory(
         category=ProposalCategoryFactory(event=event),
         status="scheduled",
@@ -63,11 +61,11 @@ class TestTimetableConfirmAllView:
         )
 
     def test_confirms_every_item_in_event(
-        self, authenticated_client, active_user, sphere, event, area
+        self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        item_a = _scheduled_agenda_item(event, area)
-        item_b = _scheduled_agenda_item(event, area)
+        item_a = _scheduled_agenda_item(event)
+        item_b = _scheduled_agenda_item(event)
 
         response = authenticated_client.post(self.get_url(event))
 
@@ -83,8 +81,7 @@ class TestTimetableConfirmAllView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        other_area = AreaFactory(venue=VenueFactory(event=other_event))
-        other_item = _scheduled_agenda_item(other_event, other_area)
+        other_item = _scheduled_agenda_item(other_event)
 
         response = authenticated_client.post(self.get_url(event))
 
@@ -138,12 +135,12 @@ class TestTimetableConfirmBlockView:
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_confirms_only_items_in_block(
-        self, authenticated_client, active_user, sphere, event, area
+        self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         track = self._track(event)
-        in_block = _scheduled_agenda_item(event, area, track=track)
-        out_of_block = _scheduled_agenda_item(event, area)
+        in_block = _scheduled_agenda_item(event, track=track)
+        out_of_block = _scheduled_agenda_item(event)
 
         response = authenticated_client.post(
             self.get_url(event), data={"track_pk": track.pk}
@@ -162,8 +159,7 @@ class TestTimetableConfirmBlockView:
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_track = self._track(other_event, slug="other-block")
-        other_area = AreaFactory(venue=VenueFactory(event=other_event))
-        other_item = _scheduled_agenda_item(other_event, other_area, track=other_track)
+        other_item = _scheduled_agenda_item(other_event, track=other_track)
 
         response = authenticated_client.post(
             self.get_url(event), data={"track_pk": other_track.pk}
