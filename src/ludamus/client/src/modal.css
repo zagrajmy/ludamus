@@ -168,6 +168,9 @@
   animation: page-blur-out var(--vt-morph-exit-duration) var(--vt-morph-ease) both;
 }
 
+/* These keyframes replace the UA default root cross-fade (the opacity rule
+   above), so they re-supply the opacity fade themselves — editing opacity here
+   drives the page cross-fade, not just the blur, now on the morph's timing. */
 @keyframes page-blur-in {
   from {
     opacity: 0;
