@@ -522,12 +522,7 @@ class AcceptProposalService:
         )
 
     def accept_session(
-        self,
-        *,
-        session: SessionDTO,
-        slugifier: Callable[[str], str],
-        space_id: int,
-        time_slot_id: int,
+        self, *, session: SessionDTO, space_id: int, time_slot_id: int
     ) -> None:
         time_slot = self._uow.sessions.read_time_slot(session.pk, time_slot_id)
 
@@ -535,9 +530,7 @@ class AcceptProposalService:
             self._uow.sessions.update(
                 session.pk,
                 SessionUpdateData(
-                    status=SessionStatus.SCHEDULED,
-                    display_name=session.display_name,
-                    slug=slugifier(session.title),
+                    status=SessionStatus.SCHEDULED, display_name=session.display_name
                 ),
             )
 
