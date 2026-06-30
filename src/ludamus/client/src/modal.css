@@ -47,10 +47,12 @@
 
   .modal::backdrop {
     background-color: transparent;
+    backdrop-filter: blur(0);
     transition:
       display 0.2s allow-discrete,
       overlay 0.2s allow-discrete,
-      background-color 0.2s var(--ease-out);
+      background-color 0.2s var(--ease-out),
+      backdrop-filter 0.2s var(--ease-out);
   }
 
   .modal[open]::backdrop {
@@ -61,6 +63,7 @@
   @starting-style {
     .modal[open]::backdrop {
       background-color: transparent;
+      backdrop-filter: blur(0);
     }
   }
 }
