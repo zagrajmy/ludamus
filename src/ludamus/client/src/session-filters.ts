@@ -236,6 +236,13 @@ const initSessionFilters = (): void => {
       }
     }
 
+    // Compact schedule groups slots under day headers; hide a day whose every
+    // slot is now empty so the header doesn't dangle. No-op on the card layout.
+    for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
+      const visibleSlots = day.querySelectorAll('.time-slot-section:not([style*="display: none"])');
+      day.style.display = visibleSlots.length > 0 ? "" : "none";
+    }
+
     updateFilterUI();
   }
 
@@ -253,6 +260,9 @@ const initSessionFilters = (): void => {
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       section.style.display = "";
+    }
+    for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
+      day.style.display = "";
     }
     for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-card-wrapper")) {
       cardContainer.style.display = "";

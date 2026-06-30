@@ -508,6 +508,7 @@ class EventDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     use_session_cover_placeholders: bool = False
+    use_participants_label: bool = False
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -746,6 +747,7 @@ class EventUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
+    use_participants_label: bool
 
 
 @dataclass

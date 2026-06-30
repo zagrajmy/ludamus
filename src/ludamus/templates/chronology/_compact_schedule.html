@@ -1,0 +1,44 @@
+{% load i18n %}
+{% load tessera %}
+{# Compact schedule for big events: a dense chronological list paired with a #}
+{# sticky hour scrubber. Reuses the .session-card / .time-slot-section / #}
+{# .session-grid contract so session-filters.ts and the detail modals apply. #}
+<div class="compact-schedule flex items-start gap-2 sm:gap-4">
+    <div class="min-w-0 flex-1">
+        {% for day in schedule_days %}
+            <section data-schedule-day class="mb-8 last:mb-0">
+                <h3 class="mb-2 flex items-baseline gap-2 border-b border-border pb-1.5 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+                    {{ day.date|date:"l" }}
+                    <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.date|date:"j F" }}</span>
+                </h3>
+                {% for slot in day.hours %}
+                    <div class="time-slot-section snap-start scroll-mt-24"
+                         id="slot-{{ slot.start|date:'Ymd-Hi' }}"
+                         data-time-slot="compact-{{ slot.start|date:'Ymd-Hi' }}"
+                         data-slot-hour="{{ slot.start|date:'Ymd-H' }}">
+                        <div class="session-grid divide-y divide-border/60">
+                            {% for data in slot.sessions %}
+                                {% include "chronology/_compact_session_row.html" %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </section>
+        {% endfor %}
+    </div>
+    {# Hour scrubber: tap or drag to jump through the schedule by the hour. #}
+    <nav class="schedule-rail sticky top-4 max-h-[calc(100dvh-2rem)] shrink-0 touch-none select-none self-start overflow-y-auto overscroll-contain py-1 text-foreground-muted [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+         aria-label="{% translate "Jump to time" %}">
+        {% for day in schedule_days %}
+            <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.date|date:"D" }}</span>
+            {% for slot in day.hours %}
+                {% ifchanged slot.start|date:"YmdH" %}
+                    <a class="schedule-rail-hour block rounded px-1.5 py-px text-center text-xs tabular-nums leading-snug transition-colors hover:text-foreground"
+                       href="#slot-{{ slot.start|date:'Ymd-Hi' }}"
+                       data-rail-hour="{{ slot.start|date:'Ymd-H' }}"
+                       aria-label="{% blocktranslate with time=slot.start|time:'H:i' day=day.date|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}">{{ slot.start|time:"H" }}</a>
+                {% endifchanged %}
+            {% endfor %}
+        {% endfor %}
+    </nav>
+</div>

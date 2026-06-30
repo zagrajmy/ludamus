@@ -79,6 +79,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
     waiting_count: int = 0
     is_ongoing: bool = False  # True if session has already started
+    is_ended: bool = False  # True if the session's end time has passed
     should_show_as_inactive: bool = (
         False  # True if should be displayed as inactive due to limit_to_end_time
     )
@@ -119,6 +120,22 @@ class EventInfo(EventListItemDTO):
     @classmethod
     def from_list_item(cls, item: EventListItemDTO, *, cover_image_url: str) -> Self:
         return cls(**{**item.model_dump(), "cover_image_url": cover_image_url})
+
+
+@dataclass
+class ScheduleHour:
+    """One start-time slot in the compact schedule, with its sessions."""
+
+    start: datetime
+    sessions: list[SessionData]
+
+
+@dataclass
+class ScheduleDay:
+    """A day's worth of compact-schedule slots, grouped for the hour scrubber."""
+
+    date: datetime
+    hours: list[ScheduleHour]
 
 
 @dataclass

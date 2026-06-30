@@ -265,6 +265,9 @@ class Event(models.Model):
         null=True, blank=True, default=None
     )
     use_session_cover_placeholders = models.BooleanField(default=False)
+    # Label for the enrolled-people count on the public event page: off →
+    # "Players" (gaming events), on → "Participants" (general events).
+    use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
     # turn off for a draft → confirm workflow on large events.
     auto_confirm_sessions = models.BooleanField(default=True)

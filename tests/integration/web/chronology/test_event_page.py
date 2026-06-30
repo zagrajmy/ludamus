@@ -82,6 +82,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -89,6 +91,48 @@ class TestEventPageView:
             contains="Upcoming",
             not_contains="Enrollment Open",
         )
+
+    def test_ok_participants_label_when_enabled(self, agenda_item, client, event):
+        event.use_participants_label = True
+        event.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        # "Players" only appears as the header count label, so its absence proves
+        # the toggle flipped it ("Participants" also names a session-modal tab).
+        assert "Players" not in content
+
+    def test_ok_players_label_by_default(self, agenda_item, client, event):
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Players" in response.content.decode()
+
+    def test_ok_compact_schedule_for_big_event(
+        self, agenda_item, client, event, monkeypatch
+    ):
+        # Drop the threshold so a single scheduled session flips the page to the
+        # compact list + hour scrubber instead of the card grid.
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["compact_schedule"] is True
+        [day] = response.context_data["schedule_days"]
+        [hour] = day.hours
+        assert hour.start == agenda_item.start_time
+        assert [data.session.pk for data in hour.sessions] == [agenda_item.session.pk]
+        content = response.content.decode()
+        assert "schedule-rail" in content
+        assert 'data-rail-hour="' in content
+        assert f"?session={agenda_item.session.pk}" in content
+        # The compact list replaces the multi-column card grid.
+        assert "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" not in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
@@ -116,6 +160,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -149,6 +195,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -182,6 +230,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -245,6 +295,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -286,6 +338,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -448,6 +502,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -518,6 +574,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -617,6 +675,8 @@ class TestEventPageView:
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -677,6 +737,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -739,6 +801,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -811,6 +875,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -832,6 +898,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
+            is_ended=True,
             presenter=UserInfo.from_user_dto(
                 UserDTO.model_validate(active_user), gravatar_url=gravatar_url
             ),
@@ -868,6 +935,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -925,6 +994,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -958,6 +1029,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1001,6 +1074,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1035,6 +1110,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1073,6 +1150,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1110,6 +1189,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1150,6 +1231,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1237,6 +1320,8 @@ class TestEventPageView:
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -1298,6 +1383,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1389,6 +1476,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
@@ -1472,6 +1561,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1558,6 +1649,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
@@ -1641,6 +1734,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
@@ -1727,6 +1822,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1808,6 +1905,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1900,6 +1999,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1988,6 +2089,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2079,6 +2182,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2167,6 +2272,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2259,6 +2366,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2375,6 +2484,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2462,6 +2573,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2550,6 +2663,8 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                "compact_schedule": False,
+                "schedule_days": [],
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },

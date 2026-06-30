@@ -22,6 +22,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
@@ -47,6 +48,8 @@ from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
+    ScheduleDay,
+    ScheduleHour,
     SessionData,
     SessionUserParticipationData,
     build_display_field_row,
@@ -822,6 +825,13 @@ def _field_value_dtos_from_models(
     )
 
 
+# Above this many scheduled sessions, the card grid becomes unwieldy and the
+# event page switches to the compact schedule (a dense chronological list with
+# an hour scrubber). Tunable; not a business invariant, so it lives here rather
+# than in specs.
+COMPACT_SCHEDULE_MIN_SESSIONS = 60
+
+
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -933,10 +943,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 # Current sessions (available for enrollment or in progress)
                 current_hour_data[hour_key].append(session_data)
 
+        compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
+
         context.update(
             {
                 "hour_data": hour_data,  # Keep original for backward compatibility
                 "sessions": list(sessions_data.values()),
+                "compact_schedule": compact_schedule,
+                "schedule_days": (
+                    self._build_schedule_days(sessions_data) if compact_schedule else []
+                ),
                 "ended_hour_data": dict(ended_hour_data),
                 "current_hour_data": dict(current_hour_data),
                 "future_unavailable_hour_data": dict(future_unavailable_hour_data),
@@ -1153,6 +1169,25 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                             SessionParticipationStatus.WAITING in statuses
                         )
 
+    @staticmethod
+    def _build_schedule_days(
+        sessions_data: dict[int, SessionData],
+    ) -> list[ScheduleDay]:
+        # sessions_data preserves the queryset's chronological order, so a single
+        # pass groups consecutive sessions into start-time slots and slots into
+        # local-calendar days for the compact schedule's hour scrubber.
+        days: list[ScheduleDay] = []
+        for data in sessions_data.values():
+            start = data.agenda_item.start_time
+            local_date = timezone.localtime(start).date()
+            if not days or timezone.localtime(days[-1].date).date() != local_date:
+                days.append(ScheduleDay(date=start, hours=[]))
+            slots = days[-1].hours
+            if not slots or slots[-1].start != start:
+                slots.append(ScheduleHour(start=start, sessions=[]))
+            slots[-1].sessions.append(data)
+        return days
+
     def _get_hour_data(
         self,
         event_sessions: QuerySet[Session],
@@ -1255,8 +1290,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
             session_start = session_data.agenda_item.start_time
 
-            # Calculate if session is ongoing (has already started)
+            # Calculate if session is ongoing (has already started) or fully over
             session_data.is_ongoing = session_start <= current_time
+            session_data.is_ended = session_data.agenda_item.end_time <= current_time
 
             # Mark sessions as inactive for display based on limit_to_end_time rules
             if limit_configs and earliest_limit_end_time and session_data.is_ongoing:
