@@ -177,8 +177,12 @@ const openModal = async (
     if (animate && canMorph(card)) {
       openingModals.add(id);
       morphPromise = morphTransition({
-        before: () => setMorph(card, true),
+        before: () => {
+          document.documentElement.classList.add("session-morph-open");
+          setMorph(card, true);
+        },
         settle: () => {
+          document.documentElement.classList.remove("session-morph-open");
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -218,8 +222,12 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        before: () => setContainerMorph(dialog, true),
+        before: () => {
+          document.documentElement.classList.add("session-morph-close");
+          setContainerMorph(dialog, true);
+        },
         settle: () => {
+          document.documentElement.classList.remove("session-morph-close");
           setContainerMorph(card, false);
         },
         swap: () => {
