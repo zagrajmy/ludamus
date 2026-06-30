@@ -23,7 +23,9 @@ Usage:
 from ._registry import register
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
+from .icon_toggle import tessera_icon_toggle
 from .select import SelectNode, do_select
+from .switcher import SegmentNode, SwitcherNode, tessera_segment, tessera_switcher
 from .table import TableNode, do_tessera_table
 from .tabs import (
     TAB_ACTIVE_CLASS,
@@ -39,7 +41,9 @@ __all__ = [
     "TAB_ACTIVE_CLASS",
     "TAB_INACTIVE_CLASS",
     "TAB_NAV_CLASS",
+    "SegmentNode",
     "SelectNode",
+    "SwitcherNode",
     "TabNode",
     "TableNode",
     "TabsNode",
@@ -53,4 +57,7 @@ __all__ = [
     "tessera_errors",
     "tessera_field",
     "tessera_form",
+    "tessera_icon_toggle",
+    "tessera_segment",
+    "tessera_switcher",
 ]

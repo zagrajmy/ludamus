@@ -836,7 +836,7 @@ msgstr "Proszę przejrzeć opcje zapisu poniżej."
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "%(name)s (no enrollment to cancel)"
-msgstr "%(name)s (brak zapisu do anulowania.)"
+msgstr "%(name)s (brak zapisu do anulowania)"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -3618,6 +3618,14 @@ msgstr "Oznacz wszystkie jako przeczytane"
 #: src/ludamus/templates/components/notifications.html
 msgid "No notifications yet."
 msgstr "Brak powiadomień."
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Toggle interface sound"
+msgstr "Przełącz dźwięk interfejsu"
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Interface sound (Velvet)"
+msgstr "Dźwięk interfejsu (Velvet)"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"
