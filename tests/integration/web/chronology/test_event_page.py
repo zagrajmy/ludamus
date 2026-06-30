@@ -92,7 +92,8 @@ class TestEventPageView:
             not_contains="Enrollment Open",
         )
 
-    def test_ok_participants_label_when_enabled(self, agenda_item, client, event):
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_participants_label_when_enabled(self, client, event):
         event.use_participants_label = True
         event.save()
 
@@ -104,7 +105,8 @@ class TestEventPageView:
         # the toggle flipped it ("Participants" also names a session-modal tab).
         assert "Players" not in content
 
-    def test_ok_players_label_by_default(self, agenda_item, client, event):
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_players_label_by_default(self, client, event):
         response = client.get(self._get_url(event.slug))
 
         assert response.status_code == HTTPStatus.OK

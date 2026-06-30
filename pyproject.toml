@@ -241,7 +241,6 @@ ignore = [
     "PLR1702", # Too many nested blocks
     "EM101",   # Exception must not use a string literal, assign to variable first
     "TRY003",  # Avoid specifying long messages outside the exception class
-    "RUF076",  # Avoid using `autouse=True` in `pytest.fixture` decorators
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -267,7 +266,6 @@ ignore = [
 "*/inits/repositories.py" = ["PLR0904"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
-"**/conftest.py" = ["RUF076"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
