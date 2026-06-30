@@ -116,7 +116,9 @@ class CFPPersonalDataFieldService:
 
 
 def _is_blank(*, value: str | list[str] | bool | None) -> bool:
-    return value in {None, "", False} or value == []
+    if isinstance(value, list):
+        return not value
+    return value in {None, "", False}
 
 
 def _diff_personal_data(

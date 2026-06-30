@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -17,20 +16,25 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import EventDTO, SessionDTO, TimeSlotDTO, TrackDTO
+from ludamus.pacts import (
+    AgendaItemDTO,
+    EventDTO,
+    FacilitatorDTO,
+    ScheduleChangeAction,
+    ScheduleChangeLogDTO,
+    SessionDTO,
+    SessionStatus,
+    TimeSlotDTO,
+    TrackDTO,
+    UserDTO,
+)
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
 )
 from ludamus.pacts.submissions import ImportLogEntryDTO
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    AreaFactory,
-    EventFactory,
-    SpaceFactory,
-    VenueFactory,
-)
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -169,7 +173,28 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
             not_contains=["Secret legacy requirements", "Secret legacy needs"],
         )
 
@@ -197,7 +222,28 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 1,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": UserDTO.model_validate(active_user),
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
         )
         assert session.cover_image_url.encode() in response.content
 
@@ -321,7 +367,28 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
             contains=["Slug", "Created", "Last modified", "unscheduled"],
             not_contains=["View on timetable", "Schedule changes"],
         )
@@ -340,10 +407,8 @@ class TestProposalDetailPageView:
             participants_limit=4,
             status="pending",
         )
-        space = SpaceFactory(
-            name="Main Hall", area=AreaFactory(venue=VenueFactory(event=event))
-        )
-        AgendaItemFactory(
+        space = SpaceFactory(name="Main Hall", event=event)
+        agenda_item = AgendaItemFactory(
             session=session,
             space=space,
             start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
@@ -357,7 +422,42 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 1,
+                    "total_sessions": 2,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": AgendaItemDTO(
+                    end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+                    pk=agenda_item.pk,
+                    session_confirmed=False,
+                    start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+                    space_id=space.pk,
+                    space_name="Main Hall",
+                    session_id=session.pk,
+                    session_title="Scheduled",
+                    session_description="",
+                    presenter_name="Host",
+                    session_duration_minutes=120,
+                    session_status=SessionStatus.PENDING,
+                    category_name="RPG",
+                ),
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
             contains=[
                 "View on timetable",
                 "Main Hall",
@@ -379,10 +479,8 @@ class TestProposalDetailPageView:
             participants_limit=4,
             status="pending",
         )
-        space = SpaceFactory(
-            name="Main Hall", area=AreaFactory(venue=VenueFactory(event=event))
-        )
-        ScheduleChangeLog.objects.create(
+        space = SpaceFactory(name="Main Hall", event=event)
+        log = ScheduleChangeLog.objects.create(
             event=event,
             session=session,
             user=active_user,
@@ -398,7 +496,47 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [
+                    ScheduleChangeLogDTO(
+                        pk=log.pk,
+                        event_id=event.pk,
+                        session_id=session.pk,
+                        session_title="With Log",
+                        user_id=active_user.pk,
+                        user_name="Test User",
+                        action=ScheduleChangeAction.ASSIGN,
+                        old_space_id=None,
+                        old_space_name=None,
+                        new_space_id=space.pk,
+                        new_space_name="Main Hall",
+                        old_start_time=None,
+                        old_end_time=None,
+                        new_start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+                        new_end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+                        creation_time=log.creation_time,
+                    )
+                ],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
             contains=["Schedule changes", "Assigned", "Main Hall"],
         )
 
@@ -431,7 +569,28 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [FacilitatorDTO.model_validate(facilitator)],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
             contains=[f'href="{facilitator_url}"', "Alice"],
         )
 

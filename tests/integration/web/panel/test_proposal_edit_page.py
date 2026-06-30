@@ -24,7 +24,13 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import EventDTO, SessionDTO
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorDTO,
+    FacilitatorListItemDTO,
+    PersonalDataFieldDTO,
+    SessionDTO,
+)
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -210,7 +216,27 @@ class TestProposalEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "session_fields": [],
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             not_contains=[
                 'name="requirements"',
                 'name="needs"',
@@ -393,7 +419,31 @@ class TestProposalEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "events": [
+                    EventDTO.model_validate(other_event),
+                    EventDTO.model_validate(event),
+                ],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "session_fields": [],
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
         )
         assert response.context["form"].errors
         session.refresh_from_db()
@@ -721,7 +771,7 @@ class TestProposalEditPageView:
             event=event, display_name="Alice", slug="alice", user=None
         )
         session.facilitators.add(facilitator)
-        PersonalDataField.objects.create(
+        field = PersonalDataField.objects.create(
             event=event,
             name="Nickname",
             question="Your nickname?",
@@ -736,7 +786,60 @@ class TestProposalEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=1,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "session_fields": [],
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    (
+                        FacilitatorDTO.model_validate(facilitator),
+                        f"facilitator_{facilitator.pk}_personal",
+                        [
+                            (
+                                PersonalDataFieldDTO(
+                                    allow_custom=False,
+                                    field_type="text",
+                                    help_text="",
+                                    is_multiple=False,
+                                    is_public=False,
+                                    max_length=50,
+                                    name="Nickname",
+                                    options=[],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Your nickname?",
+                                    slug="nick",
+                                ),
+                                None,
+                            )
+                        ],
+                    )
+                ],
+            },
             contains=["Alice", f'name="facilitator_{facilitator.pk}_personal_nick"'],
         )
 

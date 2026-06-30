@@ -163,7 +163,7 @@ class TestProposalsPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         long_name = "A Very Long Submission Byline That Would Blow Up The Row Width"
-        Session.objects.create(
+        session = Session.objects.create(
             event=event,
             category=category,
             display_name=long_name,
@@ -179,7 +179,33 @@ class TestProposalsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposals": [
+                    SessionListItemDTO(
+                        pk=session.pk,
+                        title="Wide Byline",
+                        display_name=long_name,
+                        category_name="RPG",
+                        status=SessionStatus.PENDING,
+                        creation_time=session.creation_time,
+                    )
+                ],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
             contains=["Display Name", f'title="{long_name}"', "max-w-xs truncate"],
         )
 

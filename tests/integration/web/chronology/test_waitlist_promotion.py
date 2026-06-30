@@ -1,6 +1,5 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -17,6 +16,7 @@ from ludamus.adapters.db.django.models import (
 from ludamus.inits.services import Services
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.pacts.enrollment import OfferDTO
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -210,7 +210,18 @@ class TestOfferClaimAndExpiry:
             response,
             HTTPStatus.OK,
             template_name="chronology/offer_claim.html",
-            context_data=ANY,
+            context_data={
+                "offer": OfferDTO(
+                    session_id=session.pk,
+                    session_title=session.title,
+                    event_slug=event.slug,
+                    participant_ids=[participation.pk],
+                    recipient_user_id=waiter.pk,
+                    recipient_email=waiter.email,
+                    offer_expires_at=participation.offer_expires_at,
+                ),
+                "token": participation.claim_token,
+            },
         )
 
     def test_claim_view_get_unknown_token_redirects(self, client):

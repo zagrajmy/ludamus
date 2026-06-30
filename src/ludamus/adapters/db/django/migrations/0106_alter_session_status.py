@@ -7,7 +7,7 @@ import ludamus.pacts.legacy
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0101_space_event_required")]
+    dependencies = [("db_main", "0105_space_space_root_has_unique_slug_per_event")]
 
     operations = [
         migrations.AlterField(

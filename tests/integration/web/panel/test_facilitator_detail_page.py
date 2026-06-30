@@ -1,7 +1,6 @@
 """Integration tests for the facilitator detail page."""
 
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -12,7 +11,14 @@ from ludamus.adapters.db.django.models import (
     ProposalCategory,
     Session,
 )
-from ludamus.pacts import EventDTO, FacilitatorDTO, PersonalDataFieldDTO
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorDTO,
+    PersonalDataFieldDTO,
+    SessionListItemDTO,
+    SessionStatus,
+    UserDTO,
+)
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
@@ -91,7 +97,32 @@ class TestFacilitatorDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [
+                    SessionListItemDTO(
+                        category_name="RPG",
+                        creation_time=session.creation_time,
+                        display_name="Host",
+                        pk=session.pk,
+                        status=SessionStatus.PENDING,
+                        title="Attached Session",
+                    )
+                ],
+            },
             contains=[f'href="{proposal_url}"', "Attached Session"],
         )
 
@@ -100,7 +131,7 @@ class TestFacilitatorDetailPageView:
     ):
         sphere.managers.add(active_user)
         linked = UserFactory(name="Bob Builder", email="bob@example.com")
-        _make_facilitator(event, user=linked)
+        facilitator = _make_facilitator(event, user=linked)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -108,7 +139,15 @@ class TestFacilitatorDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": UserDTO.model_validate(linked),
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
             contains=["Bob Builder", "bob@example.com"],
         )
 

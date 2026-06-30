@@ -257,7 +257,14 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-create.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "events": [
+                    EventDTO.model_validate(other_event),
+                    EventDTO.model_validate(event),
+                ],
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
         assert not Session.objects.filter(title="Foreign Facilitator").exists()

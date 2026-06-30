@@ -35,13 +35,11 @@ from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
-from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.mills.submissions.personal_data_fields import (
     CFPPersonalDataFieldService,
     HostPersonalDataService,
 )
-from ludamus.mills.venues import VenuesService
+from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.submissions import ImportRepos
 

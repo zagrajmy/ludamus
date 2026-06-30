@@ -220,7 +220,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event)
+        facilitator = _make_facilitator(event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -228,7 +228,12 @@ class TestFacilitatorEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-edit.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "personal_fields": [],
+            },
             not_contains='name="display_name"',
         )
 
