@@ -25,11 +25,9 @@ from ludamus.pacts import (
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
     TicketAPIProtocol,
-    UserData,
-    UserDTO,
-    UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.crowd import UserData, UserDTO, UserType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable

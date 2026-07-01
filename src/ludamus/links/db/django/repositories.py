@@ -56,7 +56,6 @@ from ludamus.adapters.db.django.models import (
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
     CategoryStats,
-    ConnectedUserRepositoryProtocol,
     DomainEnrollmentConfigDTO,
     EncounterData,
     EncounterDTO,
@@ -124,12 +123,8 @@ from ludamus.pacts import (
     TrackRepositoryProtocol,
     TrackUpdateData,
     UnscheduledSessionDTO,
-    UserData,
-    UserDTO,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
-    UserRepositoryProtocol,
-    UserType,
 )
 from ludamus.pacts.chronology import (
     EventIntegrationCreateData,
@@ -138,6 +133,13 @@ from ludamus.pacts.chronology import (
     EventIntegrationUpdateData,
     IntegrationImplementationId,
     IntegrationKind,
+)
+from ludamus.pacts.crowd import (
+    ConnectedUserRepositoryProtocol,
+    UserData,
+    UserDTO,
+    UserRepositoryProtocol,
+    UserType,
 )
 from ludamus.pacts.discounts import (
     DiscountData,

@@ -36,9 +36,9 @@ from ludamus.pacts import (
     PendingSessionDTO,
     SessionDTO,
     SessionFieldValueDTO,
-    UserDTO,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,

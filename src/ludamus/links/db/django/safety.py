@@ -10,7 +10,8 @@ from ludamus.adapters.db.django.models import (
     EventBan,
     Shadowban,
 )
-from ludamus.pacts import NotFoundError, SessionParticipationStatus, UserDTO
+from ludamus.pacts import NotFoundError, SessionParticipationStatus
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.safety import (
     EventBanDTO,
     EventBanRepositoryProtocol,
