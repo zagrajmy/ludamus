@@ -240,6 +240,8 @@ class LocationData(TypedDict):
 
 class SessionStatus(StrEnum):
     PENDING = auto()
+    ACCEPTED = auto()
+    ON_HOLD = auto()
     REJECTED = auto()
     SCHEDULED = auto()
 
@@ -916,6 +918,8 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
     @staticmethod
+    def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
+    @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod
     def read_spaces(session_id: int) -> list[SpaceDTO]: ...
@@ -966,9 +970,12 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         field_filters: dict[int, str] | None = None,
         search: str | None = None,
         track_pk: int | None = None,
+        category_pk: int | None = None,
     ) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_track_ids(session_id: int) -> list[int]: ...
+    @staticmethod
+    def read_tracks(session_id: int) -> list[TrackDTO]: ...
     @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
     @staticmethod
@@ -1450,6 +1457,9 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     ) -> list[ScheduleChangeLogDTO]: ...
 
     @staticmethod
+    def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
     def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
 
     @staticmethod
@@ -1484,6 +1494,8 @@ class SessionContentEditData:
     update: SessionUpdateData
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
+    track_ids: list[int] | None = None
+    time_slot_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):
@@ -1505,6 +1517,34 @@ class ContentChangeLogRepositoryProtocol(Protocol):
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+
+class FacilitatorChangeLogData(TypedDict):
+    event_id: int
+    facilitator_id: int
+    user_id: int | None
+    changes: list[ContentFieldChange]
+
+
+class FacilitatorChangeLogDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    facilitator_id: int
+    facilitator_name: str
+    user_id: int | None
+    user_name: str
+    changes: list[ContentFieldChange]
+    creation_time: datetime
+
+
+class FacilitatorChangeLogRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: FacilitatorChangeLogData) -> None: ...
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904

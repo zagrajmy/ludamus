@@ -80,6 +80,7 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
+        TimeSlotDTO,
         TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
@@ -547,6 +548,40 @@ class SessionDeletionService:
             self._sessions.restore(session_pk, event_pk)
 
 
+class ProposalStatusService:
+    def __init__(
+        self, transaction: TransactionProtocol, sessions: SessionRepositoryProtocol
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ACCEPTED
+        )
+
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ON_HOLD
+        )
+
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.REJECTED
+        )
+
+    def _set_status(
+        self, *, event_pk: int, session_pk: int, status: SessionStatus
+    ) -> None:
+        with self._transaction.atomic():
+            # Lock first, then re-check event membership under the lock so a
+            # concurrent request can't move the session to another event between
+            # the check and the write (TOCTOU). `lock` raises for missing/dead.
+            self._sessions.lock(session_pk)
+            require_session_in_event(self._sessions, session_pk, event_pk)
+            self._sessions.update(session_pk, {"status": status})
+
+
 class ConflictDetectionService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -909,11 +944,11 @@ def _diff_field_values(
     return changes
 
 
-def _core_comparisons(
+def _text_comparisons(
     old_session: SessionDTO, update: SessionUpdateData
 ) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
     # Keys are accessed literally (not in a loop) so the TypedDict / DTO field
-    # types stay statically known. cover_image is handled separately.
+    # types stay statically known.
     comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
     if "title" in update:
         comparisons.append(("title", old_session.title, update["title"]))
@@ -935,6 +970,18 @@ def _core_comparisons(
         comparisons.append(
             ("contact_email", old_session.contact_email, update["contact_email"])
         )
+    if "duration" in update:
+        comparisons.append(("duration", old_session.duration, update["duration"]))
+    return comparisons
+
+
+def _core_comparisons(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
+    # cover_image is handled separately.
+    comparisons = _text_comparisons(old_session, update)
+    if "category_id" in update:
+        comparisons.append(("category", old_session.category_id, update["category_id"]))
     if "participants_limit" in update:
         comparisons.append(
             (
@@ -945,9 +992,23 @@ def _core_comparisons(
         )
     if "min_age" in update:
         comparisons.append(("min_age", old_session.min_age, update["min_age"]))
-    if "duration" in update:
-        comparisons.append(("duration", old_session.duration, update["duration"]))
     return comparisons
+
+
+def _time_slot_labels(slots: list[TimeSlotDTO]) -> list[str]:
+    return [f"{s.start_time.isoformat()} - {s.end_time.isoformat()}" for s in slots]
+
+
+def _append_m2m_change(
+    changes: list[ContentFieldChange], field: str, before: list[str], after: list[str]
+) -> None:
+    # M2M membership change rendered as a comma-joined name list (sorted so
+    # reordering alone isn't logged as a change). Identity-only, like the
+    # core-field diff.
+    old = ", ".join(sorted(before))
+    new = ", ".join(sorted(after))
+    if old != new:
+        changes.append({"field": field, "field_id": None, "old": old, "new": new})
 
 
 def diff_session_content(
@@ -1017,11 +1078,34 @@ class SessionContentEditService:
                     for fv in old_values
                 ]
             )
+            m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
+                before = [
+                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                ]
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
+                after = [
+                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                ]
+                _append_m2m_change(m2m_changes, "facilitators", before, after)
+            if data.track_ids is not None:
+                before = [t.name for t in self._sessions.read_tracks(session_id)]
+                self._sessions.set_session_tracks(session_id, data.track_ids)
+                after = [t.name for t in self._sessions.read_tracks(session_id)]
+                _append_m2m_change(m2m_changes, "tracks", before, after)
+            if data.time_slot_ids is not None:
+                before = _time_slot_labels(
+                    self._sessions.read_preferred_time_slots(session_id)
+                )
+                self._sessions.set_time_slots(session_id, data.time_slot_ids)
+                after = _time_slot_labels(
+                    self._sessions.read_preferred_time_slots(session_id)
+                )
+                _append_m2m_change(m2m_changes, "time_slots", before, after)
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )
+            changes.extend(m2m_changes)
             if changes:
                 log_data: ContentChangeLogData = {
                     "event_id": event_id,

@@ -395,6 +395,25 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         ]
 
     @staticmethod
+    def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]:
+        qs = (
+            Session.objects.filter(facilitators__id=facilitator_id)
+            .select_related("category")
+            .order_by("-creation_time")
+        )
+        return [
+            SessionListItemDTO(
+                pk=s.pk,
+                title=s.title,
+                display_name=s.display_name,
+                category_name=s.category.name if s.category else "",
+                status=SessionStatus(s.status),
+                creation_time=s.creation_time,
+            )
+            for s in qs
+        ]
+
+    @staticmethod
     def read_event(session_id: int) -> EventDTO:
         try:
             event = Event.objects.select_related("proposal_settings").get(
@@ -621,10 +640,14 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         field_filters: dict[int, str] | None = None,
         search: str | None = None,
         track_pk: int | None = None,
+        category_pk: int | None = None,
     ) -> list[SessionListItemDTO]:
         qs = Session.objects.filter(category__event_id=event_id).select_related(
             "presenter", "category"
         )
+
+        if category_pk is not None:
+            qs = qs.filter(category_id=category_pk)
 
         if field_filters:
             for field_id, value in field_filters.items():
@@ -661,6 +684,13 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return list(
             Track.objects.filter(sessions__id=session_id).values_list("id", flat=True)
         )
+
+    @staticmethod
+    def read_tracks(session_id: int) -> list[TrackDTO]:
+        return [
+            TrackDTO.model_validate(t)
+            for t in Track.objects.filter(sessions__id=session_id)
+        ]
 
     @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None:
