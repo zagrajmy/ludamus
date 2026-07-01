@@ -57,7 +57,7 @@ def main() -> None:
             slug="triggers",
             defaults={
                 "name": "Triggery",
-                "question": "Content warnings?",
+                "question": "Content warnings / triggers?",
                 "field_type": "select",
                 "is_multiple": True,
                 "is_public": True,
@@ -66,56 +66,46 @@ def main() -> None:
             },
         )
 
-        tone_field, _ = SessionField.objects.get_or_create(
-            event=event,
-            slug="tone",
-            defaults={
-                "name": "Ton gry",
-                "question": "What is the tone?",
-                "field_type": "select",
-                "is_multiple": True,
-                "is_public": True,
-                "icon": "musical-note",
-                "order": 2,
-            },
-        )
+        system_values = [
+            "D&D 5e",
+            "Pathfinder 2e",
+            "Call of Cthulhu",
+            "Warhammer Fantasy",
+            "Neuroshima Hex",
+            "Wiedzmin RPG",
+            "Monastyr",
+            "Kryptonim: Polska",
+            "Cyberpunk RED",
+            "Vampire: The Masquerade",
+        ]
 
-        # Mark all select fields as displayed
-        settings, _ = EventSettings.objects.get_or_create(event=event)
-        settings.displayed_session_fields.add(system_field, triggers_field, tone_field)
+        trigger_values = [
+            "Violence",
+            "Body horror",
+            "Death of a child",
+            "Claustrophobia",
+        ]
 
-        # Create field values for this session (skip if already exists)
-        SessionFieldValue.objects.get_or_create(
-            session=session,
-            field=system_field,
-            defaults={
-                "value": [
-                    "czarodzieje",
-                    "zwierzoludzie",
-                    "Saviors of Hogtown / Dungeon World",
-                    "high fantasy",
-                    "high fantasy jak w BG3",
-                    "Adventure Time",
-                    "Dungeon World",
-                    "funnel adventure",
-                    "Fable",
-                ]
-            },
-        )
+        for idx, value_text in enumerate(
+            system_values[: 3 + (session.pk % 3)],
+        ):
+            SessionFieldValue.objects.get_or_create(
+                session=session,
+                field=system_field,
+                value=value_text,
+                defaults={"order": idx},
+            )
 
-        SessionFieldValue.objects.get_or_create(
-            session=session,
-            field=triggers_field,
-            defaults={"value": ["czarodzieje", "zwierzoludzie", "horror"]},
-        )
+        if session.pk % 2 == 0:
+            for idx, value_text in enumerate(trigger_values[: 1 + (session.pk % 2)]):
+                SessionFieldValue.objects.get_or_create(
+                    session=session,
+                    field=triggers_field,
+                    value=value_text,
+                    defaults={"order": idx},
+                )
 
-        SessionFieldValue.objects.get_or_create(
-            session=session, field=tone_field, defaults={"value": ["komedia", "absurd"]}
-        )
-
-        print(f"  Added field values to: {session.title}")  # noqa: T201
-
-    print("Done.")  # noqa: T201
+    print("Session fields added.")  # noqa: T201
 
 
 if __name__ == "__main__":
