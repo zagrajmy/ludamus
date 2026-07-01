@@ -49,12 +49,7 @@ from ludamus.pacts import (
     VirtualEnrollmentConfig,
     WizardData,
 )
-from ludamus.pacts.crowd import (
-    UserData,
-    UserDTO,
-    UserRepositoryProtocol,
-    UserType,
-)
+from ludamus.pacts.crowd import UserData, UserDTO, UserRepositoryProtocol, UserType
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
