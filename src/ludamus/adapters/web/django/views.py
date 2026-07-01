@@ -4,7 +4,7 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from email import message_from_string
+from email import message_from_bytes, policy
 from enum import StrEnum, auto
 from pathlib import Path
 from secrets import token_urlsafe
@@ -473,21 +473,17 @@ def _read_captured_emails(directory: Path) -> list[dict[str, str]]:
         return []
     emails: list[dict[str, str]] = []
     for log_file in sorted(directory.glob("*.log"), reverse=True):
-        for chunk in log_file.read_text(errors="replace").split("-" * 79):
-            if not (raw := chunk.strip()):
+        for chunk in log_file.read_bytes().split(b"-" * 79):
+            if not chunk.strip():
                 continue
-            message = message_from_string(raw)
-            payload = message.get_payload(decode=True)
+            message = message_from_bytes(chunk, policy=policy.default)
+            body = message.get_body(preferencelist=("plain", "html"))
             emails.append(
                 {
-                    "subject": message.get("Subject", ""),
-                    "to": message.get("To", ""),
-                    "date": message.get("Date", ""),
-                    "body": (
-                        payload.decode(errors="replace")
-                        if isinstance(payload, bytes)
-                        else ""
-                    ),
+                    "subject": str(message["Subject"] or ""),
+                    "to": str(message["To"] or ""),
+                    "date": str(message["Date"] or ""),
+                    "body": body.get_content() if body else "",
                 }
             )
     return emails

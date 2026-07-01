@@ -11,7 +11,7 @@ RAW_EMAIL = (
     "Subject: A spot opened\n"
     "From: noreply@zagrajmy.net\n"
     "To: player@example.com\n"
-    "Date: Tue, 01 Jul 2026 12:00:00 -0000\n"
+    "Date: Wed, 01 Jul 2026 12:00:00 -0000\n"
     "\n"
     "Claim it before it goes to the next person.\n"
 )
@@ -71,11 +71,44 @@ class TestStagingEmailInboxView:
                     {
                         "subject": "A spot opened",
                         "to": "player@example.com",
-                        "date": "Tue, 01 Jul 2026 12:00:00 -0000",
-                        "body": "Claim it before it goes to the next person.",
+                        "date": "Wed, 01 Jul 2026 12:00:00 -0000",
+                        "body": "Claim it before it goes to the next person.\n",
                     }
                 ]
             },
             template_name="staging_email_inbox.html",
             contains=["A spot opened", "player@example.com"],
+        )
+
+    def test_non_ascii_body_decoded(self, staff_client, settings, tmp_path):
+        settings.EMAIL_FILE_PATH = str(tmp_path)
+        _write_email(
+            tmp_path,
+            raw=(
+                'Content-Type: text/plain; charset="utf-8"\n'
+                "Content-Transfer-Encoding: 8bit\n"
+                "Subject: A spot opened — claim it\n"
+                "To: gość@example.com\n"
+                "\n"
+                "Zajmij miejsce — zanim przepadnie.\n"
+            ),
+        )
+
+        response = staff_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "emails": [
+                    {
+                        "subject": "A spot opened — claim it",
+                        "to": "gość@example.com",
+                        "date": "",
+                        "body": "Zajmij miejsce — zanim przepadnie.\n",
+                    }
+                ]
+            },
+            template_name="staging_email_inbox.html",
+            contains=["Zajmij miejsce — zanim przepadnie.", "A spot opened — claim it"],
         )
