@@ -1,8 +1,6 @@
 {% load i18n tessera %}
 {% if discord_username %}
-    {% translate "Copy to clipboard" as t_copy_label %}
-    {% translate "Copied!" as t_copied %}
-    {% tessera_copy "@"|add:discord_username label=t_copy_label copied_label=t_copied %}
+    {% tessera_copy "@"|add:discord_username %}
 {% else %}
     <span class="text-foreground-secondary">—</span>
 {% endif %}

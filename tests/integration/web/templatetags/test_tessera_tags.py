@@ -70,7 +70,19 @@ class TestCopyButton:
         html = self._render()
         assert 'data-copy="@ada"' in html
         assert "<svg" in html  # clipboard icon
-        assert "Copied!" in html
+        assert 'data-copied-label="Copied!"' in html
+
+    def test_labels_default_without_being_passed(self) -> None:
+        tpl = Template("{% load tessera %}{% tessera_copy '@ada' %}")
+        html = tpl.render(Context())
+        assert 'data-copied-label="Copied!"' in html
+        assert 'title="Copy to clipboard"' in html
+
+    def test_confirmation_is_a_live_region(self) -> None:
+        # Screen readers get the "Copied!" confirmation, not just sighted users.
+        html = self._render()
+        assert 'role="status"' in html
+        assert 'aria-live="polite"' in html
 
     def test_copied_text_is_the_visible_clickable_label(self) -> None:
         # The whole handle sits inside the button, so it's both the visible label
