@@ -1,14 +1,13 @@
 """Integration tests for /panel/event/<slug>/facilitators/ page."""
 
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Facilitator
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
-from tests.integration.utils import assert_response
+from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -87,7 +86,11 @@ class TestFacilitatorsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
-            context_data={**_base_context(event), "facilitators": [], "page_obj": ANY},
+            context_data={
+                **_base_context(event),
+                "facilitators": [],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+            },
         )
 
     def test_get_lists_facilitators_for_event(
@@ -116,7 +119,7 @@ class TestFacilitatorsPageView:
                         session_count=0,
                     )
                 ],
-                "page_obj": ANY,
+                "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
 

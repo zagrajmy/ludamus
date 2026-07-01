@@ -540,6 +540,48 @@ class TestProposalDetailPageView:
             contains=["Schedule changes", "Assigned", "Main Hall"],
         )
 
+    def test_renders_schedule_log_space_moves_and_removals(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="With Log",
+            slug="with-log",
+            participants_limit=4,
+            status="pending",
+        )
+        old_space = SpaceFactory(name="Alpha Room", event=event)
+        new_space = SpaceFactory(name="Beta Room", event=event)
+        ScheduleChangeLog.objects.create(
+            event=event,
+            session=session,
+            user=active_user,
+            action="revert",
+            old_space=old_space,
+            new_space=new_space,
+        )
+        ScheduleChangeLog.objects.create(
+            event=event,
+            session=session,
+            user=active_user,
+            action="unassign",
+            old_space=old_space,
+            new_space=None,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Alpha Room" in content
+        assert "Beta Room" in content
+        assert "Reverted" in content
+        assert "Removed" in content
+
     def test_facilitators_card_links_to_facilitator_detail(
         self, authenticated_client, active_user, sphere, event
     ):

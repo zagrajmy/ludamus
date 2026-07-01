@@ -171,6 +171,54 @@ def test_unchanged_personal_data_logs_nothing():
     assert not logs.created
 
 
+def test_entry_for_unknown_field_is_ignored():
+    logs = FakeChangeLogs()
+    repo = FakeHostPersonalData()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        host_personal_data=repo,
+        fields=[_field(pk=5)],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(field_id=999, value=True)]
+    )
+
+    assert repo.saved == [[_entry(field_id=999, value=True)]]
+    assert not logs.created
+
+
+def test_blank_old_and_blank_new_logs_nothing():
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        host_personal_data=FakeHostPersonalData(existing={}),
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value=False)]
+    )
+
+    assert not logs.created
+
+
+def test_update_facilitator_rejects_facilitator_from_other_event():
+    facilitators = FakeFacilitators(_facilitator(event_id=99))
+    service = _service(
+        facilitators=facilitators, host_personal_data=FakeHostPersonalData()
+    )
+
+    with pytest.raises(NotFoundError):
+        service.update_facilitator(
+            event_id=10, facilitator_id=1, accreditation_type="honorary", entries=[]
+        )
+
+    assert not facilitators.updated
+
+
 def test_update_facilitator_logs_accreditation_change():
     logs = FakeChangeLogs()
     facilitators = FakeFacilitators(_facilitator(accreditation_type="none"))

@@ -151,6 +151,30 @@ class TestFacilitatorDetailPageView:
             contains=["Bob Builder", "bob@example.com"],
         )
 
+    def test_get_shows_no_linked_user_when_user_is_not_active(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        connected = UserFactory(name="Ghost", user_type="connected")
+        facilitator = _make_facilitator(event, user=connected)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **_base_context(event),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
+
     def test_get_redirects_anonymous_user_to_login(self, client, event):
         url = self.get_url(event)
 

@@ -878,6 +878,79 @@ class TestProposalEditPageView:
         hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
+    def test_post_saves_multiple_facilitator_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            order=0,
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_diet": ["vegan", "gluten-free"],
+            },
+        )
+
+        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        assert hpd.value == ["vegan", "gluten-free"]
+
+    def test_post_saves_allow_custom_facilitator_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            allow_custom=True,
+            order=0,
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_allergy": "",
+                f"facilitator_{facilitator.pk}_personal_allergy_custom": "Peanuts",
+            },
+        )
+
+        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        assert hpd.value == "Peanuts"
+
     def test_post_ignores_personal_data_for_facilitator_from_other_event(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1181,6 +1254,38 @@ class TestProposalEditPageView:
         assert list(session.facilitators.values_list("pk", flat=True)) == [assigned.pk]
         session.refresh_from_db()
         assert session.title == "Updated title only"
+
+    def test_get_renders_track_and_time_slot_cards(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session.tracks.add(track)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+        session.time_slots.add(slot)
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        html = response.content.decode()
+        assert 'name="tracks_submitted"' in html
+        assert 'name="track_ids"' in html
+        assert "Main Track" in html
+        assert 'name="time_slots_submitted"' in html
+        assert 'name="time_slot_ids"' in html
+        track_row = html[html.index('name="track_ids"') :][:200]
+        assert f'value="{track.pk}"' in track_row
+        assert "checked" in track_row
+        slot_row = html[html.index('name="time_slot_ids"') :][:200]
+        assert f'value="{slot.pk}"' in slot_row
+        assert "checked" in slot_row
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
         self, authenticated_client, active_user, sphere, event

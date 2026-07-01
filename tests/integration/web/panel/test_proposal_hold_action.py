@@ -100,6 +100,23 @@ class TestProposalHoldActionView:
         session.refresh_from_db()
         assert session.status == "on_hold"
 
+    def test_post_redirects_to_index_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:proposal-hold", kwargs={"slug": "nonexistent", "proposal_id": 1}
+        )
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
     def test_post_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
     ):

@@ -252,6 +252,40 @@ class TestContentLogRecordsEdits:
         assert response.context["facilitator_logs"][0].facilitator_id == facilitator.pk
         assert "Facilitator changes" in response.content.decode()
 
+    def test_facilitator_personal_data_field_name_renders_on_log_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            accreditation_type="none",
+        )
+        PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-edit",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+            data={"accreditation_type": "none", "personal_vegan": "true"},
+        )
+        response = authenticated_client.get(
+            reverse("panel:content-log", kwargs={"slug": event.slug})
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Vegan" in response.content.decode()
+
     def test_editing_a_session_field_records_field_change(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):

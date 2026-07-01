@@ -89,6 +89,47 @@ class TestProposalCreatePageView:
             context_data={**_base_context(event), "form": ANY},
         )
 
+    def test_get_renders_facilitator_checkboxes_when_event_has_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'name="facilitator_ids"' in content
+        assert f'value="{facilitator.pk}"' in content
+        assert "Alice" in content
+
+    def test_post_renders_facilitator_error_with_checkboxes(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "category_id": category.pk,
+                "title": "Missing Facilitator",
+                "display_name": "Test Host",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["form"].errors
+        content = response.content.decode()
+        assert 'name="facilitator_ids"' in content
+        assert response.context["form"]["facilitator_ids"].errors[0] in content
+
     # POST tests
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):

@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -23,7 +22,7 @@ from ludamus.pacts import (
     UserDTO,
 )
 from tests.integration.conftest import EventFactory, UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -32,7 +31,7 @@ _TRACK_FILTER_CONTEXT = {
     "all_tracks": [],
     "managed_track_pks": set(),
     "filter_track_pk": None,
-    "page_obj": ANY,
+    "page_obj": PageMatcher(number=1, num_pages=1),
     "filter_category_pk": None,
 }
 
@@ -156,6 +155,39 @@ class TestProposalsPageView:
         content = response.content.decode()
         assert "Rejected" in content
         assert "Scheduled" in content
+
+    def test_shows_accepted_and_on_hold_status_badges(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="Accepted One",
+            slug="accepted-one",
+            participants_limit=5,
+            status="accepted",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="On Hold One",
+            slug="on-hold-one",
+            participants_limit=5,
+            status="on_hold",
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Accepted" in content
+        assert "On hold" in content
 
     def test_list_trims_byline_column_and_relabels_header(
         self, authenticated_client, active_user, sphere, event
@@ -821,7 +853,7 @@ class TestProposalsPageView:
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "managed_track_pks": {track.pk},
                 "filter_track_pk": track.pk,
-                "page_obj": ANY,
+                "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
             },
@@ -854,7 +886,7 @@ class TestProposalsPageView:
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "managed_track_pks": set(),
                 "filter_track_pk": track.pk,
-                "page_obj": ANY,
+                "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
             },

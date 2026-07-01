@@ -250,8 +250,6 @@
                                     <span class="text-danger-text font-medium">{% translate "Removed" %}</span>
                                 {% elif log.action == "revert" %}
                                     <span class="text-warning-text font-medium">{% translate "Reverted" %}</span>
-                                {% else %}
-                                    <span>{{ log.action }}</span>
                                 {% endif %}
                                 <span class="text-foreground-secondary">
                                     {% if log.old_space_name and log.new_space_name %}
