@@ -1,0 +1,81 @@
+from http import HTTPStatus
+
+from django.urls import reverse
+
+from tests.integration.utils import assert_response, assert_response_404
+
+URL = reverse("web:staging-emails")
+
+RAW_EMAIL = (
+    'Content-Type: text/plain; charset="utf-8"\n'
+    "Subject: A spot opened\n"
+    "From: noreply@zagrajmy.net\n"
+    "To: player@example.com\n"
+    "Date: Tue, 01 Jul 2026 12:00:00 -0000\n"
+    "\n"
+    "Claim it before it goes to the next person.\n"
+)
+
+
+def _write_email(directory, name="20260701-000000-1.log", raw=RAW_EMAIL):
+    file = directory / name
+    file.write_text(raw)
+    return file
+
+
+class TestStagingEmailInboxView:
+    def test_404_when_not_file_backend(self, staff_client, settings):
+        settings.EMAIL_FILE_PATH = None
+
+        response = staff_client.get(URL)
+
+        assert_response_404(response)
+
+    def test_404_for_non_staff(self, authenticated_client, settings, tmp_path):
+        settings.EMAIL_FILE_PATH = str(tmp_path)
+
+        response = authenticated_client.get(URL)
+
+        assert_response_404(response)
+
+    def test_404_for_anonymous(self, client, settings, tmp_path):
+        settings.EMAIL_FILE_PATH = str(tmp_path)
+
+        response = client.get(URL)
+
+        assert_response_404(response)
+
+    def test_ok_empty(self, staff_client, settings, tmp_path):
+        settings.EMAIL_FILE_PATH = str(tmp_path)
+
+        response = staff_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"emails": []},
+            template_name="staging_email_inbox.html",
+        )
+
+    def test_ok_shows_captured_email(self, staff_client, settings, tmp_path):
+        settings.EMAIL_FILE_PATH = str(tmp_path)
+        _write_email(tmp_path)
+
+        response = staff_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "emails": [
+                    {
+                        "subject": "A spot opened",
+                        "to": "player@example.com",
+                        "date": "Tue, 01 Jul 2026 12:00:00 -0000",
+                        "body": "Claim it before it goes to the next person.",
+                    }
+                ]
+            },
+            template_name="staging_email_inbox.html",
+            contains=["A spot opened", "player@example.com"],
+        )

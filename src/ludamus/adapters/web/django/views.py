@@ -4,7 +4,9 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email import message_from_string
 from enum import StrEnum, auto
+from pathlib import Path
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote_plus, urlencode, urlparse
@@ -464,6 +466,44 @@ class DesignPageView(TemplateView):
             ("b", "Radio B", False, "design-radio-b"),
         ]
         return context
+
+
+def _read_captured_emails(directory: Path) -> list[dict[str, str]]:
+    if not directory.exists():
+        return []
+    emails: list[dict[str, str]] = []
+    for log_file in sorted(directory.glob("*.log"), reverse=True):
+        for chunk in log_file.read_text(errors="replace").split("-" * 79):
+            if not (raw := chunk.strip()):
+                continue
+            message = message_from_string(raw)
+            payload = message.get_payload(decode=True)
+            emails.append(
+                {
+                    "subject": message.get("Subject", ""),
+                    "to": message.get("To", ""),
+                    "date": message.get("Date", ""),
+                    "body": (
+                        payload.decode(errors="replace")
+                        if isinstance(payload, bytes)
+                        else ""
+                    ),
+                }
+            )
+    return emails
+
+
+class StagingEmailInboxView(View):
+    request: RootRequest
+
+    def get(self, _request: RootRequest) -> HttpResponse:
+        if not settings.EMAIL_FILE_PATH or not self.request.user.is_staff:
+            raise Http404
+        return TemplateResponse(
+            self.request,
+            "staging_email_inbox.html",
+            {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
+        )
 
 
 class IndexRedirectView(View):

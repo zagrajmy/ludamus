@@ -111,6 +111,7 @@ urlpatterns = [
         name="notifications-mark-read",
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
+    path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
     path(
         "design/tailwind/",
         TemplateView.as_view(template_name="design_tailwind.html"),
