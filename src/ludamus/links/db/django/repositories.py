@@ -840,11 +840,6 @@ def _event_dto(event: Event) -> EventDTO:
 class EventRepository(EventRepositoryProtocol):
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]:
-        """List all events for a sphere, ordered by start time descending.
-
-        Returns:
-            List of EventDTO objects for the sphere.
-        """
         events = (
             Event.objects.filter(sphere_id=sphere_id)
             .select_related("proposal_settings")
@@ -877,14 +872,6 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def read(pk: int) -> EventDTO:
-        """Read an event by primary key.
-
-        Returns:
-            EventDTO for the requested event.
-
-        Raises:
-            NotFoundError: If the event does not exist.
-        """
         try:
             event = Event.objects.select_related("proposal_settings").get(id=pk)
         except Event.DoesNotExist as exception:
@@ -893,14 +880,6 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO:
-        """Read an event by slug within a sphere.
-
-        Returns:
-            EventDTO for the requested event.
-
-        Raises:
-            NotFoundError: If the event does not exist.
-        """
         try:
             event = Event.objects.select_related("proposal_settings").get(
                 slug=slug, sphere_id=sphere_id
@@ -911,11 +890,6 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def get_stats_data(event_id: int) -> EventStatsData:
-        """Get raw statistics data for an event.
-
-        Returns:
-            EventStatsData with raw counts and IDs for business logic processing.
-        """
         sessions = Session.objects.filter(category__event_id=event_id)
         scheduled = Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
         spaces = Space.objects.filter(event_id=event_id)
@@ -1018,7 +992,6 @@ class SpaceRepository(SpaceRepositoryProtocol):
 class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
     def list_tree(event_pk: int) -> list[SpaceNodeDTO]:
-        # One query for the whole event; assemble the tree in Python.
         spaces = list(Space.objects.filter(event_id=event_pk).order_by("order", "name"))
         children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
         for space in spaces:
@@ -1091,9 +1064,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         except Space.DoesNotExist as err:
             raise NotFoundError from err
         parent_changed = space.parent_id != parent_id
-        # Re-derive the slug whenever the name or parent changes, so it stays
-        # unique among the (new) siblings. full_clean() below is the backstop
-        # for cycles, depth, and the leaf-with-session rule.
         if space.name != name or parent_changed:
             space.name = name
             space.parent_id = parent_id
@@ -1101,7 +1071,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 space.event_id, parent_id, slugify(name), exclude_pk=pk
             )
         if parent_changed:
-            # Append to the end of the new parent's sibling list.
             max_order = (
                 Space.objects.filter(event_id=space.event_id, parent_id=parent_id)
                 .exclude(pk=pk)
@@ -1116,13 +1085,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
     @staticmethod
     def delete(pk: int) -> None:
-        # FK parent on_delete=CASCADE removes the whole subtree.
         Space.objects.filter(pk=pk).delete()
 
     @staticmethod
     def reorder(parent_id: int | None, child_pks: list[int], event_id: int) -> None:
-        # Constrain by event so a root-level reorder (parent_id=None) can only
-        # touch spaces belonging to the caller's event, never another event's.
         space_map = {
             space.pk: space
             for space in Space.objects.filter(
@@ -1152,18 +1118,11 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 collect(child_pk)
 
         collect(pk)
-        # Lock the subtree's Space rows (deterministic pk order) so a concurrent
-        # session assignment to any leaf below serialises behind this
-        # check-then-delete — assign_session locks the same Space row first,
-        # so its AgendaItem can't slip in before the cascade. Safe because the
-        # sole caller runs inside delete_space's atomic() block.
         list(Space.objects.select_for_update().filter(pk__in=subtree).order_by("pk"))
         return AgendaItem.objects.filter(space_id__in=subtree).exists()
 
     @staticmethod
     def space_pks_with_sessions(event_id: int) -> frozenset[int]:
-        # Spaces that directly hold a scheduled session — these can't become a
-        # parent (a leaf-with-session can't turn into a branch). One query.
         return frozenset(
             AgendaItem.objects.filter(space__event_id=event_id)
             .values_list("space_id", flat=True)
@@ -1206,7 +1165,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
-        # The copied subtree becomes a root in the target event.
         clone = self._clone_subtree(source, event_id=target_event_id, parent_id=None)
         return self._node(clone)
 
@@ -1323,12 +1281,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
 
     @staticmethod
     def get_category_stats(event_id: int) -> dict[int, CategoryStats]:
-        """Get proposal statistics for all categories of an event.
-
-        Returns:
-            Dict mapping category ID to CategoryStats with proposals_count
-            and accepted_count.
-        """
         categories = ProposalCategory.objects.filter(event_id=event_id).annotate(
             proposals_count=Count("sessions"),
             accepted_count=Count(
@@ -1355,11 +1307,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
 
     @staticmethod
     def get_field_requirements(category_id: int) -> dict[int, bool]:
-        """Get field requirements for a category.
-
-        Returns:
-            Dict mapping field_id to is_required boolean.
-        """
         requirements = PersonalDataFieldRequirement.objects.filter(
             category_id=category_id
         )
@@ -1367,11 +1314,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
 
     @staticmethod
     def get_field_order(category_id: int) -> list[int]:
-        """Get ordered list of field IDs for a category.
-
-        Returns:
-            List of field IDs ordered by their order field.
-        """
         requirements = PersonalDataFieldRequirement.objects.filter(
             category_id=category_id
         ).order_by("order")
@@ -1381,15 +1323,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
     def set_field_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None:
-        """Set field requirements for a category.
-
-        Replaces all existing requirements with the provided ones.
-
-        Args:
-            category_id: The category to set requirements for.
-            requirements: Dict mapping field_id to is_required boolean.
-            order: Optional list of field IDs defining the order.
-        """
         PersonalDataFieldRequirement.objects.filter(category_id=category_id).delete()
 
         order_map = {fid: idx for idx, fid in enumerate(order or [])}
@@ -1403,22 +1336,17 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             )
 
     @staticmethod
-    def get_session_field_requirements(category_id: int) -> dict[int, bool]:
-        """Get session field requirements for a category.
+    def get_session_field_categories(field_id: int) -> dict[int, bool]:
+        reqs = SessionFieldRequirement.objects.filter(field_id=field_id)
+        return {req.category_id: req.is_required for req in reqs}
 
-        Returns:
-            Dict mapping field_id to is_required boolean.
-        """
+    @staticmethod
+    def get_session_field_requirements(category_id: int) -> dict[int, bool]:
         requirements = SessionFieldRequirement.objects.filter(category_id=category_id)
         return {req.field_id: req.is_required for req in requirements}
 
     @staticmethod
     def get_session_field_order(category_id: int) -> list[int]:
-        """Get ordered list of session field IDs for a category.
-
-        Returns:
-            List of field IDs ordered by their order field.
-        """
         requirements = SessionFieldRequirement.objects.filter(
             category_id=category_id
         ).order_by("order")
@@ -1428,15 +1356,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
     def set_session_field_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None:
-        """Set session field requirements for a category.
-
-        Replaces all existing requirements with the provided ones.
-
-        Args:
-            category_id: The category to set requirements for.
-            requirements: Dict mapping field_id to is_required boolean.
-            order: Optional list of field IDs defining the order.
-        """
         SessionFieldRequirement.objects.filter(category_id=category_id).delete()
 
         order_map = {fid: idx for idx, fid in enumerate(order or [])}
@@ -1450,116 +1369,12 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             )
 
     @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None:
-        """Add a personal data field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                PersonalDataFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        """Add a session field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                SessionFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            SessionFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
-    def get_personal_field_categories(field_id: int) -> dict[int, bool]:
-        reqs = PersonalDataFieldRequirement.objects.filter(field_id=field_id)
-        return {req.category_id: req.is_required for req in reqs}
-
-    @staticmethod
-    def set_personal_field_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        PersonalDataFieldRequirement.objects.filter(field_id=field_id).delete()
-        for category_id, is_required in categories.items():
-            max_order = (
-                PersonalDataFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
-    def get_session_field_categories(field_id: int) -> dict[int, bool]:
-        reqs = SessionFieldRequirement.objects.filter(field_id=field_id)
-        return {req.category_id: req.is_required for req in reqs}
-
-    @staticmethod
-    def set_session_field_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        SessionFieldRequirement.objects.filter(field_id=field_id).delete()
-        for category_id, is_required in categories.items():
-            max_order = (
-                SessionFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            SessionFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
     def get_time_slot_requirements(category_id: int) -> dict[int, bool]:
-        """Get time slot requirements for a category.
-
-        Returns:
-            Dict mapping time_slot_id to is_required boolean.
-        """
         requirements = TimeSlotRequirement.objects.filter(category_id=category_id)
         return {req.time_slot_id: req.is_required for req in requirements}
 
     @staticmethod
     def get_time_slot_order(category_id: int) -> list[int]:
-        """Get ordered list of time slot IDs for a category.
-
-        Returns:
-            List of time slot IDs ordered by their order field.
-        """
         requirements = TimeSlotRequirement.objects.filter(
             category_id=category_id
         ).order_by("order")
@@ -1569,15 +1384,6 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
     def set_time_slot_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None:
-        """Set time slot requirements for a category.
-
-        Replaces all existing requirements with the provided ones.
-
-        Args:
-            category_id: The category to set requirements for.
-            requirements: Dict mapping time_slot_id to is_required boolean.
-            order: Optional list of time slot IDs defining the order.
-        """
         TimeSlotRequirement.objects.filter(category_id=category_id).delete()
 
         order_map = {ts_id: idx for idx, ts_id in enumerate(order or [])}
@@ -1748,10 +1554,6 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
 
     @staticmethod
     def delete_orphans_for_event(event_id: int) -> int:
-        # A PersonalDataField is orphan when no facilitator on this event has
-        # a HostPersonalData entry that points at it. Used by the importer's
-        # "Apply field layout" action after removing values for unmapped
-        # fields.
         deleted, _ = (
             PersonalDataField.objects.filter(event_id=event_id)
             .annotate(usage=Count("values"))
@@ -1762,11 +1564,6 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
 
     @staticmethod
     def has_requirements(pk: int) -> bool:
-        """Check if a personal data field is used in any category requirements.
-
-        Returns:
-            True if the field is used in at least one category requirement.
-        """
         return PersonalDataFieldRequirement.objects.filter(field_id=pk).exists()
 
     @staticmethod
@@ -1906,9 +1703,6 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
 
     @staticmethod
     def delete_orphans_for_event(event_id: int) -> int:
-        # A SessionField is orphan when no session on this event has a
-        # SessionFieldValue pointing at it. Used by the importer's "Apply
-        # field layout" action.
         deleted, _ = (
             SessionField.objects.filter(event_id=event_id)
             .annotate(usage=Count("values"))
@@ -1919,11 +1713,6 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
 
     @staticmethod
     def has_requirements(pk: int) -> bool:
-        """Check if a session field is used in any category requirements.
-
-        Returns:
-            True if the field is used in at least one category requirement.
-        """
         return SessionFieldRequirement.objects.filter(field_id=pk).exists()
 
     @staticmethod
@@ -2185,8 +1974,6 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
 
     @staticmethod
     def get_or_create(event_id: int, start_time: datetime, end_time: datetime) -> int:
-        # Reuse a window the event already has (deduped by exact start+end) so
-        # the importer can attach it without spawning duplicates on re-runs.
         time_slot, _ = TimeSlot.objects.get_or_create(
             event_id=event_id, start_time=start_time, end_time=end_time
         )
@@ -2599,8 +2386,6 @@ class DiscountRepository(DiscountRepositoryProtocol):
 
     @staticmethod
     def soft_delete(pk: int) -> None:
-        # Reach through `all_objects` so an already-dead row raises NotFound
-        # instead of silently re-stamping `deleted_at`.
         try:
             discount = Discount.all_objects.get(id=pk, deleted_at__isnull=True)
         except Discount.DoesNotExist as exception:
@@ -2805,10 +2590,6 @@ def _import_log_entry_dto(entry: ImportLogEntry) -> ImportLogEntryDTO:
 class ImportLogEntryRepository(ImportLogEntryRepositoryProtocol):
     @staticmethod
     def upsert(data: ImportLogEntryCreateData) -> ImportLogEntryDTO:
-        # One log entry per (integration, row_index): each attempt overwrites
-        # the prior entry for that row, preserving the row's identity but
-        # reflecting the latest status, reason, response snapshot, and
-        # session FK. `attempted_at` resets to "now" on every upsert.
         defaults = {
             "status": data.status.value,
             "reason": data.reason,
@@ -2840,8 +2621,6 @@ class ImportLogEntryRepository(ImportLogEntryRepositoryProtocol):
 
     @staticmethod
     def for_session(session_pk: int) -> ImportLogEntryDTO | None:
-        # Each session has at most one log entry — the row that produced it.
-        # Returns None if no log entry points at this session.
         entry = ImportLogEntry.objects.filter(session_id=session_pk).first()
         return _import_log_entry_dto(entry) if entry is not None else None
 
