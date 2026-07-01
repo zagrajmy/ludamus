@@ -4837,7 +4837,7 @@ msgstr "Zmiany twórców programu"
 
 #: src/ludamus/templates/panel/content-log.html
 msgid "Facilitator"
-msgstr "Prowadzący"
+msgstr "Twórca programu"
 
 #: src/ludamus/templates/panel/discounts/create.html
 msgid "Assign discount"

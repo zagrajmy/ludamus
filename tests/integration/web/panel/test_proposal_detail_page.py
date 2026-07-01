@@ -24,13 +24,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
 )
 from ludamus.pacts.submissions import ImportLogEntryDTO
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    AreaFactory,
-    EventFactory,
-    SpaceFactory,
-    VenueFactory,
-)
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -340,9 +334,7 @@ class TestProposalDetailPageView:
             participants_limit=4,
             status="pending",
         )
-        space = SpaceFactory(
-            name="Main Hall", area=AreaFactory(venue=VenueFactory(event=event))
-        )
+        space = SpaceFactory(event=event, name="Main Hall")
         AgendaItemFactory(
             session=session,
             space=space,
@@ -379,9 +371,7 @@ class TestProposalDetailPageView:
             participants_limit=4,
             status="pending",
         )
-        space = SpaceFactory(
-            name="Main Hall", area=AreaFactory(venue=VenueFactory(event=event))
-        )
+        space = SpaceFactory(event=event, name="Main Hall")
         ScheduleChangeLog.objects.create(
             event=event,
             session=session,

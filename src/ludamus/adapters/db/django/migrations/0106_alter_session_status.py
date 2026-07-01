@@ -2,12 +2,10 @@
 
 from django.db import migrations, models
 
-import ludamus.pacts.legacy
-
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0101_space_event_required")]
+    dependencies = [("db_main", "0105_space_space_root_has_unique_slug_per_event")]
 
     operations = [
         migrations.AlterField(
@@ -21,7 +19,7 @@ class Migration(migrations.Migration):
                     ("rejected", "REJECTED"),
                     ("scheduled", "SCHEDULED"),
                 ],
-                default=ludamus.pacts.legacy.SessionStatus["PENDING"],
+                default="pending",
                 max_length=15,
             ),
         )

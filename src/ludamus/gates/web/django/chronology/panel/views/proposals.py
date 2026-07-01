@@ -48,7 +48,9 @@ if TYPE_CHECKING:
     PersonalFieldItems = list[
         tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
     ]
-    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
+    FacilitatorPersonalData = list[
+        tuple[FacilitatorDTO | FacilitatorListItemDTO, str, PersonalFieldItems]
+    ]
 
 
 _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
@@ -217,6 +219,14 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
 
+    def _get_submitted_facilitator_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[FacilitatorListItemDTO], set[int]]:
+        all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
+        if (submitted_pks := self._collect_facilitator_ids(event_pk)) is None:
+            return self._get_facilitator_context(event_pk, proposal_id)
+        return all_facilitators, set(submitted_pks)
+
     def _category_choices(self, event_pk: int) -> list[tuple[int, str]]:
         categories = self.request.di.uow.proposal_categories.list_by_event(event_pk)
         return [(c.pk, c.name) for c in categories]
@@ -227,6 +237,14 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
         assigned_pks = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
         return all_tracks, assigned_pks
+
+    def _get_submitted_track_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[TrackDTO], set[int]]:
+        all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
+        if (submitted_pks := self._collect_track_ids(event_pk)) is None:
+            return self._get_track_context(event_pk, proposal_id)
+        return all_tracks, set(submitted_pks)
 
     def _collect_track_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("tracks_submitted") != "1":
@@ -244,6 +262,14 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             self.request.di.uow.sessions.read_preferred_time_slot_ids(proposal_id)
         )
         return all_time_slots, assigned_pks
+
+    def _get_submitted_time_slot_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[TimeSlotDTO], set[int]]:
+        all_time_slots = self.request.di.uow.time_slots.list_by_event(event_pk)
+        if (submitted_pks := self._collect_time_slot_ids(event_pk)) is None:
+            return self._get_time_slot_context(event_pk, proposal_id)
+        return all_time_slots, set(submitted_pks)
 
     def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("time_slots_submitted") != "1":
@@ -270,6 +296,29 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             items = [(field, values.get(field.slug)) for field in fields]
             result.append(
                 (facilitator, f"facilitator_{facilitator.pk}_personal", items)
+            )
+        return result
+
+    def _get_submitted_facilitator_personal_data(
+        self, event_pk: int, proposal_id: int
+    ) -> FacilitatorPersonalData:
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        if not fields:
+            return []
+        if (submitted_entries := self._collect_personal_data(event_pk)) is None:
+            return self._get_facilitator_personal_data(event_pk, proposal_id)
+        all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
+        facilitators_by_pk = {f.pk: f for f in all_facilitators}
+        result: FacilitatorPersonalData = []
+        for facilitator_id, entries in submitted_entries.items():
+            if (facilitator := facilitators_by_pk.get(facilitator_id)) is None:
+                continue
+            values_by_field_id = {
+                entry["field_id"]: entry["value"] for entry in entries
+            }
+            items = [(field, values_by_field_id.get(field.pk)) for field in fields]
+            result.append(
+                (facilitator, f"facilitator_{facilitator_id}_personal", items)
             )
         return result
 
@@ -422,15 +471,15 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         form_class = create_proposal_form(self._category_choices(current_event.pk))
         form = form_class(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            all_facilitators, assigned_pks = self._get_facilitator_context(
+            all_facilitators, assigned_pks = self._get_submitted_facilitator_context(
                 current_event.pk, proposal_id
             )
             session_fields = self._get_session_fields(current_event.pk, proposal_id)
-            all_tracks, assigned_track_pks = self._get_track_context(
+            all_tracks, assigned_track_pks = self._get_submitted_track_context(
                 current_event.pk, proposal_id
             )
-            all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
-                current_event.pk, proposal_id
+            all_time_slots, assigned_time_slot_pks = (
+                self._get_submitted_time_slot_context(current_event.pk, proposal_id)
             )
             context["active_nav"] = "proposals"
             context["proposal"] = session
@@ -442,8 +491,10 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["assigned_track_pks"] = assigned_track_pks
             context["all_time_slots"] = all_time_slots
             context["assigned_time_slot_pks"] = assigned_time_slot_pks
-            context["facilitator_personal_data"] = self._get_facilitator_personal_data(
-                current_event.pk, proposal_id
+            context["facilitator_personal_data"] = (
+                self._get_submitted_facilitator_personal_data(
+                    current_event.pk, proposal_id
+                )
             )
             return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 

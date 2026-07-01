@@ -61,7 +61,7 @@
                 {% endfor %}
             </tbody>
         {% end_tessera_table %}
-    {% else %}
+    {% elif not facilitator_logs %}
         <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
     {% endif %}
     {% if facilitator_logs %}

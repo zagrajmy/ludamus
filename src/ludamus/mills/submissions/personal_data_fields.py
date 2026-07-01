@@ -116,7 +116,20 @@ class CFPPersonalDataFieldService:
 
 
 def _is_blank(*, value: str | list[str] | bool | None) -> bool:
-    return value in {None, "", False} or value == []
+    return not value
+
+
+def _scoped_entries(
+    *, entries: list[HostPersonalDataEntry], event_id: int, facilitator_id: int
+) -> list[HostPersonalDataEntry]:
+    # Only the (already scope-checked) facilitator/event is validated by the
+    # caller; a mixed payload could otherwise smuggle rows for another
+    # facilitator or event past that check. Drop anything that doesn't match.
+    return [
+        entry
+        for entry in entries
+        if entry["event_id"] == event_id and entry["facilitator_id"] == facilitator_id
+    ]
 
 
 def _diff_personal_data(
@@ -211,6 +224,9 @@ class HostPersonalDataService:
             # the panel's event, or it is cross-event tampering.
             if self._facilitators.read(facilitator_id).event_id != event_id:
                 raise NotFoundError
+            entries = _scoped_entries(
+                entries=entries, event_id=event_id, facilitator_id=facilitator_id
+            )
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
@@ -246,6 +262,9 @@ class HostPersonalDataService:
             facilitator = self._facilitators.read(facilitator_id)
             if facilitator.event_id != event_id:
                 raise NotFoundError
+            entries = _scoped_entries(
+                entries=entries, event_id=event_id, facilitator_id=facilitator_id
+            )
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )

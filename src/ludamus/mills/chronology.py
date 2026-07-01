@@ -995,20 +995,26 @@ def _core_comparisons(
     return comparisons
 
 
-def _time_slot_labels(slots: list[TimeSlotDTO]) -> list[str]:
-    return [f"{s.start_time.isoformat()} - {s.end_time.isoformat()}" for s in slots]
+def _time_slot_label(slot: TimeSlotDTO) -> str:
+    return f"{slot.start_time.isoformat()} - {slot.end_time.isoformat()}"
 
 
 def _append_m2m_change(
-    changes: list[ContentFieldChange], field: str, before: list[str], after: list[str]
+    changes: list[ContentFieldChange],
+    field: str,
+    before: list[tuple[int, str]],
+    after: list[tuple[int, str]],
 ) -> None:
-    # M2M membership change rendered as a comma-joined name list (sorted so
-    # reordering alone isn't logged as a change). Identity-only, like the
-    # core-field diff.
-    old = ", ".join(sorted(before))
-    new = ", ".join(sorted(after))
-    if old != new:
-        changes.append({"field": field, "field_id": None, "old": old, "new": new})
+    # M2M membership change diffed on stable pk (so e.g. swapping facilitator
+    # A for facilitator B with the same display name is still logged), but
+    # rendered as a comma-joined, sorted label list for readability.
+    before_pks = {pk for pk, _label in before}
+    after_pks = {pk for pk, _label in after}
+    if before_pks == after_pks:
+        return
+    old = ", ".join(sorted(label for _pk, label in before))
+    new = ", ".join(sorted(label for _pk, label in after))
+    changes.append({"field": field, "field_id": None, "old": old, "new": new})
 
 
 def diff_session_content(
@@ -1081,26 +1087,32 @@ class SessionContentEditService:
             m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
                 before = [
-                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                    (f.pk, f.display_name)
+                    for f in self._sessions.read_facilitators(session_id)
                 ]
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
                 after = [
-                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                    (f.pk, f.display_name)
+                    for f in self._sessions.read_facilitators(session_id)
                 ]
                 _append_m2m_change(m2m_changes, "facilitators", before, after)
             if data.track_ids is not None:
-                before = [t.name for t in self._sessions.read_tracks(session_id)]
+                before = [
+                    (t.pk, t.name) for t in self._sessions.read_tracks(session_id)
+                ]
                 self._sessions.set_session_tracks(session_id, data.track_ids)
-                after = [t.name for t in self._sessions.read_tracks(session_id)]
+                after = [(t.pk, t.name) for t in self._sessions.read_tracks(session_id)]
                 _append_m2m_change(m2m_changes, "tracks", before, after)
             if data.time_slot_ids is not None:
-                before = _time_slot_labels(
-                    self._sessions.read_preferred_time_slots(session_id)
-                )
+                before = [
+                    (ts.pk, _time_slot_label(ts))
+                    for ts in self._sessions.read_preferred_time_slots(session_id)
+                ]
                 self._sessions.set_time_slots(session_id, data.time_slot_ids)
-                after = _time_slot_labels(
-                    self._sessions.read_preferred_time_slots(session_id)
-                )
+                after = [
+                    (ts.pk, _time_slot_label(ts))
+                    for ts in self._sessions.read_preferred_time_slots(session_id)
+                ]
                 _append_m2m_change(m2m_changes, "time_slots", before, after)
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff

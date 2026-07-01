@@ -585,6 +585,30 @@ class TestProposalEditPageView:
 
         assert not session.tracks.exists()
 
+    def test_post_with_tracks_submitted_and_no_track_ids_clears_tracks(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session.tracks.add(track)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "tracks_submitted": "1",
+            },
+        )
+
+        assert not session.tracks.exists()
+
     def test_partial_post_without_tracks_marker_preserves_tracks(
         self, authenticated_client, active_user, sphere, event
     ):

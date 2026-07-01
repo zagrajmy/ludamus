@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0102_alter_session_status")]
+    dependencies = [("db_main", "0106_alter_session_status")]
 
     operations = [
         migrations.CreateModel(
