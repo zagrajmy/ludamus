@@ -58,8 +58,8 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.mills import (
-    AcceptProposalService,
+from ludamus.mills import AcceptProposalService
+from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     get_user_enrollment_config,
 )
