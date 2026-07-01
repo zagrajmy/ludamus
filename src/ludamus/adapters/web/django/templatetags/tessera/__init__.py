@@ -21,6 +21,7 @@ Usage:
 """
 
 from ._registry import register
+from .copy import tessera_copy
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
 from .select import SelectNode, do_select
@@ -50,6 +51,7 @@ __all__ = [
     "icon",
     "register",
     "tessera_button",
+    "tessera_copy",
     "tessera_errors",
     "tessera_field",
     "tessera_form",

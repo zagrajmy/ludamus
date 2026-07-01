@@ -57,6 +57,57 @@ class TestIcon:
         assert not html.strip()
 
 
+class TestCopyButton:
+    @staticmethod
+    def _render(text: str = "@ada") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% tessera_copy handle label='Copy' copied_label='Copied!' %}"
+        )
+        return tpl.render(Context({"handle": text}))
+
+    def test_renders_button_and_popover(self) -> None:
+        html = self._render()
+        assert 'data-copy="@ada"' in html
+        assert "<svg" in html  # clipboard icon
+        assert "Copied!" in html
+
+    def test_copied_text_is_the_visible_clickable_label(self) -> None:
+        # The whole handle sits inside the button, so it's both the visible label
+        # and (via sr-only) part of the accessible name — WCAG 2.5.3.
+        html = self._render()
+        assert "<button" in html
+        assert ">@ada</code>" in html
+        assert '<span class="sr-only">Copy</span>' in html
+
+    def test_uses_icon_button_style(self) -> None:
+        html = self._render()
+        assert "icon-btn" in html
+        assert 'title="Copy"' in html
+
+    def test_copies_on_click_without_a_global_script(self) -> None:
+        html = self._render()
+        assert "navigator.clipboard" in html
+        assert "this.dataset.copy" in html
+
+    def test_confirmation_is_gated_on_a_successful_copy(self) -> None:
+        # The popover is revealed inside `.then`, never unconditionally, so a
+        # failed/unavailable clipboard can't show a false "Copied!".
+        html = self._render()
+        assert ".then(" in html
+        assert "data-show" in html
+
+    def test_popover_never_resizes_the_button(self) -> None:
+        # absolute + pointer-events-none keeps the popover out of the button box.
+        html = self._render()
+        assert "absolute" in html
+        assert "pointer-events-none" in html
+
+    def test_escapes_xss_in_copy_text(self) -> None:
+        html = self._render('"><script>alert(1)</script>')
+        assert "<script>" not in html
+
+
 class TestSelect:
     def test_renders_select_with_options(self) -> None:
         tpl = Template(
