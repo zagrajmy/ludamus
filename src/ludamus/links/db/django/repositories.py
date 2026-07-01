@@ -134,13 +134,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.crowd import (
-    ConnectedUserRepositoryProtocol,
-    UserData,
-    UserDTO,
-    UserRepositoryProtocol,
-    UserType,
-)
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.discounts import (
     DiscountData,
     DiscountDTO,
