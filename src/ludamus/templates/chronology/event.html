@@ -284,7 +284,9 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            <div class="mb-6">
+            {# On the compact layout the toolbar sticks to the top of #app-scroll #}
+            {# so search/filter stay reachable from deep in a long schedule. #}
+            <div class="mb-6{% if compact_schedule %} sticky top-0 z-30 rounded-b-xl bg-background/95 py-2 backdrop-blur{% endif %}">
                 <div class="flex gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
@@ -324,6 +326,9 @@
                                         <option value="ended">{% translate "Ended" %}</option>
                                         <option value="my-enrolled">{% translate "I am enrolled" %}</option>
                                         <option value="my-waiting">{% translate "I am waiting" %}</option>
+                                        {% if current_user %}
+                                            <option value="my-bookmarked">{% translate "Bookmarked" %}</option>
+                                        {% endif %}
                                     </select>
                                 </div>
                                 <div id="venue-filter-group" class="flex flex-col gap-1.5 hidden">
@@ -943,6 +948,7 @@
     {% vite_asset 'src/session-card.ts' %}
     {% vite_asset 'src/session-edit.ts' %}
     {% vite_asset 'src/session-filters.ts' %}
+    {% vite_asset 'src/session-bookmarks.ts' %}
     {% vite_asset 'src/event-timeline.ts' %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}

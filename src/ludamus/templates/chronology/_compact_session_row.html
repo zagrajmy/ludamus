@@ -14,6 +14,7 @@
          data-status="{% if data.is_ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
          data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
          data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
+         data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"
          data-min-age="{{ data.session.min_age }}"
          data-venue="{{ data.loc.parent_slug }}"
          data-venue-name="{{ data.loc.parent_name }}"
@@ -69,7 +70,9 @@
             {% elif data.should_show_as_inactive %}
                 <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
             {% elif not data.is_enrollment_available %}
-                <span class="text-xs font-medium text-foreground-muted">{% translate "Not Available" %}</span>
+                {# No enrollment on this session — on big events repeating a #}
+                {# "Not Available" label on most rows is redundant noise, so #}
+                {# render nothing here. #}
             {% elif data.is_full %}
                 <span class="text-xs font-semibold text-foreground-muted">{% translate "Full" %}</span>
                 {% if data.waiting_count > 0 %}
@@ -89,6 +92,24 @@
                 </span>
             {% endif %}
         </div>
+        {# Bookmark toggle — the lightweight "I want to attend" gesture. Sits #}
+        {# above the row's stretched link (z-20 + pointer-events-auto) so a tap #}
+        {# toggles the bookmark instead of opening the detail modal. #}
+        {% if current_user %}
+            <button type="button"
+                    class="bookmark-toggle icon-btn relative z-20 shrink-0 self-center pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
+                    data-session-id="{{ data.session.pk }}"
+                    aria-pressed="{% if data.user_bookmarked %}true{% else %}false{% endif %}">
+                {% if data.user_bookmarked %}
+                    {% icon "bookmark" class="bookmark-icon-outline size-4 hidden" variant="outline" %}
+                    {% icon "bookmark" class="bookmark-icon-solid size-4" variant="solid" %}
+                {% else %}
+                    {% icon "bookmark" class="bookmark-icon-outline size-4" variant="outline" %}
+                    {% icon "bookmark" class="bookmark-icon-solid size-4 hidden" variant="solid" %}
+                {% endif %}
+                <span class="sr-only">{% translate "Bookmark session" %}</span>
+            </button>
+        {% endif %}
         <span class="sr-only" data-session-description>{{ data.session.description }}</span>
     </div>
 </article>

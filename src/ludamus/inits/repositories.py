@@ -2,6 +2,7 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
@@ -103,6 +104,10 @@ class Repositories:
     @cached_property
     def event_bans(self) -> EventBanRepository:
         return EventBanRepository()
+
+    @cached_property
+    def bookmarks(self) -> BookmarkRepository:
+        return BookmarkRepository()
 
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:

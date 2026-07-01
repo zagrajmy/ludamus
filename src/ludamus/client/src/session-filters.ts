@@ -180,12 +180,25 @@ const initSessionFilters = (): void => {
       }
 
       if (statusValue) {
-        if (statusValue === "my-enrolled") {
-          show &&= card.dataset.userEnrolled === "true";
-        } else if (statusValue === "my-waiting") {
-          show &&= card.dataset.userWaiting === "true";
-        } else {
-          show &&= card.dataset.status === statusValue;
+        switch (statusValue) {
+          case "my-bookmarked": {
+            show &&= card.dataset.bookmarked === "true";
+
+            break;
+          }
+          case "my-enrolled": {
+            show &&= card.dataset.userEnrolled === "true";
+
+            break;
+          }
+          case "my-waiting": {
+            show &&= card.dataset.userWaiting === "true";
+
+            break;
+          }
+          default: {
+            show &&= card.dataset.status === statusValue;
+          }
         }
       }
 

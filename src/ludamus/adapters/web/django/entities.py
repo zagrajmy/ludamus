@@ -75,6 +75,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     can_edit: bool = False
     user_enrolled: bool = False
     user_waiting: bool = False
+    user_bookmarked: bool = False
     displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
     waiting_count: int = 0

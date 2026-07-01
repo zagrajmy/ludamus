@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-30 06:55+0200\n"
+"POT-Creation-Date: 2026-07-02 00:45+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2353,11 +2353,6 @@ msgid "In Progress"
 msgstr "W Trakcie"
 
 #: src/ludamus/templates/chronology/_compact_session_row.html
-#: src/ludamus/templates/chronology/_session_card.html
-msgid "Not Available"
-msgstr "Niedostępne"
-
-#: src/ludamus/templates/chronology/_compact_session_row.html
 #: src/ludamus/templates/chronology/event.html
 msgid "Full"
 msgstr "Pełne"
@@ -2393,6 +2388,14 @@ msgstr[0] "%(counter)s zapisany uczestnik"
 msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
+
+#: src/ludamus/templates/chronology/_compact_session_row.html
+msgid "Bookmark session"
+msgstr "Dodaj zakładkę do punktu programu"
+
+#: src/ludamus/templates/chronology/_session_card.html
+msgid "Not Available"
+msgstr "Niedostępne"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -2910,6 +2913,10 @@ msgstr "Jestem zapisany"
 #: src/ludamus/templates/chronology/event.html
 msgid "I am waiting"
 msgstr "Oczekuję"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Bookmarked"
+msgstr "Z zakładką"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Venue"

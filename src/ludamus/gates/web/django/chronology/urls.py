@@ -9,6 +9,11 @@ urlpatterns: list[URLPattern] = [
         name="session-edit",
     ),
     path(
+        "session/<int:session_id>/bookmark/",
+        views.SessionBookmarkToggleView.as_view(),
+        name="session-bookmark",
+    ),
+    path(
         "event/<str:event_slug>/session/propose/",
         views.ProposeSessionPageView.as_view(),
         name="session-propose",

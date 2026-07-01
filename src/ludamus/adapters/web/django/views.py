@@ -945,6 +945,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
 
+        if compact_schedule and current_user_id:
+            self._set_user_bookmarks(sessions_data, current_user_id)
+
         context.update(
             {
                 "hour_data": hour_data,  # Keep original for backward compatibility
@@ -1168,6 +1171,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         sessions[session.id].user_waiting = (
                             SessionParticipationStatus.WAITING in statuses
                         )
+
+    def _set_user_bookmarks(
+        self, sessions_data: dict[int, SessionData], current_user_id: int
+    ) -> None:
+        # Bookmarks are only surfaced on the compact schedule (the lightweight
+        # "I want to attend" gesture for big events). One query for the whole set.
+        bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
+            user_id=current_user_id, event_id=self.object.pk
+        )
+        for sid, data in sessions_data.items():
+            data.user_bookmarked = sid in bookmarked_ids
 
     @staticmethod
     def _build_schedule_days(

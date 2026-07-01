@@ -47,6 +47,7 @@ export default defineConfig({
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
+        "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
         "session-card": resolve(rootDir, "src/session-card.ts"),
         "session-edit": resolve(rootDir, "src/session-edit.ts"),
         "session-filters": resolve(rootDir, "src/session-filters.ts"),

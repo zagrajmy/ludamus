@@ -16,6 +16,7 @@ from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
     EnrollmentConfig,
     EventSettings,
+    SessionBookmark,
     SessionField,
     SessionFieldValue,
     SessionParticipation,
@@ -135,6 +136,36 @@ class TestEventPageView:
         assert f"?session={agenda_item.session.pk}" in content
         # The compact list replaces the multi-column card grid.
         assert "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" not in content
+
+    def test_ok_compact_schedule_marks_bookmarked_session(
+        self, agenda_item, active_user, authenticated_client, event, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+        SessionBookmark.objects.create(user=active_user, session=agenda_item.session)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'data-bookmarked="true"' in content
+        assert 'aria-pressed="true"' in content
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_compact_schedule_omits_not_available_label(
+        self, client, event, monkeypatch
+    ):
+        # The session has no active enrollment config, so it is not available.
+        # On the compact layout that must render as blank, not a repeated label.
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Not Available" not in response.content.decode()
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):

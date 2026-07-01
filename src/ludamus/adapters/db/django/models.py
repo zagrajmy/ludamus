@@ -213,6 +213,27 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+class SessionBookmark(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="session_bookmarks"
+    )
+    session = models.ForeignKey(
+        "Session", on_delete=models.CASCADE, related_name="bookmarks"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "session_bookmark"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "session"), name="session_bookmark_unique_user_session"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} bookmarked session {self.session_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
