@@ -1923,7 +1923,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         service = AcceptProposalService(request.di.uow, context=request.context)
         service.accept_session(
             session=session,
-            slugifier=slugify,
             space_id=form.cleaned_data["space"].id,
             time_slot_id=form.cleaned_data["time_slot"].id,
         )
