@@ -315,7 +315,7 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
                 start_time=datetime.fromisoformat(self.request.POST["start_time"]),
                 end_time=datetime.fromisoformat(self.request.POST["end_time"]),
             )
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
 
         uow = self.request.di.uow
@@ -326,7 +326,7 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
             )
-        except (ValueError, NotFoundError):
+        except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
         # T3: the new placement can clear time conflicts for waiters — promote
@@ -361,7 +361,7 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             session_pk = int(self.request.POST["session_pk"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
 
         uow = self.request.di.uow
@@ -387,7 +387,7 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             agenda_item_pk = int(self.request.POST["agenda_item_pk"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
         confirmed_raw = self.request.POST.get("confirmed")
         if confirmed_raw not in {"true", "false"}:
@@ -437,7 +437,7 @@ class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             track_pk = int(self.request.POST["track_pk"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
 
         try:
@@ -551,7 +551,7 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             log_pk = int(self.request.POST["log_pk"])
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return HttpResponse(status=422)
 
         uow = self.request.di.uow
@@ -559,7 +559,7 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
             TimetableService(uow).revert_change(
                 log_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
             )
-        except (ValueError, NotFoundError):
+        except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
         return redirect("panel:timetable-log", slug=slug)

@@ -43,7 +43,7 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
             scope = self.request.services.venues.resolve_scope(
                 current_event.pk, int(raw_scope) if raw_scope else None
             )
-        except (NotFoundError, ValueError):
+        except NotFoundError, ValueError:
             messages.error(request, _("Space not found."))
             return redirect("panel:timetable", slug=slug)
 
