@@ -1,6 +1,7 @@
 from functools import cached_property
 from typing import TYPE_CHECKING
 
+from django.contrib.auth import login as django_login
 from django.db import transaction
 
 from ludamus.adapters.db.django.models import User
