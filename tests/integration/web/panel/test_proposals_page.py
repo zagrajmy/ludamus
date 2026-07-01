@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -6,6 +7,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     ProposalCategory,
+    ScheduleChangeLog,
     Session,
     SessionField,
     SessionFieldValue,
@@ -22,7 +24,12 @@ from ludamus.pacts import (
     TrackDTO,
     UserDTO,
 )
-from tests.integration.conftest import EventFactory, UserFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    SpaceFactory,
+    UserFactory,
+)
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -224,12 +231,25 @@ class TestProposalsPageView:
         foreign_category = ProposalCategory.objects.create(
             event=other_event, name="Foreign", slug="foreign"
         )
+        local_category = ProposalCategory.objects.create(
+            event=event, name="Local", slug="local"
+        )
+        Session.objects.create(
+            event=event,
+            category=local_category,
+            display_name="Host",
+            title="In Event",
+            slug="in-event",
+            participants_limit=5,
+            status="pending",
+        )
 
         response = authenticated_client.get(
             self.get_url(event), {"category": str(foreign_category.pk)}
         )
 
         assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["In Event"]
         assert response.context["filter_category_pk"] is None
 
     def test_paginates_proposals(
@@ -990,6 +1010,56 @@ class TestProposalDetailPageView:
                 "import_log_integration": None,
             },
         )
+
+    def test_shows_proposal_metadata_when_scheduled_and_tracked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="Scheduled Session",
+            description="A wonderful adventure",
+            slug="scheduled-session",
+            participants_limit=5,
+            status="pending",
+        )
+        session.tracks.add(track)
+        space = SpaceFactory(event=event, name="Main Hall")
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+        ScheduleChangeLog.objects.create(
+            event=event,
+            session=session,
+            user=active_user,
+            action="assign",
+            new_space=space,
+            new_start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            new_end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["proposal_tracks"] == [TrackDTO.model_validate(track)]
+        agenda_item = response.context["agenda_item"]
+        assert agenda_item is not None
+        assert agenda_item.space_name == "Main Hall"
+        assert agenda_item.session_id == session.pk
+        schedule_logs = response.context["schedule_logs"]
+        assert len(schedule_logs) == 1
+        assert schedule_logs[0].new_space_name == "Main Hall"
+        assert schedule_logs[0].session_id == session.pk
 
     def test_shows_field_values(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)

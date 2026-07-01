@@ -185,10 +185,19 @@ class TestFacilitatorEditPageView:
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event), data={"display_name": "Hacked Name"}
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator updated successfully.")],
+            url=reverse(
+                "panel:facilitator-detail",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+        )
         facilitator.refresh_from_db()
         assert facilitator.display_name == "Alice"
 

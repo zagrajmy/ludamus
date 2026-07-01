@@ -15,13 +15,11 @@ from ludamus.pacts.chronology import TIMETABLE_SLOT_MINUTES, TimetableGridDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
     UserFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -32,7 +30,7 @@ def _empty_grid():
     return TimetableGridDTO(
         spaces=[],
         columns=[],
-        venue_groups=[],
+        groups=[],
         time_labels=[],
         total_minutes=0,
         event_start_iso="",
@@ -159,10 +157,10 @@ class TestTimetableAssignView:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_assigns_session_and_returns_204(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -193,7 +191,7 @@ class TestTimetableAssignView:
     ):
         sphere.managers.add(active_user)
         event = EventFactory(sphere=sphere, auto_confirm_sessions=False)
-        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
             status="pending",
@@ -219,10 +217,10 @@ class TestTimetableAssignView:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_assign_promotes_waiter(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -252,10 +250,10 @@ class TestTimetableAssignView:
         ).exists()
 
     def test_returns_422_for_rejected_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="rejected",
@@ -278,11 +276,11 @@ class TestTimetableAssignView:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_reassigns_already_scheduled_session_to_new_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        old_space = SpaceFactory(area=area)
-        new_space = SpaceFactory(area=area)
+        old_space = SpaceFactory(event=event)
+        new_space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -318,10 +316,10 @@ class TestTimetableAssignView:
         assert agenda_item.end_time == new_end
 
     def test_returns_422_for_session_from_another_event(
-        self, authenticated_client, active_user, sphere, event, area
+        self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         other_event = EventFactory(sphere=sphere)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
@@ -351,9 +349,7 @@ class TestTimetableAssignView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        foreign_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=EventFactory(sphere=sphere)))
-        )
+        foreign_space = SpaceFactory(event=EventFactory(sphere=sphere))
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -420,10 +416,10 @@ class TestTimetableUnassignView:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_unassigns_session_and_returns_204(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="scheduled",
@@ -467,9 +463,7 @@ class TestTimetableUnassignView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        other_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=other_event))
-        )
+        other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
             status="scheduled",

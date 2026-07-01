@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load cfp_tags %}
 {% comment %}
 Renders personal-data field inputs. Caller passes:
   fields       — list of (PersonalDataFieldDTO, current_value) tuples
@@ -37,6 +38,7 @@ Renders personal-data field inputs. Caller passes:
                 {% if field.allow_custom %}
                     <input type="text"
                            name="{{ name_prefix }}_{{ field.slug }}_custom"
+                           value="{% if current_value|is_known_option:field.options %}{% else %}{{ current_value }}{% endif %}"
                            placeholder="{% translate "Or type a custom value" %}"
                            class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                 {% endif %}

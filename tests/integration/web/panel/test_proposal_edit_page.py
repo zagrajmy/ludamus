@@ -28,11 +28,9 @@ from ludamus.pacts import EventDTO, SessionDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     SpaceFactory,
     UserFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -407,7 +405,7 @@ class TestProposalEditPageView:
     ):
         sphere.managers.add(active_user)
         session = _make_session(event, participants_limit=1)
-        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        space = SpaceFactory(event=event)
         AgendaItemFactory(session=session, space=space)
         filler = UserFactory(username="filler", email="filler@example.com")
         SessionParticipation.objects.create(
@@ -582,6 +580,30 @@ class TestProposalEditPageView:
                 "min_age": 0,
                 "tracks_submitted": "1",
                 "track_ids": [foreign_track.pk],
+            },
+        )
+
+        assert not session.tracks.exists()
+
+    def test_post_with_tracks_submitted_and_no_track_ids_clears_tracks(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session.tracks.add(track)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "tracks_submitted": "1",
             },
         )
 

@@ -38,7 +38,6 @@ from django.utils.timezone import get_current_timezone  # noqa: E402
 
 from ludamus.adapters.db.django.models import (  # noqa: E402
     AgendaItem,
-    Area,
     Event,
     Facilitator,
     ProposalCategory,
@@ -47,7 +46,6 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     TimeSlot,
     TimeSlotRequirement,
     Track,
-    Venue,
 )
 
 
@@ -76,23 +74,29 @@ def main() -> None:
     )
 
     # Venue hierarchy — two spaces so the grid renders two assignable columns.
-    venue, _ = Venue.objects.get_or_create(
+    venue, _ = Space.objects.get_or_create(
         event=event,
+        parent=None,
         slug="meadowbrook-pavilion",
         defaults={"name": "Meadowbrook Pavilion"},
     )
-    area, _ = Area.objects.get_or_create(
-        venue=venue, slug="festival-hall", defaults={"name": "Festival Hall"}
+    area, _ = Space.objects.get_or_create(
+        event=event,
+        parent=venue,
+        slug="festival-hall",
+        defaults={"name": "Festival Hall"},
     )
     space_a, _ = Space.objects.get_or_create(
-        area=area,
+        event=event,
+        parent=area,
         slug="garden-table",
-        defaults={"name": "Garden Table", "capacity": 8, "event": event},
+        defaults={"name": "Garden Table", "capacity": 8},
     )
     space_b, _ = Space.objects.get_or_create(
-        area=area,
+        event=event,
+        parent=area,
         slug="willow-table",
-        defaults={"name": "Willow Table", "capacity": 8, "event": event},
+        defaults={"name": "Willow Table", "capacity": 8},
     )
 
     # Time slot — morning block; gives the overview "capacity hours" a value.

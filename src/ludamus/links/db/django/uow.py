@@ -39,10 +39,6 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
         return repositories.UserRepository(user_type=UserType.ANONYMOUS)
 
     @cached_property
-    def areas(self) -> repositories.AreaRepository:
-        return repositories.AreaRepository()
-
-    @cached_property
     def connected_users(self) -> repositories.ConnectedUserRepository:
         return repositories.ConnectedUserRepository()
 
@@ -85,10 +81,6 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
     @cached_property
     def spheres(self) -> repositories.SphereRepository:
         return repositories.SphereRepository()
-
-    @cached_property
-    def venues(self) -> repositories.VenueRepository:
-        return repositories.VenueRepository()
 
     @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:

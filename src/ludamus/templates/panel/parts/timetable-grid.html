@@ -42,28 +42,16 @@
          data-slot-minutes="{{ grid.slot_minutes }}"
          data-total-minutes="{{ grid.total_minutes }}"
          style="--grid-extent: {{ grid.total_minutes }}">
-        <!-- Space headers (sticky, three rows: venue / area / space) -->
+        <!-- Space headers (sticky, two rows: parent group / space) -->
         <div class="sticky top-0 z-20 border-b border-neutral-700">
-            <!-- Venue row -->
+            <!-- Parent-group row -->
             <div class="flex bg-neutral-900 border-b border-neutral-700">
                 <div class="w-16 flex-none shrink-0 bg-neutral-900"></div>
-                {% for venue in grid.venue_groups %}
+                {% for group in grid.groups %}
                     <div class="timetable-header-cell px-3 py-1 border-l border-neutral-700 text-center bg-neutral-900"
-                         style="--columns: {{ venue.span }}">
-                        <div class="text-xs font-semibold text-white uppercase tracking-wide">{{ venue.venue_name }}</div>
+                         style="--columns: {{ group.span }}">
+                        <div class="text-xs font-semibold text-white uppercase tracking-wide">{{ group.parent_name|default:"—" }}</div>
                     </div>
-                {% endfor %}
-            </div>
-            <!-- Area row -->
-            <div class="flex bg-neutral-800 border-b border-neutral-700">
-                <div class="w-16 flex-none shrink-0 bg-neutral-800"></div>
-                {% for venue in grid.venue_groups %}
-                    {% for area in venue.areas %}
-                        <div class="timetable-header-cell px-3 py-1 border-l border-neutral-700 text-center bg-neutral-800"
-                             style="--columns: {{ area.span }}">
-                            <div class="text-xs font-medium text-white">{{ area.area_name }}</div>
-                        </div>
-                    {% endfor %}
                 {% endfor %}
             </div>
             <!-- Space row -->

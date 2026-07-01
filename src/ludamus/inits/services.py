@@ -39,7 +39,7 @@ from ludamus.mills.submissions.personal_data_fields import (
     CFPPersonalDataFieldService,
     HostPersonalDataService,
 )
-from ludamus.mills.venues import VenuesService
+from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.submissions import ImportRepos
 
@@ -103,7 +103,11 @@ class Services:
 
     @cached_property
     def venues(self) -> VenuesService:
-        return VenuesService(self._repos.venues, self._repos.areas)
+        return VenuesService(self._repos.space_tree)
+
+    @cached_property
+    def space_tree(self) -> SpaceTreeService:
+        return SpaceTreeService(self._transaction, self._repos.space_tree)
 
     @cached_property
     def sphere_panel(self) -> SpherePanelService:

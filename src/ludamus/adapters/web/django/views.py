@@ -33,6 +33,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.db.django.models import (
     MAX_CONNECTED_USERS,
+    SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
     Event,
@@ -65,7 +66,6 @@ from ludamus.mills import (
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
-    AreaDTO,
     EventDTO,
     EventListItemDTO,
     LocationData,
@@ -75,11 +75,9 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SessionRepositoryProtocol,
     SessionStatus,
-    SpaceDTO,
     SpherePage,
     UserData,
     UserDTO,
-    VenueDTO,
 )
 
 from .design_fixtures import (
@@ -835,8 +833,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
             .select_related("sphere")
             .prefetch_related(
-                "venues__areas__spaces__agenda_items__session__field_values__field",
-                "venues__areas__spaces__agenda_items__session__session_participations__user",
+                "spaces__agenda_items__session__field_values__field",
+                "spaces__agenda_items__session__session_participations__user",
                 "enrollment_configs",
             )
         )
@@ -851,7 +849,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         event_sessions = (
             Session.objects.filter(event=self.object, agenda_item__isnull=False)
             .select_related(
-                "presenter", "agenda_item__space__area__venue", "event", "event__sphere"
+                # str(space) walks the whole ancestor chain, so eager-load every
+                # level up to the max nesting depth to avoid per-row parent queries.
+                "presenter",
+                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+                "event",
+                "event__sphere",
             )
             .prefetch_related(
                 "tags__category",
@@ -1177,9 +1180,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         sessions_data = {}
         for session in event_sessions:
-            area = getattr(
-                session.agenda_item.space, "area", None
-            )  # TODO(fancysnake): Fix after merging venues
+            space = session.agenda_item.space
+            parent = space.parent
             if session.presenter_id:
                 presenter_dto = UserDTO.model_validate(session.presenter)
                 presenter = UserInfo.from_user_dto(
@@ -1211,13 +1213,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 is_enrollment_available=session.is_enrollment_available,
                 is_full=session.is_full,
                 loc=LocationData(
-                    space=SpaceDTO.model_validate(session.agenda_item.space),
-                    area=(  # TODO(fancysnake): Fix after merging venues
-                        AreaDTO.model_validate(area) if area else None
-                    ),
-                    venue=(  # TODO(fancysnake): Fix after merging venues
-                        VenueDTO.model_validate(area.venue) if area else None
-                    ),
+                    space_name=space.name,
+                    parent_slug=parent.slug if parent else "",
+                    parent_name=parent.name if parent else "",
+                    path=str(space),
                 ),
                 enrolled_count=session.enrolled_count,
                 waiting_count=session.waiting_count,

@@ -94,6 +94,19 @@ def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc]
 
 
 @register.filter
+def is_known_option(current_value: Any, options: Any) -> bool:  # type: ignore[misc] # noqa: ANN401
+    """Check whether current_value matches one of the options' `.value`.
+
+    Returns:
+        True if current_value is falsy (nothing to preserve) or matches an
+        option; False when it's a stray custom value not in the option list.
+    """
+    if not current_value:
+        return True
+    return any(current_value == option.value for option in options or [])
+
+
+@register.filter
 def is_continuation(continuation_set: set[tuple[int, str]], slot_and_date: str) -> bool:
     """Check if a (slot_pk, date_iso) pair is in the continuation set.
 
