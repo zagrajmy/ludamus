@@ -228,13 +228,18 @@ class TestProposalAcceptPageView:
         assert "<optgroup" not in content
 
     @pytest.mark.usefixtures("time_slot")
-    def test_get_shows_multiple_spaces_in_same_area(
-        self, pending_session, venue, area, space, staff_client
+    @pytest.mark.usefixtures("time_slot")
+    def test_get_groups_leaf_spaces_under_their_parent(
+        self, event, pending_session, staff_client
     ):
-        """Test that multiple spaces in same area are grouped together."""
-        # Create a second space in the same area
-        second_space = Space.objects.create(
-            area=area, name="Second Room", slug="second-room", event=area.venue.event
+        # Leaves sharing a parent node are grouped under that node's path; the
+        # non-leaf parent itself is never bookable.
+        parent = Space.objects.create(event=event, name="Main Hall", slug="main-hall")
+        first = Space.objects.create(
+            event=event, parent=parent, name="Room A", slug="room-a"
+        )
+        second = Space.objects.create(
+            event=event, parent=parent, name="Room B", slug="room-b"
         )
 
         response = staff_client.get(
@@ -243,11 +248,10 @@ class TestProposalAcceptPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # Verify optgroup with "Venue > Area" label is present
-        assert f'<optgroup label="{venue.name} &gt; {area.name}">' in content
-        # Verify both spaces are within the optgroup
-        assert _has_option(content, space.id, space.name)
-        assert _has_option(content, second_space.id, "Second Room")
+        assert '<optgroup label="Main Hall">' in content
+        assert _has_option(content, first.id, "Room A")
+        assert _has_option(content, second.id, "Room B")
+        assert not _has_option(content, parent.id, "Main Hall")
 
     def test_get_error_no_space(self, event, pending_session, staff_client):
         response = staff_client.get(

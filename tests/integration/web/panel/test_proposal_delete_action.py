@@ -19,13 +19,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
 )
 from ludamus.pacts import ScheduleChangeAction
-from tests.integration.conftest import (
-    AreaFactory,
-    EventFactory,
-    SpaceFactory,
-    UserFactory,
-    VenueFactory,
-)
+from tests.integration.conftest import EventFactory, SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -48,7 +42,7 @@ def _make_session(event, **kwargs):
 
 
 def _schedule(session, event):
-    space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+    space = SpaceFactory(event=event)
     start = datetime.now(UTC) + timedelta(days=7)
     session.status = "scheduled"
     session.save(update_fields=["status"])

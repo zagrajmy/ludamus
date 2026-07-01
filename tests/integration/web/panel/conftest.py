@@ -30,8 +30,8 @@ def connection_with_secret_fixture(sphere):
 
 
 @pytest.fixture(name="timetable_scale_data")
-def timetable_scale_data_fixture(event, area, proposal_category):
-    spaces = [SpaceFactory(area=area, capacity=50) for _ in range(5)]
+def timetable_scale_data_fixture(event, proposal_category):
+    spaces = [SpaceFactory(event=event, capacity=50) for _ in range(5)]
     sessions = [
         SessionFactory(
             category=proposal_category,

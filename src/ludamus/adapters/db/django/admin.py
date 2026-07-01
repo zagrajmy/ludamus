@@ -5,7 +5,6 @@ from django.contrib import admin
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     DomainEnrollmentConfig,
     Encounter,
     EncounterRSVP,
@@ -23,26 +22,11 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-
-@admin.register(Venue)
-class VenueAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "event", "address", "order")
-    list_filter = ("event",)
-    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
-
-
-@admin.register(Area)
-class AreaAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "venue", "order")
-    list_filter = ("venue__event",)
-    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
 @admin.register(AgendaItem)

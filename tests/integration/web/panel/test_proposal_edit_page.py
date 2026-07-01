@@ -28,11 +28,9 @@ from ludamus.pacts import EventDTO, SessionDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     SpaceFactory,
     UserFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -407,7 +405,7 @@ class TestProposalEditPageView:
     ):
         sphere.managers.add(active_user)
         session = _make_session(event, participants_limit=1)
-        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        space = SpaceFactory(event=event)
         AgendaItemFactory(session=session, space=space)
         filler = UserFactory(username="filler", email="filler@example.com")
         SessionParticipation.objects.create(
