@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 TEMPLATE = "multiverse/panel/mcp-token.html"
 
 
-class McpTokenPageView(SphereAccessMixin, View):
+class OrganizerMcpTokenPageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
