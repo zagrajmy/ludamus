@@ -75,6 +75,10 @@ run = "mise run _lint -- djlint src --profile=django"
 description = "Reformat Django templates, CSS, and JS"
 run = "mise run _lint -- djlint src --reformat --format-css --format-js --profile=django"
 
+[tasks.djlint-format-check]
+description = "Verify Django templates, CSS, and JS are formatted (no changes)"
+run = "mise run _lint -- djlint src --check --format-css --format-js --profile=django"
+
 [tasks.il]
 description = "Enforce GLIMPSE layer import rules"
 run = "mise run _lint -- lint-imports --config=pyproject.toml"
@@ -130,6 +134,7 @@ depends = [
   "codespell",
   "mypy",
   "djlint",
+  "djlint-format-check",
   "pylint",
   "vulture",
   "ast-grep",
