@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 
 from ludamus.adapters.db.django.models import (
     Notification,
@@ -114,3 +115,12 @@ class TestModelStringRepresentations:
         party = Party.objects.create(leader=active_user, name="Drużyna")
 
         assert str(party) == f"Drużyna (#{party.pk})"
+
+
+class TestPartyMembershipConstraint:
+    def test_member_unique_per_party(self, active_user):
+        party = Party.objects.create(leader=active_user, name="")
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        with pytest.raises(IntegrityError), transaction.atomic():
+            PartyMembership.objects.create(party=party, member=active_user)

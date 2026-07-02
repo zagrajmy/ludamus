@@ -14,6 +14,7 @@ from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Notification,
+    PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
     UserEnrollmentConfig,
@@ -27,6 +28,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
     UserFactory,
+    sponsor_user,
 )
 from tests.integration.utils import assert_response
 
@@ -942,8 +944,8 @@ class TestSessionEnrollPageView:
         enrollment_config,
         connected_user,
     ):
-        connected_user.manager = staff_user
-        connected_user.save()
+        PartyMembership.objects.filter(member=connected_user).delete()
+        sponsor_user(leader=staff_user, member=connected_user)
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1029,8 +1031,8 @@ class TestSessionEnrollPageView:
         enrollment_config,
         connected_user,
     ):
-        connected_user.manager = staff_user
-        connected_user.save()
+        PartyMembership.objects.filter(member=connected_user).delete()
+        sponsor_user(leader=staff_user, member=connected_user)
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1759,10 +1761,11 @@ class TestSessionEnrollPageView:
         authenticated_client,
         event,
         enrollment_config,
+        active_user,
     ):
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
-            user_email=connected_user.manager.email,
+            user_email=active_user.email,
             allowed_slots=0,
         )
         enrollment_config.restrict_to_configured_users = True
@@ -1792,7 +1795,7 @@ class TestSessionEnrollPageView:
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user.manager),
+                        user=UserDTO.model_validate(active_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,

@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS, User
 from ludamus.pacts.crowd import ConnectedUserDTO, UserType
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 
@@ -85,7 +86,7 @@ class TestProfileConnectedUsersPageView:
         for i in range(MAX_CONNECTED_USERS):
             unique_name = f"connected_{i}_{faker.random_int()}"
             connected_users.append(
-                User.objects.create(
+                UserFactory(
                     username=f"user_{i}_{faker.random_int()}",
                     name=unique_name,
                     slug=f"connected-{i}-{faker.random_int()}",

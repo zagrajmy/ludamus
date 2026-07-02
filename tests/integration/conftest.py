@@ -5,7 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
-from factory import Faker, LazyAttribute, Sequence, SubFactory
+from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
@@ -15,6 +15,8 @@ from ludamus.adapters.db.django.models import (
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    Party,
+    PartyMembership,
     ProposalCategory,
     Session,
     SessionParticipation,
@@ -25,6 +27,7 @@ from ludamus.adapters.db.django.models import (
     TagCategory,
     TimeSlot,
 )
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
 User = get_user_model()
@@ -41,6 +44,28 @@ def _django_db(transactional_db):
     pass
 
 
+def sponsor_user(*, leader, member):
+    # Mirror the 0110 backfill shape: the leader's own party (created with
+    # their own ACCEPT_BY_DEFAULT membership) sponsors the companion.
+    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
+        party = Party.objects.create(leader=leader, name="")
+        PartyMembership.objects.create(
+            party=party,
+            member=leader,
+            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+    PartyMembership.objects.get_or_create(
+        party=party,
+        member=member,
+        defaults={
+            "consent_mode": PartyConsentMode.ACCEPT_BY_DEFAULT,
+            "status": PartyMembershipStatus.ACTIVE,
+        },
+    )
+    return party
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
@@ -54,6 +79,11 @@ class UserFactory(DjangoModelFactory):
     is_active = True
     is_staff = False
     is_superuser = False
+
+    @post_generation
+    def manager(self, create, extracted):
+        if create and extracted is not None:
+            sponsor_user(leader=extracted, member=self)
 
 
 class SiteFactory(DjangoModelFactory):

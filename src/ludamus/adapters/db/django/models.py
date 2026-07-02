@@ -94,13 +94,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
     )
-    manager = models.ForeignKey(
-        "User",
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        related_name="connected",
-    )
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)
     user_type = models.CharField(

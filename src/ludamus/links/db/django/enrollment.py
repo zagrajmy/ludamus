@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
+    PartyMembership,
     Session,
     SessionParticipation,
     User,
@@ -21,7 +22,7 @@ from ludamus.adapters.db.django.models import (
     get_used_slots,
 )
 from ludamus.pacts import EventDTO
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     OfferDTO,
@@ -31,9 +32,23 @@ from ludamus.pacts.enrollment import (
 from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.adapters.db.django.models import Event
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
+
+
+def _sponsors_by_member(users: Iterable[User]) -> dict[int, User]:
+    # Slot ownership: a real user owns their own seat; a login-less companion's
+    # seat is sponsored by the leader of their (single) party.
+    connected_ids = [u.pk for u in users if u.user_type == UserType.CONNECTED]
+    if not connected_ids:
+        return {}
+    memberships = PartyMembership.objects.filter(
+        member_id__in=connected_ids
+    ).select_related("party__leader")
+    return {m.member_id: m.party.leader for m in memberships}
 
 
 class ParticipationPromotionRepository:
@@ -71,33 +86,35 @@ class ParticipationPromotionRepository:
         event_dto = EventDTO.model_validate(event)
 
         waiting: list[WaitingParticipantDTO] = []
-        slots_by_manager: dict[int, int] = {}
-        participations = (
+        slots_by_owner: dict[int, int] = {}
+        participations = list(
             session.session_participations.filter(
                 status=SessionParticipationStatus.WAITING
             )
-            .select_related("user", "user__manager")
+            .select_related("user")
             .order_by("creation_time")
         )
+        sponsors = _sponsors_by_member(p.user for p in participations)
         for participation in participations:
             user = participation.user
-            recipient = user.manager or user
-            if recipient.pk not in slots_by_manager:
-                slots_by_manager[recipient.pk] = self._slots_remaining(
+            sponsor = sponsors.get(user.pk)
+            recipient = sponsor if sponsor is not None else user
+            if recipient.pk not in slots_by_owner:
+                slots_by_owner[recipient.pk] = self._slots_remaining(
                     recipient, event, event_dto
                 )
             waiting.append(
                 WaitingParticipantDTO(
                     participation_id=participation.pk,
                     user_id=user.pk,
-                    manager_id=user.manager_id,
+                    sponsor_id=sponsor.pk if sponsor is not None else None,
                     full_name=user.get_full_name(),
                     email=user.email or "",
                     creation_time=participation.creation_time,
                     has_conflict=Session.objects.has_conflicts(
                         session, UserDTO.model_validate(user)
                     ),
-                    manager_slots_remaining=slots_by_manager[recipient.pk],
+                    owner_slots_remaining=slots_by_owner[recipient.pk],
                     recipient_user_id=recipient.pk,
                     recipient_email=recipient.email or "",
                 )
@@ -115,15 +132,15 @@ class ParticipationPromotionRepository:
         )
 
     @staticmethod
-    def _slots_remaining(manager: User, event: Event, event_dto: EventDTO) -> int:
-        if not manager.email:
+    def _slots_remaining(owner: User, event: Event, event_dto: EventDTO) -> int:
+        if not owner.email:
             return UNLIMITED_SLOTS
         allowed = 0
         has_config = False
-        domain = manager.email.split("@")[1] if "@" in manager.email else ""
+        domain = owner.email.split("@")[1] if "@" in owner.email else ""
         for config in event.get_active_enrollment_configs():
             user_config = UserEnrollmentConfig.objects.filter(
-                enrollment_config=config, user_email=manager.email
+                enrollment_config=config, user_email=owner.email
             ).first()
             if user_config:
                 allowed += user_config.allowed_slots
@@ -137,9 +154,14 @@ class ParticipationPromotionRepository:
                     has_config = True
         if not has_config:
             return UNLIMITED_SLOTS
+        # The owner's seat allowance covers themselves plus every login-less
+        # companion they sponsor (members of parties they lead).
+        companions = User.objects.filter(
+            user_type=UserType.CONNECTED, party_memberships__party__leader=owner
+        ).distinct()
         members = [
-            UserDTO.model_validate(manager),
-            *(UserDTO.model_validate(c) for c in manager.connected.all()),
+            UserDTO.model_validate(owner),
+            *(UserDTO.model_validate(c) for c in companions),
         ]
         return max(0, allowed - get_used_slots(members, event_dto))
 
@@ -202,7 +224,7 @@ class ParticipationPromotionRepository:
                 claim_token=token,
                 status=SessionParticipationStatus.OFFERED,
             )
-            .select_related("user", "user__manager")
+            .select_related("user")
             .order_by("creation_time")
         )
         if not party:
@@ -214,7 +236,8 @@ class ParticipationPromotionRepository:
         lead = party[0]
         session = Session.objects.select_related("event").get(id=lead.session_id)
         event_slug = session.event.slug
-        recipient = lead.user.manager or lead.user
+        sponsor = _sponsors_by_member([lead.user]).get(lead.user.pk)
+        recipient = sponsor if sponsor is not None else lead.user
         return OfferDTO(
             session_id=lead.session_id,
             session_title=session.title,

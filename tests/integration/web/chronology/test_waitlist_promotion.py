@@ -17,6 +17,7 @@ from ludamus.adapters.db.django.models import (
 from ludamus.inits.services import Services
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -325,12 +326,23 @@ class TestPromotionRepositoryEdges:
             assert repo.read_offer_by_token("no-such-token") is None
 
     def test_lock_and_read_state_reuses_manager_slots_within_a_party(self, session):
-        # Two waiters managed by the same person share one membership-slot
-        # computation: the second reuses the first's cached value.
+        # Two login-less companions sponsored by the same leader share one
+        # membership-slot computation: the second reuses the first's cached
+        # value. (A real user always spends their own allowance instead.)
         manager = UserFactory(username="party-mgr", email="party-mgr@example.com")
         members = [
-            UserFactory(username="party-a", email="a@example.com", manager=manager),
-            UserFactory(username="party-b", email="b@example.com", manager=manager),
+            UserFactory(
+                username="party-a",
+                email="a@example.com",
+                user_type=UserType.CONNECTED,
+                manager=manager,
+            ),
+            UserFactory(
+                username="party-b",
+                email="b@example.com",
+                user_type=UserType.CONNECTED,
+                manager=manager,
+            ),
         ]
         for member in members:
             SessionParticipation.objects.create(
@@ -342,7 +354,7 @@ class TestPromotionRepositoryEdges:
 
         assert state is not None
         assert {w.recipient_user_id for w in state.waiting} == {manager.pk}
-        assert len({w.manager_slots_remaining for w in state.waiting}) == 1
+        assert len({w.owner_slots_remaining for w in state.waiting}) == 1
 
     def test_slots_remaining_handles_email_without_at_sign(
         self, session, enrollment_config
@@ -365,7 +377,7 @@ class TestPromotionRepositoryEdges:
 
         assert state is not None
         [waiting] = state.waiting
-        assert waiting.manager_slots_remaining == allowed_slots
+        assert waiting.owner_slots_remaining == allowed_slots
 
 
 class TestPromotionRepositoryUnscheduledSession:

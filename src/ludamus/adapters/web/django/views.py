@@ -986,8 +986,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             )
             .prefetch_related(
                 "tags__category",
-                "session_participations__user__manager",
-                "session_participations__user__connected",
+                "session_participations__user",
                 "field_values__field",
                 "event__enrollment_configs",
             )

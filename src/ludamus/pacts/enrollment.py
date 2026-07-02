@@ -22,24 +22,25 @@ class WaitingParticipantDTO(BaseModel):
 
     participation_id: int
     user_id: int
-    # Effective manager for guardian-managed minors; None for a lone adult.
-    manager_id: int | None
+    # Party leader sponsoring a login-less companion; None for a self-owned
+    # account (a real user always spends their own allowance).
+    sponsor_id: int | None
     full_name: str
     email: str
     creation_time: datetime
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool
-    # Remaining distinct-user membership slots for this participant's manager
-    # (or self) in the event; UNLIMITED_SLOTS when no limit applies.
-    manager_slots_remaining: int
-    # Who is told about the seat — the managing guardian for a minor, otherwise
-    # the participant themselves. Shared across a party.
+    # Remaining distinct-user membership slots for this participant's slot
+    # owner in the event; UNLIMITED_SLOTS when no limit applies.
+    owner_slots_remaining: int
+    # Who is told about the seat — the sponsoring leader for a login-less
+    # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
     recipient_email: str
 
     @property
-    def effective_manager_id(self) -> int:
-        return self.manager_id if self.manager_id is not None else self.user_id
+    def effective_slot_owner(self) -> int:
+        return self.sponsor_id if self.sponsor_id is not None else self.user_id
 
 
 class PromotionStateDTO(BaseModel):
