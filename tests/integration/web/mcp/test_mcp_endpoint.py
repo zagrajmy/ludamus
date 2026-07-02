@@ -1,4 +1,5 @@
 import json
+import logging
 from http import HTTPStatus
 
 import pytest
@@ -279,6 +280,23 @@ class TestTools:
             "message": "Unknown tool: drop_database",
         }
 
+    def test_falsy_non_dict_arguments_are_invalid(self, client, token):
+        response = post_message(
+            client,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "list_spheres", "arguments": []},
+            },
+            token=token,
+        )
+
+        assert response.json()["error"] == {
+            "code": -32602,
+            "message": "Invalid tool call params",
+        }
+
     def test_invalid_arguments(self, client, token):
         response = call_tool(client, token, "get_sphere", {})
 
@@ -370,3 +388,62 @@ class TestTools:
         )
 
         assert json.loads(tool_text(response)) == []
+
+
+AUDIT_LOGGER = "ludamus.gates.mcp.protocol"
+
+
+def audit_records(caplog):
+    return [record for record in caplog.records if record.name == AUDIT_LOGGER]
+
+
+class TestAudit:
+    def test_successful_call_is_logged(self, client, token, superuser, sphere, caplog):
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        call_tool(client, token, "get_sphere", {"sphere_id": sphere.pk})
+
+        records = audit_records(caplog)
+        assert len(records) == 1
+        assert records[0].args == (
+            superuser.pk,
+            "get_sphere",
+            "ok",
+            {"sphere_id": sphere.pk},
+        )
+        assert records[0].getMessage() == (
+            f"mcp.tools_call user_id={superuser.pk} tool='get_sphere' outcome=ok "
+            f"arguments={{'sphere_id': {sphere.pk}}}"
+        )
+
+    def test_unknown_tool_is_logged(self, client, token, superuser, caplog):
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        call_tool(client, token, "drop_database", {"force": True})
+
+        records = audit_records(caplog)
+        assert len(records) == 1
+        assert records[0].args == (
+            superuser.pk,
+            "drop_database",
+            "unknown-tool",
+            {"force": True},
+        )
+
+    def test_invalid_arguments_are_logged_as_error(
+        self, client, token, superuser, caplog
+    ):
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        call_tool(client, token, "get_sphere", {})
+
+        records = audit_records(caplog)
+        assert len(records) == 1
+        assert records[0].args == (superuser.pk, "get_sphere", "error", {})
+
+    def test_other_methods_are_not_logged(self, client, token, caplog):
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        post_message(client, {"jsonrpc": "2.0", "id": 1, "method": "ping"}, token=token)
+
+        assert audit_records(caplog) == []

@@ -76,3 +76,7 @@ don't get re-derived or contradicted:
 
 Domain errors need no new plumbing: `NotFoundError` and invalid arguments
 already map to MCP `isError` results, and unknown tools to JSON-RPC errors.
+
+Every `tools/call` is audit-logged **with its arguments verbatim**. Do not add
+a tool whose arguments carry personal data without adding redaction to the
+audit line first.

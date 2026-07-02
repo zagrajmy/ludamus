@@ -67,7 +67,7 @@ class McpEndpointView(View):
 
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
-        if _authenticated_superuser_id(request) is None:
+        if (actor_id := _authenticated_superuser_id(request)) is None:
             response = JsonResponse(
                 {"error": "A valid maintainer Bearer token is required."}, status=401
             )
@@ -94,7 +94,10 @@ class McpEndpointView(View):
             )
 
         result = handle_message(
-            registry=_REGISTRY, services=request.services, message=message
+            registry=_REGISTRY,
+            services=request.services,
+            actor_id=actor_id,
+            message=message,
         )
         if result is None:
             return HttpResponse(status=202)

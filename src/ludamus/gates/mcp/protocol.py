@@ -8,6 +8,7 @@ self-contained, which is all a tool-only server needs.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from ludamus.gates.mcp.registry import ToolError, UnknownToolError
@@ -25,6 +26,8 @@ PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
+
+logger = logging.getLogger(__name__)
 
 type JsonDict = dict[str, object]
 
@@ -65,13 +68,44 @@ def _call_tool(
     *,
     registry: ToolRegistry,
     services: ServicesProtocol,
+    actor_id: int,
     message_id: object,
     params: JsonDict,
 ) -> JsonDict:
     name = params.get("name")
-    arguments = params.get("arguments") or {}
+    if (arguments := params.get("arguments")) is None:
+        arguments = {}
+    outcome, response = _run_tool(
+        registry=registry,
+        services=services,
+        message_id=message_id,
+        name=name,
+        arguments=arguments,
+    )
+    # Audit trail (#480): one line per tools/call. Only the actor id is
+    # threaded in on purpose; a richer actor context is #481.
+    # %r on client-controlled values: repr escapes newlines, so a crafted
+    # tool name cannot inject fake audit lines.
+    logger.info(
+        "mcp.tools_call user_id=%s tool=%r outcome=%s arguments=%r",
+        actor_id,
+        name,
+        outcome,
+        arguments,
+    )
+    return response
+
+
+def _run_tool(
+    *,
+    registry: ToolRegistry,
+    services: ServicesProtocol,
+    message_id: object,
+    name: object,
+    arguments: object,
+) -> tuple[str, JsonDict]:
     if not isinstance(name, str) or not isinstance(arguments, dict):
-        return error_response(
+        return "invalid-params", error_response(
             message_id=message_id,
             code=INVALID_PARAMS,
             message="Invalid tool call params",
@@ -79,20 +113,26 @@ def _call_tool(
     try:
         text = registry.call(services=services, name=name, arguments=arguments)
     except UnknownToolError:
-        return error_response(
+        return "unknown-tool", error_response(
             message_id=message_id, code=INVALID_PARAMS, message=f"Unknown tool: {name}"
         )
     except NotFoundError:
-        return _text_result(
+        return "error", _text_result(
             message_id=message_id, text="Resource not found", is_error=True
         )
     except ToolError as error:
-        return _text_result(message_id=message_id, text=str(error), is_error=True)
-    return _text_result(message_id=message_id, text=text, is_error=False)
+        return "error", _text_result(
+            message_id=message_id, text=str(error), is_error=True
+        )
+    return "ok", _text_result(message_id=message_id, text=text, is_error=False)
 
 
 def handle_message(
-    *, registry: ToolRegistry, services: ServicesProtocol, message: JsonDict
+    *,
+    registry: ToolRegistry,
+    services: ServicesProtocol,
+    actor_id: int,
+    message: JsonDict,
 ) -> JsonDict | None:
     method = message.get("method")
     message_id = message.get("id")
@@ -119,6 +159,7 @@ def handle_message(
             return _call_tool(
                 registry=registry,
                 services=services,
+                actor_id=actor_id,
                 message_id=message_id,
                 params=params,
             )
