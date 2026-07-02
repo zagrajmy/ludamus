@@ -1669,6 +1669,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     and p.session == session
                     for p in user_parts
                 ),
+                user_offered=any(
+                    p.status == SessionParticipationStatus.OFFERED
+                    and p.session == session
+                    for p in user_parts
+                ),
                 has_time_conflict=any(
                     session.agenda_item.overlaps_with(p.session.agenda_item)
                     for p in user_parts
