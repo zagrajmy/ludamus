@@ -48,6 +48,8 @@ from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
+    RoomLaneDay,
+    RoomLaneRow,
     ScheduleDay,
     ScheduleHour,
     SessionData,
@@ -936,14 +938,27 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 self._group_sessions_by_state(sessions_data)
             )
 
+        schedule_days = (
+            self._build_schedule_days(sessions_data) if compact_schedule else []
+        )
+        # The compact schedule offers two layouts: the chronological ledger
+        # (default) and a rooms grid (?view=rooms) with a column per room.
+        rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
+        event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
+
         context.update(
             {
                 "hour_data": hour_data,  # Keep original for backward compatibility
                 "sessions": list(sessions_data.values()),
                 "compact_schedule": compact_schedule,
-                "schedule_days": (
-                    self._build_schedule_days(sessions_data) if compact_schedule else []
+                "schedule_days": schedule_days,
+                "schedule_view_is_list": not rooms_view,
+                "schedule_view_is_rooms": rooms_view,
+                "room_lane_days": (
+                    self._build_room_lanes(schedule_days) if rooms_view else []
                 ),
+                "schedule_list_url": event_url,
+                "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,
@@ -1219,6 +1234,27 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 slots.append(ScheduleHour(start=start, sessions=[]))
             slots[-1].sessions.append(data)
         return days
+
+    @staticmethod
+    def _build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
+        # Pivot each day's slots into a rooms grid: one column per room (the
+        # scheduled leaf space), one row per start time.
+        lane_days: list[RoomLaneDay] = []
+        for day in schedule_days:
+            rooms = sorted(
+                {data.loc["space_name"] for hour in day.hours for data in hour.sessions}
+            )
+            column = {room: index for index, room in enumerate(rooms)}
+            rows = []
+            for hour in day.hours:
+                cells: list[list[SessionData]] = [[] for _ in rooms]
+                for data in hour.sessions:
+                    cells[column[data.loc["space_name"]]].append(data)
+                rows.append(RoomLaneRow(start=hour.start, cells=cells))
+            lane_days.append(
+                RoomLaneDay(first_start=day.first_start, rooms=rooms, rows=rows)
+            )
+        return lane_days
 
     def _get_hour_data(
         self,

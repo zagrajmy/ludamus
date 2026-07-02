@@ -45,6 +45,7 @@ from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
+    SpaceFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
@@ -85,6 +86,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -320,9 +326,97 @@ class TestEventPageView:
         assert "1 waiting" in content
         assert "2h" in content
         assert "4 participants enrolled" in content
-        # Category icon chip next to the row body.
-        assert "size-7" in content
         assert content.count("data-schedule-day") == len(expected_dates)
+
+    def test_ok_compact_rooms_view(self, authenticated_client, event, monkeypatch):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+        start = (timezone.now() + timedelta(days=2)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        )
+        arena = SpaceFactory(event=event, name="Arena")
+        stage = SpaceFactory(event=event, name="Stage")
+        in_arena = SessionFactory(event=event, category=None)
+        on_stage = SessionFactory(event=event, category=None)
+        later_in_arena = SessionFactory(event=event, category=None)
+        AgendaItemFactory(
+            session=in_arena,
+            space=arena,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+        AgendaItemFactory(
+            session=on_stage,
+            space=stage,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+        AgendaItemFactory(
+            session=later_in_arena,
+            space=arena,
+            start_time=start + timedelta(hours=2),
+            end_time=start + timedelta(hours=3),
+        )
+
+        response = authenticated_client.get(f"{self._get_url(event.slug)}?view=rooms")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["schedule_view_is_rooms"] is True
+        assert response.context_data["schedule_view_is_list"] is False
+        [day] = response.context_data["room_lane_days"]
+        assert day.rooms == ["Arena", "Stage"]
+        [first_row, second_row] = day.rows
+        assert [[s.session.pk for s in cell] for cell in first_row.cells] == [
+            [in_arena.pk],
+            [on_stage.pk],
+        ]
+        assert [[s.session.pk for s in cell] for cell in second_row.cells] == [
+            [later_in_arena.pk],
+            [],
+        ]
+        content = response.content.decode()
+        assert re.search(r">\s*Arena\s*</th>", content)
+        assert re.search(r">\s*Stage\s*</th>", content)
+        assert "schedule-rail" in content
+        assert f"?session={in_arena.pk}" in content
+        assert 'aria-pressed="false"' in content
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_compact_unknown_view_falls_back_to_list(
+        self, client, event, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+        response = client.get(f"{self._get_url(event.slug)}?view=starfield")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["schedule_view_is_list"] is True
+        assert response.context_data["room_lane_days"] == []
+        assert "session-grid" in response.content.decode()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_ok_live_event_card_slot_shows_now_and_propose(
+        self, agenda_item, client, event
+    ):
+        now = timezone.now()
+        event.start_time = now - timedelta(hours=2)
+        event.end_time = now + timedelta(days=1)
+        event.proposal_start_time = now - timedelta(days=1)
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save()
+        agenda_item.start_time = now - timedelta(minutes=30)
+        agenda_item.end_time = now + timedelta(hours=1)
+        agenda_item.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert re.search(r">\s*Now\s*</span>", content)
+        assert re.search(r">\s*Propose\s*</span>", content)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
@@ -352,6 +446,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -387,6 +486,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -422,6 +526,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -487,6 +596,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -530,6 +644,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -694,6 +813,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -766,6 +890,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -867,6 +996,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -929,6 +1063,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -993,6 +1132,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1067,6 +1211,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1127,6 +1276,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1186,6 +1340,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1221,6 +1380,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1266,6 +1430,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1302,6 +1471,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1342,6 +1516,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1381,6 +1560,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1423,6 +1607,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1512,6 +1701,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -1575,6 +1769,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1668,6 +1867,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
@@ -1753,6 +1957,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1841,6 +2050,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
@@ -1926,6 +2140,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
@@ -2014,6 +2233,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2097,6 +2321,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2191,6 +2420,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -2281,6 +2515,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2374,6 +2613,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2464,6 +2708,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2558,6 +2807,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2676,6 +2930,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2765,6 +3024,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2855,6 +3119,11 @@ class TestEventPageView:
                 "event_banned": False,
                 "compact_schedule": False,
                 "schedule_days": [],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": self._get_url(event.slug),
+                "schedule_rooms_url": f"{self._get_url(event.slug)}?view=rooms",
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },

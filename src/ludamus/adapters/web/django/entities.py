@@ -140,6 +140,23 @@ class ScheduleDay:
 
 
 @dataclass
+class RoomLaneRow:
+    """One start-time row of the rooms view: a cell of sessions per room."""
+
+    start: datetime
+    cells: list[list[SessionData]]
+
+
+@dataclass
+class RoomLaneDay:
+    """A day of the rooms view: room columns and per-slot rows."""
+
+    first_start: datetime
+    rooms: list[str]
+    rows: list[RoomLaneRow]
+
+
+@dataclass
 class SessionUserParticipationData:
     user: UserDTO
     user_enrolled: bool = False

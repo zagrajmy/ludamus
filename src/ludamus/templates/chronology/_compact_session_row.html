@@ -1,89 +1,52 @@
 {% load i18n %}
 {% load cfp_tags %}
 {% load tessera %}
-{# Dense single-row session entry for the compact schedule (big events). #}
-{# Carries the same data-* contract as _session_card.html so session-filters #}
-{# and the detail modal work unchanged. #}
+{# Ledger row: one line per session — time range, title, inline meta #}
+{# (room · duration · age), availability, bookmark. Carries the same data-* #}
+{# contract as _session_card.html so session-filters and the detail modal #}
+{# work unchanged. #}
 <article class="session-card-wrapper min-w-0">
-    <div class="session-card group/row relative flex items-stretch gap-3 rounded-xl px-2 py-2.5 sm:px-3 transition-colors hover:bg-bg-tertiary {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
+    <div class="session-card group/row relative flex items-baseline gap-2 rounded-lg px-2 py-2 sm:gap-3 transition-colors hover:bg-bg-tertiary {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
         <a href="?session={{ data.session.pk }}"
-           class="session-card-link absolute inset-0 z-10 rounded-xl"
+           class="session-card-link absolute inset-0 z-10 rounded-lg"
            aria-haspopup="dialog"
            aria-controls="session-{{ data.session.pk }}">
             <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
         </a>
-        {# Time — start over end, tabular for clean vertical alignment #}
-        <div class="shrink-0 w-11 pt-0.5 text-right leading-none tabular-nums">
-            <div class="text-base font-semibold text-foreground" data-morph="time">{{ data.agenda_item.start_time|time:"H:i" }}</div>
-            <div class="mt-1 text-xs text-foreground-muted">{{ data.agenda_item.end_time|time:"H:i" }}</div>
-        </div>
-        {# Category icon — small, only when the session has a tagged category #}
-        {% if data.displayed_field_rows %}
-            {% with row=data.displayed_field_rows.0 %}
-                {% if row.icon %}
-                    <span class="mt-0.5 hidden size-7 shrink-0 items-center justify-center self-start rounded-lg bg-bg-tertiary text-foreground-muted sm:flex"
-                          aria-hidden="true">{% icon row.icon class="size-4" variant="mini" %}</span>
-                {% endif %}
-            {% endwith %}
-        {% endif %}
-        {# Body #}
-        <div class="min-w-0 flex-1 self-center">
-            <h4 class="line-clamp-2 text-sm font-medium leading-snug text-foreground"
-                data-morph="title">{{ data.session.title }}</h4>
-            <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground-muted">
-                {% if data.location_label %}
-                    <span class="inline-flex min-w-0 items-center gap-1">
-                        {% icon "map-pin" class="size-3.5 shrink-0 opacity-80" variant="mini" %}
-                        <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
-                    </span>
-                {% endif %}
+        <span class="w-24 shrink-0 whitespace-nowrap text-sm tabular-nums sm:w-28"
+              data-morph="time">
+            <span class="font-semibold text-foreground">{{ data.agenda_item.start_time|time:"H:i" }}</span>
+            <span class="text-xs text-foreground-muted">– {{ data.agenda_item.end_time|time:"H:i" }}</span>
+        </span>
+        <span class="min-w-0 flex-1 truncate">
+            <span class="text-sm font-medium text-foreground" data-morph="title">{{ data.session.title }}</span>
+            <span class="ml-1.5 text-xs text-foreground-muted"
+                  title="{{ data.location_label }}">
+                {{ data.loc.space_name }}
                 {% if data.session.duration %}
-                    <span class="inline-flex items-center gap-1">
-                        {% icon "clock" class="size-3.5 shrink-0 opacity-80" variant="mini" %}
-                        {{ data.session.duration|format_duration }}
-                    </span>
+                    · {{ data.session.duration|format_duration }}
                 {% endif %}
                 {% if data.session.min_age > 0 %}
-                    <span class="shrink-0 font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
+                    · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
                 {% endif %}
-            </div>
-        </div>
-        {# Availability + enrolled count — the right-hand metric #}
-        <div class="flex shrink-0 flex-col items-end justify-center gap-0.5 text-right">
-            {% if data.is_ended %}
-                <span class="text-xs font-medium text-foreground-muted">{% translate "Ended" %}</span>
-            {% elif data.should_show_as_inactive %}
-                <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
-            {% elif not data.is_enrollment_available %}
-                {# No enrollment on this session — on big events repeating a #}
-                {# "Not Available" label on most rows is redundant noise, so #}
-                {# render nothing here. #}
-            {% elif data.is_full %}
-                <span class="text-xs font-semibold text-foreground-muted">{% translate "Full" %}</span>
-                {% if data.waiting_count > 0 %}
-                    <span class="text-xs text-foreground-muted">{{ data.waiting_count }} {% translate "waiting" %}</span>
-                {% endif %}
-            {% elif data.is_unlimited %}
-                <span class="text-xs font-semibold text-teal-700 dark:text-teal-400">{% translate "Open" %}</span>
-            {% else %}
-                <span class="text-xs font-semibold {% if data.spots_scarce %}text-coral-600 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
-                    {% blocktranslate count counter=data.spots_left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
-                </span>
-            {% endif %}
-            {% if data.enrolled_count > 0 %}
-                <span class="inline-flex items-center gap-1 text-xs tabular-nums text-foreground-muted"
-                      title="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
-                    {% icon "users" class="size-3.5 opacity-80" variant="mini" %}{{ data.enrolled_count }}
-                </span>
-            {% endif %}
-        </div>
+            </span>
+        </span>
+        {% if data.enrolled_count > 0 %}
+            <span class="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-foreground-muted"
+                  title="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
+                {% icon "users" class="size-3.5 opacity-80" variant="mini" %}{{ data.enrolled_count }}
+            </span>
+        {% endif %}
+        <span class="shrink-0 whitespace-nowrap text-right text-xs">
+            {% include "chronology/_session_availability.html" %}
+        </span>
         {# Bookmark toggle — the lightweight "I want to attend" gesture. Sits #}
         {# above the row's stretched link (z-20 + pointer-events-auto) so a tap #}
         {# toggles the bookmark instead of opening the detail modal. #}
         {% if current_user %}
             <button type="button"
-                    class="bookmark-toggle icon-btn relative z-20 shrink-0 self-center pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
+                    class="bookmark-toggle icon-btn icon-btn-clear relative z-20 shrink-0 self-center pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
                     data-session-id="{{ data.session.pk }}"
                     aria-pressed="{% if data.user_bookmarked %}true{% else %}false{% endif %}">
                 {% if data.user_bookmarked %}
