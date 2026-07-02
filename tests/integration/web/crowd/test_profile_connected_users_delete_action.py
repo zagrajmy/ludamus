@@ -20,7 +20,7 @@ class TestProfileConnectedUserDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Connected user deleted successfully.")],
-            url=reverse("web:crowd:profile-connected-users"),
+            url=reverse("web:crowd:profile-parties"),
         )
 
         assert not User.objects.filter(pk=connected_user.pk).exists()

@@ -52,8 +52,15 @@ from ludamus.adapters.web.django.entities import (
     SessionData,
     SessionUserParticipationData,
     build_display_field_row,
+    build_room_lanes,
+    build_schedule_days,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
+from ludamus.gates.web.django.crowd.helpers import (
+    COMPANION_CREATE_AUTO_ID,
+    build_parties_context,
+    companion_edit_auto_id,
+)
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -79,7 +86,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import UserData, UserDTO
+from ludamus.pacts.crowd import ClaimOutcome, ConnectedUserDTO, UserData, UserDTO
 
 from .design_fixtures import (
     mock_event_info,
@@ -98,10 +105,11 @@ from .forms import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.party import EnrollmentPartiesDTO
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-
     from django.db.models.query import QuerySet
 
 MINIMUM_ALLOWED_USER_AGE = 16
@@ -154,7 +162,7 @@ class Auth0LoginActionView(View):
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
             login_url = (
-                f'{request.scheme}://{root_domain}{reverse("web:crowd:auth0:login")}'
+                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:login')}"
             )
             url = (
                 f"{login_url}?{urlencode({'next': next_path})}"
@@ -269,7 +277,7 @@ class Auth0LoginCallbackActionView(RedirectView):
             if redirect_to:
                 parsed = urlparse(redirect_to)
                 return (
-                    f'{parsed.scheme}://{parsed.netloc}{reverse("web:crowd:profile")}'
+                    f"{parsed.scheme}://{parsed.netloc}{reverse('web:crowd:profile')}"
                 )
             return self.request.build_absolute_uri(reverse("web:crowd:profile"))
 
@@ -310,6 +318,8 @@ class Auth0LoginCallbackActionView(RedirectView):
         return redirect_to
 
     def _get_or_create_user(self, userinfo: Auth0UserInfo) -> UserDTO:
+        if claimed := self._redeem_pending_claim(userinfo):
+            return claimed
         try:
             return self.request.di.uow.active_users.read_by_username(userinfo.username)
         except NotFoundError:
@@ -322,6 +332,27 @@ class Auth0LoginCallbackActionView(RedirectView):
                 create_data["email"] = ""
             self.request.di.uow.active_users.create(create_data)
             return self.request.di.uow.active_users.read_by_username(userinfo.username)
+
+    def _redeem_pending_claim(self, userinfo: Auth0UserInfo) -> UserDTO | None:
+        if not (token := self.request.session.pop("pending_claim_token", "")):
+            return None
+        result = self.request.services.claims.redeem(
+            token=token, username=userinfo.username
+        )
+        if result.outcome == ClaimOutcome.CONVERTED:
+            messages.success(
+                self.request, _("Profile claimed — it is now your own account.")
+            )
+            return self.request.di.uow.active_users.read(result.user_slug)
+        if result.outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
+            messages.info(
+                self.request,
+                _(
+                    "You already have an account, so this profile can't be moved "
+                    "into it. Ask the person who invited you to enroll you directly."
+                ),
+            )
+        return None
 
     def _apply_user_updates(self, userinfo: Auth0UserInfo, user: UserDTO) -> UserDTO:
         if update_data := userinfo.to_update_data(user):
@@ -400,7 +431,7 @@ def _auth0_logout_url(
     return f"https://{settings.AUTH0_DOMAIN}/v2/logout?" + urlencode(
         {
             "returnTo": (
-                f'{request.scheme}://{root_domain}{reverse("web:crowd:auth0:logout-redirect")}?last_domain={last_domain}&redirect_to={redirect_to}'
+                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:logout-redirect')}?last_domain={last_domain}&redirect_to={redirect_to}"
             ),
             "client_id": settings.AUTH0_CLIENT_ID,
         },
@@ -632,24 +663,23 @@ class ProfileConnectedUsersPageView(
     form_class = ConnectedUserForm
     object: UserDTO
     request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-connected-users")
-    template_name = "crowd/user/connected.html"
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name = "crowd/user/parties.html"
     template_name_suffix = "_form"
 
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        # The page moved to the parties tab; this endpoint keeps handling the
+        # add-companion POST.
+        _ = (request, args, kwargs)  # Django View dispatch
+        return redirect(self.get_success_url())
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {"auto_id": COMPANION_CREATE_AUTO_ID}
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        connected_users = [
-            {
-                "user": connected,
-                "form": ConnectedUserForm(initial=connected.model_dump()),
-            }
-            for connected in self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            )
-        ]
-        context["connected_users"] = connected_users
-        context["max_connected_users"] = MAX_CONNECTED_USERS
-        return context
+        context = build_parties_context(self.request, create_form=kwargs.get("form"))
+        context.update(kwargs)
+        return super().get_context_data(**context)
 
     def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
         # Check if user has reached the maximum number of connected users
@@ -689,11 +719,10 @@ class ProfileConnectedUserUpdateActionView(
     ContextMixin,
     ProcessFormView,
 ):
-
     form_class = ConnectedUserForm
     request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-connected-users")
-    template_name = "crowd/user/connected.html"
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name = "crowd/user/parties.html"
     template_name_suffix = "_form"
 
     def get_object(self) -> UserDTO:
@@ -701,21 +730,15 @@ class ProfileConnectedUserUpdateActionView(
             self.request.context.current_user_slug, self.kwargs["slug"]
         )
 
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = {
-            "user": self.get_object(),
-            "object": self.get_object(),
-            "max_connected_users": MAX_CONNECTED_USERS,
-            "connected_users": [
-                {
-                    "user": connected,
-                    "form": ConnectedUserForm(initial=connected.model_dump()),
-                }
-                for connected in self.request.di.uow.connected_users.read_all(
-                    self.request.context.current_user_slug
-                )
-            ],
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {
+            "auto_id": companion_edit_auto_id(self.kwargs["slug"])
         }
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = build_parties_context(
+            self.request, edit_slug=self.kwargs["slug"], edit_form=kwargs.get("form")
+        )
         context.update(kwargs)
         return super().get_context_data(**context)
 
@@ -749,7 +772,7 @@ class ProfileConnectedUserDeleteActionView(
     request: AuthenticatedRootRequest
     slug_field = "slug"
     slug_url_kwarg = "slug"
-    success_url = reverse_lazy("web:crowd:profile-connected-users")
+    success_url = reverse_lazy("web:crowd:profile-parties")
     template_name_suffix = "_confirm_delete"
 
     def form_valid(self, form: forms.Form) -> HttpResponseRedirect:  # noqa: ARG002
@@ -759,6 +782,62 @@ class ProfileConnectedUserDeleteActionView(
         )
         messages.success(self.request, _("Connected user deleted successfully."))
         return HttpResponseRedirect(success_url)
+
+
+class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
+    # POST: mint a share link that lets a connected person take over their
+    # profile as their own self-login account.
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, slug: str) -> HttpResponse:
+        token = request.services.claims.issue(
+            manager_slug=request.context.current_user_slug, user_slug=slug
+        )
+        if token is None:
+            messages.error(request, _("Could not create a claim link for this person."))
+        else:
+            messages.success(request, _("Claim link created."))
+        return redirect("web:crowd:profile-parties")
+
+
+class ClaimPageView(View):
+    # Landing page for a claim link. The recipient signs in via Auth0 and the
+    # managed row becomes their own account.
+    @staticmethod
+    def _reject_invalid_link(request: RootRequest) -> HttpResponse:
+        messages.error(
+            request, _("This claim link is invalid or has already been used.")
+        )
+        return redirect("web:index")
+
+    @staticmethod
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        if request.context.current_user_slug:
+            messages.info(
+                request,
+                _(
+                    "You're already signed in. Log out first to claim this "
+                    "profile into a new account."
+                ),
+            )
+            return redirect("web:index")
+        if (claimable := request.services.claims.read_claimable(token)) is None:
+            return ClaimPageView._reject_invalid_link(request)
+        return TemplateResponse(
+            request, "crowd/claim.html", {"claimable": claimable, "token": token}
+        )
+
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        if request.context.current_user_slug:
+            return redirect("web:index")
+        if request.services.claims.read_claimable(token) is None:
+            return ClaimPageView._reject_invalid_link(request)
+        request.session["pending_claim_token"] = token
+        login_url = reverse("web:crowd:auth0:login")
+        next_url = reverse("web:crowd:profile")
+        return redirect(f"{login_url}?{urlencode({'next': next_url})}")
 
 
 class ProfileAvatarPageView(LoginRequiredMixin, View):
@@ -864,6 +943,13 @@ def _field_value_dtos_from_models(
     )
 
 
+# Above this many scheduled sessions, the card grid becomes unwieldy and the
+# event page switches to the compact schedule (a dense chronological list with
+# an hour scrubber). Tunable; not a business invariant, so it lives here rather
+# than in specs.
+COMPACT_SCHEDULE_MIN_SESSIONS = 60
+
+
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -900,8 +986,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             )
             .prefetch_related(
                 "tags__category",
-                "session_participations__user__manager",
-                "session_participations__user__connected",
+                "session_participations__user",
                 "field_values__field",
                 "event__enrollment_configs",
             )
@@ -952,36 +1037,42 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 sid: fake_full_card(data) for sid, data in sessions_data.items()
             }
 
-        current_time = datetime.now(tz=UTC)
-        ended_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
-        current_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
-        future_unavailable_hour_data: dict[datetime, list[SessionData]] = defaultdict(
-            list
-        )
+        compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
 
-        for session_data in sessions_data.values():
-            session_end_time = session_data.agenda_item.end_time
-            session_start_time = session_data.agenda_item.start_time
-            hour_key = session_start_time
-            # Check if session has ended
-            if session_end_time <= current_time:
-                ended_hour_data[hour_key].append(session_data)
-            elif (
-                not session_data.is_enrollment_available
-                and session_start_time > current_time
-            ):
-                future_unavailable_hour_data[hour_key].append(session_data)
-            else:
-                # Current sessions (available for enrollment or in progress)
-                current_hour_data[hour_key].append(session_data)
+        if compact_schedule and current_user_id:
+            self._set_user_bookmarks(sessions_data, current_user_id)
+
+        # The ended/current/future grouping only feeds the card-grid layout;
+        # the compact schedule renders from schedule_days instead, so skip the
+        # pass there but keep the context keys (tests enumerate them exactly).
+        ended_hour_data: dict[datetime, list[SessionData]] = {}
+        current_hour_data: dict[datetime, list[SessionData]] = {}
+        future_unavailable_hour_data: dict[datetime, list[SessionData]] = {}
+        if not compact_schedule:
+            ended_hour_data, current_hour_data, future_unavailable_hour_data = (
+                self._group_sessions_by_state(sessions_data)
+            )
+
+        schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
+        # The compact schedule offers two layouts: the chronological ledger
+        # (default) and a rooms grid (?view=rooms) with a column per room.
+        rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
+        event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
 
         context.update(
             {
                 "hour_data": hour_data,  # Keep original for backward compatibility
                 "sessions": list(sessions_data.values()),
-                "ended_hour_data": dict(ended_hour_data),
-                "current_hour_data": dict(current_hour_data),
-                "future_unavailable_hour_data": dict(future_unavailable_hour_data),
+                "compact_schedule": compact_schedule,
+                "schedule_days": schedule_days,
+                "schedule_view_is_list": not rooms_view,
+                "schedule_view_is_rooms": rooms_view,
+                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
+                "schedule_list_url": event_url,
+                "schedule_rooms_url": f"{event_url}?view=rooms",
+                "ended_hour_data": ended_hour_data,
+                "current_hour_data": current_hour_data,
+                "future_unavailable_hour_data": future_unavailable_hour_data,
                 "total_enrolled": sum(s.enrolled_count for s in sessions_data.values()),
                 "user_enrolled_sessions": [
                     s for s in sessions_data.values() if s.user_enrolled
@@ -1195,6 +1286,44 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                             SessionParticipationStatus.WAITING in statuses
                         )
 
+    @staticmethod
+    def _group_sessions_by_state(
+        sessions_data: dict[int, SessionData],
+    ) -> tuple[
+        dict[datetime, list[SessionData]],
+        dict[datetime, list[SessionData]],
+        dict[datetime, list[SessionData]],
+    ]:
+        current_time = datetime.now(tz=UTC)
+        ended: dict[datetime, list[SessionData]] = defaultdict(list)
+        current: dict[datetime, list[SessionData]] = defaultdict(list)
+        future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
+        for session_data in sessions_data.values():
+            session_start_time = session_data.agenda_item.start_time
+            hour_key = session_start_time
+            if session_data.agenda_item.end_time <= current_time:
+                ended[hour_key].append(session_data)
+            elif (
+                not session_data.is_enrollment_available
+                and session_start_time > current_time
+            ):
+                future_unavailable[hour_key].append(session_data)
+            else:
+                # Current sessions (available for enrollment or in progress)
+                current[hour_key].append(session_data)
+        return dict(ended), dict(current), dict(future_unavailable)
+
+    def _set_user_bookmarks(
+        self, sessions_data: dict[int, SessionData], current_user_id: int
+    ) -> None:
+        # Bookmarks are only surfaced on the compact schedule (the lightweight
+        # "I want to attend" gesture for big events). One query for the whole set.
+        bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
+            user_id=current_user_id, event_id=self.object.pk
+        )
+        for sid, data in sessions_data.items():
+            data.user_bookmarked = sid in bookmarked_ids
+
     def _get_hour_data(
         self,
         event_sessions: QuerySet[Session],
@@ -1297,8 +1426,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
             session_start = session_data.agenda_item.start_time
 
-            # Calculate if session is ongoing (has already started)
+            # Calculate if session is ongoing (has already started) or fully over
             session_data.is_ongoing = session_start <= current_time
+            session_data.is_ended = session_data.agenda_item.end_time <= current_time
 
             # Mark sessions as inactive for display based on limit_to_end_time rules
             if limit_configs and earliest_limit_end_time and session_data.is_ongoing:
@@ -1437,33 +1567,58 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
-
-        context = {
-            "session": session,
-            "event": session.event,
-            "connected_users": self.request.di.uow.connected_users.read_all(
+        selection = self._party_selection(session, request.GET.get("party"))
+        form = create_enrollment_form(
+            session=session,
+            current_user=self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            "user_data": self._get_user_participation_data(session),
+            connected_users=selection.companions,
+            enrollment_config_repo=request.di.uow.enrollment_configs,
+            ticket_api=request.di.ticket_api,
+        )()
+
+        return TemplateResponse(
+            request,
+            "chronology/enroll_select.html",
+            self._page_context(session=session, selection=selection, form=form),
+        )
+
+    def _party_selection(
+        self, session: Session, requested: str | None
+    ) -> EnrollmentPartiesDTO:
+        selection = self.request.services.parties.enrollment_selection(
+            viewer_pk=self.request.context.current_user_id, requested_party=requested
+        )
+        if selection.requested_invalid:
+            raise RedirectError(
+                reverse(
+                    "web:chronology:session-enrollment",
+                    kwargs={"event_slug": session.event.slug, "session_id": session.pk},
+                ),
+                error=_("Choose one of your parties or enroll by yourself."),
+            )
+        return selection
+
+    def _page_context(
+        self, *, session: Session, selection: EnrollmentPartiesDTO, form: forms.Form
+    ) -> dict[str, Any]:
+        return {
+            "session": session,
+            "event": session.event,
+            "party_choices": selection.choices,
+            "selected_party": selection.selected,
+            "connected_users": selection.companions,
+            "user_data": self._get_user_participation_data(
+                session, selection.companions
+            ),
             # Frontload the decision: warn the viewer up top if players they
             # shadowbanned are already signed up to this session.
-            "shadowban_warnings": request.services.shadowban.list_session_warnings(
-                viewer_id=request.context.current_user_id, session_id=session.pk
+            "shadowban_warnings": self.request.services.shadowban.list_session_warnings(
+                viewer_id=self.request.context.current_user_id, session_id=session.pk
             ),
-            "form": create_enrollment_form(
-                session=session,
-                current_user=self.request.di.uow.active_users.read(
-                    self.request.context.current_user_slug
-                ),
-                connected_users=self.request.di.uow.connected_users.read_all(
-                    self.request.context.current_user_slug
-                ),
-                enrollment_config_repo=request.di.uow.enrollment_configs,
-                ticket_api=request.di.ticket_api,
-            )(),
+            "form": form,
         }
-
-        return TemplateResponse(request, "chronology/enroll_select.html", context)
 
     @staticmethod
     def _validate_request(
@@ -1495,18 +1650,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return enrollment_config
 
     def _get_user_participation_data(
-        self, session: Session
+        self, session: Session, companions: list[ConnectedUserDTO]
     ) -> list[SessionUserParticipationData]:
         user_data: list[SessionUserParticipationData] = []
 
-        # Get all connected users with proper prefetching
         all_users = [
             self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            *self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
+            *companions,
         ]
 
         # Bulk fetch all participations for the event and users
@@ -1552,6 +1704,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
+        selection = self._party_selection(session, request.POST.get("party"))
+        companions = selection.companions
 
         # Initialize form with POST data
         form_class = create_enrollment_form(
@@ -1559,9 +1713,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             current_user=self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            connected_users=self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
+            connected_users=companions,
             enrollment_config_repo=request.di.uow.enrollment_configs,
             ticket_api=request.di.ticket_api,
         )
@@ -1616,40 +1768,32 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return TemplateResponse(
                 request,
                 "chronology/enroll_select.html",
-                {
-                    "session": session,
-                    "event": session.event,
-                    "connected_users": self.request.di.uow.connected_users.read_all(
-                        self.request.context.current_user_slug
-                    ),
-                    "user_data": self._get_user_participation_data(session),
-                    "shadowban_warnings": (
-                        request.services.shadowban.list_session_warnings(
-                            viewer_id=request.context.current_user_id,
-                            session_id=session.pk,
-                        )
-                    ),
-                    "form": form,
-                },
+                self._page_context(session=session, selection=selection, form=form),
             )
 
         # Only validate enrollment requirements when form is valid
-        enrollment_requests = self._get_enrollment_requests(form)
+        enrollment_requests = self._get_enrollment_requests(form, companions)
         enrollment_config = self._validate_request(session, enrollment_requests)
 
-        self._manage_enrollments(form, session, enrollment_config)
+        self._manage_enrollments(
+            form=form,
+            session=session,
+            enrollment_config=enrollment_config,
+            companions=companions,
+            party_pk=selection.selected.pk if selection.selected else None,
+        )
 
         return redirect("web:chronology:event", slug=session.event.slug)
 
-    def _get_enrollment_requests(self, form: forms.Form) -> list[EnrollmentRequest]:
+    def _get_enrollment_requests(
+        self, form: forms.Form, companions: list[ConnectedUserDTO]
+    ) -> list[EnrollmentRequest]:
         enrollment_requests = []
         for user in (
             self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            *self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
+            *companions,
         ):
             # Skip inactive users
             if not user.is_active:
@@ -1666,9 +1810,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     def _process_enrollments(
         self,
+        *,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
         enrollment_config: EnrollmentConfig,
+        party_pk: int | None,
     ) -> Enrollments:
         enrollments = Enrollments()
 
@@ -1705,7 +1851,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self._handle_cancellation(req, participations, enrollments)
             else:
                 self._check_and_create_enrollment(
-                    req, session, enrollments, shadowbanned_ids
+                    req=req,
+                    session=session,
+                    enrollments=enrollments,
+                    shadowbanned_ids=shadowbanned_ids,
+                    party_pk=party_pk,
                 )
         return enrollments
 
@@ -1735,10 +1885,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def _check_and_create_enrollment(
+        *,
         req: EnrollmentRequest,
         session: Session,
         enrollments: Enrollments,
         shadowbanned_ids: set[int],
+        party_pk: int | None,
     ) -> None:
         # Check if user is the session presenter
         if session.presenter_id and req.user.pk == session.presenter_id:
@@ -1771,6 +1923,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             participation = SessionParticipation(session=session, user_id=req.user.pk)
 
         participation.status = _status_by_choice[req.choice]
+        # The latest submit's grouping intent wins: this seat promotes with the
+        # party it was (re-)enrolled through.
+        participation.party_id = party_pk
         participation.save()
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
@@ -1839,12 +1994,21 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return False
 
     def _manage_enrollments(
-        self, form: forms.Form, session: Session, enrollment_config: EnrollmentConfig
+        self,
+        *,
+        form: forms.Form,
+        session: Session,
+        enrollment_config: EnrollmentConfig,
+        companions: list[ConnectedUserDTO],
+        party_pk: int | None,
     ) -> None:
-        if enrollment_requests := self._get_enrollment_requests(form):
+        if enrollment_requests := self._get_enrollment_requests(form, companions):
             with transaction.atomic():
                 enrollments = self._process_enrollments(
-                    enrollment_requests, session, enrollment_config
+                    enrollment_requests=enrollment_requests,
+                    session=session,
+                    enrollment_config=enrollment_config,
+                    party_pk=party_pk,
                 )
 
             # T1: a freed seat promotes/offers the next waiter (who is notified

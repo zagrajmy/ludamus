@@ -2,6 +2,7 @@ from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
+from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -31,6 +32,7 @@ auth0_urls = [
 ]
 
 crowd_urls: list[URLPattern | URLResolver] = [
+    *crowd_gate_urls,
     path("auth0/", include((auth0_urls, "auth0"), namespace="auth0")),
     path(
         "login-required/", views.LoginRequiredPageView.as_view(), name="login-required"
@@ -59,6 +61,12 @@ crowd_urls: list[URLPattern | URLResolver] = [
         views.ProfileConnectedUserDeleteActionView.as_view(),
         name="profile-connected-users-delete",
     ),
+    path(
+        "profile/connected-users/<str:slug>/do/claim-link",
+        views.ProfileConnectedUserClaimLinkActionView.as_view(),
+        name="profile-connected-users-claim-link",
+    ),
+    path("claim/<str:token>/", views.ClaimPageView.as_view(), name="claim"),
 ]
 
 chronology_urls = [

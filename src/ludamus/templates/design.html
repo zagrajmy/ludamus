@@ -190,10 +190,10 @@
     <code class="absolute top-3 left-3 text-xs text-foreground-muted">chronology/_session_card.html</code>
     <div class="session-grid w-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {% if design_session_data %}
-            {% include "chronology/_session_card.html" with data=design_session_data ended=False %}
+            {% include "chronology/_session_card.html" with data=design_session_data %}
         {% endif %}
         {% if design_session_data_ended %}
-            {% include "chronology/_session_card.html" with data=design_session_data_ended ended=True %}
+            {% include "chronology/_session_card.html" with data=design_session_data_ended %}
         {% endif %}
     </div>
 </div>

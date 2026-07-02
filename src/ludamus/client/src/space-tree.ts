@@ -45,7 +45,8 @@ const moveNode = (li: HTMLElement, direction: -1 | 1): void => {
   const siblings = directChildren(list);
   const target = siblings[siblings.indexOf(li) + direction];
   if (!target) return;
-  list.insertBefore(li, direction === -1 ? target : target.nextSibling);
+  if (direction === -1) target.before(li);
+  else target.after(li);
   void saveOrder(list);
 };
 
@@ -76,7 +77,8 @@ const wireDrag = (list: HTMLElement): void => {
     event.preventDefault();
     const rect = target.getBoundingClientRect();
     const before = event.clientY < rect.top + rect.height / 2;
-    list.insertBefore(dragged, before ? target : target.nextSibling);
+    if (before) target.before(dragged);
+    else target.after(dragged);
   });
 };
 

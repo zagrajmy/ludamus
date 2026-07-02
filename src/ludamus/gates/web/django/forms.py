@@ -147,6 +147,14 @@ class EventSettingsForm(forms.Form):
             "When off, sessions without uploaded images are shown as text-only cards."
         ),
     )
+    use_participants_label = forms.BooleanField(
+        required=False,
+        label=_('Label the attendee count "Participants" instead of "Players"'),
+        help_text=_(
+            "Turn on for non-gaming events so the public page counts participants "
+            "rather than players."
+        ),
+    )
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

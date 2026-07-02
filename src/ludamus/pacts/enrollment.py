@@ -6,11 +6,14 @@ promotion / offer-lifecycle decisions stay unit-testable with fakes.
 """
 
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import PromotionMode
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
 # integer comparison in the pure selection invariant.
@@ -22,24 +25,36 @@ class WaitingParticipantDTO(BaseModel):
 
     participation_id: int
     user_id: int
-    # Effective manager for guardian-managed minors; None for a lone adult.
-    manager_id: int | None
+    # Party this seat was enrolled through; None for solo/legacy rows.
+    party_id: int | None = None
+    # Party leader sponsoring a login-less companion; None for a self-owned
+    # account (a real user always spends their own allowance).
+    sponsor_id: int | None
     full_name: str
     email: str
     creation_time: datetime
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool
-    # Remaining distinct-user membership slots for this participant's manager
-    # (or self) in the event; UNLIMITED_SLOTS when no limit applies.
-    manager_slots_remaining: int
-    # Who is told about the seat — the managing guardian for a minor, otherwise
-    # the participant themselves. Shared across a party.
+    # Remaining distinct-user membership slots for this participant's slot
+    # owner in the event; UNLIMITED_SLOTS when no limit applies.
+    owner_slots_remaining: int
+    # Who is told about the seat — the sponsoring leader for a login-less
+    # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
     recipient_email: str
 
     @property
-    def effective_manager_id(self) -> int:
-        return self.manager_id if self.manager_id is not None else self.user_id
+    def effective_slot_owner(self) -> int:
+        return self.sponsor_id if self.sponsor_id is not None else self.user_id
+
+    @property
+    def promotion_group_key(self) -> tuple[str, int]:
+        # Seats enrolled through a party promote as that party; everything else
+        # falls back to grouping by slot owner (a leader plus the companions
+        # they enrolled without choosing a party still move together).
+        if self.party_id is not None:
+            return ("party", self.party_id)
+        return ("owner", self.effective_slot_owner)
 
 
 class PromotionStateDTO(BaseModel):
@@ -56,6 +71,28 @@ class PromotionStateDTO(BaseModel):
     waiting: list[WaitingParticipantDTO]
 
 
+class OfferRecipientDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    email: str
+
+
+def distinct_recipients(
+    candidates: Iterable[tuple[int, str]],
+) -> list[OfferRecipientDTO]:
+    # One message per person, first mention wins: a party of real co-members
+    # hears about its seats individually, while a leader sponsoring several
+    # login-less companions still gets a single message.
+    recipients: list[OfferRecipientDTO] = []
+    seen: set[int] = set()
+    for user_id, email in candidates:
+        if user_id not in seen:
+            seen.add(user_id)
+            recipients.append(OfferRecipientDTO(user_id=user_id, email=email))
+    return recipients
+
+
 class OfferDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,8 +101,9 @@ class OfferDTO(BaseModel):
     event_slug: str
     # All participations sharing this offer (whole party).
     participant_ids: list[int]
-    recipient_user_id: int
-    recipient_email: str
+    # Everyone who should hear about this offer: each real member for
+    # themselves, the sponsoring leader for login-less companions. Distinct.
+    recipients: list[OfferRecipientDTO]
     offer_expires_at: datetime
 
 

@@ -104,7 +104,7 @@ class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "user_type", "manager", "email", "discord_username")
+    list_display = ("name", "user_type", "email", "discord_username")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 

@@ -25,6 +25,7 @@ from ludamus.pacts.enrollment import (
     OfferNotification,
     PromotionNotification,
     PromotionResult,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
+        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         UserNotifierProtocol,
@@ -58,6 +60,10 @@ def _now() -> datetime:
 
 def _token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
+    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
 
 
 class WaitlistPromotionService:
@@ -115,15 +121,15 @@ class WaitlistPromotionService:
             ids = [p.participation_id for p in party]
             self._participations.confirm(ids)
             result.promoted.extend(ids)
-            lead = party[0]
-            promotions.append(
+            promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
+                for recipient in _party_recipients(party)
             )
 
     def _offer(
@@ -143,17 +149,17 @@ class WaitlistPromotionService:
                 ids, offered_at=now, offer_expires_at=expires_at, claim_token=token
             )
             result.offered.extend(ids)
-            lead = party[0]
-            offers.append(
+            offers.extend(
                 OfferNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
+                for recipient in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
 
@@ -189,16 +195,20 @@ class WaitlistPromotionService:
             if _now() <= offer.offer_expires_at:
                 return PromotionResult()
             self._participations.drop(offer.participant_ids)
-            notification = PromotionNotification(
-                recipient_user_id=offer.recipient_user_id,
-                recipient_email=offer.recipient_email,
-                session_id=offer.session_id,
-                session_title=offer.session_title,
-                event_slug=offer.event_slug,
-            )
+            notifications = [
+                PromotionNotification(
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
+                    session_id=offer.session_id,
+                    session_title=offer.session_title,
+                    event_slug=offer.event_slug,
+                )
+                for recipient in offer.recipients
+            ]
             session_id = offer.session_id
 
-        self._notifier.notify_offer_expired(notification)
+        for notification in notifications:
+            self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
 
 

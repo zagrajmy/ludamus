@@ -4,11 +4,16 @@ Tools are thin adapters over `ServicesProtocol`: validate a pydantic input,
 call a service, return the resulting DTO(s) as JSON text. The registry is the
 single source of truth for what an MCP client can see and call; transports
 (the HTTP endpoint today) stay dumb.
+
+Every tool carries a `ToolScope`, and an endpoint builds its registry from
+only its tier's tools — the security boundary between tiers is filtering at
+wiring time, not per-call policy checks.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ValidationError
@@ -16,6 +21,7 @@ from pydantic import BaseModel, ValidationError
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from ludamus.pacts.mcp import ActorContext, ToolScope
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -27,12 +33,26 @@ class UnknownToolError(Exception):
     pass
 
 
+@dataclass(frozen=True, slots=True)
+class ToolCall[InputT: BaseModel]:
+    services: ServicesProtocol
+    actor: ActorContext
+    data: InputT
+
+
 class ToolProtocol(Protocol):
     name: str
     description: str
+    scope: ToolScope
 
     def input_schema(self) -> dict[str, object]: ...
-    def run(self, services: ServicesProtocol, arguments: dict[str, object]) -> str: ...
+    def run(
+        self,
+        *,
+        services: ServicesProtocol,
+        actor: ActorContext,
+        arguments: dict[str, object],
+    ) -> str: ...
 
 
 class Tool[InputT: BaseModel](ToolProtocol, ABC):
@@ -41,17 +61,30 @@ class Tool[InputT: BaseModel](ToolProtocol, ABC):
     def input_schema(self) -> dict[str, object]:
         return self.input_model.model_json_schema()
 
-    def run(self, services: ServicesProtocol, arguments: dict[str, object]) -> str:
+    def run(
+        self,
+        *,
+        services: ServicesProtocol,
+        actor: ActorContext,
+        arguments: dict[str, object],
+    ) -> str:
         try:
             data = self.input_model.model_validate(arguments)
         except ValidationError as error:
-            message = f"Invalid arguments: {error}"
+            # Built from structured error fields, not str(error): the raw
+            # pydantic text echoes input values and must not reach clients.
+            details = "; ".join(
+                f"{'.'.join(str(part) for part in item['loc']) or 'arguments'}: "
+                f"{item['msg']}"
+                for item in error.errors()
+            )
+            message = f"Invalid arguments: {details}"
             raise ToolError(message) from error
-        return self.handle(services, data)
+        return self.handle(ToolCall(services=services, actor=actor, data=data))
 
     @staticmethod
     @abstractmethod
-    def handle(services: ServicesProtocol, data: InputT) -> str: ...
+    def handle(call: ToolCall[InputT]) -> str: ...
 
 
 class ToolRegistry:
@@ -69,8 +102,15 @@ class ToolRegistry:
         ]
 
     def call(
-        self, *, services: ServicesProtocol, name: str, arguments: dict[str, object]
+        self,
+        *,
+        services: ServicesProtocol,
+        actor: ActorContext,
+        name: str,
+        arguments: dict[str, object],
     ) -> str:
         if name not in self._tools:
             raise UnknownToolError(name)
-        return self._tools[name].run(services, arguments)
+        return self._tools[name].run(
+            services=services, actor=actor, arguments=arguments
+        )

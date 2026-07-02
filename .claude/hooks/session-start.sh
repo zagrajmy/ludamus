@@ -31,8 +31,13 @@ fi
 # python, markdownlint-cli2, ...) on PATH for every shell in the session, so
 # tools resolve directly instead of needing `mise exec`/activation per command.
 # Persisted for the session via CLAUDE_ENV_FILE.
+#
+# PREPEND, don't append: mise inserts its managed paths (incl. the .venv
+# activation from `_.python.venv`) at the shims' position in PATH. Appended
+# shims put the venv after the container's bare /usr/local/bin/python, and
+# every `mise run` task fails with "No module named 'django'".
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo "export PATH=\"\$PATH:$HOME/.local/share/mise/shims\"" >> "$CLAUDE_ENV_FILE"
+  echo "export PATH=\"$HOME/.local/share/mise/shims:\$PATH\"" >> "$CLAUDE_ENV_FILE"
 fi
 
 # Installs are best-effort: a blocked dependency (e.g. a registry trust gate)

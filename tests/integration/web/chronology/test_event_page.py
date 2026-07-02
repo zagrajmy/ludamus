@@ -16,6 +16,7 @@ from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
     EnrollmentConfig,
     EventSettings,
+    SessionBookmark,
     SessionField,
     SessionFieldValue,
     SessionParticipation,
@@ -44,9 +45,26 @@ from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
+    SpaceFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
+
+
+def _schedule_context(url: str) -> dict[str, object]:
+    # The compact-schedule context keys shared by every card-layout response;
+    # splatted into the exact-equality context assertions so adding a key is a
+    # one-line change instead of a 36-site sweep.
+    return {
+        "compact_schedule": False,
+        "schedule_days": [],
+        "schedule_view_is_list": True,
+        "schedule_view_is_rooms": False,
+        "room_lane_days": [],
+        "schedule_list_url": url,
+        "schedule_rooms_url": f"{url}?view=rooms",
+    }
+
 
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
@@ -82,6 +100,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -89,6 +108,338 @@ class TestEventPageView:
             contains="Upcoming",
             not_contains="Enrollment Open",
         )
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_participants_label_toggle(self, client, event):
+        response_default = client.get(self._get_url(event.slug))
+        content_default = response_default.content.decode()
+
+        event.use_participants_label = True
+        event.save()
+        response_toggled = client.get(self._get_url(event.slug))
+        content_toggled = response_toggled.content.decode()
+
+        assert response_default.status_code == HTTPStatus.OK
+        assert response_toggled.status_code == HTTPStatus.OK
+        # "Players" only appears as the header count label; "Participants" also
+        # names a session-modal tab, so a bare presence check would always pass.
+        # Compare its count across the toggle instead.
+        assert "Players" in content_default
+        assert "Players" not in content_toggled
+        assert content_toggled.count("Participants") > content_default.count(
+            "Participants"
+        )
+
+    def test_ok_compact_schedule_for_big_event(
+        self, agenda_item, client, event, monkeypatch
+    ):
+        # Drop the threshold so a single scheduled session flips the page to the
+        # compact list + hour scrubber instead of the card grid.
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["compact_schedule"] is True
+        [day] = response.context_data["schedule_days"]
+        [hour] = day.hours
+        # Sections bucket whole local-clock hours, not exact start times.
+        assert hour.start == timezone.localtime(agenda_item.start_time).replace(
+            minute=0, second=0, microsecond=0
+        )
+        assert [data.session.pk for data in hour.sessions] == [agenda_item.session.pk]
+        content = response.content.decode()
+        assert "schedule-rail" in content
+        assert 'data-rail-hour="' in content
+        assert f"?session={agenda_item.session.pk}" in content
+        # The compact list replaces the multi-column card grid.
+        assert "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" not in content
+
+    def test_ok_compact_schedule_marks_bookmarked_session(
+        self, agenda_item, active_user, authenticated_client, event, monkeypatch, space
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+        SessionBookmark.objects.create(user=active_user, session=agenda_item.session)
+        # A second, un-bookmarked session renders the inactive toggle state.
+        AgendaItemFactory(
+            session=SessionFactory(event=event, category=None), space=space
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'data-bookmarked="true"' in content
+        assert 'aria-pressed="true"' in content
+        assert 'data-bookmarked="false"' in content
+        assert 'aria-pressed="false"' in content
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_compact_schedule_omits_not_available_label(
+        self, client, event, monkeypatch
+    ):
+        # The session has no active enrollment config, so it is not available.
+        # On the compact layout that must render as blank, not a repeated label.
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Not Available" not in response.content.decode()
+
+    def test_ok_compact_schedule_renders_all_row_variants(
+        self, client, event, space, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+        now = timezone.now()
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=100,
+        )
+        # A limit_to_end_time config marks ongoing sessions as "In Progress".
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=100,
+            limit_to_end_time=True,
+        )
+        # Two full days out so the local-date grouping can never collide with
+        # the ended/ongoing sessions, whatever the wall clock is at test time.
+        day_one = (now + timedelta(days=2)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        )
+
+        def scheduled(*, start, end, **session_kwargs):
+            session = SessionFactory(event=event, category=None, **session_kwargs)
+            AgendaItemFactory(
+                session=session, space=space, start_time=start, end_time=end
+            )
+            return session
+
+        plenty = scheduled(
+            start=day_one,
+            end=day_one + timedelta(hours=2),
+            participants_limit=10,
+            min_age=16,
+            duration="PT2H",
+        )
+        # Same slot as `plenty` — covers the append-to-existing-hour branch.
+        scarce = scheduled(
+            start=day_one,
+            end=day_one + timedelta(hours=1),
+            participants_limit=5,
+            min_age=0,
+        )
+        for _ in range(4):
+            SessionParticipation.objects.create(
+                session=scarce,
+                user=UserFactory(),
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+        # Second slot on the same day — covers the append-to-existing-day branch.
+        scheduled(
+            start=day_one + timedelta(hours=3),
+            end=day_one + timedelta(hours=4),
+            participants_limit=0,
+            min_age=0,
+        )
+        full = scheduled(
+            start=day_one + timedelta(days=1),
+            end=day_one + timedelta(days=1, hours=1),
+            participants_limit=2,
+            min_age=0,
+        )
+        for status in (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.WAITING,
+        ):
+            SessionParticipation.objects.create(
+                session=full, user=UserFactory(), status=status
+            )
+        scheduled(
+            start=now - timedelta(hours=3),
+            end=now - timedelta(hours=2),
+            participants_limit=4,
+            min_age=0,
+        )
+        scheduled(
+            start=now - timedelta(hours=1),
+            end=now + timedelta(hours=1),
+            participants_limit=4,
+            min_age=0,
+        )
+        game_type = SessionField.objects.create(
+            event=event,
+            name="Game Type",
+            question="Game Type",
+            slug="game-type",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+            icon="puzzle-piece",
+        )
+        SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
+        event_settings, _ = EventSettings.objects.get_or_create(event=event)
+        event_settings.displayed_session_fields.add(game_type)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        days = response.context_data["schedule_days"]
+        # The ended/ongoing sessions may straddle local midnight, so derive the
+        # expected day grouping with the same local-date rule the view uses.
+        expected_dates = sorted(
+            {
+                timezone.localtime(start).date()
+                for start in (
+                    now - timedelta(hours=3),
+                    now - timedelta(hours=1),
+                    day_one,
+                    day_one + timedelta(days=1),
+                )
+            }
+        )
+        assert [
+            timezone.localtime(day.first_start).date() for day in days
+        ] == expected_dates
+        [day_one_entry] = [
+            day
+            for day in days
+            if timezone.localtime(day.first_start).date()
+            == timezone.localtime(day_one).date()
+        ]
+        [morning_slot, afternoon_slot] = day_one_entry.hours
+        assert [s.session.pk for s in morning_slot.sessions] == [plenty.pk, scarce.pk]
+        assert afternoon_slot.start == day_one + timedelta(hours=3)
+        content = response.content.decode()
+        # The pills render inside their own spans; match with the tag boundary
+        # so e.g. the "Enrollment Open" header pill can't satisfy "Open".
+        for label in (
+            "10 spots left",
+            "1 spot left",
+            "Open",
+            "Full",
+            "Ended",
+            "In Progress",
+            "16\\+",
+        ):
+            assert re.search(rf">\s*{label}\s*<", content), label
+        assert "1 waiting" in content
+        assert "2h" in content
+        assert "4 participants enrolled" in content
+        assert content.count("data-schedule-day") == len(expected_dates)
+
+    def test_ok_compact_rooms_view(
+        self, active_user, authenticated_client, event, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+        start = (timezone.now() + timedelta(days=2)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        )
+        arena = SpaceFactory(event=event, name="Arena")
+        stage = SpaceFactory(event=event, name="Stage")
+        in_arena = SessionFactory(
+            event=event, category=None, duration="PT1H", min_age=16
+        )
+        on_stage = SessionFactory(event=event, category=None)
+        later_in_arena = SessionFactory(event=event, category=None)
+        AgendaItemFactory(
+            session=in_arena,
+            space=arena,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+        AgendaItemFactory(
+            session=on_stage,
+            space=stage,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+        AgendaItemFactory(
+            session=later_in_arena,
+            space=arena,
+            start_time=start + timedelta(hours=2),
+            end_time=start + timedelta(hours=3),
+        )
+
+        SessionBookmark.objects.create(user=active_user, session=in_arena)
+
+        response = authenticated_client.get(f"{self._get_url(event.slug)}?view=rooms")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["schedule_view_is_rooms"] is True
+        assert response.context_data["schedule_view_is_list"] is False
+        [day] = response.context_data["room_lane_days"]
+        assert day.rooms == ["Arena", "Stage"]
+        [first_row, second_row] = day.rows
+        assert [[s.session.pk for s in cell] for cell in first_row.cells] == [
+            [in_arena.pk],
+            [on_stage.pk],
+        ]
+        assert [[s.session.pk for s in cell] for cell in second_row.cells] == [
+            [later_in_arena.pk],
+            [],
+        ]
+        content = response.content.decode()
+        assert re.search(r">\s*Arena\s*</th>", content)
+        assert re.search(r">\s*Stage\s*</th>", content)
+        assert "schedule-rail" in content
+        assert f"?session={in_arena.pk}" in content
+        # Both bookmark-toggle tile states render for the authenticated viewer.
+        assert 'aria-pressed="false"' in content
+        assert 'aria-pressed="true"' in content
+        assert "1h" in content
+        assert re.search(r">\s*16\+\s*<", content)
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_ok_compact_unknown_view_falls_back_to_list(
+        self, client, event, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+        response = client.get(f"{self._get_url(event.slug)}?view=starfield")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["schedule_view_is_list"] is True
+        assert response.context_data["room_lane_days"] == []
+        assert "session-grid" in response.content.decode()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_ok_live_event_card_slot_shows_now_and_propose(
+        self, agenda_item, client, event
+    ):
+        now = timezone.now()
+        event.start_time = now - timedelta(hours=2)
+        event.end_time = now + timedelta(days=1)
+        event.proposal_start_time = now - timedelta(days=1)
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save()
+        agenda_item.start_time = now - timedelta(minutes=30)
+        agenda_item.end_time = now + timedelta(hours=1)
+        agenda_item.save()
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert re.search(r">\s*Now\s*</span>", content)
+        assert re.search(r">\s*Propose\s*</span>", content)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):
@@ -116,6 +467,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -149,6 +501,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -182,6 +535,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -245,6 +599,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -286,6 +641,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -344,7 +700,7 @@ class TestEventPageView:
         assert b"session-tags-more" in response.content
         assert b"+1" in response.content
 
-    def _add_scheduled_session(self, event, space, session_field):
+    def _add_scheduled_session(self, *, event, space, session_field):
         presenter = UserFactory()
         session = SessionFactory(
             presenter=presenter,
@@ -374,7 +730,9 @@ class TestEventPageView:
             is_public=True,
         )
         for _ in range(2):
-            self._add_scheduled_session(event, space, session_field)
+            self._add_scheduled_session(
+                event=event, space=space, session_field=session_field
+            )
         client.get(self._get_url(event.slug))
 
         with CaptureQueriesContext(connection) as small_event_queries:
@@ -382,7 +740,9 @@ class TestEventPageView:
         assert response.status_code == HTTPStatus.OK
 
         for _ in range(6):
-            self._add_scheduled_session(event, space, session_field)
+            self._add_scheduled_session(
+                event=event, space=space, session_field=session_field
+            )
 
         with CaptureQueriesContext(connection) as big_event_queries:
             response = client.get(self._get_url(event.slug))
@@ -448,6 +808,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -518,6 +879,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -617,6 +979,7 @@ class TestEventPageView:
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -677,6 +1040,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -739,6 +1103,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -811,6 +1176,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -832,6 +1198,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
+            is_ended=True,
             presenter=UserInfo.from_user_dto(
                 UserDTO.model_validate(active_user), gravatar_url=gravatar_url
             ),
@@ -868,6 +1235,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -925,6 +1293,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -958,6 +1327,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1001,6 +1371,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1035,6 +1406,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1073,6 +1445,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1110,6 +1483,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1150,6 +1524,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1237,6 +1612,7 @@ class TestEventPageView:
                 "total_enrolled": 1,
                 "user_enrolled_sessions": [session_data],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [session_data.session.title],
                 "view": ANY,
             },
@@ -1298,6 +1674,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1389,6 +1766,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
@@ -1472,6 +1850,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1558,6 +1937,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
@@ -1641,6 +2021,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
@@ -1727,6 +2108,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1808,6 +2190,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -1900,6 +2283,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
@@ -1988,6 +2372,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2079,6 +2464,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2167,6 +2553,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2259,6 +2646,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2375,6 +2763,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2462,6 +2851,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
@@ -2550,6 +2940,7 @@ class TestEventPageView:
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
                 "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
                 "user_enrolled_session_titles": [],
                 "view": ANY,
             },
