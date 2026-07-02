@@ -55,10 +55,6 @@ env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 description = "Format Python code with Black"
 run = "mise run _lint -- black src tests"
 
-[tasks.black-check]
-description = "Check Python formatting without modifying files"
-run = "mise run _lint -- black --check src tests"
-
 [tasks.codespell]
 description = "Find typos in source and test files"
 run = "mise run _lint -- codespell src tests/unit tests/integration"
@@ -79,6 +75,10 @@ run = "mise run _lint -- djlint src --lint --reformat --format-css --format-js -
 description = "Run every hk linter on all files (same steps as the git hooks)"
 run = "hk check --all"
 
+[tasks.hk-fix]
+description = "Run every hk linter on all files and apply fixes"
+run = "hk fix --all"
+
 [tasks.il]
 description = "Enforce GLIMPSE layer import rules"
 run = "mise run _lint -- lint-imports --config=pyproject.toml"
@@ -90,10 +90,6 @@ run = "mise run _lint -- mypy src"
 [tasks.pylint]
 description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
 run = "mise run _lint -- pylint src && mise run _lint -- pylint --disable=duplicate-code tests"
-
-[tasks.ruff]
-description = "Lint Python with Ruff (report only)"
-run = "mise run _lint -- ruff check src tests"
 
 [tasks.ruff-fix]
 description = "Lint Python with Ruff and auto-fix violations"
@@ -113,12 +109,9 @@ run = "python scripts/impeccable_lint.py"
 [tasks.check]
 description = "Format, lint, and fix — run all code quality tools"
 depends = [
-  "black",
-  "ruff-fix",
-  "codespell",
+  "hk-fix",
   "mypy",
   "il",
-  "djlint-format",
   "pylint",
   "vulture",
   "ast-grep",
