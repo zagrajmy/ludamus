@@ -211,6 +211,26 @@ class TestClaimRedemptionOnLogin:
         )
 
     @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    def test_spent_token_falls_through_to_normal_login(self, token_mock, client, faker):
+        sub = faker.uuid4()
+        token_mock.return_value = {"userinfo": {"sub": sub}}
+        self._arm_claim(client, "spent-or-bogus")
+        state_token = self._valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert User.objects.filter(
+            username=f"auth0|{sub}", user_type=UserType.ACTIVE
+        ).exists()
+        # No claim messages — just the ordinary fresh-account onboarding nudge.
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/profile/",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
+
+    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
     def test_refuses_when_recipient_already_has_account(
         self, token_mock, client, faker
     ):
@@ -240,6 +260,14 @@ class TestClaimRedemptionOnLogin:
 
 
 class TestClaimRepository:
+    def test_read_claimable_empty_token_matches_nothing(self):
+        # Rows without a pending claim carry claim_token="", so an empty token
+        # must short-circuit instead of matching every such row.
+        manager = _active(username="mgr", slug="mgr")
+        _connected(manager=manager, username="connected|kid")
+
+        assert ClaimRepository.read_claimable("") is None
+
     def test_read_claimable_ignores_non_connected_row(self):
         owner = _active(username="owner", slug="owner")
         owner.claim_token = "tok"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 18:47+0200\n"
+"POT-Creation-Date: 2026-07-02 03:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -731,6 +731,18 @@ msgid "Invalid authentication state"
 msgstr "Nieprawidłowy stan uwierzytelnienia"
 
 #: src/ludamus/adapters/web/django/views.py
+msgid "Profile claimed — it is now your own account."
+msgstr "Profil przejęty — to teraz Twoje własne konto."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid ""
+"You already have an account, so this profile can't be moved into it. Ask the "
+"person who invited you to enroll you directly."
+msgstr ""
+"Masz już konto, więc tego profilu nie można do niego przenieść. Poproś "
+"osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
+
+#: src/ludamus/adapters/web/django/views.py
 msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
 
@@ -775,6 +787,30 @@ msgstr "Powiązana osoba została zaktualizowana!"
 #: src/ludamus/adapters/web/django/views.py
 msgid "Connected user deleted successfully."
 msgstr "Powiązana osoba została usunięta."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Could not create a claim link for this person."
+msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid ""
+"Claim link ready. Share it with this person so they can take over their "
+"profile: %(url)s"
+msgstr ""
+"Link przejęcia gotowy. Udostępnij go tej osobie, aby mogła przejąć swój "
+"profil: %(url)s"
+
+#: src/ludamus/adapters/web/django/views.py
+msgid ""
+"You're already signed in. Log out first to claim this profile into a new "
+"account."
+msgstr ""
+"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "This claim link is invalid or has already been used."
+msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Avatar preference updated successfully!"
@@ -854,27 +890,22 @@ msgid "%(name)s (time conflict)"
 msgstr "%(name)s (konflikt czasowy)"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -895,7 +926,6 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -1187,7 +1217,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1656,7 +1685,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -3683,6 +3711,28 @@ msgstr "Widoczne na publicznej karcie punktu programu"
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
 
+#: src/ludamus/templates/crowd/claim.html
+msgid "Claim your profile"
+msgstr "Przejmij swój profil"
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Make this profile your own account"
+msgstr "Zamień ten profil na swoje własne konto"
+
+#: src/ludamus/templates/crowd/claim.html
+#, python-format
+msgid ""
+"%(manager)s created a profile for %(name)s and invited you to take it over. "
+"Sign in to turn it into your own account — your event sign-ups stay with you."
+msgstr ""
+"%(manager)s utworzył(a) profil dla osoby %(name)s i zaprosił(a) Cię do jego "
+"przejęcia. Zaloguj się, aby zamienić go na swoje własne konto — Twoje zapisy "
+"na wydarzenia zostaną zachowane."
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Sign in and claim"
+msgstr "Zaloguj się i przejmij"
+
 # Login Required Page
 #: src/ludamus/templates/crowd/login_required.html
 msgid "Login Required"
@@ -3785,11 +3835,6 @@ msgid "Your connected users"
 msgstr "Powiązane osoby"
 
 #: src/ludamus/templates/crowd/user/connected.html
-#, python-format
-msgid "Remove %(name)s from your connected users?"
-msgstr "Usunąć %(name)s z powiązanych osób?"
-
-#: src/ludamus/templates/crowd/user/connected.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/panel/discounts/list.html
@@ -3804,6 +3849,19 @@ msgstr "Usunąć %(name)s z powiązanych osób?"
 #: src/ludamus/templates/panel/tracks.html
 msgid "Edit"
 msgstr "Edycja"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Create a link to let this person take over their profile"
+msgstr "Utwórz link, aby ta osoba mogła przejąć swój profil"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Create claim link"
+msgstr "Utwórz link przejęcia"
+
+#: src/ludamus/templates/crowd/user/connected.html
+#, python-format
+msgid "Remove %(name)s from your connected users?"
+msgstr "Usunąć %(name)s z powiązanych osób?"
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "No connected users yet"
@@ -6914,69 +6972,3 @@ msgstr ""
 #~ msgid "No venues yet. Venues will be managed here once available."
 #~ msgstr ""
 #~ "Brak lokalizacji. Lokalizacje będą tutaj zarządzane po ich utworzeniu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Profile claimed — it is now your own account."
-msgstr "Profil przejęty — to teraz Twoje własne konto."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"You already have an account, so this profile can't be moved into it. Ask the "
-"person who invited you to enroll you directly."
-msgstr ""
-"Masz już konto, więc tego profilu nie można do niego przenieść. Poproś osobę, "
-"która Cię zaprosiła, aby zapisała Cię bezpośrednio."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Could not create a claim link for this person."
-msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid ""
-"Claim link ready. Share it with this person so they can take over their "
-"profile: %(url)s"
-msgstr ""
-"Link przejęcia gotowy. Udostępnij go tej osobie, aby mogła przejąć swój "
-"profil: %(url)s"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"You're already signed in. Log out first to claim this profile into a new "
-"account."
-msgstr ""
-"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This claim link is invalid or has already been used."
-msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
-
-#: src/ludamus/templates/crowd/claim.html
-msgid "Claim your profile"
-msgstr "Przejmij swój profil"
-
-#: src/ludamus/templates/crowd/claim.html
-msgid "Make this profile your own account"
-msgstr "Zamień ten profil na swoje własne konto"
-
-#: src/ludamus/templates/crowd/claim.html
-#, python-format
-msgid ""
-"%(manager)s created a profile for %(name)s and invited you to take it over. "
-"Sign in to turn it into your own account — your event sign-ups stay with you."
-msgstr ""
-"%(manager)s utworzył(a) profil dla osoby %(name)s i zaprosił(a) Cię do jego "
-"przejęcia. Zaloguj się, aby zamienić go na swoje własne konto — Twoje zapisy "
-"na wydarzenia zostaną zachowane."
-
-#: src/ludamus/templates/crowd/claim.html
-msgid "Sign in and claim"
-msgstr "Zaloguj się i przejmij"
-
-#: src/ludamus/templates/crowd/user/connected.html
-msgid "Create a link to let this person take over their profile"
-msgstr "Utwórz link, aby ta osoba mogła przejąć swój profil"
-
-#: src/ludamus/templates/crowd/user/connected.html
-msgid "Create claim link"
-msgstr "Utwórz link przejęcia"

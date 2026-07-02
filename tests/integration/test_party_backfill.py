@@ -82,3 +82,19 @@ class TestPartyMembershipConstraint:
 
         with pytest.raises(IntegrityError), transaction.atomic():
             PartyMembership.objects.create(party=party, member=manager)
+
+
+class TestStr:
+    def test_unnamed_party_and_membership(self):
+        manager = _active("mgr", "mgr")
+        party = Party.objects.create(leader=manager, name="")
+        membership = PartyMembership.objects.create(party=party, member=manager)
+
+        assert str(party) == f"party (#{party.pk})"
+        assert str(membership) == f"{manager.pk} in party {party.pk}"
+
+    def test_named_party(self):
+        manager = _active("mgr", "mgr")
+        party = Party.objects.create(leader=manager, name="Drużyna")
+
+        assert str(party) == f"Drużyna (#{party.pk})"
