@@ -41,6 +41,8 @@ class TestProfileConnectedUserUpdateActionView:
         bound_form = row_by_slug[connected_user.slug]["form"]
         assert bound_form is not None
         assert bound_form.errors
+        # The row renders in edit mode so the validation errors are visible.
+        assert row_by_slug[connected_user.slug]["editing"] is True
         response_messages = [
             (message.level, message.message)
             for message in list(response.context["messages"])

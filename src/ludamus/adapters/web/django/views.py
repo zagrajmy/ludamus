@@ -56,7 +56,11 @@ from ludamus.adapters.web.django.entities import (
     build_schedule_days,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
-from ludamus.gates.web.django.crowd.helpers import build_parties_context
+from ludamus.gates.web.django.crowd.helpers import (
+    COMPANION_CREATE_AUTO_ID,
+    build_parties_context,
+    companion_edit_auto_id,
+)
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -667,6 +671,9 @@ class ProfileConnectedUsersPageView(
         _ = (request, args, kwargs)  # Django View dispatch
         return redirect(self.get_success_url())
 
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {"auto_id": COMPANION_CREATE_AUTO_ID}
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = build_parties_context(self.request, create_form=kwargs.get("form"))
         context.update(kwargs)
@@ -720,6 +727,11 @@ class ProfileConnectedUserUpdateActionView(
         return self.request.di.uow.connected_users.read(
             self.request.context.current_user_slug, self.kwargs["slug"]
         )
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {
+            "auto_id": companion_edit_auto_id(self.kwargs["slug"])
+        }
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = build_parties_context(

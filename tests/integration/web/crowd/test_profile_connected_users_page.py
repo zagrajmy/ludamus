@@ -11,10 +11,33 @@ from ludamus.adapters.db.django.models import (
     User,
 )
 from ludamus.pacts.crowd import UserType
+from ludamus.pacts.party import (
+    PartyConsentMode,
+    PartyDTO,
+    PartyMemberDTO,
+    PartyMembershipStatus,
+)
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 PARTIES_URL = reverse("web:crowd:profile-parties")
+
+
+def _member_row(user, party):
+    membership = PartyMembership.objects.get(party=party, member=user)
+    is_companion = user.user_type == UserType.CONNECTED
+    member = PartyMemberDTO(
+        membership_pk=membership.pk,
+        user_pk=user.pk,
+        name=user.get_full_name(),
+        slug=user.slug,
+        is_login_less=is_companion,
+        is_leader=party.leader_id == user.pk,
+        consent_mode=PartyConsentMode(membership.consent_mode),
+        status=PartyMembershipStatus(membership.status),
+        claim_token=user.claim_token,
+    )
+    return {"member": member, "form": ANY if is_companion else None, "editing": False}
 
 
 class TestProfileConnectedUsersPageView:
@@ -56,7 +79,6 @@ class TestProfileConnectedUsersPageView:
                 "max_connected_users": MAX_CONNECTED_USERS,
                 "can_add_companion": True,
                 "create_companion_form": ANY,
-                "invite_form": ANY,
                 "party_form": ANY,
             },
             template_name=["crowd/user/parties.html"],
@@ -65,7 +87,7 @@ class TestProfileConnectedUsersPageView:
     def test_post_error_max_connected_users_exceeded(
         self, authenticated_client, active_user, faker
     ):
-        for i in range(MAX_CONNECTED_USERS):
+        companions = [
             UserFactory(
                 username=f"user_{i}_{faker.random_int()}",
                 name=f"connected_{i}_{faker.random_int()}",
@@ -73,24 +95,54 @@ class TestProfileConnectedUsersPageView:
                 user_type=UserType.CONNECTED,
                 manager=active_user,
             )
+            for i in range(MAX_CONNECTED_USERS)
+        ]
 
         data = {"name": faker.name(), "user_type": UserType.CONNECTED}
         response = authenticated_client.post(self.URL, data=data)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == ["crowd/user/parties.html"]
-        assert response.context_data["can_add_companion"] is False
-        assert response.context_data["companions_count"] == MAX_CONNECTED_USERS
+        party = Party.objects.get(leader=active_user)
+        member_rows = [_member_row(user, party) for user in (active_user, *companions)]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            messages=[
+                (
+                    messages.ERROR,
+                    f"You can only have up to {MAX_CONNECTED_USERS} connected users.",
+                ),
+                (messages.WARNING, "Please correct the errors below."),
+            ],
+            context_data={
+                "form": ANY,
+                "view": ANY,
+                "parties": [
+                    {
+                        "party": PartyDTO(
+                            pk=party.pk,
+                            name=party.name,
+                            leader_pk=active_user.pk,
+                            leader_name=active_user.get_full_name(),
+                            is_leader=True,
+                            is_default=True,
+                            members=[row["member"] for row in member_rows],
+                        ),
+                        "members": member_rows,
+                        "rename_form": ANY,
+                        "invite_form": ANY,
+                    }
+                ],
+                "invites": [],
+                "companions_count": MAX_CONNECTED_USERS,
+                "max_connected_users": MAX_CONNECTED_USERS,
+                "can_add_companion": False,
+                "create_companion_form": ANY,
+                "party_form": ANY,
+            },
+            template_name=["crowd/user/parties.html"],
+        )
         connected_count = User.objects.filter(user_type=UserType.CONNECTED).count()
         assert connected_count == MAX_CONNECTED_USERS
-        response_messages = [
-            (message.level, message.message)
-            for message in list(response.context["messages"])
-        ]
-        assert response_messages == [
-            (messages.ERROR, "You can only have up to 6 connected users."),
-            (messages.WARNING, "Please correct the errors below."),
-        ]
 
     def test_companion_join_the_leaders_existing_default_party(
         self, authenticated_client, active_user, connected_user, faker

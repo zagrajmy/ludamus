@@ -43,13 +43,14 @@ def _member_dto(user, party, **overrides):
     return PartyMemberDTO(**values)
 
 
-def _party_dto(party, viewer, members):
+def _party_dto(party, viewer, members, *, is_default):
     return PartyDTO(
         pk=party.pk,
         name=party.name,
         leader_pk=party.leader_id,
         leader_name=party.leader.get_full_name(),
         is_leader=party.leader_id == viewer.pk,
+        is_default=is_default,
         members=members,
     )
 
@@ -62,7 +63,6 @@ def _base_context(**overrides):
         "max_connected_users": MAX_CONNECTED_USERS,
         "can_add_companion": True,
         "create_companion_form": ANY,
-        "invite_form": ANY,
         "party_form": ANY,
     }
     context.update(overrides)
@@ -101,12 +101,22 @@ class TestPartiesPageView:
                                 _member_dto(active_user, party),
                                 _member_dto(connected_user, party),
                             ],
+                            is_default=True,
                         ),
                         "members": [
-                            {"member": _member_dto(active_user, party), "form": None},
-                            {"member": _member_dto(connected_user, party), "form": ANY},
+                            {
+                                "member": _member_dto(active_user, party),
+                                "form": None,
+                                "editing": False,
+                            },
+                            {
+                                "member": _member_dto(connected_user, party),
+                                "form": ANY,
+                                "editing": False,
+                            },
                         ],
-                        "is_default": True,
+                        "rename_form": ANY,
+                        "invite_form": ANY,
                     }
                 ],
                 companions_count=1,
@@ -142,12 +152,22 @@ class TestPartiesPageView:
                                 _member_dto(friend, party),
                                 _member_dto(active_user, party),
                             ],
+                            is_default=False,
                         ),
                         "members": [
-                            {"member": _member_dto(friend, party), "form": None},
-                            {"member": _member_dto(active_user, party), "form": None},
+                            {
+                                "member": _member_dto(friend, party),
+                                "form": None,
+                                "editing": False,
+                            },
+                            {
+                                "member": _member_dto(active_user, party),
+                                "form": None,
+                                "editing": False,
+                            },
                         ],
-                        "is_default": False,
+                        "rename_form": None,
+                        "invite_form": None,
                     }
                 ]
             ),
@@ -289,6 +309,28 @@ class TestPartyDeleteActionView:
         )
         assert_response(
             response, HTTPStatus.FOUND, url=URL, messages=[(messages.ERROR, expected)]
+        )
+
+    def test_post_foreign_party_with_companions_reads_as_not_found(
+        self, authenticated_client
+    ):
+        stranger = UserFactory(username="stranger")
+        companion = UserFactory(
+            username="their-kid", user_type=UserType.CONNECTED, manager=stranger
+        )
+        party = Party.objects.get(leader=stranger)
+
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-delete", kwargs={"pk": party.pk})
+        )
+
+        assert Party.objects.filter(pk=party.pk).exists()
+        assert User.objects.filter(pk=companion.pk).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.ERROR, "Could not delete this party.")],
         )
 
 
@@ -456,6 +498,56 @@ class TestPartyMemberRemoveActionView:
             HTTPStatus.FOUND,
             url=URL,
             messages=[(messages.SUCCESS, "Member removed.")],
+        )
+
+    def test_post_withdraws_pending_invitation(self, authenticated_client, active_user):
+        friend = UserFactory(username="friend", name="Frida Friend")
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+        membership = PartyMembership.objects.create(
+            party=party,
+            member=friend,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.INVITED,
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                "web:crowd:parties-member-remove",
+                kwargs={"pk": party.pk, "membership_pk": membership.pk},
+            )
+        )
+
+        assert not PartyMembership.objects.filter(pk=membership.pk).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.SUCCESS, "Invitation withdrawn.")],
+        )
+
+    def test_post_rejects_companion_membership(
+        self, authenticated_client, active_user, connected_user
+    ):
+        # A companion's profile is deleted through the connected-user action;
+        # the member-remove endpoint refuses to touch it.
+        party = Party.objects.get(leader=active_user)
+        membership = PartyMembership.objects.get(party=party, member=connected_user)
+
+        response = authenticated_client.post(
+            reverse(
+                "web:crowd:parties-member-remove",
+                kwargs={"pk": party.pk, "membership_pk": membership.pk},
+            )
+        )
+
+        assert PartyMembership.objects.filter(pk=membership.pk).exists()
+        assert User.objects.filter(pk=connected_user.pk).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.ERROR, "Could not remove this member.")],
         )
 
     def test_post_cannot_remove_leader(self, authenticated_client, active_user):

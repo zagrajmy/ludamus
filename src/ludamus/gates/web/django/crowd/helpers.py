@@ -11,6 +11,12 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest
 
+COMPANION_CREATE_AUTO_ID = "companion_%s"
+
+
+def companion_edit_auto_id(slug: str) -> str:
+    return f"edit_{slug}_%s"
+
 
 def build_parties_context(
     request: AuthenticatedRootRequest,
@@ -26,27 +32,38 @@ def build_parties_context(
             request.context.current_user_slug
         )
     }
-    default_party_pk = next(
-        (party.pk for party in overview.parties if party.is_leader), None
-    )
     parties = []
     for party in overview.parties:
         members = []
         for member in party.members:
             form = None
+            editing = False
             if party.is_leader and member.slug in own_companions:
                 if member.slug == edit_slug and edit_form is not None:
                     form = edit_form
+                    editing = True
                 else:
                     form = ConnectedUserForm(
-                        initial=own_companions[member.slug].model_dump()
+                        initial=own_companions[member.slug].model_dump(),
+                        auto_id=companion_edit_auto_id(member.slug),
                     )
-            members.append({"member": member, "form": form})
+            members.append({"member": member, "form": form, "editing": editing})
         parties.append(
             {
                 "party": party,
                 "members": members,
-                "is_default": party.pk == default_party_pk,
+                "rename_form": (
+                    PartyNameForm(
+                        initial={"name": party.name}, auto_id=f"rename_{party.pk}_%s"
+                    )
+                    if party.is_leader
+                    else None
+                ),
+                "invite_form": (
+                    PartyInviteForm(auto_id=f"invite_{party.pk}_%s")
+                    if party.is_leader
+                    else None
+                ),
             }
         )
     return {
@@ -55,7 +72,8 @@ def build_parties_context(
         "companions_count": len(own_companions),
         "max_connected_users": MAX_CONNECTED_USERS,
         "can_add_companion": len(own_companions) < MAX_CONNECTED_USERS,
-        "create_companion_form": create_form or ConnectedUserForm(),
-        "invite_form": PartyInviteForm(),
-        "party_form": PartyNameForm(),
+        "create_companion_form": (
+            create_form or ConnectedUserForm(auto_id=COMPANION_CREATE_AUTO_ID)
+        ),
+        "party_form": PartyNameForm(auto_id="party_%s"),
     }

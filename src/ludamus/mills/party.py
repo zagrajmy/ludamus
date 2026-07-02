@@ -20,6 +20,7 @@ from ludamus.pacts.party import (
 if TYPE_CHECKING:
     from ludamus.pacts.party import (
         PartiesOverviewDTO,
+        PartyMembershipStatus,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
     )
@@ -54,7 +55,7 @@ class PartyService(PartyServiceProtocol):
         # A companion's identity row would be orphaned with its party, so a
         # party with companions refuses deletion instead of cascading them away.
         with self._transaction.atomic():
-            if self._parties.has_companions(party_pk):
+            if self._parties.has_companions(leader_pk=leader_pk, party_pk=party_pk):
                 return DeletePartyOutcome.HAS_COMPANIONS
             if not self._parties.delete(leader_pk=leader_pk, party_pk=party_pk):
                 return DeletePartyOutcome.NOT_FOUND
@@ -94,7 +95,7 @@ class PartyService(PartyServiceProtocol):
 
     def remove_member(
         self, *, leader_pk: int, party_pk: int, membership_pk: int
-    ) -> bool:
+    ) -> PartyMembershipStatus | None:
         with self._transaction.atomic():
             return self._parties.remove_member(
                 leader_pk=leader_pk, party_pk=party_pk, membership_pk=membership_pk

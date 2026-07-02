@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 18:50+0200\n"
+"POT-Creation-Date: 2026-07-02 23:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1702,7 +1702,6 @@ msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/templates/crowd/user/parties.html
 msgid "Party name"
 msgstr "Nazwa drużyny"
 
@@ -1777,6 +1776,10 @@ msgstr "To zaproszenie jest już nieaktualne."
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Invitation declined."
 msgstr "Zaproszenie zostało odrzucone."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "Invitation withdrawn."
+msgstr "Zaproszenie zostało wycofane."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Member removed."
@@ -3360,7 +3363,6 @@ msgid "Connection:"
 msgstr "Połączenie:"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
-#: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
@@ -3444,6 +3446,7 @@ msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
 
@@ -4017,6 +4020,11 @@ msgstr "Zaproszenia"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #, python-format
+msgid "%(leader)s invited you to their party %(party)s"
+msgstr "%(leader)s zaprasza Cię do swojej drużyny %(party)s"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#, python-format
 msgid "%(leader)s invited you to their party"
 msgstr "%(leader)s zaprasza Cię do swojej drużyny"
 
@@ -4056,6 +4064,10 @@ msgstr "Opuścić tę drużynę?"
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Leave party"
 msgstr "Opuść drużynę"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Save name"
+msgstr "Zapisz nazwę"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "leader"
@@ -4105,6 +4117,19 @@ msgstr "Utwórz link przejęcia"
 #, python-format
 msgid "Remove %(name)s from your party?"
 msgstr "Usunąć %(name)s z Twojej drużyny?"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Remove companion"
+msgstr "Usuń towarzysza"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#, python-format
+msgid "Withdraw the invitation for %(name)s?"
+msgstr "Wycofać zaproszenie dla %(name)s?"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Withdraw invitation"
+msgstr "Wycofaj zaproszenie"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #, python-format

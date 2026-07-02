@@ -7,6 +7,7 @@ from ludamus.pacts.party import (
     InviteOutcome,
     LedPartyDTO,
     PartiesOverviewDTO,
+    PartyMembershipStatus,
 )
 
 FRIEND_PK = 9
@@ -38,8 +39,8 @@ class FakeParties:
         self.calls.append(("rename", leader_pk, party_pk, name))
         return True
 
-    def has_companions(self, party_pk):
-        self.calls.append(("has_companions", party_pk))
+    def has_companions(self, *, leader_pk, party_pk):
+        self.calls.append(("has_companions", leader_pk, party_pk))
         return self.companions
 
     def delete(self, *, leader_pk, party_pk):
@@ -71,7 +72,7 @@ class FakeParties:
 
     def remove_member(self, *, leader_pk, party_pk, membership_pk):
         self.calls.append(("remove_member", leader_pk, party_pk, membership_pk))
-        return True
+        return PartyMembershipStatus.ACTIVE
 
     def leave(self, *, user_pk, party_pk):
         self.calls.append(("leave", user_pk, party_pk))

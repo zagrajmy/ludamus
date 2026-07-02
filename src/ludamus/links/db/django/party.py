@@ -48,6 +48,11 @@ class PartyRepository(PartyRepositoryProtocol):
             .distinct()
             .order_by("pk")
         )
+        # The viewer's first led party by pk is their default one — the party
+        # that sponsors companions (see `_default_led_party` in the crowd repo).
+        default_party_pk = next(
+            (party.pk for party in parties if party.leader_id == viewer_pk), None
+        )
         party_dtos = []
         for party in parties:
             memberships = party.memberships.select_related("member").order_by("pk")
@@ -74,6 +79,7 @@ class PartyRepository(PartyRepositoryProtocol):
                     leader_pk=party.leader_id,
                     leader_name=party.leader.get_full_name(),
                     is_leader=party.leader_id == viewer_pk,
+                    is_default=party.pk == default_party_pk,
                     members=members,
                 )
             )
@@ -112,9 +118,11 @@ class PartyRepository(PartyRepositoryProtocol):
         )
 
     @staticmethod
-    def has_companions(party_pk: int) -> bool:
+    def has_companions(*, leader_pk: int, party_pk: int) -> bool:
         return PartyMembership.objects.filter(
-            party_id=party_pk, member__user_type=UserType.CONNECTED
+            party_id=party_pk,
+            party__leader_id=leader_pk,
+            member__user_type=UserType.CONNECTED,
         ).exists()
 
     @staticmethod
@@ -177,24 +185,24 @@ class PartyRepository(PartyRepositoryProtocol):
         return bool(deleted)
 
     @staticmethod
-    def remove_member(*, leader_pk: int, party_pk: int, membership_pk: int) -> bool:
+    def remove_member(
+        *, leader_pk: int, party_pk: int, membership_pk: int
+    ) -> PartyMembershipStatus | None:
+        # Companions are excluded: their identity row lives and dies with the
+        # sponsorship, and the connected-user delete action owns that flow.
         membership = (
             PartyMembership.objects.filter(
                 pk=membership_pk, party_id=party_pk, party__leader_id=leader_pk
             )
             .exclude(member_id=leader_pk)
-            .select_related("member")
+            .exclude(member__user_type=UserType.CONNECTED)
             .first()
         )
         if membership is None:
-            return False
-        if membership.member.user_type == UserType.CONNECTED:
-            # A companion's identity row lives and dies with its sponsorship,
-            # exactly like the connected-user delete action.
-            membership.member.delete()
-        else:
-            membership.delete()
-        return True
+            return None
+        status = PartyMembershipStatus(membership.status)
+        membership.delete()
+        return status
 
     @staticmethod
     def leave(*, user_pk: int, party_pk: int) -> bool:

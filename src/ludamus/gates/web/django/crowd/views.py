@@ -11,7 +11,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.crowd.forms import PartyInviteForm, PartyNameForm
 from ludamus.gates.web.django.crowd.helpers import build_parties_context
-from ludamus.pacts.party import DeletePartyOutcome, InviteOutcome
+from ludamus.pacts.party import DeletePartyOutcome, InviteOutcome, PartyMembershipStatus
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -150,11 +150,14 @@ class PartyMemberRemoveActionView(LoginRequiredMixin, View):
     def post(
         request: AuthenticatedRootRequest, pk: int, membership_pk: int
     ) -> HttpResponse:
-        if request.services.parties.remove_member(
+        removed_status = request.services.parties.remove_member(
             leader_pk=request.context.current_user_id,
             party_pk=pk,
             membership_pk=membership_pk,
-        ):
+        )
+        if removed_status == PartyMembershipStatus.INVITED:
+            messages.success(request, _("Invitation withdrawn."))
+        elif removed_status is not None:
             messages.success(request, _("Member removed."))
         else:
             messages.error(request, _("Could not remove this member."))
