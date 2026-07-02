@@ -20,6 +20,7 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.adapters.web.django.entities import SessionUserParticipationData
+from ludamus.inits.services import Services
 from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
@@ -31,6 +32,15 @@ from tests.integration.conftest import (
     sponsor_user,
 )
 from tests.integration.utils import assert_response
+
+
+def _party_context(viewer):
+    # The enroll page's party plumbing, derived from the same service call the
+    # view makes (default selection: no explicit party requested).
+    selection = Services().parties.enrollment_selection(
+        viewer_pk=viewer.pk, requested_party=None
+    )
+    return {"party_choices": selection.choices, "selected_party": selection.selected}
 
 
 class TestSessionEnrollPageView:
@@ -50,6 +60,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -86,6 +97,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                **_party_context(active_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -154,6 +166,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -295,6 +308,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -573,6 +587,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -835,6 +850,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
@@ -878,6 +894,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
@@ -918,6 +935,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
@@ -977,6 +995,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(staff_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1066,6 +1085,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(staff_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1260,6 +1280,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1312,6 +1333,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1366,6 +1388,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1446,6 +1469,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1498,6 +1522,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
@@ -1574,6 +1599,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
@@ -1632,6 +1658,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1679,6 +1706,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
@@ -1731,6 +1759,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1789,6 +1818,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1831,6 +1861,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "session": agenda_item.session,
                 "event": event,

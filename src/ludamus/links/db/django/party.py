@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 from django.db.models import Q
 
 from ludamus.adapters.db.django.models import Party, PartyMembership
-from ludamus.pacts.crowd import UserType
+from ludamus.links.db.django.companions import active_companions
+from ludamus.pacts.crowd import ConnectedUserDTO, UserType
 from ludamus.pacts.party import (
     InvitedUserDTO,
     LedPartyDTO,
@@ -203,6 +204,26 @@ class PartyRepository(PartyRepositoryProtocol):
         status = PartyMembershipStatus(membership.status)
         membership.delete()
         return status
+
+    @staticmethod
+    def led_party_companions(
+        *, leader_pk: int, party_pk: int
+    ) -> list[ConnectedUserDTO]:
+        party = (
+            Party.objects.filter(pk=party_pk, leader_id=leader_pk)
+            .select_related("leader")
+            .first()
+        )
+        if party is None:
+            return []
+        return [
+            ConnectedUserDTO.model_validate(companion)
+            for companion in (
+                active_companions(party.leader.slug)
+                .filter(party_memberships__party_id=party_pk)
+                .order_by("pk")
+            )
+        ]
 
     @staticmethod
     def leave(*, user_pk: int, party_pk: int) -> bool:

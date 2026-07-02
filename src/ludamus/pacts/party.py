@@ -11,6 +11,11 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.crowd import ConnectedUserDTO
+
+# Form/query value for enrolling without a party ("Just myself").
+ENROLL_WITHOUT_PARTY = "none"
+
 
 class PartyConsentMode(StrEnum):
     # How an enrollment reaches this member: taken-and-notified, or held until
@@ -67,6 +72,49 @@ class PartyInviteDTO(BaseModel):
 class PartiesOverviewDTO(BaseModel):
     parties: list[PartyDTO]
     invites: list[PartyInviteDTO]
+
+
+class EnrollmentPartyChoiceDTO(BaseModel):
+    # A selector pill on the enroll page. The label is derived in the template
+    # from the structured fields (name, else "Your party" for the viewer's own
+    # unnamed led party, else the leader's name) so translations stay in gates.
+    pk: int
+    name: str
+    leader_name: str
+    is_own_led: bool
+
+
+class EnrollmentPartyMemberDTO(BaseModel):
+    # Enroll-page slice of a membership — deliberately without the companion
+    # claim token (a bearer credential that must not reach this context).
+    user_pk: int
+    name: str
+    slug: str
+    is_login_less: bool
+    is_leader: bool
+    consent_mode: PartyConsentMode
+    status: PartyMembershipStatus
+
+
+class SelectedEnrollmentPartyDTO(BaseModel):
+    pk: int
+    name: str
+    leader_name: str
+    is_own_led: bool
+    members: list[EnrollmentPartyMemberDTO]
+
+
+class EnrollmentPartiesDTO(BaseModel):
+    # "Just myself" is the implicit extra choice whenever `choices` is
+    # non-empty; it maps to `selected is None`.
+    choices: list[EnrollmentPartyChoiceDTO]
+    selected: SelectedEnrollmentPartyDTO | None = None
+    # The viewer's login-less companions in the selected party; only their own
+    # led party can seat companions, so this is empty otherwise.
+    companions: list[ConnectedUserDTO] = []
+    # The requested party is not one of the viewer's — the caller must surface
+    # an error instead of silently substituting a default.
+    requested_invalid: bool = False
 
 
 class InviteOutcome(StrEnum):
@@ -129,6 +177,10 @@ class PartyRepositoryProtocol(Protocol):
     ) -> PartyMembershipStatus | None: ...
     @staticmethod
     def leave(*, user_pk: int, party_pk: int) -> bool: ...
+    @staticmethod
+    def led_party_companions(
+        *, leader_pk: int, party_pk: int
+    ) -> list[ConnectedUserDTO]: ...
 
 
 class PartyNotifierProtocol(Protocol):
@@ -147,3 +199,6 @@ class PartyServiceProtocol(Protocol):
         self, *, leader_pk: int, party_pk: int, membership_pk: int
     ) -> PartyMembershipStatus | None: ...
     def leave(self, *, user_pk: int, party_pk: int) -> bool: ...
+    def enrollment_selection(
+        self, *, viewer_pk: int, requested_party: str | None
+    ) -> EnrollmentPartiesDTO: ...

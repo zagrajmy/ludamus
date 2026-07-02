@@ -11,15 +11,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.party import (
+    ENROLL_WITHOUT_PARTY,
     DeletePartyOutcome,
+    EnrollmentPartiesDTO,
+    EnrollmentPartyChoiceDTO,
+    EnrollmentPartyMemberDTO,
     InviteOutcome,
     PartyInviteNotification,
     PartyServiceProtocol,
+    SelectedEnrollmentPartyDTO,
 )
 
 if TYPE_CHECKING:
     from ludamus.pacts.party import (
         PartiesOverviewDTO,
+        PartyDTO,
         PartyMembershipStatus,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
@@ -104,3 +110,68 @@ class PartyService(PartyServiceProtocol):
     def leave(self, *, user_pk: int, party_pk: int) -> bool:
         with self._transaction.atomic():
             return self._parties.leave(user_pk=user_pk, party_pk=party_pk)
+
+    def enrollment_selection(
+        self, *, viewer_pk: int, requested_party: str | None
+    ) -> EnrollmentPartiesDTO:
+        # The party the viewer enrolls as. An explicit ENROLL_WITHOUT_PARTY
+        # means just themselves; an absent parameter defaults to their own led
+        # party (else the first party they belong to); a value that is not one
+        # of their parties is invalid, never silently substituted.
+        parties = self._parties.overview(viewer_pk).parties
+        choices = [
+            EnrollmentPartyChoiceDTO(
+                pk=party.pk,
+                name=party.name,
+                leader_name=party.leader_name,
+                is_own_led=party.is_leader,
+            )
+            for party in parties
+        ]
+        if requested_party == ENROLL_WITHOUT_PARTY:
+            return EnrollmentPartiesDTO(choices=choices)
+        if requested_party is None:
+            selected = next(
+                (party for party in parties if party.is_leader),
+                parties[0] if parties else None,
+            )
+            if selected is None:
+                return EnrollmentPartiesDTO(choices=choices)
+        else:
+            selected = next(
+                (party for party in parties if str(party.pk) == requested_party), None
+            )
+            if selected is None:
+                return EnrollmentPartiesDTO(choices=choices, requested_invalid=True)
+        return EnrollmentPartiesDTO(
+            choices=choices,
+            selected=_selected_party(selected),
+            companions=(
+                self._parties.led_party_companions(
+                    leader_pk=viewer_pk, party_pk=selected.pk
+                )
+                if selected.is_leader
+                else []
+            ),
+        )
+
+
+def _selected_party(party: PartyDTO) -> SelectedEnrollmentPartyDTO:
+    return SelectedEnrollmentPartyDTO(
+        pk=party.pk,
+        name=party.name,
+        leader_name=party.leader_name,
+        is_own_led=party.is_leader,
+        members=[
+            EnrollmentPartyMemberDTO(
+                user_pk=member.user_pk,
+                name=member.name,
+                slug=member.slug,
+                is_login_less=member.is_login_less,
+                is_leader=member.is_leader,
+                consent_mode=member.consent_mode,
+                status=member.status,
+            )
+            for member in party.members
+        ],
+    )

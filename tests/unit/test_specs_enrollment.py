@@ -16,6 +16,7 @@ def _wp(
     *,
     user_id=None,
     sponsor_id=None,
+    party_id=None,
     order=0,
     has_conflict=False,
     slots=UNLIMITED_SLOTS,
@@ -24,6 +25,7 @@ def _wp(
     return WaitingParticipantDTO(
         participation_id=pid,
         user_id=user_id,
+        party_id=party_id,
         sponsor_id=sponsor_id,
         full_name=f"user-{pid}",
         email=f"u{pid}@example.com",
@@ -142,3 +144,42 @@ class TestSelectPromotableParties:
         selected = select_promotable_parties(state)
 
         assert [p.participation_id for party in selected for p in party] == [1, 2]
+
+
+class TestPartyGrouping:
+    def test_same_party_groups_self_owned_users_together(self):
+        # Two real users enrolled through the same party promote as one unit.
+        state = _state(
+            [_wp(1, party_id=5, order=0), _wp(2, party_id=5, order=1)], seats=2
+        )
+
+        selected = select_promotable_parties(state)
+
+        assert [[p.participation_id for p in party] for party in selected] == [[1, 2]]
+
+    def test_same_party_needs_all_seats_at_once(self):
+        state = _state(
+            [_wp(1, party_id=5, order=0), _wp(2, party_id=5, order=1)], seats=1
+        )
+
+        assert not select_promotable_parties(state)
+
+    def test_party_key_does_not_collide_with_owner_key(self):
+        # participation 1: solo user with pk 5; participation 2: someone
+        # enrolled through party pk 5 — distinct groups despite the same int.
+        state = _state(
+            [_wp(1, user_id=5, order=0), _wp(2, party_id=5, order=1)], seats=2
+        )
+
+        selected = select_promotable_parties(state)
+
+        assert [[p.participation_id for p in party] for party in selected] == [[1], [2]]
+
+    def test_partyless_rows_still_group_by_sponsor(self):
+        state = _state(
+            [_wp(1, sponsor_id=9, order=0), _wp(2, sponsor_id=9, order=1)], seats=2
+        )
+
+        selected = select_promotable_parties(state)
+
+        assert [[p.participation_id for p in party] for party in selected] == [[1, 2]]

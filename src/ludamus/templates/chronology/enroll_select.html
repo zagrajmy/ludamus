@@ -79,14 +79,52 @@
             </div>
         </div>
         {# Enrollment Form Card #}
-        <div class="card">
+        <div class="card" id="enrollment">
             <div class="card-header bg-success text-white flex items-center gap-2">
                 {% icon "user-plus" class="w-5 h-5" %}
                 <h5 class="font-semibold mb-0">{% translate "Enrollment Options" %}</h5>
             </div>
             <div class="card-body">
+                {% if party_choices %}
+                    <div class="mb-4">
+                        <p class="flex items-center gap-1.5 text-sm font-medium mb-2">
+                            {% icon "user-group" class="w-4 h-4" %}
+                            {% translate "Enrolling as" %}
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="?party=none#enrollment"
+                               {% if not selected_party %}aria-current="true"{% endif %}
+                               class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if not selected_party %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
+                                {% translate "Just myself" %}
+                            </a>
+                            {% for party in party_choices %}
+                                <a href="?party={{ party.pk }}#enrollment"
+                                   {% if selected_party.pk == party.pk %}aria-current="true"{% endif %}
+                                   class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if selected_party.pk == party.pk %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
+                                    {% if party.name %}
+                                        {{ party.name }}
+                                    {% elif party.is_own_led %}
+                                        {% translate "Your party" %}
+                                    {% else %}
+                                        {% blocktranslate with leader_name=party.leader_name %}Party of {{ leader_name }}{% endblocktranslate %}
+                                    {% endif %}
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% if selected_party %}
+                            <p class="text-xs text-foreground-muted mt-2">
+                                {% translate "The party moves up the waiting list together." %}
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
                 <form method="post">
                     {% csrf_token %}
+                    {% if selected_party %}
+                        <input type="hidden" name="party" value="{{ selected_party.pk }}">
+                    {% elif party_choices %}
+                        <input type="hidden" name="party" value="none">
+                    {% endif %}
                     <div class="mb-4">
                         <label class="flex items-center gap-1.5 text-sm font-medium mb-3">
                             {% icon "users" class="w-4 h-4" %}
@@ -180,14 +218,17 @@
                                             </td>
                                         </tr>
                                     {% endfor %}
+                                    {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                                     {% if user_data|length == 1 %}
-                                        <tr>
-                                            <td colspan="6" class="text-center text-foreground-muted py-4 text-sm">
-                                                {% translate "No companions available. You can add companions to your party in your" %}
-                                                <a href="{% url 'web:crowd:profile-parties' %}"
-                                                   class="text-primary hover:underline">{% translate "profile settings" %}</a>.
-                                            </td>
-                                        </tr>
+                                        {% if not party_choices or selected_party.is_own_led %}
+                                            <tr>
+                                                <td colspan="6" class="text-center text-foreground-muted py-4 text-sm">
+                                                    {% translate "No companions available. You can add companions to your party in your" %}
+                                                    <a href="{% url 'web:crowd:profile-parties' %}"
+                                                       class="text-primary hover:underline">{% translate "profile settings" %}</a>.
+                                                </td>
+                                            </tr>
+                                        {% endif %}
                                     {% endif %}
                                 </tbody>
                             </table>

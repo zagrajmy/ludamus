@@ -20,11 +20,7 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
     get_used_slots,
 )
-from ludamus.links.db.django.companions import (
-    active_companions,
-    sponsor_of,
-    sponsors_by_member,
-)
+from ludamus.links.db.django.companions import active_companions, sponsors_by_member
 from ludamus.pacts import EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
@@ -32,6 +28,7 @@ from ludamus.pacts.enrollment import (
     OfferDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
@@ -98,6 +95,7 @@ class ParticipationPromotionRepository:
                 WaitingParticipantDTO(
                     participation_id=participation.pk,
                     user_id=user.pk,
+                    party_id=participation.party_id,
                     sponsor_id=sponsor.pk if sponsor is not None else None,
                     full_name=user.get_full_name(),
                     email=user.email or "",
@@ -225,14 +223,17 @@ class ParticipationPromotionRepository:
         lead = party[0]
         session = Session.objects.select_related("event").get(id=lead.session_id)
         event_slug = session.event.slug
-        recipient = sponsor_of(lead.user) or lead.user
+        sponsors = sponsors_by_member(p.user for p in party)
+        recipients = distinct_recipients(
+            (recipient.pk, recipient.email or "")
+            for recipient in (sponsors.get(p.user.pk, p.user) for p in party)
+        )
         return OfferDTO(
             session_id=lead.session_id,
             session_title=session.title,
             event_slug=event_slug,
             participant_ids=[p.pk for p in party],
-            recipient_user_id=recipient.pk,
-            recipient_email=recipient.email or "",
+            recipients=recipients,
             offer_expires_at=lead.offer_expires_at or datetime.now(UTC),
         )
 
