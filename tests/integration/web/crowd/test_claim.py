@@ -56,7 +56,7 @@ class TestProfileConnectedUserClaimLinkActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="/crowd/profile/connected-users/",
+            url="/crowd/profile/parties/",
             messages=[(messages.SUCCESS, "Claim link created.")],
         )
 
@@ -67,9 +67,7 @@ class TestProfileConnectedUserClaimLinkActionView:
         connected_user.save()
         claim_path = reverse("web:crowd:claim", kwargs={"token": "tok"})
 
-        response = authenticated_client.get(
-            reverse("web:crowd:profile-connected-users")
-        )
+        response = authenticated_client.get(reverse("web:crowd:profile-parties"))
 
         content = response.content.decode()
         assert f'data-copy="{claim_path}"' in content
@@ -89,7 +87,7 @@ class TestProfileConnectedUserClaimLinkActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="/crowd/profile/connected-users/",
+            url="/crowd/profile/parties/",
             messages=[
                 (messages.ERROR, "Could not create a claim link for this person.")
             ],

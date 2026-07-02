@@ -23,6 +23,7 @@ from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.party import PartyInviteNotification
     from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
@@ -105,6 +106,29 @@ class DjangoUserNotifier:
                     },
                 ),
                 payload={"session_id": notification.session_id},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_party_invited(self, notification: PartyInviteNotification) -> None:
+        party = notification.party_name or _("their party")
+        title = _("%(leader)s invited you to %(party)s") % {
+            "leader": notification.leader_name,
+            "party": party,
+        }
+        body = _(
+            "Join the party to enroll in events together — you move up "
+            "waiting lists as one group. You decide about every enrollment "
+            "unless you say otherwise."
+        )
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PARTY_INVITE.value,
+                title=title,
+                body=body,
+                url=reverse("web:crowd:profile-parties"),
+                payload={},
             ),
             notification.recipient_email,
         )
