@@ -13,7 +13,7 @@
         <span class="text-foreground-muted">· {{ data.waiting_count }} {% translate "waiting" %}</span>
     {% endif %}
 {% elif data.is_unlimited %}
-    <span class="font-semibold text-teal-700 dark:text-teal-400">{% translate "Open" %}</span>
+    <span class="text-teal-700 dark:text-teal-400">{% translate "Open" %}</span>
 {% else %}
     <span class="font-semibold tabular-nums {% if data.spots_scarce %}text-coral-600 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
         {% blocktranslate count counter=data.spots_left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
