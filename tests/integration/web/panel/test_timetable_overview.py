@@ -113,10 +113,10 @@ class TestTimetableOverviewPageView:
         )
 
     def test_heatmap_has_correct_structure(
-        self, authenticated_client, active_user, sphere, event, area, time_slot
+        self, authenticated_client, active_user, sphere, event, time_slot
     ):
         sphere.managers.add(active_user)
-        SpaceFactory(area=area)
+        SpaceFactory(event=event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -128,17 +128,16 @@ class TestTimetableOverviewPageView:
         assert time_slot is not None
 
     def test_track_progress_shows_tracks(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="Test Track", slug="test-track", is_public=True
         )
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         track.spaces.add(space)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -163,14 +162,12 @@ class TestTimetableOverviewPageView:
         sphere,
         event,
         proposal_category,
-        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -204,14 +201,12 @@ class TestTimetableOverviewPageView:
         sphere,
         event,
         proposal_category,
-        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

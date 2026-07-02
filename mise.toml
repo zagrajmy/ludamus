@@ -1,4 +1,5 @@
 [settings]
+experimental = true
 jobs = 1
 
 [hooks]
@@ -11,17 +12,27 @@ poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 "ast-grep" = "0.42.1"
 markdownlint-cli2 = "0.22.1"
 "github:endevco/aube" = "latest"
+hk = "1.48.0"
+actionlint = "1.7.12"
+hadolint = "2.14.0"
+"github:reteps/dockerfmt" = "0.5.2"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
+_.path = "/opt/homebrew/opt/gettext/bin:/usr/local/opt/gettext/bin:/home/linuxbrew/.linuxbrew/opt/gettext/bin"
+LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
+
+[bootstrap.packages]
+"brew:libxml2" = "latest"
+"brew:gettext" = "latest"
 
 [task_config]
 includes = ["tasks.toml"]
 
 [tasks.update]
-description = "Update all dependencies: pre-commit hooks, pip, Poetry packages"
+description = "Update all dependencies: mise tools, pip, Poetry packages"
 run = """
-pre-commit autoupdate
+mise upgrade
 pip install -U pip
 pip install -U poetry
 poetry update
@@ -237,7 +248,6 @@ env.AUTH0_DOMAIN = "auth0.example.com"
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.e2e"
 env.DB_NAME = "dev.e2e.sqlite3"
 env.DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
-# Capture outgoing email to files so e2e specs can assert on notifications.
 env.EMAIL_URL = "filemail:///tests/e2e/.e2e-mail"
 env.ENV = "local"
 env.MEMBERSHIP_API_BASE_URL = ""

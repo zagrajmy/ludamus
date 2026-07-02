@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError
 from ludamus.adapters.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
-    Area,
     Connection,
     DomainEnrollmentConfig,
     Encounter,
@@ -40,7 +39,6 @@ from ludamus.adapters.db.django.models import (
     Track,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 
 
@@ -140,34 +138,22 @@ class TestFacilitator:
         assert str(Facilitator(display_name=display_name)) == display_name
 
 
-class TestVenue:
-    def test_str(self, faker):
+class TestSpace:
+    def test_str_root(self, faker):
         name = faker.word()
 
-        assert str(Venue(name=name)) == name
+        assert str(Space(name=name)) == name
 
+    def test_str_nested(self, faker):
+        root_name = faker.word()
+        mid_name = faker.word()
+        leaf_name = faker.word()
 
-class TestArea:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
+        root = Space(name=root_name)
+        mid = Space(name=mid_name, parent=root)
+        leaf = Space(name=leaf_name, parent=mid)
 
-        area = Area(name=area_name, venue=Venue(name=venue_name))
-
-        assert str(area) == f"{venue_name} > {area_name}"
-
-
-class TestSpace:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
-        space_name = faker.word()
-
-        venue = Venue(name=venue_name)
-        area = Area(name=area_name, venue=venue)
-        space = Space(name=space_name, area=area)
-
-        assert str(space) == f"{venue_name} > {area_name} > {space_name}"
+        assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
 class TestTimeSlot:

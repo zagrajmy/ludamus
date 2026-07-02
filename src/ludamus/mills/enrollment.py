@@ -9,9 +9,16 @@ logic stays unit-testable with fakes.
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
+from ludamus.pacts import (
+    MembershipAPIError,
+    UserEnrollmentConfigData,
+    VirtualEnrollmentConfig,
+)
+from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     ClaimResult,
     NavbarNotificationsDTO,
@@ -23,6 +30,14 @@ from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
+    from ludamus.pacts import (
+        EnrollmentConfigDTO,
+        EnrollmentConfigRepositoryProtocol,
+        EventDTO,
+        TicketAPIProtocol,
+        UserEnrollmentConfigDTO,
+    )
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import (
         NotificationReadRepositoryProtocol,
         OfferDTO,
@@ -207,3 +222,159 @@ class NotificationsService:
     def mark_all_read(self, user_id: int) -> None:
         with self._transaction.atomic():
             self._notifications.mark_all_read(user_id)
+
+
+class AnonymousEnrollmentService:
+    SLUG_TEMPLATE = "code_{code}"
+
+    def __init__(self, user_repository: UserRepositoryProtocol) -> None:
+        self._user_repository = user_repository
+
+    def get_user_by_code(self, code: str) -> UserDTO:
+        slug = self.SLUG_TEMPLATE.format(code=code)
+        user = self._user_repository.read(slug)
+        return UserDTO.model_validate(user)
+
+    def build_user(self, code: str) -> UserData:
+        return UserData(
+            username=f"anon_{token_urlsafe(8).lower()}",
+            slug=self.SLUG_TEMPLATE.format(code=code),
+            user_type=UserType.ANONYMOUS,
+            is_active=False,
+        )
+
+
+def _refresh_user_config_from_api(
+    *,
+    user_config: UserEnrollmentConfigDTO,
+    ticket_api: TicketAPIProtocol,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> UserEnrollmentConfigDTO | None:
+    try:
+        membership_count = ticket_api.fetch_membership_count(user_config.user_email)
+    except MembershipAPIError:
+        return user_config
+
+    current_time = datetime.now(tz=UTC)
+
+    if membership_count == 0:
+        user_config.allowed_slots = 0
+        user_config.last_check = current_time
+        enrollment_config_repo.update_user_config(user_config)
+        return None
+
+    user_config.allowed_slots = membership_count
+    user_config.last_check = current_time
+    enrollment_config_repo.update_user_config(user_config)
+    return user_config
+
+
+def _create_user_config_from_api(
+    *,
+    enrollment_config: EnrollmentConfigDTO,
+    user_email: str,
+    ticket_api: TicketAPIProtocol,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> UserEnrollmentConfigDTO | None:
+
+    try:
+        membership_count = ticket_api.fetch_membership_count(user_email)
+    except MembershipAPIError:
+        return None
+
+    current_time = datetime.now(tz=UTC)
+    return enrollment_config_repo.create_user_config(
+        UserEnrollmentConfigData(
+            enrollment_config_id=enrollment_config.pk,
+            user_email=user_email,
+            allowed_slots=membership_count,
+            fetched_from_api=True,
+            last_check=current_time,
+        )
+    )
+
+
+def get_or_create_user_enrollment_config(  # noqa: PLR0913
+    *,
+    enrollment_config: EnrollmentConfigDTO,
+    user_email: str,
+    ticket_api: TicketAPIProtocol,
+    check_interval_minutes: int,
+    existing_user_config: UserEnrollmentConfigDTO | None,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> UserEnrollmentConfigDTO | None:
+    if existing_user_config:
+        if existing_user_config.allowed_slots > 0:
+            return existing_user_config
+
+        time_threshold = datetime.now(tz=UTC) - timedelta(
+            minutes=check_interval_minutes
+        )
+
+        if (
+            not existing_user_config.last_check
+            or existing_user_config.last_check < time_threshold
+        ):
+            return _refresh_user_config_from_api(
+                user_config=existing_user_config,
+                ticket_api=ticket_api,
+                enrollment_config_repo=enrollment_config_repo,
+            )
+
+        return None
+
+    return _create_user_config_from_api(
+        enrollment_config=enrollment_config,
+        user_email=user_email,
+        ticket_api=ticket_api,
+        enrollment_config_repo=enrollment_config_repo,
+    )
+
+
+def get_user_enrollment_config(
+    *,
+    event: EventDTO,
+    user_email: str,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+    ticket_api: TicketAPIProtocol,
+    check_interval_minutes: int,
+) -> VirtualEnrollmentConfig | None:
+    virtual_config = VirtualEnrollmentConfig()
+
+    now = datetime.now(tz=UTC)
+    for config in enrollment_config_repo.read_list(
+        event.pk, max_start_time=now, min_end_time=now
+    ):
+        existing_user_config = enrollment_config_repo.read_user_config(
+            config, user_email
+        )
+        if api_user_config := get_or_create_user_enrollment_config(
+            enrollment_config=config,
+            user_email=user_email,
+            ticket_api=ticket_api,
+            check_interval_minutes=check_interval_minutes,
+            existing_user_config=existing_user_config,
+            enrollment_config_repo=enrollment_config_repo,
+        ):
+            virtual_config.allowed_slots += api_user_config.allowed_slots
+            virtual_config.has_user_config = True
+        elif existing_user_config:
+            virtual_config.allowed_slots += existing_user_config.allowed_slots
+            virtual_config.has_user_config = True
+
+        email_domain = (
+            user_email.split("@")[1] if (user_email and "@" in user_email) else ""
+        )
+        if email_domain and (
+            domain_config := enrollment_config_repo.read_domain_config(
+                config, email_domain
+            )
+        ):
+            virtual_config.allowed_slots += domain_config.allowed_slots_per_user
+            virtual_config.has_domain_config = True
+
+    return (
+        virtual_config
+        if (virtual_config.has_user_config or virtual_config.has_domain_config)
+        else None
+    )

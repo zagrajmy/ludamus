@@ -173,9 +173,12 @@
             {% endif %}
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">
+                <p class="text-foreground-muted mb-4">
                     {% translate "No time slots defined. Add time slots to configure the event schedule." %}
                 </p>
+                {% url 'panel:time-slot-create' slug=current_event.slug as create_url %}
+                {% translate "Add Time Slot" as t_create %}
+                {% tessera_button t_create href=create_url icon="plus" %}
             </div>
         {% endif %}
     </div>

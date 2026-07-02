@@ -10,7 +10,8 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
-    from ludamus.pacts import SiteDTO, SphereDTO, UserDTO
+    from ludamus.pacts import SiteDTO, SphereDTO
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import NavbarNotificationsDTO
 
 
@@ -56,7 +57,10 @@ def support(request: HttpRequest) -> dict[str, str]:  # noqa: ARG001
 
 
 def static_version(request: HttpRequest) -> dict[str, str]:  # noqa: ARG001
-    return {"STATIC_VERSION": settings.STATIC_VERSION}
+    return {
+        "COMMIT_SHA": settings.COMMIT_SHA,
+        "STATIC_VERSION": settings.STATIC_VERSION,
+    }
 
 
 class CurrentUserContextData(TypedDict):

@@ -38,7 +38,7 @@ if TYPE_CHECKING:
         ImportLogServiceProtocol,
         ProposalImportServiceProtocol,
     )
-    from ludamus.pacts.venues import VenuesServiceProtocol
+    from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
 class DatabaseConstraintError(Exception):
@@ -90,6 +90,8 @@ class ServicesProtocol(Protocol):
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
     def venues(self) -> VenuesServiceProtocol: ...
+    @property
+    def space_tree(self) -> SpaceTreeServiceProtocol: ...
     @property
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property

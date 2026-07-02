@@ -4,7 +4,7 @@ from django.db import IntegrityError, transaction
 
 from ludamus.adapters.db.django.models import Party, PartyMembership, User
 from ludamus.links.db.django.party_backfill import backfill_parties
-from ludamus.pacts import UserType
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 
 

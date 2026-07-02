@@ -107,13 +107,12 @@ class TestTimetableLogPageView:
         assert response.context["logs"] == []
 
     def test_assign_creates_log_entry(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -141,13 +140,12 @@ class TestTimetableLogPageView:
         assert logs[0].new_space_name == space.name
 
     def test_unassign_creates_log_entry(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -172,21 +170,19 @@ class TestTimetableLogPageView:
         assert logs[0].old_space_name == space.name
 
     def test_space_filter_returns_only_matching_logs(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space_a = SpaceFactory(area=area)
-        space_b = SpaceFactory(area=area)
+        space_a = SpaceFactory(event=event)
+        space_b = SpaceFactory(event=event)
         session_a = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
         )
         session_b = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

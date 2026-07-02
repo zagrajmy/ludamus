@@ -12,8 +12,8 @@ if TYPE_CHECKING:
         AuthenticatedRequestContext,
         DependencyInjectorProtocol,
         RequestContext,
-        UserDTO,
     )
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.services import ServicesProtocol
 
 

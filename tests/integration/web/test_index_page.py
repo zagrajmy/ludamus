@@ -2,20 +2,20 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
-from django.contrib.staticfiles.storage import staticfiles_storage
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Announcement
-from ludamus.adapters.web.django.views import EVENT_PLACEHOLDER_IMAGES, EventInfo
+from ludamus.adapters.web.django.views import EventInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
+    SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -41,8 +41,7 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
         start_time=event.start_time,
     )
     return EventInfo.from_list_item(
-        item,
-        cover_image_url=staticfiles_storage.url(EVENT_PLACEHOLDER_IMAGES[cover_index]),
+        item, cover_image_url=placeholder_cover_url(cover_index)
     )
 
 
@@ -84,6 +83,7 @@ class TestEventsPageView:
             },
             template_name=["index.html"],
         )
+        assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
     def test_ok_with_event(self, client, event):
         response = client.get(self.URL)
@@ -102,9 +102,9 @@ class TestEventsPageView:
 
     def test_session_count_counts_agenda_items(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
-        AgendaItemFactory(space=space)
-        AgendaItemFactory(space=space)
+        space = SpaceFactory(event=event)
+        AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
+        AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
 
         response = client.get(self.URL)
 

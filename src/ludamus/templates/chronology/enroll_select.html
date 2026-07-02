@@ -44,7 +44,7 @@
                         <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Host" %}</h6>
                         <p class="mb-3">{{ session.display_name }}</p>
                         <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Participants" %}</h6>
-                        <p class="mb-3">
+                        <p class="mb-3 tabular-nums">
                             {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
                             {% if session.waiting_count > 0 %}
                                 (+{{ session.waiting_count }} {% translate "waiting" %})
@@ -184,7 +184,7 @@
                         </div>
                         <div class="alert alert-info flex items-center gap-2 mt-3 text-sm">
                             {% icon "information-circle" class="w-4 h-4 shrink-0" %}
-                            <span>
+                            <span class="tabular-nums">
                                 <strong>{% translate "Session capacity" %}:</strong> {{ session.enrolled_count }}/{{ session.effective_participants_limit }} {% translate "enrolled" %}
                                 {% if session.waiting_count > 0 %}
                                     (+{{ session.waiting_count }} {% translate "waiting" %})

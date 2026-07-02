@@ -9,26 +9,18 @@ export const analyzePageAccessibility = async (
   page: Page,
   options: { include?: string } = {},
 ): Promise<void> => {
-  let builder = new AxeBuilder({ page }).withTags([
-    "wcag2a",
-    "wcag2aa",
-    "wcag21a",
-    "wcag21aa",
-  ]);
+  let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]);
   if (options.include) builder = builder.include(options.include);
 
   const results = await builder.analyze();
   const blocking = results.violations.filter(
-    (violation) =>
-      violation.impact === "critical" || violation.impact === "serious",
+    (violation) => violation.impact === "critical" || violation.impact === "serious",
   );
 
   expect(
     blocking,
     `Accessibility violations:\n${blocking
-      .map(
-        (v) => `- [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} node(s))`,
-      )
+      .map((v) => `- [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
       .join("\n")}`,
   ).toEqual([]);
 };

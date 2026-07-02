@@ -1,6 +1,4 @@
-const start = document.getElementById(
-  "id_start_time",
-) as HTMLInputElement | null;
+const start = document.getElementById("id_start_time") as HTMLInputElement | null;
 const end = document.getElementById("id_end_time") as HTMLInputElement | null;
 
 const DEFAULT_DURATION_HOURS = 3;
@@ -34,15 +32,9 @@ const initDropzone = (label: HTMLLabelElement): void => {
   const input = label.querySelector<HTMLInputElement>("[data-dropzone-input]");
   const nameEls = label.querySelectorAll<HTMLElement>("[data-dropzone-name]");
   const sizeEls = label.querySelectorAll<HTMLElement>("[data-dropzone-size]");
-  const preview = label.querySelector<HTMLImageElement>(
-    "[data-dropzone-preview]",
-  );
-  const clearBtns = label.querySelectorAll<HTMLButtonElement>(
-    "[data-dropzone-clear]",
-  );
-  const clearFlag = label.querySelector<HTMLInputElement>(
-    "[data-dropzone-clear-flag]",
-  );
+  const preview = label.querySelector<HTMLImageElement>("[data-dropzone-preview]");
+  const clearBtns = label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
+  const clearFlag = label.querySelector<HTMLInputElement>("[data-dropzone-clear-flag]");
   if (!input || nameEls.length === 0 || sizeEls.length === 0) return;
 
   let previewUrl: string | null = null;
@@ -106,9 +98,7 @@ const initDropzone = (label: HTMLLabelElement): void => {
 };
 
 const initDropzones = (root: ParentNode = document): void => {
-  for (const label of root.querySelectorAll<HTMLLabelElement>(
-    "[data-dropzone]",
-  )) {
+  for (const label of root.querySelectorAll<HTMLLabelElement>("[data-dropzone]")) {
     initDropzone(label);
   }
 };

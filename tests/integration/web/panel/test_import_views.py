@@ -1514,7 +1514,7 @@ class TestEventImportRunActionView:
             messages=[(messages.SUCCESS, "Created 2 proposals.")],
         )
         titles = set(
-            Session.objects.filter(sphere=sphere).values_list("title", flat=True)
+            Session.objects.filter(event=event).values_list("title", flat=True)
         )
         assert titles == {"My Talk", "Another"}
 
@@ -1566,7 +1566,7 @@ class TestEventImportRunActionView:
                 ),
             ],
         )
-        assert not Session.objects.filter(sphere=sphere).exists()
+        assert not Session.objects.filter(event=event).exists()
         assert not Facilitator.objects.filter(event=event).exists()
         assert not Track.objects.filter(event=event).exists()
         entry = ImportLogEntry.objects.get(integration=integration)
@@ -1611,7 +1611,7 @@ class TestEventImportRunActionView:
         field = SessionField.objects.get(event=event, slug="system")
         assert field.name == "System"
         assert field.question == "RPG system"
-        session = Session.objects.get(sphere=sphere, title="My Talk")
+        session = Session.objects.get(event=event, title="My Talk")
         value = SessionFieldValue.objects.get(session=session, field=field)
         assert value.value == "D&D"
 
@@ -1800,7 +1800,7 @@ class TestEventImportRunActionView:
             )
             authenticated_client.post(_run_url(event, integration))
 
-        session = Session.objects.get(sphere=sphere, title="My Talk")
+        session = Session.objects.get(event=event, title="My Talk")
         slots = list(session.time_slots.all())
         assert len(slots) == 1
         assert slots[0].start_time == datetime.fromisoformat(
@@ -1841,11 +1841,11 @@ class TestEventImportRunActionView:
         # The configured option provisions and attaches its track...
         rpg = Track.objects.get(event=event, slug="rpg")
         assert rpg.name == "RPG sessions"
-        matched = Session.objects.get(sphere=sphere, title="My Talk")
+        matched = Session.objects.get(event=event, title="My Talk")
         assert list(matched.tracks.all()) == [rpg]
         # ...and a custom answer lands in the catchall track.
         other = Track.objects.get(event=event, slug="other")
-        loose = Session.objects.get(sphere=sphere, title="Loose")
+        loose = Session.objects.get(event=event, title="Loose")
         assert list(loose.tracks.all()) == [other]
 
     def test_post_provisions_and_sets_the_category(
@@ -1881,11 +1881,11 @@ class TestEventImportRunActionView:
         # The configured option provisions and sets its category...
         rpg = ProposalCategory.objects.get(event=event, slug="rpg")
         assert rpg.name == "RPG session"
-        matched = Session.objects.get(sphere=sphere, title="My Talk")
+        matched = Session.objects.get(event=event, title="My Talk")
         assert matched.category_id == rpg.pk
         # ...and a custom answer lands in the catchall category.
         other = ProposalCategory.objects.get(event=event, slug="other")
-        loose = Session.objects.get(sphere=sphere, title="Loose")
+        loose = Session.objects.get(event=event, title="Loose")
         assert loose.category_id == other.pk
 
 
@@ -1938,7 +1938,7 @@ class TestEventImportTestRowActionView:
                 )
             ],
         )
-        sessions = Session.objects.filter(sphere=sphere)
+        sessions = Session.objects.filter(event=event)
         assert sessions.count() == 1
         assert sessions.get().title in {"One", "Two", "Three"}
 
@@ -1963,7 +1963,7 @@ class TestEventImportTestRowActionView:
             url=_run_page_url(event, integration),
             messages=[(messages.INFO, "No responses found to test.")],
         )
-        assert not Session.objects.filter(sphere=sphere).exists()
+        assert not Session.objects.filter(event=event).exists()
 
 
 @pytest.mark.django_db
@@ -2557,10 +2557,10 @@ class TestEventImportLogPageView:
 
 @pytest.mark.django_db
 class TestEventImportLogFilters:
-    def _seed(self, integration, *, sphere):
+    def _seed(self, integration):
         # One success + one skipped entry, both with distinct titles for search.
         session = Session.objects.create(
-            sphere=sphere,
+            event=integration.event,
             title="Dragons of Despair",
             slug="dragons-success",
             status="pending",
@@ -2593,7 +2593,7 @@ class TestEventImportLogFilters:
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
-        self._seed(integration, sphere=sphere)
+        self._seed(integration)
 
         response = authenticated_client.get(
             _log_url(event, integration) + "?status=skipped"
@@ -2613,7 +2613,7 @@ class TestEventImportLogFilters:
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
-        self._seed(integration, sphere=sphere)
+        self._seed(integration)
 
         response = authenticated_client.get(
             _log_url(event, integration) + "?status=success"
@@ -2638,7 +2638,7 @@ class TestEventImportLogFilters:
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
-        self._seed(integration, sphere=sphere)
+        self._seed(integration)
 
         response = authenticated_client.get(
             _log_url(event, integration) + "?search=dragon"
@@ -2658,7 +2658,7 @@ class TestEventImportLogFilters:
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
-        self._seed(integration, sphere=sphere)
+        self._seed(integration)
 
         response = authenticated_client.get(
             _log_url(event, integration) + "?search=A%26B%3Dc"
@@ -2677,7 +2677,7 @@ class TestEventImportLogFilters:
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
-        self._seed(integration, sphere=sphere)
+        self._seed(integration)
 
         response = authenticated_client.get(
             _log_url(event, integration) + "?status=skipped&search=wargames"
@@ -2694,7 +2694,7 @@ class TestEventImportLogFilters:
         integration = _make_import_integration(
             event, connection_with_secret, display_name="Puller"
         )
-        self._seed(integration, sphere=sphere)
+        self._seed(integration)
 
         response = authenticated_client.get(
             _log_url(event, integration) + "?status=bogus"
@@ -2874,11 +2874,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -2954,11 +2954,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -3001,11 +3001,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
             contact_email="existing@example.com",
@@ -3037,11 +3037,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -3075,11 +3075,11 @@ class TestEventImportApplyFieldLayoutView:
             event=event, display_name="Existing Host", slug="existing-host"
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -3110,11 +3110,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=None,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -3155,11 +3155,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -3203,11 +3203,11 @@ class TestEventImportApplyFieldLayoutView:
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Host",
             title="Talk",
             slug="talk",
-            sphere=sphere,
             participants_limit=4,
             status="pending",
         )
@@ -3704,7 +3704,7 @@ class TestImportActionResultMessages:
                 )
             ],
         )
-        assert not Session.objects.filter(sphere=sphere).exists()
+        assert not Session.objects.filter(event=event).exists()
 
     def test_reimport_warns_when_source_row_is_gone(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

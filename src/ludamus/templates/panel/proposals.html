@@ -173,7 +173,10 @@
             {% end_tessera_table %}
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No proposals submitted yet." %}</p>
+                <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
+                {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+                {% translate "Create Session" as t_create %}
+                {% tessera_button t_create href=create_url icon="plus" %}
             </div>
         {% endif %}
         {% if deleted_proposals %}
@@ -219,8 +222,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                             <form method="post"
-                                  action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}"
-                                  data-confirm="{% translate "Restore this session?" %}">
+                                  action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}">
                                 {% csrf_token %}
                                 {% translate "Restore" as restore_label %}
                                 {% tessera_button restore_label variant="secondary" %}

@@ -87,8 +87,8 @@
                 background: #fff;
             }
 
-            body>nav,
-            body>footer,
+            .app-scroll>nav,
+            .app-scroll>footer,
             .no-print {
                 display: none !important;
             }
@@ -97,6 +97,9 @@
     {% block extra_style %}
     {% endblock extra_style %}
 {% endblock extra_head %}
+{% block body_class %}
+    app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
+{% endblock body_class %}
 {% block main_region %}
     <main class="grow w-full">
         <div class="sheet">

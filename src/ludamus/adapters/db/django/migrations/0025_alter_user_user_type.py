@@ -2,7 +2,7 @@
 
 from django.db import migrations, models
 
-import ludamus.pacts
+import ludamus.pacts.crowd
 
 
 class Migration(migrations.Migration):
@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
                     ("connected", "CONNECTED"),
                     ("anonymous", "ANONYMOUS"),
                 ],
-                default=ludamus.pacts.UserType["ACTIVE"],
+                default=ludamus.pacts.crowd.UserType["ACTIVE"],
                 max_length=255,
             ),
         )

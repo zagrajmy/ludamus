@@ -1,7 +1,7 @@
 """Django forms for panel views."""
 
 from decimal import Decimal
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -138,6 +138,13 @@ class EventSettingsForm(forms.Form):
         help_text=_(
             "When on, a program item is confirmed the moment it is placed on "
             "the schedule. Turn off to confirm items manually."
+        ),
+    )
+    use_session_cover_placeholders = forms.BooleanField(
+        required=False,
+        label=_("Use placeholder images for sessions without a cover image"),
+        help_text=_(
+            "When off, sessions without uploaded images are shown as text-only cards."
         ),
     )
 
@@ -343,71 +350,6 @@ class SessionFieldForm(forms.Form):
     is_public = forms.BooleanField(required=False, initial=False)
 
 
-class VenueForm(forms.Form):
-    """Form for creating/editing venues."""
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Venue name is too long (max 255 characters)."),
-            "required": _("Venue name is required."),
-        },
-    )
-    address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
-
-
-class VenueDuplicateForm(forms.Form):
-    """Form for duplicating a venue within the same event."""
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        label=_("New Venue Name"),
-        error_messages={
-            "max_length": _("Venue name is too long (max 255 characters)."),
-            "required": _("Venue name is required."),
-        },
-    )
-
-
-def create_venue_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
-    """Create a form for copying a venue to another event.
-
-    Args:
-        events: List of (event_id, event_name) tuples for target event choices.
-
-    Returns:
-        A form class with the target_event field configured.
-    """
-    target_event_field = forms.ChoiceField(
-        label=_("Target Event"),
-        choices=events,
-        error_messages={
-            "required": _("Please select a target event."),
-            "invalid_choice": _("Invalid event selection."),
-        },
-    )
-
-    return type("VenueCopyForm", (forms.Form,), {"target_event": target_event_field})
-
-
-class AreaForm(forms.Form):
-    """Form for creating/editing areas within a venue."""
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Area name is too long (max 255 characters)."),
-            "required": _("Area name is required."),
-        },
-    )
-    description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
-    )
-
-
 class TimeSlotForm(forms.Form):
     """Form for creating/editing time slots."""
 
@@ -438,8 +380,6 @@ class TimeSlotForm(forms.Form):
 
 
 class SpaceForm(forms.Form):
-    """Form for creating/editing spaces within an area."""
-
     name = forms.CharField(
         max_length=255,
         strip=True,
@@ -451,8 +391,43 @@ class SpaceForm(forms.Form):
     capacity = forms.IntegerField(
         required=False,
         min_value=1,
+        label=_("Capacity"),
+        help_text=_("Only meaningful for the innermost spaces that hold sessions."),
         error_messages={"min_value": _("Capacity must be at least 1.")},
     )
+    description = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+
+
+class SpaceEditForm(SpaceForm):
+    # Editing additionally allows reparenting; the view supplies the eligible
+    # targets (no self, descendants, or session-holding spaces). The empty
+    # choice ("Top level") moves the space to the root.
+    def __init__(
+        self, *args: Any, parent_choices: list[tuple[str, str]], **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["parent"] = forms.ChoiceField(
+            required=False,
+            label=_("Parent"),
+            help_text=_(
+                "Move this space elsewhere, or choose Top level to flatten it."
+            ),
+            choices=parent_choices,
+        )
+
+
+def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
+    target_event_field = forms.ChoiceField(
+        label=_("Target Event"),
+        choices=events,
+        error_messages={
+            "required": _("Please select a target event."),
+            "invalid_choice": _("Invalid event selection."),
+        },
+    )
+    return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
 class TrackForm(forms.Form):

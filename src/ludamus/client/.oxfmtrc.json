@@ -1,0 +1,5 @@
+{
+  "sortTailwindcss": {
+    "stylesheet": "./src/index.css"
+  }
+}

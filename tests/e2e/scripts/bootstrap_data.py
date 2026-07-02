@@ -32,7 +32,6 @@ from django.utils.timezone import get_current_timezone  # noqa: E402
 
 from ludamus.adapters.db.django.models import (  # noqa: E402
     AgendaItem,
-    Area,
     Encounter,
     EnrollmentConfig,
     Event,
@@ -45,7 +44,6 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Sphere,
     TimeSlot,
     User,
-    Venue,
 )
 from ludamus.pacts import SessionStatus  # noqa: E402
 from ludamus.pacts.legacy import (  # noqa: E402
@@ -162,24 +160,27 @@ def _create_flatpage(site: Site, *, url: str, title: str, content: str) -> FlatP
     return page
 
 
-def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Venue:
-    return Venue.objects.create(event=event, name=name, slug=slug, address=address)
+def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Space:
+    return Space.objects.create(
+        event=event, parent=None, name=name, slug=slug, description=address
+    )
 
 
-def _create_area(venue: Venue, *, name: str, slug: str, description: str = "") -> Area:
-    return Area.objects.create(
-        venue=venue, name=name, slug=slug, description=description
+def _create_area(venue: Space, *, name: str, slug: str, description: str = "") -> Space:
+    return Space.objects.create(
+        event=venue.event, parent=venue, name=name, slug=slug, description=description
     )
 
 
 def _create_space(
-    area: Area, *, name: str, slug: str, capacity: int | None = None
+    area: Space, *, name: str, slug: str, capacity: int | None = None
 ) -> Space:
-    return Space.objects.create(area=area, name=name, slug=slug, capacity=capacity)
+    return Space.objects.create(
+        event=area.event, parent=area, name=name, slug=slug, capacity=capacity
+    )
 
 
 def _create_session(
-    sphere: Sphere,
     event: Event,
     space: Space,
     *,
@@ -191,7 +192,7 @@ def _create_session(
     duration_hours: int,
 ) -> Session:
     session = Session.objects.create(
-        sphere=sphere,
+        event=event,
         display_name=presenter,
         title=title,
         slug=slug,
@@ -288,7 +289,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     area = _create_area(venue, name="Demo Area", slug="demo-area")
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
-        sphere=sphere,
+        event=event,
         display_name="Demo GM",
         title="Waitlist Promotion Demo",
         slug="waitlist-promotion-demo",
@@ -332,6 +333,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
         json.dumps(
             {
                 "session_id": session.pk,
+                "event_slug": event.slug,
                 "superuser_id": superuser.pk,
                 "waiter_email": waiter.email,
                 "session_title": session.title,
@@ -584,7 +586,6 @@ def main() -> None:
     tester = User.objects.get(username="e2e-tester")
 
     _create_session(
-        sphere,
         upcoming_event,
         east_wing_space,
         title="Mega Strategy Lab",
@@ -596,7 +597,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Cozy Storytellers Circle",
@@ -608,7 +608,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Przygoda w Mieście Neonów",
@@ -640,7 +639,7 @@ def main() -> None:
         end_time=upcoming_event.start_time + timedelta(hours=2),
     )
     pending_session = Session.objects.create(
-        sphere=sphere,
+        event=upcoming_event,
         presenter=tester,
         display_name="E2E Tester",
         contact_email="e2e@test.local",

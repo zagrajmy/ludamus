@@ -36,13 +36,12 @@ def _expected_session(session):
 
 
 @pytest.fixture(name="owned_session")
-def owned_session_fixture(event, active_user, sphere):
+def owned_session_fixture(event, active_user):
     category = ProposalCategoryFactory(event=event)
     return SessionFactory(
         category=category,
         presenter=active_user,
         display_name=active_user.name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
         status="scheduled",
@@ -84,12 +83,10 @@ class TestSessionEditViewGet:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
-    def test_non_owner_404(self, authenticated_client, event, sphere):
+    def test_non_owner_404(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
-        session = SessionFactory(
-            category=category, presenter=other, sphere=sphere, status="scheduled"
-        )
+        session = SessionFactory(category=category, presenter=other, status="scheduled")
 
         response = authenticated_client.get(_url(event, session))
 
@@ -333,15 +330,11 @@ class TestSessionEditViewPost:
         assert response.context["form"].fields["cover_image"].initial == cover_url
         assert cover_url.encode() in response.content
 
-    def test_non_owner_404_no_write(self, authenticated_client, event, sphere):
+    def test_non_owner_404_no_write(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
         session = SessionFactory(
-            category=category,
-            presenter=other,
-            sphere=sphere,
-            title="Original",
-            status="scheduled",
+            category=category, presenter=other, title="Original", status="scheduled"
         )
 
         response = authenticated_client.post(

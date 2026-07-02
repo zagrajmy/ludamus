@@ -24,7 +24,10 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise install
       - run: mise run p install
+      - run: mise bootstrap packages apply --yes
       - run: mise run prcheck --jobs 4
+      - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
+        run: mise run messages-check
 
   varlock-scan:
     runs-on: ubuntu-latest

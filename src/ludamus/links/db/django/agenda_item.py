@@ -54,9 +54,9 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[AgendaItemDTO]:
-        items = AgendaItem.objects.filter(
-            space__area__venue__event_id=event_pk
-        ).select_related(*_SELECT_RELATED)
+        items = AgendaItem.objects.filter(session__event_id=event_pk).select_related(
+            *_SELECT_RELATED
+        )
         return [_to_dto(item) for item in items]
 
     @staticmethod
@@ -119,7 +119,7 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
 
     @staticmethod
     def confirm_all_by_event(event_pk: int) -> None:
-        AgendaItem.objects.filter(space__area__venue__event_id=event_pk).update(
+        AgendaItem.objects.filter(session__event_id=event_pk).update(
             session_confirmed=True
         )
 

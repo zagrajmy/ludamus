@@ -369,9 +369,11 @@ class TestPromotionRepositoryEdges:
 
 
 class TestPromotionRepositoryUnscheduledSession:
-    def test_offer_for_unscheduled_session_has_empty_event_slug(self, session, waiter):
-        # The session has no agenda item (never scheduled), so the offer is built
-        # with an empty event slug instead of raising.
+    def test_offer_for_unscheduled_session_uses_session_event_slug(
+        self, session, waiter
+    ):
+        # The session has no agenda item (never scheduled), but it still belongs
+        # to an event directly, so the offer carries that event's slug.
         offered = SessionParticipation.objects.create(
             session=session,
             user=waiter,
@@ -386,5 +388,5 @@ class TestPromotionRepositoryUnscheduledSession:
             )
 
         assert offer is not None
-        assert not offer.event_slug
+        assert offer.event_slug == session.event.slug
         assert offer.participant_ids == [offered.pk]

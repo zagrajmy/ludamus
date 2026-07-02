@@ -11,7 +11,6 @@ from pytest_factoryboy import register
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     Encounter,
     EncounterRSVP,
     EnrollmentConfig,
@@ -25,7 +24,6 @@ from ludamus.adapters.db.django.models import (
     Tag,
     TagCategory,
     TimeSlot,
-    Venue,
 )
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
@@ -100,33 +98,13 @@ class EnrollmentConfigFactory(DjangoModelFactory):
     percentage_slots = 100
 
 
-class VenueFactory(DjangoModelFactory):
-    class Meta:
-        model = Venue
-
-    name = Faker("company")
-    slug = Sequence(lambda n: f"venue-{n}")
-    event = SubFactory(EventFactory)
-    order = 0
-
-
-class AreaFactory(DjangoModelFactory):
-    class Meta:
-        model = Area
-
-    name = Faker("word")
-    slug = Sequence(lambda n: f"area-{n}")
-    venue = SubFactory(VenueFactory)
-    order = 0
-
-
 class SpaceFactory(DjangoModelFactory):
     class Meta:
         model = Space
 
     name = Faker("word")
     slug = Sequence(lambda n: f"space-{n}")
-    area = SubFactory(AreaFactory)
+    event = SubFactory(EventFactory)
 
 
 class TimeSlotFactory(DjangoModelFactory):
@@ -169,8 +147,8 @@ class SessionFactory(DjangoModelFactory):
     display_name = Faker("name")
     contact_email = Faker("email")
     category = SubFactory("tests.integration.conftest.ProposalCategoryFactory")
+    event = LazyAttribute(lambda o: o.category.event if o.category else EventFactory())
     participants_limit = Faker("random_int", min=2, max=20)
-    sphere = SubFactory(SphereFactory)
     status = "pending"
 
 
@@ -313,19 +291,9 @@ def enrollment_config_fixture(event):
     )
 
 
-@pytest.fixture(name="venue")
-def venue_fixture(event):
-    return VenueFactory(event=event, name="Main Venue")
-
-
-@pytest.fixture(name="area")
-def area_fixture(venue):
-    return AreaFactory(venue=venue, name="Main Area")
-
-
 @pytest.fixture(name="space")
-def space_fixture(area):
-    return SpaceFactory(area=area)
+def space_fixture(event):
+    return SpaceFactory(event=event)
 
 
 @pytest.fixture
@@ -338,11 +306,12 @@ def time_slot(event):
 
 
 @pytest.fixture(name="session")
-def session_fixture(active_user, sphere):
+def session_fixture(active_user, event):
     return SessionFactory(
+        event=event,
+        category=None,
         presenter=active_user,
         display_name=active_user.full_name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
     )
@@ -354,12 +323,11 @@ def proposal_category_fixture(event):
 
 
 @pytest.fixture(name="pending_session")
-def pending_session_fixture(proposal_category, active_user, sphere):
+def pending_session_fixture(proposal_category, active_user):
     return SessionFactory(
         category=proposal_category,
         presenter=active_user,
         display_name=active_user.name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
         status="pending",

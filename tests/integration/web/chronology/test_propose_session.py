@@ -1467,7 +1467,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         Session.objects.create(
-            sphere=event.sphere,
+            event=event,
             presenter=active_user,
             display_name="Other",
             category=proposal_category,
@@ -1481,7 +1481,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_submit_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.FOUND
-        assert Session.objects.filter(sphere=event.sphere).count() == 1 + 1
+        assert Session.objects.filter(event=event).count() == 1 + 1
 
     def test_submit_via_htmx_returns_hx_redirect(
         self, authenticated_client, event, faker, time_zone, proposal_category

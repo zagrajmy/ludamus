@@ -18,9 +18,10 @@ from tests.integration.conftest import (
 )
 
 
-def _enroll_url(session_id: int) -> str:
+def _enroll_url(session_id: int, event_slug: str) -> str:
     return reverse(
-        "web:chronology:session-enrollment", kwargs={"session_id": session_id}
+        "web:chronology:session-enrollment",
+        kwargs={"event_slug": event_slug, "session_id": session_id},
     )
 
 
@@ -38,12 +39,13 @@ class TestShadowbanSignupNotification:
         # The player joins a *different* session in the same event.
         host = UserFactory(username="host", email="host@example.com", name="Host")
         joined_session = SessionFactory(
-            sphere=event.sphere, presenter=host, participants_limit=10, min_age=0
+            event=event, presenter=host, participants_limit=10, min_age=0
         )
-        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
 
         response = authenticated_client.post(
-            _enroll_url(joined_session.pk), data={f"user_{active_user.id}": "enroll"}
+            _enroll_url(joined_session.pk, joined_session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
         )
 
         assert response.status_code == HTTPStatus.FOUND
@@ -66,9 +68,9 @@ class TestShadowbanSignupNotification:
         banner.shadowbanned.add(active_user)
         host = UserFactory(username="host3", email="host3@example.com", name="Host")
         joined_session = SessionFactory(
-            sphere=event.sphere, presenter=host, participants_limit=10, min_age=0
+            event=event, presenter=host, participants_limit=10, min_age=0
         )
-        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
         # Already on the waiting list -> promoting to enrolled is not a fresh
         # signup, so no new alert.
         SessionParticipation.objects.create(
@@ -78,7 +80,8 @@ class TestShadowbanSignupNotification:
         )
 
         response = authenticated_client.post(
-            _enroll_url(joined_session.pk), data={f"user_{active_user.id}": "enroll"}
+            _enroll_url(joined_session.pk, joined_session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
         )
 
         assert response.status_code == HTTPStatus.FOUND
@@ -98,12 +101,13 @@ class TestShadowbanSignupNotification:
         banner_session.save()
         host = UserFactory(username="host2", email="host2@example.com", name="Host")
         joined_session = SessionFactory(
-            sphere=event.sphere, presenter=host, participants_limit=10, min_age=0
+            event=event, presenter=host, participants_limit=10, min_age=0
         )
-        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
 
         response = authenticated_client.post(
-            _enroll_url(joined_session.pk), data={f"user_{active_user.id}": "enroll"}
+            _enroll_url(joined_session.pk, joined_session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
         )
 
         assert response.status_code == HTTPStatus.FOUND
@@ -121,7 +125,6 @@ class TestShadowbanSignupNotification:
         SessionFactory(
             category=ProposalCategoryFactory(event=event),
             presenter=banner,
-            sphere=event.sphere,
             participants_limit=10,
             min_age=0,
             status="pending",
@@ -133,7 +136,7 @@ class TestShadowbanSignupNotification:
         agenda_item.session.save()
 
         response = authenticated_client.post(
-            _enroll_url(agenda_item.session.pk),
+            _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 

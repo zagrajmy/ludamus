@@ -9,7 +9,6 @@ from django.utils.timezone import get_current_timezone
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     EnrollmentConfig,
     Event,
     Facilitator,
@@ -20,7 +19,6 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     Track,
     User,
-    Venue,
 )
 from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 
@@ -186,14 +184,16 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
         allow_anonymous_enrollment=True,
     )
 
-    venue = Venue.objects.create(
+    venue = Space.objects.create(
         event=event,
+        parent=None,
         name="Default Venue",
         slug="default-venue",
-        address="Anonymized convention venue",
+        description="Anonymized convention venue",
     )
-    area = Area.objects.create(
-        venue=venue,
+    area = Space.objects.create(
+        event=event,
+        parent=venue,
         name="Default Area",
         slug="default-area",
         description=(
@@ -215,10 +215,15 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
     assert len(participants) == EXPECTED_PARTICIPANT_COUNT
 
 
-def _create_spaces(area: Area) -> list[Space]:
+def _create_spaces(area: Space) -> list[Space]:
     return [
         Space.objects.create(
-            area=area, name=name, slug=slugify(name), capacity=capacity, order=order
+            parent=area,
+            name=name,
+            slug=slugify(name),
+            capacity=capacity,
+            order=order,
+            event=area.event,
         )
         for order, (name, capacity) in enumerate(SPACE_SPECS)
     ]
@@ -303,7 +308,7 @@ def _create_sessions(
         duration_hours = (1, 1, 2, 2, 3)[index % 5]
         title = _title(index, spec.track_slug)
         session = Session.objects.create(
-            sphere=event.sphere,
+            event=event,
             title=title,
             slug=f"kapitularz-print-session-{index:03}",
             display_name=facilitator.display_name,

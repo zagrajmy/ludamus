@@ -13,14 +13,7 @@ from ludamus.adapters.web.django.entities import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.pacts import (
-    AgendaItemDTO,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SessionStatus,
-    SpaceDTO,
-    VenueDTO,
-)
+from ludamus.pacts import AgendaItemDTO, SessionDTO, SessionFieldValueDTO, SessionStatus
 from tests.integration.utils import assert_response
 
 FROZEN_TIME = "2026-01-15 12:00:00"
@@ -31,7 +24,7 @@ def _expected_event_info() -> EventInfo:
     start = FROZEN_NOW + timedelta(days=7)
     end = start + timedelta(hours=6)
     return EventInfo(
-        cover_image_url=staticfiles_storage.url("placeholder-images/01.jpg"),
+        cover_image_url=staticfiles_storage.url("placeholder-images/01.webp"),
         description=(
             "Design system preview event. Use this to debug the "
             "event card in isolation."
@@ -85,27 +78,13 @@ def _make_field_values() -> list[SessionFieldValueDTO]:
     ]
 
 
-def _make_loc(creation: datetime) -> dict:
-    venue = VenueDTO(
-        address="",
-        creation_time=creation,
-        modification_time=creation,
-        name="Main Hall",
-        order=0,
-        pk=1,
-        slug="main-hall",
-    )
-    space = SpaceDTO(
-        area_id=None,
-        capacity=None,
-        creation_time=creation,
-        modification_time=creation,
-        name="Table 1",
-        order=0,
-        pk=1,
-        slug="table-1",
-    )
-    return {"venue": venue, "area": None, "space": space}
+def _make_loc() -> dict:
+    return {
+        "space_name": "Table 1",
+        "parent_slug": "main-hall",
+        "parent_name": "Main Hall",
+        "path": "Main Hall > Table 1",
+    }
 
 
 def _expected_session_data() -> SessionData:
@@ -169,7 +148,7 @@ def _expected_session_data() -> SessionData:
         effective_participants_limit=6,
         enrolled_count=2,
         session_participations=session_participations,
-        loc=_make_loc(creation),
+        loc=_make_loc(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
     )
@@ -243,7 +222,7 @@ def _expected_session_data_ended() -> SessionData:
         effective_participants_limit=6,
         enrolled_count=6,
         session_participations=ended_participations,
-        loc=_make_loc(creation),
+        loc=_make_loc(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
     )

@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import User
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import UserDTO
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.utils import assert_response
 
 

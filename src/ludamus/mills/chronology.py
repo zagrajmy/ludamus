@@ -27,7 +27,6 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
-    AreaGroupDTO,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -54,10 +53,10 @@ from ludamus.pacts.chronology import (
     SessionPositionDTO,
     SourceQuestion,
     SpaceColumnDTO,
+    SpaceGroupDTO,
     TimeLabelDTO,
     TimetableGridDTO,
     TrackProgressDTO,
-    VenueGroupDTO,
 )
 from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
@@ -69,7 +68,6 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
         AgendaItemRepositoryProtocol,
-        AreaDTO,
         ContentChangeLogData,
         ContentChangeLogDTO,
         ContentChangeLogRepositoryProtocol,
@@ -162,16 +160,18 @@ class TimetableService:
         space_page: int = 1,
         selected_date: date | None = None,
     ) -> TimetableGridDTO:
-        all_spaces = self._uow.spaces.list_by_event(event_pk)
+        all_nodes = self._uow.spaces.list_by_event(event_pk)
+        node_name_by_pk = {node.pk: node.name for node in all_nodes}
+        leaf_spaces = self._leaves_in_tree_order(all_nodes)
         if track_pk is not None:
             track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
-            all_spaces = [s for s in all_spaces if s.pk in track_space_pks]
+            leaf_spaces = [s for s in leaf_spaces if s.pk in track_space_pks]
 
-        total_spaces = len(all_spaces)
+        total_spaces = len(leaf_spaces)
         total_pages = max(1, math.ceil(total_spaces / TIMETABLE_ROOM_PAGE_SIZE))
         space_page = max(1, min(space_page, total_pages))
         start = (space_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
-        spaces = all_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
+        spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
         all_slots = self._uow.time_slots.list_by_event(event_pk)
         windows_by_date = slot_windows_by_local_date(all_slots, tz)
@@ -180,13 +180,13 @@ class TimetableService:
         if selected_date is None or selected_date not in windows_by_date:
             selected_date = available_dates[0] if available_dates else None
 
-        venue_groups = self._build_venue_groups(event_pk, spaces)
+        groups = self._build_space_groups(spaces, node_name_by_pk)
 
         if selected_date is None:
             return TimetableGridDTO(
                 spaces=spaces,
                 columns=[SpaceColumnDTO(space=s, sessions=[]) for s in spaces],
-                venue_groups=venue_groups,
+                groups=groups,
                 time_labels=[],
                 total_minutes=0,
                 event_start_iso="",
@@ -250,7 +250,7 @@ class TimetableService:
         return TimetableGridDTO(
             spaces=spaces,
             columns=columns,
-            venue_groups=venue_groups,
+            groups=groups,
             time_labels=time_labels,
             total_minutes=num_slots * TIMETABLE_SLOT_MINUTES,
             event_start_iso=grid_start.isoformat(),
@@ -262,46 +262,60 @@ class TimetableService:
             selected_date=selected_date,
         )
 
-    def _build_venue_groups(
-        self, event_pk: int, spaces: list[SpaceDTO]
-    ) -> list[VenueGroupDTO]:
-        if not (area_ids := [s.area_id for s in spaces if s.area_id is not None]):
-            return []
+    @staticmethod
+    def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+        # Depth-first walk of the space tree, returning only the leaves (the
+        # bookable rooms) in display order. Siblings keep `nodes` ordering.
+        children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
+        for node in nodes:
+            children[node.parent_id].append(node)
 
-        venues_by_pk = {v.pk: v for v in self._uow.venues.list_by_event(event_pk)}
-        areas_by_pk: dict[int, AreaDTO] = {
-            area.pk: area
-            for venue_pk in venues_by_pk
-            for area in self._uow.areas.list_by_venue(venue_pk)
-        }
+        leaves: list[SpaceDTO] = []
 
-        venue_groups: list[VenueGroupDTO] = []
-        for area_id in area_ids:
-            area = areas_by_pk[area_id]
-            venue_pk = area.venue_id
-            if not venue_groups or venue_groups[-1].venue_pk != venue_pk:
-                venue_groups.append(
-                    VenueGroupDTO(
-                        venue_pk=venue_pk,
-                        venue_name=venues_by_pk[venue_pk].name,
+        def walk(node: SpaceDTO) -> None:
+            if kids := children.get(node.pk, []):
+                for kid in kids:
+                    walk(kid)
+            else:
+                leaves.append(node)
+
+        for root in children.get(None, []):
+            walk(root)
+        return leaves
+
+    @staticmethod
+    def _build_space_groups(
+        spaces: list[SpaceDTO], name_by_pk: dict[int, str]
+    ) -> list[SpaceGroupDTO]:
+        # One header cell per run of consecutive leaves sharing an immediate
+        # parent (collapsing the old venue-row + area-row to a single row).
+        groups: list[SpaceGroupDTO] = []
+        for space in spaces:
+            parent_pk = space.parent_id
+            if not groups or groups[-1].parent_pk != parent_pk:
+                groups.append(
+                    SpaceGroupDTO(
+                        parent_pk=parent_pk,
+                        parent_name=name_by_pk.get(parent_pk, "") if parent_pk else "",
                         span=0,
-                        areas=[],
                     )
                 )
-            current_venue = venue_groups[-1]
-            current_venue.span += 1
-            if not current_venue.areas or current_venue.areas[-1].area_pk != area_id:
-                current_venue.areas.append(
-                    AreaGroupDTO(area_pk=area_id, area_name=area.name, span=0)
-                )
-            current_venue.areas[-1].span += 1
-        return venue_groups
+            groups[-1].span += 1
+        return groups
 
     def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
         require_session_in_event(self._uow.sessions, session_pk, event_pk)
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
-        if space_pk not in {s.pk for s in self._uow.spaces.list_by_event(event_pk)}:
+        # Only leaf spaces (bookable rooms) may hold a session; a branch node
+        # would violate the leaf-only invariant the timetable grid relies on.
+        leaf_pks = {
+            s.pk
+            for s in self._leaves_in_tree_order(
+                self._uow.spaces.list_by_event(event_pk)
+            )
+        }
+        if space_pk not in leaf_pks:
             raise NotFoundError
 
     def _clear_existing_assignment(
@@ -319,34 +333,40 @@ class TimetableService:
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
-        self._require_session_in_event(session_pk, event_pk)
-        self._require_space_in_event(placement.space_pk, event_pk)
-        self._clear_existing_assignment(session_pk, event_pk, user_pk)
-        session = self._uow.sessions.read(session_pk)
-        if session.status != SessionStatus.PENDING:
-            msg = f"Session {session_pk} is not in PENDING status"
-            raise ValueError(msg)
-        event = self._uow.sessions.read_event(session_pk)
-        self._uow.agenda_items.create(
-            {
+        with self._uow.atomic():
+            self._require_session_in_event(session_pk, event_pk)
+            self._require_space_in_event(placement.space_pk, event_pk)
+            # Lock the target Space row before creating the placement so a
+            # concurrent subtree delete (which locks the same rows before its
+            # no-sessions check) can't cascade this AgendaItem away in the gap
+            # between that check and the delete.
+            self._uow.spaces.lock(placement.space_pk)
+            self._clear_existing_assignment(session_pk, event_pk, user_pk)
+            session = self._uow.sessions.read(session_pk)
+            if session.status != SessionStatus.PENDING:
+                msg = f"Session {session_pk} is not in PENDING status"
+                raise ValueError(msg)
+            event = self._uow.sessions.read_event(session_pk)
+            self._uow.agenda_items.create(
+                {
+                    "session_id": session_pk,
+                    "space_id": placement.space_pk,
+                    "start_time": placement.start_time,
+                    "end_time": placement.end_time,
+                    "session_confirmed": event.auto_confirm_sessions,
+                }
+            )
+            self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
+            log_data: ScheduleChangeLogData = {
+                "event_id": event.pk,
                 "session_id": session_pk,
-                "space_id": placement.space_pk,
-                "start_time": placement.start_time,
-                "end_time": placement.end_time,
-                "session_confirmed": event.auto_confirm_sessions,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": placement.space_pk,
+                "new_start_time": placement.start_time,
+                "new_end_time": placement.end_time,
             }
-        )
-        self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
-        log_data: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": session_pk,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.ASSIGN,
-            "new_space_id": placement.space_pk,
-            "new_start_time": placement.start_time,
-            "new_end_time": placement.end_time,
-        }
-        self._uow.schedule_change_logs.create(log_data)
+            self._uow.schedule_change_logs.create(log_data)
 
     def unassign_session(
         self, session_pk: int, event_pk: int, user_pk: int | None = None

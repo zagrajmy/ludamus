@@ -5,7 +5,6 @@ from django.contrib import admin
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     DomainEnrollmentConfig,
     Encounter,
     EncounterRSVP,
@@ -23,26 +22,11 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-
-@admin.register(Venue)
-class VenueAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "event", "address", "order")
-    list_filter = ("event",)
-    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
-
-
-@admin.register(Area)
-class AreaAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "venue", "order")
-    list_filter = ("venue__event",)
-    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
 @admin.register(AgendaItem)
@@ -74,8 +58,8 @@ class SessionFieldValueInline(admin.TabularInline):  # type: ignore [type-arg]
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "status", "display_name", "category", "sphere")
-    list_filter = ("status", "sphere")
+    list_display = ("title", "status", "display_name", "category", "event")
+    list_filter = ("status", "event")
     search_fields = ("title", "display_name")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("title",)}
     inlines = (SessionFieldValueInline,)

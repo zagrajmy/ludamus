@@ -81,7 +81,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -115,9 +114,7 @@ class TestTimetableSessionDetailPartView:
         other_event = EventFactory()
         other_category = ProposalCategoryFactory(event=other_event)
         other_session = SessionFactory(
-            category=other_category,
-            sphere=other_event.sphere,
-            title="Secret session from another sphere",
+            category=other_category, title="Secret session from another sphere"
         )
 
         response = authenticated_client.get(self.get_url(event, other_session.pk))
@@ -132,7 +129,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -155,7 +151,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             title="My Awesome Session",
             participants_limit=10,
@@ -168,13 +163,12 @@ class TestTimetableSessionDetailPartView:
         assert response.context["session"].title == "My Awesome Session"
 
     def test_shows_agenda_item_when_scheduled(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -198,7 +192,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -210,19 +203,18 @@ class TestTimetableSessionDetailPartView:
         assert response.context["agenda_item"] is None
 
     def test_scheduled_unconfirmed_offers_confirm_button(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
         )
         AgendaItemFactory(
             session=session,
-            space=SpaceFactory(area=area),
+            space=SpaceFactory(event=event),
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
@@ -235,19 +227,18 @@ class TestTimetableSessionDetailPartView:
         assert "Undo confirmation" not in content
 
     def test_scheduled_confirmed_offers_undo_button(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
         )
         agenda_item = AgendaItemFactory(
             session=session,
-            space=SpaceFactory(area=area),
+            space=SpaceFactory(event=event),
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
