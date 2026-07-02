@@ -1093,6 +1093,16 @@ class SessionParticipation(models.Model):
     user = models.ForeignKey(
         User, models.CASCADE, related_name="session_participations"
     )
+    # The party this seat was enrolled through; whole-party waitlist promotion
+    # groups by it. Nullable: solo enrollments and pre-party rows fall back to
+    # slot-owner grouping, and a deleted party must not touch seats.
+    party = models.ForeignKey(
+        "Party",
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="session_participations",
+    )
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)

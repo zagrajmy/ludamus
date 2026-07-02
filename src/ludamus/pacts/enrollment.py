@@ -22,6 +22,8 @@ class WaitingParticipantDTO(BaseModel):
 
     participation_id: int
     user_id: int
+    # Party this seat was enrolled through; None for solo/legacy rows.
+    party_id: int | None = None
     # Party leader sponsoring a login-less companion; None for a self-owned
     # account (a real user always spends their own allowance).
     sponsor_id: int | None
@@ -42,6 +44,15 @@ class WaitingParticipantDTO(BaseModel):
     def effective_slot_owner(self) -> int:
         return self.sponsor_id if self.sponsor_id is not None else self.user_id
 
+    @property
+    def promotion_group_key(self) -> str:
+        # Seats enrolled through a party promote as that party; everything else
+        # falls back to grouping by slot owner (a leader plus the companions
+        # they enrolled without choosing a party still move together).
+        if self.party_id is not None:
+            return f"party:{self.party_id}"
+        return f"owner:{self.effective_slot_owner}"
+
 
 class PromotionStateDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -57,6 +68,13 @@ class PromotionStateDTO(BaseModel):
     waiting: list[WaitingParticipantDTO]
 
 
+class OfferRecipientDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    email: str
+
+
 class OfferDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -65,8 +83,9 @@ class OfferDTO(BaseModel):
     event_slug: str
     # All participations sharing this offer (whole party).
     participant_ids: list[int]
-    recipient_user_id: int
-    recipient_email: str
+    # Everyone who should hear about this offer: each real member for
+    # themselves, the sponsoring leader for login-less companions. Distinct.
+    recipients: list[OfferRecipientDTO]
     offer_expires_at: datetime
 
 

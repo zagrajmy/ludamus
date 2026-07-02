@@ -24,15 +24,15 @@ def _group_into_parties(
     waiting: list[WaitingParticipantDTO],
 ) -> list[list[WaitingParticipantDTO]]:
     # Party order follows each party's earliest member, which — because
-    # `waiting` is already FIFO by creation_time — is the order slot owners
-    # first appear.
+    # `waiting` is already FIFO by creation_time — is the order groups first
+    # appear.
     parties: list[list[WaitingParticipantDTO]] = []
-    index_by_owner: dict[int, int] = {}
+    index_by_group: dict[str, int] = {}
     for participant in waiting:
-        if (owner := participant.effective_slot_owner) not in index_by_owner:
-            index_by_owner[owner] = len(parties)
+        if (group := participant.promotion_group_key) not in index_by_group:
+            index_by_group[group] = len(parties)
             parties.append([])
-        parties[index_by_owner[owner]].append(participant)
+        parties[index_by_group[group]].append(participant)
     return parties
 
 

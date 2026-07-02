@@ -85,8 +85,32 @@
                 <h5 class="font-semibold mb-0">{% translate "Enrollment Options" %}</h5>
             </div>
             <div class="card-body">
+                {% if party_choices|length > 1 %}
+                    <div class="mb-4">
+                        <p class="flex items-center gap-1.5 text-sm font-medium mb-2">
+                            {% icon "user-group" class="w-4 h-4" %}
+                            {% translate "Enrolling as" %}
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for party in party_choices %}
+                                <a href="?party={{ party.pk }}"
+                                   class="btn {% if selected_party.pk == party.pk %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+                                    {% if party.name %}
+                                        {{ party.name }}
+                                    {% else %}
+                                        {% translate "Your party" %}
+                                    {% endif %}
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <p class="text-xs text-foreground-muted mt-2">
+                            {% translate "The party moves up the waiting list together." %}
+                        </p>
+                    </div>
+                {% endif %}
                 <form method="post">
                     {% csrf_token %}
+                    {% if selected_party %}<input type="hidden" name="party" value="{{ selected_party.pk }}">{% endif %}
                     <div class="mb-4">
                         <label class="flex items-center gap-1.5 text-sm font-medium mb-3">
                             {% icon "users" class="w-4 h-4" %}

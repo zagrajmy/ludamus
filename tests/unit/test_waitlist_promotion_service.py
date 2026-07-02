@@ -7,6 +7,7 @@ from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     OfferDTO,
+    OfferRecipientDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
 )
@@ -92,10 +93,11 @@ class FakeScheduler:
         self.scheduled.append((participation_id, run_at))
 
 
-def _wp(pid, *, sponsor_id=None, order=0):
+def _wp(pid, *, sponsor_id=None, party_id=None, order=0):
     return WaitingParticipantDTO(
         participation_id=pid,
         user_id=pid,
+        party_id=party_id,
         sponsor_id=sponsor_id,
         full_name=f"user-{pid}",
         email=f"u{pid}@example.com",
@@ -197,8 +199,7 @@ class TestClaimOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
-            recipient_user_id=_MANAGER_ID,
-            recipient_email="r@e.com",
+            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
             offer_expires_at=expires,
         )
 
@@ -241,8 +242,7 @@ class TestExpireOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
-            recipient_user_id=_MANAGER_ID,
-            recipient_email="r@e.com",
+            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
             offer_expires_at=expires,
         )
 
@@ -282,3 +282,20 @@ class TestExpireOffer:
 
         assert not repo.dropped
         assert not notifier.expired
+
+
+class TestPartyRecipients:
+    def test_party_of_real_users_notifies_each_member(self):
+        state = _state(
+            [_wp(1, party_id=5, order=0), _wp(2, party_id=5, order=1)], seats=2
+        )
+        repo = FakeRepo([state])
+        notifier = FakeNotifier()
+        service = WaitlistPromotionService(
+            FakeTransaction(), repo, notifier, FakeScheduler()
+        )
+
+        result = service.fill_freed_seats(session_id=1)
+
+        assert result.promoted == [1, 2]
+        assert sorted(n.recipient_user_id for n in notifier.promoted) == [1, 2]

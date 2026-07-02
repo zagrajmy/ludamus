@@ -60,6 +60,20 @@ def _token() -> str:
     return secrets.token_urlsafe(48)
 
 
+def _distinct_recipients(party: list[WaitingParticipantDTO]) -> list[tuple[int, str]]:
+    # One message per person: a party of real co-members hears about its seats
+    # individually, while a leader with companions still gets a single message.
+    recipients: list[tuple[int, str]] = []
+    seen: set[int] = set()
+    for participant in party:
+        if participant.recipient_user_id not in seen:
+            seen.add(participant.recipient_user_id)
+            recipients.append(
+                (participant.recipient_user_id, participant.recipient_email)
+            )
+    return recipients
+
+
 class WaitlistPromotionService:
     def __init__(
         self,
@@ -115,15 +129,15 @@ class WaitlistPromotionService:
             ids = [p.participation_id for p in party]
             self._participations.confirm(ids)
             result.promoted.extend(ids)
-            lead = party[0]
-            promotions.append(
+            promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=user_id,
+                    recipient_email=email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
+                for user_id, email in _distinct_recipients(party)
             )
 
     def _offer(
@@ -143,17 +157,17 @@ class WaitlistPromotionService:
                 ids, offered_at=now, offer_expires_at=expires_at, claim_token=token
             )
             result.offered.extend(ids)
-            lead = party[0]
-            offers.append(
+            offers.extend(
                 OfferNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=user_id,
+                    recipient_email=email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
+                for user_id, email in _distinct_recipients(party)
             )
             expiries.append((ids[0], expires_at))
 
@@ -189,16 +203,20 @@ class WaitlistPromotionService:
             if _now() <= offer.offer_expires_at:
                 return PromotionResult()
             self._participations.drop(offer.participant_ids)
-            notification = PromotionNotification(
-                recipient_user_id=offer.recipient_user_id,
-                recipient_email=offer.recipient_email,
-                session_id=offer.session_id,
-                session_title=offer.session_title,
-                event_slug=offer.event_slug,
-            )
+            notifications = [
+                PromotionNotification(
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
+                    session_id=offer.session_id,
+                    session_title=offer.session_title,
+                    event_slug=offer.event_slug,
+                )
+                for recipient in offer.recipients
+            ]
             session_id = offer.session_id
 
-        self._notifier.notify_offer_expired(notification)
+        for notification in notifications:
+            self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
 
 

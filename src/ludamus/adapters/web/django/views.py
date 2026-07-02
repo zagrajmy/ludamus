@@ -86,7 +86,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import ClaimOutcome, UserData, UserDTO
+from ludamus.pacts.crowd import ClaimOutcome, ConnectedUserDTO, UserData, UserDTO
 
 from .design_fixtures import (
     mock_event_info,
@@ -104,6 +104,8 @@ from .forms import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from ludamus.pacts.party import PartyDTO
 
 logger = logging.getLogger(__name__)
 
@@ -1565,14 +1567,16 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
+        parties, selected_party = self._selected_party(request.GET.get("party"))
+        companions = self._party_companions(selected_party)
 
         context = {
             "session": session,
             "event": session.event,
-            "connected_users": self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
-            "user_data": self._get_user_participation_data(session),
+            "party_choices": parties,
+            "selected_party": selected_party,
+            "connected_users": companions,
+            "user_data": self._get_user_participation_data(session, companions),
             # Frontload the decision: warn the viewer up top if players they
             # shadowbanned are already signed up to this session.
             "shadowban_warnings": request.services.shadowban.list_session_warnings(
@@ -1583,15 +1587,52 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 current_user=self.request.di.uow.active_users.read(
                     self.request.context.current_user_slug
                 ),
-                connected_users=self.request.di.uow.connected_users.read_all(
-                    self.request.context.current_user_slug
-                ),
+                connected_users=companions,
                 enrollment_config_repo=request.di.uow.enrollment_configs,
                 ticket_api=request.di.ticket_api,
             )(),
         }
 
         return TemplateResponse(request, "chronology/enroll_select.html", context)
+
+    def _selected_party(
+        self, requested: str | None
+    ) -> tuple[list[PartyDTO], PartyDTO | None]:
+        # The party you enroll as: the URL/form parameter when it names one of
+        # the viewer's parties, else their own (led) party, else the first one
+        # they belong to. Solo users have none and group by slot owner.
+        parties = self.request.services.parties.overview(
+            self.request.context.current_user_id
+        ).parties
+        selected = None
+        if requested and requested.isdigit():
+            selected = next(
+                (party for party in parties if party.pk == int(requested)), None
+            )
+        if selected is None:
+            selected = next(
+                (party for party in parties if party.is_leader),
+                parties[0] if parties else None,
+            )
+        return parties, selected
+
+    def _party_companions(
+        self, selected_party: PartyDTO | None
+    ) -> list[ConnectedUserDTO]:
+        # Only the leader seats their login-less companions, and only the ones
+        # belonging to the party being enrolled.
+        if selected_party is None or not selected_party.is_leader:
+            return []
+        member_slugs = {
+            member.slug for member in selected_party.members if member.is_login_less
+        }
+        return [
+            companion
+            for companion in self.request.di.uow.connected_users.read_all(
+                self.request.context.current_user_slug
+            )
+            if companion.slug in member_slugs
+        ]
 
     @staticmethod
     def _validate_request(
@@ -1623,18 +1664,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return enrollment_config
 
     def _get_user_participation_data(
-        self, session: Session
+        self, session: Session, companions: list[ConnectedUserDTO]
     ) -> list[SessionUserParticipationData]:
         user_data: list[SessionUserParticipationData] = []
 
-        # Get all connected users with proper prefetching
         all_users = [
             self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            *self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
+            *companions,
         ]
 
         # Bulk fetch all participations for the event and users
@@ -1680,6 +1718,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
+        parties, selected_party = self._selected_party(request.POST.get("party"))
+        companions = self._party_companions(selected_party)
 
         # Initialize form with POST data
         form_class = create_enrollment_form(
@@ -1687,9 +1727,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             current_user=self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            connected_users=self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
+            connected_users=companions,
             enrollment_config_repo=request.di.uow.enrollment_configs,
             ticket_api=request.di.ticket_api,
         )
@@ -1747,10 +1785,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 {
                     "session": session,
                     "event": session.event,
-                    "connected_users": self.request.di.uow.connected_users.read_all(
-                        self.request.context.current_user_slug
-                    ),
-                    "user_data": self._get_user_participation_data(session),
+                    "party_choices": parties,
+                    "selected_party": selected_party,
+                    "connected_users": companions,
+                    "user_data": self._get_user_participation_data(session, companions),
                     "shadowban_warnings": (
                         request.services.shadowban.list_session_warnings(
                             viewer_id=request.context.current_user_id,
@@ -1762,22 +1800,28 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
 
         # Only validate enrollment requirements when form is valid
-        enrollment_requests = self._get_enrollment_requests(form)
+        enrollment_requests = self._get_enrollment_requests(form, companions)
         enrollment_config = self._validate_request(session, enrollment_requests)
 
-        self._manage_enrollments(form, session, enrollment_config)
+        self._manage_enrollments(
+            form=form,
+            session=session,
+            enrollment_config=enrollment_config,
+            companions=companions,
+            party_pk=selected_party.pk if selected_party else None,
+        )
 
         return redirect("web:chronology:event", slug=session.event.slug)
 
-    def _get_enrollment_requests(self, form: forms.Form) -> list[EnrollmentRequest]:
+    def _get_enrollment_requests(
+        self, form: forms.Form, companions: list[ConnectedUserDTO]
+    ) -> list[EnrollmentRequest]:
         enrollment_requests = []
         for user in (
             self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            *self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            ),
+            *companions,
         ):
             # Skip inactive users
             if not user.is_active:
@@ -1794,9 +1838,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     def _process_enrollments(
         self,
+        *,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
         enrollment_config: EnrollmentConfig,
+        party_pk: int | None,
     ) -> Enrollments:
         enrollments = Enrollments()
 
@@ -1833,7 +1879,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self._handle_cancellation(req, participations, enrollments)
             else:
                 self._check_and_create_enrollment(
-                    req, session, enrollments, shadowbanned_ids
+                    req=req,
+                    session=session,
+                    enrollments=enrollments,
+                    shadowbanned_ids=shadowbanned_ids,
+                    party_pk=party_pk,
                 )
         return enrollments
 
@@ -1863,10 +1913,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def _check_and_create_enrollment(
+        *,
         req: EnrollmentRequest,
         session: Session,
         enrollments: Enrollments,
         shadowbanned_ids: set[int],
+        party_pk: int | None,
     ) -> None:
         # Check if user is the session presenter
         if session.presenter_id and req.user.pk == session.presenter_id:
@@ -1899,6 +1951,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             participation = SessionParticipation(session=session, user_id=req.user.pk)
 
         participation.status = _status_by_choice[req.choice]
+        # The latest submit's grouping intent wins: this seat promotes with the
+        # party it was (re-)enrolled through.
+        participation.party_id = party_pk
         participation.save()
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
@@ -1967,12 +2022,21 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return False
 
     def _manage_enrollments(
-        self, form: forms.Form, session: Session, enrollment_config: EnrollmentConfig
+        self,
+        *,
+        form: forms.Form,
+        session: Session,
+        enrollment_config: EnrollmentConfig,
+        companions: list[ConnectedUserDTO],
+        party_pk: int | None,
     ) -> None:
-        if enrollment_requests := self._get_enrollment_requests(form):
+        if enrollment_requests := self._get_enrollment_requests(form, companions):
             with transaction.atomic():
                 enrollments = self._process_enrollments(
-                    enrollment_requests, session, enrollment_config
+                    enrollment_requests=enrollment_requests,
+                    session=session,
+                    enrollment_config=enrollment_config,
+                    party_pk=party_pk,
                 )
 
             # T1: a freed seat promotes/offers the next waiter (who is notified
