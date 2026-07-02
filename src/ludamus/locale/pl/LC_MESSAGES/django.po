@@ -983,6 +983,7 @@ msgstr ""
 "Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
