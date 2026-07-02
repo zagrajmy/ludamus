@@ -99,6 +99,11 @@ chronology_urls = [
         name="offer-claim",
     ),
     path(
+        "offer/<str:token>/decline/",
+        views.SessionOfferDeclineView.as_view(),
+        name="offer-decline",
+    ),
+    path(
         "anonymous/do/load",
         views.AnonymousLoadActionView.as_view(),
         name="anonymous-load",

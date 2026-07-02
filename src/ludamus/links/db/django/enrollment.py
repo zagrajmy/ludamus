@@ -35,6 +35,7 @@ from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 if TYPE_CHECKING:
 
     from ludamus.adapters.db.django.models import Event
+    from ludamus.pacts.enrollment import HeldSeatData
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
 
@@ -173,6 +174,30 @@ class ParticipationPromotionRepository:
             offer_expires_at=offer_expires_at,
             claim_token=claim_token,
             modification_time=datetime.now(UTC),
+        )
+
+    @staticmethod
+    def create_offered(seat: HeldSeatData) -> int:
+        participation = SessionParticipation.objects.create(
+            session_id=seat.session_id,
+            user_id=seat.user_id,
+            party_id=seat.party_id,
+            status=SessionParticipationStatus.OFFERED,
+            offered_at=seat.offered_at,
+            offer_expires_at=seat.offer_expires_at,
+            claim_token=seat.claim_token,
+        )
+        return participation.pk
+
+    @staticmethod
+    def read_offer_claim_window(session_id: int) -> timedelta:
+        category = (
+            Session.objects.select_related("category").get(id=session_id).category
+        )
+        return (
+            category.offer_claim_window
+            if category is not None
+            else _DEFAULT_OFFER_WINDOW
         )
 
     def read_offer_by_token(self, token: str) -> OfferDTO | None:

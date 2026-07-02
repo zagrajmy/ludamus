@@ -88,13 +88,14 @@ class DjangoUserNotifier:
         )
 
     def notify_offer_expired(self, notification: PromotionNotification) -> None:
+        # Flow-neutral: an expired row may be a waitlist offer or a seat a
+        # leader held — nothing on it records which, so the copy fits both.
         title = _("Your offer for %(session)s expired") % {
             "session": notification.session_title
         }
         body = _(
-            "Your offered spot was not claimed in time and has gone to the next "
-            "person. You can join the waiting list again if you are still "
-            "interested."
+            "The seat was not claimed in time and has been released. You can "
+            "sign up again if you are still interested."
         )
         self._deliver(
             Notification(

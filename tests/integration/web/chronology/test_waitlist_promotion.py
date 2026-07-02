@@ -242,6 +242,61 @@ class TestOfferClaimAndExpiry:
             url=reverse("web:events"),
         )
 
+    def test_decline_view_drops_offer_and_rolls_on(
+        self, client, session, event, waiter
+    ):
+        participation = self._offer(session, event, waiter)
+        next_waiter = UserFactory(username="next", email="next@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=next_waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-decline",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Offer declined — the seat was released.")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
+        # The freed seat rolled on: offer mode holds it for the next waiter.
+        rolled = SessionParticipation.objects.get(user=next_waiter)
+        assert rolled.status == SessionParticipationStatus.OFFERED.value
+
+    def test_decline_view_unknown_token_redirects(self, client):
+        response = client.post(
+            reverse("web:chronology:offer-decline", kwargs={"token": "nope"})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "This offer is no longer available or has expired.")
+            ],
+            url=reverse("web:events"),
+        )
+
+    def test_claim_page_offers_a_decline_way_out(self, client, session, event, waiter):
+        participation = self._offer(session, event, waiter)
+
+        response = client.get(
+            reverse(
+                "web:chronology:offer-claim",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        content = response.content.decode()
+        assert "Claim my spot" in content
+        assert "Decline offer" in content
+
     def test_expire_drops_lapsed_party_and_rolls_on(
         self, session, event, waiter, mailoutbox
     ):

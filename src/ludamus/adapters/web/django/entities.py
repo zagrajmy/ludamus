@@ -243,15 +243,30 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     return lane_days
 
 
+@dataclass(frozen=True)
+class PartyMemberFlags:
+    # A real co-member of the selected party (all-False for the viewer and
+    # their login-less companions). The viewer never cancels the member's own
+    # seats; an ACCEPT_INVITES member (needs_accept) can only have a seat held
+    # for them — no direct seating on their behalf.
+    is_member: bool = False
+    needs_accept: bool = False
+    # Restricted event and the member has no enrollment slots of their own —
+    # their seat would spend their allowance, so no enroll/hold choice.
+    blocked: bool = False
+
+
 @dataclass
 class SessionUserParticipationData:
     user: UserDTO
     user_enrolled: bool = False
     user_waiting: bool = False
-    user_offered: bool = False
+    # The OFFERED split, viewer-side: an OFFERED row on a needs-accept member
+    # of the selected party is a seat this viewer held for them (seat_held);
+    # any other OFFERED row is an ordinary pending offer (offer_pending). Who
+    # created the row is not recorded yet, so beyond the viewer's own member
+    # rows the generic offer copy applies.
+    seat_held: bool = False
+    offer_pending: bool = False
     has_time_conflict: bool = False
-    # A real co-member of the selected party: the viewer never cancels their
-    # seats, and an ACCEPT_INVITES member (needs_accept) can only have a seat
-    # held for them — no waitlisting on their behalf.
-    is_party_member: bool = False
-    needs_accept: bool = False
+    membership: PartyMemberFlags = PartyMemberFlags()

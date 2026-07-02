@@ -676,7 +676,7 @@ class TestPartyConsentActionView:
             response,
             HTTPStatus.FOUND,
             url=URL,
-            messages=[(messages.SUCCESS, "Enrollments now wait for your accept.")],
+            messages=[(messages.SUCCESS, "Enrollments now wait for your approval.")],
         )
 
     def test_post_rejects_unknown_mode(self, authenticated_client, active_user):
@@ -721,3 +721,38 @@ class TestPartyConsentActionView:
 
         assert response.status_code == HTTPStatus.OK
         assert "Allow direct enrollment" in response.content.decode()
+
+    def test_own_row_shows_current_consent_state(
+        self, authenticated_client, active_user
+    ):
+        _, membership = self._party_with_me_as_member(active_user)
+
+        content = authenticated_client.get(URL).content.decode()
+        assert "Asks before enrolling you" in content
+
+        membership.consent_mode = PartyConsentMode.ACCEPT_BY_DEFAULT
+        membership.save()
+
+        content = authenticated_client.get(URL).content.decode()
+        assert "Enrolls you directly" in content
+        assert "Require my approval" in content
+
+    def test_leader_sees_member_consent_state(self, authenticated_client, active_user):
+        member = UserFactory(username="member", name="Mira Member")
+        party = Party.objects.create(leader=active_user, name="Moja")
+        PartyMembership.objects.create(party=party, member=active_user)
+        membership = PartyMembership.objects.create(
+            party=party,
+            member=member,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+
+        content = authenticated_client.get(URL).content.decode()
+        assert "asks for approval before enrolling" in content
+
+        membership.consent_mode = PartyConsentMode.ACCEPT_BY_DEFAULT
+        membership.save()
+
+        content = authenticated_client.get(URL).content.decode()
+        assert "direct enrollment allowed" in content

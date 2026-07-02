@@ -24,7 +24,6 @@ from ludamus.pacts.party import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.party import (
-        HeldSeatNotification,
         PartiesOverviewDTO,
         PartyConsentMode,
         PartyDTO,
@@ -123,10 +122,9 @@ class PartyService(PartyServiceProtocol):
             )
 
     def announce_member_enrolled(self, notification: PartyEnrolledNotification) -> None:
+        # The web layer's only port to the party notifier: called once per
+        # member seated directly under power of attorney.
         self._notifier.notify_party_enrolled(notification)
-
-    def announce_seat_held(self, notification: HeldSeatNotification) -> None:
-        self._notifier.notify_seat_held(notification)
 
     def enrollment_selection(
         self, *, viewer_pk: int, requested_party: str | None

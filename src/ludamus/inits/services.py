@@ -163,10 +163,6 @@ class Services:
             self._offer_expiry_scheduler(),
         )
 
-    @cached_property
-    def offer_expiry_scheduler(self) -> OfferExpirySchedulerProtocol:
-        return self._offer_expiry_scheduler()
-
     @staticmethod
     def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
         scheduler_kind: str = settings.OFFER_EXPIRY_SCHEDULER

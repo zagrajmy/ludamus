@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.enrollment import (
         NotificationsServiceProtocol,
-        OfferExpirySchedulerProtocol,
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.multiverse import (
@@ -89,8 +88,6 @@ class ServicesProtocol(Protocol):
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
-    @property
-    def offer_expiry_scheduler(self) -> OfferExpirySchedulerProtocol: ...
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property

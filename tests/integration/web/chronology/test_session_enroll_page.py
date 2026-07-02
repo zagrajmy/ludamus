@@ -177,7 +177,7 @@ class TestSessionEnrollPageView:
                         user=UserDTO.model_validate(active_user),
                         user_enrolled=False,
                         user_waiting=False,
-                        user_offered=True,
+                        offer_pending=True,
                         has_time_conflict=False,
                     )
                 ],
@@ -186,6 +186,13 @@ class TestSessionEnrollPageView:
         )
         field = response.context_data["form"].fields[f"user_{active_user.pk}"]
         assert ("cancel", "Decline offer") in list(field.choices)
+        content = response.content.decode()
+        # The generic pending-offer chip (not the leader-held-seat one), and a
+        # rendered decline radio so the way out is on the page, not only in
+        # the form definition.
+        assert "Spot offered" in content
+        assert "Seat held" not in content
+        assert f'id="user_{active_user.pk}_cancel"' in content
 
     def test_get_error_404(self, authenticated_client, event):
         response = authenticated_client.get(self._get_url(17, event.slug))

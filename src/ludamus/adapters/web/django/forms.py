@@ -287,25 +287,74 @@ def _make_enrollment_clean(
     return clean
 
 
+def _member_no_access_choices() -> tuple[list[tuple[str, str]], str]:
+    return (
+        [("", _("No enrollment options (access required)"))],
+        _("Enrollment access permission required"),
+    )
+
+
 def _build_held_seat_choices(
     *,
     current_participation: SessionParticipation | None,
     has_conflict: bool,
     user_can_enroll: bool,
+    member_can_enroll: bool,
 ) -> tuple[list[tuple[str, str]], str]:
     # An ACCEPT_INVITES member is never seated directly: the leader may only
-    # hold a seat, which the member confirms via the claim link. An existing
-    # participation of theirs is entirely their own business.
+    # hold a seat, which the member confirms via the claim link. A seat still
+    # held (OFFERED) can be withdrawn; any other participation of theirs is
+    # entirely their own business.
     if current_participation is not None:
+        if current_participation.status == SessionParticipationStatus.OFFERED:
+            return (
+                [("", _("No change")), ("cancel", _("Withdraw held seat"))],
+                _("Withdrawing releases the seat before they claim it"),
+            )
         return [("", _("No change"))], _("They manage their own enrollment")
     if has_conflict:
         return [("", _("No change (time conflict)"))], _("Time conflict detected")
     if not user_can_enroll:
         return [("", _("No change"))], ""
+    if not member_can_enroll:
+        return _member_no_access_choices()
     return (
-        [("", _("No change")), ("enroll", _("Hold a seat — they confirm"))],
+        [("", _("No change")), ("enroll", _("Hold a seat — needs their approval"))],
         _("The seat is released if they do not claim it in time"),
     )
+
+
+def _build_member_choices(
+    *,
+    current_participation: SessionParticipation | None,
+    has_conflict: bool,
+    user_can_enroll: bool,
+    member_can_enroll: bool,
+    can_join_wl: bool,
+) -> tuple[list[tuple[str, str]], str]:
+    # Power of attorney (ACCEPT_BY_DEFAULT) covers seating a member who has
+    # nothing on this session yet; an existing participation is theirs alone —
+    # never cancel it, never change it.
+    if current_participation is not None:
+        return [("", _("No change"))], _("They manage their own enrollment")
+    if not member_can_enroll:
+        return _member_no_access_choices()
+    return _build_default_choices(
+        user_can_enroll=user_can_enroll,
+        can_join_wl=can_join_wl,
+        has_conflict=has_conflict,
+    )
+
+
+@dataclass(frozen=True)
+class RosterMember:
+    # One person the viewer can act for on the enroll screen.
+    user: UserDTO
+    # ACCEPT_INVITES member: "enroll" holds an OFFERED seat they must claim.
+    needs_accept: bool = False
+    # On a restricted event a member's seat spends that member's own
+    # allowance, so a member without slots gets no enroll/hold choice.
+    can_enroll: bool = True
 
 
 @dataclass(frozen=True)
@@ -314,9 +363,8 @@ class EnrollmentRoster:
 
     # Login-less companions of the selected party (the viewer leads it).
     companions: tuple[UserDTO, ...] = ()
-    # Real co-members of the selected led party, with whether enrolling them
-    # requires their accept (ACCEPT_INVITES) or seats them directly.
-    members: tuple[tuple[UserDTO, bool], ...] = ()
+    # Real co-members of the selected led party.
+    members: tuple[RosterMember, ...] = ()
 
 
 def create_enrollment_form(
@@ -349,12 +397,14 @@ def create_enrollment_form(
     form_fields: dict[str, _UserEnrollmentChoiceField] = {}
     field_to_user_name: dict[str, str] = {}
 
-    seated_users = [
-        (current_user, False),
-        *((u, False) for u in roster.companions),
+    seated = [
+        RosterMember(user=current_user),
+        *(RosterMember(user=user) for user in roster.companions),
         *roster.members,
     ]
-    for user, needs_accept in seated_users:
+    member_pks = {member.user.pk for member in roster.members}
+    for seat in seated:
+        user = seat.user
         current_participation = SessionParticipation.objects.filter(
             session=session, user_id=user.pk
         ).first()
@@ -366,11 +416,20 @@ def create_enrollment_form(
             current_user_enrollment_config=current_user_enrollment_config,
         )
 
-        if needs_accept:
+        if seat.needs_accept:
             choices, help_text = _build_held_seat_choices(
                 current_participation=current_participation,
                 has_conflict=has_conflict,
                 user_can_enroll=user_can_enroll,
+                member_can_enroll=seat.can_enroll,
+            )
+        elif user.pk in member_pks:
+            choices, help_text = _build_member_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                member_can_enroll=seat.can_enroll,
+                can_join_wl=can_join_wl,
             )
         else:
             choices, help_text = _build_user_choices(

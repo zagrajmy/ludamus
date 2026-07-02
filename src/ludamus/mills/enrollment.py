@@ -21,6 +21,7 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     ClaimResult,
+    HeldSeatData,
     NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
@@ -28,6 +29,7 @@ from ludamus.pacts.enrollment import (
     distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
@@ -46,6 +48,7 @@ if TYPE_CHECKING:
         OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
+        SeatHoldRequest,
         UserNotifierProtocol,
         WaitingParticipantDTO,
     )
@@ -163,6 +166,43 @@ class WaitlistPromotionService:
             )
             expiries.append((ids[0], expires_at))
 
+    def hold_seat(self, *, hold: SeatHoldRequest) -> None:
+        # A held seat is an OFFERED row with a personal claim token — the same
+        # shape a waitlist offer uses — so claiming, declining, and expiry all
+        # ride the existing offer machinery and release only this seat. The
+        # notification is written with the row (it must roll back together);
+        # the expiry timer is armed after, like fill_freed_seats does.
+        now = _now()
+        with self._transaction.atomic():
+            expires_at = now + self._participations.read_offer_claim_window(
+                hold.session_id
+            )
+            token = _token()
+            participation_id = self._participations.create_offered(
+                HeldSeatData(
+                    session_id=hold.session_id,
+                    user_id=hold.user_id,
+                    party_id=hold.party_id,
+                    offered_at=now,
+                    offer_expires_at=expires_at,
+                    claim_token=token,
+                )
+            )
+            self._notifier.notify_seat_held(
+                HeldSeatNotification(
+                    recipient_user_id=hold.user_id,
+                    recipient_email=hold.user_email,
+                    actor_name=hold.actor_name,
+                    session_id=hold.session_id,
+                    session_title=hold.session_title,
+                    claim_token=token,
+                    offer_expires_at=expires_at,
+                )
+            )
+        self._scheduler.schedule_expiry(
+            participation_id=participation_id, run_at=expires_at
+        )
+
     def peek_offer(self, *, token: str) -> OfferDTO | None:
         return self._participations.read_offer_by_token(token)
 
@@ -184,6 +224,21 @@ class WaitlistPromotionService:
             return ClaimResult(
                 success=True, session_id=offer.session_id, event_slug=offer.event_slug
             )
+
+    def decline_offer(self, *, token: str) -> ClaimResult:
+        # Token-authorised way out: a member turning down a held seat or a
+        # waiter passing on an offer. Drops the whole offered party (the offer
+        # is party-wide, like claiming) and rolls the freed seats on. The
+        # status guard in drop() makes a racing claim/expiry a no-op here.
+        with self._transaction.atomic():
+            if (offer := self._participations.read_offer_by_token(token)) is None:
+                return ClaimResult(success=False, reason="not_found")
+            self._participations.drop(offer.participant_ids)
+            session_id = offer.session_id
+            event_slug = offer.event_slug
+
+        self.fill_freed_seats(session_id=session_id)
+        return ClaimResult(success=True, session_id=session_id, event_slug=event_slug)
 
     def expire_offer(self, *, participation_id: int) -> PromotionResult:
         # Drop a lapsed offered party (terminal), notify them, then re-enter

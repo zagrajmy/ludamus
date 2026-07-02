@@ -187,7 +187,7 @@ class PartyConsentActionView(LoginRequiredMixin, View):
             if mode == PartyConsentMode.ACCEPT_BY_DEFAULT:
                 messages.success(request, _("The leader can now enroll you directly."))
             else:
-                messages.success(request, _("Enrollments now wait for your accept."))
+                messages.success(request, _("Enrollments now wait for your approval."))
         else:
             messages.error(request, _("Could not change this setting."))
         return redirect("web:crowd:profile-parties")

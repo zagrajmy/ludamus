@@ -137,6 +137,13 @@
                                                 {% endif %}
                                                 {% if row.member.status == "invited" %}
                                                     <span class="text-xs font-normal text-foreground-muted">{% translate "invited" %}</span>
+                                                {% elif entry.party.is_leader and not row.member.is_leader and not row.member.is_login_less %}
+                                                    {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
+                                                    {% if row.member.consent_mode == "accept_by_default" %}
+                                                        <span class="text-xs font-normal text-foreground-muted">{% translate "direct enrollment allowed" %}</span>
+                                                    {% else %}
+                                                        <span class="text-xs font-normal text-foreground-muted">{% translate "asks for approval before enrolling" %}</span>
+                                                    {% endif %}
                                                 {% endif %}
                                             </p>
                                             <div class="flex gap-1 shrink-0">
@@ -190,22 +197,24 @@
                                                         </button>
                                                     </form>
                                                 {% elif not entry.party.is_leader and row.member.user_pk == request.user.pk %}
+                                                    {# Current state first, then the action that flips it. #}
+                                                    {% if row.member.consent_mode == "accept_invites" %}
+                                                        <span class="text-xs text-foreground-muted self-center">{% translate "Asks before enrolling you" %}</span>
+                                                    {% else %}
+                                                        <span class="text-xs text-foreground-muted self-center">{% translate "Enrolls you directly" %}</span>
+                                                    {% endif %}
                                                     <form method="post"
                                                           action="{% url 'web:crowd:parties-consent' pk=entry.party.pk %}">
                                                         {% csrf_token %}
                                                         {% if row.member.consent_mode == "accept_invites" %}
                                                             <input type="hidden" name="mode" value="accept_by_default">
-                                                            <button type="submit"
-                                                                    class="btn btn-secondary btn-sm"
-                                                                    title="{% translate "The leader will be able to enroll you without asking" %}">
+                                                            <button type="submit" class="btn btn-secondary btn-sm">
                                                                 {% translate "Allow direct enrollment" %}
                                                             </button>
                                                         {% else %}
                                                             <input type="hidden" name="mode" value="accept_invites">
-                                                            <button type="submit"
-                                                                    class="btn btn-secondary btn-sm"
-                                                                    title="{% translate "The leader will need your accept for every enrollment" %}">
-                                                                {% translate "Require my accept" %}
+                                                            <button type="submit" class="btn btn-secondary btn-sm">
+                                                                {% translate "Require my approval" %}
                                                             </button>
                                                         {% endif %}
                                                     </form>
