@@ -56,6 +56,7 @@ from ludamus.adapters.web.django.entities import (
     build_schedule_days,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
+from ludamus.gates.web.django.crowd.helpers import build_parties_context
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -656,24 +657,20 @@ class ProfileConnectedUsersPageView(
     form_class = ConnectedUserForm
     object: UserDTO
     request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-connected-users")
-    template_name = "crowd/user/connected.html"
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name = "crowd/user/parties.html"
     template_name_suffix = "_form"
 
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        # The page moved to the parties tab; this endpoint keeps handling the
+        # add-companion POST.
+        _ = (request, args, kwargs)  # Django View dispatch
+        return redirect(self.get_success_url())
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        connected_users = [
-            {
-                "user": connected,
-                "form": ConnectedUserForm(initial=connected.model_dump()),
-            }
-            for connected in self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            )
-        ]
-        context["connected_users"] = connected_users
-        context["max_connected_users"] = MAX_CONNECTED_USERS
-        return context
+        context = build_parties_context(self.request, create_form=kwargs.get("form"))
+        context.update(kwargs)
+        return super().get_context_data(**context)
 
     def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
         # Check if user has reached the maximum number of connected users
@@ -715,8 +712,8 @@ class ProfileConnectedUserUpdateActionView(
 ):
     form_class = ConnectedUserForm
     request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-connected-users")
-    template_name = "crowd/user/connected.html"
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name = "crowd/user/parties.html"
     template_name_suffix = "_form"
 
     def get_object(self) -> UserDTO:
@@ -725,20 +722,9 @@ class ProfileConnectedUserUpdateActionView(
         )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = {
-            "user": self.get_object(),
-            "object": self.get_object(),
-            "max_connected_users": MAX_CONNECTED_USERS,
-            "connected_users": [
-                {
-                    "user": connected,
-                    "form": ConnectedUserForm(initial=connected.model_dump()),
-                }
-                for connected in self.request.di.uow.connected_users.read_all(
-                    self.request.context.current_user_slug
-                )
-            ],
-        }
+        context = build_parties_context(
+            self.request, edit_slug=self.kwargs["slug"], edit_form=kwargs.get("form")
+        )
         context.update(kwargs)
         return super().get_context_data(**context)
 
@@ -772,7 +758,7 @@ class ProfileConnectedUserDeleteActionView(
     request: AuthenticatedRootRequest
     slug_field = "slug"
     slug_url_kwarg = "slug"
-    success_url = reverse_lazy("web:crowd:profile-connected-users")
+    success_url = reverse_lazy("web:crowd:profile-parties")
     template_name_suffix = "_confirm_delete"
 
     def form_valid(self, form: forms.Form) -> HttpResponseRedirect:  # noqa: ARG002
@@ -798,7 +784,7 @@ class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
             messages.error(request, _("Could not create a claim link for this person."))
         else:
             messages.success(request, _("Claim link created."))
-        return redirect("web:crowd:profile-connected-users")
+        return redirect("web:crowd:profile-parties")
 
 
 class ClaimPageView(View):

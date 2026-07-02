@@ -183,8 +183,8 @@
                                     {% if user_data|length == 1 %}
                                         <tr>
                                             <td colspan="6" class="text-center text-foreground-muted py-4 text-sm">
-                                                {% translate "No connected users available. You can add connected users in your" %}
-                                                <a href="{% url 'web:crowd:profile-connected-users' %}"
+                                                {% translate "No companions available. You can add companions to your party in your" %}
+                                                <a href="{% url 'web:crowd:profile-parties' %}"
                                                    class="text-primary hover:underline">{% translate "profile settings" %}</a>.
                                             </td>
                                         </tr>

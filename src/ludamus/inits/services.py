@@ -31,6 +31,7 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.party import PartyService
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
@@ -74,6 +75,12 @@ class Services:
     @cached_property
     def claims(self) -> ClaimService:
         return ClaimService(self._transaction, self._repos.claims)
+
+    @cached_property
+    def parties(self) -> PartyService:
+        return PartyService(
+            self._transaction, self._repos.parties, DjangoUserNotifier()
+        )
 
     @cached_property
     def announcements(self) -> AnnouncementsService:
