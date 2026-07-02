@@ -42,10 +42,20 @@ def test_build_registry_loads_only_maintainer_tools():
     assert [tool["name"] for tool in registry.describe()] == MAINTAINER_TOOL_NAMES
 
 
-def test_build_registry_has_no_organizer_tools_yet():
+ORGANIZER_TOOL_NAMES = [
+    "get_sphere",
+    "list_events",
+    "list_announcements",
+    "create_announcement",
+    "update_announcement",
+    "delete_announcement",
+]
+
+
+def test_build_registry_loads_only_organizer_tools():
     registry = build_registry(ToolScope.ORGANIZER)
 
-    assert registry.describe() == []
+    assert [tool["name"] for tool in registry.describe()] == ORGANIZER_TOOL_NAMES
 
 
 def test_run_threads_actor_context_into_handle():
@@ -70,3 +80,20 @@ def test_run_rejects_invalid_arguments_before_handle():
         registry.call(
             services=_FakeServices(), actor=actor, name="echo_actor", arguments={}
         )
+
+
+def test_invalid_arguments_message_hides_input_values():
+    registry = ToolRegistry([_EchoActorTool()])
+    actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError) as excinfo:
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="echo_actor",
+            arguments={"suffix": 424242},
+        )
+
+    message = str(excinfo.value)
+    assert message == "Invalid arguments: suffix: Input should be a valid string"
+    assert "424242" not in message

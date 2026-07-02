@@ -4281,17 +4281,18 @@ msgstr "Brak dostępnych wydarzeń"
 msgid "There are currently no events scheduled. Please check back later!"
 msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
 
-#: src/ludamus/templates/mcp/token.html
-msgid "MCP access token"
-msgstr "Token dostępu MCP"
-
-#: src/ludamus/templates/mcp/token.html
+#: src/ludamus/templates/mcp/_token_reveal.html
 msgid "Copy the token now — it is shown only once."
 msgstr "Skopiuj token teraz — zostanie pokazany tylko raz."
 
-#: src/ludamus/templates/mcp/token.html
+#: src/ludamus/templates/mcp/_token_reveal.html
 msgid "Connect an MCP client with the token as a Bearer header, for example:"
 msgstr "Połącz klienta MCP, przekazując token w nagłówku Bearer, na przykład:"
+
+#: src/ludamus/templates/mcp/token.html
+#: src/ludamus/templates/multiverse/panel/mcp-token.html
+msgid "MCP access token"
+msgstr "Token dostępu MCP"
 
 #: src/ludamus/templates/mcp/token.html
 #, python-format
@@ -4316,6 +4317,7 @@ msgstr ""
 "%(token_max_age_days)s dni."
 
 #: src/ludamus/templates/mcp/token.html
+#: src/ludamus/templates/multiverse/panel/mcp-token.html
 msgid "Generate token"
 msgstr "Wygeneruj token"
 
@@ -4335,6 +4337,11 @@ msgstr "Ogólne"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Import connections"
 msgstr "Połączenia importu"
+
+#: src/ludamus/templates/multiverse/panel/_tabs.html
+#: src/ludamus/templates/multiverse/panel/mcp-token.html
+msgid "MCP access"
+msgstr "Dostęp MCP"
 
 #: src/ludamus/templates/multiverse/panel/announcements/create.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -4430,6 +4437,28 @@ msgstr "Połączenia importu dla tej sfery"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "No connections yet."
 msgstr "Brak połączeń."
+
+#: src/ludamus/templates/multiverse/panel/mcp-token.html
+#, python-format
+msgid ""
+"The token expires after %(token_max_age_days)s days and works only while you "
+"stay a manager of this sphere. Anyone holding it can act with your "
+"permissions — keep it secret."
+msgstr ""
+"Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+"zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+"uprawnieniami — trzymaj go w tajemnicy."
+
+#: src/ludamus/templates/multiverse/panel/mcp-token.html
+#, python-format
+msgid ""
+"Generate a personal token to connect an MCP client (such as Claude Code or "
+"Executor) to this sphere's organizer API. The token is valid for "
+"%(token_max_age_days)s days."
+msgstr ""
+"Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+"Executor) z API organizatora tej sfery. Token jest ważny przez "
+"%(token_max_age_days)s dni."
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 #: src/ludamus/templates/panel/base.html
