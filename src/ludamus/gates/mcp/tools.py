@@ -118,9 +118,7 @@ class CreateAnnouncementTool(Tool[_AnnouncementContentInput]):
     input_model = _AnnouncementContentInput
 
     @staticmethod
-    def handle(
-        services: ServicesProtocol, data: _AnnouncementContentInput
-    ) -> str:
+    def handle(services: ServicesProtocol, data: _AnnouncementContentInput) -> str:
         created = services.announcements.create(
             data.sphere_id,
             AnnouncementData(
