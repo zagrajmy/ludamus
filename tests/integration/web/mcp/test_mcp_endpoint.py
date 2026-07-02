@@ -280,6 +280,23 @@ class TestTools:
             "message": "Unknown tool: drop_database",
         }
 
+    def test_falsy_non_dict_arguments_are_invalid(self, client, token):
+        response = post_message(
+            client,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "list_spheres", "arguments": []},
+            },
+            token=token,
+        )
+
+        assert response.json()["error"] == {
+            "code": -32602,
+            "message": "Invalid tool call params",
+        }
+
     def test_invalid_arguments(self, client, token):
         response = call_tool(client, token, "get_sphere", {})
 

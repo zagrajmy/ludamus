@@ -73,7 +73,9 @@ def _call_tool(
     params: JsonDict,
 ) -> JsonDict:
     name = params.get("name")
-    arguments = params.get("arguments") or {}
+    arguments = params.get("arguments")
+    if arguments is None:
+        arguments = {}
     outcome, response = _run_tool(
         registry=registry,
         services=services,
