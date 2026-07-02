@@ -6,21 +6,7 @@
 {# and the detail modal work unchanged. #}
 <article class="session-card-wrapper min-w-0">
     <div class="session-card group/row relative flex items-stretch gap-3 rounded-xl px-2 py-2.5 sm:px-3 transition-colors hover:bg-bg-tertiary {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
-         data-title="{{ data.session.title|lower }}"
-         data-session-id="{{ data.session.pk }}"
-         data-host="{{ data.session.display_name|lower }}"
-         data-tags="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ val }}{% if not forloop.last %},{% endif %}{% endfor %}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}"
-         data-tag-categories="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ fv.field_slug }}:{{ val }}{% if not forloop.last %};{% endif %}{% endfor %}{% if not forloop.last %};{% endif %}{% endif %}{% endfor %}"
-         data-status="{% if data.is_ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
-         data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
-         data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
-         data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"
-         data-min-age="{{ data.session.min_age }}"
-         data-venue="{{ data.loc.parent_slug }}"
-         data-venue-name="{{ data.loc.parent_name }}"
-         data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
-         data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
-         data-hour="{{ data.agenda_item.start_time|date:'H:i' }}">
+         {% include "chronology/_session_data_attrs.html" %}>
         <a href="?session={{ data.session.pk }}"
            class="session-card-link absolute inset-0 z-10 rounded-xl"
            aria-haspopup="dialog"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 00:45+0200\n"
+"POT-Creation-Date: 2026-07-02 02:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2326,6 +2326,43 @@ msgstr "Preferowane przez twórcę programu"
 msgid "Other times"
 msgstr "Pozostałe godziny"
 
+#: src/ludamus/templates/chronology/_card_schedule.html
+#: src/ludamus/templates/chronology/event.html
+msgid "Completed"
+msgstr "Ukończone"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Now"
+msgstr "Teraz"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Propose"
+msgstr "Zgłoś"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "No sessions scheduled for this time slot"
+msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "be the first to propose!"
+msgstr "bądź pierwszy i zgłoś!"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Not Yet Available"
+msgstr "Jeszcze Niedostępne"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "No sessions or time slots available yet"
+msgstr "Brak dostępnych punktów programu lub przedziałów czasowych"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Be the first to propose a session!"
+msgstr "Bądź pierwszą osobą, która zgłosi punkt programu!"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Sessions will be announced soon."
+msgstr "Punkty programu zostaną wkrótce ogłoszone."
+
 #: src/ludamus/templates/chronology/_compact_schedule.html
 msgid "Jump to time"
 msgstr "Przejdź do godziny"
@@ -2679,10 +2716,6 @@ msgid "Happening now!"
 msgstr "Trwa teraz!"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Completed"
-msgstr "Ukończone"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "Enrollment Open"
 msgstr "Zapisy otwarte"
 
@@ -2984,38 +3017,6 @@ msgstr "Żadne punkty programu nie pasują do filtrów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all filters"
 msgstr "Wyczyść wszystkie filtry"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Now"
-msgstr "Teraz"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Propose"
-msgstr "Zgłoś"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No sessions scheduled for this time slot"
-msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "be the first to propose!"
-msgstr "bądź pierwszy i zgłoś!"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Not Yet Available"
-msgstr "Jeszcze Niedostępne"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No sessions or time slots available yet"
-msgstr "Brak dostępnych punktów programu lub przedziałów czasowych"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Be the first to propose a session!"
-msgstr "Bądź pierwszą osobą, która zgłosi punkt programu!"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Sessions will be announced soon."
-msgstr "Punkty programu zostaną wkrótce ogłoszone."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"

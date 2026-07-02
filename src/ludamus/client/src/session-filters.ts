@@ -256,6 +256,18 @@ const initSessionFilters = (): void => {
       day.style.display = visibleSlots.length > 0 ? "" : "none";
     }
 
+    // Keep the hour rail in sync: a marker whose every section is filtered out
+    // would scroll to a display:none target, so hide it too. The rail only
+    // exists on the compact layout; elsewhere this loop is over nothing.
+    for (const marker of document.querySelectorAll<HTMLElement>(".schedule-rail-hour")) {
+      const hour = marker.dataset.railHour ?? "";
+      const sections = document.querySelectorAll<HTMLElement>(
+        `.time-slot-section[data-slot-hour="${CSS.escape(hour)}"]`,
+      );
+      const anyVisible = [...sections].some((section) => section.style.display !== "none");
+      marker.style.display = anyVisible ? "" : "none";
+    }
+
     updateFilterUI();
   }
 
@@ -279,6 +291,9 @@ const initSessionFilters = (): void => {
     }
     for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-card-wrapper")) {
       cardContainer.style.display = "";
+    }
+    for (const marker of document.querySelectorAll<HTMLElement>(".schedule-rail-hour")) {
+      marker.style.display = "";
     }
 
     filterSessions();

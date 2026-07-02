@@ -920,33 +920,21 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 sid: fake_full_card(data) for sid, data in sessions_data.items()
             }
 
-        current_time = datetime.now(tz=UTC)
-        ended_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
-        current_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
-        future_unavailable_hour_data: dict[datetime, list[SessionData]] = defaultdict(
-            list
-        )
-
-        for session_data in sessions_data.values():
-            session_end_time = session_data.agenda_item.end_time
-            session_start_time = session_data.agenda_item.start_time
-            hour_key = session_start_time
-            # Check if session has ended
-            if session_end_time <= current_time:
-                ended_hour_data[hour_key].append(session_data)
-            elif (
-                not session_data.is_enrollment_available
-                and session_start_time > current_time
-            ):
-                future_unavailable_hour_data[hour_key].append(session_data)
-            else:
-                # Current sessions (available for enrollment or in progress)
-                current_hour_data[hour_key].append(session_data)
-
         compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
 
         if compact_schedule and current_user_id:
             self._set_user_bookmarks(sessions_data, current_user_id)
+
+        # The ended/current/future grouping only feeds the card-grid layout;
+        # the compact schedule renders from schedule_days instead, so skip the
+        # pass there but keep the context keys (tests enumerate them exactly).
+        ended_hour_data: dict[datetime, list[SessionData]] = {}
+        current_hour_data: dict[datetime, list[SessionData]] = {}
+        future_unavailable_hour_data: dict[datetime, list[SessionData]] = {}
+        if not compact_schedule:
+            ended_hour_data, current_hour_data, future_unavailable_hour_data = (
+                self._group_sessions_by_state(sessions_data)
+            )
 
         context.update(
             {
@@ -956,9 +944,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_days": (
                     self._build_schedule_days(sessions_data) if compact_schedule else []
                 ),
-                "ended_hour_data": dict(ended_hour_data),
-                "current_hour_data": dict(current_hour_data),
-                "future_unavailable_hour_data": dict(future_unavailable_hour_data),
+                "ended_hour_data": ended_hour_data,
+                "current_hour_data": current_hour_data,
+                "future_unavailable_hour_data": future_unavailable_hour_data,
                 "total_enrolled": sum(s.enrolled_count for s in sessions_data.values()),
                 "user_enrolled_sessions": [
                     s for s in sessions_data.values() if s.user_enrolled
@@ -1172,6 +1160,33 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                             SessionParticipationStatus.WAITING in statuses
                         )
 
+    @staticmethod
+    def _group_sessions_by_state(
+        sessions_data: dict[int, SessionData],
+    ) -> tuple[
+        dict[datetime, list[SessionData]],
+        dict[datetime, list[SessionData]],
+        dict[datetime, list[SessionData]],
+    ]:
+        current_time = datetime.now(tz=UTC)
+        ended: dict[datetime, list[SessionData]] = defaultdict(list)
+        current: dict[datetime, list[SessionData]] = defaultdict(list)
+        future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
+        for session_data in sessions_data.values():
+            session_start_time = session_data.agenda_item.start_time
+            hour_key = session_start_time
+            if session_data.agenda_item.end_time <= current_time:
+                ended[hour_key].append(session_data)
+            elif (
+                not session_data.is_enrollment_available
+                and session_start_time > current_time
+            ):
+                future_unavailable[hour_key].append(session_data)
+            else:
+                # Current sessions (available for enrollment or in progress)
+                current[hour_key].append(session_data)
+        return dict(ended), dict(current), dict(future_unavailable)
+
     def _set_user_bookmarks(
         self, sessions_data: dict[int, SessionData], current_user_id: int
     ) -> None:
@@ -1194,8 +1209,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         for data in sessions_data.values():
             start = data.agenda_item.start_time
             local_date = timezone.localtime(start).date()
-            if not days or timezone.localtime(days[-1].date).date() != local_date:
-                days.append(ScheduleDay(date=start, hours=[]))
+            if (
+                not days
+                or timezone.localtime(days[-1].first_start).date() != local_date
+            ):
+                days.append(ScheduleDay(first_start=start, hours=[]))
             slots = days[-1].hours
             if not slots or slots[-1].start != start:
                 slots.append(ScheduleHour(start=start, sessions=[]))

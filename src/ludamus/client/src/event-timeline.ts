@@ -13,10 +13,9 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const scrollRoot = document.getElementById("app-scroll");
 
   // Snap the content to whole hours so a tap or drag on the rail lands on a
-  // section rather than mid-row. Proximity (not mandatory) keeps the header and
-  // filter bar above the list freely scrollable. Set here, not in base.html, so
-  // only the compact schedule opts the shared scroller into snapping.
-  if (scrollRoot) scrollRoot.style.scrollSnapType = "y proximity";
+  // section rather than mid-row (see .schedule-snap in index.css). Added here,
+  // not in base.html, so only the compact schedule opts the shared scroller in.
+  scrollRoot?.classList.add("schedule-snap");
   const hourLinks = [...rail.querySelectorAll<HTMLAnchorElement>(".schedule-rail-hour")];
   if (hourLinks.length === 0) return;
 
@@ -102,15 +101,25 @@ const initScheduleRail = (rail: HTMLElement): void => {
     if (link && link !== active) scrollToLink(link, "auto");
   };
 
+  // A press only becomes a scrub after real movement; below the threshold the
+  // gesture stays a tap and falls through to the marker's click handler
+  // (smooth jump). Without it, sub-pixel jitter on a tap fired an instant
+  // "auto" scrub that raced the click's "smooth" scroll.
+  const DRAG_THRESHOLD_PX = 6;
+  let moved = false;
+  let startY = 0;
+
   rail.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    // Let a real tap on a marker fall through to its click handler (smooth jump);
-    // only the press-and-drag gesture scrubs.
     dragging = true;
+    moved = false;
+    startY = event.clientY;
     rail.setPointerCapture(event.pointerId);
   });
   rail.addEventListener("pointermove", (event) => {
     if (!dragging) return;
+    if (!moved && Math.abs(event.clientY - startY) < DRAG_THRESHOLD_PX) return;
+    moved = true;
     event.preventDefault();
     scrubTo(event.clientY);
   });
@@ -120,6 +129,19 @@ const initScheduleRail = (rail: HTMLElement): void => {
   };
   rail.addEventListener("pointerup", endDrag);
   rail.addEventListener("pointercancel", endDrag);
+  // A real drag still synthesizes a trailing click on the marker under the
+  // pointer; swallow that one click so it can't jump away from where the
+  // scrub landed.
+  rail.addEventListener(
+    "click",
+    (event) => {
+      if (!moved) return;
+      moved = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    { capture: true },
+  );
 };
 
 const rail = document.querySelector<HTMLElement>(".schedule-rail");

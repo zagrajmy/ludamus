@@ -135,7 +135,7 @@ class ScheduleHour:
 class ScheduleDay:
     """A day's worth of compact-schedule slots, grouped for the hour scrubber."""
 
-    date: datetime
+    first_start: datetime
     hours: list[ScheduleHour]
 
 

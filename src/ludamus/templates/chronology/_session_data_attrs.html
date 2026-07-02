@@ -1,0 +1,24 @@
+{# Shared data-* contract consumed by session-filters.ts and the detail #}
+{# modals. Included inside the opening tag of both the card #}
+{# (_session_card.html) and the compact row (_compact_session_row.html), so #}
+{# the two layouts can never drift apart. #}
+{# The formatter would split each attribute's template tags onto #}
+{# indented lines, injecting whitespace into the attribute VALUES; #}
+{# session-filters.ts compares them exactly, so formatting is off. #}
+{# djlint:off #}
+data-title="{{ data.session.title|lower }}"
+data-session-id="{{ data.session.pk }}"
+data-host="{{ data.session.display_name|lower }}"
+data-tags="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ val }}{% if not forloop.last %},{% endif %}{% endfor %}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}"
+data-tag-categories="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ fv.field_slug }}:{{ val }}{% if not forloop.last %};{% endif %}{% endfor %}{% if not forloop.last %};{% endif %}{% endif %}{% endfor %}"
+data-status="{% if data.is_ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
+data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
+data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
+data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"
+data-min-age="{{ data.session.min_age }}"
+data-venue="{{ data.loc.parent_slug }}"
+data-venue-name="{{ data.loc.parent_name }}"
+data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
+data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
+data-hour="{{ data.agenda_item.start_time|date:'H:i' }}"
+{# djlint:on #}

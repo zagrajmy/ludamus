@@ -94,24 +94,25 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("agenda_item")
-    def test_ok_participants_label_when_enabled(self, client, event):
+    def test_ok_participants_label_toggle(self, client, event):
+        response_default = client.get(self._get_url(event.slug))
+        content_default = response_default.content.decode()
+
         event.use_participants_label = True
         event.save()
+        response_toggled = client.get(self._get_url(event.slug))
+        content_toggled = response_toggled.content.decode()
 
-        response = client.get(self._get_url(event.slug))
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        # "Players" only appears as the header count label, so its absence proves
-        # the toggle flipped it ("Participants" also names a session-modal tab).
-        assert "Players" not in content
-
-    @pytest.mark.usefixtures("agenda_item")
-    def test_ok_players_label_by_default(self, client, event):
-        response = client.get(self._get_url(event.slug))
-
-        assert response.status_code == HTTPStatus.OK
-        assert "Players" in response.content.decode()
+        assert response_default.status_code == HTTPStatus.OK
+        assert response_toggled.status_code == HTTPStatus.OK
+        # "Players" only appears as the header count label; "Participants" also
+        # names a session-modal tab, so a bare presence check would always pass.
+        # Compare its count across the toggle instead.
+        assert "Players" in content_default
+        assert "Players" not in content_toggled
+        assert content_toggled.count("Participants") > content_default.count(
+            "Participants"
+        )
 
     def test_ok_compact_schedule_for_big_event(
         self, agenda_item, client, event, monkeypatch
@@ -138,12 +139,16 @@ class TestEventPageView:
         assert "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" not in content
 
     def test_ok_compact_schedule_marks_bookmarked_session(
-        self, agenda_item, active_user, authenticated_client, event, monkeypatch
+        self, agenda_item, active_user, authenticated_client, event, monkeypatch, space
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
         SessionBookmark.objects.create(user=active_user, session=agenda_item.session)
+        # A second, un-bookmarked session renders the inactive toggle state.
+        AgendaItemFactory(
+            session=SessionFactory(event=event, category=None), space=space
+        )
 
         response = authenticated_client.get(self._get_url(event.slug))
 
@@ -151,6 +156,8 @@ class TestEventPageView:
         content = response.content.decode()
         assert 'data-bookmarked="true"' in content
         assert 'aria-pressed="true"' in content
+        assert 'data-bookmarked="false"' in content
+        assert 'aria-pressed="false"' in content
 
     @pytest.mark.usefixtures("agenda_item")
     def test_ok_compact_schedule_omits_not_available_label(
@@ -166,6 +173,156 @@ class TestEventPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert "Not Available" not in response.content.decode()
+
+    def test_ok_compact_schedule_renders_all_row_variants(
+        self, client, event, space, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+        now = timezone.now()
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=100,
+        )
+        # A limit_to_end_time config marks ongoing sessions as "In Progress".
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=100,
+            limit_to_end_time=True,
+        )
+        # Two full days out so the local-date grouping can never collide with
+        # the ended/ongoing sessions, whatever the wall clock is at test time.
+        day_one = (now + timedelta(days=2)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        )
+
+        def scheduled(*, start, end, **session_kwargs):
+            session = SessionFactory(event=event, category=None, **session_kwargs)
+            AgendaItemFactory(
+                session=session, space=space, start_time=start, end_time=end
+            )
+            return session
+
+        plenty = scheduled(
+            start=day_one,
+            end=day_one + timedelta(hours=2),
+            participants_limit=10,
+            min_age=16,
+            duration="PT2H",
+        )
+        # Same slot as `plenty` — covers the append-to-existing-hour branch.
+        scarce = scheduled(
+            start=day_one,
+            end=day_one + timedelta(hours=1),
+            participants_limit=5,
+            min_age=0,
+        )
+        for _ in range(4):
+            SessionParticipation.objects.create(
+                session=scarce,
+                user=UserFactory(),
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+        # Second slot on the same day — covers the append-to-existing-day branch.
+        scheduled(
+            start=day_one + timedelta(hours=3),
+            end=day_one + timedelta(hours=4),
+            participants_limit=0,
+            min_age=0,
+        )
+        full = scheduled(
+            start=day_one + timedelta(days=1),
+            end=day_one + timedelta(days=1, hours=1),
+            participants_limit=2,
+            min_age=0,
+        )
+        for status in (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.WAITING,
+        ):
+            SessionParticipation.objects.create(
+                session=full, user=UserFactory(), status=status
+            )
+        scheduled(
+            start=now - timedelta(hours=3),
+            end=now - timedelta(hours=2),
+            participants_limit=4,
+            min_age=0,
+        )
+        scheduled(
+            start=now - timedelta(hours=1),
+            end=now + timedelta(hours=1),
+            participants_limit=4,
+            min_age=0,
+        )
+        game_type = SessionField.objects.create(
+            event=event,
+            name="Game Type",
+            question="Game Type",
+            slug="game-type",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+            icon="puzzle-piece",
+        )
+        SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
+        event_settings, _ = EventSettings.objects.get_or_create(event=event)
+        event_settings.displayed_session_fields.add(game_type)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        days = response.context_data["schedule_days"]
+        # The ended/ongoing sessions may straddle local midnight, so derive the
+        # expected day grouping with the same local-date rule the view uses.
+        expected_dates = sorted(
+            {
+                timezone.localtime(start).date()
+                for start in (
+                    now - timedelta(hours=3),
+                    now - timedelta(hours=1),
+                    day_one,
+                    day_one + timedelta(days=1),
+                )
+            }
+        )
+        assert [
+            timezone.localtime(day.first_start).date() for day in days
+        ] == expected_dates
+        [day_one_entry] = [
+            day
+            for day in days
+            if timezone.localtime(day.first_start).date()
+            == timezone.localtime(day_one).date()
+        ]
+        [morning_slot, afternoon_slot] = day_one_entry.hours
+        assert [s.session.pk for s in morning_slot.sessions] == [plenty.pk, scarce.pk]
+        assert afternoon_slot.start == day_one + timedelta(hours=3)
+        content = response.content.decode()
+        # The pills render inside their own spans; match with the tag boundary
+        # so e.g. the "Enrollment Open" header pill can't satisfy "Open".
+        for label in (
+            "10 spots left",
+            "1 spot left",
+            "Open",
+            "Full",
+            "Ended",
+            "In Progress",
+            "16\\+",
+        ):
+            assert re.search(rf">\s*{label}\s*<", content), label
+        assert "1 waiting" in content
+        assert "2h" in content
+        assert "4 participants enrolled" in content
+        # Category icon chip next to the row body.
+        assert "size-7" in content
+        assert content.count("data-schedule-day") == len(expected_dates)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_status_pills_capped_at_two_drops_upcoming(self, client, event):

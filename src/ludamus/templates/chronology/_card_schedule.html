@@ -1,0 +1,112 @@
+{% load i18n %}
+{% load tessera %}
+{# Card-grid schedule for regular events: sessions grouped into ended / #}
+{# current / future-unavailable time slots. Big events render the compact #}
+{# list (_compact_schedule.html) instead. #}
+<!-- All Sessions in Chronological Order -->
+{% comment %} Process each time slot in chronological order {% endcomment %}
+{% comment %} Ended Sessions {% endcomment %}
+{% for hour, sessions in ended_hour_data.items %}
+    <div class="mb-8 time-slot-section"
+         data-time-slot="ended-{{ forloop.counter }}">
+        <!-- Time Slot Header -->
+        <div class="flex items-center gap-4 mb-4">
+            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-bg-tertiary text-foreground-muted">
+                {% icon "clock" class="w-4 h-4" variant="mini" %}
+                {{ hour|date:"l, j F" }}, {{ hour|time:"H:i" }}
+                <span class="text-xs font-normal">({% translate "Completed" %})</span>
+            </div>
+            <div class="h-px grow bg-border"></div>
+            <span class="text-xs text-foreground-muted">{{ sessions|length }} session{{ sessions|length|pluralize }}</span>
+        </div>
+        <!-- Sessions in this time slot -->
+        <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for data in sessions %}
+                {% include "chronology/_session_card.html" %}
+            {% endfor %}
+        </div>
+    </div>
+{% endfor %}
+{% comment %} Current & Upcoming Sessions {% endcomment %}
+{% for hour, sessions in current_hour_data.items %}
+    <div class="mb-8 time-slot-section"
+         data-time-slot="current-{{ forloop.counter }}">
+        <!-- Time Slot Header -->
+        <div class="flex items-center gap-4 mb-4">
+            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800">
+                {% icon "clock" class="w-4 h-4" variant="mini" %}
+                {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
+            </div>
+            <hr />
+            {% if event.is_live and forloop.first %}
+                <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
+                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
+                    {% translate "Now" %}
+                </span>
+            {% endif %}
+            <span class="text-xs text-foreground-muted">{{ sessions|length }} session{{ sessions|length|pluralize }}</span>
+            {% if event.is_proposal_active %}
+                <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
+                   class="text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
+                    {% icon "plus" class="w-4 h-4" variant="mini" %}
+                    <span class="sr-only">{% translate "Propose" %}</span>
+                </a>
+            {% endif %}
+        </div>
+        <!-- Sessions in this time slot -->
+        {% if sessions %}
+            <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {% for data in sessions %}
+                    {% include "chronology/_session_card.html" %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-6">
+                <p class="text-sm text-foreground-muted">
+                    {% translate "No sessions scheduled for this time slot" %}
+                    {% if event.is_proposal_active %}
+                        – <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
+    class="text-primary">{% translate "be the first to propose!" %}</a>
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}
+{% comment %} Future Unavailable Sessions {% endcomment %}
+{% for hour, sessions in future_unavailable_hour_data.items %}
+    <div class="mb-8 time-slot-section"
+         data-time-slot="future-{{ forloop.counter }}">
+        <!-- Time Slot Header -->
+        <div class="flex items-center gap-4 mb-4">
+            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warning-bg text-warning-text">
+                {% icon "clock" class="w-4 h-4" variant="mini" %}
+                {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
+                <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
+            </div>
+            <div class="h-px grow bg-border"></div>
+            <span class="text-xs text-foreground-muted">{{ sessions|length }} session{{ sessions|length|pluralize }}</span>
+        </div>
+        <!-- Sessions in this time slot -->
+        <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for data in sessions %}
+                {% include "chronology/_session_card.html" %}
+            {% endfor %}
+        </div>
+    </div>
+{% endfor %}
+{% if not ended_hour_data and not current_hour_data and not future_unavailable_hour_data %}
+    <div class="text-center py-12">
+        <div class="mb-3 text-foreground-muted">{% icon "calendar" class="w-10 h-10 mx-auto" %}</div>
+        <h5 class="text-lg font-semibold mb-2 text-foreground-muted">
+            {% translate "No sessions or time slots available yet" %}
+        </h5>
+        <p class="text-sm text-foreground-muted">
+            {% if event.is_proposal_active %}
+                {% translate "Be the first to propose a session!" %}
+            {% else %}
+                {% translate "Sessions will be announced soon." %}
+            {% endif %}
+        </p>
+    </div>
+{% endif %}

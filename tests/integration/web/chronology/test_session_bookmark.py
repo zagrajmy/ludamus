@@ -25,9 +25,8 @@ class TestSessionBookmarkToggleView:
 
         assert response_on.status_code == HTTPStatus.OK
         assert response_on.json() == {"bookmarked": True}
-        assert SessionBookmark.objects.filter(
-            user=active_user, session=session
-        ).exists()
+        bookmark = SessionBookmark.objects.get(user=active_user, session=session)
+        assert str(bookmark) == f"{active_user.pk} bookmarked session {session.pk}"
 
         response_off = authenticated_client.post(self._url(session.pk))
 
