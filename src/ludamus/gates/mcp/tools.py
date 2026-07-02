@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from ludamus.gates.mcp.registry import Tool, ToolRegistry
+from ludamus.gates.mcp.registry import Tool, ToolError, ToolRegistry
 from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SphereDTO
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import (
@@ -23,6 +23,7 @@ from ludamus.pacts.multiverse import (
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolCall, ToolProtocol
+    from ludamus.pacts.mcp import ActorContext
 
 _SPHERE_LIST = TypeAdapter(list[SphereListItemDTO])
 _EVENT_LIST = TypeAdapter(list[EventListItemDTO])
@@ -114,12 +115,16 @@ class ListAnnouncementsTool(Tool[_SphereInput]):
         return _ANNOUNCEMENT_LIST.dump_json(items, indent=2).decode()
 
 
-class _AnnouncementContentInput(_SphereInput):
+class _AnnouncementBody(BaseModel):
     title: str = Field(max_length=255)
     content: str = Field(max_length=50000)
     is_published: bool = Field(
         default=False, description="Publish immediately; false saves a draft"
     )
+
+
+class _AnnouncementContentInput(_SphereInput, _AnnouncementBody):
+    pass
 
 
 class CreateAnnouncementTool(Tool[_AnnouncementContentInput]):
@@ -131,12 +136,7 @@ class CreateAnnouncementTool(Tool[_AnnouncementContentInput]):
     @staticmethod
     def handle(call: ToolCall[_AnnouncementContentInput]) -> str:
         created = call.services.announcements.create(
-            call.data.sphere_id,
-            AnnouncementData(
-                title=call.data.title,
-                content=call.data.content,
-                is_published=call.data.is_published,
-            ),
+            call.data.sphere_id, _announcement_data(call.data)
         )
         return created.model_dump_json(indent=2)
 
@@ -156,11 +156,7 @@ class UpdateAnnouncementTool(Tool[_UpdateAnnouncementInput]):
         updated = call.services.announcements.update(
             call.data.sphere_id,
             call.data.announcement_id,
-            AnnouncementData(
-                title=call.data.title,
-                content=call.data.content,
-                is_published=call.data.is_published,
-            ),
+            _announcement_data(call.data),
         )
         return updated.model_dump_json(indent=2)
 
@@ -184,6 +180,115 @@ class DeleteAnnouncementTool(Tool[_DeleteAnnouncementInput]):
         return json.dumps(result)
 
 
+def _announcement_data(body: _AnnouncementBody) -> AnnouncementData:
+    return AnnouncementData(
+        title=body.title, content=body.content, is_published=body.is_published
+    )
+
+
+def _actor_sphere(actor: ActorContext) -> int:
+    if actor.sphere_id is None:
+        raise ToolError("Token carries no sphere scope")
+    return actor.sphere_id
+
+
+class _OrgListEventsInput(BaseModel):
+    include_unpublished: bool = Field(
+        default=True, description="Include events that are not published yet"
+    )
+
+
+class OrganizerGetSphereTool(Tool[_EmptyInput]):
+    name = "get_sphere"
+    description = "Read your sphere's settings and configuration."
+    scope = ToolScope.ORGANIZER
+    input_model = _EmptyInput
+
+    @staticmethod
+    def handle(call: ToolCall[_EmptyInput]) -> str:
+        sphere: SphereDTO = call.services.sphere_panel.read(_actor_sphere(call.actor))
+        return sphere.model_dump_json(indent=2)
+
+
+class OrganizerListEventsTool(Tool[_OrgListEventsInput]):
+    name = "list_events"
+    description = "List your sphere's events with their status and session counts."
+    scope = ToolScope.ORGANIZER
+    input_model = _OrgListEventsInput
+
+    @staticmethod
+    def handle(call: ToolCall[_OrgListEventsInput]) -> str:
+        events = call.services.events.list_for_sphere(
+            _actor_sphere(call.actor), include_unpublished=call.data.include_unpublished
+        )
+        return _EVENT_LIST.dump_json(events, indent=2).decode()
+
+
+class OrganizerListAnnouncementsTool(Tool[_EmptyInput]):
+    name = "list_announcements"
+    description = "List your sphere's announcements, published and drafts."
+    scope = ToolScope.ORGANIZER
+    input_model = _EmptyInput
+
+    @staticmethod
+    def handle(call: ToolCall[_EmptyInput]) -> str:
+        items = call.services.announcements.list_for_sphere(_actor_sphere(call.actor))
+        return _ANNOUNCEMENT_LIST.dump_json(items, indent=2).decode()
+
+
+class OrganizerCreateAnnouncementTool(Tool[_AnnouncementBody]):
+    name = "create_announcement"
+    description = "Create an announcement in your sphere (draft by default)."
+    scope = ToolScope.ORGANIZER
+    input_model = _AnnouncementBody
+
+    @staticmethod
+    def handle(call: ToolCall[_AnnouncementBody]) -> str:
+        created = call.services.announcements.create(
+            _actor_sphere(call.actor), _announcement_data(call.data)
+        )
+        return created.model_dump_json(indent=2)
+
+
+class _OrgUpdateAnnouncementInput(_AnnouncementBody):
+    announcement_id: int
+
+
+class OrganizerUpdateAnnouncementTool(Tool[_OrgUpdateAnnouncementInput]):
+    name = "update_announcement"
+    description = "Update an announcement's title, content or published flag."
+    scope = ToolScope.ORGANIZER
+    input_model = _OrgUpdateAnnouncementInput
+
+    @staticmethod
+    def handle(call: ToolCall[_OrgUpdateAnnouncementInput]) -> str:
+        updated = call.services.announcements.update(
+            _actor_sphere(call.actor),
+            call.data.announcement_id,
+            _announcement_data(call.data),
+        )
+        return updated.model_dump_json(indent=2)
+
+
+class _OrgDeleteAnnouncementInput(BaseModel):
+    announcement_id: int
+
+
+class OrganizerDeleteAnnouncementTool(Tool[_OrgDeleteAnnouncementInput]):
+    name = "delete_announcement"
+    description = "Delete an announcement from your sphere permanently."
+    scope = ToolScope.ORGANIZER
+    input_model = _OrgDeleteAnnouncementInput
+
+    @staticmethod
+    def handle(call: ToolCall[_OrgDeleteAnnouncementInput]) -> str:
+        call.services.announcements.delete(
+            _actor_sphere(call.actor), call.data.announcement_id
+        )
+        result: dict[str, int] = {"deleted": call.data.announcement_id}
+        return json.dumps(result)
+
+
 def _all_tools() -> tuple[ToolProtocol, ...]:
     return (
         ListSpheresTool(),
@@ -194,6 +299,12 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         CreateAnnouncementTool(),
         UpdateAnnouncementTool(),
         DeleteAnnouncementTool(),
+        OrganizerGetSphereTool(),
+        OrganizerListEventsTool(),
+        OrganizerListAnnouncementsTool(),
+        OrganizerCreateAnnouncementTool(),
+        OrganizerUpdateAnnouncementTool(),
+        OrganizerDeleteAnnouncementTool(),
     )
 
 

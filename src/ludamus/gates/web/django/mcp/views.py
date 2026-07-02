@@ -26,19 +26,30 @@ from ludamus.gates.mcp.tools import build_registry
 from ludamus.pacts.mcp import ActorContext, ToolScope
 
 if TYPE_CHECKING:
+    from ludamus.gates.mcp.registry import ToolRegistry
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
 
 SIGNING_SALT = "ludamus.mcp"
 TOKEN_MAX_AGE_DAYS = 30
 
-_REGISTRY = build_registry(ToolScope.MAINTAINER)
+_MAINTAINER_REGISTRY = build_registry(ToolScope.MAINTAINER)
+_ORGANIZER_REGISTRY = build_registry(ToolScope.ORGANIZER)
 
 
 def mint_token(user_id: int) -> str:
     return signing.dumps({"user_id": user_id}, salt=SIGNING_SALT)
 
 
-def _authenticated_superuser_id(request: RootRequest) -> int | None:
+def mint_organizer_token(*, user_id: int, sphere_id: int) -> str:
+    payload = {
+        "user_id": user_id,
+        "scope": ToolScope.ORGANIZER.value,
+        "sphere_id": sphere_id,
+    }
+    return signing.dumps(payload, salt=SIGNING_SALT)
+
+
+def _bearer_payload(request: RootRequest) -> dict[str, object] | None:
     header = request.headers.get("Authorization", "")
     if not header.startswith("Bearer "):
         return None
@@ -50,14 +61,81 @@ def _authenticated_superuser_id(request: RootRequest) -> int | None:
         )
     except signing.BadSignature:
         return None
-    user_id = payload.get("user_id") if isinstance(payload, dict) else None
+    return payload if isinstance(payload, dict) else None
+
+
+def _authenticated_maintainer(request: RootRequest) -> ActorContext | None:
+    payload = _bearer_payload(request)
+    if payload is None:
+        return None
+    # Pre-#483 maintainer tokens carry no scope field; treat both shapes alike.
+    if payload.get("scope") not in {None, ToolScope.MAINTAINER.value}:
+        return None
+    user_id = payload.get("user_id")
     if not isinstance(user_id, int):
         return None
     user_model = get_user_model()
     is_superuser = user_model.objects.filter(
         pk=user_id, is_active=True, is_superuser=True
     ).exists()
-    return user_id if is_superuser else None
+    if not is_superuser:
+        return None
+    return ActorContext(user_id=user_id, scope=ToolScope.MAINTAINER)
+
+
+def _authenticated_organizer(request: RootRequest) -> ActorContext | None:
+    payload = _bearer_payload(request)
+    if payload is None or payload.get("scope") != ToolScope.ORGANIZER.value:
+        return None
+    user_id = payload.get("user_id")
+    sphere_id = payload.get("sphere_id")
+    if not isinstance(user_id, int) or not isinstance(sphere_id, int):
+        return None
+    user_model = get_user_model()
+    slug = (
+        user_model.objects.filter(pk=user_id, is_active=True)
+        .values_list("slug", flat=True)
+        .first()
+    )
+    if slug is None:
+        return None
+    if not request.services.sphere_panel.is_manager(sphere_id, slug):
+        return None
+    return ActorContext(user_id=user_id, scope=ToolScope.ORGANIZER, sphere_id=sphere_id)
+
+
+def _unauthorized(missing: str) -> JsonResponse:
+    response = JsonResponse(
+        {"error": f"A valid {missing} Bearer token is required."}, status=401
+    )
+    response["WWW-Authenticate"] = "Bearer"
+    return response
+
+
+def _dispatch(
+    *, request: RootRequest, registry: ToolRegistry, actor: ActorContext
+) -> HttpResponse:
+    try:
+        message = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            error_response(message_id=None, code=PARSE_ERROR, message="Parse error"),
+            status=400,
+        )
+    if not isinstance(message, dict):
+        return JsonResponse(
+            error_response(
+                message_id=None, code=PARSE_ERROR, message="Expected a JSON-RPC object"
+            ),
+            status=400,
+        )
+
+    result = handle_message(
+        registry=registry, services=request.services, actor=actor, message=message
+    )
+    if result is None:
+        return HttpResponse(status=202)
+    return JsonResponse(result)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -68,39 +146,24 @@ class McpEndpointView(View):
 
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
-        if (actor_id := _authenticated_superuser_id(request)) is None:
-            response = JsonResponse(
-                {"error": "A valid maintainer Bearer token is required."}, status=401
-            )
-            response["WWW-Authenticate"] = "Bearer"
-            return response
+        actor = _authenticated_maintainer(request)
+        if actor is None:
+            return _unauthorized("maintainer")
+        return _dispatch(request=request, registry=_MAINTAINER_REGISTRY, actor=actor)
 
-        try:
-            message = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse(
-                error_response(
-                    message_id=None, code=PARSE_ERROR, message="Parse error"
-                ),
-                status=400,
-            )
-        if not isinstance(message, dict):
-            return JsonResponse(
-                error_response(
-                    message_id=None,
-                    code=PARSE_ERROR,
-                    message="Expected a JSON-RPC object",
-                ),
-                status=400,
-            )
 
-        actor = ActorContext(user_id=actor_id, scope=ToolScope.MAINTAINER)
-        result = handle_message(
-            registry=_REGISTRY, services=request.services, actor=actor, message=message
-        )
-        if result is None:
-            return HttpResponse(status=202)
-        return JsonResponse(result)
+@method_decorator(csrf_exempt, name="dispatch")
+class McpOrganizerEndpointView(View):
+    """Sphere-scoped organizer endpoint; tools read the sphere from the token."""
+
+    request: RootRequest
+
+    @staticmethod
+    def post(request: RootRequest) -> HttpResponse:
+        actor = _authenticated_organizer(request)
+        if actor is None:
+            return _unauthorized("organizer")
+        return _dispatch(request=request, registry=_ORGANIZER_REGISTRY, actor=actor)
 
 
 class McpTokenPageView(LoginRequiredMixin, View):

@@ -42,10 +42,20 @@ def test_build_registry_loads_only_maintainer_tools():
     assert [tool["name"] for tool in registry.describe()] == MAINTAINER_TOOL_NAMES
 
 
-def test_build_registry_has_no_organizer_tools_yet():
+ORGANIZER_TOOL_NAMES = [
+    "get_sphere",
+    "list_events",
+    "list_announcements",
+    "create_announcement",
+    "update_announcement",
+    "delete_announcement",
+]
+
+
+def test_build_registry_loads_only_organizer_tools():
     registry = build_registry(ToolScope.ORGANIZER)
 
-    assert registry.describe() == []
+    assert [tool["name"] for tool in registry.describe()] == ORGANIZER_TOOL_NAMES
 
 
 def test_run_threads_actor_context_into_handle():
