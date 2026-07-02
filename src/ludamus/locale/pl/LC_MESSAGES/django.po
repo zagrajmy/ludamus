@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 04:25+0200\n"
+"POT-Creation-Date: 2026-07-02 15:31+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -716,6 +716,7 @@ msgid "Session list"
 msgstr "Lista punktów programu"
 
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
+#: src/ludamus/templates/crowd/user/connected.html
 msgid "Copied!"
 msgstr "Skopiowano!"
 
@@ -738,6 +739,18 @@ msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
 #: src/ludamus/adapters/web/django/views.py
 msgid "Invalid authentication state"
 msgstr "Nieprawidłowy stan uwierzytelnienia"
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Profile claimed — it is now your own account."
+msgstr "Profil przejęty — to teraz Twoje własne konto."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid ""
+"You already have an account, so this profile can't be moved into it. Ask the "
+"person who invited you to enroll you directly."
+msgstr ""
+"Masz już konto, więc tego profilu nie można do niego przenieść. Poproś "
+"osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Authentication failed"
@@ -784,6 +797,25 @@ msgstr "Powiązana osoba została zaktualizowana!"
 #: src/ludamus/adapters/web/django/views.py
 msgid "Connected user deleted successfully."
 msgstr "Powiązana osoba została usunięta."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Could not create a claim link for this person."
+msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Claim link created."
+msgstr "Utworzono link przejęcia."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "This claim link is invalid or has already been used."
+msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid ""
+"You're already signed in. Log out first to claim this profile into a new "
+"account."
+msgstr ""
+"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Avatar preference updated successfully!"
@@ -3729,6 +3761,28 @@ msgstr "Widoczne na publicznej karcie punktu programu"
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
 
+#: src/ludamus/templates/crowd/claim.html
+msgid "Claim your profile"
+msgstr "Przejmij swój profil"
+
+#: src/ludamus/templates/crowd/claim.html
+#, python-format
+msgid "%(manager)s invited you to take over this profile"
+msgstr "%(manager)s zaprasza Cię do przejęcia tego profilu"
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Sign in and claim"
+msgstr "Zaloguj się i przejmij"
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Your event sign-ups stay with you"
+msgstr "Twoje zapisy na wydarzenia zostaną zachowane"
+
+#: src/ludamus/templates/crowd/claim.html
+#, python-format
+msgid "It becomes your own account — %(manager)s no longer manages it"
+msgstr "Profil stanie się Twoim własnym kontem — %(manager)s przestanie nim zarządzać"
+
 # Login Required Page
 #: src/ludamus/templates/crowd/login_required.html
 msgid "Login Required"
@@ -3806,14 +3860,8 @@ msgstr ""
 "więcej opcji."
 
 #: src/ludamus/templates/crowd/user/connected.html
-msgid ""
-"Connected people are family members or friends that you can enroll in "
-"events. They won't have their own login accounts - you'll handle all their "
-"event registrations for them"
-msgstr ""
-"Powiązane osoby to członkowie rodziny lub przyjaciele, których możesz "
-"zapisywać na wydarzenia. Nie będą mieli własnych kont logowania - wszystkie "
-"ich rejestracje na wydarzenia obsługujesz ty"
+msgid "Enroll family and friends in events without separate accounts."
+msgstr "Zapisuj rodzinę i znajomych na wydarzenia bez zakładania im osobnych kont."
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "Add connected user"
@@ -3829,11 +3877,6 @@ msgstr "Osiągnąłeś maksymalny limit %(max_connected_users)s powiązanych os�
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "Your connected users"
 msgstr "Powiązane osoby"
-
-#: src/ludamus/templates/crowd/user/connected.html
-#, python-format
-msgid "Remove %(name)s from your connected users?"
-msgstr "Usunąć %(name)s z powiązanych osób?"
 
 #: src/ludamus/templates/crowd/user/connected.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -3852,12 +3895,41 @@ msgid "Edit"
 msgstr "Edycja"
 
 #: src/ludamus/templates/crowd/user/connected.html
+msgid "Copy claim link"
+msgstr "Skopiuj link przejęcia"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Generate a new claim link — the previous one stops working"
+msgstr "Wygeneruj nowy link przejęcia — poprzedni przestanie działać"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Generate a new claim link"
+msgstr "Wygeneruj nowy link przejęcia"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Create a link to let this person take over their profile"
+msgstr "Utwórz link, aby ta osoba mogła przejąć swój profil"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Create claim link"
+msgstr "Utwórz link przejęcia"
+
+#: src/ludamus/templates/crowd/user/connected.html
+#, python-format
+msgid "Remove %(name)s from your connected users?"
+msgstr "Usunąć %(name)s z powiązanych osób?"
+
+#: src/ludamus/templates/crowd/user/connected.html
 msgid "No connected users yet"
 msgstr "Brak powiązanych osób"
 
 #: src/ludamus/templates/crowd/user/connected.html
-msgid "Add your first connected person using the form above."
-msgstr "Dodaj pierwszą powiązaną osobę za pomocą powyższego formularza."
+msgid ""
+"Connected people are family or friends you enroll in events yourself — they "
+"don't need accounts of their own. Add the first one above."
+msgstr ""
+"Powiązane osoby to rodzina lub znajomi, których sam(-a) zapisujesz na "
+"wydarzenia — nie potrzebują własnych kont. Dodaj pierwszą osobę powyżej."
 
 #: src/ludamus/templates/crowd/user/edit.html
 #, python-format
@@ -6670,6 +6742,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Add your first connected person using the form above."
+#~ msgstr "Dodaj pierwszą powiązaną osobę za pomocą powyższego formularza."
 
 #~ msgid "No sessions scheduled for this time slot"
 #~ msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"

@@ -133,6 +133,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    # Single-use handle that lets the intended person sign in and take over a
+    # managed (connected) row as their own account. Mirrors the waitlist-offer
+    # claim_token pattern. Empty for active accounts.
+    claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
     shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
         "self",
         symmetrical=False,
