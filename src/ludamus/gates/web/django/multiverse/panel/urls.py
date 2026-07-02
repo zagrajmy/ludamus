@@ -33,7 +33,7 @@ urlpatterns = [
         announcements.AnnouncementDeletePageView.as_view(),
         name="announcement-delete",
     ),
-    path("mcp/", mcp_token.McpTokenPageView.as_view(), name="mcp-token"),
+    path("mcp/", mcp_token.OrganizerMcpTokenPageView.as_view(), name="mcp-token"),
     path("connections/", connections.ConnectionsPageView.as_view(), name="connections"),
     path(
         "connections/create/",
