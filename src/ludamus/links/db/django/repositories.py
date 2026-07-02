@@ -148,6 +148,8 @@ from ludamus.pacts.multiverse import (
     ConnectionInUseError,
     ConnectionsRepositoryProtocol,
     DuplicateConnectionDisplayNameError,
+    SphereDirectoryRepositoryProtocol,
+    SphereListItemDTO,
 )
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
@@ -190,7 +192,14 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     return hours * 60 + minutes
 
 
-class SphereRepository(SphereRepositoryProtocol):
+class SphereRepository(SphereRepositoryProtocol, SphereDirectoryRepositoryProtocol):
+    @staticmethod
+    def list_all() -> list[SphereListItemDTO]:
+        return [
+            SphereListItemDTO(pk=sphere.pk, name=sphere.name, domain=sphere.site.domain)
+            for sphere in Sphere.objects.select_related("site").order_by("name")
+        ]
+
     @staticmethod
     def read_by_domain(domain: str) -> SphereDTO:
         try:

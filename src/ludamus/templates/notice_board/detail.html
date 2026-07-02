@@ -340,23 +340,17 @@
             // Copying is handled by copy.ts, which reveals the popover only on a
             // successful write and hides it again when the feedback is done.
             // Collapse the save prompt at that hide — so never on a failed copy,
-            // and without duplicating copy.ts's timing here.
-            document.addEventListener('click', function(e) {
-                var btn = e.target.closest('.rsvp-save-prompt [data-copy]');
-                if (!btn) return;
-                var popover = btn.querySelector('[data-copy-popover]');
-                if (!popover) return;
-                var card = btn.closest('.card');
-                var observer = new MutationObserver(function() {
+            // and without duplicating copy.ts's timing here. One observer per
+            // popover, attached up front like the other prompt wiring, so
+            // repeated clicks can't stack observers (#476). data-show only ever
+            // mutates on success, and its removal marks the feedback's end.
+            document.querySelectorAll('.rsvp-save-prompt [data-copy] [data-copy-popover]').forEach(function(popover) {
+                var card = popover.closest('.card');
+                new MutationObserver(function() {
                     if (popover.dataset.show === undefined) {
-                        observer.disconnect();
                         collapseSavePrompt(card);
                     }
-                });
-                observer.observe(popover, {
-                    attributes: true,
-                    attributeFilter: ['data-show']
-                });
+                }).observe(popover, { attributes: true, attributeFilter: ['data-show'] });
             });
             document.querySelectorAll('.calendar-menu a').forEach(function(link) {
                 link.addEventListener('click', function() {
