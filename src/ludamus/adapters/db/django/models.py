@@ -214,6 +214,27 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+class SessionBookmark(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="session_bookmarks"
+    )
+    session = models.ForeignKey(
+        "Session", on_delete=models.CASCADE, related_name="bookmarks"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "session_bookmark"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "session"), name="session_bookmark_unique_user_session"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} bookmarked session {self.session_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
@@ -266,6 +287,9 @@ class Event(models.Model):
         null=True, blank=True, default=None
     )
     use_session_cover_placeholders = models.BooleanField(default=False)
+    # Label for the enrolled-people count on the public event page: off →
+    # "Players" (gaming events), on → "Participants" (general events).
+    use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
     # turn off for a draft → confirm workflow on large events.
     auto_confirm_sessions = models.BooleanField(default=True)

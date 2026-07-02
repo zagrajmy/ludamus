@@ -184,12 +184,25 @@ const initSessionFilters = (): void => {
       }
 
       if (statusValue) {
-        if (statusValue === "my-enrolled") {
-          show &&= card.dataset.userEnrolled === "true";
-        } else if (statusValue === "my-waiting") {
-          show &&= card.dataset.userWaiting === "true";
-        } else {
-          show &&= card.dataset.status === statusValue;
+        switch (statusValue) {
+          case "my-bookmarked": {
+            show &&= card.dataset.bookmarked === "true";
+
+            break;
+          }
+          case "my-enrolled": {
+            show &&= card.dataset.userEnrolled === "true";
+
+            break;
+          }
+          case "my-waiting": {
+            show &&= card.dataset.userWaiting === "true";
+
+            break;
+          }
+          default: {
+            show &&= card.dataset.status === statusValue;
+          }
         }
       }
 
@@ -229,15 +242,34 @@ const initSessionFilters = (): void => {
       if (cardContainer) cardContainer.style.display = show ? "" : "none";
     }
 
-    // Hide empty time slot sections.
+    // Hide empty time slot sections. The card and ledger layouts nest their
+    // wrappers in a .session-grid; the rooms-view rows hold wrappers directly,
+    // so fall back to the section itself there.
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
-      const cardGrid = section.querySelector(".session-grid");
-      if (cardGrid) {
-        const visibleCards = cardGrid.querySelectorAll(
-          '.session-card-wrapper:not([style*="display: none"])',
-        );
-        section.style.display = visibleCards.length > 0 ? "" : "none";
-      }
+      const cardGrid = section.querySelector(".session-grid") ?? section;
+      const visibleCards = cardGrid.querySelectorAll(
+        '.session-card-wrapper:not([style*="display: none"])',
+      );
+      section.style.display = visibleCards.length > 0 ? "" : "none";
+    }
+
+    // Compact schedule groups slots under day headers; hide a day whose every
+    // slot is now empty so the header doesn't dangle. No-op on the card layout.
+    for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
+      const visibleSlots = day.querySelectorAll('.time-slot-section:not([style*="display: none"])');
+      day.style.display = visibleSlots.length > 0 ? "" : "none";
+    }
+
+    // Keep the hour rail in sync: a marker whose every section is filtered out
+    // would scroll to a display:none target, so hide it too. The rail only
+    // exists on the compact layout; elsewhere this loop is over nothing.
+    for (const marker of document.querySelectorAll<HTMLElement>(".schedule-rail-hour")) {
+      const hour = marker.dataset.railHour ?? "";
+      const sections = document.querySelectorAll<HTMLElement>(
+        `.time-slot-section[data-slot-hour="${CSS.escape(hour)}"]`,
+      );
+      const anyVisible = [...sections].some((section) => section.style.display !== "none");
+      marker.style.display = anyVisible ? "" : "none";
     }
 
     updateFilterUI();
@@ -258,8 +290,14 @@ const initSessionFilters = (): void => {
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       section.style.display = "";
     }
+    for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
+      day.style.display = "";
+    }
     for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-card-wrapper")) {
       cardContainer.style.display = "";
+    }
+    for (const marker of document.querySelectorAll<HTMLElement>(".schedule-rail-hour")) {
+      marker.style.display = "";
     }
 
     filterSessions();

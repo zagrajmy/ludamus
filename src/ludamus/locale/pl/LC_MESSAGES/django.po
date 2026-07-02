@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 03:03+0200\n"
+"POT-Creation-Date: 2026-07-02 04:25+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1737,6 +1737,18 @@ msgstr ""
 "karty z samym tekstem."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Label the attendee count \"Participants\" instead of \"Players\""
+msgstr "Oznacz licznik uczestników jako „Uczestnicy” zamiast „Gracze”"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Turn on for non-gaming events so the public page counts participants rather "
+"than players."
+msgstr ""
+"Włącz dla wydarzeń niegrowych, aby strona publiczna liczyła uczestników "
+"zamiast graczy."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Allow facilitators to edit their own sessions"
 msgstr "Pozwól twórcom programu edytować własne punkty programu"
 
@@ -2322,11 +2334,55 @@ msgstr "Preferowane przez twórcę programu"
 msgid "Other times"
 msgstr "Pozostałe godziny"
 
+#: src/ludamus/templates/chronology/_bookmark_toggle.html
+msgid "Bookmark session"
+msgstr "Dodaj zakładkę do punktu programu"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+#: src/ludamus/templates/chronology/event.html
+msgid "Completed"
+msgstr "Ukończone"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Now"
+msgstr "Teraz"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Propose"
+msgstr "Zgłoś"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Not Yet Available"
+msgstr "Jeszcze Niedostępne"
+
+#: src/ludamus/templates/chronology/_compact_schedule.html
+msgid "List"
+msgstr "Lista"
+
+#: src/ludamus/templates/chronology/_compact_schedule.html
+#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Rooms"
+msgstr "Sale"
+
+#: src/ludamus/templates/chronology/_compact_schedule.html
+msgid "Jump to time"
+msgstr "Przejdź do godziny"
+
+#: src/ludamus/templates/chronology/_compact_schedule.html
+#, python-format
+msgid "Jump to %(day)s %(time)s"
+msgstr "Przejdź do %(day)s %(time)s"
+
+#: src/ludamus/templates/chronology/_compact_session_row.html
+#: src/ludamus/templates/chronology/_room_lane_tile.html
 #: src/ludamus/templates/chronology/_session_card.html
 #, python-format
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
+#: src/ludamus/templates/chronology/_compact_session_row.html
 #: src/ludamus/templates/chronology/_session_card.html
 #, python-format
 msgid "%(counter)s participant enrolled"
@@ -2336,33 +2392,47 @@ msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
 
+#: src/ludamus/templates/chronology/_room_lanes.html
+msgid "Start time"
+msgstr "Czas rozpoczęcia"
+
+#: src/ludamus/templates/chronology/_session_availability.html
+#: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/chronology/event.html
+msgid "Ended"
+msgstr "Zakończona"
+
+#: src/ludamus/templates/chronology/_session_availability.html
+#: src/ludamus/templates/chronology/_session_card.html
+msgid "In Progress"
+msgstr "W Trakcie"
+
+#: src/ludamus/templates/chronology/_session_availability.html
+#: src/ludamus/templates/chronology/event.html
+msgid "Full"
+msgstr "Pełne"
+
+#: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "waiting"
 msgstr "oczekuje"
 
+#: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Open"
 msgstr "Otwarte"
 
+#: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
-msgstr[0] "%(counter)s wolne miejsce"
-msgstr[1] "%(counter)s wolne miejsca"
-msgstr[2] "%(counter)s wolnych miejsc"
-msgstr[3] "%(counter)s wolnych miejsc"
-
-#: src/ludamus/templates/chronology/_session_card.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Ended"
-msgstr "Zakończona"
-
-#: src/ludamus/templates/chronology/_session_card.html
-msgid "In Progress"
-msgstr "W Trakcie"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsca"
 
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Not Available"
@@ -2650,10 +2720,6 @@ msgid "Happening now!"
 msgstr "Trwa teraz!"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Completed"
-msgstr "Ukończone"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "Enrollment Open"
 msgstr "Zapisy otwarte"
 
@@ -2670,6 +2736,14 @@ msgstr[0] "Punkt programu"
 msgstr[1] "Punkty programu"
 msgstr[2] "Punktów programu"
 msgstr[3] "Punktów programu"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Participant"
+msgid_plural "Participants"
+msgstr[0] "Uczestnik"
+msgstr[1] "Uczestnicy"
+msgstr[2] "Uczestników"
+msgstr[3] "Uczestników"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Player"
@@ -2862,10 +2936,6 @@ msgid "Available spots"
 msgstr "Dostępne miejsca"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Full"
-msgstr "Pełne"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "In progress"
 msgstr "W trakcie"
 
@@ -2880,6 +2950,10 @@ msgstr "Jestem zapisany"
 #: src/ludamus/templates/chronology/event.html
 msgid "I am waiting"
 msgstr "Oczekuję"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Bookmarked"
+msgstr "Z zakładką"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Venue"
@@ -2947,38 +3021,6 @@ msgstr "Żadne punkty programu nie pasują do filtrów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all filters"
 msgstr "Wyczyść wszystkie filtry"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Now"
-msgstr "Teraz"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Propose"
-msgstr "Zgłoś"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No sessions scheduled for this time slot"
-msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "be the first to propose!"
-msgstr "bądź pierwszy i zgłoś!"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Not Yet Available"
-msgstr "Jeszcze Niedostępne"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No sessions or time slots available yet"
-msgstr "Brak dostępnych punktów programu lub przedziałów czasowych"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Be the first to propose a session!"
-msgstr "Bądź pierwszą osobą, która zgłosi punkt programu!"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Sessions will be announced soon."
-msgstr "Punkty programu zostaną wkrótce ogłoszone."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"
@@ -3624,11 +3666,11 @@ msgstr "Brak powiadomień."
 
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Toggle interface sound"
-msgstr "Przełącz dźwięk interfejsu"
+msgstr "Przełącz dźwięki interfejsu"
 
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Interface sound (Velvet)"
-msgstr "Dźwięk interfejsu (Velvet)"
+msgstr "Dźwięki interfejsu (Velvet)"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"
@@ -5377,12 +5419,6 @@ msgstr "oczekujących"
 msgid "Program Hosts"
 msgstr "Twórcy programu"
 
-#: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Rooms"
-msgstr "Sale"
-
 #: src/ludamus/templates/panel/integration-settings.html
 msgid ""
 "No integrations yet. Add one to let this event speak through an external "
@@ -6210,6 +6246,10 @@ msgstr "Potwierdzanie harmonogramu"
 msgid "Session cards"
 msgstr "Karty punktów programu"
 
+#: src/ludamus/templates/panel/settings.html
+msgid "Attendee label"
+msgstr "Etykieta uczestników"
+
 #: src/ludamus/templates/panel/space-copy.html
 msgid "Copy space"
 msgstr "Kopiuj przestrzeń"
@@ -6628,7 +6668,32 @@ msgstr "Temat"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
-msgstr "Nie przechwycono jeszcze żadnych e-maili."
+msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "No sessions scheduled for this time slot"
+#~ msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
+
+#~ msgid "be the first to propose!"
+#~ msgstr "bądź pierwszy i zgłoś!"
+
+#~ msgid "No sessions or time slots available yet"
+#~ msgstr "Brak dostępnych punktów programu lub przedziałów czasowych"
+
+#~ msgid "Be the first to propose a session!"
+#~ msgstr "Bądź pierwszą osobą, która zgłosi punkt programu!"
+
+#~ msgid "Sessions will be announced soon."
+#~ msgstr "Punkty programu zostaną wkrótce ogłoszone."
+
+#, fuzzy, python-format
+#~| msgid "%(counter)s seat"
+#~| msgid_plural "%(counter)s seats"
+#~ msgid "%(counter)s waiting"
+#~ msgid_plural "%(counter)s waiting"
+#~ msgstr[0] "%(counter)s miejsce"
+#~ msgstr[1] "%(counter)s miejsca"
+#~ msgstr[2] "%(counter)s miejsc"
+#~ msgstr[3] "%(counter)s miejsc"
 
 #~ msgid "Area timetable"
 #~ msgstr "Harmonogram strefy"
@@ -6864,9 +6929,6 @@ msgstr "Nie przechwycono jeszcze żadnych e-maili."
 
 #~ msgid "Venue Structure"
 #~ msgstr "Struktura lokalizacji"
-
-#~ msgid "List View"
-#~ msgstr "Widok listy"
 
 #~ msgid "Structure Overview"
 #~ msgstr "Przegląd struktury"

@@ -1,6 +1,6 @@
 {% load i18n tessera %}
 {% copy_lines encounter.title encounter.game encounter.start_time|date:"DATETIME_FORMAT" encounter.place share_url as rsvp_details %}
 {% tessera_copy rsvp_details %}
-    {% icon "clipboard-document" variant="solid" class="h-5 w-5" %}
-    {% translate "Copy details" %}
+{% icon "clipboard-document" variant="solid" class="h-5 w-5" %}
+{% translate "Copy details" %}
 {% endtessera_copy %}

@@ -52,6 +52,8 @@ from ludamus.adapters.web.django.entities import (
     SessionData,
     SessionUserParticipationData,
     build_display_field_row,
+    build_room_lanes,
+    build_schedule_days,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.entities import (
@@ -864,6 +866,13 @@ def _field_value_dtos_from_models(
     )
 
 
+# Above this many scheduled sessions, the card grid becomes unwieldy and the
+# event page switches to the compact schedule (a dense chronological list with
+# an hour scrubber). Tunable; not a business invariant, so it lives here rather
+# than in specs.
+COMPACT_SCHEDULE_MIN_SESSIONS = 60
+
+
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -952,36 +961,42 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 sid: fake_full_card(data) for sid, data in sessions_data.items()
             }
 
-        current_time = datetime.now(tz=UTC)
-        ended_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
-        current_hour_data: dict[datetime, list[SessionData]] = defaultdict(list)
-        future_unavailable_hour_data: dict[datetime, list[SessionData]] = defaultdict(
-            list
-        )
+        compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
 
-        for session_data in sessions_data.values():
-            session_end_time = session_data.agenda_item.end_time
-            session_start_time = session_data.agenda_item.start_time
-            hour_key = session_start_time
-            # Check if session has ended
-            if session_end_time <= current_time:
-                ended_hour_data[hour_key].append(session_data)
-            elif (
-                not session_data.is_enrollment_available
-                and session_start_time > current_time
-            ):
-                future_unavailable_hour_data[hour_key].append(session_data)
-            else:
-                # Current sessions (available for enrollment or in progress)
-                current_hour_data[hour_key].append(session_data)
+        if compact_schedule and current_user_id:
+            self._set_user_bookmarks(sessions_data, current_user_id)
+
+        # The ended/current/future grouping only feeds the card-grid layout;
+        # the compact schedule renders from schedule_days instead, so skip the
+        # pass there but keep the context keys (tests enumerate them exactly).
+        ended_hour_data: dict[datetime, list[SessionData]] = {}
+        current_hour_data: dict[datetime, list[SessionData]] = {}
+        future_unavailable_hour_data: dict[datetime, list[SessionData]] = {}
+        if not compact_schedule:
+            ended_hour_data, current_hour_data, future_unavailable_hour_data = (
+                self._group_sessions_by_state(sessions_data)
+            )
+
+        schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
+        # The compact schedule offers two layouts: the chronological ledger
+        # (default) and a rooms grid (?view=rooms) with a column per room.
+        rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
+        event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
 
         context.update(
             {
                 "hour_data": hour_data,  # Keep original for backward compatibility
                 "sessions": list(sessions_data.values()),
-                "ended_hour_data": dict(ended_hour_data),
-                "current_hour_data": dict(current_hour_data),
-                "future_unavailable_hour_data": dict(future_unavailable_hour_data),
+                "compact_schedule": compact_schedule,
+                "schedule_days": schedule_days,
+                "schedule_view_is_list": not rooms_view,
+                "schedule_view_is_rooms": rooms_view,
+                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
+                "schedule_list_url": event_url,
+                "schedule_rooms_url": f"{event_url}?view=rooms",
+                "ended_hour_data": ended_hour_data,
+                "current_hour_data": current_hour_data,
+                "future_unavailable_hour_data": future_unavailable_hour_data,
                 "total_enrolled": sum(s.enrolled_count for s in sessions_data.values()),
                 "user_enrolled_sessions": [
                     s for s in sessions_data.values() if s.user_enrolled
@@ -1195,6 +1210,44 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                             SessionParticipationStatus.WAITING in statuses
                         )
 
+    @staticmethod
+    def _group_sessions_by_state(
+        sessions_data: dict[int, SessionData],
+    ) -> tuple[
+        dict[datetime, list[SessionData]],
+        dict[datetime, list[SessionData]],
+        dict[datetime, list[SessionData]],
+    ]:
+        current_time = datetime.now(tz=UTC)
+        ended: dict[datetime, list[SessionData]] = defaultdict(list)
+        current: dict[datetime, list[SessionData]] = defaultdict(list)
+        future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
+        for session_data in sessions_data.values():
+            session_start_time = session_data.agenda_item.start_time
+            hour_key = session_start_time
+            if session_data.agenda_item.end_time <= current_time:
+                ended[hour_key].append(session_data)
+            elif (
+                not session_data.is_enrollment_available
+                and session_start_time > current_time
+            ):
+                future_unavailable[hour_key].append(session_data)
+            else:
+                # Current sessions (available for enrollment or in progress)
+                current[hour_key].append(session_data)
+        return dict(ended), dict(current), dict(future_unavailable)
+
+    def _set_user_bookmarks(
+        self, sessions_data: dict[int, SessionData], current_user_id: int
+    ) -> None:
+        # Bookmarks are only surfaced on the compact schedule (the lightweight
+        # "I want to attend" gesture for big events). One query for the whole set.
+        bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
+            user_id=current_user_id, event_id=self.object.pk
+        )
+        for sid, data in sessions_data.items():
+            data.user_bookmarked = sid in bookmarked_ids
+
     def _get_hour_data(
         self,
         event_sessions: QuerySet[Session],
@@ -1297,8 +1350,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
             session_start = session_data.agenda_item.start_time
 
-            # Calculate if session is ongoing (has already started)
+            # Calculate if session is ongoing (has already started) or fully over
             session_data.is_ongoing = session_start <= current_time
+            session_data.is_ended = session_data.agenda_item.end_time <= current_time
 
             # Mark sessions as inactive for display based on limit_to_end_time rules
             if limit_configs and earliest_limit_end_time and session_data.is_ongoing:

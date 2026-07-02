@@ -208,4 +208,6 @@ def mock_session_data_ended() -> SessionData:
         loc=_mock_venue_and_space(),
         field_values=data.field_values[:1],
         displayed_field_rows=data.displayed_field_rows[:1],
+        is_ongoing=True,
+        is_ended=True,
     )
