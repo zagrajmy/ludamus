@@ -1,96 +1,28 @@
-import {
-  disablePageScroll,
-  enablePageScroll,
-  markScrollable,
-  pageScrollIsDisabled,
-  unmarkScrollable,
-} from "@fluejs/noscroll";
-import { initTouchHandler, resetTouchHandler } from "@fluejs/noscroll/touch";
-
 interface NavigateEvent {
   canIntercept: boolean;
-  hashChange: boolean;
-  navigationType: "push" | "replace" | "reload" | "traverse";
   destination: { url: string };
-  intercept: () => void;
+  hashChange: boolean;
+  intercept: (options?: {
+    focusReset?: "after-transition" | "manual";
+    handler?: () => Promise<void> | void;
+    scroll?: "after-transition" | "manual";
+  }) => void;
+  navigationType: "push" | "reload" | "replace" | "traverse";
 }
 
 interface Navigation {
-  addEventListener(
-    type: "navigate",
-    handler: (e: NavigateEvent) => void,
-  ): void;
+  addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
 }
 
 /** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
-const navigation = (globalThis as { navigation?: Navigation }).navigation;
+const { navigation } = globalThis as { navigation?: Navigation };
 
-const scrollLockTargets = new Set<HTMLDialogElement>();
-const markedScrollables = new Map<HTMLDialogElement, HTMLElement[]>();
-let touchHandlerInitialized = false;
-
-const getScrollableElements = (dialog: HTMLDialogElement): HTMLElement[] => {
-  const candidates = [dialog, ...dialog.querySelectorAll<HTMLElement>("*")];
-  return candidates.filter((element) => {
-    const overflowY = window.getComputedStyle(element).overflowY;
-    return (
-      (overflowY === "auto" || overflowY === "scroll") &&
-      element.scrollHeight > element.clientHeight
-    );
-  });
-};
-
-const syncPageScrollLock = (): void => {
-  const openDialogs = [
-    ...document.querySelectorAll<HTMLDialogElement>("dialog.modal[open]"),
-  ];
-  const openDialogSet = new Set(openDialogs);
-
-  if (openDialogs.length > 0 && !pageScrollIsDisabled()) {
-    disablePageScroll();
-  }
-  if (openDialogs.length > 0 && !touchHandlerInitialized) {
-    initTouchHandler();
-    touchHandlerInitialized = true;
-  }
-
-  for (const dialog of openDialogs) {
-    if (scrollLockTargets.has(dialog)) continue;
-
-    const scrollables = getScrollableElements(dialog);
-    if (scrollables.length > 0) {
-      markScrollable(scrollables);
-      markedScrollables.set(dialog, scrollables);
-    }
-    scrollLockTargets.add(dialog);
-  }
-
-  for (const dialog of scrollLockTargets) {
-    if (openDialogSet.has(dialog)) continue;
-
-    const scrollables = markedScrollables.get(dialog);
-    if (scrollables && scrollables.length > 0) {
-      unmarkScrollable(scrollables);
-    }
-    markedScrollables.delete(dialog);
-    scrollLockTargets.delete(dialog);
-  }
-
-  if (openDialogs.length === 0) {
-    if (pageScrollIsDisabled()) {
-      enablePageScroll();
-    }
-    if (touchHandlerInitialized) {
-      resetTouchHandler();
-      touchHandlerInitialized = false;
-    }
-  }
-};
+const openingModals = new Set<string>();
 
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLDialogElement)) {
-    throw new Error(`Modal "${id}" is not a <dialog> element`);
+    throw new TypeError(`Modal "${id}" is not a <dialog> element`);
   }
   return element;
 };
@@ -100,7 +32,7 @@ const updateQueryParam = (
   value: string | null,
   { replaceHistory = false } = {},
 ): void => {
-  const url = new URL(window.location.href);
+  const url = new URL(globalThis.location.href);
   const current = url.searchParams.get(paramName);
 
   if (value === null) {
@@ -113,22 +45,20 @@ const updateQueryParam = (
   }
 
   if (replaceHistory) {
-    window.history.replaceState({}, "", url);
+    globalThis.history.replaceState({}, "", url);
     return;
   }
-  window.history.pushState({}, "", url);
+  globalThis.history.pushState({}, "", url);
 };
 
-const getLinkableByModalId = (
-  id: string,
-): { paramName: string; paramValue: string } | null => {
+const getLinkableByModalId = (id: string): { paramName: string; paramValue: string } | null => {
   const link = document.querySelector(`a[href][aria-controls="${id}"]`);
   if (!link) return null;
 
   const href = link.getAttribute("href");
   if (!href) return null;
 
-  const hrefUrl = new URL(href, window.location.href);
+  const hrefUrl = new URL(href, globalThis.location.href);
   const first = hrefUrl.searchParams.entries().next();
   if (first.done) return null;
 
@@ -136,15 +66,148 @@ const getLinkableByModalId = (
   return { paramName, paramValue };
 };
 
-const openModal = (
-  id: string,
-  { updateUrl = true, replaceHistory = false } = {},
-): void => {
-  const dialog = getDialog(id);
-  if (!dialog.open) {
-    dialog.showModal();
+const prefersReducedMotion = (): boolean =>
+  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+interface ViewTransition {
+  finished: Promise<void>;
+}
+
+interface ViewTransitionDocument {
+  startViewTransition?: (callback: () => void) => ViewTransition;
+}
+
+const startViewTransition = (callback: () => void): ViewTransition | null => {
+  const doc = document as Document & ViewTransitionDocument;
+  if (!doc.startViewTransition) {
+    callback();
+    return null;
   }
-  syncPageScrollLock();
+  return doc.startViewTransition(callback);
+};
+
+const isSkippedTransitionError = (error: unknown): boolean =>
+  error instanceof DOMException &&
+  error.name === "AbortError" &&
+  error.message.includes("Transition was skipped");
+
+const ignoreSkippedTransition = (error: unknown): void => {
+  if (isSkippedTransitionError(error)) return;
+  throw error;
+};
+
+const MORPH_NAME = "session-morph";
+const CARD_SUPPRESSED = "session-card-suppressed";
+// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
+// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
+const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
+const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
+
+const sessionCardForModal = (id: string): HTMLElement | null => {
+  if (!id.startsWith("session-")) return null;
+  const card = document.querySelector(
+    `.session-card[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
+  );
+  return card instanceof HTMLElement ? card : null;
+};
+
+const suppressSessionCard = (id: string): void => {
+  sessionCardForModal(id)?.classList.add(CARD_SUPPRESSED);
+};
+
+const releaseSessionCard = (id: string): void => {
+  sessionCardForModal(id)?.classList.remove(CARD_SUPPRESSED);
+};
+
+const canMorph = (card: HTMLElement | null): card is HTMLElement =>
+  card !== null &&
+  !prefersReducedMotion() &&
+  typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
+
+const setSubMorph = (root: HTMLElement, active: boolean): void => {
+  for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
+    el.style.viewTransitionName = active ? `morph-${el.dataset.morph}` : "";
+  }
+};
+
+const setContainerMorph = (root: HTMLElement, active: boolean): void => {
+  root.style.viewTransitionName = active ? MORPH_NAME : "";
+};
+
+const setMorph = (root: HTMLElement, active: boolean): void => {
+  setContainerMorph(root, active);
+  setSubMorph(root, active);
+};
+
+const setRootMorph = (className: string, active: boolean): void => {
+  document.documentElement.classList.toggle(className, active);
+};
+
+const morphTransition = (steps: {
+  before: () => void;
+  settle: () => void;
+  swap: () => void;
+}): Promise<void> => {
+  steps.before();
+  const transition = startViewTransition(steps.swap);
+  if (!transition) {
+    steps.settle();
+    return Promise.resolve();
+  }
+  return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
+};
+
+const dismissDialog = (dialog: HTMLDialogElement): void => {
+  if (!dialog.open) return;
+  if (prefersReducedMotion()) {
+    dialog.close();
+    return;
+  }
+  startViewTransition(() => {
+    dialog.close();
+  })?.finished.catch((error) => {
+    try {
+      ignoreSkippedTransition(error);
+    } catch (error_) {
+      console.error(error_);
+    }
+  });
+};
+
+const openModal = async (
+  id: string,
+  { animate = true, replaceHistory = false, updateUrl = true } = {},
+): Promise<void> => {
+  const dialog = getDialog(id);
+  let morphPromise: Promise<void> | null = null;
+  if (!dialog.open && !openingModals.has(id)) {
+    const card = sessionCardForModal(id);
+    if (animate && canMorph(card)) {
+      openingModals.add(id);
+      morphPromise = morphTransition({
+        before: () => {
+          setRootMorph(ROOT_MORPH_OPEN, true);
+          setMorph(card, true);
+        },
+        settle: () => {
+          setRootMorph(ROOT_MORPH_OPEN, false);
+          openingModals.delete(id);
+          setMorph(dialog, false);
+          card.style.transition = "";
+        },
+        swap: () => {
+          suppressSessionCard(id);
+          setMorph(card, false);
+          card.style.transition = "none";
+          dialog.showModal();
+          setMorph(dialog, true);
+        },
+      });
+    } else {
+      dialog.showModal();
+      suppressSessionCard(id);
+    }
+  }
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
@@ -154,25 +217,45 @@ const openModal = (
       });
     }
   }
+
+  if (morphPromise) await morphPromise;
 };
 
 const closeModal = (
   id: string,
-  { updateUrl = true, replaceHistory = true } = {},
+  { animate = true, replaceHistory = true, updateUrl = true } = {},
 ): void => {
   const dialog = getDialog(id);
   if (dialog.open) {
-    dialog.close();
+    const card = sessionCardForModal(id);
+    if (animate && canMorph(card)) {
+      morphTransition({
+        before: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, true);
+          setContainerMorph(dialog, true);
+        },
+        settle: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, false);
+          setContainerMorph(card, false);
+        },
+        swap: () => {
+          dialog.close();
+          setContainerMorph(dialog, false);
+          releaseSessionCard(id);
+          setContainerMorph(card, true);
+        },
+      });
+    } else {
+      dismissDialog(dialog);
+      releaseSessionCard(id);
+    }
   }
-  syncPageScrollLock();
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
-    const current = new URLSearchParams(window.location.search).get(
-      linkable.paramName,
-    );
+    const current = new URLSearchParams(globalThis.location.search).get(linkable.paramName);
     if (current === linkable.paramValue) {
       updateQueryParam(linkable.paramName, null, { replaceHistory });
     }
@@ -180,43 +263,37 @@ const closeModal = (
 };
 
 const syncModalsFromUrl = (): void => {
-  const searchParams = new URLSearchParams(window.location.search);
+  if (openingModals.size > 0) return;
 
-  document.querySelectorAll("dialog.modal[open]").forEach((dialog) => {
-    closeModal(dialog.id, { updateUrl: false });
-  });
+  const searchParams = new URLSearchParams(globalThis.location.search);
 
-  document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
+  for (const dialog of document.querySelectorAll("dialog.modal[open]")) {
+    closeModal(dialog.id, { animate: false, updateUrl: false });
+  }
+
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const href = link.getAttribute("href");
     const modalId = link.getAttribute("aria-controls");
-    if (!href || !modalId) return;
+    if (!href || !modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      return;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
-    const hrefUrl = new URL(href, window.location.href);
+    const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
-        openModal(modalId, { updateUrl: false });
+        void openModal(modalId, { animate: false, updateUrl: false });
         return;
       }
     }
-  });
+  }
 };
 
 document.addEventListener(
   "cancel",
   (event) => {
-    const target = event.target;
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      return;
+    const { target } = event;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) return;
 
     event.preventDefault();
     closeModal(target.id);
@@ -224,33 +301,12 @@ document.addEventListener(
   true,
 );
 
-document.addEventListener("close", syncPageScrollLock, true);
-
-window.addEventListener("pagehide", () => {
-  for (const scrollables of markedScrollables.values()) {
-    if (scrollables.length > 0) {
-      unmarkScrollable(scrollables);
-    }
-  }
-  markedScrollables.clear();
-  scrollLockTargets.clear();
-  if (pageScrollIsDisabled()) {
-    enablePageScroll();
-  }
-  if (touchHandlerInitialized) {
-    resetTouchHandler();
-    touchHandlerInitialized = false;
-  }
-});
-
 if (navigation) {
   navigation.addEventListener("navigate", (e) => {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
-
     const url = new URL(e.destination.url);
-    if (url.origin !== location.origin || url.pathname !== location.pathname)
-      return;
+    if (url.origin !== location.origin || url.pathname !== location.pathname) return;
 
     for (const link of document.querySelectorAll("a[href][aria-controls]")) {
       const href = link.getAttribute("href");
@@ -262,20 +318,19 @@ if (navigation) {
 
       const matches =
         hrefUrl.searchParams.size > 0 &&
-        [...hrefUrl.searchParams].every(
-          ([k, v]) => url.searchParams.get(k) === v,
-        );
+        [...hrefUrl.searchParams].every(([k, v]) => url.searchParams.get(k) === v);
       if (!matches) continue;
 
       const target = document.getElementById(modalId);
-      if (
-        !(target instanceof HTMLDialogElement) ||
-        !target.classList.contains("modal")
-      )
-        continue;
+      if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
-      e.intercept();
-      openModal(modalId, { updateUrl: false });
+      e.intercept({
+        focusReset: "manual",
+        async handler() {
+          await openModal(modalId, { updateUrl: false });
+        },
+        scroll: "manual",
+      });
       return;
     }
   });
@@ -293,10 +348,10 @@ const closeFromTrigger = (event: Event): void => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-  const closeTrigger = eventTarget.closest("[data-modal-close]");
+  const closeTrigger = eventTarget.closest<HTMLElement>("[data-modal-close]");
   if (!closeTrigger) return;
 
-  const id = closeTrigger.getAttribute("data-modal-close");
+  const id = closeTrigger.dataset.modalClose;
   if (!id) return;
 
   stopModalCloseEvent(event);
@@ -304,22 +359,17 @@ const closeFromTrigger = (event: Event): void => {
 };
 
 const setupModalCloseTriggers = (): void => {
-  document.querySelectorAll("[data-modal-close]").forEach((trigger) => {
+  for (const trigger of document.querySelectorAll("[data-modal-close]")) {
     trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
     trigger.addEventListener("click", closeFromTrigger, { capture: true });
-  });
+  }
 };
 
 document.addEventListener("click", (event) => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-  // Fallback link interception handled by setupFallbackLinkHandlers below.
-
-  if (
-    !(eventTarget instanceof HTMLDialogElement) ||
-    !eventTarget.classList.contains("modal")
-  )
+  if (!(eventTarget instanceof HTMLDialogElement) || !eventTarget.classList.contains("modal"))
     return;
 
   const rect = eventTarget.getBoundingClientRect();
@@ -332,34 +382,26 @@ document.addEventListener("click", (event) => {
   if (!isInside) closeModal(eventTarget.id);
 });
 
-window.addEventListener("popstate", syncModalsFromUrl);
+globalThis.addEventListener("popstate", syncModalsFromUrl);
 
 syncModalsFromUrl();
 setupModalCloseTriggers();
 
-// In browsers without Navigation API (WebKit, older Firefox), attach click
-// handlers directly to modal-trigger links so preventDefault fires before
-// the browser starts navigation.
 const setupFallbackLinkHandlers = (): void => {
-
-  document.querySelectorAll("a[href][aria-controls]").forEach((link) => {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const modalId = link.getAttribute("aria-controls");
-    if (!modalId) return;
+    if (!modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      return;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      openModal(modalId);
+      void openModal(modalId);
     });
-  });
+  }
 };
 
-setupFallbackLinkHandlers();
+if (!navigation) setupFallbackLinkHandlers();
 
-export { closeModal };
+export { closeModal, openModal };

@@ -3,10 +3,14 @@
 from django.urls import include, path
 
 from ludamus.gates.web.django.chronology.panel.views import (
+    bans,
     cfp,
+    discounts,
     event_settings,
     facilitators,
+    google_docs_import,
     index,
+    integrations,
     personal_data_fields,
     proposals,
     session_fields,
@@ -15,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     tracks,
     venues,
 )
+from ludamus.gates.web.django.chronology.panel.views import print as print_views
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -67,6 +72,31 @@ _timetable_urlpatterns = [
     path(
         "do/revert/", timetable.TimetableRevertView.as_view(), name="timetable-revert"
     ),
+    path(
+        "do/confirm/",
+        timetable.TimetableConfirmView.as_view(),
+        name="timetable-confirm",
+    ),
+    path(
+        "do/confirm-all/",
+        timetable.TimetableConfirmAllView.as_view(),
+        name="timetable-confirm-all",
+    ),
+    path(
+        "do/confirm-block/",
+        timetable.TimetableConfirmBlockView.as_view(),
+        name="timetable-confirm-block",
+    ),
+    path(
+        "print/timetable/",
+        print_views.TimetablePrintView.as_view(material="timetable"),
+        name="timetable-print",
+    ),
+    path(
+        "print/door-cards/",
+        print_views.TimetablePrintView.as_view(material="door-cards"),
+        name="timetable-print-door-cards",
+    ),
 ]
 
 urlpatterns = [
@@ -87,91 +117,50 @@ urlpatterns = [
         event_settings.EventDisplaySettingsPageView.as_view(),
         name="event-display-settings",
     ),
-    path("event/<slug:slug>/venues/", venues.VenuesPageView.as_view(), name="venues"),
     path(
-        "event/<slug:slug>/venues/structure/",
-        venues.VenuesStructurePageView.as_view(),
-        name="venues-structure",
+        "event/<slug:slug>/settings/integrations/",
+        event_settings.EventIntegrationSettingsPageView.as_view(),
+        name="event-integration-settings",
     ),
+    path("event/<slug:slug>/bans/", bans.BansPageView.as_view(), name="bans"),
+    path(
+        "event/<slug:slug>/bans/<int:pk>/do/delete",
+        bans.BanDeleteActionView.as_view(),
+        name="ban-delete",
+    ),
+    path("event/<slug:slug>/venues/", venues.SpacesPageView.as_view(), name="venues"),
     path(
         "event/<slug:slug>/venues/create/",
-        venues.VenueCreatePageView.as_view(),
-        name="venue-create",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/edit/",
-        venues.VenueEditPageView.as_view(),
-        name="venue-edit",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/do/delete",
-        venues.VenueDeleteActionView.as_view(),
-        name="venue-delete",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/do/duplicate",
-        venues.VenueDuplicatePageView.as_view(),
-        name="venue-duplicate",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/do/copy",
-        venues.VenueCopyPageView.as_view(),
-        name="venue-copy",
-    ),
-    path(
-        "event/<slug:slug>/venues/do/reorder",
-        venues.VenueReorderActionView.as_view(),
-        name="venue-reorder",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/",
-        venues.VenueDetailPageView.as_view(),
-        name="venue-detail",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/create/",
-        venues.AreaCreatePageView.as_view(),
-        name="area-create",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/edit/",
-        venues.AreaEditPageView.as_view(),
-        name="area-edit",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/do/delete",
-        venues.AreaDeleteActionView.as_view(),
-        name="area-delete",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/do/reorder",
-        venues.AreaReorderActionView.as_view(),
-        name="area-reorder",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/",
-        venues.AreaDetailPageView.as_view(),
-        name="area-detail",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/create/",
         venues.SpaceCreatePageView.as_view(),
         name="space-create",
     ),
     path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/"
-        "<str:space_slug>/edit/",
+        "event/<slug:slug>/venues/<int:parent_pk>/create/",
+        venues.SpaceCreatePageView.as_view(),
+        name="space-create-child",
+    ),
+    path(
+        "event/<slug:slug>/venues/<int:pk>/edit/",
         venues.SpaceEditPageView.as_view(),
         name="space-edit",
     ),
     path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/"
-        "<str:space_slug>/do/delete",
+        "event/<slug:slug>/venues/<int:pk>/do/delete",
         venues.SpaceDeleteActionView.as_view(),
         name="space-delete",
     ),
     path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/do/reorder",
+        "event/<slug:slug>/venues/<int:pk>/do/duplicate",
+        venues.SpaceDuplicateActionView.as_view(),
+        name="space-duplicate",
+    ),
+    path(
+        "event/<slug:slug>/venues/<int:pk>/do/copy",
+        venues.SpaceCopyPageView.as_view(),
+        name="space-copy",
+    ),
+    path(
+        "event/<slug:slug>/venues/do/reorder",
         venues.SpaceReorderActionView.as_view(),
         name="space-reorder",
     ),
@@ -206,6 +195,11 @@ urlpatterns = [
         name="proposal-create",
     ),
     path(
+        "event/<slug:slug>/proposals/log/",
+        proposals.ContentLogPageView.as_view(),
+        name="content-log",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/",
         proposals.ProposalDetailPageView.as_view(),
         name="proposal-detail",
@@ -219,6 +213,16 @@ urlpatterns = [
         "event/<slug:slug>/proposals/<int:proposal_id>/do/reject",
         proposals.ProposalRejectActionView.as_view(),
         name="proposal-reject",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/delete",
+        proposals.ProposalDeleteActionView.as_view(),
+        name="proposal-delete",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/restore",
+        proposals.ProposalRestoreActionView.as_view(),
+        name="proposal-restore",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/set-facilitators",
@@ -327,5 +331,125 @@ urlpatterns = [
         facilitators.FacilitatorEditPageView.as_view(),
         name="facilitator-edit",
     ),
+    path(
+        "event/<slug:slug>/discounts/",
+        discounts.DiscountsPageView.as_view(),
+        name="discounts",
+    ),
+    path(
+        "event/<slug:slug>/discounts/<int:facilitator_id>/assign/",
+        discounts.DiscountCreatePageView.as_view(),
+        name="discount-assign",
+    ),
+    path(
+        "event/<slug:slug>/discounts/<int:pk>/edit/",
+        discounts.DiscountEditPageView.as_view(),
+        name="discount-edit",
+    ),
+    path(
+        "event/<slug:slug>/discounts/<int:pk>/do/delete",
+        discounts.DiscountDeleteActionView.as_view(),
+        name="discount-delete",
+    ),
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
+    path(
+        "event/<slug:slug>/print/",
+        print_views.PrintMaterialsPageView.as_view(),
+        name="print-materials",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/check/",
+        integrations.IntegrationCheckActionView.as_view(),
+        name="integration-check",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/add/",
+        integrations.IntegrationCreatePageView.as_view(),
+        name="integration-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/<int:pk>/edit/",
+        integrations.IntegrationEditPageView.as_view(),
+        name="integration-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/integrations/<int:pk>/delete/",
+        integrations.IntegrationDeletePageView.as_view(),
+        name="integration-delete",
+    ),
+    path(
+        "event/<slug:slug>/import/",
+        google_docs_import.EventImportProposalView.as_view(),
+        name="import",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/",
+        google_docs_import.EventImportProposalView.as_view(),
+        name="import-integration",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/review/",
+        google_docs_import.EventImportReviewView.as_view(),
+        name="import-review",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/save-row/",
+        google_docs_import.EventImportRowSaveView.as_view(),
+        name="import-row-save",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/refetch/",
+        google_docs_import.EventImportRefetchView.as_view(),
+        name="import-refetch",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/import-missing-fields/",
+        google_docs_import.EventImportMissingFieldsView.as_view(),
+        name="import-missing-fields",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/apply-field-layout/",
+        google_docs_import.EventImportApplyFieldLayoutView.as_view(),
+        name="import-apply-field-layout",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/json/",
+        google_docs_import.EventImportJsonView.as_view(),
+        name="import-json",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/run/",
+        google_docs_import.EventImportRunPageView.as_view(),
+        name="import-run",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/run/",
+        google_docs_import.EventImportRunActionView.as_view(),
+        name="import-run-do",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/test/",
+        google_docs_import.EventImportTestRowActionView.as_view(),
+        name="import-test-do",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/log/",
+        google_docs_import.EventImportLogPageView.as_view(),
+        name="import-log",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/settings/",
+        google_docs_import.EventImportSettingsSaveView.as_view(),
+        name="import-settings-save",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/retry-entry/",
+        google_docs_import.EventImportLogRetryActionView.as_view(),
+        name="import-log-retry",
+    ),
+    path(
+        "event/<slug:slug>/import/<int:pk>/do/reimport-entry/",
+        google_docs_import.EventImportLogReimportActionView.as_view(),
+        name="import-log-reimport",
+    ),
 ]

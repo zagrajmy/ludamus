@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/django-hmr.ts",
+    "src/encounter-form.ts",
+    "src/modal.ts",
+    "src/tabs.ts",
+    "src/timetable.ts",
+    "src/index.css"
+  ],
+  "ignoreDependencies": ["portless", "postcss-nested"]
+}

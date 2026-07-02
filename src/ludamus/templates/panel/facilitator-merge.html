@@ -39,146 +39,144 @@
                            autocomplete="off"
                            class="w-full border border-border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                     {% if facilitators %}
-                        <div class="card overflow-hidden">
-                            <table class="min-w-full divide-y divide-border">
-                                <thead class="bg-bg-tertiary">
-                                    <tr>
-                                        <th scope="col" class="w-10 px-4 py-3">
-                                            <input type="checkbox"
-                                                   id="select-all-merge"
-                                                   class="w-4 h-4"
-                                                   title="{% translate "Select all" %}">
-                                        </th>
-                                        <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                            {% translate "Name" %}
-                                        </th>
-                                        <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                            {% translate "Sessions" %}
-                                        </th>
-                                        <th scope="col"
-                                            class="px-6 py-3 text-center text-xs font-medium text-foreground-muted uppercase tracking-wider"
-                                            title="{% translate "The kept facilitator receives all sessions from the others." %}">
-                                            {% translate "Keep" %}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody id="merge-list" class="divide-y divide-border">
-                                    {% for f in facilitators %}
-                                        <tr class="facilitator-row hover:bg-bg-tertiary"
-                                            data-name="{{ f.display_name|lower }}">
-                                            <td class="px-4 py-3">
-                                                <input type="checkbox"
-                                                       name="facilitator_ids"
-                                                       value="{{ f.pk }}"
-                                                       id="check-{{ f.pk }}"
-                                                       class="facilitator-checkbox w-4 h-4"
-                                                       {% if f.pk in preselected_ids %}checked{% endif %}>
-                                            </td>
-                                            <td class="px-6 py-3 text-sm text-foreground">
-                                                <label for="check-{{ f.pk }}" class="cursor-pointer">{{ f.display_name }}</label>
-                                            </td>
-                                            <td class="px-6 py-3 text-sm text-foreground-muted">{{ f.session_count }}</td>
-                                            <td class="px-6 py-3 text-center">
-                                                <input type="radio"
-                                                       name="target_id"
-                                                       value="{{ f.pk }}"
-                                                       id="target-{{ f.pk }}"
-                                                       class="target-radio w-4 h-4 accent-primary"
-                                                       title="{{ f.display_name }}"
-                                                       {% if f.pk in preselected_ids %}data-preselected{% endif %}>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <p id="no-results" class="hidden text-sm text-foreground-muted mt-2">
-                            {% translate "No facilitators match your search." %}
-                        </p>
-                        <div class="mt-6">
-                            <button type="submit"
-                                    id="merge-submit-btn"
-                                    class="btn btn-danger disabled:opacity-40 disabled:cursor-not-allowed"
-                                    disabled>
-                                {% icon "funnel" class="w-4 h-4 mr-2" %}
-                                {% translate "Merge" %}
-                            </button>
-                        </div>
-                    {% else %}
-                        <p class="text-foreground-muted text-sm">{% translate "No facilitators available to merge." %}</p>
-                    {% endif %}
-                </div>
+                        {% tessera_table %}
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="w-10 px-4 py-3">
+                                    <input type="checkbox"
+                                           id="select-all-merge"
+                                           class="w-4 h-4"
+                                           title="{% translate "Select all" %}">
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Name" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Sessions" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-center text-xs font-medium text-foreground-muted uppercase tracking-wider"
+                                    title="{% translate "The kept facilitator receives all sessions from the others." %}">
+                                    {% translate "Keep" %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="merge-list" class="divide-y divide-border">
+                            {% for f in facilitators %}
+                                <tr class="facilitator-row hover:bg-bg-tertiary"
+                                    data-name="{{ f.display_name|lower }}">
+                                    <td class="px-4 py-3">
+                                        <input type="checkbox"
+                                               name="facilitator_ids"
+                                               value="{{ f.pk }}"
+                                               id="check-{{ f.pk }}"
+                                               class="facilitator-checkbox w-4 h-4"
+                                               {% if f.pk in preselected_ids %}checked{% endif %}>
+                                    </td>
+                                    <td class="px-6 py-3 text-sm text-foreground">
+                                        <label for="check-{{ f.pk }}" class="cursor-pointer">{{ f.display_name }}</label>
+                                    </td>
+                                    <td class="px-6 py-3 text-sm text-foreground-muted">{{ f.session_count }}</td>
+                                    <td class="px-6 py-3 text-center">
+                                        <input type="radio"
+                                               name="target_id"
+                                               value="{{ f.pk }}"
+                                               id="target-{{ f.pk }}"
+                                               class="target-radio w-4 h-4 accent-primary"
+                                               title="{{ f.display_name }}"
+                                               {% if f.pk in preselected_ids %}data-preselected{% endif %}>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    {% end_tessera_table %}
+                    <p id="no-results" class="hidden text-sm text-foreground-muted mt-2">
+                        {% translate "No facilitators match your search." %}
+                    </p>
+                    <div class="mt-6">
+                        <button type="submit"
+                                id="merge-submit-btn"
+                                class="btn btn-danger disabled:opacity-40 disabled:cursor-not-allowed"
+                                disabled>
+                            {% icon "funnel" class="w-4 h-4 mr-2" %}
+                            {% translate "Merge" %}
+                        </button>
+                    </div>
+                {% else %}
+                    <p class="text-foreground-muted text-sm">{% translate "No facilitators available to merge." %}</p>
+                {% endif %}
             </div>
-        </form>
-        <script>
-            (function() {
-                const searchInput = document.getElementById('facilitator-search');
-                const rows = document.querySelectorAll('.facilitator-row');
-                const noResults = document.getElementById('no-results');
-                const selectAll = document.getElementById('select-all-merge');
+        </div>
+    </form>
+    <script>
+        (function() {
+            const searchInput = document.getElementById('facilitator-search');
+            const rows = document.querySelectorAll('.facilitator-row');
+            const noResults = document.getElementById('no-results');
+            const selectAll = document.getElementById('select-all-merge');
 
-                // Auto-select target radio for the first preselected checkbox
-                const preselected = document.querySelectorAll('.facilitator-checkbox:checked');
-                if (preselected.length > 0) {
-                    const firstId = preselected[0].value;
-                    const radio = document.getElementById('target-' + firstId);
-                    if (radio) radio.checked = true;
-                }
+            // Auto-select target radio for the first preselected checkbox
+            const preselected = document.querySelectorAll('.facilitator-checkbox:checked');
+            if (preselected.length > 0) {
+                const firstId = preselected[0].value;
+                const radio = document.getElementById('target-' + firstId);
+                if (radio) radio.checked = true;
+            }
 
-                const submitBtn = document.getElementById('merge-submit-btn');
+            const submitBtn = document.getElementById('merge-submit-btn');
 
-                function updateSubmitBtn() {
-                    const checkedCount = document.querySelectorAll('.facilitator-checkbox:checked').length;
-                    const hasTarget = document.querySelector('.target-radio:checked') !== null;
-                    submitBtn.disabled = !(checkedCount >= 2 && hasTarget);
-                }
+            function updateSubmitBtn() {
+                const checkedCount = document.querySelectorAll('.facilitator-checkbox:checked').length;
+                const hasTarget = document.querySelector('.target-radio:checked') !== null;
+                submitBtn.disabled = !(checkedCount >= 2 && hasTarget);
+            }
 
-                // Checking a single checkbox auto-picks its radio as target
-                document.querySelectorAll('.facilitator-checkbox').forEach(function(cb) {
-                    cb.addEventListener('change', function() {
-                        const checked = document.querySelectorAll('.facilitator-checkbox:checked');
-                        if (checked.length === 1) {
-                            const radio = document.getElementById('target-' + checked[0].value);
-                            if (radio) radio.checked = true;
-                        }
-                        if (selectAll) {
-                            selectAll.indeterminate = checked.length > 0 && checked.length < rows.length;
-                            selectAll.checked = checked.length === rows.length;
-                        }
-                        updateSubmitBtn();
-                    });
+            // Checking a single checkbox auto-picks its radio as target
+            document.querySelectorAll('.facilitator-checkbox').forEach(function(cb) {
+                cb.addEventListener('change', function() {
+                    const checked = document.querySelectorAll('.facilitator-checkbox:checked');
+                    if (checked.length === 1) {
+                        const radio = document.getElementById('target-' + checked[0].value);
+                        if (radio) radio.checked = true;
+                    }
+                    if (selectAll) {
+                        selectAll.indeterminate = checked.length > 0 && checked.length < rows.length;
+                        selectAll.checked = checked.length === rows.length;
+                    }
+                    updateSubmitBtn();
                 });
-                document.querySelectorAll('.target-radio').forEach(function(r) {
-                    r.addEventListener('change', updateSubmitBtn);
+            });
+            document.querySelectorAll('.target-radio').forEach(function(r) {
+                r.addEventListener('change', updateSubmitBtn);
+            });
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    document.querySelectorAll('.facilitator-checkbox').forEach(function(cb) {
+                        cb.checked = selectAll.checked;
+                    });
+                    updateSubmitBtn();
                 });
+            }
+            updateSubmitBtn();
 
-                if (selectAll) {
-                    selectAll.addEventListener('change', function() {
-                        document.querySelectorAll('.facilitator-checkbox').forEach(function(cb) {
-                            cb.checked = selectAll.checked;
-                        });
-                        updateSubmitBtn();
+            // Search filtering
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const query = this.value.toLowerCase().trim();
+                    let visible = 0;
+                    rows.forEach(function(row) {
+                        const name = row.dataset.name || '';
+                        const show = !query || name.includes(query);
+                        row.classList.toggle('hidden', !show);
+                        if (show) visible++;
                     });
-                }
-                updateSubmitBtn();
-
-                // Search filtering
-                if (searchInput) {
-                    searchInput.addEventListener('input', function() {
-                        const query = this.value.toLowerCase().trim();
-                        let visible = 0;
-                        rows.forEach(function(row) {
-                            const name = row.dataset.name || '';
-                            const show = !query || name.includes(query);
-                            row.classList.toggle('hidden', !show);
-                            if (show) visible++;
-                        });
-                        if (noResults) noResults.classList.toggle('hidden', visible > 0);
-                    });
-                }
-            })();
-        </script>
-    {% endif %}
+                    if (noResults) noResults.classList.toggle('hidden', visible > 0);
+                });
+            }
+        })();
+    </script>
+{% endif %}
 {% endblock content %}

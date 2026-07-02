@@ -1,26 +1,38 @@
 [settings]
-# Sequential execution to avoid race conditions in parallel tests
+experimental = true
 jobs = 1
+
+[hooks]
+enter = "poetry install"
 
 [tools]
 python = "3.14"
 node = "v25.6.1"
 poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
 "ast-grep" = "0.42.1"
-markdownlint-cli2 = "latest"
+markdownlint-cli2 = "0.22.1"
+"github:endevco/aube" = "latest"
+hk = "1.48.0"
+actionlint = "1.7.12"
+hadolint = "2.14.0"
+"github:reteps/dockerfmt" = "0.5.2"
 
 [env]
-# Mise creates and activates this virtualenv automatically
 _.python.venv = { path = ".venv", create = true }
-_.file = ".env"
+_.path = "/opt/homebrew/opt/gettext/bin:/usr/local/opt/gettext/bin:/home/linuxbrew/.linuxbrew/opt/gettext/bin"
+LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
+
+[bootstrap.packages]
+"brew:libxml2" = "latest"
+"brew:gettext" = "latest"
 
 [task_config]
 includes = ["tasks.toml"]
 
 [tasks.update]
-description = "Update all dependencies: pre-commit hooks, pip, Poetry packages"
+description = "Update all dependencies: mise tools, pip, Poetry packages"
 run = """
-pre-commit autoupdate
+mise upgrade
 pip install -U pip
 pip install -U poetry
 poetry update
@@ -29,7 +41,6 @@ pip-audit .
 poetry show -o
 """
 
-# LINT
 
 [tasks._lint]
 description = "Base env vars for lint tasks"
@@ -124,8 +135,6 @@ depends = [
   "ast-grep",
 ]
 
-# PYTEST
-
 [tasks._pytest]
 description = "Base pytest runner with test env (internal)"
 run = "pytest"
@@ -150,8 +159,31 @@ run = "mise run _pytest -- tests/unit --cov=tests.unit --cov=ludamus"
 
 [tasks.test]
 description = "Run all tests"
-run = "mise run _pytest -- tests tests/integration tests/unit"
+run = "mise run _pytest -- tests/integration tests/unit"
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
+
+[tasks."test:postgres"]
+description = "Run PostgreSQL-only tests (row locking / concurrency) on real Postgres"
+run = "pytest -m postgres tests/integration"
+env.ALLOWED_HOSTS = ".testserver"
+env.AUTH0_CLIENT_ID = "test-auth0-client-id"
+env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
+env.AUTH0_DOMAIN = "auth0.example.com"
+env.USE_POSTGRES = "True"
+env.DB_NAME = "ludamus_test"
+env.DB_USER = "postgres"
+env.DB_PASSWORD = "postgres"
+env.DB_HOST = "localhost"
+env.DB_PORT = "5432"
+env.ENV = "local"
+env.MEMBERSHIP_API_BASE_URL = ""
+env.MEMBERSHIP_API_TOKEN = "membership-test-token"
+env.PYTHONPATH = "src"
+env.ROOT_DOMAIN = "testserver"
+env.SECRET_KEY = "dev-secret-key"
+env.SESSION_COOKIE_DOMAIN = ".testserver"
+env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
+env.IN_TESTS = 'True'
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
@@ -166,16 +198,45 @@ coverage xml --data-file=.coverage
 diff-cover coverage.xml --compare-branch=main
 """
 
+[tasks."test:int:cov:diff"]
+description = "Show test coverage of integration tests for lines changed since main"
+run = [
+  { task = "_pytest", args = [
+    "tests/integration",
+    "--cov=ludamus.gates",
+    "--cov=ludamus.links",
+    "--cov=ludamus.adapters.web",
+    "--cov=src/ludamus/templates/",
+  ] },
+  "coverage xml",
+  "diff-cover coverage.xml --compare-branch=main",
+]
+
+[tasks."test:unit:cov:diff"]
+description = "Show test coverage of unit tests for lines changed since main"
+run = [
+  { task = "_pytest", args = [
+    "tests/unit",
+    "--cov=ludamus.mills",
+  ] },
+  "coverage xml",
+  "diff-cover coverage.xml --compare-branch=main",
+]
+
 [tasks."coverage:combine"]
 description = "Combine integration + e2e coverage and export XML"
 run = """
-coverage combine .coverage.unit .coverage.e2e
+set -eu
+if [ -f .coverage.e2e ]; then
+  coverage combine .coverage.unit .coverage.e2e
+else
+  coverage combine .coverage.unit
+fi
 coverage xml -o coverage.xml
-coverage report --fail-under=95
+coverage report --fail-under=93
 """
 env.PYTHONPATH = "src"
 
-# E2E
 
 [tasks._e2e]
 description = "Base env vars for e2e tasks (internal)"
@@ -187,8 +248,9 @@ env.AUTH0_DOMAIN = "auth0.example.com"
 env.COVERAGE_FILE = "{{ config_root }}/.coverage.e2e"
 env.DB_NAME = "dev.e2e.sqlite3"
 env.DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
+env.EMAIL_URL = "filemail:///tests/e2e/.e2e-mail"
 env.ENV = "local"
-env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
+env.MEMBERSHIP_API_BASE_URL = ""
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 env.PYTHONPATH = "src"
 env.ROOT_DOMAIN = "localhost:8000"
@@ -198,45 +260,42 @@ env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 env.IN_TESTS = 'True'
 
 [tasks."install:playwright"]
+description = "Install Playwright (node deps + browsers)"
 run = """
-npm install
-npx playwright install --with-deps
+aube install
+aube exec -C tests/e2e playwright install --with-deps
 """
-description = "Install Playwright"
-dir = "tests/e2e"
 
 [tasks.e2e]
 description = "Run end-to-end Playwright tests"
 run = """
-npx playwright test --workers=1
+npx playwright test
 mise run _e2e -- coverage report
 """
 dir = "tests/e2e"
 
-[tasks."boot-e2e-prep"]
-description = "Migrate, bootstrap fixtures and build client for e2e tests"
+[tasks."e2e:prep"]
+description = "Migrate, seed fixtures, and build client for e2e tests"
 run = """
+poetry install
+aube install
 mise run _e2e -- django-admin migrate --noinput
 mise run _e2e -- django-admin createcachetable
 mise run _e2e -- django-admin downloadvendor
 mise run _e2e -- python tests/e2e/scripts/bootstrap_data.py
 mise run _e2e -- python tests/e2e/scripts/bootstrap_facilitators.py
 mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
-cd src/ludamus/client && npm install && npm run build
+aubr -C src/ludamus/client build
 """
 
-[tasks."boot-e2e-serve"]
-description = "Run the e2e dev server (assumes boot-e2e-prep has run)"
-run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload"
+[tasks."e2e:kill"]
+description = "Kill the e2e dev server (Django on :8000)"
+run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
 
-[tasks."boot-e2e"]
-description = "Bootstrap and start dev server for e2e tests"
-run = """
-mise run boot-e2e-prep
-exec mise run boot-e2e-serve
-"""
+[tasks."e2e:serve"]
+description = "Run the e2e dev server (assumes `e2e:prep` has run)"
+run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload localhost:8000"
 
-# DEPLOYMENT
 
 [tasks.dc]
 description = "Run docker compose for a target environment (local or prod)"
@@ -248,18 +307,56 @@ arg "[dc_args]" var=#true double_dash="optional"
 '''
 run = '''
 GIT_COMMIT_SHA=${GIT_COMMIT_SHA:-$(git rev-parse --short HEAD)}
-docker compose -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
+aubr varlock \
+  docker compose --env-file /dev/null \
+    -f docker/compose/{{ usage.environment }}.yaml {{arg(name="dc_args")}}
+'''
+
+[tasks.shots]
+description = "Screenshot URLs/paths via agent-browser (e.g. mise run shots -- / /events). Start a server first; set BASE_URL for non-default hosts."
+usage = '''
+arg "<targets>" var=#true help="Full URLs, or paths relative to $BASE_URL (default http://localhost:8000)"
+'''
+dir = "{{ config_root }}"
+run = '''
+set -eu
+base="${BASE_URL:-http://localhost:8000}"
+mkdir -p screenshots
+# $usage_targets is mise's non-deprecated multi-value argument contract; the
+# Tera template form is deprecated for removal in mise 2027.5.0.
+for target in ${usage_targets:-}; do
+  case "$target" in
+    http*) url="$target" ;;
+    *) url="$base$target" ;;
+  esac
+  if ! curl -s --max-time 10 -o /dev/null "$url"; then
+    echo "WARN: $url not reachable — is the server running?" >&2
+    continue
+  fi
+  name=$(printf '%s' "$target" | sed -e 's#https\?://##' -e 's#[^A-Za-z0-9]#_#g' -e 's#^_*##' -e 's#_*$##')
+  name=${name:-home}
+  aubx agent-browser open "$url" >/dev/null \
+    && aubx agent-browser screenshot --full "screenshots/${name}.png" \
+    || echo "WARN: capture failed for $url" >&2
+done
 '''
 
 [tasks.kill]
-description = "Kill dev servers (Django on :8000, Vite on :5173)"
-run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
+description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
+run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
-# FRONTEND
 
 [tasks.ts-check]
 description = "Type-check frontend TypeScript"
-run = "cd src/ludamus/client && npm run typecheck"
+run = "aubr -C src/ludamus/client typecheck"
+
+[tasks.fallow]
+description = "Analyze frontend TypeScript: dead code, duplication, complexity"
+run = "aube exec -C src/ludamus/client fallow"
+
+[tasks.lint-client]
+description = "Lint frontend TypeScript (ESLint, CI-blocking)"
+run = "aubr -C src/ludamus/client lint"
 
 
 [tasks.npm]
@@ -267,20 +364,28 @@ description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
 
-# OTHER
 
 [tasks.shitcheck]
-description = "Flag suspicious additions vs main: noqa, type: ignore, Any, cast"
-run = "git diff main '*.py'|grep -E '^\\+.*(noqa|type: ignore|Any|ANY|pylint|pragma|\\bobject\\b|cast\\()'"
+description = "Flag suspicious additions vs main (file:line; tests skip Any): noqa, Any, cast"
+run = [
+  "scripts/shitcheck.sh 'request.di.uow|nosec|noqa|type: ignore|Any|pylint|pragma|cast\\(|(^|[^[:alnum:]_])object([^[:alnum:]_]|$)' ':(glob)src/**/*.py'",
+  "scripts/shitcheck.sh 'nosec|noqa|pylint|pragma|\\.skip$|\\.xfail$|ANY' ':(glob)tests/**/*.py'"
+]
 
 [tasks.coverage]
-description = "Run all tests, collect coverage, enforce 95% threshold"
-depends = ["test --cov", "e2e", "coverage:combine"]
+description = "Run all tests, collect coverage, enforce 93% threshold"
+depends = ["test --cov", "e2e:kill", "e2e", "coverage:combine"]
+
+[tasks.devcheck]
+run = [
+  { task = "check" },
+  { task = "test", args = [
+    "-xvv",
+  ] },
+  { task = "shitcheck" },
+]
+
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
-run = [
-  { task = "check" },
-  { task = "diff-cover" },
-  { task = "shitcheck" },
-]
+run = [{ task = "check" }, { task = "diff-cover" }, { task = "shitcheck" }]

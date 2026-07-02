@@ -6,7 +6,13 @@ from django.urls import reverse
 
 from ludamus.pacts import EventDTO
 from ludamus.pacts.legacy import SessionDTO
-from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    SpaceFactory,
+)
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -75,7 +81,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -102,13 +107,28 @@ class TestTimetableSessionDetailPartView:
             },
         )
 
+    def test_redirects_when_session_belongs_to_other_sphere(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory()
+        other_category = ProposalCategoryFactory(event=other_event)
+        other_session = SessionFactory(
+            category=other_category, title="Secret session from another sphere"
+        )
+
+        response = authenticated_client.get(self.get_url(event, other_session.pk))
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/panel/event/{event.slug}/timetable/"
+        )
+
     def test_back_url_preserves_filters(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -131,7 +151,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             title="My Awesome Session",
             participants_limit=10,
@@ -144,13 +163,12 @@ class TestTimetableSessionDetailPartView:
         assert response.context["session"].title == "My Awesome Session"
 
     def test_shows_agenda_item_when_scheduled(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -174,7 +192,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -184,3 +201,53 @@ class TestTimetableSessionDetailPartView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["agenda_item"] is None
+
+    def test_scheduled_unconfirmed_offers_confirm_button(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Confirm program item" in content
+        assert "Undo confirmation" not in content
+
+    def test_scheduled_confirmed_offers_undo_button(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        agenda_item = AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+        agenda_item.session_confirmed = True
+        agenda_item.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Undo confirmation" in content
+        assert "Confirm program item" not in content

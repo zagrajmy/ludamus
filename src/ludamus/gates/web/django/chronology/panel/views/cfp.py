@@ -17,7 +17,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_requirements,
+    scoped_requirements,
     sort_fields_by_order,
 )
 from ludamus.gates.web.django.forms import ProposalCategoryForm
@@ -305,25 +305,34 @@ class CFPEditPageView(PanelAccessMixin, EventContextMixin, View):
             },
         )
 
-        # Parse and save field requirements with order
-        field_requirements, field_order = parse_field_requirements(
-            self.request.POST, "field_", "field_order"
+        # Parse and save field requirements with order (scoped to this event)
+        field_requirements, field_order = scoped_requirements(
+            self.request.POST,
+            "field_",
+            "field_order",
+            self.request.di.uow.personal_data_fields.list_by_event(current_event.pk),
         )
         self.request.di.uow.proposal_categories.set_field_requirements(
             category.pk, field_requirements, field_order
         )
 
-        # Parse and save session field requirements with order
-        session_field_requirements, session_field_order = parse_field_requirements(
-            self.request.POST, "session_field_", "session_field_order"
+        # Parse and save session field requirements with order (scoped to this event)
+        session_field_requirements, session_field_order = scoped_requirements(
+            self.request.POST,
+            "session_field_",
+            "session_field_order",
+            self.request.di.uow.session_fields.list_by_event(current_event.pk),
         )
         self.request.di.uow.proposal_categories.set_session_field_requirements(
             category.pk, session_field_requirements, session_field_order
         )
 
-        # Parse and save time slot requirements with order
-        time_slot_requirements, time_slot_order = parse_field_requirements(
-            self.request.POST, "time_slot_", "time_slot_order"
+        # Parse and save time slot requirements with order (scoped to this event)
+        time_slot_requirements, time_slot_order = scoped_requirements(
+            self.request.POST,
+            "time_slot_",
+            "time_slot_order",
+            self.request.di.uow.time_slots.list_by_event(current_event.pk),
         )
         self.request.di.uow.proposal_categories.set_time_slot_requirements(
             category.pk, time_slot_requirements, time_slot_order

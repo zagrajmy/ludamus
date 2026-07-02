@@ -33,7 +33,7 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_category_id">
                                 {% translate "Category" %}<span class="text-danger ml-0.5">*</span>
                             </label>
@@ -50,7 +50,7 @@
                             {% if form.category_id.errors %}<p class="mt-1 text-sm text-danger">{{ form.category_id.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_title">
                                 {% translate "Title" %}<span class="text-danger ml-0.5">*</span>
                             </label>
@@ -62,7 +62,7 @@
                             {% if form.title.errors %}<p class="mt-1 text-sm text-danger">{{ form.title.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_display_name">
                                 {% translate "Display Name" %}<span class="text-danger ml-0.5">*</span>
                             </label>
@@ -74,7 +74,7 @@
                             {% if form.display_name.errors %}<p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_description">{% translate "Description" %}</label>
                             <textarea name="description"
                                       id="id_description"
@@ -85,7 +85,7 @@
                             {% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_requirements">{% translate "Requirements" %}</label>
                             <textarea name="requirements"
                                       id="id_requirements"
@@ -94,7 +94,7 @@
                             {% if form.requirements.errors %}<p class="mt-1 text-sm text-danger">{{ form.requirements.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_needs">{% translate "Needs" %}</label>
                             <textarea name="needs"
                                       id="id_needs"
@@ -103,7 +103,7 @@
                             {% if form.needs.errors %}<p class="mt-1 text-sm text-danger">{{ form.needs.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_contact_email">{% translate "Contact Email" %}</label>
                             <input type="email"
                                    name="contact_email"
@@ -113,7 +113,7 @@
                             {% if form.contact_email.errors %}<p class="mt-1 text-sm text-danger">{{ form.contact_email.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_participants_limit">{% translate "Participants Limit" %}</label>
                             <input type="number"
                                    name="participants_limit"
@@ -126,7 +126,7 @@
                             {% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_min_age">{% translate "Minimum Age" %}</label>
                             <input type="number"
                                    name="min_age"
@@ -137,7 +137,7 @@
                             {% if form.min_age.errors %}<p class="mt-1 text-sm text-danger">{{ form.min_age.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_duration">{% translate "Duration" %}</label>
                             <input type="text"
                                    name="duration"

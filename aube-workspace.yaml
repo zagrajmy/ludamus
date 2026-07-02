@@ -1,0 +1,6 @@
+paranoid: true
+allowBuilds:
+  fallow: true
+packages:
+  - "./src/ludamus/client"
+  - "./tests/e2e"

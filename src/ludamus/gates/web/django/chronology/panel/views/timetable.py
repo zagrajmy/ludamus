@@ -25,6 +25,7 @@ from ludamus.mills.chronology import (
     TimetableService,
 )
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT, NotFoundError
+from ludamus.pacts.chronology import SessionPlacement
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -121,6 +122,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["print_scopes"] = self.get_print_scopes(current_event.pk)
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 
@@ -218,6 +220,10 @@ class TimetableSessionDetailPartView(PanelAccessMixin, EventContextMixin, View):
         except NotFoundError:
             return redirect("panel:timetable", slug=slug)
 
+        session_event = uow.sessions.read_event(pk)
+        if session_event.pk != current_event.pk:
+            return redirect("panel:timetable", slug=slug)
+
         agenda_item = uow.agenda_items.read_by_session(pk)
         facilitators = uow.sessions.read_facilitators(pk)
         time_slots = uow.sessions.read_preferred_time_slots(pk)
@@ -304,40 +310,34 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             session_pk = int(self.request.POST["session_pk"])
-            space_pk = int(self.request.POST["space_pk"])
-            start_time = datetime.fromisoformat(self.request.POST["start_time"])
-            end_time = datetime.fromisoformat(self.request.POST["end_time"])
+            placement = SessionPlacement(
+                space_pk=int(self.request.POST["space_pk"]),
+                start_time=datetime.fromisoformat(self.request.POST["start_time"]),
+                end_time=datetime.fromisoformat(self.request.POST["end_time"]),
+            )
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
         uow = self.request.di.uow
-        timetable_service = TimetableService(uow)
-
-        if uow.agenda_items.read_by_session(session_pk) is not None:
-            try:
-                timetable_service.unassign_session(
-                    session_pk, user_pk=self.request.user.pk
-                )
-            except NotFoundError:
-                return HttpResponse(status=422)
-
-        conflicts = ConflictDetectionService(uow).detect_for_assignment(
-            session_pk=session_pk,
-            space_pk=space_pk,
-            start_time=start_time,
-            end_time=end_time,
-        )
-
         try:
-            timetable_service.assign_session(
+            TimetableService(uow).assign_session(
                 session_pk=session_pk,
-                space_pk=space_pk,
-                start_time=start_time,
-                end_time=end_time,
+                placement=placement,
+                event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
             )
         except ValueError, NotFoundError:
             return HttpResponse(status=422)
+
+        # T3: the new placement can clear time conflicts for waiters — promote
+        # against the session's current time.
+        self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
+
+        # Conflicts are advisory: detection excludes the session itself, so it
+        # runs after assignment with the same result and only on valid input.
+        conflicts = ConflictDetectionService(uow).detect_for_assignment(
+            session_pk=session_pk, placement=placement
+        )
 
         trigger_data: dict[str, object] = {"timetableChanged": {}}
         if conflicts:
@@ -364,9 +364,85 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
+        uow = self.request.di.uow
         try:
-            TimetableService(self.request.di.uow).unassign_session(
-                session_pk, user_pk=self.request.user.pk
+            TimetableService(uow).unassign_session(
+                session_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
+            )
+        except NotFoundError:
+            return HttpResponse(status=422)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
+class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            agenda_item_pk = int(self.request.POST["agenda_item_pk"])
+        except KeyError, ValueError:
+            return HttpResponse(status=422)
+        confirmed_raw = self.request.POST.get("confirmed")
+        if confirmed_raw not in {"true", "false"}:
+            return HttpResponse(status=422)
+        confirmed = confirmed_raw == "true"
+
+        try:
+            self.request.services.session_confirmation.set_session_confirmed(
+                event_pk=current_event.pk,
+                agenda_item_pk=agenda_item_pk,
+                confirmed=confirmed,
+            )
+        except NotFoundError:
+            return HttpResponse(status=422)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
+class TimetableConfirmAllView(PanelAccessMixin, EventContextMixin, View):
+    """POST: confirm every scheduled program item in the event."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        self.request.services.session_confirmation.confirm_all(current_event.pk)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
+class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
+    """POST: confirm every scheduled program item in a single track (block)."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            track_pk = int(self.request.POST["track_pk"])
+        except KeyError, ValueError:
+            return HttpResponse(status=422)
+
+        try:
+            self.request.services.session_confirmation.confirm_block(
+                event_pk=current_event.pk, track_pk=track_pk
             )
         except NotFoundError:
             return HttpResponse(status=422)
@@ -395,6 +471,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, tz=get_current_timezone()
         )
         context["track_progress"] = overview.track_progress(current_event.pk)
+        context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)
@@ -452,6 +529,9 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         spaces = uow.spaces.list_by_event(current_event.pk)
 
         context["logs"] = logs
+        context["revertible_pks"] = set(
+            uow.schedule_change_logs.latest_pks_by_session(current_event.pk).values()
+        )
         context["spaces"] = spaces
         context["space_pk"] = space_pk
         context["slug"] = slug
@@ -474,9 +554,10 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
+        uow = self.request.di.uow
         try:
-            TimetableService(self.request.di.uow).revert_change(
-                log_pk, user_pk=self.request.user.pk
+            TimetableService(uow).revert_change(
+                log_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
             )
         except ValueError, NotFoundError:
             return HttpResponse(status=422)

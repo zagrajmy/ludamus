@@ -1,14 +1,13 @@
-import re
 import string
-import unicodedata
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from secrets import choice as _secret_choice
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import markdown as _md
+import nh3
 
+from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts import (
     AgendaItemData,
     AuthenticatedRequestContext,
@@ -18,15 +17,12 @@ from ludamus.pacts import (
     EncounterDTO,
     EncounterIndexItem,
     EncounterIndexResult,
-    EnrollmentConfigDTO,
-    EnrollmentConfigRepositoryProtocol,
     EventDTO,
     EventStatsData,
     FacilitatorData,
     FacilitatorDTO,
     FacilitatorMergeError,
     HostPersonalDataEntry,
-    MembershipAPIError,
     NotFoundError,
     PanelStatsDTO,
     PersonalFieldRequirementDTO,
@@ -39,17 +35,10 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
     SessionUpdateData,
-    TicketAPIProtocol,
     TimeSlotRequirementDTO,
     TrackDTO,
     UnitOfWorkProtocol,
-    UserData,
-    UserDTO,
-    UserEnrollmentConfigData,
-    UserEnrollmentConfigDTO,
-    UserRepositoryProtocol,
-    UserType,
-    VirtualEnrollmentConfig,
+    UploadedFileProtocol,
     WizardData,
 )
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
@@ -62,11 +51,39 @@ def generate_share_code(length: int = 6) -> str:
     return "".join(_secret_choice(_BASE62_CHARS) for _ in range(length))
 
 
+_MARKDOWN_ALLOWED_TAGS = {
+    "a",
+    "abbr",
+    "b",
+    "blockquote",
+    "br",
+    "code",
+    "em",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "i",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "strong",
+    "ul",
+}
+_MARKDOWN_ALLOWED_ATTRIBUTES = {"a": {"href", "title"}, "abbr": {"title"}}
+
+
 def render_markdown(text: str) -> str:
     result: str = _md.markdown(  # type: ignore [misc]
         text, extensions=["nl2br", "fenced_code"]
     )
-    return result
+    return nh3.clean(
+        result, tags=_MARKDOWN_ALLOWED_TAGS, attributes=_MARKDOWN_ALLOWED_ATTRIBUTES
+    )
 
 
 def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
@@ -256,15 +273,7 @@ class ProposeSessionService:
 
     @staticmethod
     def _generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
-        value = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
-        base_slug = re.sub(r"[^\w\s-]", "", value.lower())
-        base_slug = re.sub(r"[-\s]+", "-", base_slug).strip("-")
-        slug = base_slug
-        for _ in range(4):
-            if not exists(slug):
-                break
-            slug = f"{base_slug}-{token_urlsafe(3)}"
-        return slug
+        return generate_unique_slug(title, exists)
 
     def get_event(self, slug: str) -> EventDTO:
         return self._uow.events.read_by_slug(slug, self._context.current_sphere_id)
@@ -320,8 +329,6 @@ class ProposeSessionService:
                 return self._uow.facilitators.read_by_user_and_event(user_id, event.pk)
             except NotFoundError:
                 pass
-        # Anonymous submissions are never merged: each submit creates a fresh
-        # Facilitator row. Organizers reconcile later if needed.
         slug = self._generate_unique_slug(
             display_name, lambda s: self._uow.facilitators.slug_exists(event.pk, s)
         )
@@ -331,7 +338,13 @@ class ProposeSessionService:
             )
         )
 
-    def submit(self, event: EventDTO, wizard_data: WizardData) -> ProposeSessionResult:
+    def submit(
+        self,
+        event: EventDTO,
+        wizard_data: WizardData,
+        *,
+        cover_image: UploadedFileProtocol | None = None,
+    ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
             msg = "session_data must contain 'title'"
@@ -356,14 +369,14 @@ class ProposeSessionService:
 
         display_name = str(session_data.get("display_name", default_display_name))
         slug = self._generate_unique_slug(
-            title, lambda s: self._uow.sessions.slug_exists(event.sphere_id, s)
+            title, lambda s: self._uow.sessions.slug_exists(event.pk, s)
         )
 
         with self._uow.atomic():
             facilitator = self._find_or_create_facilitator(event, display_name)
 
             create_data = SessionData(
-                sphere_id=event.sphere_id,
+                event_id=event.pk,
                 presenter_id=presenter_id,
                 display_name=display_name,
                 category_id=category_id,
@@ -378,6 +391,8 @@ class ProposeSessionService:
                 contact_email=wizard_data.get("contact_email", ""),
                 status=SessionStatus.PENDING,
             )
+            if cover_image:
+                create_data["cover_image"] = cover_image
 
             session_id = self._uow.sessions.create(
                 create_data,
@@ -458,26 +473,6 @@ def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> b
     return True
 
 
-class AnonymousEnrollmentService:
-    SLUG_TEMPLATE = "code_{code}"
-
-    def __init__(self, user_repository: UserRepositoryProtocol) -> None:
-        self._user_repository = user_repository
-
-    def get_user_by_code(self, code: str) -> UserDTO:
-        slug = self.SLUG_TEMPLATE.format(code=code)
-        user = self._user_repository.read(slug)
-        return UserDTO.model_validate(user)
-
-    def build_user(self, code: str) -> UserData:
-        return UserData(
-            username=f"anon_{token_urlsafe(8).lower()}",
-            slug=self.SLUG_TEMPLATE.format(code=code),
-            user_type=UserType.ANONYMOUS,
-            is_active=False,
-        )
-
-
 class AcceptProposalService:
     def __init__(
         self, uow: UnitOfWorkProtocol, context: AuthenticatedRequestContext
@@ -495,22 +490,17 @@ class AcceptProposalService:
         )
 
     def accept_session(
-        self,
-        *,
-        session: SessionDTO,
-        slugifier: Callable[[str], str],
-        space_id: int,
-        time_slot_id: int,
+        self, *, session: SessionDTO, space_id: int, time_slot_id: int
     ) -> None:
         time_slot = self._uow.sessions.read_time_slot(session.pk, time_slot_id)
 
         with self._uow.atomic():
+            # The session already has a unique slug from proposal creation;
+            # regenerating it here dropped the uniqueness suffix and collided.
             self._uow.sessions.update(
                 session.pk,
                 SessionUpdateData(
-                    status=SessionStatus.SCHEDULED,
-                    display_name=session.display_name,
-                    slug=slugifier(session.title),
+                    status=SessionStatus.SCHEDULED, display_name=session.display_name
                 ),
             )
 
@@ -559,34 +549,6 @@ class PanelService:
         self._uow.session_fields.delete(field_pk)
         return True
 
-    def delete_venue(self, venue_pk: int) -> bool:
-        """Delete a venue if it has no scheduled sessions.
-
-        Args:
-            venue_pk: The venue primary key.
-
-        Returns:
-            True if deleted, False if venue has sessions.
-        """
-        if self._uow.venues.has_sessions(venue_pk):
-            return False
-        self._uow.venues.delete(venue_pk)
-        return True
-
-    def delete_area(self, area_pk: int) -> bool:
-        """Delete an area if it has no scheduled sessions in any space.
-
-        Args:
-            area_pk: The area primary key.
-
-        Returns:
-            True if deleted, False if area has sessions.
-        """
-        if self._uow.areas.has_sessions(area_pk):
-            return False
-        self._uow.areas.delete(area_pk)
-        return True
-
     def delete_time_slot(self, time_slot_pk: int) -> bool:
         """Delete a time slot if not used in any proposals.
 
@@ -601,20 +563,6 @@ class PanelService:
         self._uow.time_slots.delete(time_slot_pk)
         return True
 
-    def delete_space(self, space_pk: int) -> bool:
-        """Delete a space if it has no scheduled sessions.
-
-        Args:
-            space_pk: The space primary key.
-
-        Returns:
-            True if deleted, False if space has sessions.
-        """
-        if self._uow.spaces.has_sessions(space_pk):
-            return False
-        self._uow.spaces.delete(space_pk)
-        return True
-
     def get_event_stats(self, event_id: int) -> PanelStatsDTO:
         """Calculate panel statistics for an event.
 
@@ -626,7 +574,6 @@ class PanelService:
         """
         stats_data: EventStatsData = self._uow.events.get_stats_data(event_id)
 
-        # Business logic: total sessions = pending + scheduled
         total_sessions = stats_data.pending_proposals + stats_data.scheduled_sessions
 
         return PanelStatsDTO(
@@ -659,152 +606,6 @@ class PanelService:
                 break
 
         return errors
-
-
-def _refresh_user_config_from_api(
-    *,
-    user_config: UserEnrollmentConfigDTO,
-    ticket_api: TicketAPIProtocol,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-) -> UserEnrollmentConfigDTO | None:
-    try:
-        membership_count = ticket_api.fetch_membership_count(user_config.user_email)
-    except MembershipAPIError:
-        return user_config
-
-    current_time = datetime.now(tz=UTC)
-
-    # Update config with fresh data
-    if membership_count == 0:
-        user_config.allowed_slots = 0
-        user_config.last_check = current_time
-        enrollment_config_repo.update_user_config(user_config)
-        return None  # Return None since user has no slots
-
-    user_config.allowed_slots = membership_count
-    user_config.last_check = current_time
-    enrollment_config_repo.update_user_config(user_config)
-    return user_config
-
-
-def _create_user_config_from_api(
-    *,
-    enrollment_config: EnrollmentConfigDTO,
-    user_email: str,
-    ticket_api: TicketAPIProtocol,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-) -> UserEnrollmentConfigDTO | None:
-
-    try:
-        membership_count = ticket_api.fetch_membership_count(user_email)
-    except MembershipAPIError:
-        return None
-
-    current_time = datetime.now(tz=UTC)
-    # User has membership - create config with slots based on membership count
-    # You can customize this logic based on your business rules
-    return enrollment_config_repo.create_user_config(
-        UserEnrollmentConfigData(
-            enrollment_config_id=enrollment_config.pk,
-            user_email=user_email,
-            allowed_slots=membership_count,
-            fetched_from_api=True,
-            last_check=current_time,
-        )
-    )
-
-
-def get_or_create_user_enrollment_config(  # noqa: PLR0913
-    *,
-    enrollment_config: EnrollmentConfigDTO,
-    user_email: str,
-    ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
-    existing_user_config: UserEnrollmentConfigDTO | None,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-) -> UserEnrollmentConfigDTO | None:
-    if existing_user_config:
-        # If config has slots > 0, it's final - no need to refresh
-        if existing_user_config.allowed_slots > 0:
-            return existing_user_config
-
-        # Only refresh configs with 0 slots, and only if enough time has passed
-        time_threshold = datetime.now(tz=UTC) - timedelta(
-            minutes=check_interval_minutes
-        )
-
-        if (
-            not existing_user_config.last_check
-            or existing_user_config.last_check < time_threshold
-        ):
-            # Update the existing config with fresh API data
-            return _refresh_user_config_from_api(
-                user_config=existing_user_config,
-                ticket_api=ticket_api,
-                enrollment_config_repo=enrollment_config_repo,
-            )
-
-        # Config has 0 slots
-        return None
-
-    return _create_user_config_from_api(
-        enrollment_config=enrollment_config,
-        user_email=user_email,
-        ticket_api=ticket_api,
-        enrollment_config_repo=enrollment_config_repo,
-    )
-
-
-def get_user_enrollment_config(
-    *,
-    event: EventDTO,
-    user_email: str,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-    ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
-) -> VirtualEnrollmentConfig | None:
-    virtual_config = VirtualEnrollmentConfig()
-
-    now = datetime.now(tz=UTC)
-    for config in enrollment_config_repo.read_list(
-        event.pk, max_start_time=now, min_end_time=now
-    ):
-        existing_user_config = enrollment_config_repo.read_user_config(
-            config, user_email
-        )
-        # Check for explicit user config
-        if api_user_config := get_or_create_user_enrollment_config(
-            enrollment_config=config,
-            user_email=user_email,
-            ticket_api=ticket_api,
-            check_interval_minutes=check_interval_minutes,
-            existing_user_config=existing_user_config,
-            enrollment_config_repo=enrollment_config_repo,
-        ):
-            # Try to fetch from API if not found locally
-            virtual_config.allowed_slots += api_user_config.allowed_slots
-            virtual_config.has_user_config = True
-        elif existing_user_config:
-            virtual_config.allowed_slots += existing_user_config.allowed_slots
-            virtual_config.has_user_config = True
-
-        # Always check for domain-based access regardless of individual config
-        email_domain = (
-            user_email.split("@")[1] if (user_email and "@" in user_email) else ""
-        )
-        if email_domain and (
-            domain_config := enrollment_config_repo.read_domain_config(
-                config, email_domain
-            )
-        ):
-            virtual_config.allowed_slots += domain_config.allowed_slots_per_user
-            virtual_config.has_domain_config = True
-
-    return (
-        virtual_config
-        if (virtual_config.has_user_config or virtual_config.has_domain_config)
-        else None
-    )
 
 
 class FacilitatorMergeService:

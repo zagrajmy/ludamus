@@ -1,10 +1,14 @@
 {# Single checkbox with inline label. #}
-{# Variables: name, id, label, checked, has_errors #}
+{# Variables: name, id, label, checked, has_errors, aria_controls, aria_expanded, hx_on_change #}
+{# aria_controls and aria_expanded are independent — pass either or both. #}
 <label class="inline-flex items-center cursor-pointer">
     <input type="checkbox"
            class="w-4 h-4 rounded border border-border accent-primary focus:ring-1 focus:ring-offset-0"
            {% if id|default:"" %}id="{{ id }}"{% endif %}
            name="{{ name }}"
-           {% if checked|default:False %}checked{% endif %}>
+           {% if checked|default:False %}checked{% endif %}
+           {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}
+           {% if aria_expanded|default:"" %}aria-expanded="{{ aria_expanded }}"{% endif %}
+           {% if hx_on_change|default:"" %}hx-on:change="{{ hx_on_change }}"{% endif %}>
     <span class="ml-2 text-sm text-foreground">{{ label }}</span>
 </label>

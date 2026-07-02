@@ -5,6 +5,7 @@
     <input type="text"
            name="search"
            value="{{ search|default:'' }}"
+           aria-label="{% translate "Search sessions" %}"
            placeholder="{% translate "Search…" %}"
            class="w-full text-sm border border-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary"
            hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}"
@@ -13,6 +14,9 @@
            hx-swap="innerHTML"
            hx-include="[name=search]">
     <div id="session-list"
+         role="region"
+         aria-live="polite"
+         aria-label="{% translate "Sessions to assign" %}"
          hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}"
          hx-swap="innerHTML"
          hx-trigger="load, timetableChanged from:body">

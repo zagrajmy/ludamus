@@ -1,9 +1,5 @@
-const start = document.getElementById(
-  "id_start_time",
-) as HTMLInputElement | null;
-const end = document.getElementById(
-  "id_end_time",
-) as HTMLInputElement | null;
+const start = document.getElementById("id_start_time") as HTMLInputElement | null;
+const end = document.getElementById("id_end_time") as HTMLInputElement | null;
 
 const DEFAULT_DURATION_HOURS = 3;
 
@@ -30,16 +26,16 @@ const formatBytes = (bytes: number): string => {
 };
 
 const initDropzone = (label: HTMLLabelElement): void => {
+  // Idempotent: a label may be re-scanned after an HTMX swap.
+  if (label.dataset.dropzoneReady === "1") return;
+  label.dataset.dropzoneReady = "1";
   const input = label.querySelector<HTMLInputElement>("[data-dropzone-input]");
   const nameEls = label.querySelectorAll<HTMLElement>("[data-dropzone-name]");
   const sizeEls = label.querySelectorAll<HTMLElement>("[data-dropzone-size]");
-  const preview = label.querySelector<HTMLImageElement>(
-    "[data-dropzone-preview]",
-  );
-  const clearBtns =
-    label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
+  const preview = label.querySelector<HTMLImageElement>("[data-dropzone-preview]");
+  const clearBtns = label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
+  const clearFlag = label.querySelector<HTMLInputElement>("[data-dropzone-clear-flag]");
   if (!input || nameEls.length === 0 || sizeEls.length === 0) return;
-  if (clearBtns.length === 0) return;
 
   let previewUrl: string | null = null;
   const revokePreview = (): void => {
@@ -57,19 +53,30 @@ const initDropzone = (label: HTMLLabelElement): void => {
       label.dataset.state = "empty";
       return;
     }
-    nameEls.forEach((el) => {
+    // A fresh selection cancels any pending removal of the stored file.
+    if (clearFlag) clearFlag.checked = false;
+    for (const el of nameEls) {
       el.textContent = file.name;
-    });
-    sizeEls.forEach((el) => {
+    }
+    for (const el of sizeEls) {
       el.textContent = formatBytes(file.size);
-    });
-    const useImageLayout =
-      Boolean(preview) &&
-      /^image\/(png|jpe?g|gif|webp|avif)$/.test(file.type);
-    if (useImageLayout) {
+    }
+    // Mirror the accepted upload formats (COVER_IMAGE_ACCEPT) so an
+    // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.
+    const isImage = /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
+    if (preview && isImage) {
       revokePreview();
-      previewUrl = URL.createObjectURL(file);
-      preview!.src = previewUrl;
+      const objectUrl = URL.createObjectURL(file);
+      // `createObjectURL` only ever returns a `blob:` URL, so this guard is
+      // not reachable at runtime — it exists as an explicit taint barrier so
+      // static analysis (CodeQL) can see the value reaching `img.src` is a
+      // same-origin blob and not a user-controlled URL.
+      if (!objectUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      previewUrl = objectUrl;
+      preview.src = previewUrl;
       label.dataset.state = "image";
     } else {
       revokePreview();
@@ -78,16 +85,29 @@ const initDropzone = (label: HTMLLabelElement): void => {
     }
   });
 
-  clearBtns.forEach((clearBtn) => {
+  for (const clearBtn of clearBtns) {
     clearBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       input.value = "";
+      // Signal removal of the already-stored file on the next submit.
+      if (clearFlag) clearFlag.checked = true;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-  });
+  }
 };
 
-document
-  .querySelectorAll<HTMLLabelElement>("[data-dropzone]")
-  .forEach(initDropzone);
+const initDropzones = (root: ParentNode = document): void => {
+  for (const label of root.querySelectorAll<HTMLLabelElement>("[data-dropzone]")) {
+    initDropzone(label);
+  }
+};
+
+initDropzones();
+
+// The propose wizard swaps its review step (with the dropzone) in via HTMX;
+// this module only evaluates once, so re-scan swapped-in content.
+document.body.addEventListener("htmx:afterSwap", (event) => {
+  const { target } = event as CustomEvent;
+  initDropzones(target instanceof Element ? target : document);
+});

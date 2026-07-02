@@ -15,11 +15,12 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:proposal-create' slug=current_event.slug %}"
-           class="btn btn-primary">
-            {% icon "plus" class="w-4 h-4 mr-2" %}
-            {% translate "Create Session" %}
-        </a>
+        {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+        {% translate "Create Session" as t_create %}
+        {% tessera_button t_create href=create_url icon="plus" %}
+        {% url 'panel:content-log' slug=current_event.slug as log_url %}
+        {% translate "Activity Log" as t_log %}
+        {% tessera_button t_log href=log_url variant="secondary" icon="clock" %}
     {% endif %}
     {% if all_tracks %}
         <form method="get" class="flex items-center gap-2 flex-shrink-0">
@@ -28,7 +29,9 @@
                        name="field_{{ field.pk }}"
                        value="{{ filter_fields|get_item:field.pk }}">
             {% endfor %}
-            {% if filter_search %}<input type="hidden" name="search" value="{{ filter_search }}">{% endif %}
+            {% if filter_search %}
+                <input type="hidden" name="search" value="{{ filter_search }}">
+            {% endif %}
             <label for="track-scope"
                    class="text-xs text-foreground-muted whitespace-nowrap hidden sm:inline">
                 {% translate "Track" %}
@@ -51,132 +54,189 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
-        <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
-            <form method="get" class="flex flex-wrap gap-4 items-end">
-                {% if filter_track_pk %}<input type="hidden" name="track" value="{{ filter_track_pk }}">{% endif %}
-                <div class="w-full sm:w-48 min-w-0">
-                    <label for="filter-search"
-                           title="{% translate "Search" %}"
-                           class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                        {% translate "Search" %}
-                    </label>
-                    <input type="text"
-                           id="filter-search"
-                           name="search"
-                           value="{{ filter_search }}"
-                           placeholder="{% translate "Search by facilitator or field values" %}"
-                           class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
-                </div>
-                {% for field in session_fields %}
+    <div class="p-4">
+        {% if current_event %}
+            <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
+                <form method="get" class="flex flex-wrap gap-4 items-end">
+                    {% if filter_track_pk %}<input type="hidden" name="track" value="{{ filter_track_pk }}">{% endif %}
                     <div class="w-full sm:w-48 min-w-0">
-                        <label for="filter-field-{{ field.pk }}"
-                               title="{{ field.name }}"
+                        <label for="filter-search"
+                               title="{% translate "Search" %}"
                                class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                            {{ field.name }}
+                            {% translate "Search" %}
                         </label>
-                        {% if field.field_type == "select" %}
-                            <select id="filter-field-{{ field.pk }}"
-                                    name="field_{{ field.pk }}"
-                                    class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                                <option value="">—</option>
-                                {% for option in field.options %}
-                                    <option value="{{ option.value }}"
-                                            {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
-                                        {{ option.label }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        {% elif field.field_type == "checkbox" %}
-                            <input type="checkbox"
-                                   id="filter-field-{{ field.pk }}"
-                                   name="field_{{ field.pk }}"
-                                   value="true"
-                                   {% if filter_fields|get_item:field.pk %}checked{% endif %}
-                                   class="filter-input rounded border-border">
-                        {% else %}
-                            <input type="text"
-                                   id="filter-field-{{ field.pk }}"
-                                   name="field_{{ field.pk }}"
-                                   value="{{ filter_fields|get_item:field.pk }}"
-                                   class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
-                        {% endif %}
+                        <input type="text"
+                               id="filter-search"
+                               name="search"
+                               value="{{ filter_search }}"
+                               placeholder="{% translate "Search by facilitator or field values" %}"
+                               class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
                     </div>
-                {% endfor %}
-                <div class="flex items-center">
-                    <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
-                    <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-                       class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
-                </div>
-            </form>
-        </div>
-        {% if proposals %}
-            <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border overflow-x-auto">
-                <table class="min-w-full divide-y divide-border">
-                    <thead class="bg-bg-tertiary">
-                        <tr>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Title" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Facilitator" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Category" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Status" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Created" %}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-bg-secondary divide-y divide-border">
-                        {% for proposal in proposals %}
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                                    <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
-                                       class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.display_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if proposal.status == "pending" %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-warning-bg)] text-[var(--theme-warning-text)]">
-                                            {% translate "Pending" %}
-                                        </span>
-                                    {% elif proposal.status == "rejected" %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-danger-bg)] text-[var(--theme-danger-text)]">
-                                            {% translate "Rejected" %}
-                                        </span>
-                                    {% elif proposal.status == "scheduled" %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-info-bg)] text-[var(--theme-info-text)]">
-                                            {% translate "Scheduled" %}
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                    {{ proposal.creation_time|date:"d M Y H:i" }}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                    {% for field in session_fields %}
+                        <div class="w-full sm:w-48 min-w-0">
+                            <label for="filter-field-{{ field.pk }}"
+                                   title="{{ field.name }}"
+                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                {{ field.name }}
+                            </label>
+                            {% if field.field_type == "select" %}
+                                <select id="filter-field-{{ field.pk }}"
+                                        name="field_{{ field.pk }}"
+                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                    <option value="">—</option>
+                                    {% for option in field.options %}
+                                        <option value="{{ option.value }}"
+                                                {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% elif field.field_type == "checkbox" %}
+                                <input type="checkbox"
+                                       id="filter-field-{{ field.pk }}"
+                                       name="field_{{ field.pk }}"
+                                       value="true"
+                                       {% if filter_fields|get_item:field.pk %}checked{% endif %}
+                                       class="filter-input rounded border-border">
+                            {% else %}
+                                <input type="text"
+                                       id="filter-field-{{ field.pk }}"
+                                       name="field_{{ field.pk }}"
+                                       value="{{ filter_fields|get_item:field.pk }}"
+                                       class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    <div class="flex items-center">
+                        <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
+                        <a href="{% url 'panel:proposals' slug=current_event.slug %}"
+                           class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
+                    </div>
+                </form>
             </div>
+            {% if proposals %}
+                {% tessera_table %}
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Title" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Facilitator" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Category" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Status" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Created" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-bg-secondary divide-y divide-border">
+                    {% for proposal in proposals %}
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
+                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
+                                   class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.display_name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if proposal.status == "pending" %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
+                                        {% translate "Pending" %}
+                                    </span>
+                                {% elif proposal.status == "rejected" %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
+                                        {% translate "Rejected" %}
+                                    </span>
+                                {% elif proposal.status == "scheduled" %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">
+                                        {% translate "Scheduled" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                {{ proposal.creation_time|date:"d M Y H:i" }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            {% end_tessera_table %}
         {% else %}
-            <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No proposals submitted yet." %}</p>
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
+                {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+                {% translate "Create Session" as t_create %}
+                {% tessera_button t_create href=create_url icon="plus" %}
             </div>
         {% endif %}
-    {% else %}
-        <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-        </div>
+        {% if deleted_proposals %}
+            <h2 class="mt-8 mb-3 text-sm font-semibold text-foreground-muted uppercase tracking-wider">
+                {% translate "Recently deleted" %}
+            </h2>
+            {% tessera_table %}
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Title" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Facilitator" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Status" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Actions" %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-bg-secondary divide-y divide-border">
+                {% for proposal in deleted_proposals %}
+                    <tr>
+                        <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ proposal.title }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.display_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if proposal.status == "pending" %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
+                                    {% translate "Pending" %}
+                                </span>
+                            {% elif proposal.status == "rejected" %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
+                                    {% translate "Rejected" %}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                            <form method="post"
+                                  action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}">
+                                {% csrf_token %}
+                                {% translate "Restore" as restore_label %}
+                                {% tessera_button restore_label variant="secondary" %}
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% end_tessera_table %}
     {% endif %}
+{% else %}
+    <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
+        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+    </div>
+{% endif %}
+</div>
 {% endblock content %}

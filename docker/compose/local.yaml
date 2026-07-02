@@ -46,8 +46,34 @@ services:
       - media_volume:/app/media
     environment:
       MISE_TRUSTED_CONFIG_PATHS: /app/mise.toml
-    env_file:
-      - ../../.env
+      # Container env is provided by varlock (see [tasks.dc] in mise.toml).
+      # Listed below as implicit pass-throughs from the host process env.
+      ENV:
+      DEBUG:
+      DEBUG_TOOLBAR:
+      USE_POSTGRES:
+      DJANGO_SETTINGS_MODULE:
+      PYTHONPATH:
+      SECRET_KEY:
+      ALLOWED_HOSTS:
+      ROOT_DOMAIN:
+      SUPPORT_EMAIL:
+      SESSION_COOKIE_DOMAIN:
+      STATIC_ROOT:
+      MEDIA_ROOT:
+      DB_NAME:
+      DB_USER:
+      DB_PASSWORD:
+      DB_HOST:
+      DB_PORT:
+      AUTH0_DOMAIN:
+      AUTH0_CLIENT_ID:
+      AUTH0_CLIENT_SECRET:
+      CREDENTIALS_ENCRYPTION_KEY:
+      MEMBERSHIP_API_BASE_URL:
+      MEMBERSHIP_API_TOKEN:
+      MEMBERSHIP_API_TIMEOUT:
+      MEMBERSHIP_API_CHECK_INTERVAL:
     ports:
       - '127.0.0.1:8000:8000'
       - '127.0.0.1:5173:5173'

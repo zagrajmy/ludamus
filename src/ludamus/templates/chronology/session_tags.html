@@ -7,8 +7,8 @@
                 {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" %}
             {% endfor %}
             {% if row.overflow_count %}
-                <div class="session-tags-more relative inline-block">
-                    <div class="session-tags-popover absolute z-30 min-w-56 max-w-[20rem] rounded-xl border border-border bg-bg-secondary p-2 shadow-(--theme-shadow-lg) opacity-0 pointer-events-none transition-opacity duration-150 flex flex-wrap gap-1">
+                <div class="session-tags-more relative inline-block pointer-events-auto">
+                    <div class="session-tags-popover absolute z-30 min-w-56 max-w-[20rem] rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) opacity-0 pointer-events-none transition-opacity duration-150 flex flex-wrap gap-1">
                         {% for val in row.overflow_values %}
                             {% include "components/_field_pill.html" with value=val icon=row.icon title=val size="md" %}
                         {% endfor %}
@@ -23,8 +23,5 @@
               title="{% translate "Minimum age" %}: {{ data.session.min_age }} {% translate "years" %}">
             {{ data.session.min_age }}+
         </span>
-    {% else %}
-        <span class="self-start px-2.5 py-0.5 rounded-2xl text-sm font-medium max-w-[200px] truncate bg-coral-200/80 dark:bg-coral-900/50 text-coral-700 dark:text-coral-300"
-              title="{% translate "All ages welcome" %}">{% translate "All ages" %}</span>
     {% endif %}
 </div>

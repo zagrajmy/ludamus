@@ -24,6 +24,8 @@ if TYPE_CHECKING:
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
+        SphereDirectoryRepositoryProtocol,
+        SphereListItemDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -51,7 +53,7 @@ class AnnouncementsService:
             return self._announcements.create(sphere_id, data)
 
     def update(
-        self, sphere_id: int, pk: int, data: AnnouncementData
+        self, sphere_id: int, pk: int, *, data: AnnouncementData
     ) -> AnnouncementDTO:
         with self._transaction.atomic():
             return self._announcements.update(sphere_id, pk, data=data)
@@ -81,19 +83,25 @@ class ConnectionsService:
         return self._connections.get(sphere_id, pk)
 
     def create(
-        self, sphere_id: int, display_name: str, secret_plaintext: bytes | None = None
+        self,
+        sphere_id: int,
+        *,
+        display_name: str,
+        secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO:
         with self._transaction.atomic():
             connection = self._connections.create(sphere_id, display_name)
             if secret_plaintext is not None:
                 blob = self._encryptor.encrypt(secret_plaintext)
                 self._connections.update_secret(sphere_id, connection.pk, blob=blob)
+                connection = self._connections.get(sphere_id, connection.pk)
             return connection
 
     def update(
         self,
         sphere_id: int,
         pk: int,
+        *,
         display_name: str,
         secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO:
@@ -104,6 +112,7 @@ class ConnectionsService:
             if secret_plaintext is not None:
                 blob = self._encryptor.encrypt(secret_plaintext)
                 self._connections.update_secret(sphere_id, pk, blob=blob)
+                connection = self._connections.get(sphere_id, pk)
             return connection
 
     def delete(self, sphere_id: int, pk: int) -> None:
@@ -171,8 +180,16 @@ class SpherePanelService:
 class SitesService:
     """Read-side loader for a sphere's site (domain lookup)."""
 
-    def __init__(self, spheres: SphereRepositoryProtocol) -> None:
+    def __init__(
+        self,
+        spheres: SphereRepositoryProtocol,
+        directory: SphereDirectoryRepositoryProtocol,
+    ) -> None:
         self._spheres = spheres
+        self._directory = directory
 
     def read_site(self, sphere_id: int) -> SiteDTO:
         return self._spheres.read_site(sphere_id)
+
+    def list_spheres(self) -> list[SphereListItemDTO]:
+        return self._directory.list_all()

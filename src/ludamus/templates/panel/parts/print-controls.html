@@ -1,0 +1,7 @@
+{% load i18n %}
+{% translate "Print timetable" as label_timetable %}
+{% translate "Print timetable for a venue or area" as aria_timetable %}
+{% include "panel/parts/_print-scope-control.html" with url_name="panel:timetable-print" label=label_timetable aria=aria_timetable %}
+{% translate "Print door cards" as label_door_cards %}
+{% translate "Print door cards for a venue or area" as aria_door_cards %}
+{% include "panel/parts/_print-scope-control.html" with url_name="panel:timetable-print-door-cards" label=label_door_cards aria=aria_door_cards %}

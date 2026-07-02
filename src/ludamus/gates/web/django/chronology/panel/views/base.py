@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.venues import PrintScopeOptionDTO
 
 
 class PanelRequest(HttpRequest):
@@ -124,12 +125,19 @@ class EventContextMixin:
         )
         return sorted_tracks, managed_pks, filter_track_pk
 
+    def get_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]:
+        # Non-leaf tree nodes selectable as print scopes.
+        return self.request.services.venues.list_print_scopes(event_pk)
+
 
 def settings_tab_urls(slug: str) -> dict[str, str]:
     return {
         "general": reverse("panel:event-settings", kwargs={"slug": slug}),
         "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
         "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
+        "integrations": reverse(
+            "panel:event-integration-settings", kwargs={"slug": slug}
+        ),
     }
 
 
@@ -139,6 +147,18 @@ def cfp_tab_urls(slug: str) -> dict[str, str]:
         "host": reverse("panel:personal-data-fields", kwargs={"slug": slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": slug}),
         "time_slots": reverse("panel:time-slots", kwargs={"slug": slug}),
+    }
+
+
+def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
+    return {
+        "proposal": reverse(
+            "panel:import-integration", kwargs={"slug": slug, "pk": pk}
+        ),
+        "review": reverse("panel:import-review", kwargs={"slug": slug, "pk": pk}),
+        "json": reverse("panel:import-json", kwargs={"slug": slug, "pk": pk}),
+        "run": reverse("panel:import-run", kwargs={"slug": slug, "pk": pk}),
+        "log": reverse("panel:import-log", kwargs={"slug": slug, "pk": pk}),
     }
 
 

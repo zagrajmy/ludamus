@@ -10,6 +10,7 @@ from ludamus.adapters.db.django.models import (
     Facilitator,
     HostPersonalData,
     PersonalDataField,
+    PersonalDataFieldOption,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
 from tests.integration.utils import assert_response
@@ -177,6 +178,30 @@ class TestFacilitatorEditPageView:
         facilitator.refresh_from_db()
         assert facilitator.display_name == "Updated Name"
 
+    def test_post_updates_accreditation_type(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event, accreditation_type="none")
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={"display_name": "Alice", "accreditation_type": "honorary"},
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == "honorary"
+
+    def test_get_preselects_current_accreditation_type(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, accreditation_type="guest")
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.context["form"].initial["accreditation_type"] == "guest"
+
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -271,3 +296,89 @@ class TestFacilitatorEditPageView:
 
         hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
+
+    def test_get_renders_all_personal_field_types(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        languages = PersonalDataField.objects.create(
+            event=event,
+            name="Languages",
+            question="Which languages?",
+            slug="languages",
+            field_type="select",
+            is_multiple=True,
+            help_text="Pick all that apply",
+            order=0,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=languages, label="English", value="en", order=0
+        )
+        PersonalDataFieldOption.objects.create(
+            field=languages, label="Polish", value="pl", order=1
+        )
+
+        system = PersonalDataField.objects.create(
+            event=event,
+            name="System",
+            question="Which RPG system?",
+            slug="system",
+            field_type="select",
+            allow_custom=True,
+            order=1,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=system, label="D&D", value="dnd", order=0
+        )
+
+        vegan = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=2,
+        )
+
+        nickname = PersonalDataField.objects.create(
+            event=event,
+            name="Nickname",
+            question="Your nickname",
+            slug="nickname",
+            field_type="text",
+            allow_custom=True,
+            max_length=42,
+            help_text="Optional",
+            order=3,
+        )
+
+        HostPersonalData.objects.create(
+            facilitator=facilitator, event=event, field=languages, value=["en"]
+        )
+        HostPersonalData.objects.create(
+            facilitator=facilitator, event=event, field=system, value="dnd"
+        )
+        HostPersonalData.objects.create(
+            facilitator=facilitator, event=event, field=vegan, value=True
+        )
+        HostPersonalData.objects.create(
+            facilitator=facilitator, event=event, field=nickname, value="Bob"
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        html = response.content.decode()
+        assert 'name="personal_languages" value="en"\n' in html or (
+            'name="personal_languages"' in html and 'value="en"' in html
+        )
+        assert "Pick all that apply" in html
+        assert 'name="personal_system"' in html
+        assert 'name="personal_system_custom"' in html
+        assert 'name="personal_vegan"' in html
+        assert 'name="personal_nickname"' in html
+        assert 'maxlength="42"' in html
+        assert 'name="personal_nickname_custom"' in html
+        assert "Optional" in html

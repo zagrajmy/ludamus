@@ -6,13 +6,14 @@ from django.core.exceptions import ValidationError
 from ludamus.adapters.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
-    Area,
     Connection,
     DomainEnrollmentConfig,
     Encounter,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    EventBan,
+    EventIntegration,
     EventProposalSettings,
     EventSettings,
     Facilitator,
@@ -28,6 +29,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Shadowban,
     Space,
     Sphere,
     Tag,
@@ -37,7 +39,6 @@ from ludamus.adapters.db.django.models import (
     Track,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 
 
@@ -54,12 +55,12 @@ class TestConnection:
 
         assert str(Connection(display_name=display_name)) == display_name
 
-    def test_last_check_label_defaults_to_unknown_display(self):
-        assert Connection().last_check_label == "Not checked yet"
 
-    def test_last_check_label_uses_choice_display(self):
-        # Mirrors the model's choices definition; "ok" → "OK".
-        assert Connection(last_check_status="ok").last_check_label == "OK"
+class TestEventIntegration:
+    def test_str(self, faker):
+        display_name = faker.word()
+
+        assert str(EventIntegration(display_name=display_name)) == display_name
 
 
 class TestEnrollmentConfig:
@@ -137,34 +138,22 @@ class TestFacilitator:
         assert str(Facilitator(display_name=display_name)) == display_name
 
 
-class TestVenue:
-    def test_str(self, faker):
+class TestSpace:
+    def test_str_root(self, faker):
         name = faker.word()
 
-        assert str(Venue(name=name)) == name
+        assert str(Space(name=name)) == name
 
+    def test_str_nested(self, faker):
+        root_name = faker.word()
+        mid_name = faker.word()
+        leaf_name = faker.word()
 
-class TestArea:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
+        root = Space(name=root_name)
+        mid = Space(name=mid_name, parent=root)
+        leaf = Space(name=leaf_name, parent=mid)
 
-        area = Area(name=area_name, venue=Venue(name=venue_name))
-
-        assert str(area) == f"{venue_name} > {area_name}"
-
-
-class TestSpace:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
-        space_name = faker.word()
-
-        venue = Venue(name=venue_name)
-        area = Area(name=area_name, venue=venue)
-        space = Space(name=space_name, area=area)
-
-        assert str(space) == f"{venue_name} > {area_name} > {space_name}"
+        assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
 class TestTimeSlot:
@@ -448,3 +437,13 @@ class TestTrack:
         name = faker.word()
 
         assert str(Track(name=name)) == name
+
+
+class TestShadowban:
+    def test_str(self):
+        assert str(Shadowban(owner_id=1, target_id=2)) == "1 shadowbanned 2"
+
+
+class TestEventBan:
+    def test_str(self):
+        assert str(EventBan(user_id=3, event_id=4)) == "3 banned from event 4"

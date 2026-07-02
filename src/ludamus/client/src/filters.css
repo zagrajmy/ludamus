@@ -1,24 +1,24 @@
 @layer components {
   .filter-input:hover {
-    border-color: color-mix(in oklch, var(--theme-border) 50%, var(--color-foreground-muted));
+    border-color: color-mix(in oklch, var(--color-border) 50%, var(--color-foreground-muted));
   }
 
   .filter-input:focus {
-    border-color: var(--theme-primary);
+    border-color: var(--color-primary);
     outline: none;
-    box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-primary) 12%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 12%, transparent);
   }
 
   .filter-toggle:hover {
     background-color: var(--color-bg-tertiary);
     color: var(--color-foreground);
-    border-color: color-mix(in oklch, var(--theme-border) 50%, var(--color-foreground-muted));
+    border-color: color-mix(in oklch, var(--color-border) 50%, var(--color-foreground-muted));
   }
 
   .filter-toggle[aria-expanded="true"] {
-    border-color: var(--theme-primary);
-    color: var(--theme-primary);
-    box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-primary) 8%, transparent);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 8%, transparent);
   }
 
   .filter-badge.is-visible {
@@ -30,7 +30,10 @@
     display: grid;
     grid-template-rows: 0fr;
     filter: blur(5px);
-    transition: grid-template-rows 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease, filter 150ms ease;
+    transition:
+      grid-template-rows 120ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms ease,
+      filter 150ms ease;
     opacity: 0;
   }
 
@@ -43,7 +46,9 @@
   .filter-chips-bar {
     display: grid;
     grid-template-rows: 0fr;
-    transition: grid-template-rows 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease;
+    transition:
+      grid-template-rows 120ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms ease;
     opacity: 0;
   }
 
@@ -69,12 +74,12 @@
     font-size: 0.75rem;
     font-weight: 500;
     background: linear-gradient(
-        135deg,
-        color-mix(in oklch, var(--theme-primary) 14%, transparent),
-        color-mix(in oklch, var(--theme-primary) 6%, transparent)
+      135deg,
+      color-mix(in oklch, var(--color-primary) 14%, transparent),
+      color-mix(in oklch, var(--color-primary) 6%, transparent)
     );
-    color: var(--theme-primary);
-    border: 1px solid color-mix(in oklch, var(--theme-primary) 22%, transparent);
+    color: var(--color-primary);
+    border: 1px solid color-mix(in oklch, var(--color-primary) 22%, transparent);
     animation: filter-chip-in 0.2s ease-out;
   }
 
@@ -85,8 +90,8 @@
     width: 1rem;
     height: 1rem;
     border-radius: 9999px;
-    background: color-mix(in oklch, var(--theme-primary) 18%, transparent);
-    color: var(--theme-primary);
+    background: color-mix(in oklch, var(--color-primary) 18%, transparent);
+    color: var(--color-primary);
     cursor: pointer;
     transition: background 0.1s ease;
     border: 0;
@@ -96,7 +101,7 @@
   }
 
   .filter-chip button:hover {
-    background: color-mix(in oklch, var(--theme-primary) 32%, transparent);
+    background: color-mix(in oklch, var(--color-primary) 32%, transparent);
   }
 
   .filter-chips-clear {
@@ -113,11 +118,17 @@
   }
 
   .filter-chips-clear:hover {
-    color: var(--theme-primary);
+    color: var(--color-primary);
   }
 }
 
 @keyframes filter-chip-in {
-  from { opacity: 0; transform: scale(0.85); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

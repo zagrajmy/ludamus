@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -44,9 +45,8 @@ def _build_field_from_requirement(
                 label=f"{field_def.name} (custom)", required=False, max_length=max_len
             )
     elif field_def.field_type == "checkbox":
-        fields[field_key] = forms.BooleanField(
-            label=field_def.name, required=req.is_required
-        )
+        # We can't make checkboxes required because it ENFORCES TRUE.
+        fields[field_key] = forms.BooleanField(label=field_def.name, required=False)
     else:
         max_len = field_def.max_length if field_def.max_length > 0 else None
         fields[field_key] = forms.CharField(
@@ -99,7 +99,7 @@ def build_session_details_form(
             label=_("Minimum age"),
             required=False,
             min_value=0,
-            max_value=18,
+            max_value=80,
             initial=0,
             help_text=_("0 = no age restriction"),
         ),
@@ -116,3 +116,12 @@ def build_session_details_form(
         _build_field_from_requirement(fields, f"session_{req.field.slug}", req)
 
     return type("SessionDetailsForm", (forms.Form,), fields)
+
+
+class SessionCoverImageForm(forms.Form):
+    cover_image = cover_image_field()
+
+    def clean_cover_image(self) -> object:
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
+        return image

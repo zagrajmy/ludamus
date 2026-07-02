@@ -1,3 +1,10 @@
+:root {
+  /* Single source of truth: the live ::backdrop blur and the morph's
+     root-snapshot blur must match so the hand-off at the end of the view
+     transition is seamless. */
+  --modal-backdrop-blur: 4px;
+}
+
 @layer components {
   .modal {
     position: fixed;
@@ -12,6 +19,12 @@
     border: 1px solid var(--color-border);
     border-radius: 1rem;
     @apply shadow-lg;
+  }
+
+  .modal[open] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
     transition:
       opacity 0.35s var(--ease-spring-a-bit),
       transform 0.35s var(--ease-spring-a-bit),
@@ -19,17 +32,16 @@
       display 0.35s allow-discrete;
   }
 
-  .modal[open] {
-    opacity: 1;
-    pointer-events: auto;
-    transform: scale(1) translateY(0);
+  .modal[open]:not([id^="session-"]) {
+    view-transition-name: app-modal;
   }
 
   .modal:not([open]) {
     display: none;
   }
 
-  .modal:not([open]), .modal:not([open]) * {
+  .modal:not([open]),
+  .modal:not([open]) * {
     pointer-events: none !important;
   }
 
@@ -42,20 +54,185 @@
 
   .modal::backdrop {
     background-color: transparent;
+    backdrop-filter: blur(0);
     transition:
-      display 0.15s allow-discrete,
-      overlay 0.15s allow-discrete,
-      background-color 0.15s;
+      display 0.2s allow-discrete,
+      overlay 0.2s allow-discrete,
+      background-color 0.2s var(--ease-out),
+      backdrop-filter 0.2s var(--ease-out);
   }
 
   .modal[open]::backdrop {
     background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(var(--modal-backdrop-blur));
   }
 
   @starting-style {
     .modal[open]::backdrop {
       background-color: transparent;
+      backdrop-filter: blur(0);
     }
+  }
+}
+
+.session-card.session-card-suppressed {
+  @apply pointer-events-none border-dashed bg-neutral-100 dark:bg-neutral-800/60;
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.session-card.session-card-suppressed > * {
+  visibility: hidden;
+}
+
+::view-transition-group(session-morph),
+::view-transition-group(morph-title),
+::view-transition-group(morph-host),
+::view-transition-group(morph-avatar),
+::view-transition-group(morph-desc) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+:root:not(:has(dialog.modal[id^="session-"][open])) {
+  --vt-morph-duration: var(--vt-morph-exit-duration);
+}
+
+::view-transition-old(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+  opacity: 0;
+}
+
+::view-transition-new(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(morph-title),
+::view-transition-old(morph-host),
+::view-transition-old(morph-desc) {
+  animation: none;
+  opacity: 0;
+}
+
+::view-transition-old(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.55);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-new(session-morph) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-group(app-modal) {
+  animation-duration: 0.26s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(app-modal) {
+  animation: modal-close-out 0.26s var(--ease-out) both;
+}
+
+::view-transition-new(app-modal) {
+  animation: none;
+}
+
+@keyframes modal-close-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+    filter: blur(6px);
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: var(--ease-out);
+}
+
+/* Drive the background-page blur as part of the card<->modal morph so it grows
+   from the tap instead of snapping in once the morph settles. Safari doesn't
+   rasterise the ::backdrop's backdrop-filter into the view-transition snapshot,
+   so the live blur only appears after the transition; simulate it here by
+   blurring the root snapshot (the page behind), which is painted below the
+   morphing modal group and so leaves the modal itself crisp. The end state
+   matches the live ::backdrop blur, so the hand-off when the transition ends is
+   seamless. modal.ts toggles these classes on <html> for the morph's lifetime. */
+:root.session-morph-open::view-transition-new(root) {
+  animation: page-blur-in var(--vt-morph-duration) var(--vt-morph-ease) both;
+}
+
+:root.session-morph-close::view-transition-old(root) {
+  animation: page-blur-out var(--vt-morph-exit-duration) var(--vt-morph-ease) both;
+}
+
+/* These keyframes replace the UA default root cross-fade (the opacity rule
+   above), so they re-supply the opacity fade themselves — editing opacity here
+   drives the page cross-fade, not just the blur, now on the morph's timing. */
+@keyframes page-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(var(--modal-backdrop-blur));
+  }
+}
+
+@keyframes page-blur-out {
+  from {
+    opacity: 1;
+    filter: blur(var(--modal-backdrop-blur));
+  }
+
+  to {
+    opacity: 0;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(app-modal) {
+    animation: modal-close-fade 0.15s ease both;
+  }
+
+  @keyframes modal-close-fade {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @starting-style {
+    .modal[open] {
+      transform: none;
+    }
+  }
+
+  .modal,
+  .modal[open] {
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+
+  ::view-transition-group(session-morph),
+  ::view-transition-group(morph-title),
+  ::view-transition-group(morph-host),
+  ::view-transition-group(morph-avatar),
+  ::view-transition-group(morph-desc),
+  ::view-transition-old(session-morph),
+  ::view-transition-new(session-morph),
+  ::view-transition-old(morph-title),
+  ::view-transition-old(morph-host),
+  ::view-transition-old(morph-desc),
+  ::view-transition-old(morph-avatar),
+  ::view-transition-new(morph-avatar) {
+    animation: none;
   }
 }

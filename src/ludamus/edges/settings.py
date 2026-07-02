@@ -9,9 +9,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import json
 from pathlib import Path
 
 import environ
+from google.oauth2 import service_account
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,6 +24,7 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, ["localhost"]),
     ROOT_DOMAIN=(str, ""),
     SESSION_COOKIE_DOMAIN=(str, None),
+    SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
     # Auth0
     AUTH0_CLIENT_ID=(str, ""),
@@ -31,9 +34,13 @@ env = environ.Env(
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
     # Static files
-    GIT_COMMIT_SHA=(str, "1"),
+    GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
+    # Google Cloud Storage (media) — set all three to enable GCS
+    GS_BUCKET_NAME=(str, ""),
+    GS_CREDENTIALS_JSON=(str, ""),
+    GS_LOCATION=(str, ""),
     # Membership API
     MEMBERSHIP_API_BASE_URL=(str, ""),
     MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
@@ -42,6 +49,17 @@ env = environ.Env(
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
+    # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
+    # local Mailpit inbox, filemail:///path for file capture, or
+    # smtp://user:pass@host:587/?tls=True in production.
+    EMAIL_URL=(str, "consolemail://"),
+    DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
+    # Waiting-list offer-expiry trigger: "cron" (default; the expire_offers
+    # sweep) or "dbos" (durable in-process workflow timer).
+    OFFER_EXPIRY_SCHEDULER=(str, "cron"),
+    # DBOS system database (separate from the app DB). SQLite in dev, set to a
+    # Postgres URL in production.
+    DBOS_SYSTEM_DATABASE_URL=(str, "sqlite:///dbos_sys.sqlite"),
     ENV=str,
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
@@ -52,6 +70,7 @@ env = environ.Env(
 # Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
+IN_TESTS = env("IN_TESTS")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -99,6 +118,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -243,8 +263,10 @@ MIDDLEWARE_SKIP_PREFIXES = (
     "/media/",
 )
 
+
 # Cache busting version for static files (set via GIT_COMMIT_SHA env var during build)
-STATIC_VERSION = env("GIT_COMMIT_SHA")[:8]
+COMMIT_SHA = env("GIT_COMMIT_SHA").strip()[:8] or "unknown"
+STATIC_VERSION = COMMIT_SHA
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -259,6 +281,7 @@ LOGIN_URL = "/crowd/login-required/"
 # Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+SITE_ID = env("SITE_ID")
 
 # Auth0
 
@@ -330,24 +353,69 @@ else:
     CSRF_COOKIE_SAMESITE = "Lax"
 
 
-# Static files configuration for production
+MEDIA_ROOT = env("MEDIA_ROOT")
+MEDIA_URL = "/media/"
+
+# Default storage — GCS when all three GS_ vars are set, filesystem otherwise.
+# Independent of IS_PRODUCTION so GCS can be exercised locally.
+GS_BUCKET_NAME = env("GS_BUCKET_NAME")
+GS_CREDENTIALS_JSON = env("GS_CREDENTIALS_JSON")
+GS_LOCATION = env("GS_LOCATION")
+
+if GS_BUCKET_NAME and GS_CREDENTIALS_JSON and GS_LOCATION:
+    gs_credentials = service_account.Credentials.from_service_account_info(  # type: ignore[no-untyped-call]
+        json.loads(GS_CREDENTIALS_JSON)
+    )
+    default_storage_backend: dict[str, object] = {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": {
+            "bucket_name": GS_BUCKET_NAME,
+            "credentials": gs_credentials,
+            "location": GS_LOCATION,
+            "default_acl": None,
+            "querystring_auth": False,
+        },
+    }
+else:
+    default_storage_backend = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+
 if IS_PRODUCTION:
     STATIC_ROOT = env("STATIC_ROOT")
     STORAGES = {
-        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "default": default_storage_backend,
         "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
+            "BACKEND": (
+                "ludamus.edges.staticfiles."
+                "ViteAwareCompressedManifestStaticFilesStorage"
+            )
+        },
+    }
+else:
+    STORAGES = {
+        "default": default_storage_backend,
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
         },
     }
 
-    # Media files
-    MEDIA_ROOT = env("MEDIA_ROOT")
-    MEDIA_URL = "/media/"
-else:
-    # Development email backend
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-    MEDIA_ROOT = env("MEDIA_ROOT")
-    MEDIA_URL = "/media/"
+# Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
+# for the local inbox UI, smtp://… in production). Wired the same way in every
+# environment so prod only needs the env var set.
+_EMAIL_CONFIG = env.email_url("EMAIL_URL")
+EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
+EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")
+EMAIL_PORT = _EMAIL_CONFIG.get("EMAIL_PORT", 25)
+EMAIL_HOST_USER = _EMAIL_CONFIG.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _EMAIL_CONFIG.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
+# Set only by the filemail:// (file-based) dev transport; ignored otherwise.
+EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Waiting-list offer-expiry scheduler (see inits/services.py).
+OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
+DBOS_SYSTEM_DATABASE_URL = env("DBOS_SYSTEM_DATABASE_URL")
 
 # Cache configuration
 CACHES = (

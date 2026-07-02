@@ -138,6 +138,30 @@ class CFPPersonalDataFieldService:
 Services own transactions (`transaction.atomic()`); views never start them.
 Services return DTOs; views render them.
 
+### Mills layout
+
+`mills/{subdomain}.py` is promoted to a package when it crosses ~1000
+lines. Modules slice **by service** — one view-facing service per module,
+named after its area (`mills/submissions/importing.py`, `import_log.py`,
+`field_layout.py`, `personal_data_fields.py`). A service holds the methods
+used together in the same views; a method that landed somewhere only
+because it matched the service name, or had no other service to go to,
+gets its own service.
+
+Shared code splits by kind:
+
+- **Pure functions** go to a plain-function module
+  (`mills/submissions/mapping.py` — row-cell parsing, slug generation).
+- **Repo-bearing machinery** becomes a collaborator class
+  (`mills/submissions/engine.py` — `ImportEngine`) that services compose
+  internally. It is not a service: no protocol in `ServicesProtocol`,
+  never exposed on `request.services`, and it owns no transactions —
+  services open `atomic()` and call engine methods inside it.
+
+`pacts/{subdomain}.py` stays a single module; each service gets its own
+protocol there (`ProposalImportServiceProtocol`, `ImportLogServiceProtocol`,
+`ImportFieldLayoutServiceProtocol`).
+
 ## Services Tree
 
 Services are exposed to gates through a flat namespace at
@@ -212,7 +236,7 @@ SESSION_LIMITS: SessionLimits = {"max_per_user": 5}
 
 ## Subdomains and Bounded Contexts
 
-The application has four subdomains. Each subdomain
+The application has five subdomains. Each subdomain
 contains one or more bounded contexts with distinct
 responsibilities, URL namespaces, templates, and DTOs.
 
@@ -221,7 +245,8 @@ responsibilities, URL namespaces, templates, and DTOs.
 | Subdomain | Scope | Bounded contexts |
 | --------- | ----- | ---------------- |
 | Multiverse | Sphere and concepts depending only on Sphere | Panel |
-| Chronology | Events, proposals/sessions, scheduling, venues, enrollment | Public Event Pages, CFP, Enrollment, Panel |
+| Submissions | Configure the call (categories, fields, requirements) and curate proposals; owns the `Session` lifecycle (create/update) | Proposal Wizard, Panel |
+| Chronology | Events, scheduling, venues, enrollment, public pages | Public Event Pages, Enrollment, Panel |
 | Notice Board | Informal social gatherings decoupled from the formal event/session lifecycle | Encounters |
 | Crowd | Authentication, profiles, delegate accounts | Auth, Profile |
 
@@ -261,10 +286,77 @@ rule; they are not moved into a multiverse-named file.
 
 ---
 
+### Submissions
+
+The front door for programme content: configure *what*
+is asked for and curate *what comes in*. Owns the
+`Session` lifecycle — proposals are created and updated
+here — plus the configurable intake forms (proposal
+categories, personal-data fields, session fields, their
+requirements) and facilitators.
+
+The handoff to Chronology is proposal **acceptance**:
+`AcceptProposalService` transitions a `Session` to
+ACCEPTED and creates the `AgendaItem` that places it in
+space and time. After acceptance Chronology reads
+`Session` for scheduling and enrollment; Submissions
+keeps ownership of writes to the proposal itself.
+
+Enrollment behaviour currently bolted onto the `Session`
+model (`enrolled_count`, `is_full`,
+`effective_participants_limit`, `is_enrollment_available`,
+`SessionManager.has_conflicts`) is a Chronology concern
+and belongs in Chronology `mills`/`specs`, not on the
+Submissions-owned model.
+
+#### Bounded Context: Proposal Wizard
+
+The multi-step wizard through which facilitators submit
+session proposals.
+
+- **URLs:** `/chronology/session/propose/`
+  (namespace `session`)
+- **Views:** `gates/web/django/chronology/views.py` —
+  `ProposeSessionPageView` and component views for each
+  wizard step (category, personal data, time slots,
+  session details, review, submit)
+- **Templates:** `templates/chronology/propose/`
+- **Service:** `ProposeSessionService` — resolves field
+  requirements per category, creates `Facilitator`,
+  persists `Session` and field values, rate-limits by IP
+- **DTOs:** `ProposalCategoryDTO`,
+  `SessionFieldRequirementDTO`,
+  `PersonalFieldRequirementDTO`,
+  `TimeSlotRequirementDTO`, `FacilitatorDTO`,
+  `SessionData`
+
+#### Bounded Context: Panel (Submissions)
+
+The intake-configuration and curation areas of the
+organiser backoffice. They share the `panel:` namespace
+and `gates/web/django/panel.py` view file with Panel
+(Chronology); the split is by subdomain ownership, not
+by URL or file.
+
+<!-- markdownlint-disable MD013 -->
+
+| Area | Views | Templates |
+| ---- | ----- | --------- |
+| Proposal categories | `CFPPageView` | `cfp-*.html` |
+| Proposals / sessions | `ProposalsPageView` | `proposal-*.html` |
+| Personal data fields | `PersonalDataFieldsPageView` | `personal-data-field-*.html` |
+| Session fields | `SessionFieldsPageView` | `session-field-*.html` |
+| Facilitators | `FacilitatorsPageView` | `facilitator-*.html` |
+
+<!-- markdownlint-enable MD013 -->
+
+---
+
 ### Chronology
 
-Manages events, proposals/sessions, scheduling,
-venues, and enrollment.
+Manages events, scheduling, venues, enrollment, and the
+public event pages. Consumes `Session` (owned by
+Submissions) for scheduling and enrollment.
 
 #### Bounded Context: Public Event Pages
 
@@ -279,29 +371,6 @@ session cards.
   `_session_card.html`, `session_tags.html`
 - **DTOs:** `EventDTO`, `SessionDTO`,
   `SessionListItemDTO`, `TrackDTO`
-
-#### Bounded Context: CFP (Call for Proposals)
-
-The multi-step wizard through which facilitators
-submit session proposals.
-
-- **URLs:** `/chronology/session/propose/`
-  (namespace `session`)
-- **Views:**
-  `gates/web/django/chronology/views.py` —
-  `ProposeSessionPageView` and component views
-  for each wizard step (category, personal data,
-  time slots, session details, review, submit)
-- **Templates:** `templates/chronology/propose/`
-- **Service:** `ProposeSessionService` — resolves
-  field requirements per category, creates
-  `Facilitator`, persists `Session` and field
-  values, rate-limits by IP
-- **DTOs:** `ProposalCategoryDTO`,
-  `SessionFieldRequirementDTO`,
-  `PersonalFieldRequirementDTO`,
-  `TimeSlotRequirementDTO`, `FacilitatorDTO`,
-  `SessionData`
 
 #### Bounded Context: Enrollment
 
@@ -336,34 +405,30 @@ organizers.
 
 #### Bounded Context: Panel (Chronology)
 
-The backoffice for event organisers. Covers every
-aspect of event configuration and session management.
+The backoffice for event organisers. Covers event
+configuration, scheduling, venues, and enrollment
+administration. Proposal-configuration areas live in
+Panel (Submissions) above — same `panel:` namespace and
+view file, different subdomain.
 
 - **URLs:** `/panel/event/<slug>/…`
   (namespace `panel`)
 - **Views:** `gates/web/django/panel.py`
-  (~3 500 lines, 50+ view classes)
 - **Templates:** `templates/panel/`
 - **Service:** `PanelService` — event stats
   aggregation, cascade-safe entity deletion,
   time slot overlap validation
 
-Internal areas within the panel (all under the
-same bounded context):
+Internal areas (Chronology-owned):
 
 <!-- markdownlint-disable MD013 -->
 
 | Area | Views | Templates |
 | ---- | ----- | --------- |
 | Event settings | `EventSettingsPageView` | `settings.html` |
-| Proposal categories | `CFPPageView` | `cfp-*.html` |
-| Proposals / sessions | `ProposalsPageView` | `proposal-*.html` |
-| Personal data fields | `PersonalDataFieldsPageView` | `personal-data-field-*.html` |
-| Session fields | `SessionFieldsPageView` | `session-field-*.html` |
 | Time slots | `TimeSlotsPageView` | `time-slot*.html` |
 | Tracks | `TracksPageView` | `track-*.html` |
-| Venues / Areas / Spaces | `VenuesPageView` | `venue-*.html` |
-| Facilitators | `FacilitatorsPageView` | `facilitator-*.html` |
+| Venues (Space tree) | `SpacesPageView` + `Space*` CRUD | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -459,3 +524,38 @@ accounts.
   `MembershipApiClient` (`links/ticket_api.py`)
   — fetches enrollment quotas; Gravatar
   (`links/gravatar.py`) — email-hash avatar
+
+---
+
+## Subdomain → Models
+
+ORM models — currently in `adapters/db/django/models.py`,
+relocating to `links/db/django/` per refactor 4 — mapped
+to the subdomain that owns them. Subdomain-level only, no
+bounded-context breakdown.
+
+<!-- markdownlint-disable MD013 -->
+
+| Subdomain | Models |
+| --------- | ------ |
+| Crowd | `User` |
+| Multiverse | `Sphere`, `Connection` |
+| Notice Board | `Encounter`, `EncounterRSVP` |
+| Submissions | `Session`, `ProposalCategory`, `EventProposalSettings`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `HostPersonalData`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement` |
+| Chronology | `Event`, `EventSettings`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+
+<!-- markdownlint-enable MD013 -->
+
+Boundary notes:
+
+- `Session` is owned by Submissions (it creates and
+  updates the row) and read across the boundary by
+  Chronology. `AgendaItem`, `SessionParticipation` and
+  `ScheduleChangeLog` (Chronology) FK into `Session`;
+  `Session`'s M2Ms reference `TimeSlot` and `Track`
+  (Chronology).
+- Enrollment is Chronology: the `SessionParticipation`
+  and `*EnrollmentConfig` models, plus the enrollment
+  behaviour still living on the `Session` model.
+- `Tag` / `TagCategory` are slated for deletion and are
+  intentionally absent from this mapping.

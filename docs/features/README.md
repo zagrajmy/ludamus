@@ -7,10 +7,16 @@ describes a feature as one or more user stories.
 
 ```text
 docs/features/
-  README.md                          # this file
-  CHECKLIST.md                       # refinement triage list
-  <subdomain>/<context>/<name>.md    # a feature file
+  README.md                                 # this file
+  CHECKLIST.md                              # refinement triage list
+  drafts/<subdomain>/<context>/<name>.md    # status: draft
+  <subdomain>/<context>/<name>.md           # status: in-progress or done
 ```
+
+Files live under `drafts/` while their status is `draft`. The moment a
+feature is fired against, it moves out of `drafts/` into the matching
+path at the top level — `drafts/foo/bar/baz.md` becomes `foo/bar/baz.md`.
+This makes the status of every feature obvious from a directory listing.
 
 When a context folder grows enough that you can name the sub-clusters
 (e.g. "the read-side stuff", "the conflict-resolution stuff"), split it.
@@ -24,34 +30,41 @@ updated: YYYY-MM-DD
 
 # <Feature name>
 
-<Optional one-paragraph context.>
+## <Topic — a group of related stories>
 
-## As a <role>, I want <thing>, so that <reason>
+As a <role>, I want <thing>, so that <reason>
+
+- <acceptance criterion>
+- <acceptance criterion>
+
+As a <role>, I want <thing>, so that <reason>
 
 - <acceptance criterion>
 - <acceptance criterion>
 ```
 
 One file may contain multiple user stories tied to a shared concern.
-Status applies to the whole file: `done` only when all stories have landed.
+H2 names a topic, never a single story; a small file may have one H2
+holding several stories. Status applies to the whole file: `done` only
+when every story has landed.
+
+## Voice
+
+Stories describe what the user accomplishes, not how the system
+presents it. The same stories should hold if we rebuilt the app as
+iOS, desktop, or a shell command.
+
+- No UI elements, interface verbs, internal tech, model or field
+  names, or literal button text.
+- Every notable fact is a user story or it is dropped. No context
+  paragraphs, no motivation prose.
+- H2 groups related stories by topic, never labels a single story.
+- External systems appear only when the story is specifically about
+  that system.
 
 ## Status values
 
-- **draft** — written, not yet fired against.
-- **in-progress** — at least one bullet has been fired; not all stories landed.
-- **done** — every story landed. Ready to merge.
-
-`/tbd-fire` flips `draft` → `in-progress` automatically.
-`in-progress` → `done` is a manual judgment.
-
-## Workflow
-
-1. `/tbd-story` — write or refine a feature file.
-2. Split feature file if it's too big
-3. `/tbd-plan` — pick a story to fire; produce `.tbd/plan.md` (gitignored).
-4. Review the plan
-5. `/tbd-fire` — execute the plan end-to-end.
-6. Run all the checks and tests
-7. `/tbd-refine` — walk `CHECKLIST.md`; propose feature file edits.
-
-Repeat 2–5 per bullet.
+- **draft** — written, not yet fired against. Lives in `drafts/`.
+- **in-progress** — fired; refinement still pending. Lives at the
+  top level.
+- **done** — fired and refined. Lives at the top level.

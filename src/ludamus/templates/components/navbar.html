@@ -19,41 +19,36 @@
                     </span>
                 </a>
                 {% if current_sphere.enabled_pages|length > 1 %}
-                    {% with ns=request.resolver_match.namespace %}
-                        <div class="group hoverboard flex items-center gap-0.5">
-                            {% if "events" in current_sphere.enabled_pages %}
-                                <a href="{% url 'web:events' %}"
-                                   aria-current="{% if 'notice-board' not in ns %}page{% endif %}"
-                                   class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
-                                    {% translate "Events" %}
-                                </a>
-                            {% endif %}
-                            {% if "encounters" in current_sphere.enabled_pages %}
-                                <a aria-current="{% if 'notice-board' in ns %}page{% endif %}"
-                                   href="{% url 'web:notice-board:index' %}"
-                                   class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
-                                    {% translate "Encounters" %}
-                                </a>
-                            {% endif %}
-                        </div>
-                    {% endwith %}
+                    {% if request.resolver_match %}
+                        {% with ns=request.resolver_match.namespace %}
+                            {% include "components/navbar_pages.html" %}
+                        {% endwith %}
+                    {% else %}
+                        {% include "components/navbar_pages.html" with ns="" %}
+                    {% endif %}
                 {% endif %}
             </div>
-            <div class="flex items-center">
+            <div class="flex items-center gap-2 -translate-y-px">
                 {% if request.user.is_authenticated %}
+                    {% include "components/notifications.html" %}
                     <!-- User dropdown menu -->
-                    <div class="relative group">
+                    <div class="relative" data-menu>
                         <!-- Avatar trigger -->
                         <button type="button"
-                                class="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-all duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50"
-                                aria-haspopup="true"
-                                aria-expanded="false">
+                                data-menu-button
+                                aria-controls="navbar-profile-panel"
+                                aria-expanded="false"
+                                aria-label="{% translate "Account menu" %}"
+                                class="relative w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-shadow duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50 before:absolute before:-inset-1 before:content-['']">
                             {% include "components/avatar.html" with user=current_user_info size="size-10" %}
                         </button>
                         <!-- Dropdown panel -->
-                        <div class="absolute right-0 top-full pt-2 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-150 ease-out z-50">
+                        <div id="navbar-profile-panel"
+                             data-menu-panel
+                             hidden
+                             class="absolute right-0 top-full mt-2 z-50">
                             <div class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border"
-                                 style="box-shadow: var(--theme-shadow-lg)">
+                                 style="box-shadow: var(--shadow-elevated)">
                                 <!-- User info header -->
                                 <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border">
                                     <p class="text-sm font-medium truncate text-foreground-primary">{{ request.user.full_name|default:"User" }}</p>
@@ -72,7 +67,7 @@
                                     {% translate "Edit profile" %}
                                 </a>
                                 <a href="{% url 'web:crowd:auth0:logout' %}"
-                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-[var(--theme-border)]">
+                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-border">
                                     {% icon "arrow-right-on-rectangle" class="w-4 h-4 opacity-60" %}
                                     {% translate "Log out" %}
                                 </a>
@@ -80,7 +75,9 @@
                         </div>
                     </div>
                 {% else %}
-                    {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm" show_icon="" text="" %}
+                    <span class="inline-flex -translate-y-[.5px]">
+                        {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm" show_icon="" text="" %}
+                    </span>
                 {% endif %}
             </div>
         </div>

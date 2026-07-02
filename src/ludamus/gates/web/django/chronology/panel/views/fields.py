@@ -14,10 +14,18 @@ from django.contrib import messages
 from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from django import forms
     from django.http import QueryDict
 
     from ludamus.gates.web.django.chronology.panel.views.base import PanelRequest
+
+
+class _HasPk(Protocol):
+    """Anything carrying an integer primary key."""
+
+    pk: int
 
 
 class _FieldDTO(Protocol):
@@ -96,6 +104,31 @@ def parse_field_requirements(
             requirements[field_id] = value == "required"
     order_raw = post_data.get(order_key, "")
     order = [int(x) for x in order_raw.split(",") if x.strip()]
+    return requirements, order
+
+
+def scoped_requirements(
+    post_data: QueryDict, prefix: str, order_key: str, valid_items: Iterable[_HasPk]
+) -> tuple[dict[int, bool], list[int]]:
+    """Parse requirements and order from POST, dropping pks outside the event.
+
+    Wraps `parse_field_requirements` and keeps only the pks present in
+    `valid_items`, so a tampered request cannot link an event's category to
+    fields, session fields, time slots, or categories from another event.
+
+    Args:
+        post_data: The POST data from the request.
+        prefix: The field prefix (e.g. "field_", "session_field_").
+        order_key: The key for the order field (e.g. "field_order").
+        valid_items: DTOs whose pks are allowed (scoped to the current event).
+
+    Returns:
+        Tuple of (requirements, order) limited to pks present in valid_items.
+    """
+    valid_pks = {item.pk for item in valid_items}
+    requirements, order = parse_field_requirements(post_data, prefix, order_key)
+    requirements = {pk: req for pk, req in requirements.items() if pk in valid_pks}
+    order = [pk for pk in order if pk in valid_pks]
     return requirements, order
 
 

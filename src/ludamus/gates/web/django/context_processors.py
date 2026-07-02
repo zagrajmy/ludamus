@@ -10,7 +10,9 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
-    from ludamus.pacts import SiteDTO, SphereDTO, UserDTO
+    from ludamus.pacts import SiteDTO, SphereDTO
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.enrollment import NavbarNotificationsDTO
 
 
 class SitesContextData(TypedDict):
@@ -55,13 +57,16 @@ def support(request: HttpRequest) -> dict[str, str]:  # noqa: ARG001
 
 
 def static_version(request: HttpRequest) -> dict[str, str]:  # noqa: ARG001
-    return {"STATIC_VERSION": settings.STATIC_VERSION}
+    return {
+        "COMMIT_SHA": settings.COMMIT_SHA,
+        "STATIC_VERSION": settings.STATIC_VERSION,
+    }
 
 
 class CurrentUserContextData(TypedDict):
     current_user_info: NotRequired[UserInfo]
-    current_connected_users: list[UserInfo]
     current_user: UserDTO | None
+    navbar_notifications: NotRequired[NavbarNotificationsDTO]
 
 
 def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
@@ -71,7 +76,7 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
         or not hasattr(request, "di")
         or not request.context.current_user_slug
     ):
-        return CurrentUserContextData(current_user=None, current_connected_users=[])
+        return CurrentUserContextData(current_user=None)
 
     user_dto = request.di.uow.active_users.read(request.context.current_user_slug)
     return CurrentUserContextData(
@@ -79,10 +84,5 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
         current_user_info=UserInfo.from_user_dto(
             user_dto, gravatar_url=request.di.gravatar_url
         ),
-        current_connected_users=[
-            UserInfo.from_user_dto(u, gravatar_url=request.di.gravatar_url)
-            for u in request.di.uow.connected_users.read_all(
-                request.context.current_user_slug
-            )
-        ],
+        navbar_notifications=request.services.notifications.get_navbar(user_dto.pk),
     )

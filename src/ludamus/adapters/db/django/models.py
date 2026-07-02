@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import math
 import sys
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar, Never, cast
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.contrib.sites.models import Site
@@ -16,24 +16,61 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.pacts import (
+    OCCUPYING_PARTICIPATION_STATUSES,
+    NotificationKind,
+    PromotionMode,
     SessionParticipationStatus,
     SessionStatus,
     SpherePage,
-    UserType,
     VirtualEnrollmentConfig,
 )
-from ludamus.pacts.multiverse import ConnectionCheckStatus, ConnectionProvider
+from ludamus.pacts.crowd import UserType
+from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Iterator
 
-    from ludamus.pacts import EventDTO, UserDTO
+    from ludamus.pacts import EventDTO
+    from ludamus.pacts.crowd import UserDTO
 
 
 MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
+SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+
+
+_SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
+
+
+class AliveManager(models.Manager[_SoftDeleteT]):
+    # The default `objects` manager hides soft-deleted rows so every existing
+    # read (including reverse relations like `category.sessions`) excludes them
+    # automatically. Reach soft-deleted rows through `all_objects`.
+    def get_queryset(self) -> models.QuerySet[_SoftDeleteT]:
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class SoftDeleteModel(models.Model):
+    # Null `deleted_at` = alive; a timestamp = deleted (reversible). The default
+    # `objects` manager hides deleted rows; `all_objects` includes everything.
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    objects: ClassVar = AliveManager()
+    all_objects: ClassVar = models.Manager()
+
+    class Meta:
+        abstract = True
+
+    def soft_delete(self) -> None:
+        self.deleted_at = timezone.now()
+        self.save(update_fields=["deleted_at"])
+
+    def restore(self) -> None:
+        self.deleted_at = None
+        self.save(update_fields=["deleted_at"])
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -96,6 +133,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        through="Shadowban",
+        through_fields=("owner", "target"),
+        related_name="shadowbanned_by",
+        blank=True,
+    )
 
     objects = UserManager()
 
@@ -111,7 +156,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def initials(self) -> str:
-        """Return user initials (first letter of each word in name)."""
         name = self.name or self.username or ""
         return "".join(word[0].upper() for word in name.split() if word)[:2] or "?"
 
@@ -129,12 +173,55 @@ class User(AbstractBaseUser, PermissionsMixin):
         )
 
 
+class Shadowban(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shadowban"
+        constraints = (
+            models.CheckConstraint(
+                condition=~Q(owner=F("target")), name="shadowban_owner_not_target"
+            ),
+            models.UniqueConstraint(
+                fields=("owner", "target"), name="shadowban_unique_owner_target"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.owner_id} shadowbanned {self.target_id}"
+
+
+REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
+
+
+class EventBan(models.Model):
+    event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_ban"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_ban_unique_event_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} banned from event {self.event_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
+    # Branding fallback — used on printables when an event has no logo of its own
+    logo = models.ImageField(upload_to="spheres/", blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -144,12 +231,17 @@ class Sphere(models.Model):
         choices=[(p.value, p.name.title()) for p in SpherePage],
         default=SpherePage.EVENTS,
     )
+    allow_facilitator_session_edit = models.BooleanField(default=True)
 
     class Meta:
         db_table = "sphere"
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
 
 class Event(models.Model):
@@ -159,6 +251,9 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    cover_image = models.ImageField(upload_to="events/", blank=True)
+    # Branding — shown on printables (the public /print page)
+    logo = models.ImageField(upload_to="events/", blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -167,6 +262,13 @@ class Event(models.Model):
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
+    allow_facilitator_session_edit = models.BooleanField(
+        null=True, blank=True, default=None
+    )
+    use_session_cover_placeholders = models.BooleanField(default=False)
+    # When on, newly scheduled program items are confirmed immediately;
+    # turn off for a draft → confirm workflow on large events.
+    auto_confirm_sessions = models.BooleanField(default=True)
     # Filterable tag categories for session list
     filterable_tag_categories: models.ManyToManyField[TagCategory, Never] = (
         models.ManyToManyField(
@@ -197,6 +299,14 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def cover_image_url(self) -> str:
+        return self.cover_image.url if self.cover_image else ""
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
 
     @property
     def is_proposal_active(self) -> bool:
@@ -413,24 +523,20 @@ class DomainEnrollmentConfig(models.Model):
 
 
 class Space(models.Model):
-    """Bookable room/location within an area."""
+    """A node in the event's space tree (building → … → bookable room)."""
 
-    HIERARCHICAL_ORDER: ClassVar = (
-        "area__venue__order",
-        "area__venue__name",
-        "area__order",
-        "area__name",
-        "order",
-        "name",
+    # Owner - denormalized event so leaf->event is direct (no deep-chain walk)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="spaces")
+    # Tree - null parent = root node; nodes form the building->...->room hierarchy
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
-
-    # Owner - spaces belong to an area
-    area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="spaces")
     # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField(blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
     # Time
@@ -442,70 +548,78 @@ class Space(models.Model):
         ordering: ClassVar = ["order", "name"]
         constraints = (
             models.UniqueConstraint(
-                fields=("slug", "area"), name="space_has_unique_slug_and_area"
+                fields=("slug", "parent"), name="space_has_unique_slug_and_parent"
             ),
-        )
-
-    def __str__(self) -> str:
-        return f"{self.area.venue.name} > {self.area.name} > {self.name}"
-
-
-class Venue(models.Model):
-    """Physical location/building for an event."""
-
-    # Owner - venues belong to an event
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="venues")
-    # ID
-    name = models.CharField(max_length=255)
-    slug = models.SlugField()
-    # Details
-    address = models.TextField(blank=True, default="")
-    # Ordering
-    order = models.PositiveIntegerField(default=0)
-    # Time
-    creation_time = models.DateTimeField(auto_now_add=True)
-    modification_time = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "venue"
-        ordering: ClassVar = ["order", "name"]
-        constraints = (
+            # SQL treats NULL parents as distinct, so the constraint above can't
+            # police roots; a partial unique index enforces root slug uniqueness
+            # per event at the DB level (mirrors _validate_root_slug_unique).
             models.UniqueConstraint(
-                fields=("slug", "event"), name="venue_has_unique_slug_and_event"
+                fields=("event", "slug"),
+                condition=models.Q(parent__isnull=True),
+                name="space_root_has_unique_slug_per_event",
             ),
         )
 
     def __str__(self) -> str:
-        return self.name
+        # "Root > ... > Leaf" path, recursing up via str(parent). ponytail: lazy
+        # parent loads (one query per level) — fine for admin/debug __str__.
+        return f"{self.parent} > {self.name}" if self.parent else self.name
 
+    def iter_ancestors(self) -> Iterator[Space]:
+        if self.parent is not None:
+            yield self.parent
+            yield from self.parent.iter_ancestors()
 
-class Area(models.Model):
-    """Subdivision within a venue (floor, wing, section)."""
+    def clean(self) -> None:
+        super().clean()
+        self._validate_same_event()
+        self._validate_acyclic_and_depth()
+        self._validate_leaf_parent()
+        self._validate_root_slug_unique()
 
-    # Owner - areas belong to a venue
-    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="areas")
-    # ID
-    name = models.CharField(max_length=255)
-    slug = models.SlugField()
-    # Details
-    description = models.TextField(blank=True, default="")
-    # Ordering
-    order = models.PositiveIntegerField(default=0)
-    # Time
-    creation_time = models.DateTimeField(auto_now_add=True)
-    modification_time = models.DateTimeField(auto_now=True)
+    def _validate_same_event(self) -> None:
+        if self.parent is not None and self.parent.event_id != self.event_id:
+            raise ValidationError(_("A space must belong to its parent's event."))
 
-    class Meta:
-        db_table = "area"
-        ordering: ClassVar = ["order", "name"]
-        constraints = (
-            models.UniqueConstraint(
-                fields=("slug", "venue"), name="area_has_unique_slug_and_venue"
-            ),
+    def _validate_acyclic_and_depth(self) -> None:
+        # Climb the parent chain. Revisiting self is a cycle; exceeding the max
+        # depth (a runaway climb also implies a cycle) is rejected. Lazy
+        # iteration stops at the first violation, so a cycle never loops forever.
+        seen = {self.pk}
+        for depth, ancestor in enumerate(self.iter_ancestors(), start=2):
+            if ancestor.pk in seen:
+                raise ValidationError(_("A space cannot be its own ancestor."))
+            seen.add(ancestor.pk)
+            if depth > SPACE_MAX_DEPTH:
+                raise ValidationError(
+                    _("Spaces can be nested at most %(max)d levels deep.")
+                    % {"max": SPACE_MAX_DEPTH}
+                )
+
+    def _validate_leaf_parent(self) -> None:
+        # Attaching under a parent turns that parent into a branch; a branch
+        # cannot also hold a scheduled session.
+        if self.parent is not None and self.parent.agenda_items.exists():
+            raise ValidationError(
+                _("A space holding a scheduled session cannot contain other spaces.")
+            )
+
+    def _validate_root_slug_unique(self) -> None:
+        # The (slug, parent) DB constraint can't police roots (SQL treats NULL
+        # parents as distinct), so root slug uniqueness lives here.
+        if self.parent_id is not None:
+            return
+        clash = (
+            Space.objects.filter(
+                event_id=self.event_id, parent__isnull=True, slug=self.slug
+            )
+            .exclude(pk=self.pk)
+            .exists()
         )
-
-    def __str__(self) -> str:
-        return f"{self.venue.name} > {self.name}"
+        if clash:
+            raise ValidationError(
+                {"slug": _("A root space with this slug already exists.")}
+            )
 
 
 class TimeSlot(models.Model):
@@ -590,6 +704,13 @@ class Tag(models.Model):
         return self.name
 
 
+class AccreditationType(models.TextChoices):
+    NONE = "none", _("None")
+    STANDARD = "standard", _("Standard")
+    GUEST = "guest", _("Guest")
+    HONORARY = "honorary", _("Honorary")
+
+
 class Facilitator(models.Model):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -605,6 +726,9 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    accreditation_type = models.CharField(
+        max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
+    )
 
     class Meta:
         db_table = "facilitator"
@@ -620,12 +744,14 @@ class Facilitator(models.Model):
         return self.display_name
 
 
-class SessionManager(models.Manager["Session"]):
+class SessionManager(AliveManager["Session"]):
+    # Inherits the alive-only `get_queryset` from AliveManager so conflict
+    # checks (and the default `objects` accessor) skip soft-deleted sessions.
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return (
             self.get_queryset()
             .filter(
-                agenda_item__space__area__venue__event=session.agenda_item.space.area.venue.event,
+                event_id=session.event_id,
                 session_participations__user_id=user.pk,
                 session_participations__status=SessionParticipationStatus.CONFIRMED,
             )
@@ -644,12 +770,12 @@ class SessionManager(models.Manager["Session"]):
         )
 
 
-class Session(models.Model):
+class Session(SoftDeleteModel):
     """Session model."""
 
     # Owner
-    sphere = models.ForeignKey(
-        "Sphere", on_delete=models.CASCADE, related_name="sessions"
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="event_sessions"
     )
     presenter = models.ForeignKey(
         User,
@@ -675,6 +801,9 @@ class Session(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
+    # purge the stored file during hard garbage-collection of dead sessions.
+    cover_image = models.ImageField(upload_to="sessions/", blank=True)
     requirements = models.TextField(blank=True)
     needs = models.TextField(default="", blank=True)
     duration = models.CharField(
@@ -707,16 +836,17 @@ class Session(models.Model):
         "Track", blank=True, related_name="sessions"
     )
 
-    objects = SessionManager()
+    objects: ClassVar = SessionManager()
+    all_objects: ClassVar = models.Manager()
 
     class Meta:
         db_table = "session"
         constraints = (
             models.UniqueConstraint(
-                fields=["slug", "sphere"], name="session_unique_slug_in_sphere"
+                fields=["slug", "event"], name="session_unique_slug_in_event"
             ),
             models.CheckConstraint(
-                condition=Q(min_age__gte=0, min_age__lte=18),
+                condition=Q(min_age__gte=0, min_age__lte=80),
                 name="session_min_age_range",
             ),
         )
@@ -725,12 +855,18 @@ class Session(models.Model):
         return self.title
 
     @property
+    def cover_image_url(self) -> str:
+        return self.cover_image.url if self.cover_image else ""
+
+    @property
     def enrolled_count(self) -> int:
         # Use cached count if available from annotation, otherwise query
         if hasattr(self, "enrolled_count_cached"):
             return cast("int", self.enrolled_count_cached)
+        # CONFIRMED and OFFERED both hold a seat: an offered (but not yet
+        # claimed) seat must not be handed out twice.
         return self.session_participations.filter(
-            status=SessionParticipationStatus.CONFIRMED
+            status__in=OCCUPYING_PARTICIPATION_STATUSES
         ).count()
 
     @property
@@ -744,10 +880,9 @@ class Session(models.Model):
 
     @property
     def effective_participants_limit(self) -> int:
-        """Get effective participants limit considering enrollment config percentage."""
         if self.participants_limit == 0:
             return 0
-        event = self.agenda_item.space.area.venue.event
+        event = self.event
         if enrollment_config := event.get_most_liberal_config(self):
             return math.ceil(
                 self.participants_limit * enrollment_config.percentage_slots / 100
@@ -764,14 +899,11 @@ class Session(models.Model):
     @property
     def is_enrollment_available(self) -> bool:
         """Check if enrollment is available for this session under any active config."""
-        active_configs = (
-            self.agenda_item.space.area.venue.event.get_active_enrollment_configs()
-        )
+        active_configs = self.event.get_active_enrollment_configs()
         return any(config.is_session_eligible(self) for config in active_configs)
 
     @property
     def full_participant_info(self) -> str:  # pragma: no cover
-        """Get complete participant information display."""
         # TODO(@fancysnake): This is used in templates. Rewrite to pass static values
         # ZAG-16
         if self.effective_participants_limit == 0:
@@ -858,6 +990,20 @@ class ProposalCategory(models.Model):
     durations = models.JSONField(
         default=list
     )  # ISO 8601 durations, e.g. ["PT30M", "PT1H"]
+    # Waiting-list promotion behaviour for sessions in this category.
+    promotion_mode = models.CharField(
+        max_length=15,
+        choices=[(item.value, item.name) for item in PromotionMode],
+        default=PromotionMode.AUTO,
+        help_text=(
+            "How a freed seat is filled: AUTO promotes the next waiter straight"
+            " to confirmed; OFFER_CLAIM offers the seat for a bounded window."
+        ),
+    )
+    offer_claim_window = models.DurationField(
+        default=timedelta(hours=24),
+        help_text="How long an offered seat is held before it rolls to the next waiter",
+    )
 
     class Meta:
         db_table = "proposal_category"
@@ -888,6 +1034,18 @@ class SessionParticipation(models.Model):
         max_length=15,
         choices=[(item.value, item.name) for item in SessionParticipationStatus],
     )
+    # Offer lifecycle (offer-and-claim mode). An OFFERED seat is held until the
+    # offer is claimed or expires; a lapsed offer is terminal (the party is
+    # dropped). The claim token makes the claim flow login-free for anonymous
+    # waiters.
+    offered_at = models.DateTimeField(null=True, blank=True)
+    offer_expires_at = models.DateTimeField(null=True, blank=True)
+    # A whole party shares one secret token; the index serves the login-free
+    # claim lookup. Single-use is enforced by flipping status/claimed_at, not by
+    # a uniqueness constraint (so all of a party's rows can carry it). Empty for
+    # non-offered participations.
+    claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = (("session", "user"),)
@@ -895,6 +1053,47 @@ class SessionParticipation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.name} {self.status} on {self.session}"
+
+
+class Notification(models.Model):
+    """In-app notification for a single recipient.
+
+    Persistent, unlike flash messages. Surfaced in the navbar notifications
+    dropdown and counted for the unread badge. Small and generic enough for the
+    errata broadcast channel to reuse later.
+    """
+
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )
+    kind = models.CharField(
+        max_length=32, choices=[(item.value, item.name) for item in NotificationKind]
+    )
+    # Localised, ready-to-render copy plus structured refs (session/event ids,
+    # claim url, deadline). Rendered by the recipient's request, not at send.
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True, default="")
+    url = models.CharField(max_length=512, blank=True, default="")
+    payload = models.JSONField(default=dict, blank=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "notification"
+        ordering: ClassVar = ["-creation_time"]
+        indexes: ClassVar = [
+            # Cheap per-user unread-count query for the navbar badge.
+            models.Index(
+                fields=["recipient", "read_at"], name="notif_recipient_read_idx"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} for {self.recipient.name}"
+
+    @property
+    def is_read(self) -> bool:
+        return self.read_at is not None
 
 
 class PersonalDataFieldType(models.TextChoices):
@@ -1204,6 +1403,10 @@ class Encounter(models.Model):
     def __str__(self) -> str:
         return self.title
 
+    @property
+    def header_image_url(self) -> str:
+        return self.header_image.url if self.header_image else ""
+
 
 class EncounterRSVP(models.Model):
     encounter = models.ForeignKey(
@@ -1314,6 +1517,27 @@ class ScheduleChangeLog(models.Model):
         return f"{self.action} {self.session} by {self.user}"
 
 
+class ContentChangeLog(models.Model):
+    """Audit trail for session content edits."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="content_change_logs"
+    )
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="content_change_logs"
+    )
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=list)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "content_change_log"
+        ordering: ClassVar = ["-creation_time"]
+
+    def __str__(self) -> str:
+        return f"edit {self.session} by {self.user}"
+
+
 def can_enroll_users(
     *,
     users: list[UserDTO],
@@ -1321,12 +1545,12 @@ def can_enroll_users(
     virtual_config: VirtualEnrollmentConfig,
     users_to_enroll: list[UserDTO],
 ) -> bool:
-    # Get currently enrolled users
+    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
     currently_enrolled = set(
         SessionParticipation.objects.filter(
-            status=SessionParticipationStatus.CONFIRMED,
+            status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
-            session__agenda_item__space__area__venue__event_id=event.pk,
+            session__event_id=event.pk,
         )
         .values_list("user_id", flat=True)
         .distinct()
@@ -1340,12 +1564,12 @@ def can_enroll_users(
 
 
 def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
-    # Count unique users who have at least one confirmed enrollment
+    # Count unique users who hold at least one seat (confirmed or offered)
     return len(
         SessionParticipation.objects.filter(
-            status=SessionParticipationStatus.CONFIRMED,
+            status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
-            session__agenda_item__space__area__venue__event_id=event.pk,
+            session__event_id=event.pk,
         )
         .values_list("user", flat=True)
         .distinct()
@@ -1364,26 +1588,10 @@ class Connection(models.Model):
     sphere = models.ForeignKey(
         Sphere, on_delete=models.CASCADE, related_name="connections"
     )
-    service = models.CharField(
-        max_length=32,
-        choices=[(ConnectionProvider.GOOGLE.value, _("Google Forms + Sheets"))],
-    )
     display_name = models.CharField(max_length=255)
-    # Encrypted credentials. Write-only at the repo surface — the
-    # decrypt path is owned by the import-execution slice.
-    credentials = models.BinaryField(default=b"")
-    last_check_status = models.CharField(
-        max_length=32,
-        choices=[
-            (ConnectionCheckStatus.UNKNOWN.value, _("Not checked yet")),
-            (ConnectionCheckStatus.OK.value, _("OK")),
-            (ConnectionCheckStatus.AUTH_FAILED.value, _("Authentication failed")),
-            (ConnectionCheckStatus.NETWORK_ERROR.value, _("Network error")),
-        ],
-        default=ConnectionCheckStatus.UNKNOWN.value,
-    )
-    last_check_detail = models.TextField(default="", blank=True)
-    last_check_at = models.DateTimeField(null=True, blank=True)
+    # Encrypted secret. Write-only at the repo surface — the decrypt
+    # path is owned by the import-execution slice.
+    secret = models.BinaryField(default=b"")
 
     class Meta:
         db_table = "connection"
@@ -1399,9 +1607,128 @@ class Connection(models.Model):
         return self.display_name
 
     @property
-    def has_credentials(self) -> bool:
-        return bool(self.credentials)
+    def has_secret(self) -> bool:
+        return bool(self.secret)
 
-    @property
-    def last_check_label(self) -> str:
-        return str(self.get_last_check_status_display())
+
+class Discount(SoftDeleteModel):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="discounts")
+    facilitator = models.ForeignKey(
+        Facilitator, on_delete=models.CASCADE, related_name="discounts"
+    )
+    kind = models.CharField(
+        max_length=10, choices=[(k.value, k.name.title()) for k in DiscountKind]
+    )
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    note = models.CharField(max_length=255, blank=True, default="")
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "discount"
+        ordering = ("-creation_time",)
+        constraints = (
+            # Partial constraint: only alive (non-soft-deleted) rows count, so a
+            # fresh discount can be assigned after a prior one is soft-deleted
+            # without colliding with the dead row.
+            models.UniqueConstraint(
+                fields=("event", "facilitator"),
+                condition=Q(deleted_at__isnull=True),
+                name="discount_unique_alive_per_event_facilitator",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.facilitator} - {self.kind} {self.value}"
+
+
+class Announcement(models.Model):
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="announcements"
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    is_published = models.BooleanField(default=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "announcement"
+        ordering = ("-creation_time",)
+        indexes = (
+            models.Index(
+                fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class EventIntegration(models.Model):
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="integrations"
+    )
+    kind = models.CharField(max_length=32)
+    implementation = models.CharField(max_length=128)
+    connection = models.ForeignKey(
+        Connection, on_delete=models.PROTECT, related_name="event_integrations"
+    )
+    display_name = models.CharField(max_length=255)
+    config_json = models.TextField(default="{}")
+    settings_json = models.TextField(default="{}")
+    questions_snapshot_json = models.TextField(default="[]")
+
+    class Meta:
+        db_table = "event_integration"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "kind", "display_name"),
+                name="event_integration_unique_display_name",
+            ),
+        )
+        ordering = ("kind", "display_name")
+
+    def __str__(self) -> str:
+        return self.display_name
+
+
+class ImportLogEntry(models.Model):
+    integration = models.ForeignKey(
+        EventIntegration, on_delete=models.CASCADE, related_name="log_entries"
+    )
+    row_index = models.IntegerField()
+    status = models.CharField(
+        max_length=16, choices=[(s.value, s.value) for s in ImportLogStatus]
+    )
+    reason = models.TextField(blank=True, default="")
+    response_json = models.TextField(default="{}")
+    title = models.CharField(max_length=255, blank=True, default="")
+    display_name = models.CharField(max_length=255, blank=True, default="")
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="import_log_entries",
+    )
+    attempted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "import_log_entry"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("integration", "row_index"), name="ile_unique_integration_row"
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=("integration", "status", "-attempted_at"),
+                name="ile_int_status_at_idx",
+            ),
+            models.Index(fields=("session",), name="ile_session_idx"),
+        )
+        ordering = ("-attempted_at", "-pk")
+
+    def __str__(self) -> str:
+        return f"{self.integration_id}/{self.row_index} {self.status}"

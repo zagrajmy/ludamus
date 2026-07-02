@@ -15,6 +15,7 @@ def _shift_headings(html: str) -> str:
     def _sub(m: Match[str]) -> str:
         slash, level, attrs = m.group(1), int(m.group(2)), m.group(3) or ""
         return f"<{slash}h{min(level + 2, 6)}{'' if slash else attrs}>"
+
     return _HEADING_RE.sub(_sub, html)
 
 
@@ -22,4 +23,4 @@ def _shift_headings(html: str) -> str:
 def render_markdown(text: str) -> str:
     if not text:
         return ""
-    return mark_safe(_shift_headings(_render_markdown(text)))
+    return mark_safe(_shift_headings(_render_markdown(text)))  # noqa: S308

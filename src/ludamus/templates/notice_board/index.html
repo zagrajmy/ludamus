@@ -12,7 +12,7 @@
     <div id="encounters-info-banner" class="alert alert-info mb-6">
         <div class="flex items-start justify-between">
             <div class="flex items-start gap-3">
-                {% icon "information-circle" class="w-5 h-5 mt-0.5 flex-shrink-0 text-[var(--theme-info-base)]" %}
+                {% icon "information-circle" class="w-5 h-5 mt-0.5 flex-shrink-0 text-info" %}
                 <div class="text-sm">
                     <p class="font-medium text-foreground">{% translate "What are encounters?" %}</p>
                     <p class="mt-1">
@@ -73,19 +73,5 @@
             var banner = document.getElementById('encounters-info-banner');
             if (banner) banner.style.display = 'none';
         }
-
-        document.querySelectorAll('.encounter-copy-link').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var url = window.location.origin + btn.dataset.url;
-                var textEl = btn.querySelector('.encounter-copy-link-text');
-                navigator.clipboard.writeText(url).then(function() {
-                    var orig = textEl.textContent;
-                    textEl.textContent = btn.dataset.copiedText;
-                    setTimeout(function() {
-                        textEl.textContent = orig;
-                    }, 2000);
-                });
-            });
-        });
     </script>
 {% endblock extra_scripts %}

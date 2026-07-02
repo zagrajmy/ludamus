@@ -1,10 +1,9 @@
-"""Fernet adapter for the `EncryptorProtocol` port.
+"""Fernet adapters for the `EncryptorProtocol` and `DecryptorProtocol` ports.
 
 Lives in ``links/`` as the cipher adapter — interchangeable with future
-adapters (KMS, AES-GCM) behind the same port. Key passed in by the
-caller; no Django/settings coupling. The persisted blob is write-only at
-the repo surface: this module exposes ``encrypt`` only. The decrypt path
-is owned by the import-execution slice with separate key handling.
+adapters (KMS, AES-GCM) behind the same ports. Key passed in by the
+caller; no Django/settings coupling. Encrypt and decrypt are split into
+separate classes so each consumer is granted only the half it needs.
 """
 
 from cryptography.fernet import Fernet
@@ -16,3 +15,11 @@ class FernetEncryptor:
 
     def encrypt(self, plaintext: bytes) -> bytes:
         return self._fernet.encrypt(plaintext)
+
+
+class FernetDecryptor:
+    def __init__(self, key: str | bytes) -> None:
+        self._fernet = Fernet(key.encode() if isinstance(key, str) else key)
+
+    def decrypt(self, blob: bytes) -> bytes:
+        return self._fernet.decrypt(blob)

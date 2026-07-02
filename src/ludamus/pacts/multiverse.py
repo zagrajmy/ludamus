@@ -50,7 +50,9 @@ class AnnouncementsRepositoryProtocol(Protocol):
     @staticmethod
     def create(sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
     @staticmethod
-    def update(sphere_id: int, pk: int, *, data: AnnouncementData) -> AnnouncementDTO: ...
+    def update(
+        sphere_id: int, pk: int, *, data: AnnouncementData
+    ) -> AnnouncementDTO: ...
     @staticmethod
     def delete(sphere_id: int, pk: int) -> None: ...
 
@@ -61,7 +63,7 @@ class AnnouncementsServiceProtocol(Protocol):
     def get(self, sphere_id: int, pk: int) -> AnnouncementDTO: ...
     def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
     def update(
-        self, sphere_id: int, pk: int, data: AnnouncementData
+        self, sphere_id: int, pk: int, *, data: AnnouncementData
     ) -> AnnouncementDTO: ...
     def delete(self, sphere_id: int, pk: int) -> None: ...
 
@@ -104,16 +106,32 @@ class ConnectionsServiceProtocol(Protocol):
     def list_for_sphere(self, sphere_id: int) -> list[ConnectionDTO]: ...
     def get(self, sphere_id: int, pk: int) -> ConnectionDTO: ...
     def create(
-        self, sphere_id: int, display_name: str, secret_plaintext: bytes | None = None
+        self,
+        sphere_id: int,
+        *,
+        display_name: str,
+        secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO: ...
     def update(
         self,
         sphere_id: int,
         pk: int,
+        *,
         display_name: str,
         secret_plaintext: bytes | None = None,
     ) -> ConnectionDTO: ...
     def delete(self, sphere_id: int, pk: int) -> None: ...
+
+
+class SphereListItemDTO(BaseModel):
+    pk: int
+    name: str
+    domain: str
+
+
+class SphereDirectoryRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_all() -> list[SphereListItemDTO]: ...
 
 
 class EventsServiceProtocol(Protocol):
@@ -138,3 +156,4 @@ class SpherePanelServiceProtocol(Protocol):
 
 class SitesServiceProtocol(Protocol):
     def read_site(self, sphere_id: int) -> SiteDTO: ...
+    def list_spheres(self) -> list[SphereListItemDTO]: ...

@@ -3,7 +3,7 @@
 {# Encounter card component #}
 {# Required: 'encounter', 'rsvp_count', 'is_mine' #}
 {# Optional: 'variant' ("past"), 'organizer_name' #}
-<div class="card flex flex-col {% if variant == 'past' %}opacity-60{% endif %} {% if is_mine %}border-[var(--theme-primary)]{% endif %}">
+<div class="card flex flex-col {% if variant == 'past' %}opacity-60{% endif %} {% if is_mine %}border-primary{% endif %}">
     <a href="{% url 'web:notice-board:encounter-detail' share_code=encounter.share_code %}"
        class="block p-4 hover:bg-bg-tertiary transition-colors flex-1 {% if is_mine %}rounded-t-2xl{% else %}rounded-2xl{% endif %}">
         <div class="flex items-start justify-between gap-2 mb-1">
@@ -41,12 +41,11 @@
         </div>
     </a>
     {% if is_mine %}
-        <button type="button"
-                class="encounter-copy-link btn btn-secondary w-full text-sm"
-                data-url="/e/{{ encounter.share_code }}/"
-                data-copied-text="{% translate "Copied!" %}">
-            {% icon "link" class="h-4 w-4 flex-shrink-0" %}
-            <span class="encounter-copy-link-text truncate">/e/{{ encounter.share_code }}/</span>
-        </button>
+        {% with share_path="/e/"|add:encounter.share_code|add:"/" %}
+            {% tessera_copy share_path origin=True %}
+                {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
+                <span class="truncate">{{ share_path }}</span>
+            {% endtessera_copy %}
+        {% endwith %}
     {% endif %}
 </div>

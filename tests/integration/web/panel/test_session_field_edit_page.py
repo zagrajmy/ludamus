@@ -4,8 +4,13 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import SessionField, SessionFieldOption
+from ludamus.adapters.db.django.models import (
+    SessionField,
+    SessionFieldOption,
+    SessionFieldRequirement,
+)
 from ludamus.pacts import EventDTO
+from tests.integration.conftest import ProposalCategoryFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -181,6 +186,35 @@ class TestSessionFieldEditPageView:
         )
         field.refresh_from_db()
         assert field.name == "RPG System"
+
+    def test_post_drops_category_from_another_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        """A category pk from another event is not linked on edit."""
+        sphere.managers.add(active_user)
+        field = SessionField.objects.create(
+            event=event, name="Genre", question="What genre?", slug="genre"
+        )
+        foreign_category = ProposalCategoryFactory(name="Workshop")  # different event
+
+        response = authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Genre",
+                "question": "What genre?",
+                f"category_{foreign_category.pk}": "required",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/session-fields/",
+        )
+        assert not SessionFieldRequirement.objects.filter(
+            field=field, category=foreign_category
+        ).exists()
 
     def test_post_updates_slug_on_name_change(
         self, authenticated_client, active_user, sphere, event

@@ -9,6 +9,13 @@
 !scripts/**
 !src/
 !tasks.toml
+# aube workspace manifests + lockfile for reproducible frontend installs
+!package.json
+!aube-workspace.yaml
+!aube-lock.yaml
+!tests/e2e/package.json
+# npmrc carries fetch-retry settings that harden the frontend install
+!.npmrc
 
 # But still ignore these even if they're in allowed directories
 **/__pycache__/

@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
+        EventProposalSettingsDTO,
         PersonalDataFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
@@ -438,7 +439,7 @@ def _render_details(
     )
 
 
-def _render_review(  # noqa: PLR0913
+def _render_review(
     *,
     request: RootRequest,
     service: ProposeSessionService,

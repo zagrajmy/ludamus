@@ -1,0 +1,51 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% if node %}
+        {% translate "Edit space" %}
+    {% else %}
+        {% translate "New space" %}
+    {% endif %}
+    -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% if node %}
+        {% translate "Edit space" %}
+    {% else %}
+        {% translate "New space" %}
+    {% endif %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }}
+        {% if parent %}
+            · {% blocktranslate with name=parent.name %}inside {{ name }}{% endblocktranslate %}
+        {% endif %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    {% if current_event %}
+        <div class="card max-w-xl p-6">
+            <form method="post"
+                  action=""
+                  class="space-y-4"
+                  onsubmit="this.querySelector('button[type=submit]').disabled = true">
+                {% csrf_token %}
+                {% tessera_form form %}
+                <div class="flex justify-end gap-2 border-t border-border pt-4">
+                    {% url 'panel:venues' slug=current_event.slug as cancel_url %}
+                    {% translate "Cancel" as t_cancel %}
+                    {% tessera_button t_cancel href=cancel_url button_type="button" variant="secondary" %}
+                    {% if node %}
+                        {% translate "Save" as t_save %}
+                        {% tessera_button t_save %}
+                    {% else %}
+                        {% translate "Create space" as t_create %}
+                        {% tessera_button t_create %}
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    {% endif %}
+{% endblock content %}

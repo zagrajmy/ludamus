@@ -1,0 +1,18 @@
+{% load i18n %}
+{% load tessera %}
+{# Info popover. Args: title (string), body (string). #}
+{# JS-off: click summary to toggle. JS-on: opens on hover after 100ms, closes after 200ms (see info-popover.ts). #}
+<details data-info-popover class="relative flex">
+    {# ludamus-disable:no-negative-margin -- p-1 + -m-1 expands the icon's tap target without inflating the inline layout footprint #}
+    <summary class="list-none cursor-pointer text-foreground-muted/70 hover:text-foreground-muted inline-flex p-1 -m-1 rounded-md focus-visible:outline-2 focus-visible:outline-primary"
+             aria-label="{{ title }}"
+             title="{{ title }}">{% icon "information-circle" class="w-5 h-5" %}</summary>
+    {# Outer wrapper sits flush against the summary (top-full, no margin) with pt-2 hover-active padding, #}
+    {# so the cursor can cross the visual gap without losing hover (the "safe triangle"). #}
+    <div class="absolute left-0 top-full w-80 z-30 pt-2">
+        <div class="card p-4 shadow-lg">
+            <p class="text-sm font-medium text-foreground">{{ title }}</p>
+            <p class="text-sm mt-1 text-foreground-secondary">{{ body }}</p>
+        </div>
+    </div>
+</details>

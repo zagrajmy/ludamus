@@ -23,7 +23,8 @@ from ludamus.pacts import NotFoundError, TrackCreateData, TrackUpdateData
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import SpaceDTO, UserDTO
+    from ludamus.pacts import SpaceDTO
+    from ludamus.pacts.crowd import UserDTO
 
 
 def _track_get_choices(
@@ -32,6 +33,17 @@ def _track_get_choices(
     spaces = request.di.uow.spaces.list_by_event(event_pk)
     managers = request.di.uow.spheres.list_managers(sphere_id)
     return spaces, managers
+
+
+def _scoped_pks(request: PanelRequest, field: str, valid_pks: set[int]) -> list[int]:
+    """Keep only the submitted pks that belong to the event/sphere.
+
+    Returns:
+        The intersection of the submitted ``field`` pks with ``valid_pks``,
+        dropping any id that points outside the current event or sphere.
+    """
+    submitted = {int(pk) for pk in request.POST.getlist(field) if pk.isdigit()}
+    return list(submitted & valid_pks)
 
 
 class TracksPageView(PanelAccessMixin, EventContextMixin, View):
@@ -98,16 +110,12 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 name=form.cleaned_data["name"],
                 is_public=form.cleaned_data.get("is_public", True),
-                space_pks=[
-                    int(pk)
-                    for pk in self.request.POST.getlist("space_pks")
-                    if pk.isdigit()
-                ],
-                manager_pks=[
-                    int(pk)
-                    for pk in self.request.POST.getlist("manager_pks")
-                    if pk.isdigit()
-                ],
+                space_pks=_scoped_pks(
+                    self.request, "space_pks", {s.pk for s in spaces}
+                ),
+                manager_pks=_scoped_pks(
+                    self.request, "manager_pks", {m.pk for m in managers}
+                ),
             )
         )
         messages.success(self.request, _("Track created successfully."))
@@ -182,19 +190,17 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
             ]
             return TemplateResponse(self.request, "panel/track-edit.html", context)
 
-        space_pks = [
-            int(pk) for pk in self.request.POST.getlist("space_pks") if pk.isdigit()
-        ]
-        manager_pks = [
-            int(pk) for pk in self.request.POST.getlist("manager_pks") if pk.isdigit()
-        ]
         self.request.di.uow.tracks.update(
             track.pk,
             TrackUpdateData(
                 name=form.cleaned_data["name"],
                 is_public=form.cleaned_data.get("is_public", False),
-                space_pks=space_pks,
-                manager_pks=manager_pks,
+                space_pks=_scoped_pks(
+                    self.request, "space_pks", {s.pk for s in spaces}
+                ),
+                manager_pks=_scoped_pks(
+                    self.request, "manager_pks", {m.pk for m in managers}
+                ),
             ),
         )
 

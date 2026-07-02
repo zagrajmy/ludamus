@@ -10,8 +10,14 @@ x-app-build: &app-build
 
 x-app-defaults: &app-defaults
   <<: *app-build
+  # Container env comes from .env.local, materialized on the CI runner from
+  # GitHub Environment vars/secrets and scp'd to the host. The deploy
+  # validates it with varlock against .env.schema before upload, so the
+  # compose CLI here just reads the file — no varlock/node on the host.
+  # PYTHONPATH is intentionally absent: it is an image concern, set by
+  # ENV PYTHONPATH=src in docker/Dockerfile.
   env_file:
-    - ../../.env
+    - ../../.env.local
   environment:
     GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-1}
   networks:
@@ -84,6 +90,7 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - logs_volume:/app/logs
     ports:
       - '127.0.0.1:${WEB_PORT:-8000}:8000'
     restart: always
@@ -122,3 +129,8 @@ volumes:
       type: none
       o: bind
       device: ${MEDIA_DATA_PATH:-/var/lib/ludamus/media}
+  # Docker-managed (not a host bind): survives deploys/recreation, needs no
+  # pre-existing host dir or *_DATA_PATH var. Holds filemail email capture
+  # (EMAIL_URL=filemail:///app/logs/emails) until SMTP/Resend replaces it.
+  logs_volume:
+    driver: local

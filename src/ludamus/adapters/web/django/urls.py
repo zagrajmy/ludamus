@@ -10,6 +10,7 @@ from ludamus.gates.web.django.notice_board.urls import (
 )
 
 from . import views
+from .print_views import PublicEventPrintView
 
 app_name = "web"  # pylint: disable=invalid-name
 
@@ -39,6 +40,11 @@ crowd_urls: list[URLPattern | URLResolver] = [
         "profile/avatar/", views.ProfileAvatarPageView.as_view(), name="profile-avatar"
     ),
     path(
+        "profile/shadowbans/",
+        views.ProfileShadowbanPageView.as_view(),
+        name="profile-shadowbans",
+    ),
+    path(
         "profile/connected-users/",
         views.ProfileConnectedUsersPageView.as_view(),
         name="profile-connected-users",
@@ -53,23 +59,19 @@ crowd_urls: list[URLPattern | URLResolver] = [
         views.ProfileConnectedUserDeleteActionView.as_view(),
         name="profile-connected-users-delete",
     ),
-    path(
-        "user/<slug:user_slug>/parts/discord-username",
-        views.UserDiscordUsernameComponentView.as_view(),
-        name="user-discord-username",
-    ),
 ]
 
 chronology_urls = [
     *chronology_gate_urls,
     path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
+    path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
     path(
-        "session/<int:session_id>/enrollment/",
+        "event/<str:event_slug>/session/<int:session_id>/enrollment/",
         views.SessionEnrollPageView.as_view(),
         name="session-enrollment",
     ),
     path(
-        "session/<int:session_id>/accept/",
+        "event/<str:event_slug>/session/<int:session_id>/accept/",
         views.ProposalAcceptPageView.as_view(),
         name="session-accept",
     ),
@@ -79,9 +81,14 @@ chronology_urls = [
         name="event-anonymous-activate",
     ),
     path(
-        "session/<int:session_id>/enrollment/anonymous",
+        "event/<str:event_slug>/session/<int:session_id>/enrollment/anonymous",
         views.SessionEnrollmentAnonymousPageView.as_view(),
         name="session-enrollment-anonymous",
+    ),
+    path(
+        "offer/<str:token>/claim/",
+        views.SessionOfferClaimView.as_view(),
+        name="offer-claim",
     ),
     path(
         "anonymous/do/load",
@@ -98,7 +105,13 @@ chronology_urls = [
 urlpatterns = [
     path("", views.IndexRedirectView.as_view(), name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
+    path(
+        "notifications/do/mark-read",
+        views.NotificationsMarkReadView.as_view(),
+        name="notifications-mark-read",
+    ),
     path("design/", views.DesignPageView.as_view(), name="design"),
+    path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
     path(
         "design/tailwind/",
         TemplateView.as_view(template_name="design_tailwind.html"),

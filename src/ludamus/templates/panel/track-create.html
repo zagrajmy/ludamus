@@ -35,7 +35,7 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Track Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-2"
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_name">{% translate "Name" context "place" %}</label>
                             <input type="text"
                                    name="name"
@@ -60,7 +60,7 @@
                         </div>
                         {% if spaces %}
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-2">{% translate "Spaces" %}</label>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Spaces" %}</label>
                                 <div class="border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
                                     {% for space in spaces %}
                                         <label class="flex items-center gap-2 py-1 cursor-pointer">
@@ -77,7 +77,7 @@
                         {% endif %}
                         {% if managers %}
                             <div>
-                                <label class="block text-sm font-medium text-foreground-secondary mb-2">{% translate "Managers" %}</label>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "Managers" %}</label>
                                 <div class="border border-border rounded-lg p-3 max-h-48 overflow-y-auto">
                                     {% for manager in managers %}
                                         <label class="flex items-center gap-2 py-1 cursor-pointer">

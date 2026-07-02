@@ -22,7 +22,7 @@ from ludamus.pacts import (
     SessionFieldDTO,
     TimeSlotDTO,
 )
-from tests.integration.conftest import SessionFactory, UserFactory
+from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -617,6 +617,53 @@ class TestCFPEditPageView:
                 "proposal_count": 0,
             },
         )
+
+    def test_post_drops_requirement_pks_from_another_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        """Field/session-field/time-slot pks from another event are not linked."""
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+        other_event = EventFactory(sphere=sphere)
+        foreign_field = PersonalDataField.objects.create(
+            event=other_event, name="Email", question="?", slug="email"
+        )
+        foreign_session_field = SessionField.objects.create(
+            event=other_event, name="Genre", question="?", slug="genre"
+        )
+        foreign_slot = TimeSlot.objects.create(
+            event=other_event,
+            start_time=other_event.start_time,
+            end_time=other_event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, category),
+            data={
+                "name": "RPG Sessions",
+                f"field_{foreign_field.pk}": "required",
+                f"session_field_{foreign_session_field.pk}": "required",
+                f"time_slot_{foreign_slot.pk}": "required",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        assert not PersonalDataFieldRequirement.objects.filter(
+            category=category, field=foreign_field
+        ).exists()
+        assert not SessionFieldRequirement.objects.filter(
+            category=category, field=foreign_session_field
+        ).exists()
+        assert not TimeSlotRequirement.objects.filter(
+            category=category, time_slot=foreign_slot
+        ).exists()
 
     def test_post_saves_field_requirement_as_required(
         self, authenticated_client, active_user, sphere, event
@@ -1852,9 +1899,9 @@ class TestCFPEditPageView:
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
 
         response = authenticated_client.get(self.get_url(event, category))
 
@@ -1901,9 +1948,9 @@ class TestCFPEditPageView:
         other_category = ProposalCategory.objects.create(
             event=event, name="Workshops", slug="workshops"
         )
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=other_category, sphere=sphere, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=other_category, status="pending")
 
         response = authenticated_client.get(self.get_url(event, category))
 
@@ -1961,7 +2008,7 @@ class TestCFPEditPageView:
         HostPersonalData.objects.create(
             user=host, event=event, field=email_field, value="host@example.com"
         )
-        SessionFactory.create(category=category, presenter=host, sphere=event.sphere)
+        SessionFactory.create(category=category, presenter=host)
 
         # Action: remove the field requirement (don't include it in POST)
         authenticated_client.post(
@@ -1990,7 +2037,7 @@ class TestCFPEditPageView:
         )
         # Setup: existing proposal without the field requirement
         host = UserFactory.create()
-        SessionFactory.create(category=category, presenter=host, sphere=event.sphere)
+        SessionFactory.create(category=category, presenter=host)
         assert not HostPersonalData.objects.filter(
             user=host, event=event, field=email_field
         ).exists()

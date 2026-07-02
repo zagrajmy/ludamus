@@ -31,10 +31,10 @@
   }
 
   .timetable-column.assign-mode-active::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
-    background: rgb(var(--theme-primary-rgb) / 0.08);
+    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
     pointer-events: none;
     z-index: 5;
   }

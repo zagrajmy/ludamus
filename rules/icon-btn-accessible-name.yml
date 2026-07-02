@@ -1,0 +1,25 @@
+id: icon-btn-accessible-name
+language: html
+severity: warning
+rule:
+  kind: element
+  all:
+    - has:
+        kind: start_tag
+        has:
+          kind: attribute
+          regex: 'class="[^"]*icon-btn'
+    - not:
+        has:
+          regex: 'sr-only|aria-label|aria-labelledby|title='
+          stopBy: end
+message: |
+  Icon-only button needs an accessible name.
+  An .icon-btn renders only an icon, so screen readers have nothing to announce.
+  Give it a visible-to-AT label the way every other .icon-btn does:
+    <button type="button" class="icon-btn icon-btn-danger">
+      {% icon "trash" class="w-3.5 h-3.5" %}
+      <span class="sr-only">{% translate "Delete" %}</span>
+    </button>
+  An aria-label="..." (also translated) is acceptable when a child span doesn't
+  fit. See .claude/skills/product-design/references/patterns.md.

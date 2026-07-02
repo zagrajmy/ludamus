@@ -107,13 +107,13 @@
                     </div>
                 {% endif %}
                 {# Fix 4 — Spots with visual weight #}
-                <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-[var(--theme-danger-bg)]{% elif spots_remaining == 1 %}bg-[var(--theme-warning-bg)]{% else %}bg-bg-tertiary{% endif %}">
-                    <span class="{% if is_full %}text-[var(--theme-danger-base)]{% elif spots_remaining == 1 %}text-[var(--theme-warning-text)]{% else %}text-primary{% endif %}">
+                <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-danger-bg{% elif spots_remaining == 1 %}bg-warning-bg{% else %}bg-bg-tertiary{% endif %}">
+                    <span class="{% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-primary{% endif %}">
                         {% icon "users" class="h-5 w-5" %}
                     </span>
                     <div>
                         <div class="text-xs text-foreground-secondary uppercase tracking-wide">{% translate "Spots" %}</div>
-                        <div class="font-semibold {% if is_full %}text-[var(--theme-danger-base)]{% elif spots_remaining == 1 %}text-[var(--theme-warning-text)]{% else %}text-foreground{% endif %}">
+                        <div class="font-semibold {% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-foreground{% endif %}">
                             {% if encounter.max_participants > 0 %}
                                 {% if is_full %}
                                     {% translate "No spots left" %}
@@ -194,13 +194,9 @@
                         <div>
                             <div class="font-medium text-foreground">{{ creator.full_name|default:creator.name }}</div>
                             {% if creator.discord_username %}
-                                <button class="btn btn-secondary text-xs mt-1"
-                                        hx-get="{% url 'web:crowd:user-discord-username' user_slug=creator.slug %}"
-                                        hx-swap="outerHTML"
-                                        hx-trigger="click once">
-                                    {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %}
-                                    {% translate "Show Discord" %}
-                                </button>
+                                <div class="mt-1">
+                                    {% include "crowd/user/parts/discord_username.html" with discord_username=creator.discord_username %}
+                                </div>
                             {% endif %}
                         </div>
                     </div>
@@ -246,13 +242,6 @@
                          height="240"
                          class="rounded-lg">
                 </dialog>
-                <input type="hidden" id="share-url" value="{{ share_url }}">
-                <div id="share-info-data"
-                     data-title="{{ encounter.title }}{% if encounter.game %} — {{ encounter.game }}{% endif %}"
-                     data-time="{{ encounter.start_time|date:'DATE_FORMAT' }}, {{ encounter.start_time|time:'TIME_FORMAT' }}"
-                     data-place="{{ encounter.place }}"
-                     data-url="{{ share_url }}"
-                     class="hidden"></div>
             {% endif %}
         </div>
     </div>
@@ -316,33 +305,9 @@
             }
         });
         (function() {
-            var shareUrl = document.getElementById('share-url');
-            var shareData = document.getElementById('share-info-data');
-
-            document.querySelectorAll('.copy-link-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    if (!shareUrl) return;
-                    navigator.clipboard.writeText(shareUrl.value).then(function() {
-                        var orig = btn.textContent;
-                        btn.textContent = btn.dataset.copiedText;
-                        setTimeout(function() {
-                            btn.textContent = orig;
-                        }, 2000);
-                    });
-                    closeAllMenus();
-                });
-            });
-            document.querySelectorAll('.copy-info-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    if (!shareData) return;
-                    var d = shareData.dataset;
-                    var lines = [d.title, d.time];
-                    if (d.place) lines.push(d.place);
-                    lines.push(d.url);
-                    navigator.clipboard.writeText(lines.join('\n'));
-                    closeAllMenus();
-                });
-            });
+            // Copying itself is handled by copy.ts ([data-copy]); the share menu
+            // stays open so the "Copied!" popover is visible, and click-outside
+            // still closes it.
             document.querySelectorAll('.show-qr-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     document.getElementById('qr-modal').showModal();
@@ -372,15 +337,20 @@
                     if (prompt) prompt.classList.remove('hidden');
                 });
             });
-            document.querySelectorAll('.rsvp-copy-details').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var d = btn.dataset;
-                    var lines = [d.title, d.time];
-                    if (d.place) lines.push(d.place);
-                    lines.push(d.url);
-                    navigator.clipboard.writeText(lines.join('\n'));
-                    collapseSavePrompt(btn.closest('.card'));
-                });
+            // Copying is handled by copy.ts, which reveals the popover only on a
+            // successful write and hides it again when the feedback is done.
+            // Collapse the save prompt at that hide — so never on a failed copy,
+            // and without duplicating copy.ts's timing here. One observer per
+            // popover, attached up front like the other prompt wiring, so
+            // repeated clicks can't stack observers (#476). data-show only ever
+            // mutates on success, and its removal marks the feedback's end.
+            document.querySelectorAll('.rsvp-save-prompt [data-copy] [data-copy-popover]').forEach(function(popover) {
+                var card = popover.closest('.card');
+                new MutationObserver(function() {
+                    if (popover.dataset.show === undefined) {
+                        collapseSavePrompt(card);
+                    }
+                }).observe(popover, { attributes: true, attributeFilter: ['data-show'] });
             });
             document.querySelectorAll('.calendar-menu a').forEach(function(link) {
                 link.addEventListener('click', function() {

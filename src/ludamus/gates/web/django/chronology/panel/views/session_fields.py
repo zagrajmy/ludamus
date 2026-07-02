@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_field_form_data,
     parse_field_requirements,
     read_field_or_redirect,
+    scoped_requirements,
 )
 from ludamus.gates.web.django.forms import SessionFieldForm
 from ludamus.mills import PanelService
@@ -126,8 +127,11 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, {**parsed, "icon": form.cleaned_data.get("icon") or ""}
         )
 
-        category_requirements, _order = parse_field_requirements(
-            self.request.POST, "category_", "category_order"
+        category_requirements, _order = scoped_requirements(
+            self.request.POST,
+            "category_",
+            "category_order",
+            self.request.di.uow.proposal_categories.list_by_event(current_event.pk),
         )
         if category_requirements:
             self.request.di.uow.proposal_categories.add_session_field_to_categories(
@@ -243,8 +247,11 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         options: list[str] | None = None
         if field.field_type == "select":
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
-        cat_reqs, _order = parse_field_requirements(
-            self.request.POST, "category_", "category_order"
+        cat_reqs, _order = scoped_requirements(
+            self.request.POST,
+            "category_",
+            "category_order",
+            self.request.di.uow.proposal_categories.list_by_event(current_event.pk),
         )
         with self.request.di.uow.atomic():
             self.request.di.uow.session_fields.update(

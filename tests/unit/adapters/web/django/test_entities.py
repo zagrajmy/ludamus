@@ -105,56 +105,22 @@ class TestSessionDataWaitingCount:
         assert data.waiting_count == waiting
 
 
-def _loc(venue_name=None, area_name=None, space_name=None):
-    """Build a LocationData dict with optional name stubs.
-
-    Returns:
-        A dict matching the LocationData shape.
-    """
-    if venue := MagicMock(name="venue_stub") if venue_name else None:
-        venue.name = venue_name
-    if area := MagicMock(name="area_stub") if area_name else None:
-        area.name = area_name
-    if space := MagicMock(name="space_stub") if space_name else None:
-        space.name = space_name
-    return {"venue": venue, "area": area, "space": space}
+def _loc(path="", parent_slug="", parent_name="", space_name=""):
+    return {
+        "space_name": space_name,
+        "parent_slug": parent_slug,
+        "parent_name": parent_name,
+        "path": path,
+    }
 
 
 class TestSessionDataLocationLabel:
-    def test_all_real_names(self):
-        data = _make_session_data(loc=_loc("Hotel Mariot", "Sala A", "Stół 1"))
+    def test_returns_full_tree_path(self):
+        data = _make_session_data(loc=_loc(path="Hotel Mariot > Sala A > Stół 1"))
 
-        assert data.location_label == "Hotel Mariot, Sala A, Stół 1"
+        assert data.location_label == "Hotel Mariot > Sala A > Stół 1"
 
-    def test_default_names_are_kept(self):
-        data = _make_session_data(
-            loc=_loc("Default Venue", "Default Area", "Stół nr 3")
-        )
-
-        assert data.location_label == "Default Venue, Default Area, Stół nr 3"
-
-    def test_all_segments_present(self):
-        data = _make_session_data(loc=_loc("Default Venue", "Piętro 2", "Stół 5"))
-        assert data.location_label == "Default Venue, Piętro 2, Stół 5"
-
-    def test_none_venue_and_area(self):
-        data = _make_session_data(loc=_loc(space_name="Stół 1"))
-
-        assert data.location_label == "Stół 1"
-
-    def test_only_venue(self):
-        data = _make_session_data(loc=_loc(venue_name="Hotel Mariot"))
-
-        assert data.location_label == "Hotel Mariot"
-
-    def test_all_names_present_returns_all(self):
-        data = _make_session_data(
-            loc=_loc("Default Venue", "Default Area", "Default Space")
-        )
-
-        assert data.location_label == "Default Venue, Default Area, Default Space"
-
-    def test_all_none_returns_empty(self):
+    def test_empty_path_returns_empty(self):
         data = _make_session_data(loc=_loc())
 
         assert not data.location_label

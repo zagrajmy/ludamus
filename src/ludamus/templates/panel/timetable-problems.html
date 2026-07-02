@@ -9,7 +9,7 @@
 {% endblock page_title %}
 {% block content %}
     <!-- Timetable sub-page tabs -->
-    <div class="-mt-3 sm:-mt-4 lg:-mt-8 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 pt-3 bg-bg-tertiary border-b border-border">
+    <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
         {% tabs %}
         {% tab "timetable" href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
         {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
@@ -17,14 +17,14 @@
         {% tab "problems" active=True href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
     {% end_tabs %}
 </div>
-<div class="-mx-3 sm:-mx-4 lg:-mx-8 -mb-3 sm:-mb-4 lg:-mb-8 px-3 sm:px-4 lg:px-8 py-6 bg-bg-secondary">
+<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
     <!-- Conflicts section -->
     <section class="mb-8">
         <h2 class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
         {% if conflicts_grouped %}
             {% for conflict_type, conflicts in conflicts_grouped.items %}
                 <div class="mb-4 border-l-4 border-danger bg-bg-secondary rounded-lg p-4">
-                    <div class="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-2">
+                    <div class="flex items-center gap-2 text-sm font-medium text-foreground-secondary mb-2">
                         {% icon "exclamation-triangle" class="w-4 h-4 text-danger" %}
                         {% if conflict_type == "space_overlap" %}
                             {% translate "Room overlaps" %}
@@ -39,7 +39,7 @@
                     </div>
                     <div class="space-y-2 pl-6">
                         {% for conflict in conflicts %}
-                            <div class="text-sm text-neutral-600">
+                            <div class="text-sm text-foreground-secondary">
                                 {{ conflict.session_title }} —
                                 {% if conflict.type == "space_overlap" %}
                                     {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}

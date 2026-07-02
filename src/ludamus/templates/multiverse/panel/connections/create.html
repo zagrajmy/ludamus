@@ -12,32 +12,26 @@
 {% block header_actions %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="bg-white rounded-xl shadow-sm border border-neutral-100 p-6 max-w-xl">
+    <div class="card p-6 max-w-xl">
         <form method="post" class="space-y-4">
             {% csrf_token %}
             {% include "multiverse/panel/connections/_form.html" %}
-            <div class="space-y-1 pt-2 border-t border-neutral-200">
-                <label class="block text-sm font-medium text-neutral-700"
-                       for="{{ form.credentials.id_for_label }}">{{ form.credentials.label }}</label>
-                {# Never echo plaintext credentials back into the DOM on re-render — user re-pastes on validation error. #}
-                <textarea name="{{ form.credentials.html_name }}"
-                          id="{{ form.credentials.id_for_label }}"
-                          rows="8"
-                          autocomplete="off"
-                          required
-                          class="w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
-                <p class="text-xs text-neutral-500">{{ form.credentials.help_text }}</p>
-                {% for error in form.credentials.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+            <div class="space-y-1 pt-2 border-t border-border">
+                <label class="block text-sm font-medium text-foreground"
+                       for="{{ form.secret.id_for_label }}">{{ form.secret.label }}</label>
+                {# Never echo plaintext secret back into the DOM on re-render — user re-pastes on validation error. #}
+                {% include "components/textarea.html" with name=form.secret.html_name id=form.secret.id_for_label rows=8 required=True monospace=True has_errors=form.secret.errors aria_describedby="id_secret_help id_secret_errors" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" only %}
+                <p id="id_secret_help" class="mt-1 text-xs text-foreground-muted">{{ form.secret.help_text }}</p>
+                {% if form.secret.errors %}
+                    <div id="id_secret_errors" role="alert" aria-live="polite">
+                        {% for error in form.secret.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+                    </div>
+                {% endif %}
             </div>
-            <div class="flex justify-end gap-2 pt-4 border-t border-neutral-200">
+            <div class="flex justify-end gap-2 pt-4 border-t border-border">
                 <a href="{% url 'multiverse:panel:connections' %}"
-                   class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition">
-                    {% translate "Cancel" %}
-                </a>
-                <button type="submit"
-                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition">
-                    {% translate "Create" %}
-                </button>
+                   class="btn btn-secondary">{% translate "Cancel" %}</a>
+                <button type="submit" class="btn btn-primary">{% translate "Create" %}</button>
             </div>
         </form>
     </div>

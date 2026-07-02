@@ -6,8 +6,10 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Area, Space, Track, Venue
-from ludamus.pacts import EventDTO, UserDTO
+from ludamus.adapters.db.django.models import Space, Track
+from ludamus.pacts import EventDTO
+from ludamus.pacts.crowd import UserDTO
+from tests.integration.conftest import SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -154,9 +156,7 @@ class TestTrackCreatePageView:
     ):
         """Spaces and managers are set in the same transaction as track creation."""
         sphere.managers.add(active_user)
-        venue = Venue.objects.create(event=event, name="Hall", slug="hall")
-        area = Area.objects.create(venue=venue, name="Wing A", slug="wing-a")
-        space = Space.objects.create(area=area, name="Room 1", slug="room-1")
+        space = Space.objects.create(event=event, name="Room 1", slug="room-1")
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -177,6 +177,34 @@ class TestTrackCreatePageView:
         track = Track.objects.get(event=event, name="Beta Track")
         assert track.spaces.filter(pk=space.pk).exists()
         assert track.managers.filter(pk=active_user.pk).exists()
+
+    def test_post_drops_foreign_event_space_and_foreign_manager(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        """Spaces from another event and non-sphere managers are not attached."""
+        sphere.managers.add(active_user)
+        foreign_space = SpaceFactory()  # belongs to a different event
+        foreign_user = UserFactory()  # not a manager of this sphere
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "name": "Gamma Track",
+                "is_public": "on",
+                "space_pks": [str(foreign_space.pk)],
+                "manager_pks": [str(foreign_user.pk)],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Track created successfully.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+        track = Track.objects.get(event=event, name="Gamma Track")
+        assert not track.spaces.filter(pk=foreign_space.pk).exists()
+        assert not track.managers.filter(pk=foreign_user.pk).exists()
 
     def test_post_shows_error_for_empty_name(
         self, authenticated_client, active_user, sphere, event

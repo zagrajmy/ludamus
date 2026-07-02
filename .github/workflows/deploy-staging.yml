@@ -1,33 +1,215 @@
-name: Deploy on staging
+name: Deploy to staging
 
 on:
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to deploy
+        required: false
+      sha:
+        description: Commit SHA to deploy
+        required: false
 
 permissions:
   contents: read
 
+# Only one staging deploy at a time; a newer push supersedes an in-flight one
+# (last push to the labeled PR wins).
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
 jobs:
+  resolve-staging:
+    name: Resolve staging target
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      should_deploy: ${{ steps.resolve.outputs.should_deploy }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        id: resolve
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/github-staging.mts`)
+            );
+            await staging.resolveDeploy({ github, context, core });
+
   build:
     name: Rebuild and upstart dockers
+    needs: resolve-staging
+    if: needs.resolve-staging.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     environment:
       name: staging
       url: https://test.zagrajmy.net
+      deployment: false
     steps:
-      - name: executing remote ssh commands using password
-        uses: appleboy/ssh-action@v1
+      # Order matters: the deploy-SHA checkout lands in the workspace root, and
+      # actions/checkout wipes the root's existing contents on init. It must run
+      # BEFORE the workflow-helpers checkout, otherwise it deletes .workflow/ and
+      # the github-script steps below fail with ERR_MODULE_NOT_FOUND.
+      - name: Checkout (provides .env.schema for varlock validation)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.resolve-staging.outputs.sha }}
+          persist-credentials: false
+
+      - name: Checkout workflow helpers
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: .workflow
+          persist-credentials: false
+
+      - name: Create GitHub deployment
+        id: deployment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GITHUB_COMMIT_SHA: ${{ github.sha }}
+          STAGING_URL: https://test.zagrajmy.net
+          TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.workflow/scripts/github-staging.mts`)
+            );
+            await staging.createStagingDeployment({
+              github,
+              context,
+              core,
+              sha: process.env.TARGET_SHA,
+              environmentUrl: process.env.STAGING_URL,
+            });
+
+      - name: Materialize .env.local from environment variables and secrets
+        env:
+          # Not configured in the GitHub Environment — hardcoded here.
+          ENV: production
+          DJANGO_SETTINGS_MODULE: ludamus.edges.settings
+          DEBUG: 'false'
+          # Non-sensitive config — GitHub Environment variables.
+          USE_POSTGRES: ${{ vars.USE_POSTGRES }}
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
+          SESSION_COOKIE_DOMAIN: ${{ vars.SESSION_COOKIE_DOMAIN }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_PORT: ${{ vars.DB_PORT }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          AUTH0_CLIENT_ID: ${{ vars.AUTH0_CLIENT_ID }}
+          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          MEMBERSHIP_API_BASE_URL: ${{ vars.MEMBERSHIP_API_BASE_URL }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          STATIC_ROOT: ${{ vars.STATIC_ROOT }}
+          MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
+          GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
+          GS_LOCATION: ${{ vars.GS_LOCATION }}
+          POSTGRES_DATA_PATH: ${{ vars.POSTGRES_DATA_PATH }}
+          STATIC_DATA_PATH: ${{ vars.STATIC_DATA_PATH }}
+          MEDIA_DATA_PATH: ${{ vars.MEDIA_DATA_PATH }}
+          WEB_PORT: ${{ vars.WEB_PORT }}
+          # Sensitive config — GitHub Environment secrets.
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          MEMBERSHIP_API_TOKEN: ${{ secrets.MEMBERSHIP_API_TOKEN }}
+          GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
+          EMAIL_URL: ${{ secrets.EMAIL_URL }}
+        run: |
+          set -eu
+          : > .env.local
+          for k in ENV DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
+                   ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
+                   DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
+                   SECRET_KEY CREDENTIALS_ENCRYPTION_KEY \
+                   AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
+                   MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
+                   EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
+                   POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
+                   WEB_PORT \
+                   GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
+            v="$(printenv "$k" || true)"
+            if [ -n "$v" ]; then
+              printf "%s='%s'\n" "$k" "$v" >> .env.local
+            fi
+          done
+
+      - name: Validate .env.local with varlock
+        env:
+          ENV: production
+        run: |
+          # varlock loads .env.schema + .env + .env.local and validates
+          # against the schema; exits non-zero if a @required var (incl.
+          # forEnv(production) ones) is missing or malformed. Output is
+          # discarded so resolved values never reach the run log.
+          npx -y varlock@1.1.0 load > /dev/null
+
+      - name: Upload .env.local to host
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_DEPLOY_KEY }}
+          source: .env.local
+          target: ludamus/
+
+      - name: Deploy
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
+        env:
+          GITHUB_COMMIT_SHA: ${{ needs.resolve-staging.outputs.sha }}
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_DEPLOY_KEY }}
           envs: GITHUB_COMMIT_SHA
+          # Default is 10m; a cold pull + rebuild of the images exceeds it and
+          # drone-ssh kills the command mid-build ("Run Command Timeout").
+          command_timeout: 13m
           script: |
             set -ex
             cd ludamus/
+            chmod 600 .env.local
             git fetch
             git checkout $GITHUB_COMMIT_SHA
             export GIT_COMMIT_SHA=$(git rev-parse --short HEAD)
-            docker compose --env-file .env -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
+            # .env.local was validated by varlock on the CI runner. Here the
+            # compose CLI reads it: --env-file feeds ${VAR} interpolation,
+            # and prod.yaml's `env_file:` injects it into the containers.
+            docker compose --env-file .env.local -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
             docker image prune -f
+
+      - name: Mark GitHub deployment complete
+        if: always() && steps.deployment.outputs.id != ''
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+          JOB_STATUS: ${{ job.status }}
+          STAGING_URL: https://test.zagrajmy.net
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const staging = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.workflow/scripts/github-staging.mts`)
+            );
+            await staging.finishStagingDeployment({
+              github,
+              context,
+              core,
+              deploymentId: Number(process.env.DEPLOYMENT_ID),
+              environmentUrl: process.env.STAGING_URL,
+              jobStatus: process.env.JOB_STATUS,
+            });

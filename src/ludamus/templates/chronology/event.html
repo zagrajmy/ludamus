@@ -3,6 +3,7 @@
 {% load tessera %}
 {% load cfp_tags %}
 {% load django_vite %}
+{% load markdown_tags %}
 {% block title %}
     {{ event.name }}
 {% endblock title %}
@@ -21,38 +22,72 @@
 {% block twitter_description %}
     {{ event.description|truncatewords:30 }}
 {% endblock twitter_description %}
+{% block og_image %}
+    {% if event.cover_image_url %}
+        {% include "chronology/_meta_image_url.html" with url=event.cover_image_url %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock og_image %}
+{% block twitter_image %}
+    {% if event.cover_image_url %}
+        {% include "chronology/_meta_image_url.html" with url=event.cover_image_url %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock twitter_image %}
 {% block header_section %}
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden gradient-border mb-8 bg-bg-secondary"
-         style="box-shadow: var(--theme-shadow-lg)">
+    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-8 bg-bg-secondary"
+         style="box-shadow: var(--shadow-elevated)">
+        {% if event.cover_image_url %}
+            <div class="h-56 sm:h-72 bg-cover bg-center"
+                 style="background-image: url('{{ event.cover_image_url }}')"></div>
+        {% endif %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 <div class="flex-1">
-                    <!-- Status badge -->
-                    {% if event.is_live %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-sm font-medium mb-4">
-                            <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                            {% translate "Happening now!" %}
+                    <!-- Status pills: capped at two, priority order
+                         live/completed > enrollment open > proposals open > upcoming -->
+                    {% with configs=event.get_active_enrollment_configs %}
+                        <div class="flex flex-wrap items-center gap-2 mb-4">
+                            {% if event.is_live %}
+                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
+                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
+                                    {% translate "Happening now!" %}
+                                </div>
+                            {% elif event.is_ended %}
+                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-200 dark:bg-neutral-700/30 rounded-full text-sm font-medium text-foreground-secondary">
+                                    {% icon "check-circle" class="w-4 h-4" variant="mini" %}
+                                    {% translate "Completed" %}
+                                </div>
+                            {% endif %}
+                            {% if configs %}
+                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400 rounded-full text-sm font-medium">
+                                    {% icon "user-plus" class="w-4 h-4" variant="mini" %}
+                                    {% translate "Enrollment Open" %}
+                                </div>
+                            {% endif %}
+                            {% if event.is_proposal_active %}
+                                {% if not event.is_live and not event.is_ended or not configs %}
+                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium">
+                                        {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
+                                        {% translate "Proposals Open" %}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                            {% if not event.is_live and not event.is_ended %}
+                                {% if not configs or not event.is_proposal_active %}
+                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium">
+                                        {% icon "clock" class="w-4 h-4" variant="mini" %}
+                                        {% translate "Upcoming" %}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
                         </div>
-                    {% elif event.is_ended %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-200 dark:bg-neutral-700/30 rounded-full text-sm font-medium mb-4 text-foreground-secondary">
-                            {% icon "check-circle" class="w-4 h-4" variant="mini" %}
-                            {% translate "Completed" %}
-                        </div>
-                    {% else %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium mb-4">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %}
-                            {% translate "Upcoming" %}
-                        </div>
-                    {% endif %}
-                    {% if event.is_proposal_active %}
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium mb-4 ml-2">
-                            {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                            {% translate "Proposals Open" %}
-                        </div>
-                    {% endif %}
+                    {% endwith %}
                     <h1 class="text-3xl sm:text-4xl font-bold mb-3 text-foreground">{{ event.name }}</h1>
                     {% if event.description %}
                         <p class="text-lg mb-6 max-w-2xl text-foreground-muted">{{ event.description }}</p>
@@ -90,17 +125,6 @@
             </div>
         </div>
     </div>
-    <!-- Enrollment Banner -->
-    {% for enrollment_config in event.get_active_enrollment_configs %}
-        {% if enrollment_config.banner_text %}
-            <div class="alert alert-info mb-4" role="alert">
-                <div class="flex">
-                    <div class="shrink-0">{% icon "information-circle" class="w-5 h-5" %}</div>
-                    <div class="grow ml-3">{{ enrollment_config.banner_text|linebreaks }}</div>
-                </div>
-            </div>
-        {% endif %}
-    {% endfor %}
     <!-- Enrollment Passes Info (for authenticated users) -->
     {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
         <div class="alert alert-success mb-4" role="alert">
@@ -169,12 +193,7 @@
                                 You're signed up for {{ counter }} sessions!
                             {% endblocktranslate %}
                         </h3>
-                        <p class="text-sm text-foreground-muted">
-                            {% for s in user_enrolled_sessions %}
-                                {{ s.session.title }}
-                                {% if not forloop.last %},{% endif %}
-                            {% endfor %}
-                        </p>
+                        <p class="text-sm text-foreground-muted">{{ user_enrolled_session_titles|join:", " }}</p>
                     </div>
                 </div>
             </div>
@@ -267,15 +286,17 @@
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
                             {% icon "magnifying-glass" class="w-5 h-5" variant="mini" %}
                         </span>
+                        {% translate "Search sessions..." as filter_placeholder %}
                         <input type="text"
-                               class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-all duration-150"
+                               class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
                                id="session-filter"
-                               placeholder="{% translate "Filter by title or host..." %}"
+                               placeholder="{{ filter_placeholder }}"
+                               aria-label="{{ filter_placeholder }}"
                                autocomplete="off">
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-all duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
                                 aria-controls="filter-panel">
@@ -290,7 +311,7 @@
                                     <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                            for="status-filter">{% translate "Status" %}</label>
                                     <select id="status-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All statuses" %}</option>
                                         <option value="available">{% translate "Available spots" %}</option>
                                         <option value="full">{% translate "Full" %}</option>
@@ -305,7 +326,7 @@
                                     <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
                                            for="venue-filter">{% translate "Venue" %}</label>
                                     <select id="venue-filter"
-                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150">
+                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All venues" %}</option>
                                     </select>
                                 </div>
@@ -315,18 +336,36 @@
                                     </label>
                                     <div class="flex items-center gap-2">
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] grow font-medium bg-bg-secondary text-foreground transition-all duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="min-age-filter"
                                                placeholder="{% translate "Min" %}"
                                                min="0"
                                                max="99">
                                         <span class="text-xs font-bold text-foreground-muted">–</span>
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="max-age-filter"
                                                placeholder="{% translate "Max" %}"
                                                min="0"
                                                max="99">
+                                    </div>
+                                </div>
+                                <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
+                                    <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                               for="day-filter">{% translate "Day" %}</label>
+                                        <select id="day-filter"
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                            <option value="">{% translate "All days" %}</option>
+                                        </select>
+                                    </div>
+                                    <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                               for="hour-filter">{% translate "Hour" %}</label>
+                                        <select id="hour-filter"
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                            <option value="">{% translate "All hours" %}</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div id="tag-filters" class="contents">
@@ -334,7 +373,7 @@
                                         <div class="flex flex-col gap-1.5 grow">
                                             <label class="text-[0.625rem] font-bold uppercase tracking-widest grow text-foreground-muted"
                                                    for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
-                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-all duration-150 tag-filter"
+                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
                                                     data-category="{{ field.slug }}"
                                                     id="tag-filter-{{ field.slug }}">
                                                 <option value="">{% translate "All" %} {{ field.name }}</option>
@@ -349,7 +388,9 @@
                 <div id="active-filter-chips"
                      class="filter-chips-bar"
                      data-remove-filter-label="{% translate "Remove filter" %}"
-                     data-clear-all-label="{% translate "Clear all" %}">
+                     data-clear-all-label="{% translate "Clear all" %}"
+                     data-min-age-label="{% translate "Age ≥" %}"
+                     data-max-age-label="{% translate "Age ≤" %}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
                     </div>
@@ -440,7 +481,7 @@
                      data-time-slot="future-{{ forloop.counter }}">
                     <!-- Time Slot Header -->
                     <div class="flex items-center gap-4 mb-4">
-                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-(--theme-warning-bg) text-(--theme-warning-text)">
+                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warning-bg text-warning-text">
                             {% icon "clock" class="w-4 h-4" variant="mini" %}
                             {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
                             <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
@@ -476,27 +517,28 @@
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
         <div class="mt-12 text-center">
-            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border"
-                 style="background: linear-gradient(135deg, var(--theme-bg-tertiary), var(--theme-bg-secondary))">
+            <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">
                     {% icon "plus" class="w-8 h-8 text-coral-500" %}
                 </div>
                 <h3 class="text-xl font-bold mb-2 text-foreground">{% translate "Want to host a session?" %}</h3>
                 <p class="mb-4 max-w-md text-foreground-muted">
-                    {% translate "Got a game you're dying to play? Propose your own session and find players!" %}
+                    {% blocktranslate trimmed %}
+                        Got a game you're dying to play?
+                        <br class="max-xl:hidden" />
+                        Propose your own session and find players!
+                    {% endblocktranslate %}
                 </p>
                 <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
-                   class="btn btn-primary text-base shadow-lg shadow-coral-500/25">
-                    {% translate "Propose a session" %}
-                </a>
+                   class="btn btn-primary text-base">{% translate "Propose a session" %}</a>
             </div>
         </div>
     {% endif %}
     <!-- Proposals Section (Superuser Only) -->
     {% if user.is_superuser and event.is_proposal_active and pending_sessions %}
         <div class="card mt-8">
-            <div class="px-6 py-4 flex items-center gap-3 bg-(--theme-warning-bg) border-b border-(--theme-warning-light)">
-                <h3 class="text-base font-semibold flex items-center gap-2 text-(--theme-warning-text)">
+            <div class="px-6 py-4 flex items-center gap-3 bg-warning-bg border-b border-warning-light">
+                <h3 class="text-base font-semibold flex items-center gap-2 text-warning-text">
                     {% icon "clipboard-document-check" class="w-5 h-5" variant="mini" %}
                     {% translate "Pending Proposals" %}
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-800 text-warm-100">{{ pending_sessions|length }}</span>
@@ -568,18 +610,10 @@
                                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-200 dark:bg-neutral-700 text-foreground-secondary">{{ pending.participants_limit }}</span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    <div class="flex flex-col gap-1.5 grow">
-                                        <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
-                                           class="btn btn-primary text-xs">
-                                            {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Accept" %}
-                                        </a>
-                                        <a href="?proposal={{ pending.pk }}"
-                                           class="btn btn-secondary text-xs"
-                                           aria-controls="proposalModal{{ pending.pk }}"
-                                           aria-haspopup="dialog">
-                                            {% icon "eye" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review" %}
-                                        </a>
-                                    </div>
+                                    <a href="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=pending.pk %}"
+                                       class="btn btn-primary text-xs inline-flex items-center">
+                                        {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review & accept" %}
+                                    </a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -587,92 +621,18 @@
                 </table>
             </div>
         </div>
-        <!-- Proposal Review Modals -->
-        {% for pending in pending_sessions %}
-            <dialog id="proposalModal{{ pending.pk }}"
-                    class="modal"
-                    aria-labelledby="proposalModal{{ pending.pk }}-title">
-                <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-                    <h3 id="proposalModal{{ pending.pk }}-title"
-                        class="text-lg font-semibold text-foreground">{{ pending.title }}</h3>
-                    <button type="button"
-                            data-modal-close="proposalModal{{ pending.pk }}"
-                            aria-label="{% translate "Close" %}"
-                            class="p-1 rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-                        {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                    </button>
-                </div>
-                <div class="px-6 py-4 text-foreground">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-3">
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Host" %}</h4>
-                                <p>{{ pending.display_name }}</p>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Participants Limit" %}</h4>
-                                <p>{{ pending.participants_limit }}</p>
-                            </div>
-                            {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
-                            {% if pending.tags %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Tags" %}</h4>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% for tag in pending.tags %}
-                                            {% include "components/_field_pill.html" with value=tag.name size="sm" %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="space-y-3">
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Submitted" %}</h4>
-                                <p>{{ pending.creation_time|date:"F j, Y G:i" }}</p>
-                            </div>
-                            {% if pending.time_slots %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Preferred Time Slots" %}</h4>
-                                    {% for slot in pending.time_slots %}<div class="text-sm">{{ slot }}</div>{% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% if pending.description %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Description" %}</h4>
-                            <p>{{ pending.description }}</p>
-                        </div>
-                    {% endif %}
-                    {% if pending.requirements %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Requirements" %}</h4>
-                            <p>{{ pending.requirements }}</p>
-                        </div>
-                    {% endif %}
-                    {% if pending.needs %}
-                        <div class="mt-4 pt-4 border-t border-border">
-                            <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">{% translate "Special Needs" %}</h4>
-                            <p>{{ pending.needs }}</p>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="px-6 py-4 flex justify-end gap-2 border-t border-border">
-                    <a href="{% url 'web:chronology:session-accept' session_id=pending.pk %}"
-                       class="btn btn-primary text-sm">{% icon "check" class="w-4 h-4" variant="mini" %} {% translate "Accept Proposal" %}</a>
-                </div>
-            </dialog>
-        {% endfor %}
     {% endif %}
     <!-- Session Detail Modals -->
     {% for data in sessions %}
         <dialog id="session-{{ data.session.pk }}"
                 class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[90dvh] overflow-hidden"
-                aria-labelledby="session-{{ data.session.pk }}-title">
+                aria-labelledby="session-{{ data.session.pk }}-title"
+                data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
             <!-- Header -->
             <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
                 <h3 id="session-{{ data.session.pk }}-title"
-                    class="text-lg font-semibold text-foreground">{{ data.session.title }}</h3>
+                    class="text-lg font-semibold text-foreground"
+                    data-morph="title">{{ data.session.title }}</h3>
                 <button type="button"
                         data-modal-close="session-{{ data.session.pk }}"
                         aria-label="{% translate "Close" %}"
@@ -680,276 +640,262 @@
                     {% icon "x-mark" class="w-5 h-5" variant="mini" %}
                 </button>
             </div>
-            <!-- Tabs -->
-            <div class="tab-list shrink-0" role="tablist">
-                <button role="tab"
-                        aria-selected="true"
-                        aria-controls="info-{{ data.session.pk }}"
-                        class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 [&[aria-selected=false]:hover]:text-foreground/80 active:scale-100!">
-                    {% icon "information-circle" class="w-4 h-4" variant="mini" %} {% translate "Information" %}
-                </button>
-                <button tabIndex="-1"
-                        role="tab"
-                        aria-selected="false"
-                        aria-controls="participants-{{ data.session.pk }}"
-                        class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
-                    {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
-                    <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">{{ data.enrolled_count }}</span>
-                    {% if data.waiting_count > 0 %}
-                        <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-(--theme-warning-light) text-(--theme-warning-text)">+{{ data.waiting_count }}</span>
-                    {% endif %}
-                </button>
-            </div>
-            <!-- Tab Content -->
-            <div class="tab-content flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] text-foreground">
-                <!-- Information Tab -->
-                <div id="info-{{ data.session.pk }}"
-                     role="tabpanel"
-                     class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
-                     data-active>
-                    <!-- Host & location -->
-                    <div class="flex items-center gap-3 mb-6 flex-wrap">
-                        {% include "components/avatar.html" with user=data.presenter size="size-10" %}
-                        <div class="flex items-center gap-3 flex-wrap min-w-0">
-                            <div class="font-medium text-foreground">{{ data.presenter.full_name }}</div>
-                            {% if data.location_label %}
-                                <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
-                                    {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                                    <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
-                                </span>
-                            {% endif %}
-                            {% if data.presenter.pk %}
-                                {% with host=data.presenter %}
-                                    {% if host and host.slug and host.discord_username %}
-                                        <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-                                        <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                hx-get="{% url 'web:crowd:user-discord-username' user_slug=host.slug %}"
-                                                hx-swap="outerHTML"
-                                                hx-trigger="click once">
-                                            {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %} {% translate "Show Discord" %}
-                                        </button>
-                                    {% endif %}
-                                {% endwith %}
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% if data.session.description %}
-                        <!-- Description -->
-                        <div class="mb-6">
-                            <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                            <div class="leading-relaxed text-foreground-muted">{{ data.session.description|linebreaks }}</div>
-                        </div>
-                    {% endif %}
-                    {% if data.field_values %}
-                        <!-- Session Fields -->
-                        <div class="space-y-4 mb-6">
-                            {% for fv in data.field_values %}
-                                <div>
-                                    <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
-                                        {% if fv.field_icon %}
-                                            {% icon fv.field_icon class="w-4 h-4 inline mr-1" variant="mini" %}
-                                        {% endif %}
-                                        {{ fv.field_name }}
-                                    </h4>
-                                    {% if fv.field_type == "select" and not fv.allow_custom %}
-                                        <div class="flex flex-wrap gap-1.5">
-                                            {% for val in fv.value %}
-                                                <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                    <!-- Details grid -->
-                    <div class="grid grid-cols-2 gap-3 mb-6">
-                        <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                            <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
-                            <div class="font-medium text-foreground">
-                                {{ data.agenda_item.start_time|date:"l, F j" }}
-                                <br>
-                                {{ data.agenda_item.start_time|time:"G:i" }} - {{ data.agenda_item.end_time|time:"G:i" }}
-                            </div>
-                        </div>
-                        {% if not data.is_unlimited %}
-                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
-                                <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if data.is_full %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
-                                        {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
-                                    </span>
-                                    {% if data.waiting_count > 0 %}
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-(--theme-warning-light) text-(--theme-warning-text)">+{{ data.waiting_count }}</span>
-                                    {% endif %}
-                                </div>
-                            </div>
+            <!-- Tabbed body; swapped for the inline edit form by the Edit button -->
+            <div class="flex-auto min-h-0 flex flex-col overflow-hidden"
+                 data-session-tabs="{{ data.session.pk }}">
+                <!-- Tabs -->
+                <div class="tab-list shrink-0" role="tablist">
+                    <button role="tab"
+                            aria-selected="true"
+                            aria-controls="info-{{ data.session.pk }}"
+                            class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 [&[aria-selected=false]:hover]:text-foreground/80 active:scale-100!">
+                        {% icon "information-circle" class="w-4 h-4" variant="mini" %} {% translate "Information" %}
+                    </button>
+                    <button tabIndex="-1"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="participants-{{ data.session.pk }}"
+                            class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
+                        {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
+                        <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">{{ data.enrolled_count }}</span>
+                        {% if data.waiting_count > 0 %}
+                            <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
                         {% endif %}
-                        <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                            <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                            <div class="font-medium text-foreground">
-                                {% if data.session.min_age > 0 %}
-                                    {{ data.session.min_age }}+ {% translate "years" %}
-                                {% else %}
-                                    {% translate "All ages" %}
+                    </button>
+                </div>
+                <!-- Tab Content -->
+                <div class="tab-content flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] text-foreground">
+                    <!-- Information Tab -->
+                    <div id="info-{{ data.session.pk }}"
+                         role="tabpanel"
+                         class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
+                         data-active>
+                        <!-- Host & location -->
+                        <div class="flex items-center gap-3 mb-6 flex-wrap">
+                            <span class="shrink-0" data-morph="avatar">
+                                {% include "components/avatar.html" with user=data.presenter size="size-10" %}
+                            </span>
+                            <div class="flex items-center gap-3 flex-wrap min-w-0">
+                                <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
+                                {% if data.location_label %}
+                                    <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
+                                        {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
+                                        <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
+                                    </span>
+                                {% endif %}
+                                {% if data.presenter.pk %}
+                                    {% with host=data.presenter %}
+                                        {% if host.discord_username %}
+                                            <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
+                                            {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
+                                        {% endif %}
+                                    {% endwith %}
                                 {% endif %}
                             </div>
                         </div>
-                    </div>
-                    <!-- Enrollment Status for Authenticated Users -->
-                    {% if current_user and data.user_enrolled %}
-                        <div class="pt-4 border-t border-border">
-                            <div class="alert alert-success inline-flex items-center gap-2 text-sm">
-                                {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
+                        {% if data.session.description %}
+                            <!-- Description -->
+                            <div class="mb-6">
+                                <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
+                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground"
+                                     data-morph="desc">{{ data.session.description|render_markdown }}</div>
                             </div>
-                        </div>
-                    {% elif current_user and data.user_waiting %}
-                        <div class="pt-4 border-t border-border">
-                            <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
-                                {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
-                            </div>
-                        </div>
-                    {% endif %}
-                    {% if current_connected_users %}
-                        <div class="pt-4 mt-2 border-t border-border">
-                            <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Connected Users" %}</h3>
-                            <div class="space-y-2">
-                                {% for connected_user in current_connected_users %}
-                                    <div class="flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
-                                        <div class="flex items-center gap-3">
-                                            {% include "components/avatar.html" with user=connected_user size="size-8" %}
-                                            <span class="font-medium text-foreground">{{ connected_user.full_name }}</span>
-                                        </div>
-                                        {% with participations=data.session_participations|dictsort:"creation_time" %}
-                                            {% for participation in participations %}
-                                                {% if participation.user.pk == connected_user.pk %}
-                                                    {% if participation.status == 'confirmed' %}
-                                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">{% translate "Enrolled" %}</span>
-                                                    {% else %}
-                                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-(--theme-warning-light) text-(--theme-warning-text)">{% translate "Waiting List" %}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% empty %}
-                                                <span class="text-xs text-foreground-muted">{% translate "Not enrolled" %}</span>
-                                            {% endfor %}
-                                        {% endwith %}
+                        {% endif %}
+                        {% if data.field_values %}
+                            <!-- Session Fields -->
+                            <div class="space-y-4 mb-6">
+                                {% for fv in data.field_values %}
+                                    <div>
+                                        <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
+                                            {% if fv.field_icon %}
+                                                {% icon fv.field_icon class="w-4 h-4 inline mr-1" variant="mini" %}
+                                            {% endif %}
+                                            {{ fv.field_name }}
+                                        </h4>
+                                        {% if fv.field_type == "select" and not fv.allow_custom %}
+                                            <div class="flex flex-wrap gap-1.5">
+                                                {% for val in fv.value %}
+                                                    <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
+                                        {% endif %}
                                     </div>
                                 {% endfor %}
                             </div>
+                        {% endif %}
+                        <!-- Details grid -->
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
+                                <div class="font-medium text-foreground">
+                                    {{ data.agenda_item.start_time|date:"l, F j" }}
+                                    <br>
+                                    {{ data.agenda_item.start_time|time:"G:i" }} - {{ data.agenda_item.end_time|time:"G:i" }}
+                                </div>
+                            </div>
+                            {% if not data.is_unlimited %}
+                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
+                                    <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if data.is_full %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
+                                            {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
+                                        </span>
+                                        {% if data.waiting_count > 0 %}
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if data.session.min_age > 0 %}
+                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
+                                    <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
+                                </div>
+                            {% endif %}
                         </div>
-                    {% endif %}
-                </div>
-                <!-- Participants Tab -->
-                <div id="participants-{{ data.session.pk }}"
-                     role="tabpanel"
-                     class="tab-panel scrollview-fade scrollview-fade-y-16 px-6 py-4"
-                     inert>
-                    <!-- Enrolled Participants -->
-                    {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
-                        {% if confirmed_participants %}
-                            <h3 class="font-semibold mb-3 text-foreground-secondary">
-                                {% if data.is_unlimited %}
-                                    {% translate "Enrolled" %} ({{ data.enrolled_count }})
-                                {% else %}
-                                    {% translate "Enrolled" %} ({{ data.enrolled_count }}/{{ data.effective_participants_limit }})
-                                {% endif %}
-                            </h3>
-                            <div class="space-y-2 mb-6">
-                                {% for participation in confirmed_participants %}
-                                    {% if participation.status == 'confirmed' %}
-                                        <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
+                        <!-- Enrollment Status for Authenticated Users -->
+                        {% if current_user and data.user_enrolled %}
+                            <div class="pt-4 border-t border-border">
+                                <div class="alert alert-success inline-flex items-center gap-2 text-sm">
+                                    {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
+                                </div>
+                            </div>
+                        {% elif current_user and data.user_waiting %}
+                            <div class="pt-4 border-t border-border">
+                                <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
+                                    {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <!-- Participants Tab -->
+                    <div id="participants-{{ data.session.pk }}"
+                         role="tabpanel"
+                         class="tab-panel scrollview-fade scrollview-fade-y-16 px-6 py-4"
+                         inert>
+                        <!-- Enrolled Participants -->
+                        {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
+                            {% if confirmed_participants %}
+                                <h3 class="font-semibold mb-3 text-foreground-secondary">
+                                    {% if data.is_unlimited %}
+                                        {% translate "Enrolled" %} ({{ data.enrolled_count }})
+                                    {% else %}
+                                        {% translate "Enrolled" %} ({{ data.enrolled_count }}/{{ data.effective_participants_limit }})
+                                    {% endif %}
+                                </h3>
+                                <div class="space-y-2 mb-6">
+                                    {% for participation in confirmed_participants %}
+                                        {% if participation.status == 'confirmed' %}
+                                            <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
+                                                <div class="flex items-center gap-3">
+                                                    {% include "components/avatar.html" with user=participation.user size="size-8" danger_ring=participation.is_shadowbanned %}
+                                                    <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    {% if participation.user.discord_username %}
+                                                        {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
+                                                    {% endif %}
+                                                    {% if participation.user.pk == current_user.pk %}
+                                                        <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                        <!-- Waiting List -->
+                        {% if data.waiting_count > 0 %}
+                            <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
+                            <div class="space-y-2">
+                                {% for participation in data.session_participations|dictsort:"creation_time" %}
+                                    {% if participation.status == 'waiting' %}
+                                        <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
                                             <div class="flex items-center gap-3">
-                                                {% include "components/avatar.html" with user=participation.user size="size-8" %}
+                                                <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"></span>
                                                 <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                             </div>
-                                            <div class="flex items-center gap-2">
-                                                {% with user=participation.user %}
-                                                    {% if user and user.slug and user.discord_username %}
-                                                        <button class="btn btn-secondary text-xs reveal-discord-btn"
-                                                                hx-get="{% url 'web:crowd:user-discord-username' user_slug=user.slug %}"
-                                                                hx-swap="outerHTML"
-                                                                hx-trigger="click once">
-                                                            {% icon "chat-bubble-left-right" class="w-3.5 h-3.5" variant="mini" %}
-                                                        </button>
-                                                    {% endif %}
-                                                {% endwith %}
-                                                {% if participation.user.pk == current_user.pk %}
-                                                    <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
-                                                {% endif %}
-                                            </div>
+                                            <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>
                                         </div>
                                     {% endif %}
                                 {% endfor %}
                             </div>
+                        {% else %}
+                            {% if data.session_participations %}
+                                <div class="text-center py-4 text-foreground-muted">
+                                    <p class="text-sm">{% translate "No one on the waiting list." %}</p>
+                                </div>
+                            {% endif %}
                         {% endif %}
-                    {% endwith %}
-                    <!-- Waiting List -->
-                    {% if data.waiting_count > 0 %}
-                        <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
-                        <div class="space-y-2">
-                            {% for participation in data.session_participations|dictsort:"creation_time" %}
-                                {% if participation.status == 'waiting' %}
-                                    <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
-                                        <div class="flex items-center gap-3">
-                                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-(--theme-warning-light) text-(--theme-warning-text)"></span>
-                                            <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
-                                        </div>
-                                        <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        {% if data.session_participations %}
-                            <div class="text-center py-4 text-foreground-muted">
-                                <p class="text-sm">{% translate "No one on the waiting list." %}</p>
+                        {% if not data.session_participations %}
+                            <div class="flex items-center justify-center p-4 border-2 border-dashed border-border rounded-xl">
+                                <span class="text-sm text-foreground-muted">{% translate "No participants enrolled yet." %}</span>
                             </div>
                         {% endif %}
-                    {% endif %}
-                    {% if not data.session_participations %}
-                        <div class="flex items-center justify-center p-4 border-2 border-dashed border-border rounded-xl">
-                            <span class="text-sm text-foreground-muted">{% translate "No participants enrolled yet." %}</span>
-                        </div>
-                    {% endif %}
+                    </div>
                 </div>
             </div>
-            {% if data.is_enrollment_available %}
+            {% if data.can_edit %}
+                <!-- Inline edit form target (lazy-loaded via HTMX on Edit) -->
+                <div id="session-{{ data.session.pk }}-editform"
+                     class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
+                     hidden></div>
+            {% endif %}
+            {% if data.is_enrollment_available or data.can_edit %}
                 <!-- Footer -->
-                <div class="px-6 py-4 flex justify-end gap-2 border-t border-border shrink-0">
-                    {% if current_user %}
-                        {% if data.user_enrolled or data.user_waiting %}
-                            <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
-                               class="btn text-sm bg-(--theme-warning) text-white">
-                                {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
-                            </a>
-                        {% else %}
-                            {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
-                                <a href="{% url 'web:chronology:session-enrollment' session_id=data.session.pk %}"
+                <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0"
+                     data-session-footer="{{ data.session.pk }}">
+                    <div>
+                        {% if data.can_edit %}
+                            <button type="button"
+                                    class="btn btn-secondary text-sm"
+                                    data-edit-open="{{ data.session.pk }}"
+                                    hx-get="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
+                                    hx-target="#session-{{ data.session.pk }}-editform"
+                                    hx-swap="innerHTML">
+                                {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if data.is_enrollment_available and not event_banned %}
+                            {% if current_user %}
+                                {% if data.user_enrolled or data.user_waiting %}
+                                    <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
+                                       class="btn text-sm bg-warning text-white">
+                                        {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
+                                    </a>
+                                {% else %}
+                                    {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
+                                        <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
+                                           class="btn btn-primary text-sm">
+                                            {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            {% elif request.session.anonymous_enrollment_active %}
+                                {% if data.user_enrolled or data.user_waiting %}
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
+                                       class="btn text-sm bg-warning text-white">
+                                        {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
+                                       class="btn btn-primary text-sm">
+                                        {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
+                                    </a>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri }}"
                                    class="btn btn-primary text-sm">
-                                    {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
+                                    {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
                                 </a>
                             {% endif %}
                         {% endif %}
-                    {% elif request.session.anonymous_enrollment_active %}
-                        {% if data.user_enrolled or data.user_waiting %}
-                            <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
-                               class="btn text-sm bg-(--theme-warning) text-white">
-                                {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
-                            </a>
-                        {% else %}
-                            <a href="{% url 'web:chronology:session-enrollment-anonymous' session_id=data.session.pk %}"
-                               class="btn btn-primary text-sm">
-                                {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
-                            </a>
-                        {% endif %}
-                    {% else %}
-                        <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri }}"
-                           class="btn btn-primary text-sm">
-                            {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
-                        </a>
-                    {% endif %}
+                    </div>
                 </div>
             {% endif %}
         </dialog>
@@ -960,418 +906,99 @@
             {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
         </a>
     </div>
+    {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
+    {# event-print.ts); this block is the fallback for File→Print / the toolbar, #}
+    {# which JS cannot intercept — it collapses the page to a clean pointer plus #}
+    {# a minimal schedule so the chrome never prints. #}
+    <a id="event-print-link"
+       data-event-print
+       href="{% url 'web:chronology:event-print' slug=event.slug %}"
+       hidden>{% translate "Print-ready schedule" %}</a>
+    <div class="event-print-pointer" aria-hidden="true">
+        <h1>{{ event.name }}</h1>
+        <p class="pointer-note">
+            {% blocktranslate %}A print-ready schedule is available at:{% endblocktranslate %}
+            <br>
+            <strong>{{ request.scheme }}://{{ request.get_host }}{% url 'web:chronology:event-print' slug=event.slug %}</strong>
+        </p>
+        {% for hour, items in hour_data.items %}
+            <div class="pointer-row">
+                <span class="pointer-time">{{ hour|time:"H:i" }}</span>
+                {% for item in items %}<span class="pointer-session">{{ item.session.title }}</span>{% endfor %}
+            </div>
+        {% endfor %}
+    </div>
 {% endblock body %}
 {% block extra_scripts %}
     {% vite_asset 'src/modal.ts' %}
     {% vite_asset 'src/tabs.ts' %}
-    <script>
-        // Event delegation for copy Discord buttons (works with htmx-loaded content)
-        document.addEventListener('click', function(e) {
-            const button = e.target.closest('.copy-discord');
-            if (!button) return;
-
-            const text = button.dataset.discord;
-            if (!text) return;
-
-            navigator.clipboard.writeText(text).then(() => {
-                const originalHTML = button.innerHTML;
-                const originalClasses = button.className;
-
-                button.innerHTML = '✓';
-                button.className = 'btn bg-success text-white p-1 copy-discord';
-
-                setTimeout(() => {
-                    button.innerHTML = originalHTML;
-                    button.className = originalClasses;
-                }, 2000);
-            }).catch(err => {
-                console.error('Copy failed:', err);
-                const originalClasses = button.className;
-                button.className = 'btn btn-danger p-1 copy-discord';
-                setTimeout(() => {
-                    button.className = originalClasses;
-                }, 2000);
-            });
-        });
-        document.addEventListener('DOMContentLoaded', function() {
-            // Prevent enrollment buttons from triggering card click
-            document.querySelectorAll('.session-card .btn').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
-            });
-
-            const sessionFilter = document.getElementById('session-filter');
-            const statusFilter = document.getElementById('status-filter');
-            const venueFilter = document.getElementById('venue-filter');
-            const minAgeFilter = document.getElementById('min-age-filter');
-            const maxAgeFilter = document.getElementById('max-age-filter');
-            const sessionCards = document.querySelectorAll('.session-card');
-            const filterToggle = document.getElementById('filter-toggle');
-            const filterPanel = document.getElementById('filter-panel');
-            const filterChipsBar = document.getElementById('active-filter-chips');
-            const filterChipsInner = filterChipsBar?.querySelector('[data-filter-chips-inner]');
-            const filterCountBadge = document.getElementById('active-filter-count');
-            const filterNoResults = document.getElementById('filter-no-results');
-            const clearFiltersFromNoResults = document.getElementById('clear-filters-from-no-results');
-            const tagFilters = {};
-            if (!filterChipsBar || !filterChipsInner) {
-                throw new Error('Missing filter chips bar');
-            }
-
-            // Populate venue filter dropdown from session data
-            const venueMap = new Map(); // slug -> name
-            sessionCards.forEach(card => {
-                const venueSlug = card.dataset.venue;
-                if (venueSlug && !venueMap.has(venueSlug)) {
-                    const venueName = card.dataset.venueName || venueSlug;
-                    venueMap.set(venueSlug, venueName);
-                }
-            });
-            // Sort by name and add options
-            Array.from(venueMap.entries())
-                .sort((a, b) => a[1].localeCompare(b[1]))
-                .forEach(([slug, name]) => {
-                    const option = document.createElement('option');
-                    option.value = slug;
-                    option.textContent = name;
-                    venueFilter.appendChild(option);
-                });
-            if (venueMap.size > 1) {
-                document.getElementById('venue-filter-group').classList.remove('hidden');
-            }
-
-            // Get tag filter elements created by Django template
-            const tagFilterElements = document.querySelectorAll('.tag-filter');
-
-            // Populate options for each filterable category
-            tagFilterElements.forEach(select => {
-                const categorySlug = select.dataset.category;
-                tagFilters[categorySlug] = select;
-
-                // Parse tags from session data for this category only
-                const categoryTags = new Set();
-                sessionCards.forEach(card => {
-                    const tagCategoriesData = card.dataset.tagCategories;
-                    if (tagCategoriesData) {
-                        const tagPairs = tagCategoriesData.split(';').filter(pair => pair.trim());
-                        tagPairs.forEach(pair => {
-                            const [cardCategorySlug, tagName] = pair.split(':');
-                            if (cardCategorySlug === categorySlug && tagName) {
-                                categoryTags.add(tagName.trim());
-                            }
-                        });
-                    }
-                });
-
-                // Add tag options to this category's filter
-                Array.from(categoryTags).sort().forEach(tag => {
-                    const option = document.createElement('option');
-                    option.value = tag;
-                    option.textContent = tag;
-                    select.appendChild(option);
-                });
-
-                // Add event listener
-                select.addEventListener('change', filterSessions);
-            });
-
-            function filterSessions() {
-                const searchText = sessionFilter.value.toLowerCase();
-                const statusValue = statusFilter.value;
-                const venueValue = venueFilter.value;
-                const minAgeValue = minAgeFilter.value;
-                const maxAgeValue = maxAgeFilter.value;
-
-
-                // Get all active tag filters
-                const activeTagFilters = {};
-                Object.keys(tagFilters).forEach(categorySlug => {
-                    const filterValue = tagFilters[categorySlug].value;
-                    if (filterValue) {
-                        activeTagFilters[categorySlug] = filterValue;
-                    }
-                });
-
-                let hiddenCount = 0;
-                let totalCount = 0;
-                sessionCards.forEach(card => {
-                    totalCount++;
-                    let show = true;
-
-                    // Text filter (title or host)
-                    if (searchText) {
-                        const title = card.dataset.title;
-                        const host = card.dataset.host;
-                        show = show && (title.includes(searchText) || host.includes(searchText));
-                    }
-
-                    // Status filter
-                    if (statusValue) {
-                        switch (statusValue) {
-                            case 'available':
-                                show = show && card.dataset.status === 'available';
-                                break;
-                            case 'full':
-                                show = show && card.dataset.status === 'full';
-                                break;
-                            case 'in-progress':
-                                show = show && card.dataset.status === 'in-progress';
-                                break;
-                            case 'unavailable':
-                                show = show && card.dataset.status === 'unavailable';
-                                break;
-                            case 'ended':
-                                show = show && card.dataset.status === 'ended';
-                                break;
-                            case 'my-enrolled':
-                                show = show && card.dataset.userEnrolled === 'true';
-                                break;
-                            case 'my-waiting':
-                                show = show && card.dataset.userWaiting === 'true';
-                                break;
-                        }
-                    }
-
-                    // Venue filter
-                    if (venueValue) {
-                        show = show && card.dataset.venue === venueValue;
-                    }
-
-                    // Age range filter
-                    if (minAgeValue || maxAgeValue) {
-                        const sessionMinAge = parseInt(card.dataset.minAge) || 0;
-
-                        // If min age filter is set, session min_age must be >= filter min age
-                        if (minAgeValue) {
-                            const filterMinAge = parseInt(minAgeValue);
-                            show = show && sessionMinAge >= filterMinAge;
-                        }
-
-                        // If max age filter is set, session min_age must be <= filter max age
-                        if (maxAgeValue) {
-                            const filterMaxAge = parseInt(maxAgeValue);
-                            show = show && sessionMinAge <= filterMaxAge;
-                        }
-                    }
-
-                    // Tag filters - check all active category filters
-                    if (Object.keys(activeTagFilters).length > 0) {
-                        const cardTagCategories = card.dataset.tagCategories;
-                        let matchesAllFilters = true;
-
-                        Object.keys(activeTagFilters).forEach(categorySlug => {
-                            const requiredTag = activeTagFilters[categorySlug];
-
-
-                            // Try both category-based and simple tag-based matching
-                            const categoryPattern = new RegExp(`${categorySlug}[^:]*:${requiredTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
-                            const simpleTagPattern = new RegExp(`\\b${requiredTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-
-                            const matchesCategory = categoryPattern.test(cardTagCategories);
-                            const matchesSimpleTag = simpleTagPattern.test(card.dataset.tags);
-
-                            if (!matchesCategory && !matchesSimpleTag) {
-                                matchesAllFilters = false;
-                            }
-                        });
-
-                        show = show && matchesAllFilters;
-                    }
-
-                    // Debug the final show/hide decision
-                    if (card.dataset.title === 'bestie nowego świata') {
-                        console.log('Final decision for Bestie:', {
-                            show,
-                            searchText,
-                            statusValue,
-                            hasActiveTagFilters: Object.keys(activeTagFilters).length > 0,
-                            activeTagFilters,
-                            minAgeValue,
-                            maxAgeValue
-                        });
-                    }
-
-                    if (!show) {
-                        hiddenCount++;
-                    }
-
-                    // Show/hide card container
-                    const cardContainer = card.closest('.session-card-wrapper');
-                    if (cardContainer) {
-                        cardContainer.style.display = show ? '' : 'none';
-                    }
-                });
-
-
-                // Hide empty time slot sections and update section headers
-                document.querySelectorAll('.time-slot-section').forEach(section => {
-                    const cardGrid = section.querySelector('.session-grid');
-                    if (cardGrid) {
-                        const visibleCards = cardGrid.querySelectorAll('.session-card-wrapper:not([style*="display: none"])');
-                        const sectionVisible = visibleCards.length > 0;
-                        section.style.display = sectionVisible ? '' : 'none';
-
-                    }
-                });
-
-                updateFilterUI();
-            }
-
-            function clearAllFilters() {
-                sessionFilter.value = '';
-                statusFilter.value = '';
-                venueFilter.value = '';
-                minAgeFilter.value = '';
-                maxAgeFilter.value = '';
-                Object.keys(tagFilters).forEach(categorySlug => {
-                    tagFilters[categorySlug].value = '';
-                });
-
-                // Reset all visibility
-                document.querySelectorAll('.mb-4').forEach(section => {
-                    section.style.display = '';
-                });
-                document.querySelectorAll('.time-slot-section').forEach(section => {
-                    section.style.display = '';
-                });
-                document.querySelectorAll('.session-card-wrapper').forEach(cardContainer => {
-                    cardContainer.style.display = '';
-                });
-
-                filterSessions();
-            }
-
-            sessionFilter.addEventListener('input', filterSessions);
-            statusFilter.addEventListener('change', filterSessions);
-            venueFilter.addEventListener('change', filterSessions);
-            minAgeFilter.addEventListener('input', filterSessions);
-            maxAgeFilter.addEventListener('input', filterSessions);
-
-            filterToggle.addEventListener('click', () => {
-                const isOpen = filterPanel.classList.toggle('is-open');
-                filterToggle.setAttribute('aria-expanded', String(isOpen));
-            });
-
-            // Close filter panel when clicking outside or focus leaves
-            const filtersWrapper = filterToggle.closest('.filters-popover-wrapper');
-            document.addEventListener('click', (e) => {
-                if (filterPanel.classList.contains('is-open') && !filtersWrapper.contains(e.target)) {
-                    filterPanel.classList.remove('is-open');
-                    filterToggle.setAttribute('aria-expanded', 'false');
-                }
-            });
-            filtersWrapper.addEventListener('focusout', (e) => {
-                if (!filtersWrapper.contains(e.relatedTarget)) {
-                    filterPanel.classList.remove('is-open');
-                    filterToggle.setAttribute('aria-expanded', 'false');
-                }
-            });
-
-            if (clearFiltersFromNoResults) {
-                clearFiltersFromNoResults.addEventListener('click', clearAllFilters);
-            }
-
-            function updateFilterUI() {
-                const chips = [];
-                if (statusFilter.value) {
-                    chips.push({
-                        label: statusFilter.options[statusFilter.selectedIndex].text,
-                        clear() {
-                            statusFilter.value = '';
-                            filterSessions();
-                        }
-                    });
-                }
-                if (venueFilter.value) {
-                    chips.push({
-                        label: venueFilter.options[venueFilter.selectedIndex].text,
-                        clear() {
-                            venueFilter.value = '';
-                            filterSessions();
-                        }
-                    });
-                }
-                if (minAgeFilter.value) {
-                    chips.push({
-                        label: `Age ≥ ${minAgeFilter.value}`,
-                        clear() {
-                            minAgeFilter.value = '';
-                            filterSessions();
-                        }
-                    });
-                }
-                if (maxAgeFilter.value) {
-                    chips.push({
-                        label: `Age ≤ ${maxAgeFilter.value}`,
-                        clear() {
-                            maxAgeFilter.value = '';
-                            filterSessions();
-                        }
-                    });
-                }
-                Object.keys(tagFilters).forEach(cat => {
-                    const sel = tagFilters[cat];
-                    if (sel.value) {
-                        chips.push({
-                            label: sel.options[sel.selectedIndex].text,
-                            clear() {
-                                sel.value = '';
-                                filterSessions();
-                            }
-                        });
-                    }
-                });
-
-                if (chips.length > 0) {
-                    filterCountBadge.textContent = chips.length;
-                    filterCountBadge.classList.add('is-visible');
-                } else {
-                    filterCountBadge.classList.remove('is-visible');
-                }
-
-                filterChipsInner.innerHTML = '';
-                if (chips.length > 0) {
-                    filterChipsBar.classList.add('has-chips');
-                    chips.forEach(chip => {
-                        const el = document.createElement('span');
-                        el.className = 'filter-chip';
-                        el.textContent = chip.label;
-                        const btn = document.createElement('button');
-                        btn.setAttribute('aria-label', filterChipsBar.dataset.removeFilterLabel);
-                        btn.textContent = '×';
-                        btn.addEventListener('click', chip.clear);
-                        el.appendChild(btn);
-                        filterChipsInner.appendChild(el);
-                    });
-                    const clearBtn = document.createElement('button');
-                    clearBtn.className = 'filter-chips-clear';
-                    clearBtn.textContent = filterChipsBar.dataset.clearAllLabel;
-                    clearBtn.addEventListener('click', clearAllFilters);
-                    filterChipsInner.appendChild(clearBtn);
-                } else {
-                    filterChipsBar.classList.remove('has-chips');
-                }
-
-                const visibleCards = document.querySelectorAll('.session-card-wrapper:not([style*="display: none"])');
-                const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== '';
-                if (filterNoResults) {
-                    filterNoResults.style.display = (anyFilterActive && visibleCards.length === 0 && sessionCards.length > 0) ? '' : 'none';
-                }
-            }
-
-            // Number waiting list positions
-            document.querySelectorAll('.tab-panel').forEach(tabPane => {
-                let position = 1;
-                tabPane.querySelectorAll('.waiting-list-row .waiting-position').forEach(badge => {
-                    badge.textContent = position++;
-                });
-            });
-        });
-    </script>
+    {% vite_asset 'src/session-card.ts' %}
+    {% vite_asset 'src/session-edit.ts' %}
+    {% vite_asset 'src/session-filters.ts' %}
+    {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}
     <style>
+        /* Print pointer: hidden on screen; the @media print rule below reveals it
+           and hides the page chrome, so File->Print / the toolbar never print the
+           interactive UI. The Ctrl/Cmd+P gesture is handled separately by JS. */
+        .event-print-pointer {
+            display: none;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            .event-print-pointer,
+            .event-print-pointer * {
+                visibility: visible;
+            }
+
+            .event-print-pointer {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                font-family: sans-serif;
+                color: #111827;
+            }
+
+            .event-print-pointer h1 {
+                font-size: 18pt;
+                font-weight: 700;
+                margin: 0 0 4mm 0;
+            }
+
+            .event-print-pointer .pointer-note {
+                font-size: 11pt;
+                margin: 0 0 6mm 0;
+            }
+
+            .event-print-pointer .pointer-row {
+                font-size: 9pt;
+                margin-bottom: 1mm;
+            }
+
+            .event-print-pointer .pointer-time {
+                display: inline-block;
+                width: 16mm;
+                font-variant-numeric: tabular-nums;
+                color: #6b7280;
+            }
+
+            .event-print-pointer .pointer-session::after {
+                content: " · ";
+                color: #6b7280;
+            }
+
+            .event-print-pointer .pointer-session:last-child::after {
+                content: "";
+            }
+        }
+
         /* Tag filter container styling */
         .tag-filter-container {
             width: 18vw;
@@ -1409,10 +1036,10 @@
             max-height: min(70vh, 32rem);
             overflow-y: auto;
             z-index: 50;
-            border: 1px solid var(--theme-border);
+            border: 1px solid var(--color-border);
             border-radius: 1rem;
             background: var(--color-bg-secondary);
-            box-shadow: var(--theme-shadow-lg);
+            box-shadow: var(--shadow-elevated);
             opacity: 0;
             pointer-events: none;
             filter: none;
@@ -1439,6 +1066,20 @@
             opacity: 1;
             pointer-events: auto;
             transform: scale(1) translateY(0);
+        }
+
+        /* On narrow screens the right-anchored popover would overflow the left
+           edge (the app-shell reserves a scrollbar gutter that pulls the anchor
+           inward). Pin it to the viewport with even margins instead — a
+           full-width filter sheet that still drops from the trigger. */
+        @media (max-width: 30rem) {
+            .filters-popover-wrapper .filter-panel {
+                position: fixed;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+                max-width: none;
+            }
         }
     </style>
 {% endblock extra_head %}

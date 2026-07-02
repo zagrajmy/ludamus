@@ -1,31 +1,13 @@
 {% load i18n %}
-{% if form.non_field_errors %}
-    <div class="alert alert-danger" role="alert">
-        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
-    </div>
-{% endif %}
+{% load tessera %}
+{% tessera_errors form %}
 <div class="space-y-1">
-    <label class="block text-sm font-medium text-neutral-700"
-           for="{{ form.service.id_for_label }}">{{ form.service.label }}</label>
-    <select name="{{ form.service.html_name }}"
-            id="{{ form.service.id_for_label }}"
-            class="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-        {% for value, label in form.service.field.choices %}
-            <option value="{{ value }}"
-                    {% if form.service.value == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-    </select>
-    {% for error in form.service.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
-</div>
-<div class="space-y-1">
-    <label class="block text-sm font-medium text-neutral-700"
+    <label class="block text-sm font-medium text-foreground"
            for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>
-    <input type="text"
-           name="{{ form.display_name.html_name }}"
-           id="{{ form.display_name.id_for_label }}"
-           value="{{ form.display_name.value|default:'' }}"
-           maxlength="255"
-           required
-           class="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-    {% for error in form.display_name.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+    {% include "components/text-field.html" with name=form.display_name.html_name id=form.display_name.id_for_label value=form.display_name.value|default:"" required=True maxlength="255" has_errors=form.display_name.errors aria_describedby="id_display_name_errors" only %}
+    {% if form.display_name.errors %}
+        <div id="id_display_name_errors" role="alert" aria-live="polite">
+            {% for error in form.display_name.errors %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
 </div>

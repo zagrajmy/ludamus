@@ -73,6 +73,19 @@ class TestEncounterDetailPageView:
             template_name="notice_board/detail.html",
         )
 
+    def test_shows_creator_discord_handle(self, client, encounter):
+        encounter.creator.discord_username = "coolgm"
+        encounter.creator.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "@coolgm" in response.content.decode()
+
     def test_ok_authenticated(self, authenticated_client, encounter):
         url = reverse(
             "web:notice-board:encounter-detail",
@@ -178,6 +191,42 @@ class TestEncounterDetailPageView:
         )
         content = response.content.decode()
         assert encounter.title in content
+
+    def test_full_encounter_shows_no_spots_left(self, client, sphere):
+        encounter = EncounterFactory(sphere=sphere, max_participants=2)
+        EncounterRSVPFactory(encounter=encounter)
+        EncounterRSVPFactory(encounter=encounter)
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "No spots left" in response.content.decode()
+
+    def test_authenticated_rsvpd_user_sees_signed_up_state(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(sphere=sphere, max_participants=6)
+        EncounterRSVPFactory(encounter=encounter, user=active_user)
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = authenticated_client.get(url)
+
+        assert response.status_code == HTTPStatus.OK
+        html = response.content.decode()
+        assert "You&#x27;re signed up!" in html or "You're signed up!" in html
+        assert "Cancel signup" in html
+        cancel_url = reverse(
+            "web:notice-board:encounter-cancel-rsvp",
+            kwargs={"share_code": encounter.share_code},
+        )
+        assert cancel_url in html
 
     def test_attendees_with_user_rsvps(self, client, sphere):
         rsvp_user = UserFactory(
