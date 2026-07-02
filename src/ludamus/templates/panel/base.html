@@ -135,7 +135,7 @@
         </button>
         <!-- Sidebar -->
         <aside id="sidebar"
-               class="sidebar-panel w-64 bg-neutral-900 text-white flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen flex flex-col">
+               class="sidebar-panel w-64 bg-neutral-900 text-white flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen flex flex-col [view-transition-name:panel-sidebar]">
             <div class="sidebar-scroll flex-1 overflow-y-auto min-h-0 border-r border-border">
                 <div class="sidebar-header p-4 flex items-center justify-between gap-2">
                     <div class="sidebar-fold-hide min-w-0">
@@ -325,7 +325,7 @@
         <!-- Main Content -->
         <main class="panel-main flex-1 min-w-0">
             <!-- Top Bar -->
-            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-14 z-10">
+            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-14 z-10 [view-transition-name:panel-header]">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
