@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password
 from factory.django import DjangoModelFactory
 
 from ludamus.adapters.db.django.models import User
-from ludamus.pacts import UserType
+from ludamus.pacts.crowd import UserType
 
 
 class CompleteUserFactory(DjangoModelFactory):

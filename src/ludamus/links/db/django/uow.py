@@ -8,7 +8,8 @@ from ludamus.adapters.db.django.models import User
 from ludamus.links.db.django import crowd, repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
-from ludamus.pacts import UnitOfWorkProtocol, UserType
+from ludamus.pacts import UnitOfWorkProtocol
+from ludamus.pacts.crowd import UserType
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager

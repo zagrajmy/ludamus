@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 02:21+0200\n"
+"POT-Creation-Date: 2026-07-02 02:35+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6567,6 +6567,30 @@ msgstr "Czy na pewno chcesz usunąć ten blok programowy?"
 msgid "No tracks yet. Add a track to organize proposals by thematic area."
 msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Staging inbox"
+msgstr "Skrzynka staging"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Captured emails"
+msgstr "Przechwycone e-maile"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Received"
+msgstr "Otrzymano"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "To"
+msgstr "Do"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Subject"
+msgstr "Temat"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "No emails captured yet."
+msgstr "Nie przechwycono jeszcze żadnych e-maili."
 
 #~ msgid "Area timetable"
 #~ msgstr "Harmonogram strefy"
