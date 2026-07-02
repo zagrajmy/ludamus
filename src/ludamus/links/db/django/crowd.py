@@ -73,15 +73,17 @@ class UserRepository(UserRepositoryProtocol):
 
 
 def _companions(leader_slug: str) -> QuerySet[User]:
-    # A login-less companion belongs to exactly one party (the app-level
-    # invariant from RFC 0001), so membership in a party led by `leader_slug`
-    # is ownership. The ACTIVE filter is belt-and-braces: companion memberships
-    # are always created ACTIVE (INVITED exists only for real users).
+    # A leader may lead several parties and a real member may belong to many,
+    # but a login-less companion sits in exactly one (the app-level invariant
+    # from RFC 0001) — so membership in *a* party led by `leader_slug` is
+    # ownership, and the query spans all of the leader's parties. distinct()
+    # and the ACTIVE filter are belt-and-braces: companion memberships are
+    # always created ACTIVE (INVITED exists only for real users) and only once.
     return User.objects.filter(
         user_type=UserType.CONNECTED,
         party_memberships__party__leader__slug=leader_slug,
         party_memberships__status=PartyMembershipStatus.ACTIVE,
-    )
+    ).distinct()
 
 
 def _default_led_party(leader: User) -> Party:
