@@ -27,6 +27,8 @@ flag in Django admin; rotate everything by changing `SECRET_KEY`.
 The MCP gate follows GLIMPSE; it is a transport, not an agent — no model, no
 LLM dependency, no decision-making in the app.
 
+<!-- markdownlint-disable MD013 -->
+
 | Piece | Location | Role |
 | ----- | -------- | ---- |
 | Tool registry | `gates/mcp/registry.py` | `Tool` base (pydantic input → JSON text output) + `ToolRegistry` |
@@ -34,10 +36,30 @@ LLM dependency, no decision-making in the app.
 | Protocol | `gates/mcp/protocol.py` | Stateless JSON-RPC subset of MCP Streamable HTTP |
 | HTTP gate | `gates/web/django/mcp/views.py` | Bearer auth, JSON parsing, `/mcp/token/` mint page |
 
+<!-- markdownlint-enable MD013 -->
+
 Tools call `request.services.<service>` exactly like views, so business
 invariants and transactions hold for MCP callers. The surface is deliberately
 hand-curated: each tool is a considered maintainer operation, not an
 auto-export of every service method.
+
+## Roadmap (decided, not yet built)
+
+Decisions from the WebMCP/Executor design discussion (July 2026), so they
+don't get re-derived or contradicted:
+
+- **Maintainer tier first** (this implementation). No agent lives in the app —
+  the app is a tool server; agents run in maintainers' own MCP clients.
+  [Executor](https://github.com/RhysSullivan/executor) is the recommended
+  client-side control plane (catalog, policy, pause-for-approval, audit).
+- **Organizer / attendee tiers later**: same registry, scope-tagged tools,
+  separate endpoints per trust level. An endpoint must only load the tools of
+  its tier — filtering, not policy checks, is the boundary.
+- **WebMCP later**: when the W3C `navigator.modelContext` API stabilises,
+  annotate existing forms (declarative API) so in-browser agents act in the
+  user's own session. Same tool definitions, different transport.
+- Keep the surface curated and small; if it ever grows large, expose search
+  over tools rather than dumping the whole catalog into agent context.
 
 ## Adding a tool
 
