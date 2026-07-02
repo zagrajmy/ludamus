@@ -19,7 +19,7 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.adapters.web.django.entities import SessionUserParticipationData
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -84,7 +84,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
@@ -97,7 +97,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=True,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -975,7 +975,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
                 "shadowban_warnings": [],
@@ -987,7 +987,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1064,7 +1064,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
                 "shadowban_warnings": [],
@@ -1076,7 +1076,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=True,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1310,7 +1310,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
@@ -1323,7 +1323,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1364,7 +1364,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
@@ -1377,7 +1377,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1729,7 +1729,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
@@ -1742,7 +1742,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1786,7 +1786,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
                 "shadowban_warnings": [],
@@ -1798,7 +1798,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
