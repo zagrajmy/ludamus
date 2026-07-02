@@ -473,10 +473,10 @@ def _read_captured_emails(directory: Path) -> list[dict[str, str]]:
         return []
     emails: list[dict[str, str]] = []
     for log_file in sorted(directory.glob("*.log"), reverse=True):
-        for chunk in log_file.read_bytes().split(b"-" * 79):
-            if not chunk.strip():
+        for chunk in reversed(log_file.read_bytes().split(b"-" * 79)):
+            if not (raw := chunk.strip()):
                 continue
-            message = message_from_bytes(chunk, policy=policy.default)
+            message = message_from_bytes(raw, policy=policy.default)
             body = message.get_body(preferencelist=("plain", "html"))
             emails.append(
                 {
