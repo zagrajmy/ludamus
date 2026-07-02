@@ -131,7 +131,8 @@ class TestInvite:
 
         assert outcome == InviteOutcome.INVITED
         assert ("create_invited_membership", 2, FRIEND_PK) in parties.calls
-        [notification] = notifier.sent
+        assert len(notifier.sent) == 1
+        notification = notifier.sent[0]
         assert notification.recipient_user_id == FRIEND_PK
         assert notification.recipient_email == "f@e.com"
         assert notification.party_name == "Ekipa"
@@ -148,7 +149,7 @@ class TestInvite:
         )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
-        assert notifier.sent == []
+        assert not notifier.sent
 
     def test_unknown_email(self):
         parties = FakeParties(
@@ -174,4 +175,4 @@ class TestInvite:
 
         assert outcome == InviteOutcome.ALREADY_MEMBER
         assert ("create_invited_membership", 2, FRIEND_PK) not in parties.calls
-        assert notifier.sent == []
+        assert not notifier.sent
