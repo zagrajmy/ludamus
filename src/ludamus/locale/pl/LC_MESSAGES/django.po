@@ -674,6 +674,17 @@ msgid "The seat is released if they do not claim it in time"
 msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 
 #: src/ludamus/adapters/web/django/forms.py
+msgid "Bringing guests"
+msgstr "Zabierasz gości"
+
+#: src/ludamus/adapters/web/django/forms.py
+msgid ""
+"One-off company without accounts — their seats come from this session's pool."
+msgstr ""
+"Jednorazowe towarzystwo bez kont — ich miejsca pochodzą z puli tego punktu "
+"programu."
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "Ungrouped"
 msgstr "Bez grupy"
 
@@ -955,6 +966,11 @@ msgstr "Anulowani: {}"
 #, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
+msgid "Guests you bring: {}"
+msgstr "Goście, których zabierasz: {}"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-brace-format
