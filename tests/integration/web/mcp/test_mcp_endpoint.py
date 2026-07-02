@@ -8,7 +8,7 @@ from freezegun import freeze_time
 
 from ludamus.adapters.db.django.models import Announcement
 from ludamus.gates.mcp.protocol import PARSE_ERROR
-from ludamus.gates.web.django.mcp.views import SIGNING_SALT, mint_token
+from ludamus.gates.web.django.mcp.tokens import SIGNING_SALT, mint_token
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 

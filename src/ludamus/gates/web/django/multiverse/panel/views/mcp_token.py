@@ -8,7 +8,7 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.mcp.views import TOKEN_MAX_AGE_DAYS, mint_organizer_token
+from ludamus.gates.web.django.mcp.tokens import TOKEN_MAX_AGE_DAYS, mint_organizer_token
 from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
