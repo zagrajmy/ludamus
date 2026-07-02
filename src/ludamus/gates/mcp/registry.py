@@ -71,7 +71,14 @@ class Tool[InputT: BaseModel](ToolProtocol, ABC):
         try:
             data = self.input_model.model_validate(arguments)
         except ValidationError as error:
-            message = f"Invalid arguments: {error}"
+            # Built from structured error fields, not str(error): the raw
+            # pydantic text echoes input values and must not reach clients.
+            details = "; ".join(
+                f"{'.'.join(str(part) for part in item['loc']) or 'arguments'}: "
+                f"{item['msg']}"
+                for item in error.errors()
+            )
+            message = f"Invalid arguments: {details}"
             raise ToolError(message) from error
         return self.handle(ToolCall(services=services, actor=actor, data=data))
 
