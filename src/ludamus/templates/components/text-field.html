@@ -1,5 +1,5 @@
 {# Text input field. Always pass `name`. Other vars are optional — use `only` in includes. #}
-{# Optional: input_type (default "text"), id, placeholder, value, required, disabled, readonly, maxlength, inputmode, pattern, autocomplete, spellcheck, has_errors, aria_describedby #}
+{# Optional: input_type (default "text"), id, placeholder, value, required, disabled, readonly, maxlength, min, max, inputmode, pattern, autocomplete, spellcheck, has_errors, aria_describedby #}
 {# text-base keeps inputs at 16px on mobile so iOS Safari doesn't auto-zoom on focus; sm:text-sm restores the compact desktop size. #}
 <input type="{{ input_type|default:"text" }}"
        {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}
@@ -10,6 +10,8 @@
        {% if placeholder|default:"" %}placeholder="{{ placeholder }}"{% endif %}
        {% if value|default:"" %}value="{{ value }}"{% endif %}
        {% if maxlength|default:"" %}maxlength="{{ maxlength }}"{% endif %}
+       {% if min|default:"" %}min="{{ min }}"{% endif %}
+       {% if max|default:"" %}max="{{ max }}"{% endif %}
        {% if inputmode|default:"" %}inputmode="{{ inputmode }}"{% endif %}
        {% if pattern|default:"" %}pattern="{{ pattern }}"{% endif %}
        {% if required|default:False %}required{% endif %}

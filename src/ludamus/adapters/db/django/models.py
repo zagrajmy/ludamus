@@ -897,7 +897,7 @@ class Session(SoftDeleteModel):
         default=0, help_text="Minimum age requirement (0 = no restriction)"
     )
     participants: models.ManyToManyField[User, Never] = models.ManyToManyField(
-        User, through="SessionParticipation"
+        User, through="SessionParticipation", through_fields=("session", "user")
     )
     tracks: models.ManyToManyField[Track, Never] = models.ManyToManyField(
         "Track", blank=True, related_name="sessions"
@@ -1102,6 +1102,11 @@ class SessionParticipation(models.Model):
         null=True,
         blank=True,
         related_name="session_participations",
+    )
+    # The account that brought an anonymous +N guest; NULL for regular
+    # enrollments (people enrolled themselves or via the party flows).
+    enrolled_by = models.ForeignKey(
+        User, models.SET_NULL, null=True, blank=True, related_name="enrollments_made"
     )
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)

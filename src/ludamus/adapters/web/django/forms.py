@@ -230,6 +230,9 @@ def _make_enrollment_clean(
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
     field_to_user_name: dict[str, str],
 ) -> Callable[..., dict[str, Any] | None]:
+    # Only user_* fields count against the membership slot cap: +N guests are
+    # walk-ins without memberships, so they intentionally bypass it — the
+    # session capacity check still gates them.
     all_users = [current_user, *connected_users]
 
     def clean(self: forms.Form) -> dict[str, Any] | None:
@@ -324,6 +327,9 @@ def _build_held_seat_choices(
     )
 
 
+MAX_GUESTS = 10
+
+
 def _build_member_choices(
     *,
     current_participation: SessionParticipation | None,
@@ -365,6 +371,9 @@ class EnrollmentRoster:
     companions: tuple[UserDTO, ...] = ()
     # Real co-members of the selected led party.
     members: tuple[RosterMember, ...] = ()
+    # +N headcount guests (anonymous seats); None when the event's enrollment
+    # config does not allow anonymous enrollment for this session.
+    guest_count: int | None = None
 
 
 def create_enrollment_form(
@@ -394,7 +403,7 @@ def create_enrollment_form(
         )
     )
 
-    form_fields: dict[str, _UserEnrollmentChoiceField] = {}
+    form_fields: dict[str, forms.Field] = {}
     field_to_user_name: dict[str, str] = {}
 
     seated = [
@@ -477,8 +486,24 @@ def create_enrollment_form(
         field_to_user_name=field_to_user_name,
     )
 
+    if roster.guest_count is not None:
+        form_fields["guests"] = forms.IntegerField(
+            required=False,
+            min_value=0,
+            max_value=MAX_GUESTS,
+            initial=roster.guest_count,
+            label=_("Guests without an account"),
+            help_text=_(
+                "One-off company — they need no accounts, and their seats "
+                "come from this session's pool."
+            ),
+        )
+
     form = type("EnrollmentForm", (forms.Form,), form_fields)
     form.clean = clean  # type: ignore [attr-defined]
+    # Template guard: the strict template checks treat a missing variable as an
+    # error, so the guests block keys off an always-present flag.
+    form.has_guests = roster.guest_count is not None  # type: ignore [attr-defined]
     return form
 
 
