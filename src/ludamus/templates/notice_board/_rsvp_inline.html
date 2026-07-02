@@ -43,15 +43,7 @@
                                    class="block px-3 py-2 text-sm text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-b-lg">{% translate "Download .ics" %}</a>
                             </div>
                         </div>
-                        <button type="button"
-                                class="btn btn-secondary text-sm w-full rsvp-copy-details"
-                                data-title="{{ encounter.title }}{% if encounter.game %} — {{ encounter.game }}{% endif %}"
-                                data-time="{{ encounter.start_time|date:'DATE_FORMAT' }}, {{ encounter.start_time|time:'TIME_FORMAT' }}"
-                                data-place="{{ encounter.place }}"
-                                data-url="{{ share_url }}">
-                            {% icon "clipboard-document" class="h-5 w-5" variant="mini" %}
-                            {% translate "Copy details" %}
-                        </button>
+                        {% include "notice_board/_rsvp_copy_details.html" %}
                     </div>
                 </div>
             {% endif %}
@@ -93,15 +85,7 @@
                                class="block px-3 py-2 text-sm text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-b-lg">{% translate "Download .ics" %}</a>
                         </div>
                     </div>
-                    <button type="button"
-                            class="btn btn-secondary text-sm w-full rsvp-copy-details"
-                            data-title="{{ encounter.title }}{% if encounter.game %} — {{ encounter.game }}{% endif %}"
-                            data-time="{{ encounter.start_time|date:'DATE_FORMAT' }}, {{ encounter.start_time|time:'TIME_FORMAT' }}"
-                            data-place="{{ encounter.place }}"
-                            data-url="{{ share_url }}">
-                        {% icon "clipboard-document" class="h-5 w-5" variant="mini" %}
-                        {% translate "Copy details" %}
-                    </button>
+                    {% include "notice_board/_rsvp_copy_details.html" %}
                 </div>
             </div>
             {# Collapsed state — click to restore prompt #}

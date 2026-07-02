@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 03:31+0200\n"
+"POT-Creation-Date: 2026-07-02 03:41+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -713,6 +713,14 @@ msgstr "Harmonogram bloku"
 #: src/ludamus/adapters/web/django/print_views.py
 msgid "Session list"
 msgstr "Lista punktów programu"
+
+#: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
+msgid "Copied!"
+msgstr "Skopiowano!"
+
+#: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
+msgid "Copy to clipboard"
+msgstr "Skopiuj do schowka"
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Please complete your profile."
@@ -3533,11 +3541,6 @@ msgstr "Organizujesz"
 msgid "attending"
 msgstr "uczestników"
 
-#: src/ludamus/templates/components/encounter_card.html
-#: src/ludamus/templates/notice_board/_organizer_actions.html
-msgid "Copied!"
-msgstr "Skopiowano!"
-
 #: src/ludamus/templates/components/event_card.html
 msgid "LIVE"
 msgstr "W TRAKCIE"
@@ -3904,10 +3907,6 @@ msgstr[3] ""
 "w punktach programu.\n"
 "                            "
 
-#: src/ludamus/templates/crowd/user/parts/discord_username.html
-msgid "Copy to clipboard"
-msgstr "Skopiuj do schowka"
-
 #: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "Shadowbanned players"
 msgstr "Cicho zbanowani gracze"
@@ -4153,6 +4152,10 @@ msgstr "Czy na pewno chcesz usunąć to spotkanie?"
 msgid "Delete encounter"
 msgstr "Usuń spotkanie"
 
+#: src/ludamus/templates/notice_board/_rsvp_copy_details.html
+msgid "Copy details"
+msgstr "Kopiuj szczegóły"
+
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Join"
 msgstr "Dołącz"
@@ -4164,10 +4167,6 @@ msgstr "Dołącz z kontem"
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "Copy details"
-msgstr "Kopiuj szczegóły"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 #: src/ludamus/templates/notice_board/detail.html

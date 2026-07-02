@@ -21,3 +21,25 @@ test.describe("Encounter detail — organizer share dialog", () => {
     await expect(qrImage).toBeHidden();
   });
 });
+
+test.describe("Encounter detail — copy share link", () => {
+  test.use({ permissions: ["clipboard-read", "clipboard-write"] });
+
+  test("copies the link and confirms with a popover, without resizing", async ({ page }) => {
+    await page.goto("/e/ENCQR1/");
+
+    await page.getByRole("button", { name: "Share" }).first().click();
+    const copyLink = page.getByRole("button", { name: "Copy link" }).first();
+    const before = await copyLink.boundingBox();
+
+    await copyLink.click();
+
+    // The confirmation popover is a live region inside the button; the button
+    // itself must not change size (the bug this component was built to fix).
+    await expect(copyLink.getByRole("status")).toHaveText("Copied!");
+    expect(await copyLink.boundingBox()).toEqual(before);
+
+    const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboard).toContain("/e/ENCQR1/");
+  });
+});
