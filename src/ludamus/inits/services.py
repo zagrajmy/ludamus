@@ -20,6 +20,7 @@ from ludamus.mills.chronology import (
     SessionDeletionService,
     SessionSelfEditService,
 )
+from ludamus.mills.crowd import ClaimService
 from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
@@ -68,6 +69,10 @@ class Services:
         return ConnectionsService(
             self._transaction, self._repos.connections, FernetEncryptor(key)
         )
+
+    @cached_property
+    def claims(self) -> ClaimService:
+        return ClaimService(self._transaction, self._repos.claims)
 
     @cached_property
     def announcements(self) -> AnnouncementsService:

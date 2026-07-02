@@ -79,7 +79,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import UserData, UserDTO
+from ludamus.pacts.crowd import ClaimOutcome, UserData, UserDTO
 
 from .design_fixtures import (
     mock_event_info,
@@ -101,7 +101,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-
     from django.db.models.query import QuerySet
 
 MINIMUM_ALLOWED_USER_AGE = 16
@@ -154,7 +153,7 @@ class Auth0LoginActionView(View):
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
             login_url = (
-                f'{request.scheme}://{root_domain}{reverse("web:crowd:auth0:login")}'
+                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:login')}"
             )
             url = (
                 f"{login_url}?{urlencode({'next': next_path})}"
@@ -269,7 +268,7 @@ class Auth0LoginCallbackActionView(RedirectView):
             if redirect_to:
                 parsed = urlparse(redirect_to)
                 return (
-                    f'{parsed.scheme}://{parsed.netloc}{reverse("web:crowd:profile")}'
+                    f"{parsed.scheme}://{parsed.netloc}{reverse('web:crowd:profile')}"
                 )
             return self.request.build_absolute_uri(reverse("web:crowd:profile"))
 
@@ -310,6 +309,8 @@ class Auth0LoginCallbackActionView(RedirectView):
         return redirect_to
 
     def _get_or_create_user(self, userinfo: Auth0UserInfo) -> UserDTO:
+        if claimed := self._redeem_pending_claim(userinfo):
+            return claimed
         try:
             return self.request.di.uow.active_users.read_by_username(userinfo.username)
         except NotFoundError:
@@ -322,6 +323,27 @@ class Auth0LoginCallbackActionView(RedirectView):
                 create_data["email"] = ""
             self.request.di.uow.active_users.create(create_data)
             return self.request.di.uow.active_users.read_by_username(userinfo.username)
+
+    def _redeem_pending_claim(self, userinfo: Auth0UserInfo) -> UserDTO | None:
+        if not (token := self.request.session.pop("pending_claim_token", "")):
+            return None
+        result = self.request.services.claims.redeem(
+            token=token, username=userinfo.username
+        )
+        if result.outcome == ClaimOutcome.CONVERTED:
+            messages.success(
+                self.request, _("Profile claimed — it is now your own account.")
+            )
+            return self.request.di.uow.active_users.read(result.user_slug)
+        if result.outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
+            messages.info(
+                self.request,
+                _(
+                    "You already have an account, so this profile can't be moved "
+                    "into it. Ask the person who invited you to enroll you directly."
+                ),
+            )
+        return None
 
     def _apply_user_updates(self, userinfo: Auth0UserInfo, user: UserDTO) -> UserDTO:
         if update_data := userinfo.to_update_data(user):
@@ -400,7 +422,7 @@ def _auth0_logout_url(
     return f"https://{settings.AUTH0_DOMAIN}/v2/logout?" + urlencode(
         {
             "returnTo": (
-                f'{request.scheme}://{root_domain}{reverse("web:crowd:auth0:logout-redirect")}?last_domain={last_domain}&redirect_to={redirect_to}'
+                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:logout-redirect')}?last_domain={last_domain}&redirect_to={redirect_to}"
             ),
             "client_id": settings.AUTH0_CLIENT_ID,
         },
@@ -689,7 +711,6 @@ class ProfileConnectedUserUpdateActionView(
     ContextMixin,
     ProcessFormView,
 ):
-
     form_class = ConnectedUserForm
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-connected-users")
@@ -759,6 +780,71 @@ class ProfileConnectedUserDeleteActionView(
         )
         messages.success(self.request, _("Connected user deleted successfully."))
         return HttpResponseRedirect(success_url)
+
+
+class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
+    # POST: mint a share link that lets a connected person take over their
+    # profile as their own self-login account.
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, slug: str) -> HttpResponse:
+        token = request.services.claims.issue(
+            manager_slug=request.context.current_user_slug, user_slug=slug
+        )
+        if token is None:
+            messages.error(request, _("Could not create a claim link for this person."))
+        else:
+            claim_url = request.build_absolute_uri(
+                reverse("web:crowd:claim", kwargs={"token": token})
+            )
+            messages.success(
+                request,
+                _(
+                    "Claim link ready. Share it with this person so they can take "
+                    "over their profile: %(url)s"
+                )
+                % {"url": claim_url},
+            )
+        return redirect("web:crowd:profile-connected-users")
+
+
+class ClaimPageView(View):
+    # Landing page for a claim link. The recipient signs in via Auth0 and the
+    # managed row becomes their own account.
+    @staticmethod
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        if request.context.current_user_slug:
+            messages.info(
+                request,
+                _(
+                    "You're already signed in. Log out first to claim this "
+                    "profile into a new account."
+                ),
+            )
+            return redirect("web:index")
+        if (claimable := request.services.claims.read_claimable(token)) is None:
+            messages.error(
+                request, _("This claim link is invalid or has already been used.")
+            )
+            return redirect("web:index")
+        return TemplateResponse(
+            request, "crowd/claim.html", {"claimable": claimable, "token": token}
+        )
+
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        if request.context.current_user_slug:
+            return redirect("web:index")
+        if request.services.claims.read_claimable(token) is None:
+            messages.error(
+                request, _("This claim link is invalid or has already been used.")
+            )
+            return redirect("web:index")
+        request.session["pending_claim_token"] = token
+        login_url = reverse("web:crowd:auth0:login")
+        next_url = reverse("web:crowd:profile")
+        return redirect(f"{login_url}?{urlencode({'next': next_url})}")
 
 
 class ProfileAvatarPageView(LoginRequiredMixin, View):

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}
+    {% translate "Claim your profile" %}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Claim your profile" %}</h1>
+{% endblock header %}
+{% block description %}
+    {% translate "Make this profile your own account" %}
+{% endblock description %}
+{% block body %}
+    <div class="max-w-2xl mx-auto">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="font-semibold mb-0">{{ claimable.name }}</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    {% blocktranslate with name=claimable.name manager=claimable.manager_name %}{{ manager }} created a profile for {{ name }} and invited you to take it over. Sign in to turn it into your own account — your event sign-ups stay with you.{% endblocktranslate %}
+                </p>
+                <form method="post" action="{% url 'web:crowd:claim' token=token %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary">{% translate "Sign in and claim" %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

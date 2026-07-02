@@ -59,6 +59,12 @@ crowd_urls: list[URLPattern | URLResolver] = [
         views.ProfileConnectedUserDeleteActionView.as_view(),
         name="profile-connected-users-delete",
     ),
+    path(
+        "profile/connected-users/<str:slug>/do/claim-link",
+        views.ProfileConnectedUserClaimLinkActionView.as_view(),
+        name="profile-connected-users-claim-link",
+    ),
+    path("claim/<str:token>/", views.ClaimPageView.as_view(), name="claim"),
 ]
 
 chronology_urls = [

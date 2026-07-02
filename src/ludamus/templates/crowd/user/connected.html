@@ -60,23 +60,33 @@
                                 <div class="item-display" id="display-{{ forloop.counter }}">
                                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         <h6 class="font-semibold text-sm">{{ connected.user.full_name }}</h6>
-                                        <form method="post"
-                                              action="{% url 'web:crowd:profile-connected-users-delete' slug=connected.user.slug %}"
-                                              data-confirm="{% blocktranslate with name=connected.user.full_name %}Remove {{ name }} from your connected users?{% endblocktranslate %}">
-                                            {% csrf_token %}
-                                            <div class="flex gap-1">
-                                                <button type="button"
+                                        <div class="flex gap-1">
+                                            <button type="button"
+                                                    class="icon-btn icon-btn"
+                                                    onclick="document.getElementById('display-{{ forloop.counter }}').style.display='none'; document.getElementById('edit-{{ forloop.counter }}').style.display='block'">
+                                                {% icon "pencil" class="w-3.5 h-3.5" %}
+                                                <span class="sr-only">{% translate "Edit" %}</span>
+                                            </button>
+                                            <form method="post"
+                                                  action="{% url 'web:crowd:profile-connected-users-claim-link' slug=connected.user.slug %}">
+                                                {% csrf_token %}
+                                                <button type="submit"
                                                         class="icon-btn icon-btn"
-                                                        onclick="document.getElementById('display-{{ forloop.counter }}').style.display='none'; document.getElementById('edit-{{ forloop.counter }}').style.display='block'">
-                                                    {% icon "pencil" class="w-3.5 h-3.5" %}
-                                                    <span class="sr-only">{% translate "Edit" %}</span>
+                                                        title="{% translate "Create a link to let this person take over their profile" %}">
+                                                    {% icon "link" class="w-3.5 h-3.5" %}
+                                                    <span class="sr-only">{% translate "Create claim link" %}</span>
                                                 </button>
+                                            </form>
+                                            <form method="post"
+                                                  action="{% url 'web:crowd:profile-connected-users-delete' slug=connected.user.slug %}"
+                                                  data-confirm="{% blocktranslate with name=connected.user.full_name %}Remove {{ name }} from your connected users?{% endblocktranslate %}">
+                                                {% csrf_token %}
                                                 <button type="submit" class="icon-btn icon-btn">
                                                     {% icon "trash" class="w-3.5 h-3.5" %}
                                                     <span class="sr-only">{% translate "Delete" %}</span>
                                                 </button>
-                                            </div>
-                                        </form>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="item-edit"

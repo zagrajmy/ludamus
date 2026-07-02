@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
+    from ludamus.pacts.crowd import ClaimServiceProtocol
     from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.enrollment import (
         NotificationsServiceProtocol,
@@ -61,6 +62,8 @@ class ServicesProtocol(Protocol):
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
     def connections(self) -> ConnectionsServiceProtocol: ...
+    @property
+    def claims(self) -> ClaimServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
