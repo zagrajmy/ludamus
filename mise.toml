@@ -68,16 +68,16 @@ description = "Detect missing, unused, or transitive dependency imports"
 run = "mise run _lint -- deptry src tests"
 
 [tasks.djlint]
-description = "Lint Django templates"
-run = "mise run _lint -- djlint src --profile=django"
+description = "Lint Django templates and check formatting (no changes)"
+run = "mise run _lint -- djlint src --lint --check --format-css --format-js --profile=django"
 
 [tasks.djlint-format]
-description = "Reformat Django templates, CSS, and JS"
-run = "mise run _lint -- djlint src --reformat --format-css --format-js --profile=django"
+description = "Lint Django templates and reformat them, CSS and JS included"
+run = "mise run _lint -- djlint src --lint --reformat --format-css --format-js --profile=django"
 
-[tasks.djlint-format-check]
-description = "Verify Django templates, CSS, and JS are formatted (no changes)"
-run = "mise run _lint -- djlint src --check --format-css --format-js --profile=django"
+[tasks.hk-check]
+description = "Run every hk linter on all files (same steps as the git hooks)"
+run = "hk check --all"
 
 [tasks.il]
 description = "Enforce GLIMPSE layer import rules"
@@ -118,7 +118,6 @@ depends = [
   "codespell",
   "mypy",
   "il",
-  "djlint",
   "djlint-format",
   "pylint",
   "vulture",
@@ -129,12 +128,9 @@ depends = [
 [tasks.prcheck]
 description = "CI-style lint pass: report violations without fixing"
 depends = [
-  "black-check",
-  "ruff",
-  "codespell",
+  "hk-check",
   "mypy",
-  "djlint",
-  "djlint-format-check",
+  "il",
   "pylint",
   "vulture",
   "ast-grep",

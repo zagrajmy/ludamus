@@ -274,6 +274,12 @@ ignore = [
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "**/conftest.py" = ["RUF076"]
+"scripts/*.py" = [
+    "T201",
+    "S404",
+    "S603",
+    "S607",
+]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
