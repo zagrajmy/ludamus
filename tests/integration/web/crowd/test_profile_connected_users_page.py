@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS, User
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import ConnectedUserDTO, UserType
 from tests.integration.utils import assert_response
 
 
@@ -39,7 +39,10 @@ class TestProfileConnectedUsersPageView:
                 "form": ANY,
                 "view": ANY,
                 "connected_users": [
-                    {"user": UserDTO.model_validate(connected_user), "form": ANY}
+                    {
+                        "user": ConnectedUserDTO.model_validate(connected_user),
+                        "form": ANY,
+                    }
                 ],
                 "max_connected_users": MAX_CONNECTED_USERS,
             },
@@ -105,7 +108,7 @@ class TestProfileConnectedUsersPageView:
                 "form": ANY,
                 "view": ANY,
                 "connected_users": [
-                    {"user": UserDTO.model_validate(user), "form": ANY}
+                    {"user": ConnectedUserDTO.model_validate(user), "form": ANY}
                     for user in connected_users
                 ],
                 "max_connected_users": MAX_CONNECTED_USERS,

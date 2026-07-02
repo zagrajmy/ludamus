@@ -23,7 +23,6 @@ class UserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     avatar_url: str
-    claim_token: str = ""
     date_joined: datetime
     discord_username: str
     email: str
@@ -39,6 +38,13 @@ class UserDTO(BaseModel):
     use_gravatar: bool
     user_type: UserType
     username: str
+
+
+class ConnectedUserDTO(UserDTO):
+    # The claim token is a bearer credential for taking over the profile, so
+    # it lives only on the manager-facing connected-user read model — never on
+    # the app-wide UserDTO.
+    claim_token: str = ""
 
 
 class UserData(TypedDict, total=False):
@@ -70,9 +76,9 @@ class ConnectedUserRepositoryProtocol(Protocol):
     @staticmethod
     def create(manager_slug: str, user_data: UserData) -> None: ...
     @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]: ...
+    def read_all(manager_slug: str) -> list[ConnectedUserDTO]: ...
     @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO: ...
+    def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO: ...
     @staticmethod
     def delete(manager_slug: str, user_slug: str) -> None: ...
     @staticmethod

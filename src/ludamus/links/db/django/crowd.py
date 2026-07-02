@@ -6,6 +6,7 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
+    ConnectedUserDTO,
     ConnectedUserRepositoryProtocol,
     UserData,
     UserDTO,
@@ -69,14 +70,14 @@ class UserRepository(UserRepositoryProtocol):
 
 class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
     @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]:
+    def read_all(manager_slug: str) -> list[ConnectedUserDTO]:
         try:
             manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
         except User.DoesNotExist as exception:
             raise NotFoundError from exception
 
         return [
-            UserDTO.model_validate(connected_user)
+            ConnectedUserDTO.model_validate(connected_user)
             for connected_user in manager.connected.all()
         ]
 
@@ -86,14 +87,14 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
         User.objects.create(manager=manager, **user_data)
 
     @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO:
+    def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO:
         try:
             connected_user = User.objects.get(
                 slug=user_slug, manager__slug=manager_slug
             )
         except User.DoesNotExist as exception:
             raise NotFoundError from exception
-        return UserDTO.model_validate(connected_user)
+        return ConnectedUserDTO.model_validate(connected_user)
 
     @staticmethod
     def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:

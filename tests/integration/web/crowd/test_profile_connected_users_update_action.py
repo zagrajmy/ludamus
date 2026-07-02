@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS, User
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import ConnectedUserDTO, UserType
 from tests.integration.utils import assert_response
 
 
@@ -39,13 +39,16 @@ class TestProfileConnectedUserUpdateActionView:
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
             context_data={
-                "object": UserDTO.model_validate(connected_user),
-                "user": UserDTO.model_validate(connected_user),
+                "object": ConnectedUserDTO.model_validate(connected_user),
+                "user": ConnectedUserDTO.model_validate(connected_user),
                 "form": ANY,
                 "view": ANY,
                 "max_connected_users": MAX_CONNECTED_USERS,
                 "connected_users": [
-                    {"user": UserDTO.model_validate(connected_user), "form": ANY}
+                    {
+                        "user": ConnectedUserDTO.model_validate(connected_user),
+                        "form": ANY,
+                    }
                 ],
             },
             template_name=["crowd/user/connected.html"],
