@@ -37,10 +37,14 @@ document.addEventListener("click", (e) => {
   if (button.dataset.copyOrigin !== undefined) text = globalThis.location.origin + text;
 
   const written = navigator.clipboard?.writeText(text);
-  if (written)
+  if (written) {
     written
       .then(() => confirmCopy(button))
       .catch((error: unknown) => {
         console.error("Copy failed:", error);
       });
+  } else {
+    // Insecure context (plain-HTTP deploy): no popover — but leave a trace.
+    console.error("Clipboard API unavailable");
+  }
 });

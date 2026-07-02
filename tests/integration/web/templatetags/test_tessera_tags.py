@@ -160,6 +160,33 @@ class TestCopyBlock:
         html = tpl.render(Context({"bad": '"><script>alert(1)</script>'}))
         assert "<script>alert" not in html
 
+    def test_multiline_payload_survives_the_attribute(self) -> None:
+        # The composition every "Copy details"/"Copy info" button relies on:
+        # copy_lines output must land in data-copy with its newlines intact.
+        tpl = Template(
+            "{% load tessera %}"
+            "{% copy_lines 'Title' 'Room 5' as payload %}"
+            "{% tessera_copy payload %}Copy details{% endtessera_copy %}"
+        )
+        html = tpl.render(Context())
+        assert 'data-copy="Title\nRoom 5"' in html
+
+    def test_copied_label_override(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% tessera_copy url copied_label='Got it' %}Copy{% endtessera_copy %}"
+        )
+        html = tpl.render(Context({"url": "/e/1/"}))
+        assert 'data-copied-label="Got it"' in html
+
+    def test_unknown_kwargs_raise_instead_of_vanishing(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% tessera_copy url copied_lable='typo' %}Copy{% endtessera_copy %}"
+        )
+        with pytest.raises(TemplateSyntaxError, match="copied_lable"):
+            tpl.render(Context({"url": "/e/1/"}))
+
 
 class TestCopyLines:
     def test_joins_parts_and_skips_empties(self) -> None:

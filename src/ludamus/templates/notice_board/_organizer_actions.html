@@ -12,13 +12,11 @@
                     {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
                     {% translate "Copy link" %}
                 {% endtessera_copy %}
-                {% with dt=encounter.start_time|date:"DATETIME_FORMAT" %}
-                    {% copy_lines encounter.title encounter.game dt encounter.place share_url as share_info %}
-                    {% tessera_copy share_info variant="menu-item" %}
-                        {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
-                        {% translate "Copy info" %}
-                    {% endtessera_copy %}
-                {% endwith %}
+                {% copy_lines encounter.title encounter.game encounter.start_time|date:"DATETIME_FORMAT" encounter.place share_url as share_info %}
+                {% tessera_copy share_info variant="menu-item" %}
+                    {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
+                    {% translate "Copy info" %}
+                {% endtessera_copy %}
                 <button type="button"
                         class="show-qr-btn w-full px-3 py-2 text-sm text-left text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-b-lg">
                     {% icon "qr-code" class="h-4 w-4 inline" variant="mini" %}

@@ -6,6 +6,7 @@ The click behaviour is wired once in ``src/copy.ts`` (a delegated listener on
 
 from __future__ import annotations
 
+from django.template import TemplateSyntaxError
 from django.utils.html import format_html
 from django.utils.translation import gettext
 
@@ -76,6 +77,9 @@ def tessera_copy(
     Returns:
         HTML string of the button wrapping ``content`` plus the popover.
 
+    Raises:
+        TemplateSyntaxError: On unknown keyword arguments (likely typos).
+
     Usage:
         {% tessera_copy share_url %}
             {% icon "clipboard-document" variant="solid" class="h-4 w-4" %}
@@ -83,7 +87,12 @@ def tessera_copy(
         {% endtessera_copy %}
     """
     copied_label = copied_label or gettext("Copied!")
+    # **kwargs exists only because `class` is a reserved word; anything else is
+    # a typo (e.g. copied_lable=) and must not vanish silently.
     classes = clsx(_VARIANT_CLASSES[variant], kwargs.pop("class", None))
+    if kwargs:
+        msg = f"tessera_copy got unknown arguments: {sorted(kwargs)}"
+        raise TemplateSyntaxError(msg)
     origin_attr = " data-copy-origin" if origin else ""
     return format_html(
         '<button type="button" class="{classes}" data-copy="{copy}"'
