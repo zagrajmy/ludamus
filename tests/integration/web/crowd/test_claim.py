@@ -115,10 +115,7 @@ class TestClaimPageView:
             HTTPStatus.FOUND,
             url="/",
             messages=[
-                (
-                    messages.ERROR,
-                    "This claim link is invalid or has already been used.",
-                )
+                (messages.ERROR, "This claim link is invalid or has already been used.")
             ],
         )
 
@@ -132,10 +129,7 @@ class TestClaimPageView:
             "profile into a new account."
         )
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="/",
-            messages=[(messages.INFO, expected)],
+            response, HTTPStatus.FOUND, url="/", messages=[(messages.INFO, expected)]
         )
 
     def test_post_stashes_token_and_redirects_to_login(self, client, active_user):
@@ -162,10 +156,7 @@ class TestClaimPageView:
             HTTPStatus.FOUND,
             url="/",
             messages=[
-                (
-                    messages.ERROR,
-                    "This claim link is invalid or has already been used.",
-                )
+                (messages.ERROR, "This claim link is invalid or has already been used.")
             ],
         )
 
@@ -178,11 +169,13 @@ class TestClaimRedemptionOnLogin:
         state_token = token_urlsafe(32)
         cache.set(
             f"oauth_state:{state_token}",
-            json.dumps({
-                "redirect_to": None,
-                "created_at": datetime.now(UTC).isoformat(),
-                "csrf_token": "test_csrf_token",
-            }),
+            json.dumps(
+                {
+                    "redirect_to": None,
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "csrf_token": "test_csrf_token",
+                }
+            ),
             timeout=600,
         )
         return state_token

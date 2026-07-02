@@ -800,8 +800,7 @@ class SessionManager(AliveManager["Session"]):
     # checks (and the default `objects` accessor) skip soft-deleted sessions.
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return (
-            self
-            .get_queryset()
+            self.get_queryset()
             .filter(
                 event_id=session.event_id,
                 session_participations__user_id=user.pk,
@@ -1599,8 +1598,7 @@ def can_enroll_users(
 ) -> bool:
     # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
     currently_enrolled = set(
-        SessionParticipation.objects
-        .filter(
+        SessionParticipation.objects.filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__event_id=event.pk,
@@ -1619,8 +1617,7 @@ def can_enroll_users(
 def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
     # Count unique users who hold at least one seat (confirmed or offered)
     return len(
-        SessionParticipation.objects
-        .filter(
+        SessionParticipation.objects.filter(
             status__in=OCCUPYING_PARTICIPATION_STATUSES,
             user_id__in=[u.pk for u in users],
             session__event_id=event.pk,
