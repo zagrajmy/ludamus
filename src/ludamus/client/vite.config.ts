@@ -37,6 +37,7 @@ export default defineConfig({
       input: {
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
+        copy: resolve(rootDir, "src/copy.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),

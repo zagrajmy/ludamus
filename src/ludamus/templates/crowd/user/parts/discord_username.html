@@ -1,6 +1,6 @@
 {% load i18n tessera %}
 {% if discord_username %}
-    {% tessera_copy "@"|add:discord_username %}
+    {% tessera_copy_chip "@"|add:discord_username %}
 {% else %}
     <span class="text-foreground-secondary">—</span>
 {% endif %}

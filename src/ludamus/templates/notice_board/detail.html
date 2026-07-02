@@ -242,13 +242,6 @@
                          height="240"
                          class="rounded-lg">
                 </dialog>
-                <input type="hidden" id="share-url" value="{{ share_url }}">
-                <div id="share-info-data"
-                     data-title="{{ encounter.title }}{% if encounter.game %} — {{ encounter.game }}{% endif %}"
-                     data-time="{{ encounter.start_time|date:'DATE_FORMAT' }}, {{ encounter.start_time|time:'TIME_FORMAT' }}"
-                     data-place="{{ encounter.place }}"
-                     data-url="{{ share_url }}"
-                     class="hidden"></div>
             {% endif %}
         </div>
     </div>
@@ -312,33 +305,9 @@
             }
         });
         (function() {
-            var shareUrl = document.getElementById('share-url');
-            var shareData = document.getElementById('share-info-data');
-
-            document.querySelectorAll('.copy-link-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    if (!shareUrl) return;
-                    navigator.clipboard.writeText(shareUrl.value).then(function() {
-                        var orig = btn.textContent;
-                        btn.textContent = btn.dataset.copiedText;
-                        setTimeout(function() {
-                            btn.textContent = orig;
-                        }, 2000);
-                    });
-                    closeAllMenus();
-                });
-            });
-            document.querySelectorAll('.copy-info-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    if (!shareData) return;
-                    var d = shareData.dataset;
-                    var lines = [d.title, d.time];
-                    if (d.place) lines.push(d.place);
-                    lines.push(d.url);
-                    navigator.clipboard.writeText(lines.join('\n'));
-                    closeAllMenus();
-                });
-            });
+            // Copying itself is handled by copy.ts ([data-copy]); the share menu
+            // stays open so the "Copied!" popover is visible, and click-outside
+            // still closes it.
             document.querySelectorAll('.show-qr-btn').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     document.getElementById('qr-modal').showModal();
@@ -368,15 +337,15 @@
                     if (prompt) prompt.classList.remove('hidden');
                 });
             });
-            document.querySelectorAll('.rsvp-copy-details').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var d = btn.dataset;
-                    var lines = [d.title, d.time];
-                    if (d.place) lines.push(d.place);
-                    lines.push(d.url);
-                    navigator.clipboard.writeText(lines.join('\n'));
-                    collapseSavePrompt(btn.closest('.card'));
-                });
+            // Copying is handled by copy.ts; collapse the save prompt once the
+            // "Copied!" popover has had time to be seen.
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('.rsvp-save-prompt [data-copy]');
+                if (!btn) return;
+                var card = btn.closest('.card');
+                setTimeout(function() {
+                    collapseSavePrompt(card);
+                }, 1600);
             });
             document.querySelectorAll('.calendar-menu a').forEach(function(link) {
                 link.addEventListener('click', function() {

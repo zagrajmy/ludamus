@@ -57,23 +57,26 @@ class TestIcon:
         assert not html.strip()
 
 
-class TestCopyButton:
+class TestCopyChip:
     @staticmethod
     def _render(text: str = "@ada") -> str:
         tpl = Template(
             "{% load tessera %}"
-            "{% tessera_copy handle label='Copy' copied_label='Copied!' %}"
+            "{% tessera_copy_chip handle label='Copy' copied_label='Copied!' %}"
         )
         return tpl.render(Context({"handle": text}))
 
-    def test_renders_button_and_popover(self) -> None:
+    def test_renders_declarative_copy_markup(self) -> None:
+        # Behaviour is delegated to copy.ts, so the chip carries only data-* hooks
+        # (no inline handler).
         html = self._render()
         assert 'data-copy="@ada"' in html
-        assert "<svg" in html  # clipboard icon
         assert 'data-copied-label="Copied!"' in html
+        assert "<svg" in html  # clipboard icon
+        assert "onclick" not in html
 
     def test_labels_default_without_being_passed(self) -> None:
-        tpl = Template("{% load tessera %}{% tessera_copy '@ada' %}")
+        tpl = Template("{% load tessera %}{% tessera_copy_chip '@ada' %}")
         html = tpl.render(Context())
         assert 'data-copied-label="Copied!"' in html
         assert 'title="Copy to clipboard"' in html
@@ -81,6 +84,7 @@ class TestCopyButton:
     def test_confirmation_is_a_live_region(self) -> None:
         # Screen readers get the "Copied!" confirmation, not just sighted users.
         html = self._render()
+        assert "data-copy-popover" in html
         assert 'role="status"' in html
         assert 'aria-live="polite"' in html
 
@@ -97,18 +101,6 @@ class TestCopyButton:
         assert "icon-btn" in html
         assert 'title="Copy"' in html
 
-    def test_copies_on_click_without_a_global_script(self) -> None:
-        html = self._render()
-        assert "navigator.clipboard" in html
-        assert "this.dataset.copy" in html
-
-    def test_confirmation_is_gated_on_a_successful_copy(self) -> None:
-        # The popover is revealed inside `.then`, never unconditionally, so a
-        # failed/unavailable clipboard can't show a false "Copied!".
-        html = self._render()
-        assert ".then(" in html
-        assert "data-show" in html
-
     def test_popover_never_resizes_the_button(self) -> None:
         # absolute + pointer-events-none keeps the popover out of the button box.
         html = self._render()
@@ -118,6 +110,65 @@ class TestCopyButton:
     def test_escapes_xss_in_copy_text(self) -> None:
         html = self._render('"><script>alert(1)</script>')
         assert "<script>" not in html
+
+
+class TestCopyPopover:
+    def test_renders_live_region_hook(self) -> None:
+        tpl = Template("{% load tessera %}{% tessera_copy_popover %}")
+        html = tpl.render(Context())
+        assert "data-copy-popover" in html
+        assert 'role="status"' in html
+        assert "pointer-events-none" in html
+
+
+class TestCopyBlock:
+    def test_button_variant_by_default(self) -> None:
+        tpl = Template(
+            "{% load tessera %}{% tessera_copy url %}Copy link{% endtessera_copy %}"
+        )
+        html = tpl.render(Context({"url": "https://x.test/e/1/"}))
+        assert 'data-copy="https://x.test/e/1/"' in html
+        assert 'data-copied-label="Copied!"' in html
+        assert "btn btn-secondary" in html
+        assert "Copy link" in html
+        assert "data-copy-popover" in html
+        assert "data-copy-origin" not in html
+
+    def test_menu_item_variant_with_extra_layout_class(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_copy url variant="menu-item" class="rounded-t-lg" %}'
+            "Copy link{% endtessera_copy %}"
+        )
+        html = tpl.render(Context({"url": "/e/1/"}))
+        assert "hover:bg-bg-tertiary" in html
+        assert "rounded-t-lg" in html
+        assert "btn btn-secondary" not in html
+
+    def test_origin_relative_paths_are_marked(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% tessera_copy path origin=True %}Copy{% endtessera_copy %}"
+        )
+        html = tpl.render(Context({"path": "/e/abc/"}))
+        assert "data-copy-origin" in html
+
+    def test_escapes_xss_in_payload(self) -> None:
+        tpl = Template(
+            "{% load tessera %}{% tessera_copy bad %}Copy{% endtessera_copy %}"
+        )
+        html = tpl.render(Context({"bad": '"><script>alert(1)</script>'}))
+        assert "<script>alert" not in html
+
+
+class TestCopyLines:
+    def test_joins_parts_and_skips_empties(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% copy_lines 'Title' game 'Somewhere' as payload %}{{ payload }}"
+        )
+        html = tpl.render(Context({"game": ""}))
+        assert "Title\nSomewhere" in html
 
 
 class TestSelect:
