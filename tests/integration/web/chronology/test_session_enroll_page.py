@@ -43,8 +43,7 @@ from tests.integration.utils import assert_response
 def _party_context(leader):
     # The enroll page's party plumbing: the viewer's (single) led party when
     # the connected_user fixture created one, else no party at all.
-    party = Party.objects.filter(leader=leader).order_by("pk").first()
-    if party is None:
+    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
         return {"party_choices": [], "selected_party": None}
     members = [
         PartyMemberDTO(
