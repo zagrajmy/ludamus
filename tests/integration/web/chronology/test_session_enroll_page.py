@@ -14,21 +14,15 @@ from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Notification,
-    Party,
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
 from ludamus.adapters.web.django.entities import SessionUserParticipationData
-from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
+from ludamus.inits.services import Services
+from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO
 from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.party import (
-    PartyConsentMode,
-    PartyDTO,
-    PartyMemberDTO,
-    PartyMembershipStatus,
-)
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
@@ -40,35 +34,13 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 
 
-def _party_context(leader):
-    # The enroll page's party plumbing: the viewer's (single) led party when
-    # the connected_user fixture created one, else no party at all.
-    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
-        return {"party_choices": [], "selected_party": None}
-    members = [
-        PartyMemberDTO(
-            membership_pk=membership.pk,
-            user_pk=membership.member_id,
-            name=membership.member.get_full_name(),
-            slug=membership.member.slug,
-            is_login_less=membership.member.user_type == UserType.CONNECTED,
-            is_leader=membership.member_id == party.leader_id,
-            consent_mode=PartyConsentMode(membership.consent_mode),
-            status=PartyMembershipStatus(membership.status),
-            claim_token=membership.member.claim_token,
-        )
-        for membership in party.memberships.select_related("member").order_by("pk")
-    ]
-    members.sort(key=lambda m: (not m.is_leader,))
-    dto = PartyDTO(
-        pk=party.pk,
-        name=party.name,
-        leader_pk=party.leader_id,
-        leader_name=leader.get_full_name(),
-        is_leader=True,
-        members=members,
+def _party_context(viewer):
+    # The enroll page's party plumbing, derived from the same service call the
+    # view makes (default selection: no explicit party requested).
+    selection = Services().parties.enrollment_selection(
+        viewer_pk=viewer.pk, requested_party=None
     )
-    return {"party_choices": [dto], "selected_party": dto}
+    return {"party_choices": selection.choices, "selected_party": selection.selected}
 
 
 class TestSessionEnrollPageView:

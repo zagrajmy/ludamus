@@ -25,6 +25,7 @@ from ludamus.pacts.enrollment import (
     OfferNotification,
     PromotionNotification,
     PromotionResult,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
+        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         UserNotifierProtocol,
@@ -60,18 +62,8 @@ def _token() -> str:
     return secrets.token_urlsafe(48)
 
 
-def _distinct_recipients(party: list[WaitingParticipantDTO]) -> list[tuple[int, str]]:
-    # One message per person: a party of real co-members hears about its seats
-    # individually, while a leader with companions still gets a single message.
-    recipients: list[tuple[int, str]] = []
-    seen: set[int] = set()
-    for participant in party:
-        if participant.recipient_user_id not in seen:
-            seen.add(participant.recipient_user_id)
-            recipients.append(
-                (participant.recipient_user_id, participant.recipient_email)
-            )
-    return recipients
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
+    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
 
 
 class WaitlistPromotionService:
@@ -131,13 +123,13 @@ class WaitlistPromotionService:
             result.promoted.extend(ids)
             promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=user_id,
-                    recipient_email=email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
-                for user_id, email in _distinct_recipients(party)
+                for recipient in _party_recipients(party)
             )
 
     def _offer(
@@ -159,15 +151,15 @@ class WaitlistPromotionService:
             result.offered.extend(ids)
             offers.extend(
                 OfferNotification(
-                    recipient_user_id=user_id,
-                    recipient_email=email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
-                for user_id, email in _distinct_recipients(party)
+                for recipient in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
 

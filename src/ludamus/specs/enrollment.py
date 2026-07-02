@@ -27,7 +27,7 @@ def _group_into_parties(
     # `waiting` is already FIFO by creation_time — is the order groups first
     # appear.
     parties: list[list[WaitingParticipantDTO]] = []
-    index_by_group: dict[str, int] = {}
+    index_by_group: dict[tuple[str, int], int] = {}
     for participant in waiting:
         if (group := participant.promotion_group_key) not in index_by_group:
             index_by_group[group] = len(parties)

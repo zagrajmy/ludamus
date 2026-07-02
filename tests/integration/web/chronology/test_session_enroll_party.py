@@ -96,8 +96,9 @@ class TestEnrollRecordsParty:
     def test_default_party_is_recorded_without_explicit_field(
         self, authenticated_client, active_user, agenda_item
     ):
-        # A single-party user never sees the selector; the server still stamps
-        # their party so the group promotes together.
+        # No explicit party parameter defaults to the viewer's own led party,
+        # so the group promotes together — visible and escapable via the
+        # always-shown selector.
         party = Party.objects.get(leader=active_user)
         _reassign_presenter(agenda_item)
 
@@ -109,14 +110,157 @@ class TestEnrollRecordsParty:
         participation = SessionParticipation.objects.get(user=active_user)
         assert participation.party_id == party.pk
 
+    @pytest.mark.usefixtures("enrollment_config", "connected_user")
+    def test_post_just_myself_records_no_party(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": "none", f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        participation = SessionParticipation.objects.get(user=active_user)
+        assert participation.party_id is None
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_alien_party_is_rejected(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        stranger = UserFactory(username="stranger", name="Sam Stranger")
+        alien = Party.objects.create(leader=stranger, name="Obcy")
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(alien.pk), f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[
+                (messages.ERROR, "Choose one of your parties or enroll by yourself.")
+            ],
+        )
+        assert not SessionParticipation.objects.filter(user=active_user).exists()
+
 
 class TestPartySelector:
     @pytest.mark.usefixtures("connected_user")
-    def test_selector_hidden_with_single_party(self, authenticated_client, agenda_item):
+    def test_selector_shown_with_single_party(self, authenticated_client, agenda_item):
+        # Even with one party the choice is real: Just myself vs the party.
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Enrolling as" in content
+        assert "Just myself" in content
+        assert "Your party" in content
+        assert "The party moves up the waiting list together." in content
+
+    def test_selector_hidden_without_any_party(self, authenticated_client, agenda_item):
         response = authenticated_client.get(_url(agenda_item))
 
         assert response.status_code == HTTPStatus.OK
         assert "Enrolling as" not in response.content.decode()
+
+    def test_just_myself_hides_companions_and_hint(
+        self, authenticated_client, connected_user, agenda_item
+    ):
+        # Companions enroll through the party; enrolling as just myself shows
+        # only the viewer's own row, without the add-companions hint or the
+        # party grouping hint.
+        response = authenticated_client.get(_url(agenda_item), {"party": "none"})
+
+        content = response.content.decode()
+        assert connected_user.name not in content
+        assert "The party moves up the waiting list together." not in content
+        assert "No companions available" not in content
+        assert 'name="party" value="none"' in content
+
+    def test_get_alien_party_is_rejected(self, authenticated_client, agenda_item):
+        stranger = UserFactory(username="stranger", name="Sam Stranger")
+        alien = Party.objects.create(leader=stranger, name="Obcy")
+
+        response = authenticated_client.get(_url(agenda_item), {"party": alien.pk})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[
+                (messages.ERROR, "Choose one of your parties or enroll by yourself.")
+            ],
+        )
+
+    def test_unnamed_foreign_party_is_labelled_by_leader(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        friend = UserFactory(username="friend", name="Frida Friend")
+        crew = Party.objects.create(leader=friend, name="")
+        _join(crew, friend)
+        _join(crew, active_user)
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        content = response.content.decode()
+        assert "Party of Frida Friend" in content
+        assert "Your party" not in content
+
+    def test_foreign_party_hides_add_companions_hint(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        friend = UserFactory(username="friend", name="Frida Friend")
+        crew = Party.objects.create(leader=friend, name="Ekipa")
+        _join(crew, friend)
+        _join(crew, active_user)
+
+        response = authenticated_client.get(_url(agenda_item), {"party": crew.pk})
+
+        assert "No companions available" not in response.content.decode()
+
+    def test_solo_user_still_sees_add_companions_hint(
+        self, authenticated_client, agenda_item
+    ):
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert "No companions available" in response.content.decode()
+
+    def test_own_led_party_without_companions_shows_hint(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        _join(party, active_user)
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert "No companions available" in response.content.decode()
+
+    @pytest.mark.usefixtures("connected_user")
+    def test_pills_anchor_back_to_the_enrollment_card(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        response = authenticated_client.get(_url(agenda_item))
+
+        content = response.content.decode()
+        assert 'id="enrollment"' in content
+        assert 'href="?party=none#enrollment"' in content
+        party = Party.objects.get(leader=active_user)
+        assert f'href="?party={party.pk}#enrollment"' in content
+
+    @pytest.mark.usefixtures("connected_user")
+    def test_selected_pill_is_marked_current(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        response = authenticated_client.get(_url(agenda_item))
+
+        content = " ".join(response.content.decode().split())
+        party = Party.objects.get(leader=active_user)
+        assert f'href="?party={party.pk}#enrollment" aria-current="true"' in content
 
     def test_selector_lists_both_parties(
         self, authenticated_client, active_user, connected_user, agenda_item

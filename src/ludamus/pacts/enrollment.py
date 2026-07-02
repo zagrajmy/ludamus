@@ -6,11 +6,14 @@ promotion / offer-lifecycle decisions stay unit-testable with fakes.
 """
 
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import PromotionMode
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
 # integer comparison in the pure selection invariant.
@@ -45,13 +48,13 @@ class WaitingParticipantDTO(BaseModel):
         return self.sponsor_id if self.sponsor_id is not None else self.user_id
 
     @property
-    def promotion_group_key(self) -> str:
+    def promotion_group_key(self) -> tuple[str, int]:
         # Seats enrolled through a party promote as that party; everything else
         # falls back to grouping by slot owner (a leader plus the companions
         # they enrolled without choosing a party still move together).
         if self.party_id is not None:
-            return f"party:{self.party_id}"
-        return f"owner:{self.effective_slot_owner}"
+            return ("party", self.party_id)
+        return ("owner", self.effective_slot_owner)
 
 
 class PromotionStateDTO(BaseModel):
@@ -73,6 +76,21 @@ class OfferRecipientDTO(BaseModel):
 
     user_id: int
     email: str
+
+
+def distinct_recipients(
+    candidates: Iterable[tuple[int, str]],
+) -> list[OfferRecipientDTO]:
+    # One message per person, first mention wins: a party of real co-members
+    # hears about its seats individually, while a leader sponsoring several
+    # login-less companions still gets a single message.
+    recipients: list[OfferRecipientDTO] = []
+    seen: set[int] = set()
+    for user_id, email in candidates:
+        if user_id not in seen:
+            seen.add(user_id)
+            recipients.append(OfferRecipientDTO(user_id=user_id, email=email))
+    return recipients
 
 
 class OfferDTO(BaseModel):

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 23:01+0200\n"
+"POT-Creation-Date: 2026-07-02 23:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -857,6 +857,10 @@ msgstr ""
 #: src/ludamus/adapters/web/django/views.py
 msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "Choose one of your parties or enroll by yourself."
+msgstr "Wybierz jedną ze swoich drużyn lub zapisz się samodzielnie."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Email address is required for enrollment in this session."
@@ -2772,9 +2776,18 @@ msgid "Enrolling as"
 msgstr "Zapisujesz się jako"
 
 #: src/ludamus/templates/chronology/enroll_select.html
+msgid "Just myself"
+msgstr "Tylko ja"
+
+#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Your party"
 msgstr "Twoja drużyna"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#, python-format
+msgid "Party of %(leader_name)s"
+msgstr "Drużyna %(leader_name)s"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "The party moves up the waiting list together."

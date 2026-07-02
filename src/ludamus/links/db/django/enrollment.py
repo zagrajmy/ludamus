@@ -26,9 +26,9 @@ from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     OfferDTO,
-    OfferRecipientDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
@@ -224,15 +224,10 @@ class ParticipationPromotionRepository:
         session = Session.objects.select_related("event").get(id=lead.session_id)
         event_slug = session.event.slug
         sponsors = sponsors_by_member(p.user for p in party)
-        recipients: list[OfferRecipientDTO] = []
-        seen: set[int] = set()
-        for participation in party:
-            recipient = sponsors.get(participation.user.pk, participation.user)
-            if recipient.pk not in seen:
-                seen.add(recipient.pk)
-                recipients.append(
-                    OfferRecipientDTO(user_id=recipient.pk, email=recipient.email or "")
-                )
+        recipients = distinct_recipients(
+            (recipient.pk, recipient.email or "")
+            for recipient in (sponsors.get(p.user.pk, p.user) for p in party)
+        )
         return OfferDTO(
             session_id=lead.session_id,
             session_title=session.title,
