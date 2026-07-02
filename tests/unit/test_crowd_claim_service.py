@@ -32,8 +32,8 @@ class FakeRepo:
         self.issued.append((manager_slug, user_slug, token))
         return self._token_valid
 
-    def read_claimable(self, token):  # noqa: ARG002
-        return _claimable() if self._token_valid else None
+    def read_claimable(self, token):
+        return _claimable() if self._token_valid and token else None
 
     def username_exists(self, username):
         return username in self._existing
@@ -45,7 +45,7 @@ class FakeRepo:
         return self._converted_slug
 
 
-def _claimable(name="Kid", slug="kid", manager_name="Parent"):
+def _claimable(*, name="Kid", slug="kid", manager_name="Parent"):
     return ClaimableProfileDTO(name=name, slug=slug, manager_name=manager_name)
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO
+from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, ClaimServiceProtocol
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import ClaimableProfileDTO, ClaimRepositoryProtocol
@@ -20,7 +20,7 @@ def _token() -> str:
     return secrets.token_urlsafe(48)
 
 
-class ClaimService:
+class ClaimService(ClaimServiceProtocol):
     """Issue and redeem links that turn a managed profile into a real account."""
 
     def __init__(

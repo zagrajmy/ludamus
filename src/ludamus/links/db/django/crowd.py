@@ -144,15 +144,21 @@ class ClaimRepository(ClaimRepositoryProtocol):
         # Email/avatar from the provider are applied afterwards by the login
         # callback's _apply_user_updates (with its own collision handling), so
         # this stays a pure identity flip and never duplicates that rule.
-        user = User.objects.filter(
+        # A single conditional UPDATE (like issue_token) keeps redemption
+        # atomic: of two concurrent redeems, exactly one matches the token.
+        updated = User.objects.filter(
             claim_token=token, user_type=UserType.CONNECTED
-        ).first()
-        if user is None:
+        ).update(
+            username=username,
+            user_type=UserType.ACTIVE,
+            manager=None,
+            password=make_password(None),
+            claim_token="",
+        )
+        if not updated:
             return None
-        user.username = username
-        user.user_type = UserType.ACTIVE
-        user.manager = None
-        user.password = make_password(None)
-        user.claim_token = ""
-        user.save()
-        return user.slug
+        return (
+            User.objects.filter(username=username)
+            .values_list("slug", flat=True)
+            .first()
+        )
