@@ -26,6 +26,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
@@ -216,6 +217,51 @@ class EventBan(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} banned from event {self.event_id}"
+
+
+class Party(models.Model):
+    # The group that enrolls together. See RFC 0001.
+    name = models.CharField(max_length=255, blank=True, default="")
+    leader = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="led_parties"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "party"
+
+    def __str__(self) -> str:
+        return f"{self.name or 'party'} (#{self.pk})"
+
+
+class PartyMembership(models.Model):
+    party = models.ForeignKey(
+        Party, on_delete=models.CASCADE, related_name="memberships"
+    )
+    member = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="party_memberships"
+    )
+    consent_mode = models.CharField(
+        max_length=32,
+        choices=[(c.value, c.name) for c in PartyConsentMode],
+        default=PartyConsentMode.ACCEPT_INVITES,
+    )
+    status = models.CharField(
+        max_length=32,
+        choices=[(s.value, s.name) for s in PartyMembershipStatus],
+        default=PartyMembershipStatus.ACTIVE,
+    )
+
+    class Meta:
+        db_table = "party_membership"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("party", "member"), name="party_membership_unique"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.member_id} in party {self.party_id}"
 
 
 class SessionBookmark(models.Model):

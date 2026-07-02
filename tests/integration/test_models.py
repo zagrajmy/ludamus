@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 
 from ludamus.adapters.db.django.models import (
     Notification,
+    Party,
+    PartyMembership,
     ScheduleChangeAction,
     ScheduleChangeLog,
     TimeSlot,
@@ -100,3 +102,15 @@ class TestModelStringRepresentations:
         )
 
         assert str(log) == f"{action} {session} by {active_user}"
+
+    def test_unnamed_party_and_membership_str(self, active_user):
+        party = Party.objects.create(leader=active_user, name="")
+        membership = PartyMembership.objects.create(party=party, member=active_user)
+
+        assert str(party) == f"party (#{party.pk})"
+        assert str(membership) == f"{active_user.pk} in party {party.pk}"
+
+    def test_named_party_str(self, active_user):
+        party = Party.objects.create(leader=active_user, name="Drużyna")
+
+        assert str(party) == f"Drużyna (#{party.pk})"
