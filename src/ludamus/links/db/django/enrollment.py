@@ -14,15 +14,19 @@ from typing import TYPE_CHECKING
 
 from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
-    PartyMembership,
     Session,
     SessionParticipation,
     User,
     UserEnrollmentConfig,
     get_used_slots,
 )
+from ludamus.links.db.django.companions import (
+    active_companions,
+    sponsor_of,
+    sponsors_by_member,
+)
 from ludamus.pacts import EventDTO
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     OfferDTO,
@@ -30,26 +34,12 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
 )
 from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
-from ludamus.pacts.party import PartyMembershipStatus
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
 
     from ludamus.adapters.db.django.models import Event
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
-
-
-def _sponsors_by_member(users: Iterable[User]) -> dict[int, User]:
-    # Slot ownership: a real user owns their own seat; a login-less companion's
-    # seat is sponsored by the leader of their (single) party.
-    connected_ids = [u.pk for u in users if u.user_type == UserType.CONNECTED]
-    if not connected_ids:
-        return {}
-    memberships = PartyMembership.objects.filter(
-        member_id__in=connected_ids, status=PartyMembershipStatus.ACTIVE
-    ).select_related("party__leader")
-    return {m.member_id: m.party.leader for m in memberships}
 
 
 class ParticipationPromotionRepository:
@@ -95,7 +85,7 @@ class ParticipationPromotionRepository:
             .select_related("user")
             .order_by("creation_time")
         )
-        sponsors = _sponsors_by_member(p.user for p in participations)
+        sponsors = sponsors_by_member(p.user for p in participations)
         for participation in participations:
             user = participation.user
             sponsor = sponsors.get(user.pk)
@@ -157,11 +147,7 @@ class ParticipationPromotionRepository:
             return UNLIMITED_SLOTS
         # The owner's seat allowance covers themselves plus every login-less
         # companion they sponsor (members of parties they lead).
-        companions = User.objects.filter(
-            user_type=UserType.CONNECTED,
-            party_memberships__party__leader=owner,
-            party_memberships__status=PartyMembershipStatus.ACTIVE,
-        ).distinct()
+        companions = active_companions(owner.slug)
         members = [
             UserDTO.model_validate(owner),
             *(UserDTO.model_validate(c) for c in companions),
@@ -239,8 +225,7 @@ class ParticipationPromotionRepository:
         lead = party[0]
         session = Session.objects.select_related("event").get(id=lead.session_id)
         event_slug = session.event.slug
-        sponsor = _sponsors_by_member([lead.user]).get(lead.user.pk)
-        recipient = sponsor if sponsor is not None else lead.user
+        recipient = sponsor_of(lead.user) or lead.user
         return OfferDTO(
             session_id=lead.session_id,
             session_title=session.title,

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.hashers import make_password
 
 from ludamus.adapters.db.django.models import Party, PartyMembership
+from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ClaimableProfileDTO,
@@ -17,7 +18,6 @@ from ludamus.pacts.crowd import (
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet
 
     from ludamus.adapters.db.django.models import User
 else:
@@ -72,20 +72,6 @@ class UserRepository(UserRepositoryProtocol):
         return query.exists()
 
 
-def _companions(leader_slug: str) -> QuerySet[User]:
-    # A leader may lead several parties and a real member may belong to many,
-    # but a login-less companion sits in exactly one (the app-level invariant
-    # from RFC 0001) — so membership in *a* party led by `leader_slug` is
-    # ownership, and the query spans all of the leader's parties. distinct()
-    # and the ACTIVE filter are belt-and-braces: companion memberships are
-    # always created ACTIVE (INVITED exists only for real users) and only once.
-    return User.objects.filter(
-        user_type=UserType.CONNECTED,
-        party_memberships__party__leader__slug=leader_slug,
-        party_memberships__status=PartyMembershipStatus.ACTIVE,
-    ).distinct()
-
-
 def _default_led_party(leader: User) -> Party:
     if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
         party = Party.objects.create(leader=leader, name="")
@@ -108,7 +94,7 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
 
         return [
             ConnectedUserDTO.model_validate(connected_user)
-            for connected_user in _companions(manager_slug).order_by("pk")
+            for connected_user in active_companions(manager_slug).order_by("pk")
         ]
 
     @staticmethod
@@ -124,7 +110,7 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
 
     @staticmethod
     def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO:
-        connected_user = _companions(manager_slug).filter(slug=user_slug).first()
+        connected_user = active_companions(manager_slug).filter(slug=user_slug).first()
         if connected_user is None:
             raise NotFoundError
         return ConnectedUserDTO.model_validate(connected_user)
@@ -132,12 +118,13 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
     @staticmethod
     def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:
         User.objects.filter(
-            pk__in=_companions(manager_slug).filter(slug=user_slug)
+            pk__in=active_companions(manager_slug).filter(slug=user_slug)
         ).update(**user_data)
 
     @staticmethod
     def delete(manager_slug: str, user_slug: str) -> None:
-        if (user := _companions(manager_slug).filter(slug=user_slug).first()) is None:
+        companions = active_companions(manager_slug)
+        if (user := companions.filter(slug=user_slug).first()) is None:
             raise NotFoundError
         user.delete()
 
@@ -146,7 +133,7 @@ class ClaimRepository(ClaimRepositoryProtocol):
     @staticmethod
     def issue_token(*, manager_slug: str, user_slug: str, token: str) -> bool:
         updated = User.objects.filter(
-            pk__in=_companions(manager_slug).filter(slug=user_slug)
+            pk__in=active_companions(manager_slug).filter(slug=user_slug)
         ).update(claim_token=token)
         return bool(updated)
 
@@ -159,11 +146,9 @@ class ClaimRepository(ClaimRepositoryProtocol):
         ).first()
         if user is None:
             return None
-        membership = user.party_memberships.select_related("party__leader").first()
+        sponsor = sponsor_of(user)
         return ClaimableProfileDTO(
-            name=user.name,
-            slug=user.slug,
-            manager_name=membership.party.leader.name if membership else "",
+            name=user.name, slug=user.slug, manager_name=sponsor.name if sponsor else ""
         )
 
     @staticmethod
