@@ -65,6 +65,73 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
+    def test_get_renders_default_checked_no_change_radio_per_row(
+        self, active_user, connected_user, authenticated_client, agenda_item
+    ):
+        connected_user.name = "Connected Person"
+        connected_user.save()
+        SessionParticipation.objects.create(
+            user=connected_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.get(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "connected_users": [UserDTO.model_validate(connected_user)],
+                "event": agenda_item.space.event,
+                "form": ANY,
+                "session": agenda_item.session,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    ),
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(connected_user),
+                        user_enrolled=True,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    ),
+                ],
+            },
+            template_name="chronology/enroll_select.html",
+        )
+        content = " ".join(response.content.decode().split())
+        for user in (active_user, connected_user):
+            assert (
+                f'name="user_{user.pk}" id="user_{user.pk}_no_change" '
+                f'aria-label="No change: {user.full_name}" value="" checked' in content
+            )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_no_change_value_leaves_user_unenrolled(
+        self, connected_user, agenda_item, authenticated_client
+    ):
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{connected_user.id}": ""},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.WARNING, "Please select at least one user to enroll.")],
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=connected_user, session=agenda_item.session
+        ).exists()
+
     @pytest.mark.usefixtures("enrollment_config")
     def test_get_offered_participation_only_offers_decline(
         self, active_user, authenticated_client, agenda_item
