@@ -29,6 +29,10 @@ class ToolError(Exception):
     """Tool failure reported to the MCP client as an `isError` result."""
 
 
+class InvalidArgumentsError(ToolError):
+    """Arguments failed the tool's input-model validation."""
+
+
 class UnknownToolError(Exception):
     pass
 
@@ -79,7 +83,7 @@ class Tool[InputT: BaseModel](ToolProtocol, ABC):
                 for item in error.errors()
             )
             message = f"Invalid arguments: {details}"
-            raise ToolError(message) from error
+            raise InvalidArgumentsError(message) from error
         return self.handle(ToolCall(services=services, actor=actor, data=data))
 
     @staticmethod

@@ -11,7 +11,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Literal
 
-from ludamus.gates.mcp.registry import ToolError, UnknownToolError
+from ludamus.gates.mcp.registry import (
+    InvalidArgumentsError,
+    ToolError,
+    UnknownToolError,
+)
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
@@ -31,7 +35,9 @@ INVALID_PARAMS = -32602
 logger = logging.getLogger(__name__)
 
 type JsonDict = dict[str, object]
-type ToolOutcome = Literal["ok", "error", "invalid-params", "unknown-tool"]
+type ToolOutcome = Literal[
+    "ok", "error", "invalid-arguments", "invalid-params", "unknown-tool"
+]
 
 
 def error_response(*, message_id: object, code: int, message: str) -> JsonDict:
@@ -120,6 +126,8 @@ def _run_tool(
         )
     except UnknownToolError:
         return "unknown-tool", f"Unknown tool: {name}"
+    except InvalidArgumentsError as error:
+        return "invalid-arguments", str(error)
     except NotFoundError:
         return "error", "Resource not found"
     except ToolError as error:
