@@ -2768,7 +2768,6 @@ msgid "Enrollment Options"
 msgstr "Opcje zapisu"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#| msgid "Enroll in Session"
 msgid "Enrolling as"
 msgstr "Zapisujesz się jako"
 
@@ -2778,9 +2777,6 @@ msgid "Your party"
 msgstr "Twoja drużyna"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#| msgid ""
-#| "Assemble the people you enroll with — a party moves up waiting lists "
-#| "together."
 msgid "The party moves up the waiting list together."
 msgstr "Drużyna awansuje na liście oczekujących razem."
 
