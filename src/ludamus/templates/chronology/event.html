@@ -326,7 +326,9 @@
                                         <option value="ended">{% translate "Ended" %}</option>
                                         <option value="my-enrolled">{% translate "I am enrolled" %}</option>
                                         <option value="my-waiting">{% translate "I am waiting" %}</option>
-                                        {% if current_user %}
+                                        {# Bookmark toggles exist only on the compact layouts, so the #}
+                                        {# filter option would always be empty on card-grid events. #}
+                                        {% if current_user and compact_schedule %}
                                             <option value="my-bookmarked">{% translate "Bookmarked" %}</option>
                                         {% endif %}
                                     </select>

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 03:36+0200\n"
+"POT-Creation-Date: 2026-07-02 04:25+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -844,7 +844,7 @@ msgstr "Proszę przejrzeć opcje zapisu poniżej."
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "%(name)s (no enrollment to cancel)"
-msgstr "%(name)s (brak zapisu do anulowania.)"
+msgstr "%(name)s (brak zapisu do anulowania)"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -2334,6 +2334,10 @@ msgstr "Preferowane przez twórcę programu"
 msgid "Other times"
 msgstr "Pozostałe godziny"
 
+#: src/ludamus/templates/chronology/_bookmark_toggle.html
+msgid "Bookmark session"
+msgstr "Dodaj zakładkę do punktu programu"
+
 #: src/ludamus/templates/chronology/_card_schedule.html
 #: src/ludamus/templates/chronology/event.html
 msgid "Completed"
@@ -2387,11 +2391,6 @@ msgstr[0] "%(counter)s zapisany uczestnik"
 msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
-
-#: src/ludamus/templates/chronology/_compact_session_row.html
-#: src/ludamus/templates/chronology/_room_lane_tile.html
-msgid "Bookmark session"
-msgstr "Dodaj zakładkę do punktu programu"
 
 #: src/ludamus/templates/chronology/_room_lanes.html
 msgid "Start time"

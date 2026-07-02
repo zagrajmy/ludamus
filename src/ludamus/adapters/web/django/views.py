@@ -24,7 +24,6 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
-from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
@@ -50,13 +49,11 @@ from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
-    RoomLaneDay,
-    RoomLaneRow,
-    ScheduleDay,
-    ScheduleHour,
     SessionData,
     SessionUserParticipationData,
     build_display_field_row,
+    build_room_lanes,
+    build_schedule_days,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.entities import (
@@ -980,9 +977,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 self._group_sessions_by_state(sessions_data)
             )
 
-        schedule_days = (
-            self._build_schedule_days(sessions_data) if compact_schedule else []
-        )
+        schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
         # The compact schedule offers two layouts: the chronological ledger
         # (default) and a rooms grid (?view=rooms) with a column per room.
         rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
@@ -996,9 +991,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_days": schedule_days,
                 "schedule_view_is_list": not rooms_view,
                 "schedule_view_is_rooms": rooms_view,
-                "room_lane_days": (
-                    self._build_room_lanes(schedule_days) if rooms_view else []
-                ),
+                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,
@@ -1254,49 +1247,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         )
         for sid, data in sessions_data.items():
             data.user_bookmarked = sid in bookmarked_ids
-
-    @staticmethod
-    def _build_schedule_days(
-        sessions_data: dict[int, SessionData],
-    ) -> list[ScheduleDay]:
-        # sessions_data preserves the queryset's chronological order, so a single
-        # pass groups consecutive sessions into start-time slots and slots into
-        # local-calendar days for the compact schedule's hour scrubber.
-        days: list[ScheduleDay] = []
-        for data in sessions_data.values():
-            start = data.agenda_item.start_time
-            local_date = timezone.localtime(start).date()
-            if (
-                not days
-                or timezone.localtime(days[-1].first_start).date() != local_date
-            ):
-                days.append(ScheduleDay(first_start=start, hours=[]))
-            slots = days[-1].hours
-            if not slots or slots[-1].start != start:
-                slots.append(ScheduleHour(start=start, sessions=[]))
-            slots[-1].sessions.append(data)
-        return days
-
-    @staticmethod
-    def _build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
-        # Pivot each day's slots into a rooms grid: one column per room (the
-        # scheduled leaf space), one row per start time.
-        lane_days: list[RoomLaneDay] = []
-        for day in schedule_days:
-            rooms = sorted(
-                {data.loc["space_name"] for hour in day.hours for data in hour.sessions}
-            )
-            column = {room: index for index, room in enumerate(rooms)}
-            rows = []
-            for hour in day.hours:
-                cells: list[list[SessionData]] = [[] for _ in rooms]
-                for data in hour.sessions:
-                    cells[column[data.loc["space_name"]]].append(data)
-                rows.append(RoomLaneRow(start=hour.start, cells=cells))
-            lane_days.append(
-                RoomLaneDay(first_start=day.first_start, rooms=rooms, rows=rows)
-            )
-        return lane_days
 
     def _get_hour_data(
         self,

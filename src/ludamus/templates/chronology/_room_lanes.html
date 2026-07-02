@@ -1,31 +1,31 @@
 {% load i18n %}
 {# Rooms view: hours down, rooms across — the same room always lives in the #}
 {# same column. Each <tr> keeps the .time-slot-section contract so the hour #}
-{# scrubber and the filter section-hiding logic work unchanged. #}
+{# scrubber and the filter section-hiding logic work unchanged. table-fixed + #}
+{# inline widths keep the columns equal; a Tailwind class interpolated from a #}
+{# template variable would never reach the compiled CSS. #}
 {% for day in room_lane_days %}
     <section data-schedule-day class="mb-8 last:mb-0">
-        <h3 class="mb-2 flex items-baseline gap-2 border-b border-border pb-1.5 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
-            {{ day.first_start|date:"l" }}
-            <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.first_start|date:"j F" }}</span>
-        </h3>
+        {% include "chronology/_schedule_day_header.html" %}
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[40rem] border-separate border-spacing-1">
+            <table class="w-full min-w-[40rem] table-fixed border-separate border-spacing-1">
                 <thead>
                     <tr>
                         <th class="w-12" aria-label="{% translate "Start time" %}"></th>
                         {% for room in day.rooms %}
-                            <th class="px-2 pb-1 text-left text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</th>
+                            <th class="px-2 pb-1 text-left text-xs font-bold uppercase tracking-wide text-foreground-secondary"
+                                style="width: calc((100% - 3rem) / {{ day.rooms|length }})">{{ room }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in day.rows %}
                         <tr class="time-slot-section snap-start scroll-mt-24"
-                            id="slot-{{ row.start|date:'Ymd-Hi' }}"
+                            id="slot-{{ row.start|date:'Ymd-H' }}"
                             data-slot-hour="{{ row.start|date:'Ymd-H' }}">
                             <td class="pr-1 align-top text-sm font-bold tabular-nums text-foreground-secondary">{{ row.start|time:"H:i" }}</td>
                             {% for cell in row.cells %}
-                                <td class="w-[calc((100%-3rem)/{{ day.rooms|length }})] align-top">
+                                <td class="space-y-1 align-top">
                                     {% for data in cell %}
                                         {% include "chronology/_room_lane_tile.html" %}
                                     {% endfor %}

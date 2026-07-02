@@ -12,8 +12,11 @@
            aria-controls="session-{{ data.session.pk }}">
             <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
         </a>
-        <h4 class="{% if current_user %}pr-7{% endif %} text-sm font-medium leading-snug text-foreground"
-            data-morph="title">{{ data.session.title }}</h4>
+        <h4 class="{% if current_user %}pr-7{% endif %} text-sm font-semibold leading-snug text-foreground"
+            data-morph="title">
+            {{ data.session.title }}
+            <span class="text-xs font-normal text-foreground-muted" data-morph="host">{{ data.session.display_name }}</span>
+        </h4>
         <div class="flex items-baseline justify-between gap-2 text-xs text-foreground-muted">
             <span class="truncate tabular-nums" data-morph="time">
                 {{ data.agenda_item.start_time|time:"H:i" }}–{{ data.agenda_item.end_time|time:"H:i" }}
@@ -28,21 +31,7 @@
         </div>
         {% if current_user %}
             {# .icon-btn pins position:relative, so a wrapper owns the corner. #}
-            <span class="absolute top-1 right-1 z-20 pointer-events-auto">
-                <button type="button"
-                        class="bookmark-toggle icon-btn icon-btn-clear {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
-                        data-session-id="{{ data.session.pk }}"
-                        aria-pressed="{% if data.user_bookmarked %}true{% else %}false{% endif %}">
-                    {% if data.user_bookmarked %}
-                        {% icon "bookmark" class="bookmark-icon-outline size-4 hidden" variant="outline" %}
-                        {% icon "bookmark" class="bookmark-icon-solid size-4" variant="solid" %}
-                    {% else %}
-                        {% icon "bookmark" class="bookmark-icon-outline size-4" variant="outline" %}
-                        {% icon "bookmark" class="bookmark-icon-solid size-4 hidden" variant="solid" %}
-                    {% endif %}
-                    <span class="sr-only">{% translate "Bookmark session" %}</span>
-                </button>
-            </span>
+            <span class="absolute top-1 right-1 z-20 pointer-events-auto">{% include "chronology/_bookmark_toggle.html" %}</span>
         {% endif %}
         <span class="sr-only" data-session-description>{{ data.session.description }}</span>
     </div>

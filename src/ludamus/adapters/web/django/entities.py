@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Self
+
+from django.utils import timezone
 
 from ludamus.pacts import EventListItemDTO
 
@@ -125,7 +128,7 @@ class EventInfo(EventListItemDTO):
 
 @dataclass
 class ScheduleHour:
-    """One start-time slot in the compact schedule, with its sessions."""
+    """One local-clock hour of the compact schedule, with its sessions."""
 
     start: datetime
     sessions: list[SessionData]
@@ -133,7 +136,7 @@ class ScheduleHour:
 
 @dataclass
 class ScheduleDay:
-    """A day's worth of compact-schedule slots, grouped for the hour scrubber."""
+    """A day's worth of compact-schedule hours, grouped for the hour scrubber."""
 
     first_start: datetime
     hours: list[ScheduleHour]
@@ -141,7 +144,7 @@ class ScheduleDay:
 
 @dataclass
 class RoomLaneRow:
-    """One start-time row of the rooms view: a cell of sessions per room."""
+    """One hour row of the rooms view: a cell of sessions per room."""
 
     start: datetime
     cells: list[list[SessionData]]
@@ -149,11 +152,67 @@ class RoomLaneRow:
 
 @dataclass
 class RoomLaneDay:
-    """A day of the rooms view: room columns and per-slot rows."""
+    """A day of the rooms view: room columns and per-hour rows."""
 
     first_start: datetime
     rooms: list[str]
     rows: list[RoomLaneRow]
+
+
+def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
+    # sessions_data preserves the queryset's chronological order, so a single
+    # pass groups sessions into whole local-clock hours and hours into
+    # local-calendar days. Hour buckets (not exact start times) keep the rail,
+    # the section ids, and the hour headings one-to-one, so filtering can never
+    # strand a heading or a rail marker on a hidden sub-slot.
+    days: list[ScheduleDay] = []
+    for data in sessions_data.values():
+        start = data.agenda_item.start_time
+        local_start = timezone.localtime(start)
+        if not days or timezone.localtime(days[-1].first_start).date() != (
+            local_start.date()
+        ):
+            days.append(ScheduleDay(first_start=start, hours=[]))
+        hours = days[-1].hours
+        hour_start = local_start.replace(minute=0, second=0, microsecond=0)
+        if not hours or hours[-1].start != hour_start:
+            hours.append(ScheduleHour(start=hour_start, sessions=[]))
+        hours[-1].sessions.append(data)
+    return days
+
+
+def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
+    # Pivot each day's hours into a rooms grid: one column per scheduled leaf
+    # space, one row per hour. Rooms are keyed by (name, parent) — leaf names
+    # repeat across venues — and the label carries the parent only when the
+    # bare name would be ambiguous.
+    lane_days: list[RoomLaneDay] = []
+    for day in schedule_days:
+        keys = sorted(
+            {
+                (data.loc["space_name"], data.loc["parent_name"])
+                for hour in day.hours
+                for data in hour.sessions
+            }
+        )
+        name_counts = Counter(name for name, _ in keys)
+        rooms = [
+            f"{name} ({parent})" if name_counts[name] > 1 and parent else name
+            for name, parent in keys
+        ]
+        column = {key: index for index, key in enumerate(keys)}
+        rows = []
+        for hour in day.hours:
+            cells: list[list[SessionData]] = [[] for _ in keys]
+            for data in hour.sessions:
+                cells[column[data.loc["space_name"], data.loc["parent_name"]]].append(
+                    data
+                )
+            rows.append(RoomLaneRow(start=hour.start, cells=cells))
+        lane_days.append(
+            RoomLaneDay(first_start=day.first_start, rooms=rooms, rows=rows)
+        )
+    return lane_days
 
 
 @dataclass

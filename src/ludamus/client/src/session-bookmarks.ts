@@ -24,13 +24,18 @@ const paint = (button: HTMLElement, bookmarked: boolean): void => {
   if (card) card.dataset.bookmarked = String(bookmarked);
 };
 
+// One request per button at a time: a rapid double-click would otherwise fire
+// two POSTs whose out-of-order responses can desync the icon from the server.
+const inFlight = new WeakSet<HTMLElement>();
+
 const toggleBookmark = async (button: HTMLElement): Promise<void> => {
-  if (!root) return;
+  if (!root || inFlight.has(button)) return;
   const { sessionId } = button.dataset;
   const template = root.dataset.bookmarkUrlTemplate;
   if (!sessionId || !template) return;
 
   const previous = button.getAttribute("aria-pressed") === "true";
+  inFlight.add(button);
   paint(button, !previous); // Optimistic flip.
   try {
     const response = await fetch(bookmarkUrl(template, sessionId), {
@@ -50,6 +55,8 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   } catch (error) {
     paint(button, previous); // Revert the optimistic flip.
     console.error(error);
+  } finally {
+    inFlight.delete(button);
   }
 };
 
