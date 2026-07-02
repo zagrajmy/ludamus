@@ -230,6 +230,9 @@ def _make_enrollment_clean(
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
     field_to_user_name: dict[str, str],
 ) -> Callable[..., dict[str, Any] | None]:
+    # Only user_* fields count against the membership slot cap: +N guests are
+    # walk-ins without memberships, so they intentionally bypass it — the
+    # session capacity check still gates them.
     all_users = [current_user, *connected_users]
 
     def clean(self: forms.Form) -> dict[str, Any] | None:
@@ -400,7 +403,7 @@ def create_enrollment_form(
         )
     )
 
-    form_fields: dict[str, _UserEnrollmentChoiceField] = {}
+    form_fields: dict[str, forms.Field] = {}
     field_to_user_name: dict[str, str] = {}
 
     seated = [
@@ -483,24 +486,20 @@ def create_enrollment_form(
         field_to_user_name=field_to_user_name,
     )
 
-    all_fields: dict[str, forms.Field] = dict(form_fields)
     if roster.guest_count is not None:
-        all_fields["guests"] = forms.IntegerField(
+        form_fields["guests"] = forms.IntegerField(
             required=False,
             min_value=0,
             max_value=MAX_GUESTS,
             initial=roster.guest_count,
-            label=_("Bringing guests"),
+            label=_("Guests without an account"),
             help_text=_(
-                "One-off company without accounts — their seats come from "
-                "this session's pool."
-            ),
-            widget=forms.NumberInput(
-                attrs={"class": "form-control w-24", "inputmode": "numeric"}
+                "One-off company — they need no accounts, and their seats "
+                "come from this session's pool."
             ),
         )
 
-    form = type("EnrollmentForm", (forms.Form,), all_fields)
+    form = type("EnrollmentForm", (forms.Form,), form_fields)
     form.clean = clean  # type: ignore [attr-defined]
     # Template guard: the strict template checks treat a missing variable as an
     # error, so the guests block keys off an always-present flag.

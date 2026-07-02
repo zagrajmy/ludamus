@@ -1103,8 +1103,8 @@ class SessionParticipation(models.Model):
         blank=True,
         related_name="session_participations",
     )
-    # Who performed the enrollment: self, the party leader, or the account
-    # that brought an anonymous +N guest. Nullable for legacy rows.
+    # The account that brought an anonymous +N guest; NULL for regular
+    # enrollments (people enrolled themselves or via the party flows).
     enrolled_by = models.ForeignKey(
         User, models.SET_NULL, null=True, blank=True, related_name="enrollments_made"
     )

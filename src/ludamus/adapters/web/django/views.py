@@ -44,7 +44,6 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
-    User,
 )
 from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
@@ -73,6 +72,7 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.mills import AcceptProposalService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
+    build_anonymous_user,
     get_user_enrollment_config,
 )
 from ludamus.pacts import (
@@ -1991,13 +1991,30 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session: Session,
         enrollment_config: EnrollmentConfig,
         party_pk: int | None,
-        guests_delta: int = 0,
+        guests_target: int | None = None,
     ) -> Enrollments:
         enrollments = Enrollments()
 
         session = Session.objects.select_for_update().get(id=session.id)
+        # The guest delta is derived from the absolute target under the session
+        # lock, so a replayed submit (double-click, refresh) is a no-op instead
+        # of duplicating guests.
+        guests_delta = 0
+        if guests_target is not None:
+            guests_delta = (
+                guests_target
+                - _guest_participations(
+                    session, self.request.context.current_user_id
+                ).count()
+            )
+        guest_seats_needed = max(guests_delta, 0)
+        guest_seats_freed = max(-guests_delta, 0)
         if self._is_capacity_invalid(
-            enrollment_requests, session, enrollment_config, guests_delta=guests_delta
+            enrollment_requests,
+            session,
+            enrollment_config,
+            guest_seats_needed=guest_seats_needed,
+            guest_seats_freed=guest_seats_freed,
         ):
             raise RedirectError(
                 reverse(
@@ -2036,10 +2053,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     shadowbanned_ids=shadowbanned_ids,
                     party_pk=party_pk,
                 )
-        if guests_delta:
+        if guest_seats_needed or guest_seats_freed:
             self._adjust_guests(
                 session=session,
-                delta=guests_delta,
+                add=guest_seats_needed,
+                remove=guest_seats_freed,
                 party_pk=party_pk,
                 enrollments=enrollments,
             )
@@ -2213,10 +2231,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session: Session,
         enrollment_config: EnrollmentConfig,
         *,
-        guests_delta: int = 0,
+        guest_seats_needed: int = 0,
+        guest_seats_freed: int = 0,
     ) -> bool:
         enroll_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
-        enroll_count += max(0, guests_delta)
+        enroll_count += guest_seats_needed
         if enroll_count == 0:
             return False
 
@@ -2226,7 +2245,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         cancelling_user_ids = {
             req.user.pk for req in enrollment_requests if req.choice == "cancel"
         }
-        freed_spots = max(0, -guests_delta)
+        freed_spots = guest_seats_freed
         if cancelling_user_ids:
             freed_spots += SessionParticipation.objects.filter(
                 session=session,
@@ -2237,14 +2256,22 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         available_spots = enrollment_config.get_available_slots(session) + freed_spots
 
         if enroll_count > available_spots:
+            # Guests cannot wait on the list, so the generic "use the waiting
+            # list" advice would be a dead end when guests caused the overflow.
+            message = (
+                _(
+                    "Not enough spots available. {} spots requested, {} available. "
+                    "Bring fewer guests or use the waiting list for account "
+                    "holders."
+                )
+                if guest_seats_needed
+                else _(
+                    "Not enough spots available. {} spots requested, {} available. "
+                    "Please use waiting list for some users."
+                )
+            )
             messages.error(
-                self.request,
-                str(
-                    _(
-                        "Not enough spots available. {} spots requested, {} available. "
-                        "Please use waiting list for some users."
-                    )
-                ).format(enroll_count, available_spots),
+                self.request, str(message).format(enroll_count, available_spots)
             )
             return True
 
@@ -2260,22 +2287,22 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         party_pk: int | None,
     ) -> None:
         enrollment_requests = self._get_enrollment_requests(form, roster)
-        guests_target = (
+        # An empty guests box means "leave unchanged" (the field is prefilled
+        # with the current count, so this only happens when cleared on purpose).
+        guests_target: int | None = (
             form.cleaned_data.get("guests") if roster.guest_count is not None else None
         )
-        guests_delta = (
-            guests_target - roster.guest_count
-            if guests_target is not None and roster.guest_count is not None
-            else 0
+        guests_changed = (
+            guests_target is not None and guests_target != roster.guest_count
         )
-        if enrollment_requests or guests_delta:
+        if enrollment_requests or guests_changed:
             with transaction.atomic():
                 enrollments = self._process_enrollments(
                     enrollment_requests=enrollment_requests,
                     session=session,
                     enrollment_config=enrollment_config,
                     party_pk=party_pk,
-                    guests_delta=guests_delta,
+                    guests_target=guests_target,
                 )
 
             # T1: a freed seat promotes/offers the next waiter (who is notified
@@ -2300,47 +2327,57 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     "web:chronology:session-enrollment",
                     kwargs={"event_slug": session.event.slug, "session_id": session.id},
                 ),
-                warning=_("Please select at least one user to enroll."),
+                warning=(
+                    # A submit whose only touched control is the (unchanged)
+                    # guests field is not a selection mistake.
+                    _("No changes.")
+                    if guests_target is not None
+                    else _("Please select at least one user to enroll.")
+                ),
             )
 
     def _adjust_guests(
         self,
         *,
         session: Session,
-        delta: int,
+        add: int,
+        remove: int,
         party_pk: int | None,
         enrollments: Enrollments,
     ) -> None:
         # Runs inside the enrollment transaction, after the per-user requests,
         # with the session row locked.
         viewer_pk = self.request.context.current_user_id
-        viewer_name = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        ).full_name
-        if delta > 0:
-            for _i in range(delta):
-                token = token_urlsafe(8).lower()
-                guest = User.objects.create(
-                    username=f"anon_{token}",
-                    slug=f"guest-{token}",
-                    name=f"{viewer_name} +1",
-                    user_type=UserType.ANONYMOUS,
-                    is_active=False,
-                )
-                SessionParticipation.objects.create(
-                    session=session,
-                    user=guest,
-                    status=SessionParticipationStatus.CONFIRMED,
-                    party_id=party_pk,
-                    enrolled_by_id=viewer_pk,
-                )
-        else:
+        if add:
+            self._create_guests(session=session, count=add, party_pk=party_pk)
+        if remove:
             # Trim the most recent guests; their throwaway rows go with them.
-            doomed = list(_guest_participations(session, viewer_pk))[delta:]
+            doomed = list(_guest_participations(session, viewer_pk))[-remove:]
             for participation in doomed:
                 participation.user.delete()
             enrollments.freed_seat = True
         enrollments.guest_total = _guest_participations(session, viewer_pk).count()
+
+    def _create_guests(
+        self, *, session: Session, count: int, party_pk: int | None
+    ) -> None:
+        users = self.request.di.uow.anonymous_users
+        viewer_name = self.request.di.uow.active_users.read(
+            self.request.context.current_user_slug
+        ).full_name
+        for _i in range(count):
+            user_data = build_anonymous_user(
+                f"guest-{token_urlsafe(8).lower()}", name=f"{viewer_name} +1"
+            )
+            users.create(user_data)
+            guest = users.read(user_data["slug"])
+            SessionParticipation.objects.create(
+                session=session,
+                user_id=guest.pk,
+                status=SessionParticipationStatus.CONFIRMED,
+                party_id=party_pk,
+                enrolled_by_id=self.request.context.current_user_id,
+            )
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):
