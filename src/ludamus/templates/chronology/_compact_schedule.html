@@ -22,8 +22,11 @@
     {% include "chronology/_room_lanes.html" %}
 {% else %}
     {% for day in schedule_days %}
-        <section data-schedule-day class="mb-8 last:mb-0">
-            <h3 class="mb-2 flex items-baseline gap-2 border-b border-border pb-1.5 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+        {# Each day is a sheet: the ledger rows sit on a raised card, not #}
+        {# directly on the page background. #}
+        <section data-schedule-day
+                 class="mb-6 rounded-2xl border border-border bg-bg-secondary px-2 pt-3 pb-2 sm:px-3 last:mb-0">
+            <h3 class="mb-2 flex items-baseline gap-2 border-b border-border px-2 pb-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
                 {{ day.first_start|date:"l" }}
                 <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.first_start|date:"j F" }}</span>
             </h3>

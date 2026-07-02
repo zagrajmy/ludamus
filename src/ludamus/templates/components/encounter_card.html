@@ -43,9 +43,9 @@
     {% if is_mine %}
         {% with share_path="/e/"|add:encounter.share_code|add:"/" %}
             {% tessera_copy share_path origin=True %}
-                {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
-                <span class="truncate">{{ share_path }}</span>
-            {% endtessera_copy %}
-        {% endwith %}
-    {% endif %}
+            {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
+            <span class="truncate">{{ share_path }}</span>
+        {% endtessera_copy %}
+    {% endwith %}
+{% endif %}
 </div>

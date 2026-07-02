@@ -328,7 +328,9 @@ class TestEventPageView:
         assert "4 participants enrolled" in content
         assert content.count("data-schedule-day") == len(expected_dates)
 
-    def test_ok_compact_rooms_view(self, authenticated_client, event, monkeypatch):
+    def test_ok_compact_rooms_view(
+        self, active_user, authenticated_client, event, monkeypatch
+    ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
@@ -359,6 +361,8 @@ class TestEventPageView:
             end_time=start + timedelta(hours=3),
         )
 
+        SessionBookmark.objects.create(user=active_user, session=in_arena)
+
         response = authenticated_client.get(f"{self._get_url(event.slug)}?view=rooms")
 
         assert response.status_code == HTTPStatus.OK
@@ -380,7 +384,9 @@ class TestEventPageView:
         assert re.search(r">\s*Stage\s*</th>", content)
         assert "schedule-rail" in content
         assert f"?session={in_arena.pk}" in content
+        # Both bookmark-toggle tile states render for the authenticated viewer.
         assert 'aria-pressed="false"' in content
+        assert 'aria-pressed="true"' in content
 
     @pytest.mark.usefixtures("agenda_item")
     def test_ok_compact_unknown_view_falls_back_to_list(
