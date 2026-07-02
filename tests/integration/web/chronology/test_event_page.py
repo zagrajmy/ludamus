@@ -700,7 +700,7 @@ class TestEventPageView:
         assert b"session-tags-more" in response.content
         assert b"+1" in response.content
 
-    def _add_scheduled_session(self, event, space, session_field):
+    def _add_scheduled_session(self, *, event, space, session_field):
         presenter = UserFactory()
         session = SessionFactory(
             presenter=presenter,
@@ -730,7 +730,9 @@ class TestEventPageView:
             is_public=True,
         )
         for _ in range(2):
-            self._add_scheduled_session(event, space, session_field)
+            self._add_scheduled_session(
+                event=event, space=space, session_field=session_field
+            )
         client.get(self._get_url(event.slug))
 
         with CaptureQueriesContext(connection) as small_event_queries:
@@ -738,7 +740,9 @@ class TestEventPageView:
         assert response.status_code == HTTPStatus.OK
 
         for _ in range(6):
-            self._add_scheduled_session(event, space, session_field)
+            self._add_scheduled_session(
+                event=event, space=space, session_field=session_field
+            )
 
         with CaptureQueriesContext(connection) as big_event_queries:
             response = client.get(self._get_url(event.slug))
