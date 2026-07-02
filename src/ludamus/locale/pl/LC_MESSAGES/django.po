@@ -563,6 +563,7 @@ msgstr ""
 "być Twoim prawdziwym imieniem."
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "No change"
 msgstr "Bez zmian"
 
