@@ -1,28 +1,36 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load avatar_tags i18n tessera %}
 {% block title %}
     {% translate "Claim your profile" %}
 {% endblock title %}
-{% block header %}
-    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Claim your profile" %}</h1>
-{% endblock header %}
-{% block description %}
-    {% translate "Make this profile your own account" %}
-{% endblock description %}
 {% block body %}
-    <div class="max-w-2xl mx-auto">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="font-semibold mb-0">{{ claimable.name }}</h5>
-            </div>
-            <div class="card-body">
-                <p>
-                    {% blocktranslate with name=claimable.name manager=claimable.manager_name %}{{ manager }} created a profile for {{ name }} and invited you to take it over. Sign in to turn it into your own account — your event sign-ups stay with you.{% endblocktranslate %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                <div class="size-16 rounded-full mx-auto flex items-center justify-center {{ claimable.name|avatar_bg_class }}"
+                     aria-hidden="true">
+                    <span class="text-xl font-semibold {{ claimable.name|avatar_text_class }}">{{ claimable.name|slice:":2"|upper }}</span>
+                </div>
+                <h1 class="text-2xl font-bold text-foreground mt-4">{{ claimable.name }}</h1>
+                <p class="text-sm text-foreground-muted mt-1">
+                    {% blocktranslate with manager=claimable.manager_name %}{{ manager }} invited you to take over this profile{% endblocktranslate %}
                 </p>
-                <form method="post" action="{% url 'web:crowd:claim' token=token %}">
+                <form method="post"
+                      action="{% url 'web:crowd:claim' token=token %}"
+                      class="mt-6">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-primary">{% translate "Sign in and claim" %}</button>
+                    <button type="submit" class="btn btn-primary w-full">{% translate "Sign in and claim" %}</button>
                 </form>
+                <ul class="mt-6 space-y-2 text-left text-sm text-foreground-muted">
+                    <li class="flex gap-2">
+                        {% icon "check-circle" class="w-4 h-4 shrink-0 mt-0.5 text-success" %}
+                        <span>{% translate "Your event sign-ups stay with you" %}</span>
+                    </li>
+                    <li class="flex gap-2">
+                        {% icon "check-circle" class="w-4 h-4 shrink-0 mt-0.5 text-success" %}
+                        <span>{% blocktranslate with manager=claimable.manager_name %}It becomes your own account — {{ manager }} no longer manages it{% endblocktranslate %}</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>

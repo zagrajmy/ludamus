@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 13:01+0200\n"
+"POT-Creation-Date: 2026-07-02 15:19+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3722,22 +3722,22 @@ msgid "Claim your profile"
 msgstr "Przejmij swój profil"
 
 #: src/ludamus/templates/crowd/claim.html
-msgid "Make this profile your own account"
-msgstr "Zamień ten profil na swoje własne konto"
-
-#: src/ludamus/templates/crowd/claim.html
 #, python-format
-msgid ""
-"%(manager)s created a profile for %(name)s and invited you to take it over. "
-"Sign in to turn it into your own account — your event sign-ups stay with you."
-msgstr ""
-"%(manager)s utworzył(a) profil dla osoby %(name)s i zaprosił(a) Cię do jego "
-"przejęcia. Zaloguj się, aby zamienić go na swoje własne konto — Twoje zapisy "
-"na wydarzenia zostaną zachowane."
+msgid "%(manager)s invited you to take over this profile"
+msgstr "%(manager)s zaprasza Cię do przejęcia tego profilu"
 
 #: src/ludamus/templates/crowd/claim.html
 msgid "Sign in and claim"
 msgstr "Zaloguj się i przejmij"
+
+#: src/ludamus/templates/crowd/claim.html
+msgid "Your event sign-ups stay with you"
+msgstr "Twoje zapisy na wydarzenia zostaną zachowane"
+
+#: src/ludamus/templates/crowd/claim.html
+#, python-format
+msgid "It becomes your own account — %(manager)s no longer manages it"
+msgstr "Profil stanie się Twoim własnym kontem — %(manager)s przestanie nim zarządzać"
 
 # Login Required Page
 #: src/ludamus/templates/crowd/login_required.html
@@ -3816,14 +3816,8 @@ msgstr ""
 "więcej opcji."
 
 #: src/ludamus/templates/crowd/user/connected.html
-msgid ""
-"Connected people are family members or friends that you can enroll in "
-"events. They won't have their own login accounts - you'll handle all their "
-"event registrations for them"
-msgstr ""
-"Powiązane osoby to członkowie rodziny lub przyjaciele, których możesz "
-"zapisywać na wydarzenia. Nie będą mieli własnych kont logowania - wszystkie "
-"ich rejestracje na wydarzenia obsługujesz ty"
+msgid "Enroll family and friends in events without separate accounts."
+msgstr "Zapisuj rodzinę i znajomych na wydarzenia bez zakładania im osobnych kont."
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "Add connected user"
@@ -3886,8 +3880,12 @@ msgid "No connected users yet"
 msgstr "Brak powiązanych osób"
 
 #: src/ludamus/templates/crowd/user/connected.html
-msgid "Add your first connected person using the form above."
-msgstr "Dodaj pierwszą powiązaną osobę za pomocą powyższego formularza."
+msgid ""
+"Connected people are family or friends you enroll in events yourself — they "
+"don't need accounts of their own. Add the first one above."
+msgstr ""
+"Powiązane osoby to rodzina lub znajomi, których sam(-a) zapisujesz na "
+"wydarzenia — nie potrzebują własnych kont. Dodaj pierwszą osobę powyżej."
 
 #: src/ludamus/templates/crowd/user/edit.html
 #, python-format
@@ -6664,6 +6662,22 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Nie przechwycono jeszcze żadnych e-maili."
+
+#~ msgid "Make this profile your own account"
+#~ msgstr "Zamień ten profil na swoje własne konto"
+
+#, python-format
+#~ msgid ""
+#~ "%(manager)s created a profile for %(name)s and invited you to take it "
+#~ "over. Sign in to turn it into your own account — your event sign-ups stay "
+#~ "with you."
+#~ msgstr ""
+#~ "%(manager)s utworzył(a) profil dla osoby %(name)s i zaprosił(a) Cię do "
+#~ "jego przejęcia. Zaloguj się, aby zamienić go na swoje własne konto — "
+#~ "Twoje zapisy na wydarzenia zostaną zachowane."
+
+#~ msgid "Add your first connected person using the form above."
+#~ msgstr "Dodaj pierwszą powiązaną osobę za pomocą powyższego formularza."
 
 #, python-format
 #~ msgid ""

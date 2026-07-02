@@ -19,13 +19,9 @@
             {% end_tabs %}
         </div>
         <div class="card-body">
-            {# Info banner #}
-            <div class="alert alert-info flex items-center gap-3 mb-4">
-                {% icon "information-circle" class="w-5 h-5 shrink-0" %}
-                <p>
-                    {% translate "Connected people are family members or friends that you can enroll in events. They won't have their own login accounts - you'll handle all their event registrations for them" %}
-                </p>
-            </div>
+            <p class="text-sm text-foreground-muted mb-4">
+                {% translate "Enroll family and friends in events without separate accounts." %}
+            </p>
             {# Add form #}
             {% if connected_users|length < max_connected_users %}
                 <div class="rounded-lg bg-bg-secondary p-4 mb-6">
@@ -141,7 +137,9 @@
                         <div id="emptyState" class="text-center py-8">
                             {% icon "users" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
                             <h5 class="text-foreground-muted font-medium">{% translate "No connected users yet" %}</h5>
-                            <p class="text-sm text-foreground-muted">{% translate "Add your first connected person using the form above." %}</p>
+                            <p class="text-sm text-foreground-muted max-w-sm mx-auto">
+                                {% translate "Connected people are family or friends you enroll in events yourself — they don't need accounts of their own. Add the first one above." %}
+                            </p>
                         </div>
                     {% endfor %}
                 </div>
