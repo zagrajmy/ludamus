@@ -98,6 +98,7 @@
                                     <tr class="border-b border-border bg-bg-tertiary">
                                         <th class="text-left px-3 py-2 font-medium">{% translate "User" %}</th>
                                         <th class="text-left px-3 py-2 font-medium">{% translate "Current Status" %}</th>
+                                        <th class="text-center px-3 py-2 font-medium">{% translate "No change" %}</th>
                                         <th class="text-center px-3 py-2 font-medium">{% translate "Enroll" %}</th>
                                         <th class="text-center px-3 py-2 font-medium">{% translate "Join Waiting List" %}</th>
                                         <th class="text-center px-3 py-2 font-medium">{% translate "Cancel" %}</th>
@@ -127,6 +128,15 @@
                                                 {% else %}
                                                     <span class="inline-flex items-center rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium">{% translate "Available" %}</span>
                                                 {% endif %}
+                                            </td>
+                                            <td class="px-3 py-2.5 text-center">
+                                                <input type="radio"
+                                                       class="accent-foreground-muted"
+                                                       name="user_{{ user_data.user.pk }}"
+                                                       id="user_{{ user_data.user.pk }}_no_change"
+                                                       aria-label="{% translate "No change" %}: {{ user_data.user.full_name }}"
+                                                       value=""
+                                                       checked>
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
                                                 {% if not user_data.user_enrolled and not user_data.user_waiting %}
@@ -172,7 +182,7 @@
                                     {% endfor %}
                                     {% if user_data|length == 1 %}
                                         <tr>
-                                            <td colspan="5" class="text-center text-foreground-muted py-4 text-sm">
+                                            <td colspan="6" class="text-center text-foreground-muted py-4 text-sm">
                                                 {% translate "No connected users available. You can add connected users in your" %}
                                                 <a href="{% url 'web:crowd:profile-connected-users' %}"
                                                    class="text-primary hover:underline">{% translate "profile settings" %}</a>.
