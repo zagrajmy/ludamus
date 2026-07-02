@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import (
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.crowd import (
     ConnectedUserRepositoryProtocol,
-    NotFoundError,
     UserData,
     UserDTO,
     UserRepositoryProtocol,

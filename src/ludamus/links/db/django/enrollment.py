@@ -20,7 +20,8 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
     get_used_slots,
 )
-from ludamus.pacts import EventDTO, UserDTO
+from ludamus.pacts import EventDTO
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     OfferDTO,

@@ -76,9 +76,8 @@ from ludamus.pacts import (
     SessionRepositoryProtocol,
     SessionStatus,
     SpherePage,
-    UserData,
-    UserDTO,
 )
+from ludamus.pacts.crowd import UserData, UserDTO
 
 from .design_fixtures import (
     mock_event_info,

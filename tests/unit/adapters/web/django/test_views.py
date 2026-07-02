@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from ludamus.adapters.web.django.views import Auth0UserInfo
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import UserDTO, UserType
+from ludamus.pacts.crowd import UserDTO, UserType
 
 
 def _make_user_dto(**overrides) -> UserDTO:

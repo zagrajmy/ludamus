@@ -15,12 +15,10 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts import (
     MembershipAPIError,
-    UserData,
-    UserDTO,
     UserEnrollmentConfigData,
-    UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     ClaimResult,
     NavbarNotificationsDTO,
@@ -38,8 +36,8 @@ if TYPE_CHECKING:
         EventDTO,
         TicketAPIProtocol,
         UserEnrollmentConfigDTO,
-        UserRepositoryProtocol,
     )
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import (
         NotificationReadRepositoryProtocol,
         OfferDTO,
