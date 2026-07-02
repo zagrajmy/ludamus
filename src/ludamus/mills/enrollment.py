@@ -289,6 +289,18 @@ class NotificationsService:
             self._notifications.mark_all_read(user_id)
 
 
+def build_anonymous_user(slug: str, name: str = "") -> UserData:
+    # The single recipe for throwaway ANONYMOUS accounts (code-based
+    # self-enrollment, +N headcount guests); only the slug/name vary.
+    return UserData(
+        username=f"anon_{token_urlsafe(8).lower()}",
+        slug=slug,
+        name=name,
+        user_type=UserType.ANONYMOUS,
+        is_active=False,
+    )
+
+
 class AnonymousEnrollmentService:
     SLUG_TEMPLATE = "code_{code}"
 
@@ -301,12 +313,7 @@ class AnonymousEnrollmentService:
         return UserDTO.model_validate(user)
 
     def build_user(self, code: str) -> UserData:
-        return UserData(
-            username=f"anon_{token_urlsafe(8).lower()}",
-            slug=self.SLUG_TEMPLATE.format(code=code),
-            user_type=UserType.ANONYMOUS,
-            is_active=False,
-        )
+        return build_anonymous_user(self.SLUG_TEMPLATE.format(code=code))
 
 
 def _refresh_user_config_from_api(

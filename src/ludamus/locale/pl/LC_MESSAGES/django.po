@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 00:23+0200\n"
+"POT-Creation-Date: 2026-07-03 01:12+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -674,6 +674,18 @@ msgid "The seat is released if they do not claim it in time"
 msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 
 #: src/ludamus/adapters/web/django/forms.py
+msgid "Guests without an account"
+msgstr "Goście bez konta"
+
+#: src/ludamus/adapters/web/django/forms.py
+msgid ""
+"One-off company — they need no accounts, and their seats come from this "
+"session's pool."
+msgstr ""
+"Jednorazowe towarzystwo — nie potrzebują kont, a ich miejsca pochodzą z puli "
+"tego punktu programu."
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "Ungrouped"
 msgstr "Bez grupy"
 
@@ -958,12 +970,30 @@ msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-brace-format
+msgid "Guests you bring: {}"
+msgstr "Goście, których zabierasz: {}"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
+msgid ""
+"Not enough spots available. {} spots requested, {} available. Bring fewer "
+"guests or use the waiting list for account holders."
+msgstr ""
+"Brak wystarczającej liczby miejsc. {} miejsc potrzebnych, {} dostępnych. "
+"Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
 msgstr ""
 "Brak wystarczającej liczby miejsc. {} miejsc potrzebnych, {} dostępnych. "
 "Użyj listy oczekujących dla niektórych użytkowników."
+
+#: src/ludamus/adapters/web/django/views.py
+msgid "No changes."
+msgstr "Brak zmian."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Please select at least one user to enroll."
@@ -2463,8 +2493,8 @@ msgid ""
 "The seat was not claimed in time and has been released. You can sign up "
 "again if you are still interested."
 msgstr ""
-"Miejsce nie zostało odebrane na czas i zostało zwolnione. Jeśli nadal "
-"jesteś zainteresowany, możesz zapisać się ponownie."
+"Miejsce nie zostało odebrane na czas i zostało zwolnione. Jeśli nadal jesteś "
+"zainteresowany, możesz zapisać się ponownie."
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "their party"
