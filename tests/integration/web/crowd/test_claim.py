@@ -145,6 +145,14 @@ class TestClaimPageView:
             url="/crowd/auth0/do/login?next=%2Fcrowd%2Fprofile%2F",
         )
 
+    def test_post_already_signed_in_is_refused(self, authenticated_client):
+        url = reverse("web:crowd:claim", kwargs={"token": "tok"})
+
+        response = authenticated_client.post(url)
+
+        assert "pending_claim_token" not in authenticated_client.session
+        assert_response(response, HTTPStatus.FOUND, url="/")
+
     def test_post_invalid_token(self, client):
         url = reverse("web:crowd:claim", kwargs={"token": "nope"})
 
