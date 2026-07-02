@@ -14,7 +14,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     User,
 )
-from ludamus.pacts import UserDTO
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response

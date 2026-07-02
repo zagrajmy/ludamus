@@ -22,8 +22,8 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SpaceDTO,
     TimeSlotDTO,
-    UserDTO,
 )
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.utils import assert_response
 
 

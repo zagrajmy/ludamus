@@ -123,7 +123,6 @@ from ludamus.pacts import (
     TrackRepositoryProtocol,
     TrackUpdateData,
     UnscheduledSessionDTO,
-    UserDTO,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
 )
@@ -135,6 +134,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.discounts import (
     DiscountData,
     DiscountDTO,
