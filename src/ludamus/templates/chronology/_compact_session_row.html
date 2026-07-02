@@ -15,11 +15,8 @@
            aria-controls="session-{{ data.session.pk }}">
             <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
         </a>
-        <span class="w-24 shrink-0 whitespace-nowrap text-sm tabular-nums sm:w-28"
-              data-morph="time">
-            <span class="text-foreground-secondary">{{ data.agenda_item.start_time|time:"H:i" }}</span>
-            <span class="text-xs text-foreground-muted">– {{ data.agenda_item.end_time|time:"H:i" }}</span>
-        </span>
+        <span class="w-24 shrink-0 whitespace-nowrap text-sm tabular-nums text-foreground-secondary sm:w-28"
+              data-morph="time">{{ data.agenda_item.start_time|time:"H:i" }} – {{ data.agenda_item.end_time|time:"H:i" }}</span>
         <span class="min-w-0 flex-1 truncate">
             <span class="text-sm font-semibold text-foreground" data-morph="title">{{ data.session.title }}</span>
             <span class="ml-1.5 text-xs text-foreground-muted" data-morph="host">{{ data.session.display_name }}</span>

@@ -1,9 +1,10 @@
 {% load i18n %}
 {# Rooms view: hours down, rooms across — the same room always lives in the #}
 {# same column. Each <tr> keeps the .time-slot-section contract so the hour #}
-{# scrubber and the filter section-hiding logic work unchanged. table-fixed + #}
-{# inline widths keep the columns equal; a Tailwind class interpolated from a #}
-{# template variable would never reach the compiled CSS. #}
+{# scrubber and the filter section-hiding logic work unchanged. Under #}
+{# table-fixed, columns without an explicit width share the remaining space #}
+{# equally — no interpolated width needed (a Tailwind class built from a #}
+{# template variable would never reach the compiled CSS anyway). #}
 {% for day in room_lane_days %}
     <section data-schedule-day class="mb-8 last:mb-0">
         {% include "chronology/_schedule_day_header.html" %}
@@ -13,8 +14,7 @@
                     <tr>
                         <th class="w-12" aria-label="{% translate "Start time" %}"></th>
                         {% for room in day.rooms %}
-                            <th class="px-2 pb-1 text-left text-xs font-bold uppercase tracking-wide text-foreground-secondary"
-                                style="width: calc((100% - 3rem) / {{ day.rooms|length }})">{{ room }}</th>
+                            <th class="px-2 pb-1 text-left text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
