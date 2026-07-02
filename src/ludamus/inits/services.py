@@ -13,6 +13,7 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
     SessionConfirmationService,
@@ -108,7 +109,7 @@ class Services:
 
     @cached_property
     def sites(self) -> SitesService:
-        return SitesService(self._repos.spheres)
+        return SitesService(self._repos.spheres, self._repos.spheres)
 
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
@@ -177,6 +178,10 @@ class Services:
     @cached_property
     def event_bans(self) -> EventBanService:
         return EventBanService(self._transaction, self._repos.event_bans)
+
+    @cached_property
+    def bookmarks(self) -> BookmarkService:
+        return BookmarkService(self._transaction, self._repos.bookmarks)
 
     @cached_property
     def discounts(self) -> DiscountsService:

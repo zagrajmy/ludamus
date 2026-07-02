@@ -225,6 +225,8 @@ def _expected_session_data_ended() -> SessionData:
         loc=_make_loc(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+        is_ongoing=True,
+        is_ended=True,
     )
 
 

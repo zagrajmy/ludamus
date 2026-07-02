@@ -24,6 +24,8 @@ if TYPE_CHECKING:
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
+        SphereDirectoryRepositoryProtocol,
+        SphereListItemDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -167,10 +169,16 @@ class SpherePanelService:
 
 
 class SitesService:
-    """Read-side loader for a sphere's site (domain lookup)."""
-
-    def __init__(self, spheres: SphereRepositoryProtocol) -> None:
+    def __init__(
+        self,
+        spheres: SphereRepositoryProtocol,
+        directory: SphereDirectoryRepositoryProtocol,
+    ) -> None:
         self._spheres = spheres
+        self._directory = directory
 
     def read_site(self, sphere_id: int) -> SiteDTO:
         return self._spheres.read_site(sphere_id)
+
+    def list_spheres(self) -> list[SphereListItemDTO]:
+        return self._directory.list_all()

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
         SessionConfirmationServiceProtocol,
@@ -96,6 +97,8 @@ class ServicesProtocol(Protocol):
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
+    @property
+    def bookmarks(self) -> BookmarkServiceProtocol: ...
     @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
     @property

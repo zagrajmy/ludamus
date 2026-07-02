@@ -212,6 +212,12 @@ disallow_any_explicit = false
 module = ["ludamus.inits.dbos_offer_scheduler"]
 disallow_any_expr = false
 
+# pydantic's model_json_schema() returns dict[str, Any]; relaxed only for the
+# registry module that embeds tool schemas into MCP responses.
+[[tool.mypy.overrides]]
+module = ["ludamus.gates.mcp.registry"]
+disallow_any_expr = false
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
@@ -241,7 +247,6 @@ ignore = [
     "PLR1702", # Too many nested blocks
     "EM101",   # Exception must not use a string literal, assign to variable first
     "TRY003",  # Avoid specifying long messages outside the exception class
-    "RUF076",  # Avoid using `autouse=True` in `pytest.fixture` decorators
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -267,7 +272,6 @@ ignore = [
 "*/inits/repositories.py" = ["PLR0904"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
-"**/conftest.py" = ["RUF076"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
