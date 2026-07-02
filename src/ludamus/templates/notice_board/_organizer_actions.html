@@ -8,18 +8,15 @@
                 {% translate "Share" %}
             </button>
             <div class="share-menu hidden absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-(--shadow-dropdown) z-10">
-                <button type="button"
-                        class="copy-link-btn w-full px-3 py-2 text-sm text-left text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-t-lg"
-                        data-copied-text="{% translate "Copied!" %}"
-                        data-default-text="{% translate "Copy link" %}">
-                    {% icon "link" class="h-4 w-4 inline" variant="mini" %}
+                {% tessera_copy share_url variant="menu-item" class="rounded-t-lg" %}
+                    {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
                     {% translate "Copy link" %}
-                </button>
-                <button type="button"
-                        class="copy-info-btn w-full px-3 py-2 text-sm text-left text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary">
-                    {% icon "clipboard-document" class="h-4 w-4 inline" variant="mini" %}
+                {% endtessera_copy %}
+                {% copy_lines encounter.title encounter.game encounter.start_time|date:"DATETIME_FORMAT" encounter.place share_url as share_info %}
+                {% tessera_copy share_info variant="menu-item" %}
+                    {% icon "clipboard-document" variant="solid" class="h-4 w-4 inline" %}
                     {% translate "Copy info" %}
-                </button>
+                {% endtessera_copy %}
                 <button type="button"
                         class="show-qr-btn w-full px-3 py-2 text-sm text-left text-foreground hover:bg-bg-tertiary focus-visible:bg-bg-tertiary rounded-b-lg">
                     {% icon "qr-code" class="h-4 w-4 inline" variant="mini" %}

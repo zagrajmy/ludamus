@@ -47,6 +47,16 @@
             {% end_tessera_switcher %}
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_copy {% templatetag closeblock %}</code>
+            <div class="flex w-56 flex-col items-center gap-4">
+                {% tessera_copy_chip "@ada" %}
+                {% tessera_copy "https://ludamus.example/e/abc123/" %}
+                    {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
+                    Copy link
+                {% endtessera_copy %}
+            </div>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} icon {% templatetag closeblock %}</code>
             <div class="flex flex-wrap items-center justify-center gap-3 text-foreground">
                 {% icon "calendar" class="w-4 h-4" %}

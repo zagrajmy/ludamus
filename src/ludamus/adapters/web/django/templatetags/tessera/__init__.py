@@ -21,6 +21,7 @@ Usage:
 """
 
 from ._registry import register
+from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
 from .icon_toggle import tessera_icon_toggle
@@ -47,6 +48,7 @@ __all__ = [
     "TabNode",
     "TableNode",
     "TabsNode",
+    "copy_lines",
     "do_select",
     "do_tab",
     "do_tabs",
@@ -54,6 +56,9 @@ __all__ = [
     "icon",
     "register",
     "tessera_button",
+    "tessera_copy",
+    "tessera_copy_chip",
+    "tessera_copy_popover",
     "tessera_errors",
     "tessera_field",
     "tessera_form",
