@@ -52,19 +52,27 @@ class TestProfileConnectedUserClaimLinkActionView:
 
         connected_user.refresh_from_db()
         assert connected_user.claim_token
-        claim_url = "http://testserver" + reverse(
-            "web:crowd:claim", kwargs={"token": connected_user.claim_token}
-        )
-        expected = (
-            "Claim link ready. Share it with this person so they can take "
-            f"over their profile: {claim_url}"
-        )
         assert_response(
             response,
             HTTPStatus.FOUND,
             url="/crowd/profile/connected-users/",
-            messages=[(messages.SUCCESS, expected)],
+            messages=[(messages.SUCCESS, "Claim link created.")],
         )
+
+    def test_page_offers_copy_button_for_pending_link(
+        self, authenticated_client, connected_user
+    ):
+        connected_user.claim_token = "tok"
+        connected_user.save()
+        claim_path = reverse("web:crowd:claim", kwargs={"token": "tok"})
+
+        response = authenticated_client.get(
+            reverse("web:crowd:profile-connected-users")
+        )
+
+        content = response.content.decode()
+        assert f'data-copy="{claim_path}"' in content
+        assert "data-copy-origin" in content
 
     def test_post_rejects_other_managers_user(self, authenticated_client):
         other = _active(username="other", slug="other")

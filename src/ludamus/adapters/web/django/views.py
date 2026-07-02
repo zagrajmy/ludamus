@@ -795,17 +795,7 @@ class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
         if token is None:
             messages.error(request, _("Could not create a claim link for this person."))
         else:
-            claim_url = request.build_absolute_uri(
-                reverse("web:crowd:claim", kwargs={"token": token})
-            )
-            messages.success(
-                request,
-                _(
-                    "Claim link ready. Share it with this person so they can take "
-                    "over their profile: %(url)s"
-                )
-                % {"url": claim_url},
-            )
+            messages.success(request, _("Claim link created."))
         return redirect("web:crowd:profile-connected-users")
 
 

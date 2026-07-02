@@ -70,12 +70,21 @@
                                             <form method="post"
                                                   action="{% url 'web:crowd:profile-connected-users-claim-link' slug=connected.user.slug %}">
                                                 {% csrf_token %}
-                                                <button type="submit"
-                                                        class="icon-btn icon-btn"
-                                                        title="{% translate "Create a link to let this person take over their profile" %}">
-                                                    {% icon "link" class="w-3.5 h-3.5" %}
-                                                    <span class="sr-only">{% translate "Create claim link" %}</span>
-                                                </button>
+                                                {% if connected.user.claim_token %}
+                                                    <button type="submit"
+                                                            class="icon-btn icon-btn"
+                                                            title="{% translate "Generate a new claim link — the previous one stops working" %}">
+                                                        {% icon "arrow-path" class="w-3.5 h-3.5" %}
+                                                        <span class="sr-only">{% translate "Generate a new claim link" %}</span>
+                                                    </button>
+                                                {% else %}
+                                                    <button type="submit"
+                                                            class="icon-btn icon-btn"
+                                                            title="{% translate "Create a link to let this person take over their profile" %}">
+                                                        {% icon "link" class="w-3.5 h-3.5" %}
+                                                        <span class="sr-only">{% translate "Create claim link" %}</span>
+                                                    </button>
+                                                {% endif %}
                                             </form>
                                             <form method="post"
                                                   action="{% url 'web:crowd:profile-connected-users-delete' slug=connected.user.slug %}"
@@ -88,6 +97,15 @@
                                             </form>
                                         </div>
                                     </div>
+                                    {% if connected.user.claim_token %}
+                                        {% url 'web:crowd:claim' token=connected.user.claim_token as claim_path %}
+                                        <div class="mt-2 max-w-max">
+                                            {% tessera_copy claim_path origin=True %}
+                                                {% icon "link" class="w-3.5 h-3.5" %}
+                                                {% translate "Copy claim link" %}
+                                            {% endtessera_copy %}
+                                        </div>
+                                    {% endif %}
                                 </div>
                                 <div class="item-edit"
                                      id="edit-{{ forloop.counter }}"

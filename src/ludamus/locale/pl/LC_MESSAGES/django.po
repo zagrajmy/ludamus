@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 04:34+0200\n"
+"POT-Creation-Date: 2026-07-02 13:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -801,13 +801,8 @@ msgid "Could not create a claim link for this person."
 msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid ""
-"Claim link ready. Share it with this person so they can take over their "
-"profile: %(url)s"
-msgstr ""
-"Link przejęcia gotowy. Udostępnij go tej osobie, aby mogła przejąć swój "
-"profil: %(url)s"
+msgid "Claim link created."
+msgstr "Utworzono link przejęcia."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "This claim link is invalid or has already been used."
@@ -3862,6 +3857,14 @@ msgid "Edit"
 msgstr "Edycja"
 
 #: src/ludamus/templates/crowd/user/connected.html
+msgid "Generate a new claim link — the previous one stops working"
+msgstr "Wygeneruj nowy link przejęcia — poprzedni przestanie działać"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Generate a new claim link"
+msgstr "Wygeneruj nowy link przejęcia"
+
+#: src/ludamus/templates/crowd/user/connected.html
 msgid "Create a link to let this person take over their profile"
 msgstr "Utwórz link, aby ta osoba mogła przejąć swój profil"
 
@@ -3873,6 +3876,10 @@ msgstr "Utwórz link przejęcia"
 #, python-format
 msgid "Remove %(name)s from your connected users?"
 msgstr "Usunąć %(name)s z powiązanych osób?"
+
+#: src/ludamus/templates/crowd/user/connected.html
+msgid "Copy claim link"
+msgstr "Skopiuj link przejęcia"
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "No connected users yet"
@@ -6657,6 +6664,14 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Nie przechwycono jeszcze żadnych e-maili."
+
+#, python-format
+#~ msgid ""
+#~ "Claim link ready. Share it with this person so they can take over their "
+#~ "profile: %(url)s"
+#~ msgstr ""
+#~ "Link przejęcia gotowy. Udostępnij go tej osobie, aby mogła przejąć swój "
+#~ "profil: %(url)s"
 
 #~ msgid "Area timetable"
 #~ msgstr "Harmonogram strefy"

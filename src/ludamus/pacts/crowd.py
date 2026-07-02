@@ -23,6 +23,7 @@ class UserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     avatar_url: str
+    claim_token: str = ""
     date_joined: datetime
     discord_username: str
     email: str
