@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email import message_from_bytes, policy
 from enum import StrEnum, auto
@@ -1482,11 +1482,8 @@ class Enrollments:
         # (user_id, name) of fresh enrol/waitlist sign-ups, so the caller can
         # warn the presenter about shadowbanned players after commit.
         self.signed_up_users: list[tuple[int, str]] = []
-        # Held seats for ACCEPT_INVITES members, notified after commit.
-        self.held_seats: list[HeldSeat] = []
-        # Real members seated directly (ACCEPT_BY_DEFAULT), notified after
-        # commit.
-        self.enrolled_members: list[UserDTO] = []
+        # Seats taken for real party members, announced to them after commit.
+        self.party_notices = PartyNotices()
         super().__init__()
 
 
@@ -1497,6 +1494,14 @@ class HeldSeat:
     name: str
     claim_token: str
     expires_at: datetime
+
+
+@dataclass
+class PartyNotices:
+    # Held seats for ACCEPT_INVITES members.
+    held_seats: list[HeldSeat] = field(default_factory=list)
+    # Real members seated directly (ACCEPT_BY_DEFAULT).
+    enrolled_members: list[UserDTO] = field(default_factory=list)
 
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
@@ -2035,7 +2040,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 claim_token=token_urlsafe(48),
             )
             participation.save()
-            enrollments.held_seats.append(
+            enrollments.party_notices.held_seats.append(
                 HeldSeat(
                     participation_id=participation.pk,
                     user=req.user,
@@ -2057,7 +2062,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation.save()
 
         if req.is_party_member and is_fresh_signup:
-            enrollments.enrolled_members.append(req.user)
+            enrollments.party_notices.enrolled_members.append(req.user)
 
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
         # Only a brand-new participation is a "signup" worth warning a banner
@@ -2069,7 +2074,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         actor_name = self.request.di.uow.active_users.read(
             self.request.context.current_user_slug
         ).full_name
-        for member in enrollments.enrolled_members:
+        for member in enrollments.party_notices.enrolled_members:
             self.request.services.parties.announce_member_enrolled(
                 PartyEnrolledNotification(
                     recipient_user_id=member.pk,
@@ -2080,7 +2085,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     event_slug=session.event.slug,
                 )
             )
-        for held in enrollments.held_seats:
+        for held in enrollments.party_notices.held_seats:
             self.request.services.parties.announce_seat_held(
                 HeldSeatNotification(
                     recipient_user_id=held.user.pk,
@@ -2107,7 +2112,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 _("Added to waiting list: {}"),
             ),
             (
-                [held.name for held in enrollments.held_seats],
+                [held.name for held in enrollments.party_notices.held_seats],
                 _("Seat held (they confirm): {}"),
             ),
             (enrollments.cancelled_users, _("Cancelled: {}")),
