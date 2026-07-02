@@ -9,7 +9,7 @@ self-contained, which is all a tool-only server needs.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from ludamus.gates.mcp.registry import ToolError, UnknownToolError
 from ludamus.pacts import NotFoundError
@@ -31,6 +31,7 @@ INVALID_PARAMS = -32602
 logger = logging.getLogger(__name__)
 
 type JsonDict = dict[str, object]
+type ToolOutcome = Literal["ok", "error", "invalid-params", "unknown-tool"]
 
 
 def error_response(*, message_id: object, code: int, message: str) -> JsonDict:
@@ -76,6 +77,7 @@ def _call_tool(
     name = params.get("name")
     if (arguments := params.get("arguments")) is None:
         arguments = {}
+    outcome: ToolOutcome
     if not isinstance(name, str) or not isinstance(arguments, dict):
         outcome, text = "invalid-params", "Invalid tool call params"
     else:
@@ -90,8 +92,11 @@ def _call_tool(
     # %r on client-controlled values: repr escapes newlines, so a crafted
     # tool name cannot inject fake audit lines.
     logger.info(
-        "mcp.tools_call user_id=%s tool=%r outcome=%s arguments=%r",
+        "mcp.tools_call user_id=%s scope=%s sphere_id=%s tool=%r outcome=%s "
+        "arguments=%r",
         actor.user_id,
+        actor.scope,
+        actor.sphere_id,
         name,
         outcome,
         arguments,
@@ -108,7 +113,7 @@ def _run_tool(
     actor: ActorContext,
     name: str,
     arguments: dict[str, object],
-) -> tuple[str, str]:
+) -> tuple[ToolOutcome, str]:
     try:
         text = registry.call(
             services=services, actor=actor, name=name, arguments=arguments
