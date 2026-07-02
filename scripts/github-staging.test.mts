@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as staging from "./github-staging.mts";
 import type { ActionArgs, PullRequestLike } from "./github-staging.mts";
+
+import * as staging from "./github-staging.mts";
 
 type Call = readonly unknown[];
 

@@ -89,7 +89,7 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'
 ignore-words-list = 'fallow'
 
@@ -272,6 +272,12 @@ ignore = [
 "*/inits/repositories.py" = ["PLR0904"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
+"scripts/*.py" = [
+    "T201",
+    "S404",
+    "S603",
+    "S607",
+]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"

@@ -301,7 +301,8 @@
                                             {% translate "Invite a member" %}
                                         </summary>
                                         <div class="mt-3">
-                                            <form action="{% url 'web:crowd:parties-invite' pk=entry.party.pk %}" method="post">
+                                            <form action="{% url 'web:crowd:parties-invite' pk=entry.party.pk %}"
+                                                  method="post">
                                                 {% csrf_token %}
                                                 {% tessera_form entry.invite_form %}
                                                 <button type="submit" class="btn btn-secondary">{% translate "Send invite" %}</button>
