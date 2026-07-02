@@ -17,6 +17,20 @@ const requireChild = <T extends HTMLElement>(parent: HTMLElement, selector: stri
 const escapeRegExp = (value: string): string =>
   value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
+const selectedLabel = (select: HTMLSelectElement): string =>
+  select.options.item(select.selectedIndex)?.text ?? "";
+
+const addOption = (
+  select: HTMLSelectElement,
+  value: string,
+  label: string,
+): void => {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  select.append(option);
+};
+
 // The filter UI is only rendered when the event has scheduled sessions
 // (`{% if hour_data %}` in the template). The bundle still loads on empty
 // event pages, so bail out cleanly instead of throwing when it's absent.
@@ -63,9 +77,6 @@ const initSessionFilters = (): void => {
       .normalize("NFD")
       .replaceAll(COMBINING_MARKS, "");
 
-  const selectedLabel = (select: HTMLSelectElement): string =>
-    select.options.item(select.selectedIndex)?.text ?? "";
-
   // Precompute the searchable haystack (title + host + description) once per
   // card. The text is static, so there's no need to re-normalize it on every
   // keystroke; the description is read from the card's existing paragraph
@@ -79,13 +90,6 @@ const initSessionFilters = (): void => {
       normalizeText(`${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description}`),
     );
   }
-
-  const addOption = (select: HTMLSelectElement, value: string, label: string) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    select.append(option);
-  };
 
   // Populate day filter dropdown from session data. Only relevant for multi-day
   // events, so reveal it once more than one day is present.
