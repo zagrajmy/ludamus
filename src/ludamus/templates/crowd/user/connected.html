@@ -63,6 +63,19 @@
                                                 {% icon "pencil" class="w-3.5 h-3.5" %}
                                                 <span class="sr-only">{% translate "Edit" %}</span>
                                             </button>
+                                            {% if connected.user.claim_token %}
+                                                {% url 'web:crowd:claim' token=connected.user.claim_token as claim_path %}
+                                                <button type="button"
+                                                        class="icon-btn relative"
+                                                        data-copy="{{ claim_path }}"
+                                                        data-copy-origin
+                                                        data-copied-label="{% translate "Copied!" %}"
+                                                        title="{% translate "Copy claim link" %}">
+                                                    {% icon "clipboard-document" class="w-3.5 h-3.5" %}
+                                                    <span class="sr-only">{% translate "Copy claim link" %}</span>
+                                                    {% tessera_copy_popover %}
+                                                </button>
+                                            {% endif %}
                                             <form method="post"
                                                   action="{% url 'web:crowd:profile-connected-users-claim-link' slug=connected.user.slug %}">
                                                 {% csrf_token %}
@@ -93,15 +106,6 @@
                                             </form>
                                         </div>
                                     </div>
-                                    {% if connected.user.claim_token %}
-                                        {% url 'web:crowd:claim' token=connected.user.claim_token as claim_path %}
-                                        <div class="mt-2 max-w-max">
-                                            {% tessera_copy claim_path origin=True %}
-                                                {% icon "link" class="w-3.5 h-3.5" %}
-                                                {% translate "Copy claim link" %}
-                                            {% endtessera_copy %}
-                                        </div>
-                                    {% endif %}
                                 </div>
                                 <div class="item-edit"
                                      id="edit-{{ forloop.counter }}"
