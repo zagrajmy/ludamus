@@ -49,16 +49,17 @@ export default defineConfig({
         "session-card": resolve(rootDir, "src/session-card.ts"),
         "session-edit": resolve(rootDir, "src/session-edit.ts"),
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
+        "space-tree": resolve(rootDir, "src/space-tree.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
+        "velvet-sound": resolve(rootDir, "src/velvet-sound.ts"),
       },
     },
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {
     cors: {
-      origin:
-        /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
+      origin: /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
     },
     host: "0.0.0.0",
     port: Number(process.env.VITE_PORT ?? 5173),

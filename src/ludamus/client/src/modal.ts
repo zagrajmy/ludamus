@@ -19,7 +19,6 @@ const { navigation } = globalThis as { navigation?: Navigation };
 
 const openingModals = new Set<string>();
 
-
 const getDialog = (id: string): HTMLDialogElement => {
   const element = document.getElementById(id);
   if (!(element instanceof HTMLDialogElement)) {
@@ -52,9 +51,7 @@ const updateQueryParam = (
   globalThis.history.pushState({}, "", url);
 };
 
-const getLinkableByModalId = (
-  id: string,
-): { paramName: string; paramValue: string } | null => {
+const getLinkableByModalId = (id: string): { paramName: string; paramValue: string } | null => {
   const link = document.querySelector(`a[href][aria-controls="${id}"]`);
   if (!link) return null;
 
@@ -101,6 +98,10 @@ const ignoreSkippedTransition = (error: unknown): void => {
 
 const MORPH_NAME = "session-morph";
 const CARD_SUPPRESSED = "session-card-suppressed";
+// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
+// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
+const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
+const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
@@ -121,8 +122,7 @@ const releaseSessionCard = (id: string): void => {
 const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
   !prefersReducedMotion() &&
-  typeof (document as Document & ViewTransitionDocument).startViewTransition ===
-    "function";
+  typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
 
 const setSubMorph = (root: HTMLElement, active: boolean): void => {
   for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
@@ -139,6 +139,10 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   setSubMorph(root, active);
 };
 
+const setRootMorph = (className: string, active: boolean): void => {
+  document.documentElement.classList.toggle(className, active);
+};
+
 const morphTransition = (steps: {
   before: () => void;
   settle: () => void;
@@ -150,9 +154,7 @@ const morphTransition = (steps: {
     steps.settle();
     return Promise.resolve();
   }
-  return transition.finished
-    .catch(ignoreSkippedTransition)
-    .finally(steps.settle);
+  return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
 const dismissDialog = (dialog: HTMLDialogElement): void => {
@@ -183,8 +185,12 @@ const openModal = async (
     if (animate && canMorph(card)) {
       openingModals.add(id);
       morphPromise = morphTransition({
-        before: () => setMorph(card, true),
+        before: () => {
+          setRootMorph(ROOT_MORPH_OPEN, true);
+          setMorph(card, true);
+        },
         settle: () => {
+          setRootMorph(ROOT_MORPH_OPEN, false);
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -224,8 +230,12 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        before: () => setContainerMorph(dialog, true),
+        before: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, true);
+          setContainerMorph(dialog, true);
+        },
         settle: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, false);
           setContainerMorph(card, false);
         },
         swap: () => {
@@ -245,9 +255,7 @@ const closeModal = (
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
-    const current = new URLSearchParams(globalThis.location.search).get(
-      linkable.paramName,
-    );
+    const current = new URLSearchParams(globalThis.location.search).get(linkable.paramName);
     if (current === linkable.paramValue) {
       updateQueryParam(linkable.paramName, null, { replaceHistory });
     }
@@ -269,11 +277,7 @@ const syncModalsFromUrl = (): void => {
     if (!href || !modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      continue;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
     const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
@@ -289,11 +293,7 @@ document.addEventListener(
   "cancel",
   (event) => {
     const { target } = event;
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      return;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) return;
 
     event.preventDefault();
     closeModal(target.id);
@@ -306,8 +306,7 @@ if (navigation) {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
     const url = new URL(e.destination.url);
-    if (url.origin !== location.origin || url.pathname !== location.pathname)
-      return;
+    if (url.origin !== location.origin || url.pathname !== location.pathname) return;
 
     for (const link of document.querySelectorAll("a[href][aria-controls]")) {
       const href = link.getAttribute("href");
@@ -319,17 +318,11 @@ if (navigation) {
 
       const matches =
         hrefUrl.searchParams.size > 0 &&
-        [...hrefUrl.searchParams].every(
-          ([k, v]) => url.searchParams.get(k) === v,
-        );
+        [...hrefUrl.searchParams].every(([k, v]) => url.searchParams.get(k) === v);
       if (!matches) continue;
 
       const target = document.getElementById(modalId);
-      if (
-        !(target instanceof HTMLDialogElement) ||
-        !target.classList.contains("modal")
-      )
-        continue;
+      if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
       e.intercept({
         focusReset: "manual",
@@ -376,11 +369,7 @@ document.addEventListener("click", (event) => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
 
-
-  if (
-    !(eventTarget instanceof HTMLDialogElement) ||
-    !eventTarget.classList.contains("modal")
-  )
+  if (!(eventTarget instanceof HTMLDialogElement) || !eventTarget.classList.contains("modal"))
     return;
 
   const rect = eventTarget.getBoundingClientRect();
@@ -404,11 +393,7 @@ const setupFallbackLinkHandlers = (): void => {
     if (!modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (
-      !(target instanceof HTMLDialogElement) ||
-      !target.classList.contains("modal")
-    )
-      continue;
+    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
     link.addEventListener("click", (e) => {
       e.preventDefault();

@@ -19,8 +19,7 @@ const installNavigationApi = (): void => {
   document.addEventListener("click", (event) => {
     if (event.defaultPrevented || event.button !== 0) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const anchor =
-      event.target instanceof Element ? event.target.closest("a[href]") : null;
+    const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (
       !(anchor instanceof HTMLAnchorElement) ||
       anchor.target === "_blank" ||

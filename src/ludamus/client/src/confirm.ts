@@ -19,11 +19,7 @@ const getConfirmDialog = (): HTMLDialogElement | null => {
   return element instanceof HTMLDialogElement ? element : null;
 };
 
-const requestConfirm = (
-  message: string,
-  acceptLabel: string | null,
-  run: () => void,
-): void => {
+const requestConfirm = (message: string, acceptLabel: string | null, run: () => void): void => {
   const dialog = getConfirmDialog();
   if (!dialog) {
     if (globalThis.confirm(message)) run();

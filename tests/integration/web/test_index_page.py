@@ -13,10 +13,9 @@ from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
+    SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -103,9 +102,9 @@ class TestEventsPageView:
 
     def test_session_count_counts_agenda_items(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
-        AgendaItemFactory(space=space)
-        AgendaItemFactory(space=space)
+        space = SpaceFactory(event=event)
+        AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
+        AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
 
         response = client.get(self.URL)
 

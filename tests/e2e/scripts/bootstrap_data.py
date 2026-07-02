@@ -32,7 +32,6 @@ from django.utils.timezone import get_current_timezone  # noqa: E402
 
 from ludamus.adapters.db.django.models import (  # noqa: E402
     AgendaItem,
-    Area,
     Encounter,
     EnrollmentConfig,
     Event,
@@ -45,7 +44,6 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     Sphere,
     TimeSlot,
     User,
-    Venue,
 )
 from ludamus.pacts import SessionStatus  # noqa: E402
 from ludamus.pacts.legacy import (  # noqa: E402
@@ -162,20 +160,24 @@ def _create_flatpage(site: Site, *, url: str, title: str, content: str) -> FlatP
     return page
 
 
-def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Venue:
-    return Venue.objects.create(event=event, name=name, slug=slug, address=address)
+def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Space:
+    return Space.objects.create(
+        event=event, parent=None, name=name, slug=slug, description=address
+    )
 
 
-def _create_area(venue: Venue, *, name: str, slug: str, description: str = "") -> Area:
-    return Area.objects.create(
-        venue=venue, name=name, slug=slug, description=description
+def _create_area(venue: Space, *, name: str, slug: str, description: str = "") -> Space:
+    return Space.objects.create(
+        event=venue.event, parent=venue, name=name, slug=slug, description=description
     )
 
 
 def _create_space(
-    area: Area, *, name: str, slug: str, capacity: int | None = None
+    area: Space, *, name: str, slug: str, capacity: int | None = None
 ) -> Space:
-    return Space.objects.create(area=area, name=name, slug=slug, capacity=capacity)
+    return Space.objects.create(
+        event=area.event, parent=area, name=name, slug=slug, capacity=capacity
+    )
 
 
 def _create_session(

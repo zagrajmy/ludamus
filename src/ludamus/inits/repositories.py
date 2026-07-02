@@ -77,20 +77,16 @@ class Repositories:
         return repositories.SpaceRepository()
 
     @cached_property
+    def space_tree(self) -> repositories.SpaceTreeRepository:
+        return repositories.SpaceTreeRepository()
+
+    @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:
         return repositories.TimeSlotRepository()
 
     @cached_property
     def tracks(self) -> repositories.TrackRepository:
         return repositories.TrackRepository()
-
-    @cached_property
-    def venues(self) -> repositories.VenueRepository:
-        return repositories.VenueRepository()
-
-    @cached_property
-    def areas(self) -> repositories.AreaRepository:
-        return repositories.AreaRepository()
 
     @cached_property
     def facilitators(self) -> repositories.FacilitatorRepository:

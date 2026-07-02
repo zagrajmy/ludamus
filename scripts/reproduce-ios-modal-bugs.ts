@@ -20,8 +20,7 @@ const env = process.env;
 const baseUrl = env.BASE_URL ?? "http://localhost:8000";
 const session = env.SESSION ?? "zagrajmy-ios-modal-local";
 const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
-const targetTriggerLabel =
-  env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
+const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/chronology/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
@@ -83,9 +82,7 @@ const takeSnapshot = async (): Promise<CaptureSnapshotResult> =>
 
 const snapshotLabels = async (): Promise<string[]> => {
   const snapshot = await takeSnapshot();
-  return snapshot.nodes
-    .map((node) => node.label ?? node.value ?? "")
-    .filter(Boolean);
+  return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
 };
 
 const hasVisibleText = async (text: string): Promise<boolean> => {
@@ -160,10 +157,7 @@ const describeNode = (node: SnapshotNode): string => {
   )}`;
 };
 
-const isNodeInViewport = (
-  snapshot: CaptureSnapshotResult,
-  node: SnapshotNode,
-): boolean => {
+const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean => {
   if (!node.rect) return false;
   const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
   const centerY = node.rect.y + node.rect.height / 2;
@@ -176,9 +170,7 @@ const isHiddenDialogLabel = (node: SnapshotNode): boolean =>
 const isTargetTitleNode = (node: SnapshotNode): boolean =>
   Boolean(node.label?.includes(targetTitle)) && !isHiddenDialogLabel(node);
 
-const findTriggerInViewport = (
-  snapshot: CaptureSnapshotResult,
-): SnapshotNode | null =>
+const findTriggerInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | null =>
   snapshot.nodes.find(
     (node) =>
       node.label === targetTriggerLabel &&
@@ -186,12 +178,9 @@ const findTriggerInViewport = (
       isNodeInViewport(snapshot, node),
   ) ?? null;
 
-const findTargetTitleInViewport = (
-  snapshot: CaptureSnapshotResult,
-): SnapshotNode | null =>
-  snapshot.nodes.find(
-    (node) => isTargetTitleNode(node) && isNodeInViewport(snapshot, node),
-  ) ?? null;
+const findTargetTitleInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | null =>
+  snapshot.nodes.find((node) => isTargetTitleNode(node) && isNodeInViewport(snapshot, node)) ??
+  null;
 
 const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
   for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -211,8 +200,7 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
 
     const node =
       snapshot.nodes.find(
-        (candidate) =>
-          candidate.label === targetTriggerLabel && !isHiddenDialogLabel(candidate),
+        (candidate) => candidate.label === targetTriggerLabel && !isHiddenDialogLabel(candidate),
       ) ?? snapshot.nodes.find(isTargetTitleNode);
     const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
     const centerY = node?.rect ? node.rect.y + node.rect.height / 2 : viewportHeight;
@@ -246,10 +234,7 @@ const forcePreOpenScroll = async (): Promise<void> => {
   }
 };
 
-const waitForLabel = async (
-  label: string,
-  timeoutMs: number,
-): Promise<SnapshotNode | null> => {
+const waitForLabel = async (label: string, timeoutMs: number): Promise<SnapshotNode | null> => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const node = await findNodeByLabel(label);
@@ -280,9 +265,7 @@ const closeDeviceSessionIfPresent = async (): Promise<void> => {
     });
     if (!activeSession || activeSession.name === session) return;
 
-    console.log(
-      `Taking over iOS device from existing agent-device session: ${activeSession.name}`,
-    );
+    console.log(`Taking over iOS device from existing agent-device session: ${activeSession.name}`);
     await client.sessions.close({ session: activeSession.name });
   } catch (error) {
     console.warn("Could not check or close existing device session:", error);
@@ -300,9 +283,7 @@ const assertEventPageReady = async (url: URL): Promise<void> => {
       const text = await response.text();
       if (response.ok && text.includes(targetTitle)) return;
 
-      lastError = `HTTP ${response.status}; body starts with ${JSON.stringify(
-        text.slice(0, 160),
-      )}`;
+      lastError = `HTTP ${response.status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
       if (response.status >= 400 && response.status < 500) break;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
@@ -372,8 +353,7 @@ if (!visibleCloseButton) {
 
 console.log("Checking whether modal content is initially visible...");
 const contentInitiallyVisible =
-  (await hasVisibleText("About this session")) &&
-  (await hasVisibleText("Przygoda w stylu filmu"));
+  (await hasVisibleText("About this session")) && (await hasVisibleText("Przygoda w stylu filmu"));
 if (!contentInitiallyVisible) {
   failures.push(
     'Modal content headed by "About this session" / "Przygoda w stylu filmu" is not initially visible.',
@@ -383,7 +363,7 @@ if (!contentInitiallyVisible) {
 console.log("Tapping Close...");
 const closeButton = await findNodeByLabel("Close");
 if (!closeButton) {
-  throw new Error('Could not find visible target: Close');
+  throw new Error("Could not find visible target: Close");
 }
 await clickNodeCenter(closeButton);
 await client.command.wait({ ...deviceOptions, durationMs: 1000 });

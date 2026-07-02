@@ -15,8 +15,7 @@ const { navigation } = globalThis as {
   navigation?: { currentEntry?: { key?: string } | null };
 };
 const entryId =
-  navigation?.currentEntry?.key ??
-  `${globalThis.location.pathname}${globalThis.location.search}`;
+  navigation?.currentEntry?.key ?? `${globalThis.location.pathname}${globalThis.location.search}`;
 
 const root = document.getElementById("app-scroll");
 
@@ -27,9 +26,7 @@ if (root) {
   // scroll restoration does. Restoring on a normal navigation or form-submit
   // redirect would scroll a freshly loaded page away from the top and hide
   // top-of-page flash messages.
-  const [navEntry] = performance.getEntriesByType(
-    "navigation",
-  ) as PerformanceNavigationTiming[];
+  const [navEntry] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
   if (navEntry?.type === "back_forward") {
     const saved = sessionStorage.getItem(key);
     if (saved !== null) {

@@ -224,10 +224,8 @@ button {
    * still composes with ring-* / inset-shadow utilities.
    */
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-dropdown:
-    0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-elevated:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
 /*
@@ -376,8 +374,14 @@ button:active {
     border-radius: 1rem;
     padding: 0.625rem 1rem;
     font-weight: 500;
-    /* Only transform (press) and box-shadow (depth via --y) animate on state. */
-    transition: transform 0.2s, box-shadow 0.2s;
+    /* translate + scale (press) and box-shadow (depth via --y) animate on state.
+       These are the properties the :hover / :active rules actually set, so they
+       must all be listed here for the base (hover-out, release) transition to
+       animate symmetrically with hover-in — not snap. */
+    transition:
+      translate 0.15s,
+      scale 0.15s,
+      box-shadow 0.15s;
     background-color: var(--bg);
     /* optical vertical centering (trims Outfit's half-leading) */
     text-box: trim-both cap alphabetic;
@@ -388,7 +392,7 @@ button:active {
       0 var(--y) 0 0 var(--bg);
 
     &:hover {
-      @apply translate-y-px transition duration-150;
+      @apply translate-y-px;
       --y: 1px;
     }
 
@@ -469,21 +473,13 @@ button:active {
 
     border: 1px solid var(--color-border);
     color: var(--color-foreground);
-    background-image: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.5),
-      rgba(0, 0, 0, 0.02)
-    );
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0.02));
   }
 
   .dark .btn-secondary {
     --shade: hsla(30deg, 0%, 28%, 0.35);
 
-    background-image: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.04),
-      rgba(0, 0, 0, 0.06)
-    );
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.06));
   }
 
   .icon-btn {
@@ -508,7 +504,7 @@ button:active {
     box-shadow: inset 0 -2px 1px -1px var(--color-border);
 
     position: relative;
-    @apply before:bg-foreground rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
+    @apply rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:bg-foreground before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
   }
 
   .icon-btn:hover {

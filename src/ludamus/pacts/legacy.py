@@ -13,6 +13,12 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from ludamus.pacts.crowd import (
+    ConnectedUserRepositoryProtocol,
+    UserDTO,
+    UserRepositoryProtocol,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
@@ -229,9 +235,13 @@ class PendingSessionDTO(BaseModel):
 
 
 class LocationData(TypedDict):
-    space: SpaceDTO
-    area: AreaDTO | None  # TODO(fancysnake): Fix after merging venues
-    venue: VenueDTO | None  # TODO(fancysnake): Fix after merging venues
+    # Tree location of a scheduled leaf: its name, its immediate parent (the
+    # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
+    # path used as a display label.
+    space_name: str
+    parent_slug: str
+    parent_name: str
+    path: str
 
 
 class SessionStatus(StrEnum):
@@ -304,7 +314,7 @@ class UserParticipation(BaseModel):
 class SpaceDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    area_id: int | None
+    parent_id: int | None = None
     capacity: int | None
     creation_time: datetime
     modification_time: datetime
@@ -339,33 +349,6 @@ class TrackUpdateData(TypedDict):
     is_public: bool
     space_pks: list[int]
     manager_pks: list[int]
-
-
-class VenueDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    address: str
-    areas_count: int = 0
-    creation_time: datetime
-    modification_time: datetime
-    name: str
-    order: int
-    pk: int
-    slug: str
-
-
-class AreaDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    creation_time: datetime
-    description: str
-    modification_time: datetime
-    name: str
-    order: int
-    pk: int
-    slug: str
-    spaces_count: int = 0
-    venue_id: int
 
 
 class TimeSlotDTO(BaseModel):
@@ -441,33 +424,6 @@ class AgendaItemUpdateData(TypedDict, total=False):
     session_confirmed: bool
     space_id: int
     start_time: datetime
-
-
-class UserType(StrEnum):
-    ACTIVE = "active"
-    CONNECTED = "connected"
-    ANONYMOUS = "anonymous"
-
-
-class UserDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    avatar_url: str
-    date_joined: datetime
-    discord_username: str
-    email: str
-    full_name: str
-    is_active: bool
-    is_authenticated: bool
-    is_staff: bool
-    is_superuser: bool
-    manager_id: int | None = None
-    name: str
-    pk: int
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
 
 
 class SiteDTO(BaseModel):
@@ -641,19 +597,6 @@ class EnrollmentConfigDTO(BaseModel):
     pk: int
     restrict_to_configured_users: bool
     start_time: datetime
-
-
-class UserData(TypedDict, total=False):
-    avatar_url: str
-    discord_username: str
-    email: str
-    is_active: bool
-    name: str
-    password: str
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
 
 
 class ProposalCategoryData(TypedDict, total=False):
@@ -903,18 +846,6 @@ class SphereRepositoryProtocol(Protocol):
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
-class UserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(user_data: UserData) -> None: ...
-    def read(self, slug: str) -> UserDTO: ...
-    def read_by_id(self, pk: int) -> UserDTO: ...
-    def read_by_username(self, username: str) -> UserDTO: ...
-    @staticmethod
-    def update(user_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
-
-
 class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def create(
@@ -1083,19 +1014,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
 
 
-class ConnectedUserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(manager_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]: ...
-    @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO: ...
-    @staticmethod
-    def delete(manager_slug: str, user_slug: str) -> None: ...
-    @staticmethod
-    def update(manager_slug: str, user_slug: str, user_data: UserData) -> None: ...
-
-
 class EventRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
@@ -1115,59 +1033,17 @@ class EventRepositoryProtocol(Protocol):
     def update_proposal_description(event_id: int, description: str) -> None: ...
 
 
-class VenueRepositoryProtocol(Protocol):
-    def copy_to_event(self, pk: int, target_event_id: int) -> VenueDTO: ...
-    def create(self, event_id: int, name: str, address: str = "") -> VenueDTO: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    def duplicate(self, pk: int, new_name: str) -> VenueDTO: ...
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[VenueDTO]: ...
-    @staticmethod
-    def read_by_slug(event_pk: int, slug: str) -> VenueDTO: ...
-    @staticmethod
-    def reorder(event_id: int, venue_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, address: str = "") -> VenueDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
-
-
-class AreaRepositoryProtocol(Protocol):
-    def create(self, venue_id: int, name: str, description: str = "") -> AreaDTO: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    @staticmethod
-    def list_by_venue(venue_pk: int) -> list[AreaDTO]: ...
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[AreaDTO]: ...
-    @staticmethod
-    def read_by_slug(venue_pk: int, slug: str) -> AreaDTO: ...
-    @staticmethod
-    def reorder(venue_id: int, area_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, description: str = "") -> AreaDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
-
-
 class SpaceRepositoryProtocol(Protocol):
-    def create(
-        self, area_id: int, name: str, capacity: int | None = None
-    ) -> SpaceDTO: ...
     @staticmethod
     def read(pk: int) -> SpaceDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
-    def list_by_area(area_pk: int) -> list[SpaceDTO]: ...
-    @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]: ...
     @staticmethod
-    def read_by_slug(area_pk: int, slug: str) -> SpaceDTO: ...
-    @staticmethod
-    def reorder(area_id: int, space_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, capacity: int | None = None) -> SpaceDTO: ...
-    @staticmethod
     def has_sessions(pk: int) -> bool: ...
+    @staticmethod
+    def lock(pk: int) -> None: ...
 
 
 class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split planned
@@ -1606,11 +1482,7 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def spheres(self) -> SphereRepositoryProtocol: ...
     @property
-    def areas(self) -> AreaRepositoryProtocol: ...
-    @property
     def spaces(self) -> SpaceRepositoryProtocol: ...
-    @property
-    def venues(self) -> VenueRepositoryProtocol: ...
     @property
     def time_slots(self) -> TimeSlotRepositoryProtocol: ...
     @property

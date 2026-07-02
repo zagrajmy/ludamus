@@ -39,6 +39,14 @@
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} switcher {% templatetag closeblock %}</code>
+            {% tessera_switcher name="design-switcher" selected="b" aria_label="Example switcher" %}
+                {% tessera_segment "a" icon="list-bullet" title="List" %}List view{% end_tessera_segment %}
+                {% tessera_segment "b" icon="squares-2x2" title="Grid" %}Grid view{% end_tessera_segment %}
+                {% tessera_segment "c" icon="map" title="Map" %}Map view{% end_tessera_segment %}
+            {% end_tessera_switcher %}
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} icon {% templatetag closeblock %}</code>
             <div class="flex flex-wrap items-center justify-center gap-3 text-foreground">
                 {% icon "calendar" class="w-4 h-4" %}
@@ -177,6 +185,25 @@
             {% if design_session_data_ended %}
                 {% include "chronology/_session_card.html" with data=design_session_data_ended ended=True %}
             {% endif %}
+        </div>
+    </div>
+    <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">
+        <code class="absolute top-3 left-3 text-xs text-foreground-muted">velvet-sound.ts</code>
+        <p class="max-w-prose text-center text-sm text-foreground-muted">
+            Procedural interface sounds (Velvet voice), synthesised live with the
+            Web Audio API — no audio files. Press a chip to audition; ambient
+            playback across the app is opt-in via the
+            {% icon "speaker-wave" class="inline w-4 h-4 align-text-bottom" %}
+            toggle in the footer.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-2">
+            <button type="button" data-velvet-play="toggle.on" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toggle on</button>
+            <button type="button" data-velvet-play="toggle.off" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toggle off</button>
+            <button type="button" data-velvet-play="action.send" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Action / send</button>
+            <button type="button" data-velvet-play="ui.confirm" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Confirm</button>
+            <button type="button" data-velvet-play="toast.in" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toast in</button>
+            <button type="button" data-velvet-play="ui.progress" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Progress</button>
+            <button type="button" data-velvet-play="state.error" data-no-sound class="btn btn-danger px-3 py-1.5 text-xs">Error</button>
         </div>
     </div>
 </div>

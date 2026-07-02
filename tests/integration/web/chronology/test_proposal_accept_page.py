@@ -6,6 +6,7 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.text import slugify
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
@@ -21,8 +22,8 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SpaceDTO,
     TimeSlotDTO,
-    UserDTO,
 )
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.utils import assert_response
 
 
@@ -228,13 +229,18 @@ class TestProposalAcceptPageView:
         assert "<optgroup" not in content
 
     @pytest.mark.usefixtures("time_slot")
-    def test_get_shows_multiple_spaces_in_same_area(
-        self, pending_session, venue, area, space, staff_client
+    @pytest.mark.usefixtures("time_slot")
+    def test_get_groups_leaf_spaces_under_their_parent(
+        self, event, pending_session, staff_client
     ):
-        """Test that multiple spaces in same area are grouped together."""
-        # Create a second space in the same area
-        second_space = Space.objects.create(
-            area=area, name="Second Room", slug="second-room"
+        # Leaves sharing a parent node are grouped under that node's path; the
+        # non-leaf parent itself is never bookable.
+        parent = Space.objects.create(event=event, name="Main Hall", slug="main-hall")
+        first = Space.objects.create(
+            event=event, parent=parent, name="Room A", slug="room-a"
+        )
+        second = Space.objects.create(
+            event=event, parent=parent, name="Room B", slug="room-b"
         )
 
         response = staff_client.get(
@@ -243,11 +249,10 @@ class TestProposalAcceptPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # Verify optgroup with "Venue > Area" label is present
-        assert f'<optgroup label="{venue.name} &gt; {area.name}">' in content
-        # Verify both spaces are within the optgroup
-        assert _has_option(content, space.id, space.name)
-        assert _has_option(content, second_space.id, "Second Room")
+        assert '<optgroup label="Main Hall">' in content
+        assert _has_option(content, first.id, "Room A")
+        assert _has_option(content, second.id, "Room B")
+        assert not _has_option(content, parent.id, "Main Hall")
 
     def test_get_error_no_space(self, event, pending_session, staff_client):
         response = staff_client.get(
@@ -379,6 +384,45 @@ class TestProposalAcceptPageView:
         assert session.agenda_item.session_confirmed
         assert session.agenda_item.start_time == time_slot.start_time
         assert session.agenda_item.end_time == time_slot.end_time
+
+    def test_post_preserves_unique_slug(
+        self, event, pending_session, space, staff_client, staff_user, time_slot
+    ):
+        # Regression: accepting a proposal must not regenerate the slug, which
+        # dropped the uniqueness suffix and collided with an existing session.
+        base_slug = slugify(pending_session.title)
+        pending_session.slug = f"{base_slug}-4"
+        pending_session.save()
+        Session.objects.create(
+            title=pending_session.title,
+            event=event,
+            slug=base_slug,
+            display_name=staff_user.name,
+            participants_limit=10,
+        )
+
+        response = staff_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug),
+            data={"space": space.id, "time_slot": time_slot.id},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f"Proposal '{pending_session.title}' has been accepted and "
+                        "added to the agenda."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        session = Session.objects.get(pk=pending_session.pk)
+        assert session.status == "scheduled"
+        assert session.slug == f"{base_slug}-4"
 
     def test_post_wrong_permissions(
         self, event, pending_session, space, authenticated_client, time_slot

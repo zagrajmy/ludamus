@@ -12,8 +12,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from django.core.exceptions import ObjectDoesNotExist
-
 from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
     Session,
@@ -22,7 +20,8 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
     get_used_slots,
 )
-from ludamus.pacts import EventDTO, UserDTO
+from ludamus.pacts import EventDTO
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     OfferDTO,
@@ -45,15 +44,15 @@ class ParticipationPromotionRepository:
             # FOR UPDATE on the nullable side of an outer join.
             session = (
                 Session.objects.select_for_update(of=("self",))
-                .select_related("category", "agenda_item__space__area__venue__event")
+                .select_related("category", "agenda_item", "event")
                 .get(id=session_id)
             )
         except Session.DoesNotExist:
             return None
-        try:
-            event = session.agenda_item.space.area.venue.event
-        except ObjectDoesNotExist:
+        # Promotion only applies to scheduled sessions (those with an agenda item).
+        if not hasattr(session, "agenda_item"):
             return None
+        event = session.event
 
         if (config := event.get_most_liberal_config(session)) is None:
             return None
@@ -213,13 +212,8 @@ class ParticipationPromotionRepository:
     @staticmethod
     def _build_offer(party: list[SessionParticipation]) -> OfferDTO:
         lead = party[0]
-        session = Session.objects.select_related(
-            "agenda_item__space__area__venue__event"
-        ).get(id=lead.session_id)
-        try:
-            event_slug = session.agenda_item.space.area.venue.event.slug
-        except ObjectDoesNotExist:
-            event_slug = ""
+        session = Session.objects.select_related("event").get(id=lead.session_id)
+        event_slug = session.event.slug
         recipient = lead.user.manager or lead.user
         return OfferDTO(
             session_id=lead.session_id,

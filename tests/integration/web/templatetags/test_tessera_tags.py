@@ -225,3 +225,131 @@ class TestTabs:
             Template(
                 "{% load tessera %}{% tabs %}{% tab %}X{% end_tab %}{% end_tabs %}"
             )
+
+
+ICON_TOGGLE_ICONS = 2
+SWITCHER_SEGMENTS = 3
+
+
+class TestIconToggle:
+    def _render(self, extra: str = "") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
+            'label="Toggle sound" ' + extra + " %}"
+        )
+        return tpl.render(Context())
+
+    def test_renders_toggle_button(self) -> None:
+        html = self._render()
+        assert 'type="button"' in html
+        assert "rounded-full" in html
+
+    def test_defaults_to_unpressed(self) -> None:
+        assert 'aria-pressed="false"' in self._render()
+
+    def test_pressed_sets_aria_pressed(self) -> None:
+        assert 'aria-pressed="true"' in self._render("pressed=True")
+
+    def test_renders_accessible_label(self) -> None:
+        html = self._render()
+        assert '<span class="sr-only">Toggle sound</span>' in html
+
+    def test_swaps_icons_by_aria_pressed(self) -> None:
+        html = self._render()
+        assert "group-aria-pressed:block" in html
+        assert "group-aria-pressed:hidden" in html
+        assert html.count("<svg") == ICON_TOGGLE_ICONS
+
+    def test_renders_title(self) -> None:
+        assert 'title="Sound (Velvet)"' in self._render('title="Sound (Velvet)"')
+
+    def test_boolean_data_attr_is_bare(self) -> None:
+        html = self._render("data_velvet_toggle=True")
+        assert "data-velvet-toggle" in html
+        assert 'data-velvet-toggle="' not in html
+
+    def test_valued_data_attr(self) -> None:
+        assert 'data-role="switch"' in self._render('data_role="switch"')
+
+    def test_skips_falsy_data_attr(self) -> None:
+        html = self._render("data_role=False")
+        assert "data-role" not in html
+
+    def test_rejects_non_data_attr(self) -> None:
+        with pytest.raises(ValueError, match="only accepts data_"):
+            self._render('class="leak"')
+
+    def test_escapes_data_attr_value(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" '
+            "label=lbl data_role=bad %}"
+        )
+        html = tpl.render(Context({"lbl": "x", "bad": '"><script>alert(1)</script>'}))
+        assert "<script>alert(1)" not in html
+
+
+class TestSwitcher:
+    def _render(self, *, selected: str = "light") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_switcher name="theme" selected="' + selected + '" %}'
+            '{% tessera_segment "system" icon="computer-desktop" %}System'
+            "{% end_tessera_segment %}"
+            '{% tessera_segment "light" icon="sun" %}Light{% end_tessera_segment %}'
+            '{% tessera_segment "dark" icon="moon" %}Dark{% end_tessera_segment %}'
+            "{% end_tessera_switcher %}"
+        )
+        return tpl.render(Context())
+
+    def test_renders_radiogroup(self) -> None:
+        html = self._render()
+        assert "<fieldset" in html
+        assert 'role="radiogroup"' in html
+
+    def test_renders_a_segment_per_value(self) -> None:
+        html = self._render()
+        assert 'value="system"' in html
+        assert 'value="light"' in html
+        assert 'value="dark"' in html
+        assert html.count("<svg") == SWITCHER_SEGMENTS
+
+    def test_segments_share_the_group_name(self) -> None:
+        assert self._render().count('name="theme"') == SWITCHER_SEGMENTS
+
+    def test_selected_segment_is_checked(self) -> None:
+        html = self._render(selected="light")
+        assert re.search(r'id="theme-light"[^>]*\schecked', html)
+        assert not re.search(r'id="theme-system"[^>]*\schecked', html)
+
+    def test_uses_peer_checked_styling(self) -> None:
+        assert "peer-checked:bg-bg-secondary" in self._render()
+
+    def test_renders_segment_labels(self) -> None:
+        html = self._render()
+        assert "System" in html
+        assert "Light" in html
+        assert "Dark" in html
+
+    def test_segment_missing_value_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
+            Template(
+                "{% load tessera %}{% tessera_switcher %}"
+                "{% tessera_segment %}X{% end_tessera_segment %}"
+                "{% end_tessera_switcher %}"
+            )
+
+    def test_requires_name(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires a name"):
+            Template(
+                "{% load tessera %}{% tessera_switcher %}"
+                '{% tessera_segment "a" %}A{% end_tessera_segment %}'
+                "{% end_tessera_switcher %}"
+            ).render(Context())
+
+    def test_segment_outside_switcher_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="must be used inside"):
+            Template(
+                '{% load tessera %}{% tessera_segment "a" %}A{% end_tessera_segment %}'
+            ).render(Context())

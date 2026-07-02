@@ -39,7 +39,7 @@
                                 aria-controls="navbar-profile-panel"
                                 aria-expanded="false"
                                 aria-label="{% translate "Account menu" %}"
-                                class="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-shadow duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50">
+                                class="relative w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center cursor-pointer transition-shadow duration-150 ring-2 ring-transparent hover:ring-coral-500/30 focus:outline-none focus:ring-coral-500/50 before:absolute before:-inset-1 before:content-['']">
                             {% include "components/avatar.html" with user=current_user_info size="size-10" %}
                         </button>
                         <!-- Dropdown panel -->
@@ -75,7 +75,9 @@
                         </div>
                     </div>
                 {% else %}
-                    {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm -translate-y-[.5px]" show_icon="" text="" %}
+                    <span class="inline-flex -translate-y-[.5px]">
+                        {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm" show_icon="" text="" %}
+                    </span>
                 {% endif %}
             </div>
         </div>

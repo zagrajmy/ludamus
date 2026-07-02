@@ -6,14 +6,10 @@ import { analyzePageAccessibility } from "./helpers/a11y";
 // (tests/e2e/scripts/bootstrap_data.py), so the navbar dropdown has content.
 
 test.describe("Navbar notifications dropdown", () => {
-  test("unread count is in the accessible name, not colour alone", async ({
-    page,
-  }) => {
+  test("unread count is in the accessible name, not colour alone", async ({ page }) => {
     await page.goto("/events/");
 
-    await expect(
-      page.getByRole("button", { name: /Notifications \(1 unread\)/ }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /Notifications \(1 unread\)/ })).toBeVisible();
   });
 
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {
@@ -38,15 +34,11 @@ test.describe("Navbar notifications dropdown", () => {
     await expect(item).toBeHidden();
   });
 
-  test("open dropdown has no critical or serious axe violations", async ({
-    page,
-  }) => {
+  test("open dropdown has no critical or serious axe violations", async ({ page }) => {
     await page.goto("/events/");
 
     await page.getByRole("button", { name: /Notifications/ }).click();
-    await expect(
-      page.getByRole("link", { name: /a spot opened in/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /a spot opened in/i })).toBeVisible();
 
     await analyzePageAccessibility(page, { include: "nav" });
   });
@@ -71,9 +63,7 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
     await expect(logout).toBeHidden();
   });
 
-  test("open menu has no critical or serious axe violations", async ({
-    page,
-  }) => {
+  test("open menu has no critical or serious axe violations", async ({ page }) => {
     await page.goto("/events/");
 
     await page.getByRole("button", { name: /Account menu/ }).click();

@@ -1,3 +1,10 @@
+:root {
+  /* Single source of truth: the live ::backdrop blur and the morph's
+     root-snapshot blur must match so the hand-off at the end of the view
+     transition is seamless. */
+  --modal-backdrop-blur: 4px;
+}
+
 @layer components {
   .modal {
     position: fixed;
@@ -47,30 +54,29 @@
 
   .modal::backdrop {
     background-color: transparent;
+    backdrop-filter: blur(0);
     transition:
       display 0.2s allow-discrete,
       overlay 0.2s allow-discrete,
-      background-color 0.2s var(--ease-out);
+      background-color 0.2s var(--ease-out),
+      backdrop-filter 0.2s var(--ease-out);
   }
 
   .modal[open]::backdrop {
-    background-color: color-mix(
-      in srgb,
-      var(--color-background) 50%,
-      transparent
-    );
-    backdrop-filter: blur(4px);
+    background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+    backdrop-filter: blur(var(--modal-backdrop-blur));
   }
 
   @starting-style {
     .modal[open]::backdrop {
       background-color: transparent;
+      backdrop-filter: blur(0);
     }
   }
 }
 
 .session-card.session-card-suppressed {
-  @apply border-dashed bg-neutral-100 dark:bg-neutral-800/60 pointer-events-none;
+  @apply pointer-events-none border-dashed bg-neutral-100 dark:bg-neutral-800/60;
   border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
@@ -144,6 +150,49 @@
 ::view-transition-new(root) {
   animation-duration: 0.2s;
   animation-timing-function: var(--ease-out);
+}
+
+/* Drive the background-page blur as part of the card<->modal morph so it grows
+   from the tap instead of snapping in once the morph settles. Safari doesn't
+   rasterise the ::backdrop's backdrop-filter into the view-transition snapshot,
+   so the live blur only appears after the transition; simulate it here by
+   blurring the root snapshot (the page behind), which is painted below the
+   morphing modal group and so leaves the modal itself crisp. The end state
+   matches the live ::backdrop blur, so the hand-off when the transition ends is
+   seamless. modal.ts toggles these classes on <html> for the morph's lifetime. */
+:root.session-morph-open::view-transition-new(root) {
+  animation: page-blur-in var(--vt-morph-duration) var(--vt-morph-ease) both;
+}
+
+:root.session-morph-close::view-transition-old(root) {
+  animation: page-blur-out var(--vt-morph-exit-duration) var(--vt-morph-ease) both;
+}
+
+/* These keyframes replace the UA default root cross-fade (the opacity rule
+   above), so they re-supply the opacity fade themselves — editing opacity here
+   drives the page cross-fade, not just the blur, now on the morph's timing. */
+@keyframes page-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(var(--modal-backdrop-blur));
+  }
+}
+
+@keyframes page-blur-out {
+  from {
+    opacity: 1;
+    filter: blur(var(--modal-backdrop-blur));
+  }
+
+  to {
+    opacity: 0;
+    filter: blur(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

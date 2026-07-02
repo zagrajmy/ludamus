@@ -78,6 +78,7 @@ run = """
 mise bootstrap packages apply --yes
 poetry install
 aube install
+hk install --mise
 if [ ! -f .env.local ]; then
   python -c "
 import secrets

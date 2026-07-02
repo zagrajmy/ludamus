@@ -41,7 +41,7 @@ class TestShadowbanSignupNotification:
         joined_session = SessionFactory(
             event=event, presenter=host, participants_limit=10, min_age=0
         )
-        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
 
         response = authenticated_client.post(
             _enroll_url(joined_session.pk, joined_session.event.slug),
@@ -70,7 +70,7 @@ class TestShadowbanSignupNotification:
         joined_session = SessionFactory(
             event=event, presenter=host, participants_limit=10, min_age=0
         )
-        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
         # Already on the waiting list -> promoting to enrolled is not a fresh
         # signup, so no new alert.
         SessionParticipation.objects.create(
@@ -103,7 +103,7 @@ class TestShadowbanSignupNotification:
         joined_session = SessionFactory(
             event=event, presenter=host, participants_limit=10, min_age=0
         )
-        AgendaItemFactory(session=joined_session, space=SpaceFactory(area=space.area))
+        AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
 
         response = authenticated_client.post(
             _enroll_url(joined_session.pk, joined_session.event.slug),

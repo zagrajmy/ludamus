@@ -1,0 +1,4 @@
+{% load i18n tessera %}
+{% translate "Toggle interface sound" as sound_label %}
+{% translate "Interface sound (Velvet)" as sound_title %}
+{% tessera_icon_toggle on_icon="speaker-wave" off_icon="speaker-x-mark" label=sound_label title=sound_title data_velvet_toggle=True data_no_sound=True %}
