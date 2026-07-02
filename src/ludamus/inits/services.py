@@ -103,7 +103,7 @@ class Services:
 
     @cached_property
     def sites(self) -> SitesService:
-        return SitesService(self._repos.spheres)
+        return SitesService(self._repos.spheres, self._repos.spheres)
 
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
