@@ -650,7 +650,6 @@ msgid "%(user)s cannot enroll: enrollment not available"
 msgstr "%(user)s nie może się zapisać: zapisy niedostępne"
 
 #: src/ludamus/adapters/web/django/forms.py
-#| msgid "Manage Enrollment"
 msgid "They manage their own enrollment"
 msgstr "Ta osoba zarządza swoimi zapisami samodzielnie"
 
@@ -914,7 +913,6 @@ msgstr "%(name)s (konflikt czasowy)"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
-#| msgid "%(name)s (no enrollment to cancel)"
 msgid "%(name)s (manages their own enrollment)"
 msgstr "%(name)s (zarządza swoimi zapisami)"
 
@@ -1819,7 +1817,6 @@ msgid "Could not remove this member."
 msgstr "Nie udało się usunąć tej osoby z drużyny."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-#| msgid "Could not leave this party."
 msgid "Could not change this setting."
 msgstr "Nie udało się zmienić tego ustawienia."
 
@@ -2475,7 +2472,6 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
-#| msgid "%(leader)s invited you to %(party)s"
 msgid "%(leader)s enrolled you in %(session)s"
 msgstr "%(leader)s zapisuje Cię na %(session)s"
 
@@ -2489,7 +2485,6 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
-#| msgid "%(leader)s invited you to %(party)s"
 msgid "%(leader)s saved you a seat in %(session)s"
 msgstr "%(leader)s rezerwuje Ci miejsce na %(session)s"
 
@@ -2935,7 +2930,6 @@ msgid "Available"
 msgstr "Dostępny"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#| msgid "Please confirm"
 msgid "they confirm"
 msgstr "potwierdzą samodzielnie"
 
