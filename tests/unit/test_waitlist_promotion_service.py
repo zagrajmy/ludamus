@@ -92,18 +92,18 @@ class FakeScheduler:
         self.scheduled.append((participation_id, run_at))
 
 
-def _wp(pid, *, manager_id=None, order=0):
+def _wp(pid, *, sponsor_id=None, order=0):
     return WaitingParticipantDTO(
         participation_id=pid,
         user_id=pid,
-        manager_id=manager_id,
+        sponsor_id=sponsor_id,
         full_name=f"user-{pid}",
         email=f"u{pid}@example.com",
         creation_time=_NOW + timedelta(minutes=order),
         has_conflict=False,
-        manager_slots_remaining=UNLIMITED_SLOTS,
-        recipient_user_id=manager_id if manager_id is not None else pid,
-        recipient_email=f"r{manager_id if manager_id is not None else pid}@e.com",
+        owner_slots_remaining=UNLIMITED_SLOTS,
+        recipient_user_id=sponsor_id if sponsor_id is not None else pid,
+        recipient_email=f"r{sponsor_id if sponsor_id is not None else pid}@e.com",
     )
 
 
@@ -176,8 +176,8 @@ class TestFillFreedSeats:
 
     def test_offer_notifies_manager_for_managed_party(self):
         party = [
-            _wp(1, manager_id=_MANAGER_ID, order=0),
-            _wp(2, manager_id=_MANAGER_ID, order=1),
+            _wp(1, sponsor_id=_MANAGER_ID, order=0),
+            _wp(2, sponsor_id=_MANAGER_ID, order=1),
         ]
         service, repo, notifier, _ = _build(
             states=[_state(party, mode=PromotionMode.OFFER_CLAIM, seats=2)]

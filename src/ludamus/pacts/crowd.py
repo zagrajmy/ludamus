@@ -31,7 +31,6 @@ class UserDTO(BaseModel):
     is_authenticated: bool
     is_staff: bool
     is_superuser: bool
-    manager_id: int | None = None
     name: str
     pk: int
     slug: str
