@@ -29,13 +29,13 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
 
 
 def main() -> None:
-    sessions = Session.objects.select_related("agenda_item__space__area__venue__event")
+    sessions = Session.objects.select_related("event")
     if not sessions.exists():
         print("No sessions found. Run bootstrap_data.py first.")  # noqa: T201
         return
 
     for session in sessions:
-        event = session.agenda_item.space.area.venue.event
+        event = session.event
 
         # Create fields on the event (idempotent via get_or_create)
         system_field, _ = SessionField.objects.get_or_create(

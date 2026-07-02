@@ -4,5 +4,3 @@ allowBuilds:
 packages:
   - "./src/ludamus/client"
   - "./tests/e2e"
-trustPolicyExclude:
-  - synckit@0.9.3

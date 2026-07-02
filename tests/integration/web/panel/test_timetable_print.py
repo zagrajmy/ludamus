@@ -5,6 +5,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.adapters.db.django.models import Space
 from tests.integration.conftest import AgendaItemFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
@@ -47,11 +48,10 @@ class TestTimetablePrintView:
         event,
         session,
         space,
-        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
-        empty_space = SpaceFactory(area=area, name="Empty Hall")
+        empty_space = SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,
@@ -80,11 +80,10 @@ class TestTimetablePrintView:
         event,
         session,
         space,
-        area,
         time_slot,
     ):
         sphere.managers.add(active_user)
-        empty_space = SpaceFactory(area=area, name="Empty Hall")
+        empty_space = SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,
@@ -106,27 +105,23 @@ class TestTimetablePrintView:
         assert empty_space.name in content
         assert "Free slot" in content
 
-    def test_timetable_scoped_to_venue(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        venue,
-        time_slot,
+    def test_timetable_scoped_to_node(
+        self, authenticated_client, active_user, sphere, event, session, time_slot
     ):
         sphere.managers.add(active_user)
+        parent = Space.objects.create(event=event, name="Hall", slug="hall")
+        leaf = Space.objects.create(
+            event=event, parent=parent, name="Room", slug="room"
+        )
         AgendaItemFactory(
             session=session,
-            space=space,
+            space=leaf,
             start_time=time_slot.start_time,
             end_time=time_slot.start_time + timedelta(hours=1),
         )
 
         response = authenticated_client.get(
-            self.timetable_url(event), {"venue": venue.slug}
+            self.timetable_url(event), {"scope": parent.pk}
         )
 
         assert_response(
@@ -136,41 +131,7 @@ class TestTimetablePrintView:
             context_data={"document": ANY},
         )
         content = response.content.decode()
-        assert venue.name in content  # scope name in the header
-        assert session.title in content
-
-    def test_timetable_scoped_to_area(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        venue,
-        area,
-        time_slot,
-    ):
-        sphere.managers.add(active_user)
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            start_time=time_slot.start_time,
-            end_time=time_slot.start_time + timedelta(hours=1),
-        )
-
-        response = authenticated_client.get(
-            self.timetable_url(event), {"venue": venue.slug, "area": area.slug}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/print/timetable.html",
-            context_data={"document": ANY},
-        )
-        content = response.content.decode()
-        assert area.name in content  # area is the scope name
+        assert "Hall" in content  # scope name in the header
         assert session.title in content
 
     def test_unknown_scope_redirects_with_message(
@@ -179,13 +140,13 @@ class TestTimetablePrintView:
         sphere.managers.add(active_user)
 
         response = authenticated_client.get(
-            self.timetable_url(event), {"venue": "does-not-exist"}
+            self.timetable_url(event), {"scope": "987654"}
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Venue or area not found.")],
+            messages=[(messages.ERROR, "Space not found.")],
             url=reverse("panel:timetable", kwargs={"slug": event.slug}),
         )
 
@@ -223,14 +184,15 @@ class TestPrintMaterialsPageView:
         assert "Print door cards" in content
         assert response.context_data["active_nav"] == "print"
 
-    def test_scope_menu_lists_venue_and_area(
-        self, authenticated_client, active_user, sphere, event, venue, area
+    def test_scope_menu_lists_non_leaf_nodes(
+        self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
+        parent = Space.objects.create(event=event, name="Hall", slug="hall")
+        Space.objects.create(event=event, parent=parent, name="Room", slug="room")
 
         response = authenticated_client.get(self.url(event))
 
         content = response.content.decode()
-        assert venue.name in content  # optgroup label
-        assert area.name in content  # area option
-        assert f"?venue={venue.slug}" in content  # scoped print link
+        assert "Hall" in content  # scope option label (non-leaf node)
+        assert f"?scope={parent.pk}" in content  # scoped print link

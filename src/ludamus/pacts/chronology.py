@@ -243,23 +243,18 @@ class SpaceColumnDTO(BaseModel):
     sessions: list[SessionPositionDTO] = []
 
 
-class AreaGroupDTO(BaseModel):
-    area_pk: int
-    area_name: str
+class SpaceGroupDTO(BaseModel):
+    # One header cell spanning the leaf columns that share an immediate parent.
+    # parent_pk None / empty name means the leaves are top-level (no parent).
+    parent_pk: int | None
+    parent_name: str
     span: int
-
-
-class VenueGroupDTO(BaseModel):
-    venue_pk: int
-    venue_name: str
-    span: int
-    areas: list[AreaGroupDTO]
 
 
 class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
     columns: list[SpaceColumnDTO]
-    venue_groups: list[VenueGroupDTO]
+    groups: list[SpaceGroupDTO]
     time_labels: list[TimeLabelDTO]
     total_minutes: int
     event_start_iso: str

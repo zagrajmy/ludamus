@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-26 23:27+0200\n"
+"POT-Creation-Date: 2026-07-02 02:04+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -98,6 +98,29 @@ msgstr "użytkownik"
 #: src/ludamus/adapters/db/django/models.py
 msgid "users"
 msgstr "użytkownicy"
+
+#: src/ludamus/adapters/db/django/models.py
+msgid "A space must belong to its parent's event."
+msgstr "Przestrzeń musi należeć do wydarzenia swojego rodzica."
+
+#: src/ludamus/adapters/db/django/models.py
+msgid "A space cannot be its own ancestor."
+msgstr "Przestrzeń nie może być swoim własnym przodkiem."
+
+#: src/ludamus/adapters/db/django/models.py
+#, python-format
+msgid "Spaces can be nested at most %(max)d levels deep."
+msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
+
+#: src/ludamus/adapters/db/django/models.py
+msgid "A space holding a scheduled session cannot contain other spaces."
+msgstr ""
+"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
+"przestrzeni."
+
+#: src/ludamus/adapters/db/django/models.py
+msgid "A root space with this slug already exists."
+msgstr "Przestrzeń główna o tym slugu już istnieje."
 
 #: src/ludamus/adapters/db/django/models.py
 msgid "Time slots can't overlap!"
@@ -626,13 +649,16 @@ msgid "%(user)s cannot enroll: enrollment not available"
 msgstr "%(user)s nie może się zapisać: zapisy niedostępne"
 
 #: src/ludamus/adapters/web/django/forms.py
+msgid "Ungrouped"
+msgstr "Bez grupy"
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "Select a space..."
 msgstr "Wybierz przestrzeń..."
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/print.html
 msgid "Space"
 msgstr "Przestrzeń"
 
@@ -672,28 +698,17 @@ msgid "Sphere not found"
 msgstr "Sfera nie została znaleziona."
 
 #: src/ludamus/adapters/web/django/print_views.py
-msgid "Area with descriptions"
-msgstr "Strefa z opisami"
+#: src/ludamus/templates/chronology/print.html
+msgid "Timetable"
+msgstr "Harmonogram"
 
 #: src/ludamus/adapters/web/django/print_views.py
-msgid "Area timetable"
-msgstr "Harmonogram strefy"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Space timetable"
-msgstr "Harmonogram przestrzeni"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Venue timetable"
-msgstr "Harmonogram lokalizacji"
+msgid "Timetable with descriptions"
+msgstr "Harmonogram z opisami"
 
 #: src/ludamus/adapters/web/django/print_views.py
 msgid "Track timetable"
 msgstr "Harmonogram bloku"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Event timetable"
-msgstr "Harmonogram wydarzenia"
 
 #: src/ludamus/adapters/web/django/print_views.py
 msgid "Session list"
@@ -821,7 +836,7 @@ msgstr "Proszę przejrzeć opcje zapisu poniżej."
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "%(name)s (no enrollment to cancel)"
-msgstr "%(name)s (brak zapisu do anulowania.)"
+msgstr "%(name)s (brak zapisu do anulowania)"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -948,7 +963,9 @@ msgstr ""
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
-msgstr "Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: %(title)s"
+msgstr ""
+"Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: "
+"%(title)s"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -1012,15 +1029,11 @@ msgstr "Tytuł"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/area-edit.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/settings.html
-#: src/ludamus/templates/panel/venue-detail.html
 msgid "Description"
 msgstr "Opis"
 
@@ -1492,8 +1505,9 @@ msgid "Personal data field deleted successfully."
 msgstr "Pole danych osobowych zostało usunięte."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/print.py
-msgid "Venue or area not found."
-msgstr "Lokalizacja lub strefa nie została znaleziona."
+#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
+msgid "Space not found."
+msgstr "Przestrzeń nie została znaleziona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal not found."
@@ -1576,28 +1590,28 @@ msgid "Track deleted."
 msgstr "Blok programowy usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Venue created successfully."
-msgstr "Lokalizacja została utworzona."
+msgid "Space created successfully."
+msgstr "Przestrzeń została utworzona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Venue not found."
-msgstr "Lokalizacja nie została znaleziona."
+msgid "Top level"
+msgstr "Najwyższy poziom"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Venue updated successfully."
-msgstr "Lokalizacja została zaktualizowana."
+msgid "Space updated successfully."
+msgstr "Przestrzeń została zaktualizowana."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Cannot delete venue with scheduled sessions."
-msgstr "Nie można usunąć lokalizacji z zaplanowanymi sesjami."
+msgid "Cannot delete a space with scheduled sessions."
+msgstr "Nie można usunąć przestrzeni z zaplanowanymi punktami programu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Venue deleted successfully."
-msgstr "Lokalizacja została usunięta."
+msgid "Space deleted successfully."
+msgstr "Przestrzeń została usunięta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Venue duplicated successfully."
-msgstr "Lokalizacja została zduplikowana."
+msgid "Space duplicated successfully."
+msgstr "Przestrzeń została zduplikowana."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 msgid "No other events available to copy to."
@@ -1605,48 +1619,8 @@ msgstr "Brak innych wydarzeń do skopiowania."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 #, python-format
-msgid "Venue copied to %(event)s successfully."
-msgstr "Lokalizacja została skopiowana do %(event)s."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Area created successfully."
-msgstr "Strefa została utworzona."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Area not found."
-msgstr "Strefa nie została znaleziona."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Area updated successfully."
-msgstr "Strefa została zaktualizowana."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Cannot delete area with scheduled sessions."
-msgstr "Nie można usunąć strefy z zaplanowanymi sesjami."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Area deleted successfully."
-msgstr "Strefa została usunięta."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Space created successfully."
-msgstr "Sala została utworzona."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Space not found."
-msgstr "Sala nie została znaleziona."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Space updated successfully."
-msgstr "Sala została zaktualizowana."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Cannot delete space with scheduled sessions."
-msgstr "Nie można usunąć sali z zaplanowanymi sesjami."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Space deleted successfully."
-msgstr "Sala została usunięta."
+msgid "Space copied to %(event)s successfully."
+msgstr "Przestrzeń została skopiowana do %(event)s."
 
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "Proposal submission is not currently active for this event."
@@ -1837,39 +1811,6 @@ msgstr ""
 "zgłoszenia."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Venue name is too long (max 255 characters)."
-msgstr "Nazwa lokalizacji jest za długa (max 255 znaków)."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Venue name is required."
-msgstr "Nazwa lokalizacji jest wymagana."
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/venue-duplicate.html
-msgid "New Venue Name"
-msgstr "Nowa nazwa lokalizacji"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Target Event"
-msgstr "Docelowe wydarzenie"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Please select a target event."
-msgstr "Wybierz docelowe wydarzenie."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Invalid event selection."
-msgstr "Nieprawidłowy wybór wydarzenia."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Area name is too long (max 255 characters)."
-msgstr "Nazwa strefy jest za długa (max 255 znaków)."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Area name is required."
-msgstr "Nazwa strefy jest wymagana."
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Date is required."
 msgstr "Data jest wymagana."
 
@@ -1887,15 +1828,49 @@ msgstr "Podaj prawidłowy czas."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Space name is too long (max 255 characters)."
-msgstr "Nazwa sali jest za długa (max 255 znaków)."
+msgstr "Nazwa przestrzeni jest za długa (max 255 znaków)."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Space name is required."
-msgstr "Nazwa sali jest wymagana."
+msgstr "Nazwa przestrzeni jest wymagana."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "Capacity"
+msgstr "Pojemność"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Only meaningful for the innermost spaces that hold sessions."
+msgstr ""
+"Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które zawierają "
+"punkty programu."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Capacity must be at least 1."
 msgstr "Pojemność musi wynosić co najmniej 1."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Parent"
+msgstr "Element nadrzędny"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Move this space elsewhere, or choose Top level to flatten it."
+msgstr ""
+"Przenieś tę przestrzeń w inne miejsce lub wybierz Najwyższy poziom, aby ją "
+"spłaszczyć."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Target Event"
+msgstr "Docelowe wydarzenie"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Please select a target event."
+msgstr "Wybierz docelowe wydarzenie."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Invalid event selection."
+msgstr "Nieprawidłowy wybór wydarzenia."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Track name is too long (max 255 characters)."
@@ -2593,8 +2568,6 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-edit.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/create.html
@@ -2608,17 +2581,13 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
+#: src/ludamus/templates/panel/space-copy.html
+#: src/ludamus/templates/panel/space-form.html
 #: src/ludamus/templates/panel/time-slot-create.html
 #: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
-#: src/ludamus/templates/panel/venue-copy.html
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-duplicate.html
-#: src/ludamus/templates/panel/venue-edit.html
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -3062,14 +3031,6 @@ msgid "About this session"
 msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/print/door-cards.html
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Capacity"
-msgstr "Pojemność"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "You are enrolled in this session"
 msgstr "Jesteś zapisany na ten punkt programu"
 
@@ -3211,7 +3172,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
-#: src/ludamus/templates/panel/area-detail.html
+#: src/ludamus/templates/panel/_space_tree_node.html
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
@@ -3219,8 +3180,6 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/panel/session-fields.html
 #: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues.html
 msgid "Delete"
 msgstr "Usuń"
 
@@ -3232,7 +3191,6 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/crowd/user/avatar.html
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
-#: src/ludamus/templates/panel/area-edit.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -3241,9 +3199,8 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/space-edit.html
+#: src/ludamus/templates/panel/space-form.html
 #: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/panel/venue-edit.html
 msgid "Save"
 msgstr "Zapisz"
 
@@ -3309,24 +3266,21 @@ msgid "Print"
 msgstr "Drukuj"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Venue or area"
-msgstr "Lokalizacja lub strefa"
+msgid "Scope"
+msgstr "Zakres"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Printable"
 msgstr "Do wydruku"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Venue / area"
-msgstr "Lokalizacja / strefa"
-
-#: src/ludamus/templates/chronology/print.html
 msgid "Whole event"
 msgstr "Całe wydarzenie"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Area pages — start"
-msgstr "Strony stref — początek"
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Start"
+msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Hours"
@@ -3347,10 +3301,6 @@ msgstr "Brak stron"
 #: src/ludamus/templates/chronology/print.html
 msgid "Print preview"
 msgstr "Podgląd wydruku"
-
-#: src/ludamus/templates/chronology/print.html
-msgid "Timetable"
-msgstr "Harmonogram"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "No confirmed sessions scheduled yet."
@@ -3669,6 +3619,14 @@ msgstr "Oznacz wszystkie jako przeczytane"
 msgid "No notifications yet."
 msgstr "Brak powiadomień."
 
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Toggle interface sound"
+msgstr "Przełącz dźwięk interfejsu"
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Interface sound (Velvet)"
+msgstr "Dźwięk interfejsu (Velvet)"
+
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"
 msgstr "Wybierz motyw:"
@@ -3834,7 +3792,6 @@ msgstr "Usunąć %(name)s z powiązanych osób?"
 #: src/ludamus/templates/crowd/user/connected.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
-#: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -3845,8 +3802,6 @@ msgstr "Usunąć %(name)s z powiązanych osób?"
 #: src/ludamus/templates/panel/session-fields.html
 #: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues.html
 msgid "Edit"
 msgstr "Edycja"
 
@@ -4054,7 +4009,6 @@ msgstr "Ogłoszenia organizacji dla tej sfery"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
-#: src/ludamus/templates/panel/area-detail.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -4064,8 +4018,6 @@ msgstr "Ogłoszenia organizacji dla tej sfery"
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/session-fields.html
 #: src/ludamus/templates/panel/tracks.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues.html
 msgid "Actions"
 msgstr "Akcje"
 
@@ -4328,6 +4280,57 @@ msgstr "Zarejestruj się"
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
 
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "Reorder %(name)s — use the arrow keys"
+msgstr "Zmień kolejność: %(name)s — użyj strzałek"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Room"
+msgstr "Sala"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+msgid "Group"
+msgstr "Grupa"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "Add a space inside %(name)s"
+msgstr "Dodaj przestrzeń wewnątrz %(name)s"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "Edit %(name)s"
+msgstr "Edytuj %(name)s"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "More actions for %(name)s"
+msgstr "Więcej akcji dla %(name)s"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+msgid "Duplicate"
+msgstr "Duplikuj"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+msgid "Copy to event"
+msgstr "Kopiuj do wydarzenia"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+msgid "Delete this space and everything inside it?"
+msgstr "Usunąć tę przestrzeń i całą jej zawartość?"
+
 #: src/ludamus/templates/panel/_time-slot-form.html
 msgid "Time Slot Details"
 msgstr "Szczegóły przedziału czasowego"
@@ -4353,169 +4356,6 @@ msgstr "Czas rozpoczęcia"
 #: src/ludamus/templates/panel/settings.html
 msgid "End Time"
 msgstr "Czas zakończenia"
-
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/venue-detail.html
-msgid "New Area"
-msgstr "Nowa strefa"
-
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/area-edit.html
-#: src/ludamus/templates/panel/venues-structure.html
-#: src/ludamus/templates/panel/venues.html
-msgid "Areas"
-msgstr "Strefy"
-
-#: src/ludamus/templates/panel/area-create.html
-msgid "Create Area"
-msgstr "Utwórz strefę"
-
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/area-edit.html
-msgid "Area Details"
-msgstr "Szczegóły strefy"
-
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/area-edit.html
-#: src/ludamus/templates/panel/cfp-create.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
-#: src/ludamus/templates/panel/track-create.html
-#: src/ludamus/templates/panel/track-edit.html
-#: src/ludamus/templates/panel/tracks.html
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venue-duplicate.html
-#: src/ludamus/templates/panel/venue-edit.html
-#: src/ludamus/templates/panel/venues.html
-msgctxt "place"
-msgid "Name"
-msgstr "Nazwa"
-
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-edit.html
-msgid "e.g., East Wing, Floor 2"
-msgstr "np. Skrzydło wschodnie, Piętro 2"
-
-#: src/ludamus/templates/panel/area-create.html
-#: src/ludamus/templates/panel/area-edit.html
-msgid "Optional description of this area"
-msgstr "Opcjonalny opis tej strefy"
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/area-edit.html
-msgid "Edit Area"
-msgstr "Edycja strefy"
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/parts/print-controls.html
-#: src/ludamus/templates/panel/venue-detail.html
-msgid "Print timetable"
-msgstr "Drukuj harmonogram"
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/parts/print-controls.html
-#: src/ludamus/templates/panel/venue-detail.html
-msgid "Print door cards"
-msgstr "Drukuj tabliczki na drzwi"
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/space-create.html
-msgid "New Space"
-msgstr "Nowa przestrzeń"
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venue-edit.html
-#: src/ludamus/templates/panel/venues-structure.html
-#: src/ludamus/templates/panel/venues.html
-msgid "Venues"
-msgstr "Lokalizacje"
-
-#: src/ludamus/templates/panel/area-detail.html
-msgid "What are spaces?"
-msgstr "Czym są przestrzenie?"
-
-#: src/ludamus/templates/panel/area-detail.html
-msgid ""
-"Spaces are individual rooms or locations where sessions take place. Each "
-"space has a capacity and can be scheduled for events. Examples: conference "
-"rooms, workshop tables, gaming stations."
-msgstr ""
-"Przestrzenie to pojedyncze sale lub miejsca, w których odbywają się punkty "
-"programu. Każda przestrzeń ma określoną pojemność i może być planowana dla "
-"wydarzeń. Przykłady: sale konferencyjne, stoły warsztatowe, stanowiska do "
-"gier."
-
-#: src/ludamus/templates/panel/area-detail.html
-msgid "Are you sure you want to delete this space? This cannot be undone."
-msgstr ""
-"Czy na pewno chcesz usunąć tę przestrzeń? Tej operacji nie można cofnąć."
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues.html
-#, python-format
-msgid "More actions for %(name)s"
-msgstr "Więcej akcji dla %(name)s"
-
-#: src/ludamus/templates/panel/area-detail.html
-msgid "No spaces yet. Create a space to define bookable rooms in this area."
-msgstr ""
-"Brak przestrzeni. Utwórz przestrzeń, aby zdefiniować sale do rezerwacji w "
-"tej strefie."
-
-#: src/ludamus/templates/panel/area-detail.html
-#: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/display-settings.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/proposal-settings.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/settings.html
-#: src/ludamus/templates/panel/time-slots.html
-#: src/ludamus/templates/panel/tracks.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues-structure.html
-#: src/ludamus/templates/panel/venues.html
-msgid "No events available. Create an event to get started."
-msgstr "Brak dostępnych wydarzeń. Utwórz wydarzenie, aby rozpocząć."
-
-#: src/ludamus/templates/panel/area-edit.html
-#: src/ludamus/templates/panel/space-edit.html
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "Danger Zone"
-msgstr "Strefa zagrożenia"
-
-#: src/ludamus/templates/panel/area-edit.html
-msgid "Deleting an area cannot be undone."
-msgstr "Usunięcie strefy nie może zostać cofnięte."
-
-#: src/ludamus/templates/panel/area-edit.html
-#: src/ludamus/templates/panel/venue-detail.html
-msgid "Are you sure you want to delete this area?"
-msgstr "Czy na pewno chcesz usunąć tę strefę?"
-
-#: src/ludamus/templates/panel/area-edit.html
-msgid "Delete Area"
-msgstr "Usuń strefę"
 
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/base.html
 msgid "Bans"
@@ -4592,7 +4432,6 @@ msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
 #: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/venue-copy.html
 msgid "Event"
 msgstr "Wydarzenie"
 
@@ -4659,6 +4498,11 @@ msgid "Schedule"
 msgstr "Plan"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/spaces.html
+msgid "Venues"
+msgstr "Lokalizacje"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Harmonogram"
 msgstr "Harmonogram"
 
@@ -4708,6 +4552,22 @@ msgstr "Utwórz i skonfiguruj"
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Session Type Details"
 msgstr "Szczegóły typu punktu programu"
+
+#: src/ludamus/templates/panel/cfp-create.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/track-create.html
+#: src/ludamus/templates/panel/track-edit.html
+#: src/ludamus/templates/panel/tracks.html
+msgctxt "place"
+msgid "Name"
+msgstr "Nazwa"
 
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
@@ -4925,6 +4785,22 @@ msgid ""
 "No session types yet. Add a session type to allow hosts to submit proposals."
 msgstr ""
 "Brak typów punktów programu. Dodaj typ, aby twórcy mogli składać zgłoszenia."
+
+#: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/import-run.html
+#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/proposal-settings.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/settings.html
+#: src/ludamus/templates/panel/time-slots.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "No events available. Create an event to get started."
+msgstr "Brak dostępnych wydarzeń. Utwórz wydarzenie, aby rozpocząć."
 
 #: src/ludamus/templates/panel/content-log.html
 msgid "Content Activity Log"
@@ -5483,7 +5359,6 @@ msgid "Go to Import run"
 msgstr "Przejdź do uruchomienia importu"
 
 #: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/venues-structure.html
 msgid "Overview"
 msgstr "Przegląd"
 
@@ -5518,8 +5393,8 @@ msgstr ""
 "komunikować się przez zewnętrzny system."
 
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
-msgid "Venue / area…"
-msgstr "Lokalizacja / strefa…"
+msgid "Whole event…"
+msgstr "Całe wydarzenie…"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Maps to"
@@ -5564,10 +5439,6 @@ msgstr "Zezwól na wielokrotny wybór"
 #: src/ludamus/templates/panel/session-field-create.html
 msgid "Allow custom values"
 msgstr "Zezwól na własne wartości"
-
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Start"
-msgstr "Początek"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "End"
@@ -5686,8 +5557,16 @@ msgid "Log"
 msgstr "Dziennik"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Print timetable"
+msgstr "Drukuj harmonogram"
+
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print timetable for a venue or area"
 msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
+
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Print door cards"
+msgstr "Drukuj tabliczki na drzwi"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards for a venue or area"
@@ -5807,11 +5686,6 @@ msgstr "%(age)s+"
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Assignment"
 msgstr "Przypisanie"
-
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Room"
-msgstr "Sala"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Reassign"
@@ -6052,11 +5926,12 @@ msgstr ""
 #: src/ludamus/templates/panel/print-materials.html
 msgid ""
 "Open a print-ready page, then use your browser to save it as a PDF or print "
-"it. Use the venue / area menu to print a single venue or area."
+"it. Use the scope menu to print a single space — a room, a floor, or a whole "
+"building."
 msgstr ""
 "Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub wydrukuj w "
-"przeglądarce. Użyj menu lokalizacji / strefy, aby wydrukować pojedynczą "
-"lokalizację lub strefę."
+"przeglądarce. Użyj menu zakresu, aby wydrukować pojedynczą przestrzeń — "
+"salę, piętro lub cały budynek."
 
 #: src/ludamus/templates/panel/print/base.html
 msgid "or press Ctrl+P (⌘P on Mac)"
@@ -6336,49 +6211,73 @@ msgstr "Potwierdzanie harmonogramu"
 msgid "Session cards"
 msgstr "Karty punktów programu"
 
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
-#: src/ludamus/templates/panel/track-create.html
-#: src/ludamus/templates/panel/track-edit.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "Spaces"
-msgstr "Przestrzenie"
+#: src/ludamus/templates/panel/space-copy.html
+msgid "Copy space"
+msgstr "Kopiuj przestrzeń"
 
-#: src/ludamus/templates/panel/space-create.html
-msgid "Create Space"
+#: src/ludamus/templates/panel/space-copy.html
+#, python-format
+msgid ""
+"Copies \"%(name)s\" and everything inside it into the chosen event as a new "
+"top-level space."
+msgstr ""
+"Kopiuje „%(name)s\" i całą jej zawartość do wybranego wydarzenia jako nową "
+"przestrzeń najwyższego poziomu."
+
+#: src/ludamus/templates/panel/space-copy.html
+msgid "Copy"
+msgstr "Kopiuj"
+
+#: src/ludamus/templates/panel/space-form.html
+msgid "Edit space"
+msgstr "Edytuj przestrzeń"
+
+#: src/ludamus/templates/panel/space-form.html
+msgid "New space"
+msgstr "Nowa przestrzeń"
+
+#: src/ludamus/templates/panel/space-form.html
+#, python-format
+msgid "inside %(name)s"
+msgstr "wewnątrz %(name)s"
+
+#: src/ludamus/templates/panel/space-form.html
+msgid "Create space"
 msgstr "Utwórz przestrzeń"
 
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Space Details"
-msgstr "Szczegóły przestrzeni"
+#: src/ludamus/templates/panel/spaces.html
+msgid "What are venues?"
+msgstr "Czym są lokalizacje?"
 
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
-msgid "e.g., Room 101, Main Hall"
-msgstr "np. Sala 101, Hala główna"
+#: src/ludamus/templates/panel/spaces.html
+msgid ""
+"Organise the physical layout of your event as a tree: buildings contain "
+"floors or wings, which contain the individual rooms that hold sessions. Nest "
+"spaces as deeply as you need; only the innermost rooms take a capacity."
+msgstr ""
+"Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki zawierają "
+"piętra lub skrzydła, które zawierają poszczególne sale, gdzie odbywają się "
+"punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz; "
+"tylko najbardziej wewnętrzne sale mają pojemność."
 
-#: src/ludamus/templates/panel/space-create.html
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Optional - maximum number of attendees"
-msgstr "Opcjonalnie - maksymalna liczba uczestników"
+#: src/ludamus/templates/panel/spaces.html
+msgid "Physical Locations"
+msgstr "Fizyczne lokalizacje"
 
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Edit Space"
-msgstr "Edycja przestrzeni"
+#: src/ludamus/templates/panel/spaces.html
+msgid "New top-level space"
+msgstr "Nowa przestrzeń najwyższego poziomu"
 
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Deleting a space cannot be undone."
-msgstr "Usunięcie przestrzeni nie może zostać cofnięte."
+#: src/ludamus/templates/panel/spaces.html
+msgid "Could not save the new order. Reloading the page."
+msgstr "Nie udało się zapisać nowej kolejności. Ponowne ładowanie strony."
 
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Are you sure you want to delete this space?"
-msgstr "Czy na pewno chcesz usunąć tę przestrzeń?"
-
-#: src/ludamus/templates/panel/space-edit.html
-msgid "Delete Space"
-msgstr "Usuń przestrzeń"
+#: src/ludamus/templates/panel/spaces.html
+msgid ""
+"No spaces yet. Add a top-level space to start building your event's layout."
+msgstr ""
+"Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
+"budowanie układu swojego wydarzenia."
 
 #: src/ludamus/templates/panel/time-slot-create.html
 msgid "New Time Slot"
@@ -6657,6 +6556,11 @@ msgstr "Publiczny blok programowy"
 
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
+msgid "Spaces"
+msgstr "Przestrzenie"
+
+#: src/ludamus/templates/panel/track-create.html
+#: src/ludamus/templates/panel/track-edit.html
 msgid "Managers"
 msgstr "Prowadzący"
 
@@ -6703,208 +6607,305 @@ msgid "No tracks yet. Add a track to organize proposals by thematic area."
 msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
 
-#: src/ludamus/templates/panel/venue-copy.html
-msgid "Copy Venue to Event"
-msgstr "Kopiuj lokalizację do wydarzenia"
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Staging inbox"
+msgstr "Skrzynka staging"
 
-#: src/ludamus/templates/panel/venue-copy.html
-msgid "Copy to Event"
-msgstr "Kopiuj do wydarzenia"
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Captured emails"
+msgstr "Przechwycone e-maile"
 
-#: src/ludamus/templates/panel/venue-copy.html
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Received"
+msgstr "Otrzymano"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "To"
+msgstr "Do"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Subject"
+msgstr "Temat"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "No emails captured yet."
+msgstr "Nie przechwycono jeszcze żadnych e-maili."
+
+#~ msgid "Area timetable"
+#~ msgstr "Harmonogram strefy"
+
+#~ msgid "Space timetable"
+#~ msgstr "Harmonogram przestrzeni"
+
+#~ msgid "Venue timetable"
+#~ msgstr "Harmonogram lokalizacji"
+
+#~ msgid "Event timetable"
+#~ msgstr "Harmonogram wydarzenia"
+
+#~ msgid "Area pages — start"
+#~ msgstr "Strony stref — początek"
+
+#~ msgid "Venue or area not found."
+#~ msgstr "Lokalizacja lub strefa nie została znaleziona."
+
+#~ msgid "Venue created successfully."
+#~ msgstr "Lokalizacja została utworzona."
+
+#~ msgid "Venue not found."
+#~ msgstr "Lokalizacja nie została znaleziona."
+
+#~ msgid "Venue updated successfully."
+#~ msgstr "Lokalizacja została zaktualizowana."
+
+#~ msgid "Cannot delete venue with scheduled sessions."
+#~ msgstr "Nie można usunąć lokalizacji z zaplanowanymi sesjami."
+
+#~ msgid "Venue deleted successfully."
+#~ msgstr "Lokalizacja została usunięta."
+
+#~ msgid "Venue duplicated successfully."
+#~ msgstr "Lokalizacja została zduplikowana."
+
+#~ msgid "Area created successfully."
+#~ msgstr "Strefa została utworzona."
+
+#~ msgid "Area not found."
+#~ msgstr "Strefa nie została znaleziona."
+
+#~ msgid "Area updated successfully."
+#~ msgstr "Strefa została zaktualizowana."
+
+#~ msgid "Cannot delete area with scheduled sessions."
+#~ msgstr "Nie można usunąć strefy z zaplanowanymi sesjami."
+
+#~ msgid "Area deleted successfully."
+#~ msgstr "Strefa została usunięta."
+
+#~ msgid "Venue name is too long (max 255 characters)."
+#~ msgstr "Nazwa lokalizacji jest za długa (max 255 znaków)."
+
+#~ msgid "Venue name is required."
+#~ msgstr "Nazwa lokalizacji jest wymagana."
+
+#~ msgid "New Venue Name"
+#~ msgstr "Nowa nazwa lokalizacji"
+
+#~ msgid "Area name is too long (max 255 characters)."
+#~ msgstr "Nazwa strefy jest za długa (max 255 znaków)."
+
+#~ msgid "Area name is required."
+#~ msgstr "Nazwa strefy jest wymagana."
+
+#~ msgid "Venue or area"
+#~ msgstr "Lokalizacja lub strefa"
+
+#~ msgid "Venue / area"
+#~ msgstr "Lokalizacja / strefa"
+
+#~ msgid "New Area"
+#~ msgstr "Nowa strefa"
+
+#~ msgid "Areas"
+#~ msgstr "Strefy"
+
+#~ msgid "Create Area"
+#~ msgstr "Utwórz strefę"
+
+#~ msgid "Area Details"
+#~ msgstr "Szczegóły strefy"
+
+#~ msgid "e.g., East Wing, Floor 2"
+#~ msgstr "np. Skrzydło wschodnie, Piętro 2"
+
+#~ msgid "Optional description of this area"
+#~ msgstr "Opcjonalny opis tej strefy"
+
+#~ msgid "Edit Area"
+#~ msgstr "Edycja strefy"
+
+#~ msgid "What are spaces?"
+#~ msgstr "Czym są przestrzenie?"
+
+#~ msgid ""
+#~ "Spaces are individual rooms or locations where sessions take place. Each "
+#~ "space has a capacity and can be scheduled for events. Examples: "
+#~ "conference rooms, workshop tables, gaming stations."
+#~ msgstr ""
+#~ "Przestrzenie to pojedyncze sale lub miejsca, w których odbywają się "
+#~ "punkty programu. Każda przestrzeń ma określoną pojemność i może być "
+#~ "planowana dla wydarzeń. Przykłady: sale konferencyjne, stoły warsztatowe, "
+#~ "stanowiska do gier."
+
+#~ msgid "Are you sure you want to delete this space? This cannot be undone."
+#~ msgstr ""
+#~ "Czy na pewno chcesz usunąć tę przestrzeń? Tej operacji nie można cofnąć."
+
+#~ msgid "No spaces yet. Create a space to define bookable rooms in this area."
+#~ msgstr ""
+#~ "Brak przestrzeni. Utwórz przestrzeń, aby zdefiniować sale do rezerwacji w "
+#~ "tej strefie."
+
+#~ msgid "Danger Zone"
+#~ msgstr "Strefa zagrożenia"
+
+#~ msgid "Deleting an area cannot be undone."
+#~ msgstr "Usunięcie strefy nie może zostać cofnięte."
+
+#~ msgid "Are you sure you want to delete this area?"
+#~ msgstr "Czy na pewno chcesz usunąć tę strefę?"
+
+#~ msgid "Delete Area"
+#~ msgstr "Usuń strefę"
+
+#~ msgid "Venue / area…"
+#~ msgstr "Lokalizacja / strefa…"
+
+#~ msgid "Space Details"
+#~ msgstr "Szczegóły przestrzeni"
+
+#~ msgid "e.g., Room 101, Main Hall"
+#~ msgstr "np. Sala 101, Hala główna"
+
+#~ msgid "Optional - maximum number of attendees"
+#~ msgstr "Opcjonalnie - maksymalna liczba uczestników"
+
+#~ msgid "Are you sure you want to delete this space?"
+#~ msgstr "Czy na pewno chcesz usunąć tę przestrzeń?"
+
+#~ msgid "Delete Space"
+#~ msgstr "Usuń przestrzeń"
+
+#~ msgid "Copy Venue to Event"
+#~ msgstr "Kopiuj lokalizację do wydarzenia"
+
 #, python-format
-msgid ""
-"\n"
-"                                This will copy \"%(venue_name)s\" including "
-"all areas and spaces to another event.\n"
-"                            "
-msgstr ""
-"\n"
-"                                Spowoduje to skopiowanie \"%(venue_name)s\" "
-"wraz ze wszystkimi strefami i przestrzeniami do innego wydarzenia.\n"
-"                            "
+#~ msgid ""
+#~ "\n"
+#~ "                                This will copy \"%(venue_name)s\" "
+#~ "including all areas and spaces to another event.\n"
+#~ "                            "
+#~ msgstr ""
+#~ "\n"
+#~ "                                Spowoduje to skopiowanie "
+#~ "\"%(venue_name)s\" wraz ze wszystkimi strefami i przestrzeniami do innego "
+#~ "wydarzenia.\n"
+#~ "                            "
 
-#: src/ludamus/templates/panel/venue-copy.html
-msgid "Select Target Event"
-msgstr "Wybierz docelowe wydarzenie"
+#~ msgid "Select Target Event"
+#~ msgstr "Wybierz docelowe wydarzenie"
 
-#: src/ludamus/templates/panel/venue-copy.html
-msgid "Select an event..."
-msgstr "Wybierz wydarzenie..."
+#~ msgid "Select an event..."
+#~ msgstr "Wybierz wydarzenie..."
 
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venues-structure.html
-#: src/ludamus/templates/panel/venues.html
-msgid "New Venue"
-msgstr "Nowa lokalizacja"
+#~ msgid "New Venue"
+#~ msgstr "Nowa lokalizacja"
 
-#: src/ludamus/templates/panel/venue-create.html
-msgid "Create Venue"
-msgstr "Utwórz lokalizację"
+#~ msgid "Create Venue"
+#~ msgstr "Utwórz lokalizację"
 
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "Venue Details"
-msgstr "Szczegóły lokalizacji"
+#~ msgid "Venue Details"
+#~ msgstr "Szczegóły lokalizacji"
 
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "e.g., Main Hall, Conference Center"
-msgstr "np. Hala główna, Centrum konferencyjne"
+#~ msgid "e.g., Main Hall, Conference Center"
+#~ msgstr "np. Hala główna, Centrum konferencyjne"
 
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-detail.html
-#: src/ludamus/templates/panel/venue-edit.html
-#: src/ludamus/templates/panel/venues.html
-msgid "Address"
-msgstr "Adres"
+#~ msgid "Address"
+#~ msgstr "Adres"
 
-#: src/ludamus/templates/panel/venue-create.html
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "e.g., 123 Main Street, City"
-msgstr "np. ul. Główna 123, Miasto"
+#~ msgid "e.g., 123 Main Street, City"
+#~ msgstr "np. ul. Główna 123, Miasto"
 
-#: src/ludamus/templates/panel/venue-detail.html
-msgid "What are areas?"
-msgstr "Czym są strefy?"
+#~ msgid "What are areas?"
+#~ msgstr "Czym są strefy?"
 
-#: src/ludamus/templates/panel/venue-detail.html
-msgid ""
-"Areas are subdivisions within a venue, such as floors, wings, halls, or "
-"outdoor sections. Use areas to group related spaces together for easier "
-"organization and navigation."
-msgstr ""
-"Strefy to podziały w ramach lokalizacji, takie jak piętra, skrzydła, hale "
-"lub sekcje na zewnątrz. Używaj stref do grupowania powiązanych przestrzeni w "
-"celu łatwiejszej organizacji i nawigacji."
+#~ msgid ""
+#~ "Areas are subdivisions within a venue, such as floors, wings, halls, or "
+#~ "outdoor sections. Use areas to group related spaces together for easier "
+#~ "organization and navigation."
+#~ msgstr ""
+#~ "Strefy to podziały w ramach lokalizacji, takie jak piętra, skrzydła, hale "
+#~ "lub sekcje na zewnątrz. Używaj stref do grupowania powiązanych "
+#~ "przestrzeni w celu łatwiejszej organizacji i nawigacji."
 
-#: src/ludamus/templates/panel/venue-detail.html
-msgid "No areas yet. Create an area to organize spaces within this venue."
-msgstr ""
-"Brak stref. Utwórz strefę, aby uporządkować przestrzenie w tej lokalizacji."
+#~ msgid "No areas yet. Create an area to organize spaces within this venue."
+#~ msgstr ""
+#~ "Brak stref. Utwórz strefę, aby uporządkować przestrzenie w tej "
+#~ "lokalizacji."
 
-#: src/ludamus/templates/panel/venue-duplicate.html
-msgid "Duplicate Venue"
-msgstr "Duplikuj lokalizację"
+#~ msgid "Duplicate Venue"
+#~ msgstr "Duplikuj lokalizację"
 
-#: src/ludamus/templates/panel/venue-duplicate.html
 #, python-format
-msgid ""
-"\n"
-"                                This will create a copy of "
-"\"%(venue_name)s\" including all areas and spaces.\n"
-"                            "
-msgstr ""
-"\n"
-"                                Spowoduje to utworzenie kopii "
-"\"%(venue_name)s\" wraz ze wszystkimi strefami i przestrzeniami.\n"
-"                            "
+#~ msgid ""
+#~ "\n"
+#~ "                                This will create a copy of "
+#~ "\"%(venue_name)s\" including all areas and spaces.\n"
+#~ "                            "
+#~ msgstr ""
+#~ "\n"
+#~ "                                Spowoduje to utworzenie kopii "
+#~ "\"%(venue_name)s\" wraz ze wszystkimi strefami i przestrzeniami.\n"
+#~ "                            "
 
-#: src/ludamus/templates/panel/venue-duplicate.html
-msgid "e.g., Main Hall (Copy)"
-msgstr "np. Hala główna (Kopia)"
+#~ msgid "e.g., Main Hall (Copy)"
+#~ msgstr "np. Hala główna (Kopia)"
 
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "Edit Venue"
-msgstr "Edycja lokalizacji"
+#~ msgid "Edit Venue"
+#~ msgstr "Edycja lokalizacji"
 
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "Deleting a venue cannot be undone."
-msgstr "Usunięcie lokalizacji nie może zostać cofnięte."
+#~ msgid "Deleting a venue cannot be undone."
+#~ msgstr "Usunięcie lokalizacji nie może zostać cofnięte."
 
-#: src/ludamus/templates/panel/venue-edit.html
-#: src/ludamus/templates/panel/venues.html
-msgid "Are you sure you want to delete this venue?"
-msgstr "Czy na pewno chcesz usunąć tę lokalizację?"
+#~ msgid "Are you sure you want to delete this venue?"
+#~ msgstr "Czy na pewno chcesz usunąć tę lokalizację?"
 
-#: src/ludamus/templates/panel/venue-edit.html
-msgid "Delete Venue"
-msgstr "Usuń lokalizację"
+#~ msgid "Delete Venue"
+#~ msgstr "Usuń lokalizację"
 
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "Venue Structure"
-msgstr "Struktura lokalizacji"
+#~ msgid "Venue Structure"
+#~ msgstr "Struktura lokalizacji"
 
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "List View"
-msgstr "Widok listy"
+#~ msgid "List View"
+#~ msgstr "Widok listy"
 
-#: src/ludamus/templates/panel/venues-structure.html
-#: src/ludamus/templates/panel/venues.html
-msgid "Structure Overview"
-msgstr "Przegląd struktury"
+#~ msgid "Structure Overview"
+#~ msgstr "Przegląd struktury"
 
-#: src/ludamus/templates/panel/venues-structure.html
 #, python-format
-msgid "%(counter)s area"
-msgid_plural "%(counter)s areas"
-msgstr[0] "%(counter)s strefa"
-msgstr[1] "%(counter)s strefy"
-msgstr[2] "%(counter)s stref"
-msgstr[3] "%(counter)s stref"
+#~ msgid "%(counter)s space"
+#~ msgid_plural "%(counter)s spaces"
+#~ msgstr[0] "%(counter)s przestrzeń"
+#~ msgstr[1] "%(counter)s przestrzenie"
+#~ msgstr[2] "%(counter)s przestrzeni"
+#~ msgstr[3] "%(counter)s przestrzeni"
 
-#: src/ludamus/templates/panel/venues-structure.html
-#, python-format
-msgid "%(counter)s space"
-msgid_plural "%(counter)s spaces"
-msgstr[0] "%(counter)s przestrzeń"
-msgstr[1] "%(counter)s przestrzenie"
-msgstr[2] "%(counter)s przestrzeni"
-msgstr[3] "%(counter)s przestrzeni"
+#~ msgid "No spaces defined"
+#~ msgstr "Brak zdefiniowanych przestrzeni"
 
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "No spaces defined"
-msgstr "Brak zdefiniowanych przestrzeni"
+#~ msgid "No areas defined for this venue"
+#~ msgstr "Brak zdefiniowanych stref dla tej lokalizacji"
 
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "No areas defined for this venue"
-msgstr "Brak zdefiniowanych stref dla tej lokalizacji"
+#~ msgid "Create First Venue"
+#~ msgstr "Utwórz pierwszą lokalizację"
 
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "No venues yet. Create a venue to start building your event structure."
-msgstr ""
-"Brak lokalizacji. Utwórz lokalizację, aby rozpocząć budowanie struktury "
-"wydarzenia."
+#~ msgid ""
+#~ "Venues are physical locations like buildings, convention centers, or "
+#~ "complexes. Each venue is typically identified by its address. Within "
+#~ "venues, you can organize areas (floors, wings) and spaces (individual "
+#~ "rooms)."
+#~ msgstr ""
+#~ "Lokalizacje to fizyczne miejsca, takie jak budynki, centra konferencyjne "
+#~ "lub kompleksy. Każda lokalizacja jest zazwyczaj identyfikowana przez swój "
+#~ "adres. W ramach lokalizacji można organizować strefy (piętra, skrzydła) i "
+#~ "przestrzenie (pojedyncze sale)."
 
-#: src/ludamus/templates/panel/venues-structure.html
-msgid "Create First Venue"
-msgstr "Utwórz pierwszą lokalizację"
-
-#: src/ludamus/templates/panel/venues.html
-msgid "What are venues?"
-msgstr "Czym są lokalizacje?"
-
-#: src/ludamus/templates/panel/venues.html
-msgid ""
-"Venues are physical locations like buildings, convention centers, or "
-"complexes. Each venue is typically identified by its address. Within venues, "
-"you can organize areas (floors, wings) and spaces (individual rooms)."
-msgstr ""
-"Lokalizacje to fizyczne miejsca, takie jak budynki, centra konferencyjne lub "
-"kompleksy. Każda lokalizacja jest zazwyczaj identyfikowana przez swój adres. "
-"W ramach lokalizacji można organizować strefy (piętra, skrzydła) i "
-"przestrzenie (pojedyncze sale)."
-
-#: src/ludamus/templates/panel/venues.html
-msgid "Physical Locations"
-msgstr "Fizyczne lokalizacje"
-
-#: src/ludamus/templates/panel/venues.html
-msgid "Duplicate"
-msgstr "Duplikuj"
-
-#: src/ludamus/templates/panel/venues.html
-msgid "Copy"
-msgstr "Kopiuj"
-
-#: src/ludamus/templates/panel/venues.html
-msgid ""
-"No venues yet. Create your first venue to start building your event's "
-"locations."
-msgstr ""
-"Brak lokalizacji. Utwórz pierwszą lokalizację, aby rozpocząć budowanie "
-"struktury wydarzenia."
+#~ msgid ""
+#~ "No venues yet. Create your first venue to start building your event's "
+#~ "locations."
+#~ msgstr ""
+#~ "Brak lokalizacji. Utwórz pierwszą lokalizację, aby rozpocząć budowanie "
+#~ "struktury wydarzenia."
 
 #~ msgid "Select space and time slot for"
 #~ msgstr "Wybierz przestrzeń i przedział czasowy dla"

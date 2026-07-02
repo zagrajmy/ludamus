@@ -11,7 +11,6 @@ from pytest_factoryboy import register
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     Encounter,
     EncounterRSVP,
     EnrollmentConfig,
@@ -25,7 +24,6 @@ from ludamus.adapters.db.django.models import (
     Tag,
     TagCategory,
     TimeSlot,
-    Venue,
 )
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
@@ -100,34 +98,13 @@ class EnrollmentConfigFactory(DjangoModelFactory):
     percentage_slots = 100
 
 
-class VenueFactory(DjangoModelFactory):
-    class Meta:
-        model = Venue
-
-    name = Faker("company")
-    slug = Sequence(lambda n: f"venue-{n}")
-    event = SubFactory(EventFactory)
-    order = 0
-
-
-class AreaFactory(DjangoModelFactory):
-    class Meta:
-        model = Area
-
-    name = Faker("word")
-    slug = Sequence(lambda n: f"area-{n}")
-    venue = SubFactory(VenueFactory)
-    order = 0
-
-
 class SpaceFactory(DjangoModelFactory):
     class Meta:
         model = Space
 
     name = Faker("word")
     slug = Sequence(lambda n: f"space-{n}")
-    area = SubFactory(AreaFactory)
-    event = LazyAttribute(lambda o: o.area.venue.event)
+    event = SubFactory(EventFactory)
 
 
 class TimeSlotFactory(DjangoModelFactory):
@@ -314,19 +291,9 @@ def enrollment_config_fixture(event):
     )
 
 
-@pytest.fixture(name="venue")
-def venue_fixture(event):
-    return VenueFactory(event=event, name="Main Venue")
-
-
-@pytest.fixture(name="area")
-def area_fixture(venue):
-    return AreaFactory(venue=venue, name="Main Area")
-
-
 @pytest.fixture(name="space")
-def space_fixture(area):
-    return SpaceFactory(area=area)
+def space_fixture(event):
+    return SpaceFactory(event=event)
 
 
 @pytest.fixture

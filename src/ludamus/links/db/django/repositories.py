@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
@@ -22,7 +23,6 @@ from django.utils.text import slugify
 from ludamus.adapters.db.django.models import (
     AgendaItem,
     Announcement,
-    Area,
     Connection,
     Discount,
     DomainEnrollmentConfig,
@@ -52,14 +52,10 @@ from ludamus.adapters.db.django.models import (
     TimeSlotRequirement,
     Track,
     UserEnrollmentConfig,
-    Venue,
 )
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
-    AreaDTO,
-    AreaRepositoryProtocol,
     CategoryStats,
-    ConnectedUserRepositoryProtocol,
     DomainEnrollmentConfigDTO,
     EncounterData,
     EncounterDTO,
@@ -127,14 +123,8 @@ from ludamus.pacts import (
     TrackRepositoryProtocol,
     TrackUpdateData,
     UnscheduledSessionDTO,
-    UserData,
-    UserDTO,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
-    UserRepositoryProtocol,
-    UserType,
-    VenueDTO,
-    VenueRepositoryProtocol,
 )
 from ludamus.pacts.chronology import (
     EventIntegrationCreateData,
@@ -144,6 +134,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.discounts import (
     DiscountData,
     DiscountDTO,
@@ -166,6 +157,7 @@ from ludamus.pacts.submissions import (
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+from ludamus.pacts.venues import SpaceNodeDTO, SpaceTreeRepositoryProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -253,52 +245,6 @@ class SphereRepository(SphereRepositoryProtocol, SphereDirectoryRepositoryProtoc
         for key, value in data.items():
             setattr(sphere, key, value)
         sphere.save(update_fields=list(data.keys()))
-
-
-class UserRepository(UserRepositoryProtocol):
-    def __init__(self, user_type: UserType) -> None:
-        self._user_type = user_type
-
-    @staticmethod
-    def create(user_data: UserData) -> None:
-        User.objects.create(**user_data)
-
-    def read(self, slug: str) -> UserDTO:
-        try:
-            user = User.objects.get(slug=slug, user_type=self._user_type)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
-
-        return UserDTO.model_validate(user)
-
-    def read_by_id(self, pk: int) -> UserDTO:
-        try:
-            user = User.objects.get(pk=pk, user_type=self._user_type)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return UserDTO.model_validate(user)
-
-    def read_by_username(self, username: str) -> UserDTO:
-        try:
-            user = User.objects.get(username=username, user_type=self._user_type)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return UserDTO.model_validate(user)
-
-    @staticmethod
-    def update(user_slug: str, user_data: UserData) -> None:
-        User.objects.filter(slug=user_slug).update(**user_data)
-
-    @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool:
-        if not email:
-            return False
-
-        query = User.objects.filter(email__iexact=email)
-        if exclude_slug:
-            query = query.exclude(slug=exclude_slug)
-
-        return query.exists()
 
 
 class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
@@ -770,49 +716,6 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return results, has_more
 
 
-class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
-    @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]:
-        try:
-            manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
-
-        return [
-            UserDTO.model_validate(connected_user)
-            for connected_user in manager.connected.all()
-        ]
-
-    @staticmethod
-    def create(manager_slug: str, user_data: UserData) -> None:
-        manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
-        User.objects.create(manager=manager, **user_data)
-
-    @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO:
-        try:
-            connected_user = User.objects.get(
-                slug=user_slug, manager__slug=manager_slug
-            )
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return UserDTO.model_validate(connected_user)
-
-    @staticmethod
-    def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:
-        User.objects.filter(slug=user_slug, manager__slug=manager_slug).update(
-            **user_data
-        )
-
-    @staticmethod
-    def delete(manager_slug: str, user_slug: str) -> None:
-        try:
-            user = User.objects.get(slug=user_slug, manager__slug=manager_slug)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
-        user.delete()
-
-
 def _event_dto(event: Event) -> EventDTO:
     settings = getattr(event, "proposal_settings", None)
     description = settings.description if settings is not None else ""
@@ -968,545 +871,7 @@ class EventSettingsRepository(EventSettingsRepositoryProtocol):
         settings.displayed_session_fields.set(field_ids)
 
 
-class VenueRepository(VenueRepositoryProtocol):
-    @transaction.atomic
-    def create(self, event_id: int, name: str, address: str = "") -> VenueDTO:
-        """Create a new venue for an event.
-
-        Args:
-            event_id: The event to create the venue for.
-            name: The venue name.
-            address: The venue address (optional).
-
-        Returns:
-            VenueDTO of the created venue.
-        """
-        Event.objects.select_for_update().get(pk=event_id)
-
-        base_slug = slugify(name)
-        slug = self.generate_unique_slug(event_id, base_slug)
-
-        max_order = (
-            Venue.objects.filter(event_id=event_id).aggregate(max_order=Max("order"))[
-                "max_order"
-            ]
-            or -1
-        )
-
-        venue = Venue.objects.create(
-            event_id=event_id,
-            name=name,
-            slug=slug,
-            address=address,
-            order=max_order + 1,
-        )
-
-        return VenueDTO.model_validate(venue)
-
-    @staticmethod
-    def delete(pk: int) -> None:
-        """Delete a venue.
-
-        Args:
-            pk: The venue primary key.
-        """
-        try:
-            venue = Venue.objects.get(pk=pk)
-        except Venue.DoesNotExist:
-            return
-
-        venue.delete()
-
-    @staticmethod
-    def has_sessions(pk: int) -> bool:
-        """Check if any space in any area of the venue has scheduled sessions.
-
-        Args:
-            pk: The venue primary key.
-
-        Returns:
-            True if any space in the venue has sessions, False otherwise.
-        """
-        return AgendaItem.objects.filter(space__area__venue_id=pk).exists()
-
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[VenueDTO]:
-        """List all venues for an event, ordered by order then name.
-
-        Returns:
-            List of VenueDTO objects for the event.
-        """
-        venues = (
-            Venue.objects.filter(event_id=event_pk)
-            .annotate(areas_count=Count("areas"))
-            .order_by("order", "name")
-        )
-
-        return [VenueDTO.model_validate(venue) for venue in venues]
-
-    @staticmethod
-    def read_by_slug(event_pk: int, slug: str) -> VenueDTO:
-        """Read a venue by slug.
-
-        Args:
-            event_pk: The event primary key.
-            slug: The venue slug.
-
-        Returns:
-            VenueDTO of the venue.
-
-        Raises:
-            NotFoundError: If the venue is not found.
-        """
-        try:
-            venue = Venue.objects.get(event_id=event_pk, slug=slug)
-        except Venue.DoesNotExist as err:
-            msg = f"Venue with slug '{slug}' not found"
-            raise NotFoundError(msg) from err
-
-        return VenueDTO.model_validate(venue)
-
-    @staticmethod
-    def reorder(event_id: int, venue_pks: list[int]) -> None:
-        """Reorder venues for an event.
-
-        Args:
-            event_id: The event primary key.
-            venue_pks: List of venue PKs in the desired order.
-        """
-        venues = Venue.objects.filter(event_id=event_id, pk__in=venue_pks)
-        venue_map = {v.pk: v for v in venues}
-
-        valid_pks = [pk for pk in venue_pks if pk in venue_map]
-
-        for order, pk in enumerate(valid_pks):
-            venue = venue_map[pk]
-            if venue.order != order:
-                venue.order = order
-                venue.save(update_fields=["order"])
-
-    @transaction.atomic
-    def update(self, pk: int, name: str, address: str = "") -> VenueDTO:
-        """Update a venue.
-
-        Args:
-            pk: The venue primary key.
-            name: The new venue name.
-            address: The new venue address.
-
-        Returns:
-            VenueDTO of the updated venue.
-
-        Raises:
-            NotFoundError: If the venue is not found.
-        """
-        try:
-            venue = Venue.objects.select_for_update().select_related("event").get(pk=pk)
-            Event.objects.select_for_update().get(pk=venue.event_id)
-        except Venue.DoesNotExist as err:
-            msg = f"Venue with pk '{pk}' not found"
-            raise NotFoundError(msg) from err
-
-        needs_save = False
-
-        if venue.name != name:
-            base_slug = slugify(name)
-            slug = self.generate_unique_slug(venue.event_id, base_slug, exclude_pk=pk)
-            venue.name = name
-            venue.slug = slug
-            needs_save = True
-
-        if venue.address != address:
-            venue.address = address
-            needs_save = True
-
-        if needs_save:
-            venue.save()
-
-        return VenueDTO.model_validate(venue)
-
-    @staticmethod
-    def generate_unique_slug(
-        event_id: int, base_slug: str, exclude_pk: int | None = None
-    ) -> str:
-        slug = base_slug
-
-        for _ in range(4):
-            query = Venue.objects.filter(event_id=event_id, slug=slug)
-            if exclude_pk:
-                query = query.exclude(pk=exclude_pk)
-            if not query.exists():
-                return slug
-            slug = f"{base_slug}-{token_urlsafe(3)}"
-
-        return slug
-
-    @transaction.atomic
-    def duplicate(self, pk: int, new_name: str) -> VenueDTO:
-        """Duplicate a venue within the same event.
-
-        Copies the venue with all its areas and spaces.
-
-        Args:
-            pk: The venue primary key to duplicate.
-            new_name: The name for the new venue.
-
-        Returns:
-            VenueDTO of the new venue.
-
-        Raises:
-            NotFoundError: If the venue is not found.
-        """
-        try:
-            venue = Venue.objects.select_for_update().get(pk=pk)
-        except Venue.DoesNotExist as err:
-            msg = f"Venue with pk '{pk}' not found"
-            raise NotFoundError(msg) from err
-
-        Event.objects.select_for_update().get(pk=venue.event_id)
-
-        base_slug = slugify(new_name)
-        new_slug = self.generate_unique_slug(venue.event_id, base_slug)
-
-        max_order = (
-            Venue.objects.filter(event_id=venue.event_id).aggregate(
-                max_order=Max("order")
-            )["max_order"]
-            or -1
-        )
-
-        new_venue = Venue.objects.create(
-            event_id=venue.event_id,
-            name=new_name,
-            slug=new_slug,
-            address=venue.address,
-            order=max_order + 1,
-        )
-
-        areas = Area.objects.filter(venue_id=pk).order_by("order")
-        for area in areas:
-            area_slug = AreaRepository.generate_unique_slug(new_venue.pk, area.slug)
-            new_area = Area.objects.create(
-                venue_id=new_venue.pk,
-                name=area.name,
-                slug=area_slug,
-                description=area.description,
-                order=area.order,
-            )
-
-            spaces = Space.objects.filter(area_id=area.pk).order_by("order")
-            for space in spaces:
-                space_slug = SpaceRepository.generate_unique_slug(
-                    new_area.pk, space.slug
-                )
-                Space.objects.create(
-                    area_id=new_area.pk,
-                    event_id=new_venue.event_id,
-                    name=space.name,
-                    slug=space_slug,
-                    capacity=space.capacity,
-                    order=space.order,
-                )
-
-        return VenueDTO.model_validate(new_venue)
-
-    @transaction.atomic
-    def copy_to_event(self, pk: int, target_event_id: int) -> VenueDTO:
-        """Copy a venue to another event.
-
-        Copies the venue with all its areas and spaces.
-
-        Args:
-            pk: The venue primary key to copy.
-            target_event_id: The target event ID.
-
-        Returns:
-            VenueDTO of the new venue.
-
-        Raises:
-            NotFoundError: If the venue is not found.
-        """
-        try:
-            venue = Venue.objects.select_for_update().get(pk=pk)
-        except Venue.DoesNotExist as err:
-            msg = f"Venue with pk '{pk}' not found"
-            raise NotFoundError(msg) from err
-
-        Event.objects.select_for_update().get(pk=target_event_id)
-
-        base_slug = slugify(venue.name)
-        new_slug = self.generate_unique_slug(target_event_id, base_slug)
-
-        max_order = (
-            Venue.objects.filter(event_id=target_event_id).aggregate(
-                max_order=Max("order")
-            )["max_order"]
-            or -1
-        )
-
-        new_venue = Venue.objects.create(
-            event_id=target_event_id,
-            name=venue.name,
-            slug=new_slug,
-            address=venue.address,
-            order=max_order + 1,
-        )
-
-        areas = Area.objects.filter(venue_id=pk).order_by("order")
-        for area in areas:
-            area_slug = AreaRepository.generate_unique_slug(new_venue.pk, area.slug)
-            new_area = Area.objects.create(
-                venue_id=new_venue.pk,
-                name=area.name,
-                slug=area_slug,
-                description=area.description,
-                order=area.order,
-            )
-
-            spaces = Space.objects.filter(area_id=area.pk).order_by("order")
-            for space in spaces:
-                space_slug = SpaceRepository.generate_unique_slug(
-                    new_area.pk, space.slug
-                )
-                Space.objects.create(
-                    area_id=new_area.pk,
-                    event_id=target_event_id,
-                    name=space.name,
-                    slug=space_slug,
-                    capacity=space.capacity,
-                    order=space.order,
-                )
-
-        return VenueDTO.model_validate(new_venue)
-
-
-class AreaRepository(AreaRepositoryProtocol):
-    @transaction.atomic
-    def create(self, venue_id: int, name: str, description: str = "") -> AreaDTO:
-        """Create a new area for a venue.
-
-        Args:
-            venue_id: The venue to create the area for.
-            name: The area name.
-            description: The area description (optional).
-
-        Returns:
-            AreaDTO of the created area.
-        """
-        Venue.objects.select_for_update().get(pk=venue_id)
-
-        base_slug = slugify(name)
-        slug = self.generate_unique_slug(venue_id, base_slug)
-
-        max_order = (
-            Area.objects.filter(venue_id=venue_id).aggregate(max_order=Max("order"))[
-                "max_order"
-            ]
-            or -1
-        )
-
-        area = Area.objects.create(
-            venue_id=venue_id,
-            name=name,
-            slug=slug,
-            description=description,
-            order=max_order + 1,
-        )
-
-        return AreaDTO.model_validate(area)
-
-    @staticmethod
-    def delete(pk: int) -> None:
-        """Delete an area.
-
-        Args:
-            pk: The area primary key.
-        """
-        try:
-            area = Area.objects.get(pk=pk)
-        except Area.DoesNotExist:
-            return
-
-        area.delete()
-
-    @staticmethod
-    def has_sessions(pk: int) -> bool:
-        """Check if any space in the area has scheduled sessions.
-
-        Args:
-            pk: The area primary key.
-
-        Returns:
-            True if any space in the area has sessions, False otherwise.
-        """
-        return AgendaItem.objects.filter(space__area_id=pk).exists()
-
-    @staticmethod
-    def list_by_venue(venue_pk: int) -> list[AreaDTO]:
-        """List all areas for a venue, ordered by order then name.
-
-        Returns:
-            List of AreaDTO objects for the venue.
-        """
-        areas = (
-            Area.objects.filter(venue_id=venue_pk)
-            .annotate(spaces_count=Count("spaces"))
-            .order_by("order", "name")
-        )
-
-        return [AreaDTO.model_validate(area) for area in areas]
-
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[AreaDTO]:
-        """List all areas for an event, ordered by venue then order then name.
-
-        Returns:
-            List of AreaDTO objects for the event.
-        """
-        areas = Area.objects.filter(venue__event_id=event_pk).order_by(
-            "venue_id", "order", "name"
-        )
-
-        return [AreaDTO.model_validate(area) for area in areas]
-
-    @staticmethod
-    def read_by_slug(venue_pk: int, slug: str) -> AreaDTO:
-        """Read an area by slug.
-
-        Args:
-            venue_pk: The venue primary key.
-            slug: The area slug.
-
-        Returns:
-            AreaDTO of the area.
-
-        Raises:
-            NotFoundError: If the area is not found.
-        """
-        try:
-            area = Area.objects.get(venue_id=venue_pk, slug=slug)
-        except Area.DoesNotExist as err:
-            msg = f"Area with slug '{slug}' not found"
-            raise NotFoundError(msg) from err
-
-        return AreaDTO.model_validate(area)
-
-    @staticmethod
-    def reorder(venue_id: int, area_pks: list[int]) -> None:
-        """Reorder areas for a venue.
-
-        Args:
-            venue_id: The venue primary key.
-            area_pks: List of area PKs in the desired order.
-        """
-        areas = Area.objects.filter(venue_id=venue_id, pk__in=area_pks)
-        area_map = {a.pk: a for a in areas}
-
-        valid_pks = [pk for pk in area_pks if pk in area_map]
-
-        for order, pk in enumerate(valid_pks):
-            area = area_map[pk]
-            if area.order != order:
-                area.order = order
-                area.save(update_fields=["order"])
-
-    @transaction.atomic
-    def update(self, pk: int, name: str, description: str = "") -> AreaDTO:
-        """Update an area.
-
-        Args:
-            pk: The area primary key.
-            name: The new area name.
-            description: The new area description.
-
-        Returns:
-            AreaDTO of the updated area.
-
-        Raises:
-            NotFoundError: If the area is not found.
-        """
-        try:
-            area = Area.objects.select_for_update().select_related("venue").get(pk=pk)
-            Venue.objects.select_for_update().get(pk=area.venue_id)
-        except Area.DoesNotExist as err:
-            msg = f"Area with pk '{pk}' not found"
-            raise NotFoundError(msg) from err
-
-        needs_save = False
-
-        if area.name != name:
-            base_slug = slugify(name)
-            slug = self.generate_unique_slug(area.venue_id, base_slug, exclude_pk=pk)
-            area.name = name
-            area.slug = slug
-            needs_save = True
-
-        if area.description != description:
-            area.description = description
-            needs_save = True
-
-        if needs_save:
-            area.save()
-
-        return AreaDTO.model_validate(area)
-
-    @staticmethod
-    def generate_unique_slug(
-        venue_id: int, base_slug: str, exclude_pk: int | None = None
-    ) -> str:
-        slug = base_slug
-
-        for _ in range(4):
-            query = Area.objects.filter(venue_id=venue_id, slug=slug)
-            if exclude_pk:
-                query = query.exclude(pk=exclude_pk)
-            if not query.exists():
-                return slug
-            slug = f"{base_slug}-{token_urlsafe(3)}"
-
-        return slug
-
-
 class SpaceRepository(SpaceRepositoryProtocol):
-    @transaction.atomic
-    def create(self, area_id: int, name: str, capacity: int | None = None) -> SpaceDTO:
-        """Create a new space for an area.
-
-        Args:
-            area_id: The area to create the space for.
-            name: The space name.
-            capacity: The space capacity (optional).
-
-        Returns:
-            SpaceDTO of the created space.
-        """
-        area = (
-            Area.objects.select_related("venue")
-            .select_for_update(of=("self",))
-            .get(pk=area_id)
-        )
-
-        base_slug = slugify(name)
-        slug = self.generate_unique_slug(area_id, base_slug)
-
-        max_order = (
-            Space.objects.filter(area_id=area_id).aggregate(max_order=Max("order"))[
-                "max_order"
-            ]
-            or -1
-        )
-
-        space = Space.objects.create(
-            area_id=area_id,
-            event_id=area.venue.event_id,
-            name=name,
-            slug=slug,
-            capacity=capacity,
-            order=max_order + 1,
-        )
-
-        return SpaceDTO.model_validate(space)
-
     @staticmethod
     def read(pk: int) -> SpaceDTO:
         try:
@@ -1517,150 +882,257 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
     @staticmethod
     def delete(pk: int) -> None:
-        """Delete a space.
-
-        Args:
-            pk: The space primary key.
-        """
-        try:
-            space = Space.objects.get(pk=pk)
-        except Space.DoesNotExist:
-            return
-
-        space.delete()
+        Space.objects.filter(pk=pk).delete()
 
     @staticmethod
     def has_sessions(pk: int) -> bool:
-        """Check if a space has any scheduled sessions.
-
-        Args:
-            pk: The space primary key.
-
-        Returns:
-            True if the space has sessions, False otherwise.
-        """
         return AgendaItem.objects.filter(space_id=pk).exists()
 
     @staticmethod
-    def list_by_area(area_pk: int) -> list[SpaceDTO]:
-        """List all spaces for an area, ordered by order then name.
-
-        Returns:
-            List of SpaceDTO objects for the area.
-        """
-        spaces = Space.objects.filter(area_id=area_pk).order_by("order", "name")
-
-        return [SpaceDTO.model_validate(space) for space in spaces]
+    def lock(pk: int) -> None:
+        try:
+            Space.objects.select_for_update().get(pk=pk)
+        except Space.DoesNotExist as exception:
+            raise NotFoundError from exception
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]:
-        """List all spaces for an event, ordered by name.
-
-        Returns:
-            List of SpaceDTO objects for the event.
-        """
-        spaces = Space.objects.filter(event_id=event_pk).order_by(
-            *Space.HIERARCHICAL_ORDER
-        )
-
+        spaces = Space.objects.filter(event_id=event_pk).order_by("order", "name")
         return [SpaceDTO.model_validate(space) for space in spaces]
 
+
+class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
-    def read_by_slug(area_pk: int, slug: str) -> SpaceDTO:
-        """Read a space by slug.
+    def list_tree(event_pk: int) -> list[SpaceNodeDTO]:
+        # One query for the whole event; assemble the tree in Python.
+        spaces = list(Space.objects.filter(event_id=event_pk).order_by("order", "name"))
+        children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
+        for space in spaces:
+            children_by_parent[space.parent_id].append(space)
 
-        Args:
-            area_pk: The area primary key.
-            slug: The space slug.
+        def build(space: Space, depth: int) -> SpaceNodeDTO:
+            kids = children_by_parent.get(space.pk, [])
+            return SpaceNodeDTO(
+                pk=space.pk,
+                event_id=space.event_id,
+                parent_id=space.parent_id,
+                name=space.name,
+                slug=space.slug,
+                capacity=space.capacity,
+                description=space.description,
+                order=space.order,
+                depth=depth,
+                is_leaf=not kids,
+                children=[build(kid, depth + 1) for kid in kids],
+            )
 
-        Returns:
-            SpaceDTO of the space.
+        return [build(root, 1) for root in children_by_parent.get(None, [])]
 
-        Raises:
-            NotFoundError: If the space is not found.
-        """
+    def read(self, pk: int) -> SpaceNodeDTO:
         try:
-            space = Space.objects.get(area_id=area_pk, slug=slug)
+            space = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
-            msg = f"Space with slug '{slug}' not found"
-            raise NotFoundError(msg) from err
-
-        return SpaceDTO.model_validate(space)
-
-    @staticmethod
-    def reorder(area_id: int, space_pks: list[int]) -> None:
-        """Reorder spaces for an area.
-
-        Args:
-            area_id: The area primary key.
-            space_pks: List of space PKs in the desired order.
-        """
-        spaces = Space.objects.filter(area_id=area_id, pk__in=space_pks)
-        space_map = {s.pk: s for s in spaces}
-
-        valid_pks = [pk for pk in space_pks if pk in space_map]
-
-        for order, pk in enumerate(valid_pks):
-            space = space_map[pk]
-            if space.order != order:
-                space.order = order
-                space.save(update_fields=["order"])
+            raise NotFoundError from err
+        return self._node(space)
 
     @transaction.atomic
-    def update(self, pk: int, name: str, capacity: int | None = None) -> SpaceDTO:
-        """Update a space.
+    def create(
+        self,
+        *,
+        event_id: int,
+        parent_id: int | None,
+        name: str,
+        capacity: int | None,
+        description: str,
+    ) -> SpaceNodeDTO:
+        slug = self.generate_unique_slug(event_id, parent_id, slugify(name))
+        max_order = Space.objects.filter(
+            event_id=event_id, parent_id=parent_id
+        ).aggregate(top=Max("order"))["top"]
+        space = Space(
+            event_id=event_id,
+            parent_id=parent_id,
+            name=name,
+            slug=slug,
+            capacity=capacity,
+            description=description,
+            order=(max_order if max_order is not None else -1) + 1,
+        )
+        space.full_clean()
+        space.save()
+        return self._node(space)
 
-        Args:
-            pk: The space primary key.
-            name: The new space name.
-            capacity: The new space capacity.
-
-        Returns:
-            SpaceDTO of the updated space.
-
-        Raises:
-            NotFoundError: If the space is not found.
-        """
+    @transaction.atomic
+    def update(
+        self,
+        *,
+        pk: int,
+        name: str,
+        capacity: int | None,
+        description: str,
+        parent_id: int | None,
+    ) -> SpaceNodeDTO:
         try:
-            space = Space.objects.select_for_update().select_related("area").get(pk=pk)
-            Area.objects.select_for_update().get(pk=space.area_id)
+            space = Space.objects.select_for_update().get(pk=pk)
         except Space.DoesNotExist as err:
-            msg = f"Space with pk '{pk}' not found"
-            raise NotFoundError(msg) from err
-
-        needs_save = False
-
-        if space.name != name:
-            base_slug = slugify(name)
-            slug = self.generate_unique_slug(space.area_id, base_slug, exclude_pk=pk)
+            raise NotFoundError from err
+        parent_changed = space.parent_id != parent_id
+        # Re-derive the slug whenever the name or parent changes, so it stays
+        # unique among the (new) siblings. full_clean() below is the backstop
+        # for cycles, depth, and the leaf-with-session rule.
+        if space.name != name or parent_changed:
             space.name = name
-            space.slug = slug
-            needs_save = True
+            space.parent_id = parent_id
+            space.slug = self.generate_unique_slug(
+                space.event_id, parent_id, slugify(name), exclude_pk=pk
+            )
+        if parent_changed:
+            # Append to the end of the new parent's sibling list.
+            max_order = (
+                Space.objects.filter(event_id=space.event_id, parent_id=parent_id)
+                .exclude(pk=pk)
+                .aggregate(top=Max("order"))["top"]
+            )
+            space.order = (max_order if max_order is not None else -1) + 1
+        space.capacity = capacity
+        space.description = description
+        space.full_clean()
+        space.save()
+        return self._node(space)
 
-        if space.capacity != capacity:
-            space.capacity = capacity
-            needs_save = True
+    @staticmethod
+    def delete(pk: int) -> None:
+        # FK parent on_delete=CASCADE removes the whole subtree.
+        Space.objects.filter(pk=pk).delete()
 
-        if needs_save:
-            space.save()
+    @staticmethod
+    def reorder(parent_id: int | None, child_pks: list[int], event_id: int) -> None:
+        # Constrain by event so a root-level reorder (parent_id=None) can only
+        # touch spaces belonging to the caller's event, never another event's.
+        space_map = {
+            space.pk: space
+            for space in Space.objects.filter(
+                event_id=event_id, parent_id=parent_id, pk__in=child_pks
+            )
+        }
+        for order, pk in enumerate(child_pks):
+            space = space_map.get(pk)
+            if space is not None and space.order != order:
+                space.order = order
+                space.save(update_fields=["order", "modification_time"])
 
-        return SpaceDTO.model_validate(space)
+    @staticmethod
+    def subtree_has_sessions(pk: int) -> bool:
+        event_pk = Space.objects.values_list("event_id", flat=True).get(pk=pk)
+        children_by_parent: dict[int, list[int]] = defaultdict(list)
+        for child_pk, parent_pk in Space.objects.filter(event_id=event_pk).values_list(
+            "pk", "parent_id"
+        ):
+            children_by_parent[parent_pk].append(child_pk)
+
+        subtree: list[int] = []
+
+        def collect(node_pk: int) -> None:
+            subtree.append(node_pk)
+            for child_pk in children_by_parent.get(node_pk, []):
+                collect(child_pk)
+
+        collect(pk)
+        # Lock the subtree's Space rows (deterministic pk order) so a concurrent
+        # session assignment to any leaf below serialises behind this
+        # check-then-delete — assign_session locks the same Space row first,
+        # so its AgendaItem can't slip in before the cascade. Safe because the
+        # sole caller runs inside delete_space's atomic() block.
+        list(Space.objects.select_for_update().filter(pk__in=subtree).order_by("pk"))
+        return AgendaItem.objects.filter(space_id__in=subtree).exists()
+
+    @staticmethod
+    def space_pks_with_sessions(event_id: int) -> frozenset[int]:
+        # Spaces that directly hold a scheduled session — these can't become a
+        # parent (a leaf-with-session can't turn into a branch). One query.
+        return frozenset(
+            AgendaItem.objects.filter(space__event_id=event_id)
+            .values_list("space_id", flat=True)
+            .distinct()
+        )
 
     @staticmethod
     def generate_unique_slug(
-        area_id: int, base_slug: str, exclude_pk: int | None = None
+        event_id: int,
+        parent_id: int | None,
+        base_slug: str,
+        exclude_pk: int | None = None,
     ) -> str:
         slug = base_slug
-
         for _ in range(4):
-            query = Space.objects.filter(area_id=area_id, slug=slug)
+            query = Space.objects.filter(
+                event_id=event_id, parent_id=parent_id, slug=slug
+            )
             if exclude_pk:
                 query = query.exclude(pk=exclude_pk)
             if not query.exists():
                 return slug
             slug = f"{base_slug}-{token_urlsafe(3)}"
-
         return slug
+
+    @transaction.atomic
+    def duplicate(self, pk: int, new_name: str) -> SpaceNodeDTO:
+        try:
+            source = Space.objects.get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        clone = self._clone_subtree(
+            source, event_id=source.event_id, parent_id=source.parent_id, name=new_name
+        )
+        return self._node(clone)
+
+    @transaction.atomic
+    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceNodeDTO:
+        try:
+            source = Space.objects.get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        # The copied subtree becomes a root in the target event.
+        clone = self._clone_subtree(source, event_id=target_event_id, parent_id=None)
+        return self._node(clone)
+
+    def _clone_subtree(
+        self,
+        source: Space,
+        *,
+        event_id: int,
+        parent_id: int | None,
+        name: str | None = None,
+    ) -> Space:
+        clone_name = name if name is not None else source.name
+        clone = Space.objects.create(
+            event_id=event_id,
+            parent_id=parent_id,
+            name=clone_name,
+            slug=self.generate_unique_slug(event_id, parent_id, slugify(clone_name)),
+            capacity=source.capacity,
+            description=source.description,
+            order=source.order,
+        )
+        for child in Space.objects.filter(parent_id=source.pk).order_by("order"):
+            self._clone_subtree(child, event_id=event_id, parent_id=clone.pk)
+        return clone
+
+    @staticmethod
+    def _node(space: Space) -> SpaceNodeDTO:
+        return SpaceNodeDTO(
+            pk=space.pk,
+            event_id=space.event_id,
+            parent_id=space.parent_id,
+            name=space.name,
+            slug=space.slug,
+            capacity=space.capacity,
+            description=space.description,
+            order=space.order,
+            depth=1 + sum(1 for _ in space.iter_ancestors()),
+            is_leaf=not space.children.exists(),
+            children=[],
+        )
 
 
 class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: PLR0904

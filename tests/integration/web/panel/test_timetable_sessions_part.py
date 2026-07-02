@@ -125,10 +125,10 @@ class TestTimetableSessionListPartView:
         assert rejected.pk not in session_pks
 
     def test_excludes_scheduled_sessions(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="pending",

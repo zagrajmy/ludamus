@@ -12,13 +12,12 @@ from ludamus.adapters.db.django.models import (
     Session,
     SessionField,
 )
+from ludamus.links.db.django.crowd import ConnectedUserRepository
 from ludamus.links.db.django.repositories import (
-    ConnectedUserRepository,
     EventRepository,
     ProposalCategoryRepository,
     SessionRepository,
     SphereRepository,
-    VenueRepository,
 )
 from ludamus.pacts import EventUpdateData, NotFoundError
 
@@ -127,16 +126,6 @@ class TestEventRepositoryNotFound:
     def test_update_raises_when_event_missing(self):
         with pytest.raises(NotFoundError):
             EventRepository.update(MISSING_ID, EventUpdateData())
-
-
-class TestVenueRepositoryNotFound:
-    def test_update_raises_when_venue_missing(self):
-        with pytest.raises(NotFoundError):
-            VenueRepository().update(MISSING_ID, name="X", address="Y")
-
-    def test_duplicate_raises_when_venue_missing(self):
-        with pytest.raises(NotFoundError):
-            VenueRepository().duplicate(MISSING_ID, new_name="Copy")
 
 
 class TestProposalCategoryRepositoryWriteSideEffects:

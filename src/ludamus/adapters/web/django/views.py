@@ -4,9 +4,11 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email import message_from_bytes, policy
 from enum import StrEnum, auto
+from pathlib import Path
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from urllib.parse import quote_plus, urlencode, urlparse
 
 from django import forms
@@ -33,6 +35,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.db.django.models import (
     MAX_CONNECTED_USERS,
+    SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
     Event,
@@ -57,15 +60,14 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.mills import (
-    AcceptProposalService,
+from ludamus.mills import AcceptProposalService
+from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     get_user_enrollment_config,
 )
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
-    AreaDTO,
     EventDTO,
     EventListItemDTO,
     LocationData,
@@ -75,12 +77,9 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     SessionRepositoryProtocol,
     SessionStatus,
-    SpaceDTO,
     SpherePage,
-    UserData,
-    UserDTO,
-    VenueDTO,
 )
+from ludamus.pacts.crowd import UserData, UserDTO
 
 from .design_fixtures import (
     mock_event_info,
@@ -465,6 +464,47 @@ class DesignPageView(TemplateView):
         return context
 
 
+class CapturedEmail(NamedTuple):
+    subject: str
+    to: str
+    date: str
+    body: str
+
+
+def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
+    if not directory.exists():
+        return []
+    emails: list[CapturedEmail] = []
+    for log_file in sorted(directory.glob("*.log"), reverse=True):
+        for chunk in reversed(log_file.read_bytes().split(b"-" * 79)):
+            if not (raw := chunk.strip()):
+                continue
+            message = message_from_bytes(raw, policy=policy.default)
+            body = message.get_body(preferencelist=("plain", "html"))
+            emails.append(
+                CapturedEmail(
+                    subject=str(message["Subject"] or ""),
+                    to=str(message["To"] or ""),
+                    date=str(message["Date"] or ""),
+                    body=body.get_content() if body else "",
+                )
+            )
+    return emails
+
+
+class StagingEmailInboxView(View):
+    request: RootRequest
+
+    def get(self, _request: RootRequest) -> HttpResponse:
+        if not settings.EMAIL_FILE_PATH or not self.request.user.is_staff:
+            raise Http404
+        return TemplateResponse(
+            self.request,
+            "staging_email_inbox.html",
+            {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
+        )
+
+
 class IndexRedirectView(View):
     request: RootRequest
 
@@ -835,8 +875,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
             .select_related("sphere")
             .prefetch_related(
-                "venues__areas__spaces__agenda_items__session__field_values__field",
-                "venues__areas__spaces__agenda_items__session__session_participations__user",
+                "spaces__agenda_items__session__field_values__field",
+                "spaces__agenda_items__session__session_participations__user",
                 "enrollment_configs",
             )
         )
@@ -851,7 +891,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         event_sessions = (
             Session.objects.filter(event=self.object, agenda_item__isnull=False)
             .select_related(
-                "presenter", "agenda_item__space__area__venue", "event", "event__sphere"
+                # str(space) walks the whole ancestor chain, so eager-load every
+                # level up to the max nesting depth to avoid per-row parent queries.
+                "presenter",
+                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+                "event",
+                "event__sphere",
             )
             .prefetch_related(
                 "tags__category",
@@ -1177,9 +1222,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         sessions_data = {}
         for session in event_sessions:
-            area = getattr(
-                session.agenda_item.space, "area", None
-            )  # TODO(fancysnake): Fix after merging venues
+            space = session.agenda_item.space
+            parent = space.parent
             if session.presenter_id:
                 presenter_dto = UserDTO.model_validate(session.presenter)
                 presenter = UserInfo.from_user_dto(
@@ -1211,13 +1255,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 is_enrollment_available=session.is_enrollment_available,
                 is_full=session.is_full,
                 loc=LocationData(
-                    space=SpaceDTO.model_validate(session.agenda_item.space),
-                    area=(  # TODO(fancysnake): Fix after merging venues
-                        AreaDTO.model_validate(area) if area else None
-                    ),
-                    venue=(  # TODO(fancysnake): Fix after merging venues
-                        VenueDTO.model_validate(area.venue) if area else None
-                    ),
+                    space_name=space.name,
+                    parent_slug=parent.slug if parent else "",
+                    parent_name=parent.name if parent else "",
+                    path=str(space),
                 ),
                 enrolled_count=session.enrolled_count,
                 waiting_count=session.waiting_count,
@@ -1924,7 +1965,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         service = AcceptProposalService(request.di.uow, context=request.context)
         service.accept_session(
             session=session,
-            slugifier=slugify,
             space_id=form.cleaned_data["space"].id,
             time_slot_id=form.cleaned_data["time_slot"].id,
         )

@@ -10,7 +10,8 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
-    from ludamus.pacts import SiteDTO, SphereDTO, UserDTO
+    from ludamus.pacts import SiteDTO, SphereDTO
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import NavbarNotificationsDTO
 
 

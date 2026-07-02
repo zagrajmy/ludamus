@@ -289,11 +289,11 @@ class TestTimetableCompleteness:
 
     def test_scoped_timetable_is_never_complete(self):
         # A scoped print (one venue/area) is a subset, so never "the whole thing".
-        spaces = [_space(1, "Alfa", 0, area_id=10)]
+        spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = _timetable(service, area_pks=frozenset({10}))
+        document = _timetable(service, scope_space_pks=frozenset({1}))
 
         assert document.is_complete is False
 
@@ -360,24 +360,22 @@ class TestBuildAreaSchedule:
 class TestScoping:
     @staticmethod
     def _scoped_service():
-        spaces = [
-            _space(1, "Alfa", 0, area_id=10),
-            _space(2, "Bravo", 1, area_id=20),
-            _space(3, "Cesarz", 2, area_id=30),
-        ]
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1), _space(3, "Cesarz", 2)]
         return _service(spaces=spaces, items=[], slots=[_slot(1, 9, 10)])
 
-    def test_timetable_filtered_to_area_pks(self):
+    def test_timetable_filtered_to_scope_space_pks(self):
         document = _timetable(
-            self._scoped_service(), area_pks=frozenset({10, 20}), scope_name="Budynek A"
+            self._scoped_service(),
+            scope_space_pks=frozenset({1, 2}),
+            scope_name="Budynek A",
         )
 
         assert document.pages[0].space_names == ["Alfa", "Bravo"]
         assert document.scope_name == "Budynek A"
 
-    def test_door_cards_filtered_to_single_area(self):
+    def test_door_cards_filtered_to_single_space(self):
         document = self._scoped_service().build_door_cards(
-            1, UTC, area_pks=frozenset({10}), scope_name="Parter"
+            1, UTC, scope_space_pks=frozenset({1}), scope_name="Parter"
         )
 
         assert [c.space_name for c in document.cards] == ["Alfa"]
@@ -392,11 +390,11 @@ class TestScoping:
     def test_orphan_session_outside_scope_adds_no_row(self):
         # An un-slotted session lives in Cesarz (area 30), outside the scoped
         # area 10 — it must not spawn a fallback row in the scoped grid.
-        spaces = [_space(1, "Alfa", 0, area_id=10), _space(3, "Cesarz", 2, area_id=30)]
+        spaces = [_space(1, "Alfa", 0), _space(3, "Cesarz", 2)]
         items = [_item(1, 3, 12, 13, title="Out of scope", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[_slot(1, 9, 10)])
 
-        document = _timetable(service, area_pks=frozenset({10}))
+        document = _timetable(service, scope_space_pks=frozenset({1}))
 
         page = document.pages[0]
         assert page.space_names == ["Alfa"]

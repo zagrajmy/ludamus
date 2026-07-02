@@ -1,0 +1,53 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load django_vite %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Venues" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Venues" %}
+{% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are venues?" as t_info_title %}
+    {% translate "Organise the physical layout of your event as a tree: buildings contain floors or wings, which contain the individual rooms that hold sessions. Nest spaces as deeply as you need; only the innermost rooms take a capacity." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
+{% block page_subtitle %}
+    {{ current_event.name }} · {% translate "Physical Locations" %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+    {% translate "New top-level space" as t_new_space %}
+    {% tessera_button t_new_space href=new_space_url icon="plus" %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="p-4">
+        {% if tree %}
+            {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
+            <div class="card p-4">
+                <ul id="space-root-list"
+                    class="space-list"
+                    data-parent-pk=""
+                    data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}"
+                    data-csrf="{{ csrf_token }}"
+                    data-reorder-error="{{ t_reorder_error }}">
+                    {% for node in tree %}
+                        {% include "panel/_space_tree_node.html" with node=node %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% vite_asset 'src/space-tree.ts' %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
+                <p class="text-foreground-muted mb-4">
+                    {% translate "No spaces yet. Add a top-level space to start building your event's layout." %}
+                </p>
+                {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+                {% translate "New top-level space" as t_new_space %}
+                {% tessera_button t_new_space href=new_space_url icon="plus" %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}

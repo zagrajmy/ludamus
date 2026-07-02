@@ -20,16 +20,14 @@ from ludamus.adapters.db.django.models import (
     get_used_slots,
     get_vc_available_slots,
 )
-from ludamus.mills import get_user_enrollment_config
+from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
     TicketAPIProtocol,
-    UserData,
-    UserDTO,
-    UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.crowd import UserData, UserDTO, UserType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -379,16 +377,17 @@ def create_enrollment_form(
 
 def create_proposal_acceptance_form(event: EventDTO) -> type[forms.Form]:
     # Query spaces with related area and venue for proper grouping
+    # Only leaves (childless nodes) are bookable; tree roots/mids are skipped.
     spaces = (
-        Space.objects.filter(event_id=event.pk)
-        .select_related("area__venue")
-        .order_by(*Space.HIERARCHICAL_ORDER)
+        Space.objects.filter(event_id=event.pk, children__isnull=True)
+        .select_related("parent")
+        .order_by("order", "name")
     )
 
-    # Build grouped choices: {(venue_name, area_name): [(space_id, space_name), ...]}
+    # Build grouped choices keyed by the leaf's parent-path string
     grouped_choices: dict[str, list[tuple[int, str]]] = {}
     for space in spaces:
-        group_label = f"{space.area.venue.name} > {space.area.name}"
+        group_label = str(space.parent) if space.parent else _("Ungrouped")
         if group_label not in grouped_choices:
             grouped_choices[group_label] = []
         grouped_choices[group_label].append((space.id, space.name))
