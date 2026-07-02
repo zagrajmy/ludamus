@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 15:31+0200\n"
+"POT-Creation-Date: 2026-07-02 20:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -581,6 +581,7 @@ msgid "Enroll (if spots available)"
 msgstr "Zapisz się (jeśli są miejsca)"
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Decline offer"
 msgstr "Odrzuć ofertę"
 
@@ -3785,7 +3786,8 @@ msgstr "Twoje zapisy na wydarzenia zostaną zachowane"
 #: src/ludamus/templates/crowd/claim.html
 #, python-format
 msgid "It becomes your own account — %(manager)s no longer manages it"
-msgstr "Profil stanie się Twoim własnym kontem — %(manager)s przestanie nim zarządzać"
+msgstr ""
+"Profil stanie się Twoim własnym kontem — %(manager)s przestanie nim zarządzać"
 
 # Login Required Page
 #: src/ludamus/templates/crowd/login_required.html
@@ -3865,7 +3867,8 @@ msgstr ""
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "Enroll family and friends in events without separate accounts."
-msgstr "Zapisuj rodzinę i znajomych na wydarzenia bez zakładania im osobnych kont."
+msgstr ""
+"Zapisuj rodzinę i znajomych na wydarzenia bez zakładania im osobnych kont."
 
 #: src/ludamus/templates/crowd/user/connected.html
 msgid "Add connected user"
