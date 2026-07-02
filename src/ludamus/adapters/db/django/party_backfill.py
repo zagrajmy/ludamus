@@ -1,4 +1,4 @@
-"""Migration support for 0108: manager/connected tree -> Party rows.
+"""Migration support for 0110: manager/connected tree -> Party rows.
 
 Run-once by design (inside the migration's transaction; re-running would
 duplicate parties). Lives beside the migrations it serves. See RFC 0001.
