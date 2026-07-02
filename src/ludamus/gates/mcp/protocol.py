@@ -16,6 +16,7 @@ from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolRegistry
+    from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -68,70 +69,64 @@ def _call_tool(
     *,
     registry: ToolRegistry,
     services: ServicesProtocol,
-    actor_id: int,
+    actor: ActorContext,
     message_id: object,
     params: JsonDict,
 ) -> JsonDict:
     name = params.get("name")
     if (arguments := params.get("arguments")) is None:
         arguments = {}
-    outcome, response = _run_tool(
-        registry=registry,
-        services=services,
-        message_id=message_id,
-        name=name,
-        arguments=arguments,
-    )
-    # Audit trail (#480): one line per tools/call. Only the actor id is
-    # threaded in on purpose; a richer actor context is #481.
+    if not isinstance(name, str) or not isinstance(arguments, dict):
+        outcome, text = "invalid-params", "Invalid tool call params"
+    else:
+        outcome, text = _run_tool(
+            registry=registry,
+            services=services,
+            actor=actor,
+            name=name,
+            arguments=arguments,
+        )
+    # Audit trail (#480): one line per tools/call.
     # %r on client-controlled values: repr escapes newlines, so a crafted
     # tool name cannot inject fake audit lines.
     logger.info(
         "mcp.tools_call user_id=%s tool=%r outcome=%s arguments=%r",
-        actor_id,
+        actor.user_id,
         name,
         outcome,
         arguments,
     )
-    return response
+    if outcome in {"invalid-params", "unknown-tool"}:
+        return error_response(message_id=message_id, code=INVALID_PARAMS, message=text)
+    return _text_result(message_id=message_id, text=text, is_error=outcome != "ok")
 
 
 def _run_tool(
     *,
     registry: ToolRegistry,
     services: ServicesProtocol,
-    message_id: object,
-    name: object,
-    arguments: object,
-) -> tuple[str, JsonDict]:
-    if not isinstance(name, str) or not isinstance(arguments, dict):
-        return "invalid-params", error_response(
-            message_id=message_id,
-            code=INVALID_PARAMS,
-            message="Invalid tool call params",
-        )
+    actor: ActorContext,
+    name: str,
+    arguments: dict[str, object],
+) -> tuple[str, str]:
     try:
-        text = registry.call(services=services, name=name, arguments=arguments)
+        text = registry.call(
+            services=services, actor=actor, name=name, arguments=arguments
+        )
     except UnknownToolError:
-        return "unknown-tool", error_response(
-            message_id=message_id, code=INVALID_PARAMS, message=f"Unknown tool: {name}"
-        )
+        return "unknown-tool", f"Unknown tool: {name}"
     except NotFoundError:
-        return "error", _text_result(
-            message_id=message_id, text="Resource not found", is_error=True
-        )
+        return "error", "Resource not found"
     except ToolError as error:
-        return "error", _text_result(
-            message_id=message_id, text=str(error), is_error=True
-        )
-    return "ok", _text_result(message_id=message_id, text=text, is_error=False)
+        return "error", str(error)
+    return "ok", text
 
 
 def handle_message(
     *,
     registry: ToolRegistry,
     services: ServicesProtocol,
-    actor_id: int,
+    actor: ActorContext,
     message: JsonDict,
 ) -> JsonDict | None:
     method = message.get("method")
@@ -159,7 +154,7 @@ def handle_message(
             return _call_tool(
                 registry=registry,
                 services=services,
-                actor_id=actor_id,
+                actor=actor,
                 message_id=message_id,
                 params=params,
             )

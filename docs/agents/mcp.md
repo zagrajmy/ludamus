@@ -68,9 +68,11 @@ don't get re-derived or contradicted:
 
 1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py`: pydantic input model
    (field descriptions become the client-facing schema), `name`,
-   `description`, and a `handle()` that calls a service and returns DTO JSON
+   `description`, a `scope` (`ToolScope` from `pacts/mcp.py` — the endpoint
+   loads only its tier's tools), and a `handle(call)` that reads
+   `call.services` / `call.data` / `call.actor` and returns DTO JSON
    (`model_dump_json` / `TypeAdapter.dump_json`).
-2. Register it in `build_registry()`.
+2. Add it to `_all_tools()`.
 3. Add integration tests in `tests/integration/web/mcp/` (tools/list order and
    a tools/call case).
 
