@@ -407,12 +407,15 @@ class TestAudit:
         assert len(records) == 1
         assert records[0].args == (
             superuser.pk,
+            "maintainer",
+            None,
             "get_sphere",
             "ok",
             {"sphere_id": sphere.pk},
         )
         assert records[0].getMessage() == (
-            f"mcp.tools_call user_id={superuser.pk} tool='get_sphere' outcome=ok "
+            f"mcp.tools_call user_id={superuser.pk} scope=maintainer "
+            f"sphere_id=None tool='get_sphere' outcome=ok "
             f"arguments={{'sphere_id': {sphere.pk}}}"
         )
 
@@ -425,6 +428,8 @@ class TestAudit:
         assert len(records) == 1
         assert records[0].args == (
             superuser.pk,
+            "maintainer",
+            None,
             "drop_database",
             "unknown-tool",
             {"force": True},
@@ -439,7 +444,14 @@ class TestAudit:
 
         records = audit_records(caplog)
         assert len(records) == 1
-        assert records[0].args == (superuser.pk, "get_sphere", "error", {})
+        assert records[0].args == (
+            superuser.pk,
+            "maintainer",
+            None,
+            "get_sphere",
+            "error",
+            {},
+        )
 
     def test_other_methods_are_not_logged(self, client, token, caplog):
         caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)

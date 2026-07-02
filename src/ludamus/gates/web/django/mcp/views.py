@@ -23,6 +23,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR, error_response, handle_message
 from ludamus.gates.mcp.tools import build_registry
+from ludamus.pacts.mcp import ActorContext, ToolScope
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 SIGNING_SALT = "ludamus.mcp"
 TOKEN_MAX_AGE_DAYS = 30
 
-_REGISTRY = build_registry()
+_REGISTRY = build_registry(ToolScope.MAINTAINER)
 
 
 def mint_token(user_id: int) -> str:
@@ -93,11 +94,9 @@ class McpEndpointView(View):
                 status=400,
             )
 
+        actor = ActorContext(user_id=actor_id, scope=ToolScope.MAINTAINER)
         result = handle_message(
-            registry=_REGISTRY,
-            services=request.services,
-            actor_id=actor_id,
-            message=message,
+            registry=_REGISTRY, services=request.services, actor=actor, message=message
         )
         if result is None:
             return HttpResponse(status=202)
