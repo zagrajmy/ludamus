@@ -51,7 +51,6 @@ class ClaimService:
                 return ClaimResultDTO(outcome=ClaimOutcome.ALREADY_AUTHENTICATED)
             # convert returns None for an unknown/spent token, so it is the sole
             # authority on validity — no separate read-back probe.
-            slug = self._claims.convert(token=token, username=username)
-            if slug is None:
+            if (slug := self._claims.convert(token=token, username=username)) is None:
                 return ClaimResultDTO(outcome=ClaimOutcome.INVALID)
             return ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug=slug)

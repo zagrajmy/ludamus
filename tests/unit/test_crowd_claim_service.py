@@ -89,7 +89,7 @@ class TestRedeem:
 
         assert result.outcome == ClaimOutcome.ALREADY_AUTHENTICATED
         assert not result.user_slug
-        assert repo.converted == []
+        assert not repo.converted
 
     def test_invalid_when_token_unknown(self):
         repo = FakeRepo(token_valid=False)
@@ -98,4 +98,4 @@ class TestRedeem:
         result = service.redeem(token="bad", username="auth0|new")
 
         assert result.outcome == ClaimOutcome.INVALID
-        assert repo.converted == []
+        assert not repo.converted

@@ -323,8 +323,7 @@ class Auth0LoginCallbackActionView(RedirectView):
             return self.request.di.uow.active_users.read_by_username(userinfo.username)
 
     def _redeem_pending_claim(self, userinfo: Auth0UserInfo) -> UserDTO | None:
-        token = self.request.session.pop("pending_claim_token", "")
-        if not token:
+        if not (token := self.request.session.pop("pending_claim_token", "")):
             return None
         result = self.request.services.claims.redeem(
             token=token, username=userinfo.username
@@ -781,8 +780,7 @@ class ClaimPageView(View):
                 ),
             )
             return redirect("web:index")
-        claimable = request.services.claims.read_claimable(token)
-        if claimable is None:
+        if (claimable := request.services.claims.read_claimable(token)) is None:
             messages.error(
                 request, _("This claim link is invalid or has already been used.")
             )
