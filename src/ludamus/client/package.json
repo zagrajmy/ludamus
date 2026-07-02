@@ -8,14 +8,14 @@
     "build": "tsc --noEmit && vite build",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --max-warnings 0",
+    "lint": "oxlint -c oxlint.config.ts --max-warnings 0",
     "format": "oxfmt --write src"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@hasparus/oxlint-config": "^0.1.0",
+    "@hasparus/oxlint-config": "^0.1.1",
     "@hasparus/tailwind": "1.1.8",
     "@simulacrum/auth0-simulator": "0.11.4",
     "@tailwindcss/typography": "0.5.19",
