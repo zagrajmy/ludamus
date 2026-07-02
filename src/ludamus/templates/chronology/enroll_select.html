@@ -159,6 +159,8 @@
                                             <td class="px-3 py-2.5">
                                                 {% if user_data.user_enrolled %}
                                                     <span class="inline-flex items-center rounded-full bg-success-bg text-success-text px-2.5 py-0.5 text-xs font-medium">{% translate "Already Enrolled" %}</span>
+                                                {% elif user_data.user_offered %}
+                                                    <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "Seat held — awaiting accept" %}</span>
                                                 {% elif user_data.user_waiting %}
                                                     <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "On Waiting List" %}</span>
                                                 {% elif user_data.has_time_conflict %}
@@ -177,14 +179,17 @@
                                                        checked>
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting %}
+                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.user_offered %}
                                                     {% if not user_data.has_time_conflict %}
                                                         <input type="radio"
                                                                class="accent-success"
                                                                name="user_{{ user_data.user.pk }}"
                                                                id="user_{{ user_data.user.pk }}_enroll"
-                                                               aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}"
+                                                               {% if user_data.needs_accept %} aria-label="{% translate "Hold a seat — they confirm" %}: {{ user_data.user.full_name }}" {% else %} aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}" {% endif %}
                                                                value="enroll">
+                                                        {% if user_data.needs_accept %}
+                                                            <span class="block text-xs text-foreground-muted">{% translate "they confirm" %}</span>
+                                                        {% endif %}
                                                     {% else %}
                                                         <span class="text-foreground-muted text-xs">{% translate "Time conflict" %}</span>
                                                     {% endif %}
@@ -193,7 +198,9 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting %}
+                                                {% if user_data.needs_accept or user_data.user_offered %}
+                                                    <span class="text-foreground-muted">-</span>
+                                                {% elif not user_data.user_enrolled and not user_data.user_waiting %}
                                                     <input type="radio"
                                                            class="accent-warning"
                                                            name="user_{{ user_data.user.pk }}"
@@ -205,7 +212,9 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if user_data.user_enrolled or user_data.user_waiting %}
+                                                {% if user_data.is_party_member %}
+                                                    <span class="text-foreground-muted">-</span>
+                                                {% elif user_data.user_enrolled or user_data.user_waiting %}
                                                     <input type="radio"
                                                            class="accent-danger"
                                                            name="user_{{ user_data.user.pk }}"

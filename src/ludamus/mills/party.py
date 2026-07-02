@@ -24,8 +24,11 @@ from ludamus.pacts.party import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.party import (
+        HeldSeatNotification,
         PartiesOverviewDTO,
+        PartyConsentMode,
         PartyDTO,
+        PartyEnrolledNotification,
         PartyMembershipStatus,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
@@ -110,6 +113,20 @@ class PartyService(PartyServiceProtocol):
     def leave(self, *, user_pk: int, party_pk: int) -> bool:
         with self._transaction.atomic():
             return self._parties.leave(user_pk=user_pk, party_pk=party_pk)
+
+    def set_my_consent(
+        self, *, user_pk: int, party_pk: int, mode: PartyConsentMode
+    ) -> bool:
+        with self._transaction.atomic():
+            return self._parties.set_consent(
+                user_pk=user_pk, party_pk=party_pk, mode=mode
+            )
+
+    def announce_member_enrolled(self, notification: PartyEnrolledNotification) -> None:
+        self._notifier.notify_party_enrolled(notification)
+
+    def announce_seat_held(self, notification: HeldSeatNotification) -> None:
+        self._notifier.notify_seat_held(notification)
 
     def enrollment_selection(
         self, *, viewer_pk: int, requested_party: str | None

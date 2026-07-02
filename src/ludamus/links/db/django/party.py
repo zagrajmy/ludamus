@@ -226,6 +226,22 @@ class PartyRepository(PartyRepositoryProtocol):
         ]
 
     @staticmethod
+    def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool:
+        # Only a real member adjusts their own consent; the leader's own row is
+        # meaningless here (self-enrollment needs no consent) and login-less
+        # companions have no say by definition.
+        return bool(
+            PartyMembership.objects.filter(
+                party_id=party_pk,
+                member_id=user_pk,
+                status=PartyMembershipStatus.ACTIVE,
+            )
+            .exclude(party__leader_id=user_pk)
+            .exclude(member__user_type=UserType.CONNECTED)
+            .update(consent_mode=mode)
+        )
+
+    @staticmethod
     def leave(*, user_pk: int, party_pk: int) -> bool:
         deleted, __ = (
             PartyMembership.objects.filter(

@@ -629,3 +629,95 @@ class TestCompanionMembershipWriteThrough:
         membership = PartyMembership.objects.get(member=companion)
         assert membership.party.leader_id == active_user.pk
         assert membership.consent_mode == PartyConsentMode.ACCEPT_BY_DEFAULT
+
+
+class TestPartyConsentActionView:
+    def _party_with_me_as_member(self, active_user):
+        friend = UserFactory(username="friend", name="Frida Friend")
+        party = Party.objects.create(leader=friend, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=friend)
+        return party, PartyMembership.objects.create(
+            party=party,
+            member=active_user,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+
+    def test_post_grants_power_of_attorney(self, authenticated_client, active_user):
+        party, membership = self._party_with_me_as_member(active_user)
+
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-consent", kwargs={"pk": party.pk}),
+            data={"mode": "accept_by_default"},
+        )
+
+        membership.refresh_from_db()
+        assert membership.consent_mode == PartyConsentMode.ACCEPT_BY_DEFAULT
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.SUCCESS, "The leader can now enroll you directly.")],
+        )
+
+    def test_post_revokes_power_of_attorney(self, authenticated_client, active_user):
+        party, membership = self._party_with_me_as_member(active_user)
+        membership.consent_mode = PartyConsentMode.ACCEPT_BY_DEFAULT
+        membership.save()
+
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-consent", kwargs={"pk": party.pk}),
+            data={"mode": "accept_invites"},
+        )
+
+        membership.refresh_from_db()
+        assert membership.consent_mode == PartyConsentMode.ACCEPT_INVITES
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.SUCCESS, "Enrollments now wait for your accept.")],
+        )
+
+    def test_post_rejects_unknown_mode(self, authenticated_client, active_user):
+        party, membership = self._party_with_me_as_member(active_user)
+
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-consent", kwargs={"pk": party.pk}),
+            data={"mode": "whatever"},
+        )
+
+        membership.refresh_from_db()
+        assert membership.consent_mode == PartyConsentMode.ACCEPT_INVITES
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.ERROR, "Could not change this setting.")],
+        )
+
+    def test_leader_cannot_toggle_own_party(self, authenticated_client, active_user):
+        party = Party.objects.create(leader=active_user, name="Moja")
+        membership = PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-consent", kwargs={"pk": party.pk}),
+            data={"mode": "accept_by_default"},
+        )
+
+        membership.refresh_from_db()
+        assert membership.consent_mode == PartyConsentMode.ACCEPT_INVITES
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.ERROR, "Could not change this setting.")],
+        )
+
+    def test_page_renders_toggle_on_own_row(self, authenticated_client, active_user):
+        self._party_with_me_as_member(active_user)
+
+        response = authenticated_client.get(URL)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Allow direct enrollment" in response.content.decode()

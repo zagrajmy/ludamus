@@ -189,6 +189,26 @@
                                                             <span class="sr-only">{% translate "Remove companion" %}</span>
                                                         </button>
                                                     </form>
+                                                {% elif not entry.party.is_leader and row.member.user_pk == request.user.pk %}
+                                                    <form method="post"
+                                                          action="{% url 'web:crowd:parties-consent' pk=entry.party.pk %}">
+                                                        {% csrf_token %}
+                                                        {% if row.member.consent_mode == "accept_invites" %}
+                                                            <input type="hidden" name="mode" value="accept_by_default">
+                                                            <button type="submit"
+                                                                    class="btn btn-secondary btn-sm"
+                                                                    title="{% translate "The leader will be able to enroll you without asking" %}">
+                                                                {% translate "Allow direct enrollment" %}
+                                                            </button>
+                                                        {% else %}
+                                                            <input type="hidden" name="mode" value="accept_invites">
+                                                            <button type="submit"
+                                                                    class="btn btn-secondary btn-sm"
+                                                                    title="{% translate "The leader will need your accept for every enrollment" %}">
+                                                                {% translate "Require my accept" %}
+                                                            </button>
+                                                        {% endif %}
+                                                    </form>
                                                 {% elif entry.party.is_leader and not row.member.is_leader and not row.member.is_login_less %}
                                                     {% if row.member.status == "invited" %}
                                                         <form method="post"

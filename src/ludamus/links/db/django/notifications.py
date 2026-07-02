@@ -23,7 +23,11 @@ from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
-    from ludamus.pacts.party import PartyInviteNotification
+    from ludamus.pacts.party import (
+        HeldSeatNotification,
+        PartyEnrolledNotification,
+        PartyInviteNotification,
+    )
     from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
@@ -129,6 +133,65 @@ class DjangoUserNotifier:
                 body=body,
                 url=reverse("web:crowd:profile-parties"),
                 payload={},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_party_enrolled(self, notification: PartyEnrolledNotification) -> None:
+        url = reverse(
+            "web:chronology:session-enrollment",
+            kwargs={
+                "event_slug": notification.event_slug,
+                "session_id": notification.session_id,
+            },
+        )
+        title = _("%(leader)s enrolled you in %(session)s") % {
+            "leader": notification.actor_name,
+            "session": notification.session_title,
+        }
+        body = _(
+            "You have a confirmed spot. If it does not fit your plans, you "
+            "can cancel on the session page."
+        )
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PARTY_ENROLLED.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={"session_id": notification.session_id},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_seat_held(self, notification: HeldSeatNotification) -> None:
+        url = reverse(
+            "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
+        )
+        deadline = date_format(
+            localtime(notification.offer_expires_at), "DATETIME_FORMAT"
+        )
+        title = _("%(leader)s saved you a seat in %(session)s") % {
+            "leader": notification.actor_name,
+            "session": notification.session_title,
+        }
+        body = _(
+            "The seat is yours once you claim it — do so before %(deadline)s "
+            "or it will be released."
+        ) % {"deadline": deadline}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PARTY_SEAT_HELD.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={
+                    "session_id": notification.session_id,
+                    "claim_token": notification.claim_token,
+                    "offer_expires_at": notification.offer_expires_at.isoformat(),
+                },
             ),
             notification.recipient_email,
         )

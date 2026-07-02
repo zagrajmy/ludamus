@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -286,11 +287,43 @@ def _make_enrollment_clean(
     return clean
 
 
+def _build_held_seat_choices(
+    *,
+    current_participation: SessionParticipation | None,
+    has_conflict: bool,
+    user_can_enroll: bool,
+) -> tuple[list[tuple[str, str]], str]:
+    # An ACCEPT_INVITES member is never seated directly: the leader may only
+    # hold a seat, which the member confirms via the claim link. An existing
+    # participation of theirs is entirely their own business.
+    if current_participation is not None:
+        return [("", _("No change"))], _("They manage their own enrollment")
+    if has_conflict:
+        return [("", _("No change (time conflict)"))], _("Time conflict detected")
+    if not user_can_enroll:
+        return [("", _("No change"))], ""
+    return (
+        [("", _("No change")), ("enroll", _("Hold a seat — they confirm"))],
+        _("The seat is released if they do not claim it in time"),
+    )
+
+
+@dataclass(frozen=True)
+class EnrollmentRoster:
+    """Everyone the viewer can act for on the enroll screen."""
+
+    # Login-less companions of the selected party (the viewer leads it).
+    companions: tuple[UserDTO, ...] = ()
+    # Real co-members of the selected led party, with whether enrolling them
+    # requires their accept (ACCEPT_INVITES) or seats them directly.
+    members: tuple[tuple[UserDTO, bool], ...] = ()
+
+
 def create_enrollment_form(
     *,
     session: Session,
     current_user: UserDTO,
-    connected_users: Iterable[UserDTO],
+    roster: EnrollmentRoster,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
     ticket_api: TicketAPIProtocol,
 ) -> type[forms.Form]:
@@ -316,7 +349,12 @@ def create_enrollment_form(
     form_fields: dict[str, _UserEnrollmentChoiceField] = {}
     field_to_user_name: dict[str, str] = {}
 
-    for user in (current_user, *connected_users):
+    seated_users = [
+        (current_user, False),
+        *((u, False) for u in roster.companions),
+        *roster.members,
+    ]
+    for user, needs_accept in seated_users:
         current_participation = SessionParticipation.objects.filter(
             session=session, user_id=user.pk
         ).first()
@@ -328,18 +366,25 @@ def create_enrollment_form(
             current_user_enrollment_config=current_user_enrollment_config,
         )
 
-        choices, help_text = _build_user_choices(
-            current_participation=current_participation,
-            has_conflict=has_conflict,
-            user_can_enroll=user_can_enroll,
-            can_join_wl=can_join_wl,
-        )
-        if _has_no_actionable_choices(choices) and not has_conflict:
-            choices, help_text = _build_fallback_choices(
-                enrollment_config=enrollment_config,
-                current_user_enrollment_config=current_user_enrollment_config,
-                user=user,
+        if needs_accept:
+            choices, help_text = _build_held_seat_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
             )
+        else:
+            choices, help_text = _build_user_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                can_join_wl=can_join_wl,
+            )
+            if _has_no_actionable_choices(choices) and not has_conflict:
+                choices, help_text = _build_fallback_choices(
+                    enrollment_config=enrollment_config,
+                    current_user_enrollment_config=current_user_enrollment_config,
+                    user=user,
+                )
 
         field_name = f"user_{user.pk}"
         field_to_user_name[field_name] = user.full_name
@@ -362,9 +407,12 @@ def create_enrollment_form(
             ),
         )
 
+    # The membership-slot cap guards the viewer's own allowance, so only the
+    # viewer and their sponsored companions count against it — a real member's
+    # seat spends that member's allowance, not the enroller's.
     clean = _make_enrollment_clean(
         current_user=current_user,
-        connected_users=connected_users,
+        connected_users=roster.companions,
         enrollment_config=enrollment_config,
         current_user_enrollment_config=current_user_enrollment_config,
         field_to_user_name=field_to_user_name,

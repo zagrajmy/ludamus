@@ -177,6 +177,7 @@ class TestSessionEnrollPageView:
                         user=UserDTO.model_validate(active_user),
                         user_enrolled=False,
                         user_waiting=False,
+                        user_offered=True,
                         has_time_conflict=False,
                     )
                 ],
