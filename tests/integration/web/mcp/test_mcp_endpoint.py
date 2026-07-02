@@ -149,7 +149,7 @@ class TestProtocol:
                 "serverInfo": {
                     "name": "ludamus",
                     "title": "Zagrajmy",
-                    "version": "2025-06-18",
+                    "version": "0.1.0",
                 },
             },
         }

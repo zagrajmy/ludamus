@@ -78,11 +78,18 @@ class McpEndpointView(View):
             message = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse(
-                error_response(None, PARSE_ERROR, "Parse error"), status=400
+                error_response(
+                    message_id=None, code=PARSE_ERROR, message="Parse error"
+                ),
+                status=400,
             )
         if not isinstance(message, dict):
             return JsonResponse(
-                error_response(None, PARSE_ERROR, "Expected a JSON-RPC object"),
+                error_response(
+                    message_id=None,
+                    code=PARSE_ERROR,
+                    message="Expected a JSON-RPC object",
+                ),
                 status=400,
             )
 

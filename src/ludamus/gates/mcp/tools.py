@@ -7,6 +7,7 @@ business invariants hold for MCP callers exactly as they do for views.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, TypeAdapter
@@ -161,7 +162,8 @@ class DeleteAnnouncementTool(Tool[_DeleteAnnouncementInput]):
     @staticmethod
     def handle(services: ServicesProtocol, data: _DeleteAnnouncementInput) -> str:
         services.announcements.delete(data.sphere_id, data.announcement_id)
-        return f'{{"deleted": {data.announcement_id}}}'
+        result: dict[str, int] = {"deleted": data.announcement_id}
+        return json.dumps(result)
 
 
 def build_registry() -> ToolRegistry:

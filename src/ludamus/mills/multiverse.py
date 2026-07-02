@@ -169,8 +169,6 @@ class SpherePanelService:
 
 
 class SitesService:
-    """Read-side loader for a sphere's site (domain lookup)."""
-
     def __init__(
         self,
         spheres: SphereRepositoryProtocol,

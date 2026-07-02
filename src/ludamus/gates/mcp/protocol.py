@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 PROTOCOL_VERSION = "2025-06-18"
 _KNOWN_PROTOCOL_VERSIONS = ("2025-03-26", PROTOCOL_VERSION, "2025-11-25")
+SERVER_VERSION = "0.1.0"
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
@@ -28,7 +29,7 @@ INVALID_PARAMS = -32602
 type JsonDict = dict[str, object]
 
 
-def error_response(message_id: object, code: int, message: str) -> JsonDict:
+def error_response(*, message_id: object, code: int, message: str) -> JsonDict:
     return {
         "jsonrpc": "2.0",
         "id": message_id,
@@ -49,12 +50,12 @@ def _initialize_result(params: JsonDict) -> JsonDict:
         "serverInfo": {
             "name": "ludamus",
             "title": "Zagrajmy",
-            "version": PROTOCOL_VERSION,
+            "version": SERVER_VERSION,
         },
     }
 
 
-def _text_result(message_id: object, text: str, *, is_error: bool) -> JsonDict:
+def _text_result(*, message_id: object, text: str, is_error: bool) -> JsonDict:
     return _result(
         message_id, {"content": [{"type": "text", "text": text}], "isError": is_error}
     )
@@ -70,16 +71,24 @@ def _call_tool(
     name = params.get("name")
     arguments = params.get("arguments") or {}
     if not isinstance(name, str) or not isinstance(arguments, dict):
-        return error_response(message_id, INVALID_PARAMS, "Invalid tool call params")
+        return error_response(
+            message_id=message_id,
+            code=INVALID_PARAMS,
+            message="Invalid tool call params",
+        )
     try:
         text = registry.call(services=services, name=name, arguments=arguments)
     except UnknownToolError:
-        return error_response(message_id, INVALID_PARAMS, f"Unknown tool: {name}")
+        return error_response(
+            message_id=message_id, code=INVALID_PARAMS, message=f"Unknown tool: {name}"
+        )
     except NotFoundError:
-        return _text_result(message_id, "Resource not found", is_error=True)
+        return _text_result(
+            message_id=message_id, text="Resource not found", is_error=True
+        )
     except ToolError as error:
-        return _text_result(message_id, str(error), is_error=True)
-    return _text_result(message_id, text, is_error=False)
+        return _text_result(message_id=message_id, text=str(error), is_error=True)
+    return _text_result(message_id=message_id, text=text, is_error=False)
 
 
 def handle_message(
@@ -88,7 +97,9 @@ def handle_message(
     method = message.get("method")
     message_id = message.get("id")
     if not isinstance(method, str):
-        return error_response(message_id, INVALID_REQUEST, "Invalid request")
+        return error_response(
+            message_id=message_id, code=INVALID_REQUEST, message="Invalid request"
+        )
     if message_id is None:
         # A notification (e.g. notifications/initialized): accept, no response.
         return None
@@ -113,5 +124,7 @@ def handle_message(
             )
         case _:
             return error_response(
-                message_id, METHOD_NOT_FOUND, f"Method not found: {method}"
+                message_id=message_id,
+                code=METHOD_NOT_FOUND,
+                message=f"Method not found: {method}",
             )
