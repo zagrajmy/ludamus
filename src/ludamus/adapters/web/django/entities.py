@@ -248,4 +248,5 @@ class SessionUserParticipationData:
     user: UserDTO
     user_enrolled: bool = False
     user_waiting: bool = False
+    user_offered: bool = False
     has_time_conflict: bool = False

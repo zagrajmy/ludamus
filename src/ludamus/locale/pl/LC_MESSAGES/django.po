@@ -2715,6 +2715,10 @@ msgid "On Waiting List"
 msgstr "Na liście oczekujących"
 
 #: src/ludamus/templates/chronology/enroll_select.html
+msgid "Spot on hold"
+msgstr "Miejsce zarezerwowane"
+
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Time Conflict"
 msgstr "Konflikt czasowy"
 

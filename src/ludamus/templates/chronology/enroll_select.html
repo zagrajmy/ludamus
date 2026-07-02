@@ -123,6 +123,8 @@
                                                     <span class="inline-flex items-center rounded-full bg-success-bg text-success-text px-2.5 py-0.5 text-xs font-medium">{% translate "Already Enrolled" %}</span>
                                                 {% elif user_data.user_waiting %}
                                                     <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "On Waiting List" %}</span>
+                                                {% elif user_data.user_offered %}
+                                                    <span class="inline-flex items-center rounded-full bg-info-bg text-info-text px-2.5 py-0.5 text-xs font-medium">{% translate "Spot on hold" %}</span>
                                                 {% elif user_data.has_time_conflict %}
                                                     <span class="inline-flex items-center rounded-full bg-danger-bg text-danger-text px-2.5 py-0.5 text-xs font-medium">{% translate "Time Conflict" %}</span>
                                                 {% else %}
@@ -139,7 +141,7 @@
                                                        checked>
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting %}
+                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.user_offered %}
                                                     {% if not user_data.has_time_conflict %}
                                                         <input type="radio"
                                                                class="accent-success"
@@ -155,7 +157,7 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting %}
+                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.user_offered %}
                                                     <input type="radio"
                                                            class="accent-warning"
                                                            name="user_{{ user_data.user.pk }}"
@@ -173,6 +175,13 @@
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_cancel"
                                                            aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}"
+                                                           value="cancel">
+                                                {% elif user_data.user_offered %}
+                                                    <input type="radio"
+                                                           class="accent-danger"
+                                                           name="user_{{ user_data.user.pk }}"
+                                                           id="user_{{ user_data.user.pk }}_cancel"
+                                                           aria-label="{% translate "Decline offer" %}: {{ user_data.user.full_name }}"
                                                            value="cancel">
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>
