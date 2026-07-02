@@ -1,8 +1,10 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib import messages
+from django.contrib.messages import get_messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -16,7 +18,12 @@ from ludamus.adapters.db.django.models import (
 from ludamus.inits.services import Services
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from tests.integration.conftest import UserFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    SessionFactory,
+    SpaceFactory,
+    UserFactory,
+)
 from tests.integration.utils import assert_response
 
 
@@ -217,3 +224,123 @@ class TestHeldSeatForConsentingMember:
         assert f'id="user_{member.pk}_enroll"' not in content
         assert f'id="user_{member.pk}_cancel"' not in content
         assert response.status_code == HTTPStatus.OK
+
+
+class TestHeldSeatUnavailable:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_member_with_time_conflict_cannot_be_offered_a_seat(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        other = SessionFactory(event=agenda_item.session.event)
+        AgendaItemFactory(
+            session=other,
+            space=SpaceFactory(event=agenda_item.session.event),
+            start_time=agenda_item.start_time,
+            end_time=agenda_item.end_time,
+        )
+        SessionParticipation.objects.create(
+            session=other, user=member, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        content = response.content.decode()
+        assert response.status_code == HTTPStatus.OK
+        assert "Mira Member" in content
+        assert f'id="user_{member.pk}_enroll"' not in content
+        assert "Time conflict" in content
+
+    def test_hold_rejected_when_viewer_lacks_enrollment_access(
+        self, staff_client, staff_user, agenda_item, enrollment_config
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _, member = _led_party_with_member(
+            staff_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+
+        response = staff_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        texts = [str(m) for m in get_messages(response.wsgi_request)]
+        assert (
+            "Mira Member cannot enroll: enrollment access permission required" in texts
+        )
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_pending_invitee_is_not_listed(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, _ = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        invitee = UserFactory(username="invited", name="Iga Invited")
+        PartyMembership.objects.create(
+            party=party,
+            member=invitee,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.INVITED,
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        content = response.content.decode()
+        assert response.status_code == HTTPStatus.OK
+        assert "Mira Member" in content
+        assert "Iga Invited" not in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_race_on_a_member_who_enrolled_themselves_skips(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        # The form rejects "enroll" for a member with a participation, so the
+        # in-processing guard only fires when a competing request seated the
+        # member between form validation and processing — simulated here by
+        # forcing the cleaned data through, as the conflict-race test does.
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=member,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        with patch(
+            "ludamus.adapters.web.django.views.create_enrollment_form"
+        ) as mock_form_factory:
+            mock_form_class = Mock()
+            mock_form_instance = Mock()
+            mock_form_instance.is_valid.return_value = True
+            mock_form_instance.cleaned_data = {f"user_{member.pk}": "enroll"}
+            mock_form_class.return_value = mock_form_instance
+            mock_form_factory.return_value = mock_form_class
+
+            response = authenticated_client.post(
+                _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        "Mira Member (manages their own enrollment)"
+                    ),
+                )
+            ],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+        assert Notification.objects.count() == 0
