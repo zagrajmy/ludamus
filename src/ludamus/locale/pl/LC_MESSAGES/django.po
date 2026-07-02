@@ -3903,44 +3903,6 @@ msgstr ""
 "każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
 
 #: src/ludamus/templates/index.html
-#: src/ludamus/templates/mcp/token.html
-msgid "MCP access token"
-msgstr "Token dostępu MCP"
-
-#: src/ludamus/templates/mcp/token.html
-msgid "Copy the token now — it is shown only once."
-msgstr "Skopiuj token teraz — zostanie pokazany tylko raz."
-
-#: src/ludamus/templates/mcp/token.html
-msgid "Connect an MCP client with the token as a Bearer header, for example:"
-msgstr "Połącz klienta MCP, przekazując token w nagłówku Bearer, na przykład:"
-
-#: src/ludamus/templates/mcp/token.html
-#, python-format
-msgid ""
-"The token expires after %(token_max_age_days)s days and works only while "
-"your account stays a superuser. Anyone holding it can act with your "
-"permissions — keep it secret."
-msgstr ""
-"Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki Twoje "
-"konto pozostaje kontem superużytkownika. Każdy, kto go posiada, może "
-"działać z Twoimi uprawnieniami — trzymaj go w tajemnicy."
-
-#: src/ludamus/templates/mcp/token.html
-#, python-format
-msgid ""
-"Generate a personal token to connect an MCP client (such as Claude Code or "
-"Executor) to the maintainer API. The token is valid for "
-"%(token_max_age_days)s days."
-msgstr ""
-"Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
-"Executor) z API opiekunów serwisu. Token jest ważny przez "
-"%(token_max_age_days)s dni."
-
-#: src/ludamus/templates/mcp/token.html
-msgid "Generate token"
-msgstr "Wygeneruj token"
-
 #: src/ludamus/templates/multiverse/panel/_tabs.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements"
@@ -3961,6 +3923,44 @@ msgstr "Brak dostępnych wydarzeń"
 #: src/ludamus/templates/index.html
 msgid "There are currently no events scheduled. Please check back later!"
 msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
+
+#: src/ludamus/templates/mcp/token.html
+msgid "MCP access token"
+msgstr "Token dostępu MCP"
+
+#: src/ludamus/templates/mcp/token.html
+msgid "Copy the token now — it is shown only once."
+msgstr "Skopiuj token teraz — zostanie pokazany tylko raz."
+
+#: src/ludamus/templates/mcp/token.html
+msgid "Connect an MCP client with the token as a Bearer header, for example:"
+msgstr "Połącz klienta MCP, przekazując token w nagłówku Bearer, na przykład:"
+
+#: src/ludamus/templates/mcp/token.html
+#, python-format
+msgid ""
+"The token expires after %(token_max_age_days)s days and works only while "
+"your account stays a superuser. Anyone holding it can act with your "
+"permissions — keep it secret."
+msgstr ""
+"Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki Twoje "
+"konto pozostaje kontem superużytkownika. Każdy, kto go posiada, może działać "
+"z Twoimi uprawnieniami — trzymaj go w tajemnicy."
+
+#: src/ludamus/templates/mcp/token.html
+#, python-format
+msgid ""
+"Generate a personal token to connect an MCP client (such as Claude Code or "
+"Executor) to the maintainer API. The token is valid for "
+"%(token_max_age_days)s days."
+msgstr ""
+"Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+"Executor) z API opiekunów serwisu. Token jest ważny przez "
+"%(token_max_age_days)s dni."
+
+#: src/ludamus/templates/mcp/token.html
+msgid "Generate token"
+msgstr "Wygeneruj token"
 
 #: src/ludamus/templates/multiverse/panel/_tabs.html
 msgid "Sphere settings sections"
