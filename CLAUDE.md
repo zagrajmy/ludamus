@@ -134,5 +134,7 @@ Strict rules:
   moving views from `request.di.uow` to `request.services`
 - [Testing assertions](docs/agents/testing-assertions.md) — patterns for
   integration tests
+- [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
+  adding tools
 - [URL conventions](docs/CODE_LAYOUT.md)
 - [Testing strategy](docs/TESTING_STRATEGY.md)

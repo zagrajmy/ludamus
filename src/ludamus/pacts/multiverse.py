@@ -116,6 +116,17 @@ class ConnectionsServiceProtocol(Protocol):
     def delete(self, sphere_id: int, pk: int) -> None: ...
 
 
+class SphereListItemDTO(BaseModel):
+    pk: int
+    name: str
+    domain: str
+
+
+class SphereDirectoryRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_all() -> list[SphereListItemDTO]: ...
+
+
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
@@ -138,3 +149,4 @@ class SpherePanelServiceProtocol(Protocol):
 
 class SitesServiceProtocol(Protocol):
     def read_site(self, sphere_id: int) -> SiteDTO: ...
+    def list_spheres(self) -> list[SphereListItemDTO]: ...
