@@ -30,11 +30,7 @@ _POPOVER_CLASS = (
 
 @register.simple_tag
 def tessera_copy_popover() -> str:
-    """Render the copy-confirmation popover for a ``[data-copy]`` button.
-
-    Drop it inside any copy button (which must be ``position: relative`` — the
-    ``.btn`` / ``.icon-btn`` styles already are) that carries ``data-copy`` and
-    ``data-copied-label``; ``copy.ts`` fills and reveals it on a successful copy.
+    """Render the confirmation popover for a bespoke ``[data-copy]`` button.
 
     Returns:
         HTML string of the (initially empty) popover span.
@@ -68,25 +64,22 @@ def tessera_copy(
 ) -> str:
     """Wrap icon/label markup in a button that copies ``copy`` on click.
 
-    The component owns the look — pick a ``variant`` ("button" or "menu-item");
-    the block provides only the icon and label. ``class`` may add layout-only
-    utilities (e.g. a menu row's corner rounding). ``origin=True`` prefixes the
-    current origin, for host-agnostic share paths. The click behaviour and the
-    confirmation popover come from ``copy.ts``.
-
     Returns:
         HTML string of the button wrapping ``content`` plus the popover.
 
     Raises:
-        TemplateSyntaxError: On unknown keyword arguments (likely typos).
+        TemplateSyntaxError: On an unknown variant or keyword argument.
 
     Usage:
-        {% tessera_copy share_url %}
+        {% tessera_copy share_url variant="menu-item" %}
             {% icon "clipboard-document" variant="solid" class="h-4 w-4" %}
             {% translate "Copy link" %}
         {% endtessera_copy %}
     """
     copied_label = copied_label or gettext("Copied!")
+    if variant not in _VARIANT_CLASSES:
+        msg = f"tessera_copy got unknown variant: {variant!r}"
+        raise TemplateSyntaxError(msg)
     # **kwargs exists only because `class` is a reserved word; anything else is
     # a typo (e.g. copied_lable=) and must not vanish silently.
     classes = clsx(_VARIANT_CLASSES[variant], kwargs.pop("class", None))
@@ -111,37 +104,25 @@ def copy_lines(*parts: object) -> str:
     """Join non-empty ``parts`` with newlines — a copy payload for ``tessera_copy``.
 
     Returns:
-        The parts (skipping empties) joined by newlines.
+        The non-empty parts joined by newlines.
     """
     return "\n".join(str(p) for p in parts if p)
 
 
 @register.simple_tag
 def tessera_copy_chip(text: str, *, label: str = "", copied_label: str = "") -> str:
-    """Render a chip that shows ``text``, copies it, and pops a confirmation.
-
-    The chip preset for the common "copy this short value" case: the whole
-    ``text`` is the clickable target (a larger, clearer control than an icon
-    alone); ``label`` is added as visually-hidden text so the button's accessible
-    name is e.g. "@ada Copy to clipboard" — the visible text stays part of the
-    name (WCAG 2.5.3). ``label`` and ``copied_label`` default to the translated
-    "Copy to clipboard" / "Copied!", so callers rarely pass them.
-
-    For buttons with their own look (full-width, menu rows), keep the markup and
-    opt into the behaviour with ``data-copy`` + ``{% tessera_copy_popover %}``.
+    """Render a chip showing ``text``, the short-value copy preset.
 
     Returns:
-        HTML string of the button and its confirmation popover.
+        HTML string of the chip button and its confirmation popover.
 
     Usage:
         {% tessera_copy_chip "@ada" %}
     """
     label = label or gettext("Copy to clipboard")
     copied_label = copied_label or gettext("Copied!")
-    # render_icon returns a SafeString and tessera_copy_popover() a safe span, so
-    # format_html escapes only the caller's data (text/label/copied_label). The
-    # icon renders aria-hidden, so the sr-only label carries the intent for
-    # screen readers.
+    # The visible text is part of the accessible name (WCAG 2.5.3); the sr-only
+    # label (not the aria-hidden icon) carries the copy intent.
     icon_html = render_icon(
         "clipboard", variant="outline", **{"class": "size-4 text-foreground-muted"}
     )

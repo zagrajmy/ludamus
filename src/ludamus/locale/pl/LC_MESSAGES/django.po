@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 02:35+0200\n"
+"POT-Creation-Date: 2026-07-02 03:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4094,6 +4094,10 @@ msgstr "Czy na pewno chcesz usunąć to spotkanie?"
 msgid "Delete encounter"
 msgstr "Usuń spotkanie"
 
+#: src/ludamus/templates/notice_board/_rsvp_copy_details.html
+msgid "Copy details"
+msgstr "Kopiuj szczegóły"
+
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Join"
 msgstr "Dołącz"
@@ -4105,10 +4109,6 @@ msgstr "Dołącz z kontem"
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "Copy details"
-msgstr "Kopiuj szczegóły"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 #: src/ludamus/templates/notice_board/detail.html

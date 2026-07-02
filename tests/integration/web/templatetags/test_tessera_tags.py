@@ -187,6 +187,14 @@ class TestCopyBlock:
         with pytest.raises(TemplateSyntaxError, match="copied_lable"):
             tpl.render(Context({"url": "/e/1/"}))
 
+    def test_unknown_variant_raises(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_copy url variant="menu_item" %}Copy{% endtessera_copy %}'
+        )
+        with pytest.raises(TemplateSyntaxError, match="menu_item"):
+            tpl.render(Context({"url": "/e/1/"}))
+
 
 class TestCopyLines:
     def test_joins_parts_and_skips_empties(self) -> None:
