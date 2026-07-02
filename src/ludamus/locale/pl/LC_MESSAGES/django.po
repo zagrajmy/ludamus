@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 02:59+0200\n"
+"POT-Creation-Date: 2026-07-02 03:36+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -713,6 +713,14 @@ msgstr "Harmonogram bloku"
 #: src/ludamus/adapters/web/django/print_views.py
 msgid "Session list"
 msgstr "Lista punktów programu"
+
+#: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
+msgid "Copied!"
+msgstr "Skopiowano!"
+
+#: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
+msgid "Copy to clipboard"
+msgstr "Skopiuj do schowka"
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Please complete your profile."
@@ -2340,28 +2348,8 @@ msgid "Propose"
 msgstr "Zgłoś"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
-msgid "No sessions scheduled for this time slot"
-msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "be the first to propose!"
-msgstr "bądź pierwszy i zgłoś!"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Not Yet Available"
 msgstr "Jeszcze Niedostępne"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "No sessions or time slots available yet"
-msgstr "Brak dostępnych punktów programu lub przedziałów czasowych"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Be the first to propose a session!"
-msgstr "Bądź pierwszą osobą, która zgłosi punkt programu!"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Sessions will be announced soon."
-msgstr "Punkty programu zostaną wkrótce ogłoszone."
 
 #: src/ludamus/templates/chronology/_compact_schedule.html
 msgid "List"
@@ -3568,11 +3556,6 @@ msgstr "Organizujesz"
 msgid "attending"
 msgstr "uczestników"
 
-#: src/ludamus/templates/components/encounter_card.html
-#: src/ludamus/templates/notice_board/_organizer_actions.html
-msgid "Copied!"
-msgstr "Skopiowano!"
-
 #: src/ludamus/templates/components/event_card.html
 msgid "LIVE"
 msgstr "W TRAKCIE"
@@ -3681,6 +3664,14 @@ msgstr "Oznacz wszystkie jako przeczytane"
 #: src/ludamus/templates/components/notifications.html
 msgid "No notifications yet."
 msgstr "Brak powiadomień."
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Toggle interface sound"
+msgstr "Przełącz dźwięki interfejsu"
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Interface sound (Velvet)"
+msgstr "Dźwięki interfejsu (Velvet)"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"
@@ -3900,10 +3891,6 @@ msgstr[3] ""
 "                                Masz %(counter)s potwierdzonych uczestnictw "
 "w punktach programu.\n"
 "                            "
-
-#: src/ludamus/templates/crowd/user/parts/discord_username.html
-msgid "Copy to clipboard"
-msgstr "Skopiuj do schowka"
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "Shadowbanned players"
@@ -4150,6 +4137,10 @@ msgstr "Czy na pewno chcesz usunąć to spotkanie?"
 msgid "Delete encounter"
 msgstr "Usuń spotkanie"
 
+#: src/ludamus/templates/notice_board/_rsvp_copy_details.html
+msgid "Copy details"
+msgstr "Kopiuj szczegóły"
+
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Join"
 msgstr "Dołącz"
@@ -4161,10 +4152,6 @@ msgstr "Dołącz z kontem"
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "Copy details"
-msgstr "Kopiuj szczegóły"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 #: src/ludamus/templates/notice_board/detail.html
@@ -6621,6 +6608,45 @@ msgstr "Czy na pewno chcesz usunąć ten blok programowy?"
 msgid "No tracks yet. Add a track to organize proposals by thematic area."
 msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Staging inbox"
+msgstr "Skrzynka staging"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Captured emails"
+msgstr "Przechwycone wiadomości"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Received"
+msgstr "Otrzymano"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "To"
+msgstr "Do"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "Subject"
+msgstr "Temat"
+
+#: src/ludamus/templates/staging_email_inbox.html
+msgid "No emails captured yet."
+msgstr "Brak przechwyconych wiadomości."
+
+#~ msgid "No sessions scheduled for this time slot"
+#~ msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
+
+#~ msgid "be the first to propose!"
+#~ msgstr "bądź pierwszy i zgłoś!"
+
+#~ msgid "No sessions or time slots available yet"
+#~ msgstr "Brak dostępnych punktów programu lub przedziałów czasowych"
+
+#~ msgid "Be the first to propose a session!"
+#~ msgstr "Bądź pierwszą osobą, która zgłosi punkt programu!"
+
+#~ msgid "Sessions will be announced soon."
+#~ msgstr "Punkty programu zostaną wkrótce ogłoszone."
 
 #, fuzzy, python-format
 #~| msgid "%(counter)s seat"

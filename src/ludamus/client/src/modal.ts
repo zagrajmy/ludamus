@@ -98,6 +98,10 @@ const ignoreSkippedTransition = (error: unknown): void => {
 
 const MORPH_NAME = "session-morph";
 const CARD_SUPPRESSED = "session-card-suppressed";
+// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
+// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
+const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
+const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
@@ -133,6 +137,10 @@ const setContainerMorph = (root: HTMLElement, active: boolean): void => {
 const setMorph = (root: HTMLElement, active: boolean): void => {
   setContainerMorph(root, active);
   setSubMorph(root, active);
+};
+
+const setRootMorph = (className: string, active: boolean): void => {
+  document.documentElement.classList.toggle(className, active);
 };
 
 const morphTransition = (steps: {
@@ -177,8 +185,12 @@ const openModal = async (
     if (animate && canMorph(card)) {
       openingModals.add(id);
       morphPromise = morphTransition({
-        before: () => setMorph(card, true),
+        before: () => {
+          setRootMorph(ROOT_MORPH_OPEN, true);
+          setMorph(card, true);
+        },
         settle: () => {
+          setRootMorph(ROOT_MORPH_OPEN, false);
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -218,8 +230,12 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        before: () => setContainerMorph(dialog, true),
+        before: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, true);
+          setContainerMorph(dialog, true);
+        },
         settle: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, false);
           setContainerMorph(card, false);
         },
         swap: () => {

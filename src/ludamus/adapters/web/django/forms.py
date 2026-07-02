@@ -20,16 +20,14 @@ from ludamus.adapters.db.django.models import (
     get_used_slots,
     get_vc_available_slots,
 )
-from ludamus.mills import get_user_enrollment_config
+from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
     TicketAPIProtocol,
-    UserData,
-    UserDTO,
-    UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.crowd import UserData, UserDTO, UserType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable

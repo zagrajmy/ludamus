@@ -75,7 +75,9 @@
                         </div>
                     </div>
                 {% else %}
-                    {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm -translate-y-[.5px]" show_icon="" text="" %}
+                    <span class="inline-flex -translate-y-[.5px]">
+                        {% include "components/login_button.html" with next=request.build_absolute_uri extra_class="text-sm" show_icon="" text="" %}
+                    </span>
                 {% endif %}
             </div>
         </div>

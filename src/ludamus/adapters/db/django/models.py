@@ -22,16 +22,17 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
     SpherePage,
-    UserType,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
 
-    from ludamus.pacts import EventDTO, UserDTO
+    from ludamus.pacts import EventDTO
+    from ludamus.pacts.crowd import UserDTO
 
 
 MAX_SLUG_RETRIES = 10

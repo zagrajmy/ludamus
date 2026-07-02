@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import User
-from ludamus.pacts import UserDTO, UserType
+from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.utils import assert_response
 
 

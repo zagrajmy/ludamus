@@ -15,8 +15,8 @@ if TYPE_CHECKING:
         LocationData,
         SessionDTO,
         SessionFieldValueDTO,
-        UserDTO,
     )
+    from ludamus.pacts.crowd import UserDTO
 
 
 @dataclass

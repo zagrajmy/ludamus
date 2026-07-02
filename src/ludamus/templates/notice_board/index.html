@@ -73,19 +73,5 @@
             var banner = document.getElementById('encounters-info-banner');
             if (banner) banner.style.display = 'none';
         }
-
-        document.querySelectorAll('.encounter-copy-link').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var url = window.location.origin + btn.dataset.url;
-                var textEl = btn.querySelector('.encounter-copy-link-text');
-                navigator.clipboard.writeText(url).then(function() {
-                    var orig = textEl.textContent;
-                    textEl.textContent = btn.dataset.copiedText;
-                    setTimeout(function() {
-                        textEl.textContent = orig;
-                    }, 2000);
-                });
-            });
-        });
     </script>
 {% endblock extra_scripts %}

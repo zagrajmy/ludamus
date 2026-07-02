@@ -12,8 +12,8 @@ from ludamus.adapters.db.django.models import (
     Session,
     SessionField,
 )
+from ludamus.links.db.django.crowd import ConnectedUserRepository
 from ludamus.links.db.django.repositories import (
-    ConnectedUserRepository,
     EventRepository,
     ProposalCategoryRepository,
     SessionRepository,

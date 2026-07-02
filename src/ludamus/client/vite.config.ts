@@ -37,6 +37,7 @@ export default defineConfig({
       input: {
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
+        copy: resolve(rootDir, "src/copy.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
@@ -54,6 +55,7 @@ export default defineConfig({
         "space-tree": resolve(rootDir, "src/space-tree.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
+        "velvet-sound": resolve(rootDir, "src/velvet-sound.ts"),
       },
     },
   },

@@ -56,6 +56,7 @@
         {% vite_asset 'src/django-hmr.ts' %}
         {% vite_asset 'src/menu.ts' %}
         {% vite_asset 'src/flash.ts' %}
+        {% vite_asset 'src/copy.ts' %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
         {% block extra_head %}
         {% endblock extra_head %}
@@ -101,7 +102,10 @@
                 {% block site_footer %}
                     <footer class="border-t py-6 bg-bg-secondary border-border">
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <div class="flex justify-end mb-4">{% include "components/theme_switcher.html" %}</div>
+                            <div class="flex justify-end items-center gap-2 mb-4">
+                                {% include "components/sound_switcher.html" %}
+                                {% include "components/theme_switcher.html" %}
+                            </div>
                             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
                                 <p class="text-center sm:text-left">
                                     © {% now "Y" %} Radosław Ganczarek.
@@ -130,6 +134,7 @@
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
+        {% vite_asset 'src/velvet-sound.ts' %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>
