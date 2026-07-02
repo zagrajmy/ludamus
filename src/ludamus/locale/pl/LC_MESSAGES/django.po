@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 03:41+0200\n"
+"POT-Creation-Date: 2026-07-02 04:34+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -810,15 +810,15 @@ msgstr ""
 "profil: %(url)s"
 
 #: src/ludamus/adapters/web/django/views.py
+msgid "This claim link is invalid or has already been used."
+msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
+
+#: src/ludamus/adapters/web/django/views.py
 msgid ""
 "You're already signed in. Log out first to claim this profile into a new "
 "account."
 msgstr ""
 "Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This claim link is invalid or has already been used."
-msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Avatar preference updated successfully!"
