@@ -73,8 +73,7 @@ def _call_tool(
     params: JsonDict,
 ) -> JsonDict:
     name = params.get("name")
-    arguments = params.get("arguments")
-    if arguments is None:
+    if (arguments := params.get("arguments")) is None:
         arguments = {}
     outcome, response = _run_tool(
         registry=registry,
@@ -85,8 +84,10 @@ def _call_tool(
     )
     # Audit trail (#480): one line per tools/call. Only the actor id is
     # threaded in on purpose; a richer actor context is #481.
+    # %r on client-controlled values: repr escapes newlines, so a crafted
+    # tool name cannot inject fake audit lines.
     logger.info(
-        "mcp.tools_call user_id=%s tool=%s outcome=%s arguments=%s",
+        "mcp.tools_call user_id=%s tool=%r outcome=%s arguments=%r",
         actor_id,
         name,
         outcome,

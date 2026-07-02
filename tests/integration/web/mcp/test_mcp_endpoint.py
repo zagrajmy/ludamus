@@ -412,7 +412,7 @@ class TestAudit:
             {"sphere_id": sphere.pk},
         )
         assert records[0].getMessage() == (
-            f"mcp.tools_call user_id={superuser.pk} tool=get_sphere outcome=ok "
+            f"mcp.tools_call user_id={superuser.pk} tool='get_sphere' outcome=ok "
             f"arguments={{'sphere_id': {sphere.pk}}}"
         )
 
