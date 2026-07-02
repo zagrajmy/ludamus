@@ -2,7 +2,7 @@
 
 Zagrajmy exposes a maintainer-only [MCP](https://modelcontextprotocol.io)
 server over HTTP, so AI agents (Claude Code, Cursor, Executor, …) can operate
-the platform through the same services views use — never around them.
+the platform through the same services the views use, never around them.
 
 ## Access
 
@@ -24,8 +24,8 @@ flag in Django admin; rotate everything by changing `SECRET_KEY`.
 
 ## Architecture
 
-The MCP gate follows GLIMPSE; it is a transport, not an agent — no model, no
-LLM dependency, no decision-making in the app.
+The MCP gate follows GLIMPSE. It is a transport, not an agent: the app has no
+model and no LLM dependency, and makes no decisions on its own.
 
 <!-- markdownlint-disable MD013 -->
 
@@ -39,27 +39,30 @@ LLM dependency, no decision-making in the app.
 <!-- markdownlint-enable MD013 -->
 
 Tools call `request.services.<service>` exactly like views, so business
-invariants and transactions hold for MCP callers. The surface is deliberately
-hand-curated: each tool is a considered maintainer operation, not an
-auto-export of every service method.
+invariants and transactions hold for MCP callers. Every tool is written by
+hand as a considered maintainer operation; we do not auto-export service
+methods.
 
 ## Roadmap (decided, not yet built)
 
 Decisions from the WebMCP/Executor design discussion (July 2026), so they
 don't get re-derived or contradicted:
 
-- **Maintainer tier first** (this implementation). No agent lives in the app —
-  the app is a tool server; agents run in maintainers' own MCP clients.
-  [Executor](https://github.com/RhysSullivan/executor) is the recommended
-  client-side control plane (catalog, policy, pause-for-approval, audit).
-- **Organizer / attendee tiers later**: same registry, scope-tagged tools,
-  separate endpoints per trust level. An endpoint must only load the tools of
-  its tier — filtering, not policy checks, is the boundary.
-- **WebMCP later**: when the W3C `navigator.modelContext` API stabilises,
-  annotate existing forms (declarative API) so in-browser agents act in the
-  user's own session. Same tool definitions, different transport.
-- Keep the surface curated and small; if it ever grows large, expose search
-  over tools rather than dumping the whole catalog into agent context.
+- The maintainer tier comes first (this implementation). No agent lives in
+  the app: the app is a tool server, and agents run in maintainers' own MCP
+  clients. [Executor](https://github.com/RhysSullivan/executor) is the
+  recommended client-side control plane (catalog, policy, pause-for-approval,
+  audit).
+- Organizer and attendee tiers come later, on the same registry: scope-tagged
+  tools and a separate endpoint per trust level. An endpoint loads only the
+  tools of its tier, so the security boundary is filtering at wiring time
+  rather than per-call policy checks.
+- WebMCP also comes later. Once the W3C `navigator.modelContext` API
+  stabilizes, annotate existing forms (declarative API) so in-browser agents
+  act in the user's own session, reusing the same tool definitions over a
+  different transport.
+- Keep the surface small. If it ever grows large, expose search over tools
+  instead of dumping the whole catalog into agent context.
 
 ## Adding a tool
 
@@ -71,5 +74,5 @@ don't get re-derived or contradicted:
 3. Add integration tests in `tests/integration/web/mcp/` (tools/list order and
    a tools/call case).
 
-Domain errors: raise nothing new — `NotFoundError` and invalid arguments are
-already mapped to MCP `isError` results; unknown tools to JSON-RPC errors.
+Domain errors need no new plumbing: `NotFoundError` and invalid arguments
+already map to MCP `isError` results, and unknown tools to JSON-RPC errors.
