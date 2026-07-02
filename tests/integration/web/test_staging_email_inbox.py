@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
+from ludamus.adapters.web.django.views import CapturedEmail
 from tests.integration.utils import assert_response, assert_response_404
 
 URL = reverse("web:staging-emails")
@@ -68,12 +69,12 @@ class TestStagingEmailInboxView:
             HTTPStatus.OK,
             context_data={
                 "emails": [
-                    {
-                        "subject": "A spot opened",
-                        "to": "player@example.com",
-                        "date": "Wed, 01 Jul 2026 12:00:00 -0000",
-                        "body": "Claim it before it goes to the next person.",
-                    }
+                    CapturedEmail(
+                        subject="A spot opened",
+                        to="player@example.com",
+                        date="Wed, 01 Jul 2026 12:00:00 -0000",
+                        body="Claim it before it goes to the next person.",
+                    )
                 ]
             },
             template_name="staging_email_inbox.html",
@@ -98,7 +99,7 @@ class TestStagingEmailInboxView:
 
         response = staff_client.get(URL)
 
-        subjects = [email["subject"] for email in response.context_data["emails"]]
+        subjects = [email.subject for email in response.context_data["emails"]]
         assert subjects == ["Newer", "Older"], subjects
 
     def test_non_ascii_body_decoded(self, staff_client, settings, tmp_path):
@@ -123,12 +124,12 @@ class TestStagingEmailInboxView:
             HTTPStatus.OK,
             context_data={
                 "emails": [
-                    {
-                        "subject": "A spot opened — claim it",
-                        "to": "gość@example.com",
-                        "date": "",
-                        "body": "Zajmij miejsce — zanim przepadnie.",
-                    }
+                    CapturedEmail(
+                        subject="A spot opened — claim it",
+                        to="gość@example.com",
+                        date="",
+                        body="Zajmij miejsce — zanim przepadnie.",
+                    )
                 ]
             },
             template_name="staging_email_inbox.html",

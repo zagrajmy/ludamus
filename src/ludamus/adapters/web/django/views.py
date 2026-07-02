@@ -8,7 +8,7 @@ from email import message_from_bytes, policy
 from enum import StrEnum, auto
 from pathlib import Path
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from urllib.parse import quote_plus, urlencode, urlparse
 
 from django import forms
@@ -464,10 +464,17 @@ class DesignPageView(TemplateView):
         return context
 
 
-def _read_captured_emails(directory: Path) -> list[dict[str, str]]:
+class CapturedEmail(NamedTuple):
+    subject: str
+    to: str
+    date: str
+    body: str
+
+
+def _read_captured_emails(directory: Path) -> list[CapturedEmail]:
     if not directory.exists():
         return []
-    emails: list[dict[str, str]] = []
+    emails: list[CapturedEmail] = []
     for log_file in sorted(directory.glob("*.log"), reverse=True):
         for chunk in reversed(log_file.read_bytes().split(b"-" * 79)):
             if not (raw := chunk.strip()):
@@ -475,12 +482,12 @@ def _read_captured_emails(directory: Path) -> list[dict[str, str]]:
             message = message_from_bytes(raw, policy=policy.default)
             body = message.get_body(preferencelist=("plain", "html"))
             emails.append(
-                {
-                    "subject": str(message["Subject"] or ""),
-                    "to": str(message["To"] or ""),
-                    "date": str(message["Date"] or ""),
-                    "body": body.get_content() if body else "",
-                }
+                CapturedEmail(
+                    subject=str(message["Subject"] or ""),
+                    to=str(message["To"] or ""),
+                    date=str(message["Date"] or ""),
+                    body=body.get_content() if body else "",
+                )
             )
     return emails
 
