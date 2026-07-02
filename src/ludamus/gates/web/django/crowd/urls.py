@@ -25,6 +25,11 @@ urlpatterns = [
         name="parties-invite",
     ),
     path(
+        "profile/parties/<int:pk>/do/consent",
+        views.PartyConsentActionView.as_view(),
+        name="parties-consent",
+    ),
+    path(
         "profile/parties/<int:pk>/do/leave",
         views.PartyLeaveActionView.as_view(),
         name="parties-leave",

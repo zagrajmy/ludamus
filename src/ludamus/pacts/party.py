@@ -1,11 +1,10 @@
 """Party subdomain contracts. See RFC 0001.
 
 The drużyna: the group that enrolls together. DTOs and ports for party CRUD,
-membership invites, and the companion (login-less member) lifecycle.
+membership invites, consent, and the companion (login-less member) lifecycle.
 """
 
-from __future__ import annotations
-
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
@@ -136,6 +135,25 @@ class PartyInviteNotification(BaseModel):
     leader_name: str
 
 
+class PartyEnrolledNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str
+    actor_name: str
+    session_id: int
+    session_title: str
+    event_slug: str
+
+
+class HeldSeatNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str
+    actor_name: str
+    session_id: int
+    session_title: str
+    claim_token: str
+    offer_expires_at: datetime
+
+
 class InvitedUserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -181,10 +199,15 @@ class PartyRepositoryProtocol(Protocol):
     def led_party_companions(
         *, leader_pk: int, party_pk: int
     ) -> list[ConnectedUserDTO]: ...
+    @staticmethod
+    def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
 
 
 class PartyNotifierProtocol(Protocol):
     def notify_party_invited(self, notification: PartyInviteNotification) -> None: ...
+    def notify_party_enrolled(
+        self, notification: PartyEnrolledNotification
+    ) -> None: ...
 
 
 class PartyServiceProtocol(Protocol):
@@ -202,3 +225,9 @@ class PartyServiceProtocol(Protocol):
     def enrollment_selection(
         self, *, viewer_pk: int, requested_party: str | None
     ) -> EnrollmentPartiesDTO: ...
+    def set_my_consent(
+        self, *, user_pk: int, party_pk: int, mode: PartyConsentMode
+    ) -> bool: ...
+    def announce_member_enrolled(
+        self, notification: PartyEnrolledNotification
+    ) -> None: ...

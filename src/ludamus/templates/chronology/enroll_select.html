@@ -159,6 +159,10 @@
                                             <td class="px-3 py-2.5">
                                                 {% if user_data.user_enrolled %}
                                                     <span class="inline-flex items-center rounded-full bg-success-bg text-success-text px-2.5 py-0.5 text-xs font-medium">{% translate "Already Enrolled" %}</span>
+                                                {% elif user_data.seat_held %}
+                                                    <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "Seat held — awaiting their approval" %}</span>
+                                                {% elif user_data.offer_pending %}
+                                                    <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "Spot offered" %}</span>
                                                 {% elif user_data.user_waiting %}
                                                     <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "On Waiting List" %}</span>
                                                 {% elif user_data.has_time_conflict %}
@@ -177,14 +181,19 @@
                                                        checked>
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting %}
-                                                    {% if not user_data.has_time_conflict %}
+                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.seat_held and not user_data.offer_pending %}
+                                                    {% if user_data.membership.blocked %}
+                                                        <span class="text-foreground-muted text-xs">{% translate "Access required" %}</span>
+                                                    {% elif not user_data.has_time_conflict %}
                                                         <input type="radio"
                                                                class="accent-success"
                                                                name="user_{{ user_data.user.pk }}"
                                                                id="user_{{ user_data.user.pk }}_enroll"
-                                                               aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}"
+                                                               {% if user_data.membership.needs_accept %} aria-label="{% translate "Hold a seat — needs their approval" %}: {{ user_data.user.full_name }}" {% else %} aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}" {% endif %}
                                                                value="enroll">
+                                                        {% if user_data.membership.needs_accept %}
+                                                            <span class="block text-xs text-foreground-muted">{% translate "needs their approval" %}</span>
+                                                        {% endif %}
                                                     {% else %}
                                                         <span class="text-foreground-muted text-xs">{% translate "Time conflict" %}</span>
                                                     {% endif %}
@@ -193,7 +202,9 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting %}
+                                                {% if user_data.membership.needs_accept or user_data.membership.blocked or user_data.seat_held or user_data.offer_pending %}
+                                                    <span class="text-foreground-muted">-</span>
+                                                {% elif not user_data.user_enrolled and not user_data.user_waiting %}
                                                     <input type="radio"
                                                            class="accent-warning"
                                                            name="user_{{ user_data.user.pk }}"
@@ -205,13 +216,27 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if user_data.user_enrolled or user_data.user_waiting %}
+                                                {% if user_data.seat_held %}
+                                                    {# The held seat is the leader's pending offer, not the member's own enrollment — withdrawing it is allowed. #}
                                                     <input type="radio"
                                                            class="accent-danger"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_cancel"
-                                                           aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}"
+                                                           aria-label="{% translate "Withdraw held seat" %}: {{ user_data.user.full_name }}"
                                                            value="cancel">
+                                                    <span class="block text-xs text-foreground-muted">{% translate "withdraw" %}</span>
+                                                {% elif user_data.membership.is_member %}
+                                                    <span class="text-foreground-muted">-</span>
+                                                {% elif user_data.user_enrolled or user_data.user_waiting or user_data.offer_pending %}
+                                                    <input type="radio"
+                                                           class="accent-danger"
+                                                           name="user_{{ user_data.user.pk }}"
+                                                           id="user_{{ user_data.user.pk }}_cancel"
+                                                           {% if user_data.offer_pending %} aria-label="{% translate "Decline offer" %}: {{ user_data.user.full_name }}" {% else %} aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}" {% endif %}
+                                                           value="cancel">
+                                                    {% if user_data.offer_pending %}
+                                                        <span class="block text-xs text-foreground-muted">{% translate "decline offer" %}</span>
+                                                    {% endif %}
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>
                                                 {% endif %}

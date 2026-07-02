@@ -11,7 +11,12 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.crowd.forms import PartyInviteForm, PartyNameForm
 from ludamus.gates.web.django.crowd.helpers import build_parties_context
-from ludamus.pacts.party import DeletePartyOutcome, InviteOutcome, PartyMembershipStatus
+from ludamus.pacts.party import (
+    DeletePartyOutcome,
+    InviteOutcome,
+    PartyConsentMode,
+    PartyMembershipStatus,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -161,6 +166,30 @@ class PartyMemberRemoveActionView(LoginRequiredMixin, View):
             messages.success(request, _("Member removed."))
         else:
             messages.error(request, _("Could not remove this member."))
+        return redirect("web:crowd:profile-parties")
+
+
+class PartyConsentActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        # Power of attorney (O-9): a member grants or revokes the leader's
+        # right to seat them without asking.
+        try:
+            mode = PartyConsentMode(request.POST.get("mode", ""))
+        except ValueError:
+            messages.error(request, _("Could not change this setting."))
+            return redirect("web:crowd:profile-parties")
+        if request.services.parties.set_my_consent(
+            user_pk=request.context.current_user_id, party_pk=pk, mode=mode
+        ):
+            if mode == PartyConsentMode.ACCEPT_BY_DEFAULT:
+                messages.success(request, _("The leader can now enroll you directly."))
+            else:
+                messages.success(request, _("Enrollments now wait for your approval."))
+        else:
+            messages.error(request, _("Could not change this setting."))
         return redirect("web:crowd:profile-parties")
 
 

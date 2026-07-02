@@ -15,6 +15,8 @@ from ludamus.pacts.legacy import PromotionMode
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.party import HeldSeatNotification
+
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
 # integer comparison in the pure selection invariant.
 UNLIMITED_SLOTS = 1_000_000_000
@@ -121,6 +123,27 @@ class ClaimResult(BaseModel):
     reason: str | None = None
 
 
+class SeatHoldRequest(BaseModel):
+    # A leader holding a seat for an ACCEPT_INVITES party member (RFC 0001
+    # O-9): the member confirms via the claim link before the seat is theirs.
+    session_id: int
+    session_title: str
+    user_id: int
+    user_email: str
+    party_id: int | None
+    actor_name: str
+
+
+class HeldSeatData(BaseModel):
+    # The OFFERED row a held seat materialises as.
+    session_id: int
+    user_id: int
+    party_id: int | None
+    offered_at: datetime
+    offer_expires_at: datetime
+    claim_token: str
+
+
 class PromotionNotification(BaseModel):
     recipient_user_id: int
     recipient_email: str
@@ -186,6 +209,10 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
         claim_token: str,
     ) -> None: ...
 
+    def create_offered(self, seat: HeldSeatData) -> int: ...
+
+    def read_offer_claim_window(self, session_id: int) -> timedelta: ...
+
     def read_offer_by_token(self, token: str) -> OfferDTO | None: ...
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...
@@ -201,6 +228,7 @@ class UserNotifierProtocol(Protocol):
     def notify_promoted(self, notification: PromotionNotification) -> None: ...
     def notify_offered(self, notification: OfferNotification) -> None: ...
     def notify_offer_expired(self, notification: PromotionNotification) -> None: ...
+    def notify_seat_held(self, notification: HeldSeatNotification) -> None: ...
 
 
 class OfferExpirySchedulerProtocol(Protocol):
@@ -209,6 +237,8 @@ class OfferExpirySchedulerProtocol(Protocol):
 
 class WaitlistPromotionServiceProtocol(Protocol):
     def fill_freed_seats(self, *, session_id: int) -> PromotionResult: ...
+    def hold_seat(self, *, hold: SeatHoldRequest) -> None: ...
     def peek_offer(self, *, token: str) -> OfferDTO | None: ...
     def claim_offer(self, *, token: str) -> ClaimResult: ...
+    def decline_offer(self, *, token: str) -> ClaimResult: ...
     def expire_offer(self, *, participation_id: int) -> PromotionResult: ...

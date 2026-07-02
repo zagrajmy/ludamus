@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email import message_from_bytes, policy
 from enum import StrEnum, auto
@@ -49,12 +49,14 @@ from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
+    PartyMemberFlags,
     SessionData,
     SessionUserParticipationData,
     build_display_field_row,
     build_room_lanes,
     build_schedule_days,
 )
+from ludamus.adapters.web.django.forms import EnrollmentRoster, RosterMember
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.crowd.helpers import (
     COMPANION_CREATE_AUTO_ID,
@@ -87,6 +89,12 @@ from ludamus.pacts import (
     SpherePage,
 )
 from ludamus.pacts.crowd import ClaimOutcome, ConnectedUserDTO, UserData, UserDTO
+from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.party import (
+    PartyConsentMode,
+    PartyEnrolledNotification,
+    PartyMembershipStatus,
+)
 
 from .design_fixtures import (
     mock_event_info,
@@ -105,7 +113,7 @@ from .forms import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.party import EnrollmentPartiesDTO
+    from ludamus.pacts.party import EnrollmentPartiesDTO, SelectedEnrollmentPartyDTO
 
 logger = logging.getLogger(__name__)
 
@@ -1452,6 +1460,11 @@ class EnrollmentRequest:
     user: UserDTO
     choice: EnrollmentChoice
     name: str = _("yourself")
+    # A real co-member of the selected party (not the viewer, not a
+    # companion): they are notified about seats taken on their behalf.
+    is_party_member: bool = False
+    # ACCEPT_INVITES member: "enroll" holds an OFFERED seat they must claim.
+    needs_accept: bool = False
 
 
 @dataclass
@@ -1470,7 +1483,18 @@ class Enrollments:
         # (user_id, name) of fresh enrol/waitlist sign-ups, so the caller can
         # warn the presenter about shadowbanned players after commit.
         self.signed_up_users: list[tuple[int, str]] = []
+        # Seats taken for real party members, announced to them after commit.
+        self.party_notices = PartyNotices()
         super().__init__()
+
+
+@dataclass
+class PartyNotices:
+    # ACCEPT_INVITES members to hold seats for (created via the promotion
+    # service at the end of the batch).
+    held_seats: list[UserDTO] = field(default_factory=list)
+    # Real members seated directly (ACCEPT_BY_DEFAULT).
+    enrolled_members: list[UserDTO] = field(default_factory=list)
 
 
 def _get_session_or_redirect(
@@ -1544,6 +1568,23 @@ class SessionOfferClaimView(View):
         return redirect("web:events")
 
 
+class SessionOfferDeclineView(View):
+    """Login-free decline of an offered spot via its token link.
+
+    The way out of a seat held by a party leader (or an unwanted waitlist
+    offer): drops the offered rows and rolls the freed seats on.
+    """
+
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        result = request.services.waitlist_promotion.decline_offer(token=token)
+        if result.success and result.event_slug:
+            messages.success(request, _("Offer declined — the seat was released."))
+            return redirect("web:chronology:event", slug=result.event_slug)
+        messages.error(request, _("This offer is no longer available or has expired."))
+        return redirect("web:events")
+
+
 class NotificationsMarkReadView(LoginRequiredMixin, View):
     """POST: mark all of the current user's notifications as read."""
 
@@ -1568,12 +1609,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
         selection = self._party_selection(session, request.GET.get("party"))
+        members = self._party_members(session, selection.selected)
         form = create_enrollment_form(
             session=session,
             current_user=self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            connected_users=selection.companions,
+            roster=EnrollmentRoster(
+                companions=tuple(selection.companions), members=tuple(members)
+            ),
             enrollment_config_repo=request.di.uow.enrollment_configs,
             ticket_api=request.di.ticket_api,
         )()
@@ -1581,7 +1625,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return TemplateResponse(
             request,
             "chronology/enroll_select.html",
-            self._page_context(session=session, selection=selection, form=form),
+            self._page_context(
+                session=session, selection=selection, form=form, members=members
+            ),
         )
 
     def _party_selection(
@@ -1601,7 +1647,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return selection
 
     def _page_context(
-        self, *, session: Session, selection: EnrollmentPartiesDTO, form: forms.Form
+        self,
+        *,
+        session: Session,
+        selection: EnrollmentPartiesDTO,
+        form: forms.Form,
+        members: list[RosterMember],
     ) -> dict[str, Any]:
         return {
             "session": session,
@@ -1610,7 +1661,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "selected_party": selection.selected,
             "connected_users": selection.companions,
             "user_data": self._get_user_participation_data(
-                session, selection.companions
+                session, selection.companions, members
             ),
             # Frontload the decision: warn the viewer up top if players they
             # shadowbanned are already signed up to this session.
@@ -1619,6 +1670,60 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             ),
             "form": form,
         }
+
+    def _party_members(
+        self, session: Session, selected: SelectedEnrollmentPartyDTO | None
+    ) -> list[RosterMember]:
+        # Real ACTIVE co-members of the viewer's selected led party. Whether a
+        # member can be seated directly follows their consent (O-9): only
+        # ACCEPT_INVITES members require the held-seat accept round-trip.
+        if selected is None or not selected.is_own_led:
+            return []
+        eligible = [
+            member
+            for member in selected.members
+            if not member.is_leader
+            and not member.is_login_less
+            and member.status == PartyMembershipStatus.ACTIVE
+        ]
+        if not eligible:
+            return []
+        users = {
+            user.pk: user
+            for user in self.request.di.uow.active_users.read_by_ids(
+                [member.user_pk for member in eligible]
+            )
+        }
+        enrollment_config = session.event.get_most_liberal_config(session)
+        restricted = bool(
+            enrollment_config and enrollment_config.restrict_to_configured_users
+        )
+        return [
+            RosterMember(
+                user=users[member.user_pk],
+                needs_accept=member.consent_mode == PartyConsentMode.ACCEPT_INVITES,
+                can_enroll=(
+                    not restricted
+                    or self._member_has_access(session, users[member.user_pk])
+                ),
+            )
+            for member in eligible
+            if member.user_pk in users
+        ]
+
+    def _member_has_access(self, session: Session, user: UserDTO) -> bool:
+        # On a restricted event a member's seat spends that member's own
+        # allowance, so a member without slots cannot be seated by the leader.
+        if not user.email:
+            return False
+        config = get_user_enrollment_config(
+            event=EventDTO.model_validate(session.event),
+            user_email=user.email,
+            enrollment_config_repo=self.request.di.uow.enrollment_configs,
+            ticket_api=self.request.di.ticket_api,
+            check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+        )
+        return bool(config and config.allowed_slots)
 
     @staticmethod
     def _validate_request(
@@ -1650,7 +1755,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return enrollment_config
 
     def _get_user_participation_data(
-        self, session: Session, companions: list[ConnectedUserDTO]
+        self,
+        session: Session,
+        companions: list[ConnectedUserDTO],
+        members: list[RosterMember],
     ) -> list[SessionUserParticipationData]:
         user_data: list[SessionUserParticipationData] = []
 
@@ -1659,7 +1767,16 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.context.current_user_slug
             ),
             *companions,
+            *(member.user for member in members),
         ]
+        flags_by_pk = {
+            member.user.pk: PartyMemberFlags(
+                is_member=True,
+                needs_accept=member.needs_accept,
+                blocked=not member.can_enroll,
+            )
+            for member in members
+        }
 
         # Bulk fetch all participations for the event and users
         user_participations = SessionParticipation.objects.filter(
@@ -1677,6 +1794,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Add enrollment status and time conflict info for each connected user
         for user in all_users:
             user_parts = participations_by_user.get(user.pk, [])
+            membership = flags_by_pk.get(user.pk, PartyMemberFlags())
+            offered = any(
+                p.status == SessionParticipationStatus.OFFERED and p.session == session
+                for p in user_parts
+            )
 
             data = SessionUserParticipationData(
                 user=user,
@@ -1690,6 +1812,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     and p.session == session
                     for p in user_parts
                 ),
+                # An OFFERED row on a needs-accept member of the viewer's own
+                # party is a seat held for them; any other OFFERED row keeps
+                # the generic pending-offer treatment.
+                seat_held=offered and membership.needs_accept,
+                offer_pending=offered and not membership.needs_accept,
+                membership=membership,
                 has_time_conflict=any(
                     session.agenda_item.overlaps_with(p.session.agenda_item)
                     for p in user_parts
@@ -1705,7 +1833,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
         selection = self._party_selection(session, request.POST.get("party"))
-        companions = selection.companions
+        members = self._party_members(session, selection.selected)
+        roster = EnrollmentRoster(
+            companions=tuple(selection.companions), members=tuple(members)
+        )
 
         # Initialize form with POST data
         form_class = create_enrollment_form(
@@ -1713,7 +1844,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             current_user=self.request.di.uow.active_users.read(
                 self.request.context.current_user_slug
             ),
-            connected_users=companions,
+            roster=roster,
             enrollment_config_repo=request.di.uow.enrollment_configs,
             ticket_api=request.di.ticket_api,
         )
@@ -1768,33 +1899,44 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return TemplateResponse(
                 request,
                 "chronology/enroll_select.html",
-                self._page_context(session=session, selection=selection, form=form),
+                self._page_context(
+                    session=session, selection=selection, form=form, members=members
+                ),
             )
 
         # Only validate enrollment requirements when form is valid
-        enrollment_requests = self._get_enrollment_requests(form, companions)
+        enrollment_requests = self._get_enrollment_requests(form, roster)
         enrollment_config = self._validate_request(session, enrollment_requests)
 
         self._manage_enrollments(
             form=form,
             session=session,
             enrollment_config=enrollment_config,
-            companions=companions,
+            roster=roster,
             party_pk=selection.selected.pk if selection.selected else None,
         )
 
         return redirect("web:chronology:event", slug=session.event.slug)
 
     def _get_enrollment_requests(
-        self, form: forms.Form, companions: list[ConnectedUserDTO]
+        self, form: forms.Form, roster: EnrollmentRoster
     ) -> list[EnrollmentRequest]:
         enrollment_requests = []
-        for user in (
-            self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
+        household = [
+            *(
+                RosterMember(user=user)
+                for user in (
+                    self.request.di.uow.active_users.read(
+                        self.request.context.current_user_slug
+                    ),
+                    *roster.companions,
+                )
             ),
-            *companions,
-        ):
+            *roster.members,
+        ]
+        member_pks = {member.user.pk for member in roster.members}
+        for member in household:
+            user = member.user
             # Skip inactive users
             if not user.is_active:
                 continue
@@ -1803,7 +1945,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 choice = form.cleaned_data[user_field]
                 enrollment_requests.append(
                     EnrollmentRequest(
-                        user=user, choice=EnrollmentChoice(choice), name=user.full_name
+                        user=user,
+                        choice=EnrollmentChoice(choice),
+                        name=user.full_name,
+                        is_party_member=user.pk in member_pks,
+                        needs_accept=member.needs_accept,
                     )
                 )
         return enrollment_requests
@@ -1857,6 +2003,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     shadowbanned_ids=shadowbanned_ids,
                     party_pk=party_pk,
                 )
+
+        self._hold_member_seats(session, enrollments, party_pk)
         return enrollments
 
     @staticmethod
@@ -1919,6 +2067,19 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         ).first()
         is_fresh_signup = participation is None
 
+        if req.needs_accept:
+            # An ACCEPT_INVITES member is never seated directly: their seat is
+            # held by the promotion service at the end of this batch, still
+            # inside its transaction (see _hold_member_seats).
+            if participation is not None:
+                enrollments.skipped_users.append(
+                    _("%(name)s (manages their own enrollment)") % {"name": req.name}
+                )
+                return
+            enrollments.party_notices.held_seats.append(req.user)
+            enrollments.signed_up_users.append((req.user.pk, req.name))
+            return
+
         if not participation:
             participation = SessionParticipation(session=session, user_id=req.user.pk)
 
@@ -1928,11 +2089,56 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         participation.party_id = party_pk
         participation.save()
 
+        if req.is_party_member and is_fresh_signup:
+            enrollments.party_notices.enrolled_members.append(req.user)
+
         enrollments.users_by_status[_status_by_choice[req.choice]].append(req.name)
         # Only a brand-new participation is a "signup" worth warning a banner
         # about — re-confirming or status changes must not re-alert.
         if is_fresh_signup:
             enrollments.signed_up_users.append((req.user.pk, req.name))
+
+    def _hold_member_seats(
+        self, session: Session, enrollments: Enrollments, party_pk: int | None
+    ) -> None:
+        # The promotion service owns the hold (OFFERED row + claim token +
+        # expiry timer + notification); the batch transaction wraps it so the
+        # seats stay consistent with the capacity check above.
+        if not enrollments.party_notices.held_seats:
+            return
+        actor_name = self._actor_name()
+        for member in enrollments.party_notices.held_seats:
+            self.request.services.waitlist_promotion.hold_seat(
+                hold=SeatHoldRequest(
+                    session_id=session.pk,
+                    session_title=session.title,
+                    user_id=member.pk,
+                    user_email=member.email,
+                    party_id=party_pk,
+                    actor_name=actor_name,
+                )
+            )
+
+    def _actor_name(self) -> str:
+        return self.request.di.uow.active_users.read(
+            self.request.context.current_user_slug
+        ).full_name
+
+    def _notify_party_members(self, session: Session, enrollments: Enrollments) -> None:
+        if not enrollments.party_notices.enrolled_members:
+            return
+        actor_name = self._actor_name()
+        for member in enrollments.party_notices.enrolled_members:
+            self.request.services.parties.announce_member_enrolled(
+                PartyEnrolledNotification(
+                    recipient_user_id=member.pk,
+                    recipient_email=member.email,
+                    actor_name=actor_name,
+                    session_id=session.pk,
+                    session_title=session.title,
+                    event_slug=session.event.slug,
+                )
+            )
 
     def _send_message(self, enrollments: Enrollments) -> None:
         for users, message in (
@@ -1943,6 +2149,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             (
                 enrollments.users_by_status[SessionParticipationStatus.WAITING],
                 _("Added to waiting list: {}"),
+            ),
+            (
+                [held.full_name for held in enrollments.party_notices.held_seats],
+                _("Seat held (awaiting their approval): {}"),
             ),
             (enrollments.cancelled_users, _("Cancelled: {}")),
             (
@@ -1999,10 +2209,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         form: forms.Form,
         session: Session,
         enrollment_config: EnrollmentConfig,
-        companions: list[ConnectedUserDTO],
+        roster: EnrollmentRoster,
         party_pk: int | None,
     ) -> None:
-        if enrollment_requests := self._get_enrollment_requests(form, companions):
+        if enrollment_requests := self._get_enrollment_requests(form, roster):
             with transaction.atomic():
                 enrollments = self._process_enrollments(
                     enrollment_requests=enrollment_requests,
@@ -2022,6 +2232,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             self.request.services.shadowban.notify_signups(
                 session_id=session.id, signed_up=enrollments.signed_up_users
             )
+
+            self._notify_party_members(session, enrollments)
 
             # Send message outside transaction
             self._send_message(enrollments)

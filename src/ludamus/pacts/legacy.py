@@ -282,6 +282,8 @@ class NotificationKind(StrEnum):
     OFFER_EXPIRED = auto()
     SHADOWBANNED_SIGNUP = auto()
     PARTY_INVITE = auto()
+    PARTY_ENROLLED = auto()
+    PARTY_SEAT_HELD = auto()
 
 
 class SpherePage(StrEnum):

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 23:03+0200\n"
+"POT-Creation-Date: 2026-07-03 00:23+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -581,6 +581,8 @@ msgid "Enroll (if spots available)"
 msgstr "Zapisz się (jeśli są miejsca)"
 
 #: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/offer_claim.html
 msgid "Decline offer"
 msgstr "Odrzuć ofertę"
 
@@ -648,6 +650,28 @@ msgstr "%(user)s nie może się zapisać: wymagane uprawnienie dostępu do zapis
 #, python-format
 msgid "%(user)s cannot enroll: enrollment not available"
 msgstr "%(user)s nie może się zapisać: zapisy niedostępne"
+
+#: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Withdraw held seat"
+msgstr "Wycofaj rezerwację miejsca"
+
+#: src/ludamus/adapters/web/django/forms.py
+msgid "Withdrawing releases the seat before they claim it"
+msgstr "Wycofanie zwalnia miejsce, zanim zostanie odebrane"
+
+#: src/ludamus/adapters/web/django/forms.py
+msgid "They manage their own enrollment"
+msgstr "Ta osoba zarządza swoimi zapisami samodzielnie"
+
+#: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Hold a seat — needs their approval"
+msgstr "Zarezerwuj miejsce — wymaga ich zgody"
+
+#: src/ludamus/adapters/web/django/forms.py
+msgid "The seat is released if they do not claim it in time"
+msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 
 #: src/ludamus/adapters/web/django/forms.py
 msgid "Ungrouped"
@@ -859,6 +883,10 @@ msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
 
 #: src/ludamus/adapters/web/django/views.py
+msgid "Offer declined — the seat was released."
+msgstr "Oferta odrzucona — miejsce zostało zwolnione."
+
+#: src/ludamus/adapters/web/django/views.py
 msgid "Choose one of your parties or enroll by yourself."
 msgstr "Wybierz jedną ze swoich drużyn lub zapisz się samodzielnie."
 
@@ -899,6 +927,11 @@ msgid "%(name)s (time conflict)"
 msgstr "%(name)s (konflikt czasowy)"
 
 #: src/ludamus/adapters/web/django/views.py
+#, python-format
+msgid "%(name)s (manages their own enrollment)"
+msgstr "%(name)s (zarządza swoimi zapisami)"
+
+#: src/ludamus/adapters/web/django/views.py
 #, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
@@ -907,6 +940,11 @@ msgstr "Zapisani: {}"
 #, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
+
+#: src/ludamus/adapters/web/django/views.py
+#, python-brace-format
+msgid "Seat held (awaiting their approval): {}"
+msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-brace-format
@@ -1794,6 +1832,18 @@ msgid "Could not remove this member."
 msgstr "Nie udało się usunąć tej osoby z drużyny."
 
 #: src/ludamus/gates/web/django/crowd/views.py
+msgid "Could not change this setting."
+msgstr "Nie udało się zmienić tego ustawienia."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "The leader can now enroll you directly."
+msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "Enrollments now wait for your approval."
+msgstr "Od teraz zapisy czekają na Twoją zgodę."
+
+#: src/ludamus/gates/web/django/crowd/views.py
 msgid "You left the party."
 msgstr "Opuszczasz drużynę."
 
@@ -2410,12 +2460,11 @@ msgstr "Twoja oferta dla %(session)s wygasła"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid ""
-"Your offered spot was not claimed in time and has gone to the next person. "
-"You can join the waiting list again if you are still interested."
+"The seat was not claimed in time and has been released. You can sign up "
+"again if you are still interested."
 msgstr ""
-"Zaproponowane miejsce nie zostało zajęte na czas i trafiło do następnej "
-"osoby. Jeśli nadal jesteś zainteresowany, możesz ponownie zapisać się na "
-"listę oczekujących."
+"Miejsce nie zostało odebrane na czas i zostało zwolnione. Jeśli nadal "
+"jesteś zainteresowany, możesz zapisać się ponownie."
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "their party"
@@ -2434,6 +2483,33 @@ msgstr ""
 "Dołącz do drużyny, aby zapisywać się na wydarzenia wspólnie — na listach "
 "oczekujących awansujecie jako jedna grupa. O każdym zapisie decydujesz Ty, "
 "chyba że postanowisz inaczej."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(leader)s enrolled you in %(session)s"
+msgstr "%(leader)s zapisuje Cię na %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid ""
+"You have a confirmed spot. If it does not fit your plans, you can cancel on "
+"the session page."
+msgstr ""
+"Masz potwierdzone miejsce. Jeśli nie pasuje do Twoich planów, możesz je "
+"anulować na stronie punktu programu."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(leader)s saved you a seat in %(session)s"
+msgstr "%(leader)s rezerwuje Ci miejsce na %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"The seat is yours once you claim it — do so before %(deadline)s or it will "
+"be released."
+msgstr ""
+"Miejsce będzie Twoje po potwierdzeniu — zrób to przed %(deadline)s, inaczej "
+"zostanie zwolnione."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -2851,6 +2927,14 @@ msgid "Already Enrolled"
 msgstr "Już zapisany"
 
 #: src/ludamus/templates/chronology/enroll_select.html
+msgid "Seat held — awaiting their approval"
+msgstr "Miejsce zarezerwowane — czeka na ich zgodę"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Spot offered"
+msgstr "Zaproponowano miejsce"
+
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "On Waiting List"
 msgstr "Na liście oczekujących"
 
@@ -2863,9 +2947,26 @@ msgstr "Konflikt czasowy"
 msgid "Available"
 msgstr "Dostępny"
 
+# Login Required Page
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Access required"
+msgstr "Wymagany dostęp"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "needs their approval"
+msgstr "wymaga ich zgody"
+
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Time conflict"
 msgstr "Konflikt czasowy"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "withdraw"
+msgstr "wycofaj"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "decline offer"
+msgstr "odrzuć ofertę"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "No companions available. You can add companions to your party in your"
@@ -3309,16 +3410,16 @@ msgid "Claim your spot"
 msgstr "Zajmij swoje miejsce"
 
 #: src/ludamus/templates/chronology/offer_claim.html
-msgid "A spot opened up for you"
-msgstr "Zwolniło się dla Ciebie miejsce"
+msgid "A seat is waiting for you"
+msgstr "Czeka na Ciebie miejsce"
 
 #: src/ludamus/templates/chronology/offer_claim.html
 msgid ""
-"A spot opened up. Claim it before the deadline below or it will be offered "
-"to the next person on the waiting list."
+"A seat is being held for you. Claim it before the deadline below or it will "
+"be released."
 msgstr ""
-"Zwolniło się miejsce. Zajmij je przed poniższym terminem, w przeciwnym razie "
-"zostanie zaproponowane następnej osobie na liście oczekujących."
+"Miejsce jest dla Ciebie zarezerwowane. Odbierz je przed poniższym terminem, "
+"inaczej zostanie zwolnione."
 
 #: src/ludamus/templates/chronology/offer_claim.html
 msgid "Claim by:"
@@ -3327,6 +3428,10 @@ msgstr "Zajmij do:"
 #: src/ludamus/templates/chronology/offer_claim.html
 msgid "Claim my spot"
 msgstr "Zajmij moje miejsce"
+
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Decline this offer? The held seat will be released."
+msgstr "Odrzucić tę ofertę? Zarezerwowane miejsce zostanie zwolnione."
 
 #: src/ludamus/templates/chronology/panel/integrations/_check_result.html
 msgid "Check passed."
@@ -4100,6 +4205,14 @@ msgid "invited"
 msgstr "zaproszono"
 
 #: src/ludamus/templates/crowd/user/parties.html
+msgid "direct enrollment allowed"
+msgstr "możesz zapisywać bez pytania"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "asks for approval before enrolling"
+msgstr "wymaga zgody przed zapisem"
+
+#: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/panel/discounts/list.html
@@ -4143,6 +4256,22 @@ msgstr "Usunąć %(name)s z Twojej drużyny?"
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Remove companion"
 msgstr "Usuń towarzysza"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Asks before enrolling you"
+msgstr "Pyta przed zapisaniem Cię"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Enrolls you directly"
+msgstr "Zapisuje Cię bez pytania"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Allow direct enrollment"
+msgstr "Pozwól na bezpośrednie zapisy"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Require my approval"
+msgstr "Wymagaj mojej zgody"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #, python-format

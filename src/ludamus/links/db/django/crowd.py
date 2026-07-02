@@ -49,6 +49,14 @@ class UserRepository(UserRepositoryProtocol):
             raise NotFoundError from exception
         return UserDTO.model_validate(user)
 
+    def read_by_ids(self, pks: list[int]) -> list[UserDTO]:
+        return [
+            UserDTO.model_validate(user)
+            for user in User.objects.filter(
+                pk__in=pks, user_type=self._user_type
+            ).order_by("pk")
+        ]
+
     def read_by_username(self, username: str) -> UserDTO:
         try:
             user = User.objects.get(username=username, user_type=self._user_type)

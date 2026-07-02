@@ -6,9 +6,11 @@ import pytest
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    HeldSeatData,
     OfferDTO,
     OfferRecipientDTO,
     PromotionStateDTO,
+    SeatHoldRequest,
     WaitingParticipantDTO,
 )
 from ludamus.pacts.legacy import PromotionMode
@@ -16,6 +18,7 @@ from ludamus.pacts.legacy import PromotionMode
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _SESSION_ID = 42
 _MANAGER_ID = 99
+_MEMBER_ID = 7
 
 
 pytestmark = pytest.mark.usefixtures("_frozen")
@@ -44,8 +47,17 @@ class FakeRepo:
         self._offer = offer
         self.confirmed: list[list[int]] = []
         self.offered: list[dict] = []
+        self.created: list[dict] = []
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
+
+    def create_offered(self, seat):
+        self.created.append(seat)
+        return 101
+
+    @staticmethod
+    def read_offer_claim_window(_session_id):
+        return timedelta(hours=24)
 
     def lock_and_read_state(self, _session_id):
         return self._states.pop(0) if self._states else None
@@ -74,6 +86,10 @@ class FakeNotifier:
         self.promoted = []
         self.offered = []
         self.expired = []
+        self.held = []
+
+    def notify_seat_held(self, n):
+        self.held.append(n)
 
     def notify_promoted(self, n):
         self.promoted.append(n)
@@ -299,3 +315,70 @@ class TestPartyRecipients:
 
         assert result.promoted == [1, 2]
         assert sorted(n.recipient_user_id for n in notifier.promoted) == [1, 2]
+
+
+class TestHoldSeat:
+    def test_creates_offered_row_notifies_and_schedules(self):
+        service, repo, notifier, scheduler = _build()
+
+        service.hold_seat(
+            hold=SeatHoldRequest(
+                session_id=_SESSION_ID,
+                session_title="Dragons",
+                user_id=_MEMBER_ID,
+                user_email="mira@example.com",
+                party_id=5,
+                actor_name="Lea Leader",
+            )
+        )
+
+        assert repo.created == [
+            HeldSeatData(
+                session_id=_SESSION_ID,
+                user_id=_MEMBER_ID,
+                party_id=5,
+                offered_at=_NOW,
+                offer_expires_at=_NOW + timedelta(hours=24),
+                claim_token="tok-xyz",
+            )
+        ]
+        assert len(notifier.held) == 1
+        held = notifier.held[0]
+        assert held.recipient_user_id == _MEMBER_ID
+        assert held.recipient_email == "mira@example.com"
+        assert held.actor_name == "Lea Leader"
+        assert held.claim_token == "tok-xyz"
+        assert held.offer_expires_at == _NOW + timedelta(hours=24)
+        assert scheduler.scheduled == [(101, _NOW + timedelta(hours=24))]
+
+
+class TestDeclineOffer:
+    def _offer(self):
+        return OfferDTO(
+            session_id=_SESSION_ID,
+            session_title="Dragons",
+            event_slug="con",
+            participant_ids=[1, 2],
+            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            offer_expires_at=_NOW + timedelta(hours=1),
+        )
+
+    def test_drops_whole_party_and_rolls_on(self):
+        service, repo, _, _ = _build(states=[_state([_wp(3)])], offer=self._offer())
+
+        result = service.decline_offer(token="tok-xyz")
+
+        assert result.success is True
+        assert result.event_slug == "con"
+        assert repo.dropped == [[1, 2]]
+        # The freed seats rolled on to the next waiter.
+        assert repo.confirmed == [[3]]
+
+    def test_unknown_or_resolved_token_rejected(self):
+        service, repo, _, _ = _build(offer=None)
+
+        result = service.decline_offer(token="nope")
+
+        assert result.success is False
+        assert result.reason == "not_found"
+        assert not repo.dropped
