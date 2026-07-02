@@ -709,7 +709,7 @@ class TestEventSettingsPageViewPost:
         assert event.auto_confirm_sessions is False
 
     def test_enables_participants_label(
-        self, authenticated_client, active_user, sphere, event
+        self, *, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         assert event.use_participants_label is False
@@ -729,7 +729,7 @@ class TestEventSettingsPageViewPost:
         assert event.use_participants_label is True
 
     def test_disables_participants_label_when_unchecked(
-        self, authenticated_client, active_user, sphere, event
+        self, *, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         event.use_participants_label = True

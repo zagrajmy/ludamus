@@ -41,6 +41,8 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
     const response = await fetch(bookmarkUrl(template, sessionId), {
       headers: { "X-CSRFToken": root.dataset.csrf ?? "" },
       method: "POST",
+      // A stalled request must not hold the in-flight guard forever.
+      signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) throw new Error(`Bookmark toggle failed: ${response.status}`);
     const data: unknown = await response.json();

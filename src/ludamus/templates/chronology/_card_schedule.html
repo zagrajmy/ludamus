@@ -35,7 +35,7 @@
         <div class="flex items-center gap-4 mb-4">
             <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800">
                 {% icon "clock" class="w-4 h-4" variant="mini" %}
-                {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
+                {{ hour|date:"l, j F" }} – {{ hour|time:"H:i" }}
             </div>
             <hr />
             {% if event.is_live and forloop.first %}
@@ -70,7 +70,7 @@
         <div class="flex items-center gap-4 mb-4">
             <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warning-bg text-warning-text">
                 {% icon "clock" class="w-4 h-4" variant="mini" %}
-                {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
+                {{ hour|date:"l, j F" }} – {{ hour|time:"H:i" }}
                 <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
             </div>
             <div class="h-px grow bg-border"></div>

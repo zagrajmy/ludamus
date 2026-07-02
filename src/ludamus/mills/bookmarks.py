@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.bookmarks import BookmarkServiceProtocol
+
 if TYPE_CHECKING:
     from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
-class BookmarkService:
+class BookmarkService(BookmarkServiceProtocol):
     def __init__(
         self, transaction: TransactionProtocol, repo: BookmarkRepositoryProtocol
     ) -> None:

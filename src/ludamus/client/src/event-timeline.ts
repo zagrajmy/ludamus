@@ -126,6 +126,12 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const endDrag = (event: PointerEvent): void => {
     dragging = false;
     if (rail.hasPointerCapture(event.pointerId)) rail.releasePointerCapture(event.pointerId);
+    // The synthesized click (when any) fires before this timeout, so a real
+    // drag still gets its trailing click swallowed — but a cancelled scrub
+    // can't leave the flag hot and eat the next genuine tap.
+    setTimeout(() => {
+      moved = false;
+    }, 0);
   };
   rail.addEventListener("pointerup", endDrag);
   rail.addEventListener("pointercancel", endDrag);

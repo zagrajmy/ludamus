@@ -113,6 +113,26 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return ratio < self._SCARCE_THRESHOLD
 
     @property
+    def public_tags(self) -> str:
+        # Flat and per-category tag strings for the card data-* filter contract;
+        # joined here so separators only ever sit between emitted values.
+        return ",".join(
+            str(value)
+            for fv in self.field_values
+            if fv.field_type == "select" and fv.is_public and isinstance(fv.value, list)
+            for value in fv.value
+        )
+
+    @property
+    def public_tag_categories(self) -> str:
+        return ";".join(
+            f"{fv.field_slug}:{value}"
+            for fv in self.field_values
+            if fv.field_type == "select" and fv.is_public and isinstance(fv.value, list)
+            for value in fv.value
+        )
+
+    @property
     def location_label(self) -> str:
         # Full "Root > ... > Leaf" tree path of the scheduled space.
         return self.loc.get("path", "")
@@ -183,31 +203,39 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
 
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     # Pivot each day's hours into a rooms grid: one column per scheduled leaf
-    # space, one row per hour. Rooms are keyed by (name, parent) — leaf names
-    # repeat across venues — and the label carries the parent only when the
-    # bare name would be ambiguous.
+    # space, one row per hour. Rooms are keyed by (name, parent slug) — leaf
+    # names repeat across venues — and the label carries the parent name only
+    # when the bare name would be ambiguous.
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
         keys = sorted(
             {
-                (data.loc["space_name"], data.loc["parent_name"])
+                (
+                    data.loc["space_name"],
+                    data.loc["parent_slug"],
+                    data.loc["parent_name"],
+                )
                 for hour in day.hours
                 for data in hour.sessions
             }
         )
-        name_counts = Counter(name for name, _ in keys)
+        name_counts = Counter(name for name, _, _ in keys)
         rooms = [
             f"{name} ({parent})" if name_counts[name] > 1 and parent else name
-            for name, parent in keys
+            for name, _, parent in keys
         ]
         column = {key: index for index, key in enumerate(keys)}
         rows = []
         for hour in day.hours:
             cells: list[list[SessionData]] = [[] for _ in keys]
             for data in hour.sessions:
-                cells[column[data.loc["space_name"], data.loc["parent_name"]]].append(
-                    data
-                )
+                cells[
+                    column[
+                        data.loc["space_name"],
+                        data.loc["parent_slug"],
+                        data.loc["parent_name"],
+                    ]
+                ].append(data)
             rows.append(RoomLaneRow(start=hour.start, cells=cells))
         lane_days.append(
             RoomLaneDay(first_start=day.first_start, rooms=rooms, rows=rows)

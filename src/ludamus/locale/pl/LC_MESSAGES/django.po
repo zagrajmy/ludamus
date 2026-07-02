@@ -2743,7 +2743,7 @@ msgid_plural "Participants"
 msgstr[0] "Uczestnik"
 msgstr[1] "Uczestnicy"
 msgstr[2] "Uczestników"
-msgstr[3] "Uczestnika"
+msgstr[3] "Uczestników"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Player"
@@ -6652,7 +6652,7 @@ msgstr "Skrzynka staging"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Captured emails"
-msgstr "Przechwycone wiadomości"
+msgstr "Przechwycone e-maile"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Received"
@@ -6668,7 +6668,7 @@ msgstr "Temat"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
-msgstr "Brak przechwyconych wiadomości."
+msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "No sessions scheduled for this time slot"
 #~ msgstr "Brak punktów programu zaplanowanych w tym przedziale czasowym"
