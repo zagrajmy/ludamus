@@ -30,6 +30,7 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
 )
 from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
+from ludamus.pacts.party import PartyMembershipStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -46,7 +47,7 @@ def _sponsors_by_member(users: Iterable[User]) -> dict[int, User]:
     if not connected_ids:
         return {}
     memberships = PartyMembership.objects.filter(
-        member_id__in=connected_ids
+        member_id__in=connected_ids, status=PartyMembershipStatus.ACTIVE
     ).select_related("party__leader")
     return {m.member_id: m.party.leader for m in memberships}
 
@@ -157,7 +158,9 @@ class ParticipationPromotionRepository:
         # The owner's seat allowance covers themselves plus every login-less
         # companion they sponsor (members of parties they lead).
         companions = User.objects.filter(
-            user_type=UserType.CONNECTED, party_memberships__party__leader=owner
+            user_type=UserType.CONNECTED,
+            party_memberships__party__leader=owner,
+            party_memberships__status=PartyMembershipStatus.ACTIVE,
         ).distinct()
         members = [
             UserDTO.model_validate(owner),
