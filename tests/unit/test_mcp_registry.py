@@ -80,3 +80,20 @@ def test_run_rejects_invalid_arguments_before_handle():
         registry.call(
             services=_FakeServices(), actor=actor, name="echo_actor", arguments={}
         )
+
+
+def test_invalid_arguments_message_hides_input_values():
+    registry = ToolRegistry([_EchoActorTool()])
+    actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError) as excinfo:
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="echo_actor",
+            arguments={"suffix": 424242},
+        )
+
+    message = str(excinfo.value)
+    assert message == "Invalid arguments: suffix: Input should be a valid string"
+    assert "424242" not in message
