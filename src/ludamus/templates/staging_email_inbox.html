@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Staging inbox" %}
+{% endblock title %}
+{% block body %}
+    <div class="mx-auto max-w-4xl p-4">
+        <h1 class="mb-4 text-xl font-semibold text-foreground">{% translate "Captured emails" %} ({{ emails|length }})</h1>
+        {% if emails %}
+            {% tessera_table %}
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Received" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "To" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Subject" %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-bg-secondary divide-y divide-border">
+                {% for email in emails %}
+                    <tr class="align-top">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ email.date|default:"—" }}</td>
+                        <td class="px-6 py-4 text-sm text-foreground">{{ email.to|default:"—" }}</td>
+                        <td class="px-6 py-4 text-sm text-foreground">
+                            <div class="font-medium">{{ email.subject|default:"—" }}</div>
+                            <pre class="mt-2 whitespace-pre-wrap font-sans text-foreground-secondary">{{ email.body }}</pre>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% end_tessera_table %}
+    {% else %}
+        <div class="text-sm text-foreground-muted">{% translate "No emails captured yet." %}</div>
+    {% endif %}
+</div>
+{% endblock body %}
