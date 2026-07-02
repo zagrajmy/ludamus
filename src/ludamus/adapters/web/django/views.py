@@ -813,6 +813,13 @@ class ClaimPageView(View):
     # Landing page for a claim link. The recipient signs in via Auth0 and the
     # managed row becomes their own account.
     @staticmethod
+    def _reject_invalid_link(request: RootRequest) -> HttpResponse:
+        messages.error(
+            request, _("This claim link is invalid or has already been used.")
+        )
+        return redirect("web:index")
+
+    @staticmethod
     def get(request: RootRequest, token: str) -> HttpResponse:
         if request.context.current_user_slug:
             messages.info(
@@ -824,10 +831,7 @@ class ClaimPageView(View):
             )
             return redirect("web:index")
         if (claimable := request.services.claims.read_claimable(token)) is None:
-            messages.error(
-                request, _("This claim link is invalid or has already been used.")
-            )
-            return redirect("web:index")
+            return ClaimPageView._reject_invalid_link(request)
         return TemplateResponse(
             request, "crowd/claim.html", {"claimable": claimable, "token": token}
         )
@@ -837,10 +841,7 @@ class ClaimPageView(View):
         if request.context.current_user_slug:
             return redirect("web:index")
         if request.services.claims.read_claimable(token) is None:
-            messages.error(
-                request, _("This claim link is invalid or has already been used.")
-            )
-            return redirect("web:index")
+            return ClaimPageView._reject_invalid_link(request)
         request.session["pending_claim_token"] = token
         login_url = reverse("web:crowd:auth0:login")
         next_url = reverse("web:crowd:profile")

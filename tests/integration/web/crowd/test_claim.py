@@ -12,13 +12,14 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import User, UserType
 from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.pacts.crowd import ClaimableProfileDTO
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 
 def _connected(
     *, manager, name="Kiddo", slug="kiddo", token="", username="connected|x"
 ):
-    return User.objects.create(
+    return UserFactory(
         username=username,
         slug=slug,
         name=name,
@@ -31,7 +32,7 @@ def _connected(
 
 
 def _active(*, username, slug, name="Owner"):
-    return User.objects.create(
+    return UserFactory(
         username=username,
         slug=slug,
         name=name,
@@ -282,6 +283,15 @@ class TestClaimRepository:
         owner.save()
 
         assert ClaimRepository.read_claimable("tok") is None
+
+    def test_convert_empty_token_converts_nothing(self):
+        manager = _active(username="mgr", slug="mgr")
+        kid = _connected(manager=manager, username="connected|kid")
+
+        assert ClaimRepository.convert(token="", username="auth0|sneak") is None
+        kid.refresh_from_db()
+        assert kid.user_type == UserType.CONNECTED
+        assert kid.manager_id == manager.pk
 
     def test_convert_is_single_use(self):
         manager = _active(username="mgr", slug="mgr")

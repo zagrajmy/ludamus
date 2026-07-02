@@ -146,6 +146,10 @@ class ClaimRepository(ClaimRepositoryProtocol):
         # this stays a pure identity flip and never duplicates that rule.
         # A single conditional UPDATE (like issue_token) keeps redemption
         # atomic: of two concurrent redeems, exactly one matches the token.
+        # Guard the sentinel: every non-claimed row carries claim_token="",
+        # so an empty token must never reach the filter below.
+        if not token:
+            return None
         updated = User.objects.filter(
             claim_token=token, user_type=UserType.CONNECTED
         ).update(
