@@ -2,7 +2,8 @@
 {% load tessera %}
 {# Pending-proposals review card for superusers: a stacked card list below #}
 {# lg, the six-column table at lg and up. #}
-{# Variables: event, pending_sessions (list[PendingSessionDTO]) #}
+{# Variables: event, pending_sessions (list[PendingSessionDTO]), #}
+{# pending_wizard_view (bool: viewer is a superuser, not a sphere manager) #}
 <div class="card mt-8">
     <div class="px-6 py-4 flex items-center gap-3 border-b border-border">
         <h3 class="text-base font-semibold flex items-center gap-2 text-foreground">
