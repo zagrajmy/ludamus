@@ -435,7 +435,7 @@ class TestAudit:
             {"force": True},
         )
 
-    def test_invalid_arguments_are_logged_as_error(
+    def test_invalid_arguments_are_logged_distinctly(
         self, client, token, superuser, caplog
     ):
         caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
@@ -449,7 +449,7 @@ class TestAudit:
             "maintainer",
             None,
             "get_sphere",
-            "error",
+            "invalid-arguments",
             {},
         )
 
