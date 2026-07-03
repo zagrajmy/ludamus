@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 21:01+0200\n"
+"POT-Creation-Date: 2026-07-03 21:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2655,7 +2655,9 @@ msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
 msgid "Superuser magic: you see this without being an organizer of this event."
-msgstr "Magia superużytkownika: widzisz tę sekcję, choć nie organizujesz tego wydarzenia."
+msgstr ""
+"Magia superużytkownika: widzisz tę sekcję, choć nie organizujesz tego "
+"wydarzenia."
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
@@ -2746,6 +2748,10 @@ msgstr[0] "%(counter)s miejsce"
 msgstr[1] "%(counter)s miejsca"
 msgstr[2] "%(counter)s miejsc"
 msgstr[3] "%(counter)s miejsca"
+
+#: src/ludamus/templates/chronology/_session_card.html
+msgid "Awaiting review"
+msgstr "Czeka na akceptację"
 
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Not Available"
@@ -3368,6 +3374,19 @@ msgstr "Żadne punkty programu nie pasują do filtrów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all filters"
 msgstr "Wyczyść wszystkie filtry"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Your pending proposals"
+msgstr "Twoje oczekujące zgłoszenia"
+
+#: src/ludamus/templates/chronology/event.html
+#, python-format
+msgid "%(counter)s proposal"
+msgid_plural "%(counter)s proposals"
+msgstr[0] "%(counter)s zgłoszenie"
+msgstr[1] "%(counter)s zgłoszenia"
+msgstr[2] "%(counter)s zgłoszeń"
+msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"

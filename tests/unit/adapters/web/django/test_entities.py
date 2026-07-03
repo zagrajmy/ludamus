@@ -1,9 +1,15 @@
 import sys
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.adapters.web.django.entities import SessionData
+from ludamus.adapters.web.django.entities import (
+    SessionData,
+    build_schedule_days,
+    group_sessions_by_state,
+)
+from ludamus.pacts import AgendaItemDTO
 
 
 def _make_session_data(
@@ -124,3 +130,33 @@ class TestSessionDataLocationLabel:
         data = _make_session_data(loc=_loc())
 
         assert not data.location_label
+
+
+class TestBuildScheduleDays:
+    def test_skips_unscheduled_pending_proposal(self):
+        pending = _make_session_data(agenda_item=None, is_pending_proposal=True)
+        scheduled = _make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 10, 12, tzinfo=UTC),
+                end_time=datetime(2026, 7, 10, 14, tzinfo=UTC),
+                pk=1,
+                session_confirmed=True,
+            )
+        )
+
+        days = build_schedule_days({1: pending, 2: scheduled})
+
+        assert len(days) == 1
+        assert days[0].hours[0].sessions == [scheduled]
+
+    def test_only_pending_proposals_yield_no_days(self):
+        pending = _make_session_data(agenda_item=None, is_pending_proposal=True)
+
+        assert not build_schedule_days({1: pending})
+
+
+class TestGroupSessionsByState:
+    def test_skips_unscheduled_pending_proposal(self):
+        pending = _make_session_data(agenda_item=None, is_pending_proposal=True)
+
+        assert group_sessions_by_state({1: pending}) == ({}, {}, {})

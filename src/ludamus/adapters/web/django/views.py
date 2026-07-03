@@ -55,6 +55,7 @@ from ludamus.adapters.web.django.entities import (
     build_display_field_row,
     build_room_lanes,
     build_schedule_days,
+    group_sessions_by_state,
 )
 from ludamus.adapters.web.django.forms import EnrollmentRoster, RosterMember
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
@@ -1065,7 +1066,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         future_unavailable_hour_data: dict[datetime, list[SessionData]] = {}
         if not compact_schedule:
             ended_hour_data, current_hour_data, future_unavailable_hour_data = (
-                self._group_sessions_by_state(sessions_data)
+                group_sessions_by_state(sessions_data)
             )
 
         schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
@@ -1181,11 +1182,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self.request.session.pop("anonymous_site_id", None)
 
     def _get_pending_sessions_context(self) -> dict[str, Any]:
+        context: dict[str, Any] = {
+            "pending_sessions": [],
+            "pending_review_visible": False,
+            "pending_wizard_view": False,
+            "own_pending_proposals": [],
+        }
         if (
             not self.request.context.current_user_slug
             or self.request.context.current_user_id is None
         ):
-            return {"pending_review_visible": False}
+            return context
 
         is_sphere_manager = self.object.sphere.managers.filter(
             id=self.request.context.current_user_id
@@ -1195,7 +1202,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ).is_superuser
 
         if is_superuser or is_sphere_manager:
-            return {
+            return context | {
                 "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
                     self.object.pk
                 ),
@@ -1203,15 +1210,30 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "pending_wizard_view": is_superuser and not is_sphere_manager,
             }
 
-        return {
-            "pending_sessions": (
-                self.request.di.uow.sessions.read_pending_by_event_for_user(
-                    self.object.pk, self.request.context.current_user_id
-                )
-            ),
-            "pending_review_visible": False,
-            "pending_wizard_view": False,
+        return context | {
+            "own_pending_proposals": list(
+                self._get_session_data(self._get_own_pending_sessions()).values()
+            )
         }
+
+    def _get_own_pending_sessions(self) -> QuerySet[Session]:
+        # The author's unscheduled proposals, rendered as schedule-style cards.
+        # Same eager-loading shape as event_sessions, minus the agenda item.
+        return (
+            Session.objects.filter(
+                category__event_id=self.object.pk,
+                status=SessionStatus.PENDING,
+                presenter_id=self.request.context.current_user_id,
+            )
+            .select_related("presenter", "agenda_item", "event", "event__sphere")
+            .prefetch_related(
+                "tags__category",
+                "session_participations__user",
+                "field_values__field",
+                "event__enrollment_configs",
+            )
+            .order_by("-creation_time")
+        )
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -1303,33 +1325,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                             SessionParticipationStatus.WAITING in statuses
                         )
 
-    @staticmethod
-    def _group_sessions_by_state(
-        sessions_data: dict[int, SessionData],
-    ) -> tuple[
-        dict[datetime, list[SessionData]],
-        dict[datetime, list[SessionData]],
-        dict[datetime, list[SessionData]],
-    ]:
-        current_time = datetime.now(tz=UTC)
-        ended: dict[datetime, list[SessionData]] = defaultdict(list)
-        current: dict[datetime, list[SessionData]] = defaultdict(list)
-        future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
-        for session_data in sessions_data.values():
-            session_start_time = session_data.agenda_item.start_time
-            hour_key = session_start_time
-            if session_data.agenda_item.end_time <= current_time:
-                ended[hour_key].append(session_data)
-            elif (
-                not session_data.is_enrollment_available
-                and session_start_time > current_time
-            ):
-                future_unavailable[hour_key].append(session_data)
-            else:
-                # Current sessions (available for enrollment or in progress)
-                current[hour_key].append(session_data)
-        return dict(ended), dict(current), dict(future_unavailable)
-
     def _set_user_bookmarks(
         self, sessions_data: dict[int, SessionData], current_user_id: int
     ) -> None:
@@ -1368,8 +1363,23 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         sessions_data = {}
         for session in event_sessions:
-            space = session.agenda_item.space
-            parent = space.parent
+            try:
+                agenda_item = session.agenda_item
+            except AgendaItem.DoesNotExist:
+                # Pending proposal: not scheduled yet, so no time or space.
+                agenda_item = None
+            if agenda_item is not None:
+                space = agenda_item.space
+                loc = LocationData(
+                    space_name=space.name,
+                    parent_slug=space.parent.slug if space.parent else "",
+                    parent_name=space.parent.name if space.parent else "",
+                    path=str(space),
+                )
+            else:
+                loc = LocationData(
+                    space_name="", parent_slug="", parent_name="", path=""
+                )
             if session.presenter_id:
                 presenter_dto = UserDTO.model_validate(session.presenter)
                 presenter = UserInfo.from_user_dto(
@@ -1394,18 +1404,24 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 ),
                 effective_participants_limit=session.effective_participants_limit,
                 full_participant_info=session.full_participant_info,
-                agenda_item=AgendaItemDTO.model_validate(session.agenda_item),
+                agenda_item=(
+                    AgendaItemDTO.model_validate(agenda_item)
+                    if agenda_item is not None
+                    else None
+                ),
                 session=SessionDTO.model_validate(session),
                 presenter=presenter,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
-                is_enrollment_available=session.is_enrollment_available,
-                is_full=session.is_full,
-                loc=LocationData(
-                    space_name=space.name,
-                    parent_slug=parent.slug if parent else "",
-                    parent_name=parent.name if parent else "",
-                    path=str(space),
+                # is_session_eligible dereferences agenda_item, and an
+                # unscheduled proposal can't be enrolled in anyway.
+                is_enrollment_available=(
+                    agenda_item is not None and session.is_enrollment_available
                 ),
+                is_full=session.is_full,
+                # A card without an agenda item is an unscheduled proposal;
+                # scheduled sessions keep their status-agnostic rendering.
+                is_pending_proposal=agenda_item is None,
+                loc=loc,
                 enrolled_count=session.enrolled_count,
                 waiting_count=session.waiting_count,
                 session_participations=[
@@ -1441,6 +1457,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 if fv.field_id in displayed_field_ids
             ]
 
+            if session_data.agenda_item is None:
+                continue
             session_start = session_data.agenda_item.start_time
 
             # Calculate if session is ongoing (has already started) or fully over
