@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 13:30+0200\n"
+"POT-Creation-Date: 2026-07-03 14:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2649,6 +2649,58 @@ msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
 
+#: src/ludamus/templates/chronology/_pending_proposals.html
+msgid "Pending Proposals"
+msgstr "Oczekujące zgłoszenia"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/event.html
+msgid "Participants"
+msgstr "Uczestnicy"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+msgid "Review & accept"
+msgstr "Przejrzyj i zaakceptuj"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Proposal"
+msgstr "Zgłoszenie"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Host"
+msgstr "Prowadzący"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+msgid "Submitted"
+msgstr "Przesłane"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+msgid "Preferred Times"
+msgstr "Preferowane czasy"
+
+#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Action"
+msgstr "Akcja"
+
+#: src/ludamus/templates/chronology/_pending_time_slots.html
+#, python-format
+msgid "+%(counter)s more"
+msgid_plural "+%(counter)s more"
+msgstr[0] "+%(counter)s więcej"
+msgstr[1] "+%(counter)s więcej"
+msgstr[2] "+%(counter)s więcej"
+msgstr[3] "+%(counter)s więcej"
+
+#: src/ludamus/templates/chronology/_pending_time_slots.html
+msgid "Flexible"
+msgstr "Elastyczny"
+
 #: src/ludamus/templates/chronology/_room_lanes.html
 msgid "Start time"
 msgstr "Czas rozpoczęcia"
@@ -2770,18 +2822,6 @@ msgstr "Twój Anonimowy Kod"
 #: src/ludamus/templates/chronology/event.html
 msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
-
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Host"
-msgstr "Prowadzący"
-
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Participants"
-msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
@@ -3340,45 +3380,6 @@ msgstr ""
 #: src/ludamus/templates/chronology/event.html
 msgid "Propose a session"
 msgstr "Zgłoś punkt programu"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Pending Proposals"
-msgstr "Oczekujące zgłoszenia"
-
-#: src/ludamus/templates/chronology/event.html
-#, python-format
-msgid "+%(counter)s more"
-msgid_plural "+%(counter)s more"
-msgstr[0] "+%(counter)s więcej"
-msgstr[1] "+%(counter)s więcej"
-msgstr[2] "+%(counter)s więcej"
-msgstr[3] "+%(counter)s więcej"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Flexible"
-msgstr "Elastyczny"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Review & accept"
-msgstr "Przejrzyj i zaakceptuj"
-
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Proposal"
-msgstr "Zgłoszenie"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Submitted"
-msgstr "Przesłane"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Preferred Times"
-msgstr "Preferowane czasy"
-
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Action"
-msgstr "Akcja"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Could not open the editor. Please try again."
