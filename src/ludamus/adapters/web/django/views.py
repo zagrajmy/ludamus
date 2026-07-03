@@ -1185,7 +1185,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             not self.request.context.current_user_slug
             or self.request.context.current_user_id is None
         ):
-            return {}
+            return {"pending_review_visible": False}
 
         is_sphere_manager = self.object.sphere.managers.filter(
             id=self.request.context.current_user_id
@@ -1199,6 +1199,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
                     self.object.pk
                 ),
+                "pending_review_visible": True,
                 "pending_wizard_view": is_superuser and not is_sphere_manager,
             }
 
@@ -1208,6 +1209,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     self.object.pk, self.request.context.current_user_id
                 )
             ),
+            "pending_review_visible": False,
             "pending_wizard_view": False,
         }
 

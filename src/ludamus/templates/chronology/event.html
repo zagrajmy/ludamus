@@ -443,8 +443,8 @@
             </div>
         </div>
     {% endif %}
-    <!-- Proposals Section (Superuser Only) -->
-    {% if user.is_superuser and event.is_proposal_active and pending_sessions %}
+    <!-- Proposals Section (superusers and sphere managers) -->
+    {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
         {% include "chronology/_pending_proposals.html" %}
     {% endif %}
     <!-- Session Detail Modals -->

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 16:33+0200\n"
+"POT-Creation-Date: 2026-07-03 21:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2654,8 +2654,8 @@ msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Superuser magic: event organizers don't see this section."
-msgstr "Magia superużytkownika: organizatorzy wydarzenia nie widzą tej sekcji."
+msgid "Superuser magic: you see this without being an organizer of this event."
+msgstr "Magia superużytkownika: widzisz tę sekcję, choć nie organizujesz tego wydarzenia."
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
