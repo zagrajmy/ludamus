@@ -208,14 +208,10 @@
                                                         {% csrf_token %}
                                                         {% if row.member.consent_mode == "accept_invites" %}
                                                             <input type="hidden" name="mode" value="accept_by_default">
-                                                            <button type="submit" class="btn btn-secondary btn-sm">
-                                                                {% translate "Allow direct enrollment" %}
-                                                            </button>
+                                                            <button type="submit" class="btn btn-secondary btn-sm">{% translate "Allow direct enrollment" %}</button>
                                                         {% else %}
                                                             <input type="hidden" name="mode" value="accept_invites">
-                                                            <button type="submit" class="btn btn-secondary btn-sm">
-                                                                {% translate "Require my approval" %}
-                                                            </button>
+                                                            <button type="submit" class="btn btn-secondary btn-sm">{% translate "Require my approval" %}</button>
                                                         {% endif %}
                                                     </form>
                                                 {% elif entry.party.is_leader and not row.member.is_leader and not row.member.is_login_less %}
@@ -301,7 +297,8 @@
                                             {% translate "Invite a member" %}
                                         </summary>
                                         <div class="mt-3">
-                                            <form action="{% url 'web:crowd:parties-invite' pk=entry.party.pk %}" method="post">
+                                            <form action="{% url 'web:crowd:parties-invite' pk=entry.party.pk %}"
+                                                  method="post">
                                                 {% csrf_token %}
                                                 {% tessera_form entry.invite_form %}
                                                 <button type="submit" class="btn btn-secondary">{% translate "Send invite" %}</button>

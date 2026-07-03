@@ -17,9 +17,7 @@
             </div>
             <div class="card-body">
                 {# Flow-neutral copy: this page serves both waitlist offers and seats a party leader held. #}
-                <p>
-                    {% translate "A seat is being held for you. Claim it before the deadline below or it will be released." %}
-                </p>
+                <p>{% translate "A seat is being held for you. Claim it before the deadline below or it will be released." %}</p>
                 <p>
                     <strong>{% translate "Claim by:" %}</strong> {{ offer.offer_expires_at|date:"DATETIME_FORMAT" }}
                 </p>
