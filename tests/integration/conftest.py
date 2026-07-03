@@ -153,9 +153,6 @@ class TagCategoryFactory(DjangoModelFactory):
         model = TagCategory
 
     name = Faker("word")
-    slug = Sequence(lambda n: f"tag-category-{n}")
-    event = SubFactory(EventFactory)
-    category_type = "SELECT"
     icon = "dice"
 
 
@@ -164,7 +161,6 @@ class TagFactory(DjangoModelFactory):
         model = Tag
 
     name = Faker("word")
-    slug = Sequence(lambda n: f"tag-{n}")
     category = SubFactory(TagCategoryFactory)
 
 

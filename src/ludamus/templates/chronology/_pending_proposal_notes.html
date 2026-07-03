@@ -1,0 +1,15 @@
+{% load tessera %}
+{# Tag pills and facilitator needs of a pending proposal. #}
+{# Variables: pending (PendingSessionDTO) #}
+{% if pending.tags %}
+    <div class="flex flex-wrap gap-1 mt-1">
+        {% for tag in pending.tags %}
+            {% include "components/_field_pill.html" with value=tag.name title=tag.name icon="" size="sm" %}
+        {% endfor %}
+    </div>
+{% endif %}
+{% if pending.needs %}
+    <div class="mt-1 text-xs flex items-center gap-1 text-info">
+        {% icon "information-circle" class="w-3.5 h-3.5" variant="mini" %} {{ pending.needs|truncatechars:50 }}
+    </div>
+{% endif %}

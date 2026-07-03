@@ -1,0 +1,17 @@
+{% load i18n %}
+{# Preferred time slots of a pending proposal: first two + overflow count, or "Flexible". #}
+{# Variables: pending (PendingSessionDTO) #}
+{% if pending.time_slots %}
+    <div class="text-xs space-y-0.5">
+        {% for slot in pending.time_slots|slice:":2" %}
+            <div class="whitespace-nowrap">{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</div>
+        {% endfor %}
+        {% if pending.time_slots|length > 2 %}
+            {% with extra=pending.time_slots|length|add:"-2" %}
+                <span class="text-foreground-muted">{% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}</span>
+            {% endwith %}
+        {% endif %}
+    </div>
+{% else %}
+    <span class="text-foreground-muted">{% translate "Flexible" %}</span>
+{% endif %}

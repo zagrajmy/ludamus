@@ -1190,17 +1190,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         is_sphere_manager = self.object.sphere.managers.filter(
             id=self.request.context.current_user_id
         ).exists()
+        is_superuser = self.request.di.uow.active_users.read(
+            self.request.context.current_user_slug
+        ).is_superuser
 
-        if (
-            self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
-            ).is_superuser
-            or is_sphere_manager
-        ):
+        if is_superuser or is_sphere_manager:
             return {
                 "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
                     self.object.pk
-                )
+                ),
+                "pending_wizard_view": is_superuser and not is_sphere_manager,
             }
 
         return {
@@ -1208,7 +1207,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 self.request.di.uow.sessions.read_pending_by_event_for_user(
                     self.object.pk, self.request.context.current_user_id
                 )
-            )
+            ),
+            "pending_wizard_view": False,
         }
 
     def _set_user_participations(
