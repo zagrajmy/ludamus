@@ -75,6 +75,7 @@ export default defineConfig({
       testIgnore: [
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
+        /panel-crud\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
