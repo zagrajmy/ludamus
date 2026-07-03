@@ -87,7 +87,12 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     should_show_as_inactive: bool = (
         False  # True if should be displayed as inactive due to limit_to_end_time
     )
-    is_pending_proposal: bool = False
+
+    @property
+    def is_pending_proposal(self) -> bool:
+        # A card without an agenda item is an unscheduled proposal; scheduled
+        # sessions keep their status-agnostic rendering.
+        return self.agenda_item is None
 
     @property
     def is_unlimited(self) -> bool:

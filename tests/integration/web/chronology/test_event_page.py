@@ -1139,7 +1139,6 @@ class TestEventPageView:
             ),
             session=SessionDTO.model_validate(pending_session),
             is_full=False,
-            is_pending_proposal=True,
             full_participant_info="0/10",
             effective_participants_limit=10,
             enrolled_count=0,

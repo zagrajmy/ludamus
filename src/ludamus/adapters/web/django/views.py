@@ -1341,6 +1341,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         event_sessions: QuerySet[Session],
         shadowbanned_ids: frozenset[int] = frozenset(),
     ) -> dict[datetime, list[SessionData]]:
+        # Expects a scheduled-only queryset (agenda_item__isnull=False): the
+        # grouping below dereferences each session's agenda item.
         sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
 
         sessions_by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
@@ -1418,9 +1420,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     agenda_item is not None and session.is_enrollment_available
                 ),
                 is_full=session.is_full,
-                # A card without an agenda item is an unscheduled proposal;
-                # scheduled sessions keep their status-agnostic rendering.
-                is_pending_proposal=agenda_item is None,
                 loc=loc,
                 enrolled_count=session.enrolled_count,
                 waiting_count=session.waiting_count,
