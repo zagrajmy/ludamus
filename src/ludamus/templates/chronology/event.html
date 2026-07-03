@@ -446,14 +446,70 @@
     <!-- Proposals Section (Superuser Only) -->
     {% if user.is_superuser and event.is_proposal_active and pending_sessions %}
         <div class="card mt-8">
-            <div class="px-6 py-4 flex items-center gap-3 bg-warning-bg border-b border-warning-light">
-                <h3 class="text-base font-semibold flex items-center gap-2 text-warning-text">
-                    {% icon "clipboard-document-check" class="w-5 h-5" variant="mini" %}
+            <div class="px-6 py-4 flex items-center gap-3 border-b border-border">
+                <h3 class="text-base font-semibold flex items-center gap-2 text-foreground">
+                    {% icon "inbox" class="w-5 h-5 text-foreground-muted" variant="mini" %}
                     {% translate "Pending Proposals" %}
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-800 text-warm-100">{{ pending_sessions|length }}</span>
                 </h3>
             </div>
-            <div class="overflow-x-auto">
+            <div class="lg:hidden divide-y divide-border">
+                {% for pending in pending_sessions %}
+                    <div class="p-4">
+                        <span class="font-medium text-foreground">{{ pending.title }}</span>
+                        {% if pending.description %}
+                            <p class="mt-0.5 text-xs text-foreground-muted">{{ pending.description|truncatechars:100 }}</p>
+                        {% endif %}
+                        {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
+                        {% if pending.tags %}
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for tag in pending.tags %}
+                                    {% include "components/_field_pill.html" with value=tag.name size="sm" %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if pending.needs %}
+                            <div class="mt-1 text-xs flex items-center gap-1 text-info">
+                                {% icon "information-circle" class="w-3.5 h-3.5" variant="mini" %} {{ pending.needs|truncatechars:50 }}
+                            </div>
+                        {% endif %}
+                        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
+                            <span class="inline-flex items-center gap-1">
+                                {% icon "user-circle" class="w-3.5 h-3.5" variant="mini" %}
+                                {{ pending.display_name }}
+                            </span>
+                            <span>{{ pending.creation_time|date:"M j, G:i" }}</span>
+                            <span class="inline-flex items-center gap-1">
+                                {% icon "users" class="w-3.5 h-3.5" variant="mini" %}
+                                {{ pending.participants_limit }}
+                                <span class="sr-only">{% translate "Participants" %}</span>
+                            </span>
+                        </div>
+                        <div class="mt-1 flex items-start gap-1 text-xs text-foreground-muted">
+                            {% icon "clock" class="w-3.5 h-3.5 mt-px" variant="mini" %}
+                            {% if pending.time_slots %}
+                                <div class="space-y-0.5">
+                                    {% for slot in pending.time_slots|slice:":2" %}
+                                        <div>{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</div>
+                                    {% endfor %}
+                                    {% if pending.time_slots|length > 2 %}
+                                        {% with extra=pending.time_slots|length|add:"-2" %}
+                                            <span>{% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}</span>
+                                        {% endwith %}
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span>{% translate "Flexible" %}</span>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=pending.pk %}"
+                           class="btn btn-primary text-xs w-full mt-3 inline-flex items-center justify-center">
+                            {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review & accept" %}
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="overflow-x-auto max-lg:hidden">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-border">
@@ -508,7 +564,9 @@
                                                 <div class="whitespace-nowrap">{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</div>
                                             {% endfor %}
                                             {% if pending.time_slots|length > 2 %}
-                                                <span class="text-foreground-muted">+{{ pending.time_slots|length|add:"-2" }} more</span>
+                                                {% with extra=pending.time_slots|length|add:"-2" %}
+                                                    <span class="text-foreground-muted">{% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}</span>
+                                                {% endwith %}
                                             {% endif %}
                                         </div>
                                     {% else %}

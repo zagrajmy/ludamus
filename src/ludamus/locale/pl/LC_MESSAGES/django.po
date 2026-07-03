@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 01:12+0200\n"
+"POT-Creation-Date: 2026-07-03 13:30+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3346,6 +3346,23 @@ msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
+#, python-format
+msgid "+%(counter)s more"
+msgid_plural "+%(counter)s more"
+msgstr[0] "+%(counter)s więcej"
+msgstr[1] "+%(counter)s więcej"
+msgstr[2] "+%(counter)s więcej"
+msgstr[3] "+%(counter)s więcej"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Flexible"
+msgstr "Elastyczny"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Review & accept"
+msgstr "Przejrzyj i zaakceptuj"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Proposal"
 msgstr "Zgłoszenie"
@@ -3362,14 +3379,6 @@ msgstr "Preferowane czasy"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Action"
 msgstr "Akcja"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Flexible"
-msgstr "Elastyczny"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Review & accept"
-msgstr "Przejrzyj i zaakceptuj"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Could not open the editor. Please try again."
