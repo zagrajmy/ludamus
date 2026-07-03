@@ -460,7 +460,6 @@
                         {% if pending.description %}
                             <p class="mt-0.5 text-xs text-foreground-muted">{{ pending.description|truncatechars:100 }}</p>
                         {% endif %}
-                        {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
                         {% if pending.tags %}
                             <div class="flex flex-wrap gap-1 mt-1">
                                 {% for tag in pending.tags %}
@@ -531,7 +530,6 @@
                                             <br>
                                             <span class="text-xs text-foreground-muted">{{ pending.description|truncatechars:100 }}</span>
                                         {% endif %}
-                                        {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
                                         {% if pending.tags %}
                                             <div class="flex flex-wrap gap-1 mt-1">
                                                 {% for tag in pending.tags %}
