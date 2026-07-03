@@ -45,7 +45,6 @@ def fake_full_card(session_data: SessionData) -> SessionData:
         waiting_count=0,
         is_full=True,
         is_enrollment_available=True,
-        has_any_enrollments=True,
         full_participant_info=f"{fill}/{fill}",
         user_enrolled=False,
         user_waiting=False,

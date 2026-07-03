@@ -1249,7 +1249,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         participation_by_user_session.get((user.pk, session.id), [])
                     )
 
-                    sessions[session.id].has_any_enrollments |= bool(statuses)
                     sessions[session.id].user_enrolled |= (
                         SessionParticipationStatus.CONFIRMED in statuses
                     )
@@ -1293,7 +1292,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                             anonymous_participation_by_session.get(session.id, [])
                         )
 
-                        sessions[session.id].has_any_enrollments = bool(statuses)
                         sessions[session.id].user_enrolled = (
                             SessionParticipationStatus.CONFIRMED in statuses
                         )

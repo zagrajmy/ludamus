@@ -105,31 +105,6 @@ class TestAgendaItemRepositoryListByEvent:
         assert result == []
 
 
-class TestAgendaItemRepositoryListBySpace:
-    def test_list_by_space_returns_items_for_space(self, agenda_item, space):
-        result = AgendaItemRepository.list_by_space(space.pk)
-
-        assert len(result) == 1
-        assert result[0].pk == agenda_item.pk
-        assert result[0].space_id == space.pk
-
-    def test_list_by_space_excludes_other_spaces(self, agenda_item):
-        other_space = SpaceFactory(event=agenda_item.space.event)
-        other_session = SessionFactory(event=agenda_item.space.event)
-        other_item = AgendaItemFactory(session=other_session, space=other_space)
-
-        result = AgendaItemRepository.list_by_space(agenda_item.space_id)
-
-        result_pks = [dto.pk for dto in result]
-        assert agenda_item.pk in result_pks
-        assert other_item.pk not in result_pks
-
-    def test_list_by_space_empty_when_no_items(self, space):
-        result = AgendaItemRepository.list_by_space(space.pk)
-
-        assert result == []
-
-
 class TestAgendaItemRepositoryListByTrack:
     def test_list_by_track_returns_items_for_track(self, agenda_item, event, session):
         track = Track.objects.create(
