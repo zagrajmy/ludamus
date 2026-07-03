@@ -35,6 +35,8 @@ from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
     PendingSessionDTO,
+    PendingSessionTagDTO,
+    PendingSessionTimeSlotDTO,
     SessionDTO,
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
@@ -46,6 +48,8 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    TagFactory,
+    TimeSlotFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
@@ -885,6 +889,95 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
+
+    def test_ok_superuser_pending_proposals_rendered(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        pending_session.needs = "Quiet corner preferred"
+        pending_session.save(update_fields=["needs"])
+        tag = TagFactory()
+        pending_session.tags.add(tag)
+        for offset in (0, 2, 4):
+            pending_session.time_slots.add(
+                TimeSlotFactory(
+                    event=event, start_time=event.start_time + timedelta(hours=offset)
+                )
+            )
+        flexible_session = SessionFactory(
+            category=pending_session.category,
+            presenter=active_user,
+            display_name=active_user.name,
+            participants_limit=5,
+            min_age=0,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        expected_flexible = PendingSessionDTO(
+            contact_email=flexible_session.contact_email,
+            creation_time=flexible_session.creation_time,
+            description=flexible_session.description,
+            needs=flexible_session.needs,
+            participants_limit=flexible_session.participants_limit,
+            pk=flexible_session.pk,
+            display_name=flexible_session.display_name,
+            requirements=flexible_session.requirements,
+            tags=[],
+            time_slots=[],
+            title=flexible_session.title,
+        )
+        expected_pending = PendingSessionDTO(
+            contact_email=pending_session.contact_email,
+            creation_time=pending_session.creation_time,
+            description=pending_session.description,
+            needs="Quiet corner preferred",
+            participants_limit=pending_session.participants_limit,
+            pk=pending_session.pk,
+            display_name=pending_session.display_name,
+            requirements=pending_session.requirements,
+            tags=[PendingSessionTagDTO(name=tag.name, pk=tag.pk)],
+            time_slots=[
+                PendingSessionTimeSlotDTO.model_validate(ts)
+                for ts in pending_session.time_slots.all()
+            ],
+            title=pending_session.title,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "pending_sessions": [expected_flexible, expected_pending],
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+        )
+        content = response.content.decode()
+        assert "Pending Proposals" in content
+        assert tag.name in content
+        assert "Quiet corner preferred" in content
+        assert "+1 more" in content
+        assert "Flexible" in content
 
     def test_ok_participations(
         self,

@@ -4,7 +4,7 @@
 {% if pending.tags %}
     <div class="flex flex-wrap gap-1 mt-1">
         {% for tag in pending.tags %}
-            {% include "components/_field_pill.html" with value=tag.name size="sm" %}
+            {% include "components/_field_pill.html" with value=tag.name title=tag.name icon="" size="sm" %}
         {% endfor %}
     </div>
 {% endif %}
