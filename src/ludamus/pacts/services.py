@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
         ProposalStatusServiceProtocol,
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
+    from ludamus.pacts.crowd import ClaimServiceProtocol
     from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.enrollment import (
         NotificationsServiceProtocol,
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
@@ -66,6 +69,10 @@ class ServicesProtocol(Protocol):
     @property
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
+    def claims(self) -> ClaimServiceProtocol: ...
+    @property
+    def parties(self) -> PartyServiceProtocol: ...
+    @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
     def events(self) -> EventsServiceProtocol: ...
@@ -99,6 +106,8 @@ class ServicesProtocol(Protocol):
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
+    @property
+    def bookmarks(self) -> BookmarkServiceProtocol: ...
     @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
     @property

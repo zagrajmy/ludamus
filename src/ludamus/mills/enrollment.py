@@ -9,26 +9,46 @@ logic stays unit-testable with fakes.
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
+from ludamus.pacts import (
+    MembershipAPIError,
+    UserEnrollmentConfigData,
+    VirtualEnrollmentConfig,
+)
+from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     ClaimResult,
+    HeldSeatData,
     NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
+    from ludamus.pacts import (
+        EnrollmentConfigDTO,
+        EnrollmentConfigRepositoryProtocol,
+        EventDTO,
+        TicketAPIProtocol,
+        UserEnrollmentConfigDTO,
+    )
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import (
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
+        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
+        SeatHoldRequest,
         UserNotifierProtocol,
         WaitingParticipantDTO,
     )
@@ -43,6 +63,10 @@ def _now() -> datetime:
 
 def _token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
+    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
 
 
 class WaitlistPromotionService:
@@ -100,15 +124,15 @@ class WaitlistPromotionService:
             ids = [p.participation_id for p in party]
             self._participations.confirm(ids)
             result.promoted.extend(ids)
-            lead = party[0]
-            promotions.append(
+            promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
+                for recipient in _party_recipients(party)
             )
 
     def _offer(
@@ -128,19 +152,56 @@ class WaitlistPromotionService:
                 ids, offered_at=now, offer_expires_at=expires_at, claim_token=token
             )
             result.offered.extend(ids)
-            lead = party[0]
-            offers.append(
+            offers.extend(
                 OfferNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
+                for recipient in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
+
+    def hold_seat(self, *, hold: SeatHoldRequest) -> None:
+        # A held seat is an OFFERED row with a personal claim token — the same
+        # shape a waitlist offer uses — so claiming, declining, and expiry all
+        # ride the existing offer machinery and release only this seat. The
+        # notification is written with the row (it must roll back together);
+        # the expiry timer is armed after, like fill_freed_seats does.
+        now = _now()
+        with self._transaction.atomic():
+            expires_at = now + self._participations.read_offer_claim_window(
+                hold.session_id
+            )
+            token = _token()
+            participation_id = self._participations.create_offered(
+                HeldSeatData(
+                    session_id=hold.session_id,
+                    user_id=hold.user_id,
+                    party_id=hold.party_id,
+                    offered_at=now,
+                    offer_expires_at=expires_at,
+                    claim_token=token,
+                )
+            )
+            self._notifier.notify_seat_held(
+                HeldSeatNotification(
+                    recipient_user_id=hold.user_id,
+                    recipient_email=hold.user_email,
+                    actor_name=hold.actor_name,
+                    session_id=hold.session_id,
+                    session_title=hold.session_title,
+                    claim_token=token,
+                    offer_expires_at=expires_at,
+                )
+            )
+        self._scheduler.schedule_expiry(
+            participation_id=participation_id, run_at=expires_at
+        )
 
     def peek_offer(self, *, token: str) -> OfferDTO | None:
         return self._participations.read_offer_by_token(token)
@@ -164,6 +225,21 @@ class WaitlistPromotionService:
                 success=True, session_id=offer.session_id, event_slug=offer.event_slug
             )
 
+    def decline_offer(self, *, token: str) -> ClaimResult:
+        # Token-authorised way out: a member turning down a held seat or a
+        # waiter passing on an offer. Drops the whole offered party (the offer
+        # is party-wide, like claiming) and rolls the freed seats on. The
+        # status guard in drop() makes a racing claim/expiry a no-op here.
+        with self._transaction.atomic():
+            if (offer := self._participations.read_offer_by_token(token)) is None:
+                return ClaimResult(success=False, reason="not_found")
+            self._participations.drop(offer.participant_ids)
+            session_id = offer.session_id
+            event_slug = offer.event_slug
+
+        self.fill_freed_seats(session_id=session_id)
+        return ClaimResult(success=True, session_id=session_id, event_slug=event_slug)
+
     def expire_offer(self, *, participation_id: int) -> PromotionResult:
         # Drop a lapsed offered party (terminal), notify them, then re-enter
         # fill_freed_seats so the released seats roll on to the next party.
@@ -174,16 +250,20 @@ class WaitlistPromotionService:
             if _now() <= offer.offer_expires_at:
                 return PromotionResult()
             self._participations.drop(offer.participant_ids)
-            notification = PromotionNotification(
-                recipient_user_id=offer.recipient_user_id,
-                recipient_email=offer.recipient_email,
-                session_id=offer.session_id,
-                session_title=offer.session_title,
-                event_slug=offer.event_slug,
-            )
+            notifications = [
+                PromotionNotification(
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
+                    session_id=offer.session_id,
+                    session_title=offer.session_title,
+                    event_slug=offer.event_slug,
+                )
+                for recipient in offer.recipients
+            ]
             session_id = offer.session_id
 
-        self._notifier.notify_offer_expired(notification)
+        for notification in notifications:
+            self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
 
 
@@ -207,3 +287,166 @@ class NotificationsService:
     def mark_all_read(self, user_id: int) -> None:
         with self._transaction.atomic():
             self._notifications.mark_all_read(user_id)
+
+
+def build_anonymous_user(slug: str, name: str = "") -> UserData:
+    # The single recipe for throwaway ANONYMOUS accounts (code-based
+    # self-enrollment, +N headcount guests); only the slug/name vary.
+    return UserData(
+        username=f"anon_{token_urlsafe(8).lower()}",
+        slug=slug,
+        name=name,
+        user_type=UserType.ANONYMOUS,
+        is_active=False,
+    )
+
+
+class AnonymousEnrollmentService:
+    SLUG_TEMPLATE = "code_{code}"
+
+    def __init__(self, user_repository: UserRepositoryProtocol) -> None:
+        self._user_repository = user_repository
+
+    def get_user_by_code(self, code: str) -> UserDTO:
+        slug = self.SLUG_TEMPLATE.format(code=code)
+        user = self._user_repository.read(slug)
+        return UserDTO.model_validate(user)
+
+    def build_user(self, code: str) -> UserData:
+        return build_anonymous_user(self.SLUG_TEMPLATE.format(code=code))
+
+
+def _refresh_user_config_from_api(
+    *,
+    user_config: UserEnrollmentConfigDTO,
+    ticket_api: TicketAPIProtocol,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> UserEnrollmentConfigDTO | None:
+    try:
+        membership_count = ticket_api.fetch_membership_count(user_config.user_email)
+    except MembershipAPIError:
+        return user_config
+
+    current_time = datetime.now(tz=UTC)
+
+    if membership_count == 0:
+        user_config.allowed_slots = 0
+        user_config.last_check = current_time
+        enrollment_config_repo.update_user_config(user_config)
+        return None
+
+    user_config.allowed_slots = membership_count
+    user_config.last_check = current_time
+    enrollment_config_repo.update_user_config(user_config)
+    return user_config
+
+
+def _create_user_config_from_api(
+    *,
+    enrollment_config: EnrollmentConfigDTO,
+    user_email: str,
+    ticket_api: TicketAPIProtocol,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> UserEnrollmentConfigDTO | None:
+
+    try:
+        membership_count = ticket_api.fetch_membership_count(user_email)
+    except MembershipAPIError:
+        return None
+
+    current_time = datetime.now(tz=UTC)
+    return enrollment_config_repo.create_user_config(
+        UserEnrollmentConfigData(
+            enrollment_config_id=enrollment_config.pk,
+            user_email=user_email,
+            allowed_slots=membership_count,
+            fetched_from_api=True,
+            last_check=current_time,
+        )
+    )
+
+
+def get_or_create_user_enrollment_config(  # noqa: PLR0913
+    *,
+    enrollment_config: EnrollmentConfigDTO,
+    user_email: str,
+    ticket_api: TicketAPIProtocol,
+    check_interval_minutes: int,
+    existing_user_config: UserEnrollmentConfigDTO | None,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> UserEnrollmentConfigDTO | None:
+    if existing_user_config:
+        if existing_user_config.allowed_slots > 0:
+            return existing_user_config
+
+        time_threshold = datetime.now(tz=UTC) - timedelta(
+            minutes=check_interval_minutes
+        )
+
+        if (
+            not existing_user_config.last_check
+            or existing_user_config.last_check < time_threshold
+        ):
+            return _refresh_user_config_from_api(
+                user_config=existing_user_config,
+                ticket_api=ticket_api,
+                enrollment_config_repo=enrollment_config_repo,
+            )
+
+        return None
+
+    return _create_user_config_from_api(
+        enrollment_config=enrollment_config,
+        user_email=user_email,
+        ticket_api=ticket_api,
+        enrollment_config_repo=enrollment_config_repo,
+    )
+
+
+def get_user_enrollment_config(
+    *,
+    event: EventDTO,
+    user_email: str,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+    ticket_api: TicketAPIProtocol,
+    check_interval_minutes: int,
+) -> VirtualEnrollmentConfig | None:
+    virtual_config = VirtualEnrollmentConfig()
+
+    now = datetime.now(tz=UTC)
+    for config in enrollment_config_repo.read_list(
+        event.pk, max_start_time=now, min_end_time=now
+    ):
+        existing_user_config = enrollment_config_repo.read_user_config(
+            config, user_email
+        )
+        if api_user_config := get_or_create_user_enrollment_config(
+            enrollment_config=config,
+            user_email=user_email,
+            ticket_api=ticket_api,
+            check_interval_minutes=check_interval_minutes,
+            existing_user_config=existing_user_config,
+            enrollment_config_repo=enrollment_config_repo,
+        ):
+            virtual_config.allowed_slots += api_user_config.allowed_slots
+            virtual_config.has_user_config = True
+        elif existing_user_config:
+            virtual_config.allowed_slots += existing_user_config.allowed_slots
+            virtual_config.has_user_config = True
+
+        email_domain = (
+            user_email.split("@")[1] if (user_email and "@" in user_email) else ""
+        )
+        if email_domain and (
+            domain_config := enrollment_config_repo.read_domain_config(
+                config, email_domain
+            )
+        ):
+            virtual_config.allowed_slots += domain_config.allowed_slots_per_user
+            virtual_config.has_domain_config = True
+
+    return (
+        virtual_config
+        if (virtual_config.has_user_config or virtual_config.has_domain_config)
+        else None
+    )

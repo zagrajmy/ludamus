@@ -1,14 +1,6 @@
 {% load i18n tessera %}
 {% if discord_username %}
-    <span class="inline-flex items-center gap-1.5 text-sm">
-        <code class="text-foreground">@{{ discord_username }}</code>
-        <button class="btn btn-secondary text-xs copy-discord"
-                data-discord="@{{ discord_username }}"
-                title="{% translate "Copy to clipboard" %}"
-                onclick="navigator.clipboard.writeText(this.dataset.discord)">
-            {% icon "clipboard" class="w-3.5 h-3.5" variant="mini" %}
-        </button>
-    </span>
+    {% tessera_copy_chip "@"|add:discord_username %}
 {% else %}
     <span class="text-foreground-secondary">—</span>
 {% endif %}

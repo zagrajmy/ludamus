@@ -24,15 +24,15 @@ def _group_into_parties(
     waiting: list[WaitingParticipantDTO],
 ) -> list[list[WaitingParticipantDTO]]:
     # Party order follows each party's earliest member, which — because
-    # `waiting` is already FIFO by creation_time — is the order managers first
+    # `waiting` is already FIFO by creation_time — is the order groups first
     # appear.
     parties: list[list[WaitingParticipantDTO]] = []
-    index_by_manager: dict[int, int] = {}
+    index_by_group: dict[tuple[str, int], int] = {}
     for participant in waiting:
-        if (manager := participant.effective_manager_id) not in index_by_manager:
-            index_by_manager[manager] = len(parties)
+        if (group := participant.promotion_group_key) not in index_by_group:
+            index_by_group[group] = len(parties)
             parties.append([])
-        parties[index_by_manager[manager]].append(participant)
+        parties[index_by_group[group]].append(participant)
     return parties
 
 
@@ -56,7 +56,7 @@ def select_promotable_parties(
         ]
         if not eligible:
             continue
-        if (slots_remaining := min(p.manager_slots_remaining for p in eligible)) <= 0:
+        if (slots_remaining := min(p.owner_slots_remaining for p in eligible)) <= 0:
             continue
         if len(eligible) > seats_remaining or len(eligible) > slots_remaining:
             break

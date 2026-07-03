@@ -56,9 +56,9 @@ jobs:
       - run: mise install
       - name: install deps
         run: aube install --no-optional
-      # Blocking: ESLint (@hasparus/eslint-config) must pass with zero errors
-      # and zero warnings before the build is considered green.
-      - name: Lint frontend TypeScript (eslint)
+      # Blocking: oxlint (@hasparus/oxlint-config) must pass with zero
+      # errors and zero warnings before the build is considered green.
+      - name: Lint frontend TypeScript (oxlint)
         run: mise run lint-client
       # Non-blocking: fallow surfaces dead code, duplication, and
       # complexity hotspots as a report without failing the build.

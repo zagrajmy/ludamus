@@ -19,8 +19,8 @@ from ludamus.pacts import (
     SessionListItemDTO,
     SessionStatus,
     TrackDTO,
-    UserDTO,
 )
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
 

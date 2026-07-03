@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "MCP access token" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-2xl mx-auto px-4 py-10">
+        <h1 class="text-3xl font-bold mb-3 text-foreground">{% translate "MCP access token" %}</h1>
+        {% if token %}
+            {% include "mcp/_token_reveal.html" %}
+            <p class="text-foreground-muted mb-6">
+                {% blocktranslate %}The token expires after {{ token_max_age_days }} days and works only while your account stays a superuser. Anyone holding it can act with your permissions — keep it secret.{% endblocktranslate %}
+            </p>
+        {% else %}
+            <p class="text-foreground-muted mb-6">
+                {% blocktranslate %}Generate a personal token to connect an MCP client (such as Claude Code or Executor) to the maintainer API. The token is valid for {{ token_max_age_days }} days.{% endblocktranslate %}
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                {% translate "Generate token" as generate_label %}
+                {% tessera_button generate_label variant="primary" %}
+            </form>
+        {% endif %}
+    </div>
+{% endblock body %}

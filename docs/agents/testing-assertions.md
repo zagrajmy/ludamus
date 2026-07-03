@@ -2,7 +2,7 @@
 
 ## File Structure
 
-```
+```text
 tests/integration/web/{namespace}/test_{url_name}.py
 ```
 
@@ -10,14 +10,14 @@ tests/integration/web/{namespace}/test_{url_name}.py
 
 Available via pytest-factoryboy:
 
-| Fixture | Description |
-|---------|-------------|
-| `authenticated_client` | Logged-in client |
-| `staff_client` | Staff user client |
-| `active_user` | Standard test user |
-| `staff_user` | User with is_staff=True |
-| `event`, `sphere`, `space` | Common entities |
-| `proposal`, `session` | Event-related data |
+| Fixture                    | Description             |
+| -------------------------- | ----------------------- |
+| `authenticated_client`     | Logged-in client        |
+| `staff_client`             | Staff user client       |
+| `active_user`              | Standard test user      |
+| `staff_user`               | User with is_staff=True |
+| `event`, `sphere`, `space` | Common entities         |
+| `proposal`, `session`      | Event-related data      |
 
 ## assert_response
 
@@ -59,4 +59,5 @@ assert len(fields) == 1 + 1  # Email + Phone
 
 ## Context data
 
-Views send DTOs/dataclasses to templates, never Django models. Tests verify DTO attributes.
+Views send DTOs/dataclasses to templates, never Django models. Tests verify DTO
+attributes.

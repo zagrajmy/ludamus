@@ -32,16 +32,12 @@ test.describe("interface sound toggle", () => {
 });
 
 test.describe("segmented switcher", () => {
-  test("shows its configured choice and lets the user pick another", async ({
-    page,
-  }) => {
+  test("shows its configured choice and lets the user pick another", async ({ page }) => {
     await page.goto("/design/");
 
     // The design gallery configures the switcher with "Grid view" selected.
     await expect(page.getByRole("radio", { name: /grid view/i })).toBeChecked();
-    await expect(
-      page.getByRole("radio", { name: /list view/i }),
-    ).not.toBeChecked();
+    await expect(page.getByRole("radio", { name: /list view/i })).not.toBeChecked();
 
     // Activate "List view" the way a person does: click the visible segment.
     // The radio itself is sr-only, so we find it by its accessible name and
@@ -52,8 +48,6 @@ test.describe("segmented switcher", () => {
       .click();
 
     await expect(page.getByRole("radio", { name: /list view/i })).toBeChecked();
-    await expect(
-      page.getByRole("radio", { name: /grid view/i }),
-    ).not.toBeChecked();
+    await expect(page.getByRole("radio", { name: /grid view/i })).not.toBeChecked();
   });
 });

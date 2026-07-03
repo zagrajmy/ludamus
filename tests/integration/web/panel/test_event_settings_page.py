@@ -755,3 +755,43 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.auto_confirm_sessions is False
+
+    def test_enables_participants_label(
+        self, *, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        assert event.use_participants_label is False
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, use_participants_label="on"),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.use_participants_label is True
+
+    def test_disables_participants_label_when_unchecked(
+        self, *, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.use_participants_label = True
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event), data=self._post_data(event)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.use_participants_label is False

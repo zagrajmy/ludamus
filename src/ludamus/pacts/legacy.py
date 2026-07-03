@@ -13,6 +13,12 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from ludamus.pacts.crowd import (
+    ConnectedUserRepositoryProtocol,
+    UserDTO,
+    UserRepositoryProtocol,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
@@ -277,6 +283,9 @@ class NotificationKind(StrEnum):
     WAITLIST_OFFER = auto()
     OFFER_EXPIRED = auto()
     SHADOWBANNED_SIGNUP = auto()
+    PARTY_INVITE = auto()
+    PARTY_ENROLLED = auto()
+    PARTY_SEAT_HELD = auto()
 
 
 class SpherePage(StrEnum):
@@ -422,33 +431,6 @@ class AgendaItemUpdateData(TypedDict, total=False):
     start_time: datetime
 
 
-class UserType(StrEnum):
-    ACTIVE = "active"
-    CONNECTED = "connected"
-    ANONYMOUS = "anonymous"
-
-
-class UserDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    avatar_url: str
-    date_joined: datetime
-    discord_username: str
-    email: str
-    full_name: str
-    is_active: bool
-    is_authenticated: bool
-    is_staff: bool
-    is_superuser: bool
-    manager_id: int | None = None
-    name: str
-    pk: int
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
-
-
 class SiteDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -510,6 +492,7 @@ class EventDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     use_session_cover_placeholders: bool = False
+    use_participants_label: bool = False
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -620,19 +603,6 @@ class EnrollmentConfigDTO(BaseModel):
     pk: int
     restrict_to_configured_users: bool
     start_time: datetime
-
-
-class UserData(TypedDict, total=False):
-    avatar_url: str
-    discord_username: str
-    email: str
-    is_active: bool
-    name: str
-    password: str
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
 
 
 class ProposalCategoryData(TypedDict, total=False):
@@ -748,6 +718,7 @@ class EventUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
+    use_participants_label: bool
 
 
 @dataclass
@@ -880,18 +851,6 @@ class SphereRepositoryProtocol(Protocol):
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
     @staticmethod
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
-
-
-class UserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(user_data: UserData) -> None: ...
-    def read(self, slug: str) -> UserDTO: ...
-    def read_by_id(self, pk: int) -> UserDTO: ...
-    def read_by_username(self, username: str) -> UserDTO: ...
-    @staticmethod
-    def update(user_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
 
 
 class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
@@ -1065,19 +1024,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     def confirm_all_by_track(track_pk: int) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
-
-
-class ConnectedUserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(manager_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]: ...
-    @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO: ...
-    @staticmethod
-    def delete(manager_slug: str, user_slug: str) -> None: ...
-    @staticmethod
-    def update(manager_slug: str, user_slug: str, user_data: UserData) -> None: ...
 
 
 class EventRepositoryProtocol(Protocol):

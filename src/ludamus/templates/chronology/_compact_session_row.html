@@ -1,0 +1,49 @@
+{% load i18n %}
+{% load cfp_tags %}
+{% load tessera %}
+{# Ledger row: one line per session — time range, bold title with the author #}
+{# right after it, then a right-aligned bullet-separated cluster of room · #}
+{# duration · age · availability, and the bookmark. Carries the same data-* #}
+{# contract as _session_card.html so session-filters and the detail modal #}
+{# work unchanged. #}
+<article class="session-card-wrapper min-w-0">
+    <div class="session-card group/row relative flex items-baseline gap-2 rounded-lg px-2 py-2 sm:gap-3 transition-colors hover:bg-bg-tertiary {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
+         {% include "chronology/_session_data_attrs.html" %}>
+        <a href="?session={{ data.session.pk }}"
+           class="session-card-link absolute inset-0 z-10 rounded-lg"
+           aria-haspopup="dialog"
+           aria-controls="session-{{ data.session.pk }}">
+            <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
+        </a>
+        <span class="w-24 shrink-0 whitespace-nowrap text-sm tabular-nums text-foreground-secondary sm:w-28"
+              data-morph="time">{{ data.agenda_item.start_time|time:"H:i" }} – {{ data.agenda_item.end_time|time:"H:i" }}</span>
+        <span class="min-w-0 flex-1 truncate">
+            <span class="text-sm font-semibold text-foreground" data-morph="title">{{ data.session.title }}</span>
+            <span class="ml-1.5 text-xs text-foreground-muted" data-morph="host">{{ data.session.display_name }}</span>
+        </span>
+        {% if data.enrolled_count > 0 %}
+            <span class="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-foreground-muted"
+                  title="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
+                {% icon "users" class="size-3.5 opacity-80" variant="mini" %}{{ data.enrolled_count }}
+            </span>
+        {% endif %}
+        <span class="shrink-0 whitespace-nowrap text-right text-xs text-foreground-muted"
+              title="{{ data.location_label }}">
+            {{ data.loc.space_name }}
+            {% if data.session.duration %}
+                · {{ data.session.duration|format_duration }}
+            {% endif %}
+            {% if data.session.min_age > 0 %}
+                · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
+            {% endif %}
+            {% if data.is_ended or data.should_show_as_inactive or data.is_enrollment_available %}
+                ·
+                {% include "chronology/_session_availability.html" %}
+            {% endif %}
+        </span>
+        {% if current_user %}
+            {% include "chronology/_bookmark_toggle.html" %}
+        {% endif %}
+        <span class="sr-only" data-session-description>{{ data.session.description }}</span>
+    </div>
+</article>

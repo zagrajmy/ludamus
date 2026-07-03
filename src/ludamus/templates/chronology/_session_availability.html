@@ -1,0 +1,21 @@
+{% load i18n %}
+{# Compact availability label, shared by the ledger row and the room-lane #}
+{# tile. Sessions without enrollment render nothing — on big events a #}
+{# repeated "Not Available" label on most rows is redundant noise. #}
+{% if data.is_ended %}
+    <span class="font-medium text-foreground-muted">{% translate "Ended" %}</span>
+{% elif data.should_show_as_inactive %}
+    <span class="font-medium text-foreground-muted">{% translate "In Progress" %}</span>
+{% elif not data.is_enrollment_available %}
+{% elif data.is_full %}
+    <span class="font-semibold text-foreground-muted">{% translate "Full" %}</span>
+    {% if data.waiting_count > 0 %}
+        <span class="text-foreground-muted">· {{ data.waiting_count }} {% translate "waiting" %}</span>
+    {% endif %}
+{% elif data.is_unlimited %}
+    <span class="text-teal-700 dark:text-teal-400">{% translate "Open" %}</span>
+{% else %}
+    <span class="font-semibold tabular-nums {% if data.spots_scarce %}text-coral-600 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
+        {% blocktranslate count counter=data.spots_left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
+    </span>
+{% endif %}

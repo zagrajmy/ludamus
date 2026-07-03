@@ -41,9 +41,11 @@ def sphere_panel_context(
         "is_general_tab": active_tab == "general",
         "is_connections_tab": active_tab == "connections",
         "is_announcements_tab": active_tab == "announcements",
+        "is_mcp_tab": active_tab == "mcp",
         "tab_urls": {
             "general": reverse("multiverse:panel:sphere-settings"),
             "connections": reverse("multiverse:panel:connections"),
             "announcements": reverse("multiverse:panel:announcements"),
+            "mcp": reverse("multiverse:panel:mcp-token"),
         },
     }

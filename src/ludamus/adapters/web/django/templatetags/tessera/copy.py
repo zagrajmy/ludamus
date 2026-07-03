@@ -1,0 +1,149 @@
+"""Copy-to-clipboard button with a confirmation popover.
+
+The click behaviour is wired once in ``src/copy.ts`` (a delegated listener on
+``[data-copy]``); the tags here emit declarative markup only.
+"""
+
+from __future__ import annotations
+
+from django.template import TemplateSyntaxError
+from django.utils.html import format_html
+from django.utils.translation import gettext
+
+from ._registry import register
+from .clsx import clsx
+from .icon import icon as render_icon
+
+# The popover is always in the DOM but absolute + pointer-events-none, so it
+# never affects the button's box — the button can't resize on success. copy.ts
+# writes its label and toggles `data-show` on a successful copy; the CSS fades /
+# scales it in. It's an aria-live region so screen readers hear the confirmation.
+# Styled after the graphql-hive docs heading copy-link popover.
+# Entrance (300ms spring, rises 2px) is slower than the exit (150ms ease-out):
+# the confirmation should land with some presence, the cleanup should get out
+# of the way. The un-prefixed duration/ease govern the exit — they are what's
+# in effect once `data-show` is gone.
+_POPOVER_CLASS = (
+    "pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 "
+    "whitespace-nowrap rounded-md bg-bg-secondary px-2 py-1 text-xs font-medium "
+    "tracking-[0.01em] text-foreground shadow-(--shadow-card) ring-1 ring-border "
+    "origin-bottom opacity-0 scale-90 translate-y-0.5 transition duration-150 ease-out "
+    "data-[show]:opacity-100 data-[show]:scale-100 data-[show]:translate-y-0 "
+    "data-[show]:duration-300 data-[show]:ease-spring-a-bit"
+)
+
+
+@register.simple_tag
+def tessera_copy_popover() -> str:
+    """Render the confirmation popover for a bespoke ``[data-copy]`` button.
+
+    Returns:
+        HTML string of the (initially empty) popover span.
+    """
+    return format_html(
+        '<span role="status" aria-live="polite" data-copy-popover class="{}"></span>',
+        _POPOVER_CLASS,
+    )
+
+
+# The looks live here, not at the callsites: a copy control is either a regular
+# secondary button or a row in a dropdown menu. `relative` anchors the popover.
+_VARIANT_CLASSES = {
+    "button": "btn btn-secondary text-sm w-full",
+    "menu-item": (
+        "relative w-full px-3 py-2 text-sm text-left text-foreground "
+        "hover:bg-bg-tertiary focus-visible:bg-bg-tertiary"
+    ),
+}
+
+
+@register.simple_block_tag
+def tessera_copy(
+    content: str,
+    copy: str,
+    *,
+    variant: str = "button",
+    copied_label: str = "",
+    origin: bool = False,
+    **kwargs: object,
+) -> str:
+    """Wrap icon/label markup in a button that copies ``copy`` on click.
+
+    Returns:
+        HTML string of the button wrapping ``content`` plus the popover.
+
+    Raises:
+        TemplateSyntaxError: On an unknown variant or keyword argument.
+
+    Usage:
+        {% tessera_copy share_url variant="menu-item" %}
+            {% icon "clipboard-document" variant="solid" class="h-4 w-4" %}
+            {% translate "Copy link" %}
+        {% endtessera_copy %}
+    """
+    copied_label = copied_label or gettext("Copied!")
+    if variant not in _VARIANT_CLASSES:
+        msg = f"tessera_copy got unknown variant: {variant!r}"
+        raise TemplateSyntaxError(msg)
+    # **kwargs exists only because `class` is a reserved word; anything else is
+    # a typo (e.g. copied_lable=) and must not vanish silently.
+    classes = clsx(_VARIANT_CLASSES[variant], kwargs.pop("class", None))
+    if kwargs:
+        msg = f"tessera_copy got unknown arguments: {sorted(kwargs)}"
+        raise TemplateSyntaxError(msg)
+    origin_attr = " data-copy-origin" if origin else ""
+    return format_html(
+        '<button type="button" class="{classes}" data-copy="{copy}"'
+        '{origin} data-copied-label="{copied}">{content}{popover}</button>',
+        classes=classes,
+        copy=copy,
+        origin=origin_attr,
+        copied=copied_label,
+        content=content,
+        popover=tessera_copy_popover(),
+    )
+
+
+@register.simple_tag
+def copy_lines(*parts: object) -> str:
+    """Join non-empty ``parts`` with newlines — a copy payload for ``tessera_copy``.
+
+    Returns:
+        The non-empty parts joined by newlines.
+    """
+    return "\n".join(str(p) for p in parts if p)
+
+
+@register.simple_tag
+def tessera_copy_chip(text: str, *, label: str = "", copied_label: str = "") -> str:
+    """Render a chip showing ``text``, the short-value copy preset.
+
+    Returns:
+        HTML string of the chip button and its confirmation popover.
+
+    Usage:
+        {% tessera_copy_chip "@ada" %}
+    """
+    label = label or gettext("Copy to clipboard")
+    copied_label = copied_label or gettext("Copied!")
+    # The visible text is part of the accessible name (WCAG 2.5.3); the sr-only
+    # label (not the aria-hidden icon) carries the copy intent.
+    icon_html = render_icon(
+        "clipboard", variant="outline", **{"class": "size-4 text-foreground-muted"}
+    )
+    return format_html(
+        '<button type="button" class="icon-btn gap-1.5 px-2 py-1 text-sm"'
+        ' data-copy="{copy}" data-copied-label="{copied}" title="{label}">'
+        '<code class="text-foreground [text-box:trim-both_cap_alphabetic]">'
+        "{display}</code>"
+        "{icon}"
+        '<span class="sr-only">{label}</span>'
+        "{popover}"
+        "</button>",
+        copy=text,
+        display=text,
+        label=label,
+        icon=icon_html,
+        popover=tessera_copy_popover(),
+        copied=copied_label,
+    )

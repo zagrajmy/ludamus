@@ -3,7 +3,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.legacy import UserDTO
+from ludamus.pacts.crowd import UserDTO
 
 
 class ShadowbanCandidateDTO(BaseModel):
