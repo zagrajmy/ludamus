@@ -878,6 +878,7 @@ class TestEventPageView:
                 "hour_data": {},
                 "object": event,
                 "pending_sessions": [expected_pending],
+                "pending_wizard_view": True,
                 "sessions": [],
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
@@ -961,6 +962,7 @@ class TestEventPageView:
                 "hour_data": {},
                 "object": event,
                 "pending_sessions": [expected_flexible, expected_pending],
+                "pending_wizard_view": True,
                 "sessions": [],
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
@@ -971,13 +973,68 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
+            contains=[
+                "Pending Proposals",
+                tag.name,
+                "Quiet corner preferred",
+                "+1 more",
+                "Flexible",
+                "🧙",
+            ],
         )
-        content = response.content.decode()
-        assert "Pending Proposals" in content
-        assert tag.name in content
-        assert "Quiet corner preferred" in content
-        assert "+1 more" in content
-        assert "Flexible" in content
+
+    def test_ok_superuser_organizer_sees_no_wizard_emoji(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.sphere.managers.add(active_user)
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        expected_pending = PendingSessionDTO(
+            contact_email=pending_session.contact_email,
+            creation_time=pending_session.creation_time,
+            description=pending_session.description,
+            needs=pending_session.needs,
+            participants_limit=pending_session.participants_limit,
+            pk=pending_session.pk,
+            display_name=pending_session.display_name,
+            requirements=pending_session.requirements,
+            tags=[],
+            time_slots=[],
+            title=pending_session.title,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "pending_sessions": [expected_pending],
+                "pending_wizard_view": False,
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains="Pending Proposals",
+            not_contains="🧙",
+        )
 
     def test_ok_participations(
         self,
@@ -1067,6 +1124,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": True,
                 "sessions": [session_data],
                 "user_enrollment_config": None,
                 "total_enrolled": 1,
@@ -1415,6 +1473,7 @@ class TestEventPageView:
                 "hour_data": {},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [],
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
@@ -1855,6 +1914,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
@@ -1939,6 +1999,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
@@ -2026,6 +2087,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
@@ -2110,6 +2172,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
@@ -2196,6 +2259,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
@@ -2278,6 +2342,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "user_enrollment_config": None,
                 "total_enrolled": 0,
@@ -2372,6 +2437,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
@@ -2458,6 +2524,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "user_enrollment_config": VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
@@ -2553,6 +2620,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],
@@ -2642,6 +2710,7 @@ class TestEventPageView:
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
                 "pending_sessions": [],
+                "pending_wizard_view": False,
                 "sessions": [session_data],
                 "total_enrolled": 0,
                 "user_enrolled_sessions": [],

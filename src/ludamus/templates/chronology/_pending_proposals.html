@@ -8,6 +8,13 @@
         <h3 class="text-base font-semibold flex items-center gap-2 text-foreground">
             {% icon "inbox" class="w-5 h-5 text-foreground-muted" variant="mini" %}
             {% translate "Pending Proposals" %}
+            {% if pending_wizard_view %}
+                {% translate "Superuser magic: event organizers don't see this section." as t_wizard %}
+                <span title="{{ t_wizard }}" class="cursor-help">
+                    <span aria-hidden="true">🧙</span>
+                    <span class="sr-only">{{ t_wizard }}</span>
+                </span>
+            {% endif %}
             <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-800 text-warm-100">{{ pending_sessions|length }}</span>
         </h3>
     </div>
