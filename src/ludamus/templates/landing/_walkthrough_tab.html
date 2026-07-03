@@ -1,0 +1,9 @@
+{# One walkthrough step pill. Expects: tab_id, label, optional checked. #}
+<label class="shrink-0 cursor-pointer">
+    <input type="radio"
+           name="walkthrough-step"
+           id="{{ tab_id }}"
+           class="sr-only peer"
+           {% if checked|default:False %}checked{% endif %}>
+    <span class="inline-block border-2 border-border rounded-full px-4 py-2 text-sm font-medium text-foreground-secondary transition-colors peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-foreground hover:border-primary/50 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{{ label }}</span>
+</label>

@@ -1,0 +1,66 @@
+{% load i18n %}
+{# CSS-only tabs: each pill is a radio, panels toggle via group-has on the section. #}
+<section class="group/wt mb-16" aria-labelledby="walkthrough-heading">
+    <h2 id="walkthrough-heading"
+        class="text-2xl font-bold mb-2 text-foreground text-center">
+        {% translate "See how an event moves through Zagrajmy" %}
+    </h2>
+    <p class="text-foreground-secondary text-center max-w-2xl mx-auto mb-6">
+        {% translate "From first proposals to the public programme and enrollment — one event, end to end." %}
+    </p>
+    {% translate "Walkthrough steps" as t_walkthrough_steps %}
+    <div class="flex gap-2 overflow-x-auto pb-2 mb-4 justify-start sm:justify-center"
+         role="radiogroup"
+         aria-label="{{ t_walkthrough_steps }}">
+        {% translate "Proposals" as t_proposals %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-proposals" label=t_proposals checked=True %}
+        {% translate "Review" context "landing walkthrough step" as t_review %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-review" label=t_review %}
+        {% translate "Schedule" as t_schedule %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-schedule" label=t_schedule %}
+        {% translate "Publish" as t_publish %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-publish" label=t_publish %}
+        {% translate "Enrollment" as t_enroll %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-enroll" label=t_enroll %}
+        {% translate "Print" context "landing walkthrough step" as t_print %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-print" label=t_print %}
+    </div>
+    <div class="rounded-2xl border border-border bg-bg-tertiary/50 p-4 sm:p-8">
+        <div class="hidden group-has-[#wt-proposals:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Programme creators submit items through a form — with your questions and required fields." %}
+            </p>
+            {% include "landing/demos/proposals.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-review:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Statuses, categories, and creators in one list — you see what is missing before the programme goes public." %}
+            </p>
+            {% include "landing/demos/review.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-schedule:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Rooms, tracks, and time slots on one grid — conflicts show up before attendees see them." %}
+            </p>
+            {% include "landing/demos/schedule.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-publish:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Attendees get one page with the current programme — no PDFs to resend after every change." %}
+            </p>
+            {% include "landing/demos/publish.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-enroll:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "You set the capacity; Zagrajmy runs enrollment and the waiting list." %}
+            </p>
+            {% include "landing/demos/enroll.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-print:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Schedules and door cards ready to print — no manual assembly the night before." %}
+            </p>
+            {% include "landing/demos/print.html" %}
+        </div>
+    </div>
+</section>

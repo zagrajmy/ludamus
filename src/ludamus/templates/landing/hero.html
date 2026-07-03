@@ -1,0 +1,26 @@
+{% load i18n %}
+{% load tessera %}
+<section class="mb-10 pt-4 sm:pt-10 text-center"
+         aria-labelledby="landing-hero-heading">
+    <p class="text-sm font-semibold uppercase tracking-wide text-primary mb-3">
+        {% translate "For conference and meetup organizers" %}
+    </p>
+    <h1 id="landing-hero-heading"
+        class="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4 max-w-3xl mx-auto text-balance">
+        {% translate "Run a conference or meetup without spreadsheet chaos" %}
+    </h1>
+    <p class="text-lg text-foreground-secondary max-w-2xl mx-auto mb-8">
+        {% translate "Bring the event. We help set up proposals, programme, enrollment, and the public page in Zagrajmy." %}
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+        {% translate "Run your event with Zagrajmy" as t_cta %}
+        {% tessera_button t_cta variant="primary" href="mailto:kontakt@zagrajmy.net?subject=Wydarzenie%20na%20Zagrajmy" icon="envelope" %}
+        {% translate "Browse events" as t_browse %}
+        {% tessera_button t_browse variant="secondary" href="#events" %}
+    </div>
+    {# mailto: fails silently without a configured mail client — keep the address visible and copyable. #}
+    <div class="mt-4 flex items-center justify-center gap-1 text-sm text-foreground-muted">
+        <span>{% translate "or write to" %}</span>
+        {% tessera_copy_chip "kontakt@zagrajmy.net" %}
+    </div>
+</section>

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-02 03:03+0200\n"
+"POT-Creation-Date: 2026-07-03 23:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1022,6 +1022,8 @@ msgstr "0 = bez limitu"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/landing/demos/proposals.html
+#: src/ludamus/templates/landing/demos/review.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -1037,6 +1039,7 @@ msgstr "Tytuł"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/landing/demos/proposals.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -1264,6 +1267,7 @@ msgstr "Blok programowy"
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/landing/demos/proposals.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposals.html
@@ -2343,10 +2347,13 @@ msgid "waiting"
 msgstr "oczekuje"
 
 #: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/landing/demos/publish.html
 msgid "Open"
 msgstr "Otwarte"
 
 #: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/landing/demos/enroll.html
+#: src/ludamus/templates/landing/demos/publish.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
@@ -2847,6 +2854,7 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/landing/demos/review.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
@@ -3514,6 +3522,7 @@ msgid "attending"
 msgstr "uczestników"
 
 #: src/ludamus/templates/components/event_card.html
+#: src/ludamus/templates/landing/demos/publish.html
 msgid "LIVE"
 msgstr "W TRAKCIE"
 
@@ -3902,6 +3911,18 @@ msgstr ""
 "każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
 
 #: src/ludamus/templates/index.html
+msgid "Zagrajmy - conference and meetup programme planning"
+msgstr "Zagrajmy - organizacja programu konferencji i meetupów"
+
+#: src/ludamus/templates/index.html
+msgid ""
+"We help organizers collect proposals, build the programme, publish event "
+"pages, and run enrollment in one place."
+msgstr ""
+"Pomagamy organizatorom zbierać zgłoszenia, układać program, publikować "
+"stronę wydarzenia i prowadzić zapisy w jednym miejscu."
+
+#: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_tabs.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements"
@@ -3922,6 +3943,412 @@ msgstr "Brak dostępnych wydarzeń"
 #: src/ludamus/templates/index.html
 msgid "There are currently no events scheduled. Please check back later!"
 msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+#: src/ludamus/templates/landing/demos/review.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Painting miniatures for beginners"
+msgstr "Malowanie figurek dla początkujących"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid "Sat 15:00 · Room A"
+msgstr "sob. 15:00 · Sala A"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+#: src/ludamus/templates/landing/demos/proposals.html
+#: src/ludamus/templates/landing/demos/publish.html
+#: src/ludamus/templates/landing/demos/review.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Board game prototyping workshop"
+msgstr "Warsztat prototypowania gier planszowych"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid "Sat 12:00 · Workshop room"
+msgstr "sob. 12:00 · Sala warsztatowa"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid "Full · 12/12"
+msgstr "Pełne · 12/12"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid "Join the waiting list"
+msgstr "Dołącz do listy oczekujących"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid "3rd on the waiting list"
+msgstr "3. miejsce na liście oczekujących"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid "Leave"
+msgstr "Wypisz się"
+
+#: src/ludamus/templates/landing/demos/enroll.html
+msgid ""
+"When a spot frees up, the first person in line moves up automatically. "
+"Friends who enroll together move up together."
+msgstr ""
+"Gdy zwolni się miejsce, pierwsza osoba z listy awansuje automatycznie. "
+"Znajomi zapisani razem awansują razem."
+
+#: src/ludamus/templates/landing/demos/print.html
+#: src/ludamus/templates/landing/demos/publish.html
+msgid "Tabletop Days 2026"
+msgstr "Planszówkowe Dni 2026"
+
+#: src/ludamus/templates/landing/demos/print.html
+#: src/ludamus/templates/landing/demos/publish.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Room B"
+msgstr "Sala B"
+
+#: src/ludamus/templates/landing/demos/print.html
+#: src/ludamus/templates/landing/demos/publish.html
+#: src/ludamus/templates/landing/demos/review.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Self-publishing: a survival guide"
+msgstr "Self-publishing: poradnik przetrwania"
+
+#: src/ludamus/templates/landing/demos/print.html
+#: src/ludamus/templates/landing/demos/review.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Two decades of convention mishaps"
+msgstr "Dwie dekady konwentowych wpadek"
+
+#: src/ludamus/templates/landing/demos/print.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Publisher Q&A"
+msgstr "Q&A z wydawcą"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Propose a programme item"
+msgstr "Zgłoś punkt programu"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Workshop"
+msgstr "Warsztat"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Talk"
+msgstr "Prelekcja"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Discussion panel"
+msgstr "Panel dyskusyjny"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Preferred time slots"
+msgstr "Preferowane przedziały czasowe"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Sat 10:00"
+msgstr "sob. 10:00"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Sat 15:00"
+msgstr "sob. 15:00"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Sun 11:00"
+msgstr "niedz. 11:00"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Bring a prototype or join a table. We test, we break, we take notes."
+msgstr ""
+"Przynieś prototyp albo dosiądź się do stołu. Testujemy, psujemy, notujemy."
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Submit proposal"
+msgstr "Prześlij zgłoszenie"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Proposal sent to the organizers"
+msgstr "Zgłoszenie trafiło do organizatorów"
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "This is a preview — nothing was sent."
+msgstr "To tylko podgląd — nic nie zostało wysłane."
+
+#: src/ludamus/templates/landing/demos/proposals.html
+msgid "Show the form again"
+msgstr "Pokaż formularz ponownie"
+
+#: src/ludamus/templates/landing/demos/publish.html
+msgid "Sat–Sun, 14–15 March"
+msgstr "sob.–niedz., 14–15 marca"
+
+#: src/ludamus/templates/landing/demos/publish.html
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Workshop room"
+msgstr "Sala warsztatowa"
+
+#: src/ludamus/templates/landing/demos/review.html
+msgid "Programme creator"
+msgstr "Twórca programu"
+
+#: src/ludamus/templates/landing/demos/review.html
+msgid "Accepted"
+msgstr "Zaakceptowane"
+
+#: src/ludamus/templates/landing/demos/review.html
+msgid "On hold"
+msgstr "Wstrzymane"
+
+#: src/ludamus/templates/landing/demos/review.html
+msgid "New"
+msgstr "Nowe"
+
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Room A"
+msgstr "Sala A"
+
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Opening talk"
+msgstr "Prelekcja otwierająca"
+
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid "Community meetup"
+msgstr "Spotkanie społeczności"
+
+#: src/ludamus/templates/landing/demos/schedule.html
+msgid ""
+"Two sessions collided in Room B — the grid flags it before attendees ever "
+"see it."
+msgstr ""
+"Dwa punkty programu nałożyły się w Sali B — siatka pokazuje konflikt, zanim "
+"zobaczą go uczestnicy."
+
+#: src/ludamus/templates/landing/hero.html
+msgid "For conference and meetup organizers"
+msgstr "Dla organizatorów konferencji i meetupów"
+
+#: src/ludamus/templates/landing/hero.html
+msgid "Run a conference or meetup without spreadsheet chaos"
+msgstr "Zorganizuj konferencję albo meetup bez chaosu w arkuszach"
+
+#: src/ludamus/templates/landing/hero.html
+msgid ""
+"Bring the event. We help set up proposals, programme, enrollment, and the "
+"public page in Zagrajmy."
+msgstr ""
+"Przychodzisz z wydarzeniem. My pomagamy ustawić zgłoszenia, program, zapisy "
+"i stronę wydarzenia w Zagrajmy."
+
+#: src/ludamus/templates/landing/hero.html
+#: src/ludamus/templates/landing/pitch.html
+msgid "Run your event with Zagrajmy"
+msgstr "Zorganizuj wydarzenie z Zagrajmy"
+
+#: src/ludamus/templates/landing/hero.html
+msgid "Browse events"
+msgstr "Zobacz wydarzenia"
+
+#: src/ludamus/templates/landing/hero.html
+#: src/ludamus/templates/landing/pitch.html
+msgid "or write to"
+msgstr "albo napisz na"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Your event programme should not live in five places"
+msgstr "Program wydarzenia nie powinien mieszkać w pięciu miejscach"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid ""
+"Proposals in a form. Decisions in email. Room changes in a spreadsheet. "
+"Attendee questions in chat. You can survive one event like that, but it is a "
+"bad way to work."
+msgstr ""
+"Zgłoszenia w formularzu. Ustalenia w mailach. Zmiany sal w arkuszu. Pytania "
+"od uczestników na czacie. Da się tak przeżyć jedno wydarzenie, ale nie da "
+"się na tym spokojnie pracować."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "You do not just get a tool. We help set up the process."
+msgstr "Nie dostajesz tylko narzędzia. Pomagamy ustawić proces."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid ""
+"We start with how your event works: who submits programme items, who accepts "
+"them, how scheduling works, and when enrollment opens. Then we configure "
+"Zagrajmy around that workflow."
+msgstr ""
+"Zaczynamy od tego, jak działa Twoje wydarzenie: kto zgłasza punkty programu, "
+"kto je akceptuje, jak wygląda harmonogram, kiedy ruszają zapisy. Dopiero "
+"potem ustawiamy Zagrajmy tak, żeby pasowało do tego sposobu pracy."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "configure programme proposal forms"
+msgstr "konfigurujemy zgłoszenia punktów programu"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "help move or clean up existing data"
+msgstr "pomagamy przenieść albo uporządkować istniejące dane"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "set up tracks, rooms, and time slots"
+msgstr "ustawiamy bloki, sale i przedziały czasowe"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "publish the event page"
+msgstr "publikujemy stronę wydarzenia"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "prepare enrollment, waiting lists, and print materials"
+msgstr "przygotowujemy zapisy, listy oczekujących i wydruki"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "How we start"
+msgstr "Jak wygląda start"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Contact us"
+msgstr "Piszesz do nas"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid ""
+"Tell us about the event, programme format, and what you handle manually "
+"today."
+msgstr "Opisz wydarzenie, format programu i to, co dziś robisz ręcznie."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "We set up the structure"
+msgstr "Ustawiamy strukturę"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "We prepare the event, proposal forms, rooms, tracks, and time slots."
+msgstr ""
+"Przygotowujemy wydarzenie, formularze zgłoszeń, sale, bloki i przedziały "
+"czasowe."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Open proposals or import data"
+msgstr "Otwierasz zgłoszenia albo importujesz dane"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Start fresh or clean up what you already have."
+msgstr "Możesz zacząć od świeżych zgłoszeń albo uporządkować to, co już masz."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Publish programme and enrollment"
+msgstr "Publikujesz program i zapisy"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Attendees get one page with the current programme and enrollment."
+msgstr "Uczestnicy dostają jedną stronę z aktualnym programem i zapisami."
+
+#: src/ludamus/templates/landing/pitch.html
+msgid "Have an event to run?"
+msgstr "Masz wydarzenie do ogarnięcia?"
+
+#: src/ludamus/templates/landing/pitch.html
+msgid ""
+"Write to us. We will help map your process into Zagrajmy and prepare the "
+"first version of your event."
+msgstr ""
+"Napisz do nas. Pomożemy przełożyć Twój proces na Zagrajmy i przygotować "
+"pierwszą wersję wydarzenia."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "See how an event moves through Zagrajmy"
+msgstr "Zobacz, jak wydarzenie przechodzi przez Zagrajmy"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"From first proposals to the public programme and enrollment — one event, end "
+"to end."
+msgstr ""
+"Od pierwszych zgłoszeń po publiczny program i zapisy — jedno wydarzenie, od "
+"początku do końca."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "Walkthrough steps"
+msgstr "Kroki prezentacji"
+
+#: src/ludamus/templates/landing/walkthrough.html
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposal-settings.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/settings.html
+msgid "Proposals"
+msgstr "Zgłoszenia"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgctxt "landing walkthrough step"
+msgid "Review"
+msgstr "Akceptacja"
+
+#: src/ludamus/templates/landing/walkthrough.html
+#: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable-overview.html
+#: src/ludamus/templates/panel/timetable-problems.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "Schedule"
+msgstr "Harmonogram"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "Publish"
+msgstr "Publikacja"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "Enrollment"
+msgstr "Zapisy"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgctxt "landing walkthrough step"
+msgid "Print"
+msgstr "Druk"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"Programme creators submit items through a form — with your questions and "
+"required fields."
+msgstr ""
+"Twórcy programu zgłaszają punkty programu przez formularz — z Twoimi "
+"pytaniami i wymaganymi polami."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"Statuses, categories, and creators in one list — you see what is missing "
+"before the programme goes public."
+msgstr ""
+"Statusy, kategorie i twórcy w jednej liście — widzisz, czego brakuje, zanim "
+"program trafi do uczestników."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"Rooms, tracks, and time slots on one grid — conflicts show up before "
+"attendees see them."
+msgstr ""
+"Sale, bloki i przedziały czasowe na jednej siatce — konflikty widać, zanim "
+"zobaczą je uczestnicy."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"Attendees get one page with the current programme — no PDFs to resend after "
+"every change."
+msgstr ""
+"Uczestnicy dostają jedną stronę z aktualnym programem — bez rozsyłania PDF-"
+"ów po każdej zmianie."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "You set the capacity; Zagrajmy runs enrollment and the waiting list."
+msgstr ""
+"Ustawiasz limity miejsc, a zapisami i listą oczekujących zajmuje się "
+"Zagrajmy."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"Schedules and door cards ready to print — no manual assembly the night "
+"before."
+msgstr ""
+"Harmonogramy i karty na drzwi gotowe do druku — bez ręcznego składania w noc "
+"przed wydarzeniem."
 
 #: src/ludamus/templates/mcp/token.html
 msgid "MCP access token"
@@ -4452,19 +4879,6 @@ msgstr "Program"
 #: src/ludamus/templates/panel/cfp.html
 msgid "Call for Proposals"
 msgstr "Nabór zgłoszeń"
-
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/display-settings.html
-#: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-#: src/ludamus/templates/panel/proposal-settings.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Proposals"
-msgstr "Zgłoszenia"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/facilitator-create.html
@@ -5998,10 +6412,6 @@ msgid "Facilitator"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposal-detail.html
-msgid "Preferred time slots"
-msgstr "Preferowane przedziały czasowe"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."
 msgstr "Brak przypisanych twórców programu."
 
@@ -6356,13 +6766,6 @@ msgstr ""
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
-
-#: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Schedule"
-msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/timetable-log.html
 #: src/ludamus/templates/panel/timetable-overview.html
@@ -6862,9 +7265,6 @@ msgstr "Nie przechwycono jeszcze żadnych e-maili."
 #~ msgid "Delete Venue"
 #~ msgstr "Usuń lokalizację"
 
-#~ msgid "Venue Structure"
-#~ msgstr "Struktura lokalizacji"
-
 #~ msgid "List View"
 #~ msgstr "Widok listy"
 
@@ -6905,9 +7305,6 @@ msgstr "Nie przechwycono jeszcze żadnych e-maili."
 #~ msgstr ""
 #~ "Brak lokalizacji. Utwórz pierwszą lokalizację, aby rozpocząć budowanie "
 #~ "struktury wydarzenia."
-
-#~ msgid "Select space and time slot for"
-#~ msgstr "Wybierz przestrzeń i przedział czasowy dla"
 
 #~ msgid "Session fields"
 #~ msgstr "Pola punktu programu"
@@ -6950,9 +7347,6 @@ msgstr "Nie przechwycono jeszcze żadnych e-maili."
 
 #~ msgid "Save this code to access your enrollments later"
 #~ msgstr "Zachowaj ten kod, aby później mieć dostęp do swoich zapisów"
-
-#~ msgid "Accept"
-#~ msgstr "Zaakceptuj"
 
 #~ msgid "Tags"
 #~ msgstr "Tagi"

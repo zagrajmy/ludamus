@@ -1,0 +1,64 @@
+{% load i18n %}
+{% load tessera %}
+{# Live demo, not a real form: the "submit" is a checkbox hack that swaps in a success state. #}
+<div class="group/demo max-w-xl mx-auto">
+    <div class="card p-5 sm:p-6 group-has-[#demo-proposal-sent:checked]/demo:hidden">
+        <h3 class="text-lg font-semibold text-foreground mb-4">{% translate "Propose a programme item" %}</h3>
+        <div class="space-y-4">
+            <div>
+                <label for="demo-proposal-title"
+                       class="block text-sm font-medium text-foreground mb-1">{% translate "Title" %}</label>
+                {% translate "Board game prototyping workshop" as t_demo_title %}
+                {% include "components/text-field.html" with name="demo-proposal-title" id="demo-proposal-title" value=t_demo_title only %}
+            </div>
+            <div>
+                <label for="demo-proposal-category"
+                       class="block text-sm font-medium text-foreground mb-1">{% translate "Category" %}</label>
+                {% select id="demo-proposal-category" name="demo-proposal-category" %}
+                    <option>{% translate "Workshop" %}</option>
+                    <option>{% translate "Talk" %}</option>
+                    <option>{% translate "Discussion panel" %}</option>
+                {% end_select %}
+            </div>
+            <fieldset>
+                <legend class="block text-sm font-medium text-foreground mb-1">{% translate "Preferred time slots" %}</legend>
+                <div class="flex flex-wrap gap-2">
+                    <label class="cursor-pointer">
+                        <input type="checkbox"
+                               name="demo-proposal-slot"
+                               class="sr-only peer"
+                               checked>
+                        <span class="inline-block border-2 border-border rounded-full px-4 py-2 text-sm text-foreground transition-colors peer-checked:border-primary peer-checked:bg-primary/5 hover:border-primary/50 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{% translate "Sat 10:00" %}</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" name="demo-proposal-slot" class="sr-only peer">
+                        <span class="inline-block border-2 border-border rounded-full px-4 py-2 text-sm text-foreground transition-colors peer-checked:border-primary peer-checked:bg-primary/5 hover:border-primary/50 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{% translate "Sat 15:00" %}</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="checkbox" name="demo-proposal-slot" class="sr-only peer">
+                        <span class="inline-block border-2 border-border rounded-full px-4 py-2 text-sm text-foreground transition-colors peer-checked:border-primary peer-checked:bg-primary/5 hover:border-primary/50 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{% translate "Sun 11:00" %}</span>
+                    </label>
+                </div>
+            </fieldset>
+            <div>
+                <label for="demo-proposal-description"
+                       class="block text-sm font-medium text-foreground mb-1">{% translate "Description" %}</label>
+                {% translate "Bring a prototype or join a table. We test, we break, we take notes." as t_demo_description %}
+                {% include "components/textarea.html" with name="demo-proposal-description" id="demo-proposal-description" rows="2" value=t_demo_description only %}
+            </div>
+            <label class="inline-flex cursor-pointer">
+                <input type="checkbox" id="demo-proposal-sent" class="sr-only peer">
+                <span class="btn btn-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{% translate "Submit proposal" %}</span>
+            </label>
+        </div>
+    </div>
+    <div class="hidden group-has-[#demo-proposal-sent:checked]/demo:block card p-8 text-center">
+        {% icon "check-circle" class="w-12 h-12 mx-auto text-success mb-3" %}
+        <p class="text-lg font-semibold text-foreground mb-1">{% translate "Proposal sent to the organizers" %}</p>
+        <p class="text-sm text-foreground-muted mb-4">{% translate "This is a preview — nothing was sent." %}</p>
+        <label for="demo-proposal-sent"
+               class="cursor-pointer text-sm font-medium text-primary hover:underline">
+            {% translate "Show the form again" %}
+        </label>
+    </div>
+</div>
