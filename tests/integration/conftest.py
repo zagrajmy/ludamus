@@ -70,6 +70,8 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
         django_get_or_create = ("username",)
+        # The manager hook only creates rows; the user needs no second save.
+        skip_postgeneration_save = True
 
     username = Faker("user_name")
     email = Faker("email")
