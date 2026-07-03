@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load tessera %}
-{# Pending-proposals review card for superusers: a stacked card list below #}
-{# lg, the six-column table at lg and up. #}
+{# Pending-proposals review card for superusers and sphere managers: #}
+{# a stacked card list below lg, the six-column table at lg and up. #}
 {# Variables: event, pending_sessions (list[PendingSessionDTO]), #}
 {# pending_wizard_view (bool: viewer is a superuser, not a sphere manager) #}
 <div class="card mt-8">
@@ -10,7 +10,7 @@
             {% icon "inbox" class="w-5 h-5 text-foreground-muted" variant="mini" %}
             {% translate "Pending Proposals" %}
             {% if pending_wizard_view %}
-                {% translate "Superuser magic: event organizers don't see this section." as t_wizard %}
+                {% translate "Superuser magic: you see this without being an organizer of this event." as t_wizard %}
                 <span title="{{ t_wizard }}" class="cursor-help">
                     <span aria-hidden="true">🧙</span>
                     <span class="sr-only">{{ t_wizard }}</span>
