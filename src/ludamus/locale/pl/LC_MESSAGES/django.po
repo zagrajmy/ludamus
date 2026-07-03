@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 23:03+0200\n"
+"POT-Creation-Date: 2026-07-04 00:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4066,8 +4066,8 @@ msgid "Proposal sent to the organizers"
 msgstr "Zgłoszenie trafiło do organizatorów"
 
 #: src/ludamus/templates/landing/demos/proposals.html
-msgid "This is a preview — nothing was sent."
-msgstr "To tylko podgląd — nic nie zostało wysłane."
+msgid "This is a preview. Nothing was sent."
+msgstr "To tylko podgląd. Nic nie zostało wysłane."
 
 #: src/ludamus/templates/landing/demos/proposals.html
 msgid "Show the form again"
@@ -4111,12 +4111,8 @@ msgid "Community meetup"
 msgstr "Spotkanie społeczności"
 
 #: src/ludamus/templates/landing/demos/schedule.html
-msgid ""
-"Two sessions collided in Room B — the grid flags it before attendees ever "
-"see it."
-msgstr ""
-"Dwa punkty programu nałożyły się w Sali B — siatka pokazuje konflikt, zanim "
-"zobaczą go uczestnicy."
+msgid "Two sessions collided in Room B at 15:00."
+msgstr "Dwa punkty programu nałożyły się w Sali B o 15:00."
 
 #: src/ludamus/templates/landing/hero.html
 msgid "For conference and meetup organizers"
@@ -4163,8 +4159,8 @@ msgstr ""
 "się na tym spokojnie pracować."
 
 #: src/ludamus/templates/landing/pitch.html
-msgid "You do not just get a tool. We help set up the process."
-msgstr "Nie dostajesz tylko narzędzia. Pomagamy ustawić proces."
+msgid "We help set up the process"
+msgstr "Pomagamy ustawić proces"
 
 #: src/ludamus/templates/landing/pitch.html
 msgid ""
@@ -4253,12 +4249,8 @@ msgid "See how an event moves through Zagrajmy"
 msgstr "Zobacz, jak wydarzenie przechodzi przez Zagrajmy"
 
 #: src/ludamus/templates/landing/walkthrough.html
-msgid ""
-"From first proposals to the public programme and enrollment — one event, end "
-"to end."
-msgstr ""
-"Od pierwszych zgłoszeń po publiczny program i zapisy — jedno wydarzenie, od "
-"początku do końca."
+msgid "Click through the steps. Everything below is live Zagrajmy UI."
+msgstr "Przeklikaj kroki. Wszystko poniżej to działające elementy Zagrajmy."
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid "Walkthrough steps"
@@ -4306,35 +4298,41 @@ msgstr "Druk"
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid ""
-"Programme creators submit items through a form — with your questions and "
+"A conference walks through all six steps. A meetup usually needs three: "
+"proposals, publish, and enrollment."
+msgstr "Konferencja przechodzi przez wszystkie sześć kroków. Meetupowi zwykle wystarczą trzy: zgłoszenia, publikacja i zapisy."
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid ""
+"Programme creators fill in a form you shape yourself: your questions, your "
 "required fields."
 msgstr ""
-"Twórcy programu zgłaszają punkty programu przez formularz — z Twoimi "
-"pytaniami i wymaganymi polami."
+"Twórcy programu wypełniają formularz, który ustawiasz pod siebie: Twoje "
+"pytania, Twoje wymagane pola."
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid ""
-"Statuses, categories, and creators in one list — you see what is missing "
+"Every proposal lands on one list. You see statuses, categories, and gaps "
 "before the programme goes public."
 msgstr ""
-"Statusy, kategorie i twórcy w jednej liście — widzisz, czego brakuje, zanim "
-"program trafi do uczestników."
+"Każde zgłoszenie trafia na jedną listę. Widzisz statusy, kategorie i braki, "
+"zanim program zobaczą uczestnicy."
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid ""
-"Rooms, tracks, and time slots on one grid — conflicts show up before "
-"attendees see them."
+"You place sessions on a grid of rooms and time slots. When two overlap, you "
+"see it immediately."
 msgstr ""
-"Sale, bloki i przedziały czasowe na jednej siatce — konflikty widać, zanim "
-"zobaczą je uczestnicy."
+"Układasz punkty programu na siatce sal i przedziałów czasowych. Gdy dwa się "
+"nakładają, widzisz to od razu."
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid ""
-"Attendees get one page with the current programme — no PDFs to resend after "
-"every change."
+"Attendees get one page with the current programme. Change a room and "
+"everyone sees the update."
 msgstr ""
-"Uczestnicy dostają jedną stronę z aktualnym programem — bez rozsyłania PDF-"
-"ów po każdej zmianie."
+"Uczestnicy mają jedną stronę z aktualnym programem. Zmieniasz salę i wszyscy "
+"od razu widzą zmianę."
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid "You set the capacity; Zagrajmy runs enrollment and the waiting list."
@@ -4344,11 +4342,11 @@ msgstr ""
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid ""
-"Schedules and door cards ready to print — no manual assembly the night "
-"before."
+"Print schedules and door cards straight from Zagrajmy. The night before the "
+"event is for sleeping."
 msgstr ""
-"Harmonogramy i karty na drzwi gotowe do druku — bez ręcznego składania w noc "
-"przed wydarzeniem."
+"Harmonogramy i karty na drzwi drukujesz prosto z Zagrajmy. Noc przed "
+"wydarzeniem jest od spania."
 
 #: src/ludamus/templates/mcp/token.html
 msgid "MCP access token"
@@ -7032,6 +7030,47 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Nie przechwycono jeszcze żadnych e-maili."
+
+#~ msgid "You get a working process, not just a login"
+#~ msgstr "Dostajesz ustawiony proces, nie sam login"
+
+#~ msgid ""
+#~ "Attendees get one page that is always current. Change a room and nobody "
+#~ "has to resend a PDF."
+#~ msgstr ""
+#~ "Uczestnicy mają jedną stronę z zawsze aktualnym programem. Zmieniasz salę "
+#~ "i nikt nie rozsyła nowego PDF-a."
+
+#~ msgid ""
+#~ "Two sessions collided in Room B — the grid flags it before attendees ever "
+#~ "see it."
+#~ msgstr ""
+#~ "Dwa punkty programu nałożyły się w Sali B — siatka pokazuje konflikt, "
+#~ "zanim zobaczą go uczestnicy."
+
+#~ msgid "You do not just get a tool. We help set up the process."
+#~ msgstr "Nie dostajesz tylko narzędzia. Pomagamy ustawić proces."
+
+#~ msgid ""
+#~ "From first proposals to the public programme and enrollment — one event, "
+#~ "end to end."
+#~ msgstr ""
+#~ "Od pierwszych zgłoszeń po publiczny program i zapisy — jedno wydarzenie, "
+#~ "od początku do końca."
+
+#~ msgid ""
+#~ "Rooms, tracks, and time slots on one grid — conflicts show up before "
+#~ "attendees see them."
+#~ msgstr ""
+#~ "Sale, bloki i przedziały czasowe na jednej siatce — konflikty widać, "
+#~ "zanim zobaczą je uczestnicy."
+
+#~ msgid ""
+#~ "Schedules and door cards ready to print — no manual assembly the night "
+#~ "before."
+#~ msgstr ""
+#~ "Harmonogramy i karty na drzwi gotowe do druku — bez ręcznego składania w "
+#~ "noc przed wydarzeniem."
 
 #~ msgid "Area timetable"
 #~ msgstr "Harmonogram strefy"

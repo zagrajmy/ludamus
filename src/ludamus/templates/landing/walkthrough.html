@@ -6,47 +6,50 @@
         {% translate "See how an event moves through Zagrajmy" %}
     </h2>
     <p class="text-foreground-secondary text-center max-w-2xl mx-auto mb-6">
-        {% translate "From first proposals to the public programme and enrollment — one event, end to end." %}
+        {% translate "Click through the steps. Everything below is live Zagrajmy UI." %}
     </p>
     {% translate "Walkthrough steps" as t_walkthrough_steps %}
     <div class="flex gap-2 overflow-x-auto pb-2 mb-4 justify-start sm:justify-center"
          role="radiogroup"
          aria-label="{{ t_walkthrough_steps }}">
         {% translate "Proposals" as t_proposals %}
-        {% include "landing/_walkthrough_tab.html" with tab_id="wt-proposals" label=t_proposals checked=True %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-proposals" label=t_proposals number="1" checked=True %}
         {% translate "Review" context "landing walkthrough step" as t_review %}
-        {% include "landing/_walkthrough_tab.html" with tab_id="wt-review" label=t_review %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-review" label=t_review number="2" %}
         {% translate "Schedule" as t_schedule %}
-        {% include "landing/_walkthrough_tab.html" with tab_id="wt-schedule" label=t_schedule %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-schedule" label=t_schedule number="3" %}
         {% translate "Publish" as t_publish %}
-        {% include "landing/_walkthrough_tab.html" with tab_id="wt-publish" label=t_publish %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-publish" label=t_publish number="4" %}
         {% translate "Enrollment" as t_enroll %}
-        {% include "landing/_walkthrough_tab.html" with tab_id="wt-enroll" label=t_enroll %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-enroll" label=t_enroll number="5" %}
         {% translate "Print" context "landing walkthrough step" as t_print %}
-        {% include "landing/_walkthrough_tab.html" with tab_id="wt-print" label=t_print %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-print" label=t_print number="6" %}
     </div>
+    <p class="text-xs text-foreground-muted text-center mb-4">
+        {% translate "A conference walks through all six steps. A meetup usually needs three: proposals, publish, and enrollment." %}
+    </p>
     <div class="rounded-2xl border border-border bg-bg-tertiary/50 p-4 sm:p-8">
         <div class="hidden group-has-[#wt-proposals:checked]/wt:block">
             <p class="text-sm text-foreground-secondary text-center mb-5">
-                {% translate "Programme creators submit items through a form — with your questions and required fields." %}
+                {% translate "Programme creators fill in a form you shape yourself: your questions, your required fields." %}
             </p>
             {% include "landing/demos/proposals.html" %}
         </div>
         <div class="hidden group-has-[#wt-review:checked]/wt:block">
             <p class="text-sm text-foreground-secondary text-center mb-5">
-                {% translate "Statuses, categories, and creators in one list — you see what is missing before the programme goes public." %}
+                {% translate "Every proposal lands on one list. You see statuses, categories, and gaps before the programme goes public." %}
             </p>
             {% include "landing/demos/review.html" %}
         </div>
         <div class="hidden group-has-[#wt-schedule:checked]/wt:block">
             <p class="text-sm text-foreground-secondary text-center mb-5">
-                {% translate "Rooms, tracks, and time slots on one grid — conflicts show up before attendees see them." %}
+                {% translate "You place sessions on a grid of rooms and time slots. When two overlap, you see it immediately." %}
             </p>
             {% include "landing/demos/schedule.html" %}
         </div>
         <div class="hidden group-has-[#wt-publish:checked]/wt:block">
             <p class="text-sm text-foreground-secondary text-center mb-5">
-                {% translate "Attendees get one page with the current programme — no PDFs to resend after every change." %}
+                {% translate "Attendees get one page with the current programme. Change a room and everyone sees the update." %}
             </p>
             {% include "landing/demos/publish.html" %}
         </div>
@@ -58,7 +61,7 @@
         </div>
         <div class="hidden group-has-[#wt-print:checked]/wt:block">
             <p class="text-sm text-foreground-secondary text-center mb-5">
-                {% translate "Schedules and door cards ready to print — no manual assembly the night before." %}
+                {% translate "Print schedules and door cards straight from Zagrajmy. The night before the event is for sleeping." %}
             </p>
             {% include "landing/demos/print.html" %}
         </div>
