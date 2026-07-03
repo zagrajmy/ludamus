@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-04 00:11+0200\n"
+"POT-Creation-Date: 2026-07-04 00:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3944,6 +3944,10 @@ msgstr "Brak dostępnych wydarzeń"
 msgid "There are currently no events scheduled. Please check back later!"
 msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
 
+#: src/ludamus/templates/landing/_walkthrough_tab.html
+msgid "usually skipped for meetups"
+msgstr "na meetupie zwykle pomijane"
+
 #: src/ludamus/templates/landing/demos/enroll.html
 #: src/ludamus/templates/landing/demos/review.html
 #: src/ludamus/templates/landing/demos/schedule.html
@@ -4253,6 +4257,18 @@ msgid "Click through the steps. Everything below is live Zagrajmy UI."
 msgstr "Przeklikaj kroki. Wszystko poniżej to działające elementy Zagrajmy."
 
 #: src/ludamus/templates/landing/walkthrough.html
+msgid "Event type"
+msgstr "Rodzaj wydarzenia"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "Conference"
+msgstr "Konferencja"
+
+#: src/ludamus/templates/landing/walkthrough.html
+msgid "Meetup"
+msgstr "Meetup"
+
+#: src/ludamus/templates/landing/walkthrough.html
 msgid "Walkthrough steps"
 msgstr "Kroki prezentacji"
 
@@ -4295,12 +4311,6 @@ msgstr "Zapisy"
 msgctxt "landing walkthrough step"
 msgid "Print"
 msgstr "Druk"
-
-#: src/ludamus/templates/landing/walkthrough.html
-msgid ""
-"A conference walks through all six steps. A meetup usually needs three: "
-"proposals, publish, and enrollment."
-msgstr "Konferencja przechodzi przez wszystkie sześć kroków. Meetupowi zwykle wystarczą trzy: zgłoszenia, publikacja i zapisy."
 
 #: src/ludamus/templates/landing/walkthrough.html
 msgid ""
@@ -7030,6 +7040,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Nie przechwycono jeszcze żadnych e-maili."
+
+#~ msgid ""
+#~ "A conference walks through all six steps. A meetup usually needs three: "
+#~ "proposals, publish, and enrollment."
+#~ msgstr ""
+#~ "Konferencja przechodzi przez wszystkie sześć kroków. Meetupowi zwykle "
+#~ "wystarczą trzy: zgłoszenia, publikacja i zapisy."
 
 #~ msgid "You get a working process, not just a login"
 #~ msgstr "Dostajesz ustawiony proces, nie sam login"
