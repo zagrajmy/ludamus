@@ -2330,7 +2330,6 @@ class TestAnonymousProposalSubmission:
             facilitator=facilitator, event=event, field=phone_field
         )
         assert hpd.value == "+48 555"
-        assert hpd.user_id is None
 
     def test_anonymous_single_category_shows_login_nudge(
         self, client, event, faker, time_zone, proposal_category

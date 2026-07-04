@@ -1001,7 +1001,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "event__sphere",
             )
             .prefetch_related(
-                "tags__category",
                 "session_participations__user",
                 "field_values__field",
                 "event__enrollment_configs",
@@ -1227,7 +1226,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             )
             .select_related("presenter", "agenda_item", "event", "event__sphere")
             .prefetch_related(
-                "tags__category",
                 "session_participations__user",
                 "field_values__field",
                 "event__enrollment_configs",

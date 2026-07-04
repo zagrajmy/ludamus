@@ -32,8 +32,6 @@ from ludamus.adapters.db.django.models import (
     Shadowban,
     Space,
     Sphere,
-    Tag,
-    TagCategory,
     TimeSlot,
     TimeSlotRequirement,
     Track,
@@ -184,20 +182,6 @@ class TestTimeSlot:
             )
             == f"2025-01-02 03:04 - 2025-05-06 07:08 ({pk})"
         )
-
-
-class TestTagCategory:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(TagCategory(name=name)) == name
-
-
-class TestTag:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(Tag(name=name)) == name
 
 
 class TestSession:

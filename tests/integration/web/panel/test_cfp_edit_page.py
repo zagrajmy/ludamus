@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
+    Facilitator,
     PersonalDataField,
     PersonalDataFieldRequirement,
     PersonalDataFieldValue,
@@ -2005,8 +2006,14 @@ class TestCFPEditPageView:
             category=category, field=email_field, is_required=True
         )
         host = UserFactory.create()
+        facilitator = Facilitator.objects.create(
+            event=event, user=host, display_name=host.name, slug="host"
+        )
         PersonalDataFieldValue.objects.create(
-            user=host, event=event, field=email_field, value="host@example.com"
+            facilitator=facilitator,
+            event=event,
+            field=email_field,
+            value="host@example.com",
         )
         SessionFactory.create(category=category, presenter=host)
 
@@ -2021,7 +2028,10 @@ class TestCFPEditPageView:
             category=category, field=email_field
         ).exists()
         assert PersonalDataFieldValue.objects.filter(
-            user=host, event=event, field=email_field, value="host@example.com"
+            facilitator=facilitator,
+            event=event,
+            field=email_field,
+            value="host@example.com",
         ).exists()
 
     def test_post_adding_field_requirement_does_not_create_data_for_existing_proposals(
@@ -2039,7 +2049,7 @@ class TestCFPEditPageView:
         host = UserFactory.create()
         SessionFactory.create(category=category, presenter=host)
         assert not PersonalDataFieldValue.objects.filter(
-            user=host, event=event, field=email_field
+            event=event, field=email_field
         ).exists()
 
         # Action: add a new field requirement
@@ -2057,7 +2067,7 @@ class TestCFPEditPageView:
             category=category, field=email_field, is_required=True
         ).exists()
         assert not PersonalDataFieldValue.objects.filter(
-            user=host, event=event, field=email_field
+            event=event, field=email_field
         ).exists()
 
     # Time slot requirement tests
