@@ -1219,7 +1219,7 @@ class PersonalDataFieldValue(models.Model):
         related_name="personal_data",
     )
     event = models.ForeignKey(
-        Event, on_delete=models.CASCADE, related_name="host_personal_data"
+        Event, on_delete=models.CASCADE, related_name="personal_data_field_values"
     )
     field = models.ForeignKey(
         PersonalDataField, on_delete=models.CASCADE, related_name="values"

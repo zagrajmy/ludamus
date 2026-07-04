@@ -11,13 +11,13 @@ from typing import TYPE_CHECKING
 from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
     RowSkippedError,
+    build_personal_data_field_values,
     cell,
     chosen_entities,
     extract_identity,
     field_name,
     field_setup,
     generate_unique_slug,
-    host_personal_data_entries,
     resolve_builtins,
     session_field_values,
     slugify,
@@ -432,7 +432,7 @@ class ImportEngine:
         # there's no orphan bucket to land it in.
         if facilitator_id is None:
             return
-        entries = host_personal_data_entries(
+        entries = build_personal_data_field_values(
             field_ids=personal_field_ids,
             settings=settings,
             row=row,
@@ -440,7 +440,7 @@ class ImportEngine:
             event_id=event_id,
         )
         if entries:
-            self._repos.host_personal_data.save(entries)
+            self._repos.personal_data_field_values.save(entries)
 
     def time_slot_ids(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow

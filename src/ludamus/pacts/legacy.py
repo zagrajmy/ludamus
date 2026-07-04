@@ -699,7 +699,7 @@ class SessionFieldValueData(TypedDict):
     value: str | list[str] | bool
 
 
-class HostPersonalDataEntry(TypedDict):
+class PersonalDataFieldValueData(TypedDict):
     facilitator_id: int
     event_id: int
     field_id: int
@@ -1253,9 +1253,9 @@ class FacilitatorRepositoryProtocol(Protocol):
     def slug_exists(event_id: int, slug: str) -> bool: ...
 
 
-class HostPersonalDataRepositoryProtocol(Protocol):
+class PersonalDataFieldValueRepositoryProtocol(Protocol):
     @staticmethod
-    def save(entries: list[HostPersonalDataEntry]) -> None: ...
+    def save(entries: list[PersonalDataFieldValueData]) -> None: ...
     @staticmethod
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
@@ -1428,7 +1428,9 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def enrollment_configs(self) -> EnrollmentConfigRepositoryProtocol: ...
     @property
-    def host_personal_data(self) -> HostPersonalDataRepositoryProtocol: ...
+    def personal_data_field_values(
+        self,
+    ) -> PersonalDataFieldValueRepositoryProtocol: ...
     @property
     def schedule_change_logs(self) -> ScheduleChangeLogRepositoryProtocol: ...
 

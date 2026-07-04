@@ -77,8 +77,6 @@ from ludamus.pacts import (
     FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
-    HostPersonalDataEntry,
-    HostPersonalDataRepositoryProtocol,
     NotFoundError,
     PendingSessionDTO,
     PendingSessionTimeSlotDTO,
@@ -87,6 +85,8 @@ from ludamus.pacts import (
     PersonalDataFieldOptionDTO,
     PersonalDataFieldRepositoryProtocol,
     PersonalDataFieldUpdateData,
+    PersonalDataFieldValueData,
+    PersonalDataFieldValueRepositoryProtocol,
     PersonalFieldRequirementDTO,
     ProposalCategoryData,
     ProposalCategoryDTO,
@@ -1895,9 +1895,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return Facilitator.objects.filter(event_id=event_id, slug=slug).exists()
 
 
-class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
+class PersonalDataFieldValueRepository(PersonalDataFieldValueRepositoryProtocol):
     @staticmethod
-    def save(entries: list[HostPersonalDataEntry]) -> None:
+    def save(entries: list[PersonalDataFieldValueData]) -> None:
         for entry in entries:
             PersonalDataFieldValue.objects.update_or_create(
                 facilitator_id=entry["facilitator_id"],

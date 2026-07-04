@@ -24,8 +24,10 @@ class Repositories:
         return repositories.PersonalDataFieldRepository()
 
     @cached_property
-    def host_personal_data(self) -> repositories.HostPersonalDataRepository:
-        return repositories.HostPersonalDataRepository()
+    def personal_data_field_values(
+        self,
+    ) -> repositories.PersonalDataFieldValueRepository:
+        return repositories.PersonalDataFieldValueRepository()
 
     @cached_property
     def proposal_categories(self) -> repositories.ProposalCategoryRepository:

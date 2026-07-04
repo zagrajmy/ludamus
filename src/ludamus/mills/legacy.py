@@ -22,9 +22,9 @@ from ludamus.pacts import (
     FacilitatorData,
     FacilitatorDTO,
     FacilitatorMergeError,
-    HostPersonalDataEntry,
     NotFoundError,
     PanelStatsDTO,
+    PersonalDataFieldValueData,
     PersonalFieldRequirementDTO,
     ProposalCategoryDTO,
     ProposeSessionResult,
@@ -306,7 +306,7 @@ class ProposeSessionService:
             )
         except NotFoundError:
             return {}
-        return self._uow.host_personal_data.read_for_facilitator_event(
+        return self._uow.personal_data_field_values.read_for_facilitator_event(
             facilitator.pk, event_id
         )
 
@@ -423,7 +423,7 @@ class ProposeSessionService:
     def _save_personal_data(
         self, event_id: int, personal_data: dict[str, str], facilitator: FacilitatorDTO
     ) -> None:
-        entries: list[HostPersonalDataEntry] = []
+        entries: list[PersonalDataFieldValueData] = []
         for key, value in personal_data.items():
             if not key.startswith("personal_"):
                 continue
@@ -435,7 +435,7 @@ class ProposeSessionService:
             except NotFoundError:
                 continue
             entries.append(
-                HostPersonalDataEntry(
+                PersonalDataFieldValueData(
                     facilitator_id=facilitator.pk,
                     event_id=event_id,
                     field_id=field_dto.pk,
@@ -443,7 +443,7 @@ class ProposeSessionService:
                 )
             )
         if entries:
-            self._uow.host_personal_data.save(entries)
+            self._uow.personal_data_field_values.save(entries)
 
 
 def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> bool:
@@ -616,6 +616,6 @@ class FacilitatorMergeService:
 
         with self._uow.atomic():
             self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
-            self._uow.host_personal_data.delete_by_facilitators(source_ids)
+            self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._uow.facilitators.delete(source_id)

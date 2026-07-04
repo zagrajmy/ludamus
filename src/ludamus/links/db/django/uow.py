@@ -104,8 +104,10 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
         return repositories.EnrollmentConfigRepository()
 
     @cached_property
-    def host_personal_data(self) -> repositories.HostPersonalDataRepository:
-        return repositories.HostPersonalDataRepository()
+    def personal_data_field_values(
+        self,
+    ) -> repositories.PersonalDataFieldValueRepository:
+        return repositories.PersonalDataFieldValueRepository()
 
     @cached_property
     def schedule_change_logs(self) -> ScheduleChangeLogRepository:

@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from ludamus.mills.submissions.engine import ImportEngine
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
+    build_personal_data_field_values,
     decode_response,
-    host_personal_data_entries,
     resolve_builtins,
     session_field_values,
 )
@@ -292,11 +292,11 @@ class ImportFieldLayoutService:
         removed = 0
         for facilitator in self._repos.sessions.read_facilitators(session_id):
             existing_field_ids = set(
-                self._repos.host_personal_data.list_field_ids_for_facilitator_event(
+                self._repos.personal_data_field_values.list_field_ids_for_facilitator_event(
                     facilitator.pk, event_id
                 )
             )
-            missing = host_personal_data_entries(
+            missing = build_personal_data_field_values(
                 field_ids={
                     header: field_id
                     for header, field_id in personal_field_ids.items()
@@ -308,10 +308,12 @@ class ImportFieldLayoutService:
                 event_id=event_id,
             )
             if missing:
-                self._repos.host_personal_data.save(missing)
+                self._repos.personal_data_field_values.save(missing)
                 added += len(missing)
             to_remove = [fid for fid in existing_field_ids if fid not in desired]
-            removed += self._repos.host_personal_data.delete_for_facilitator_fields(
-                facilitator.pk, to_remove
+            removed += (
+                self._repos.personal_data_field_values.delete_for_facilitator_fields(
+                    facilitator.pk, to_remove
+                )
             )
         return added, removed
