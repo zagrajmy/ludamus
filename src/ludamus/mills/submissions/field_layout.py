@@ -41,7 +41,7 @@ class ImportFieldLayoutService:
     def apply_field_layout(
         self, event_id: int, integration_pk: int
     ) -> ApplyFieldLayoutResult:
-        # Reconcile every successful import's SessionFieldValue / HostPersonalData
+        # Reconcile every successful import's SessionFieldValue / PersonalDataFieldValue
         # rows against the current recipe — add values for newly mapped
         # `field.*` / `personal.*` targets (read from the row cached on the
         # log entry), drop values for targets no longer mapped. Existing

@@ -6,9 +6,9 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
-    HostPersonalData,
     PersonalDataField,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     ProposalCategory,
     SessionField,
     SessionFieldRequirement,
@@ -2005,7 +2005,7 @@ class TestCFPEditPageView:
             category=category, field=email_field, is_required=True
         )
         host = UserFactory.create()
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             user=host, event=event, field=email_field, value="host@example.com"
         )
         SessionFactory.create(category=category, presenter=host)
@@ -2020,7 +2020,7 @@ class TestCFPEditPageView:
         assert not PersonalDataFieldRequirement.objects.filter(
             category=category, field=email_field
         ).exists()
-        assert HostPersonalData.objects.filter(
+        assert PersonalDataFieldValue.objects.filter(
             user=host, event=event, field=email_field, value="host@example.com"
         ).exists()
 
@@ -2038,7 +2038,7 @@ class TestCFPEditPageView:
         # Setup: existing proposal without the field requirement
         host = UserFactory.create()
         SessionFactory.create(category=category, presenter=host)
-        assert not HostPersonalData.objects.filter(
+        assert not PersonalDataFieldValue.objects.filter(
             user=host, event=event, field=email_field
         ).exists()
 
@@ -2056,7 +2056,7 @@ class TestCFPEditPageView:
         assert PersonalDataFieldRequirement.objects.filter(
             category=category, field=email_field, is_required=True
         ).exists()
-        assert not HostPersonalData.objects.filter(
+        assert not PersonalDataFieldValue.objects.filter(
             user=host, event=event, field=email_field
         ).exists()
 

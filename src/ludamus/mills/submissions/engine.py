@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 class FieldIdsByHeader:
     # Header->pk maps the provisioning step builds once per import and the
     # per-row create/update steps consume. Two flavours: session fields drive
-    # SessionFieldValue writes; personal fields drive HostPersonalData writes
+    # SessionFieldValue writes; personal fields drive PersonalDataFieldValue writes
     # against the row's facilitator.
     session: dict[str, int]
     personal: dict[str, int]
@@ -170,7 +170,7 @@ class ImportEngine:
         # Match by slug-of-name so re-runs reuse the same field instead of
         # spawning suffixed duplicates. Both session and personal fields keep a
         # header->pk map so per-row value filling can fan out to SessionField
-        # values and HostPersonalData entries respectively.
+        # values and PersonalDataFieldValue entries respectively.
         session_ids: dict[str, int] = {}
         personal_ids: dict[str, int] = {}
         created = 0
@@ -427,7 +427,7 @@ class ImportEngine:
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
-        # gets stamped onto HostPersonalData (upserted by the repo, so re-runs
+        # gets stamped onto PersonalDataFieldValue (upserted by the repo, so re-runs
         # of the same row overwrite rather than duplicate). Without a
         # facilitator nothing is saved — personal data is per-facilitator,
         # there's no orphan bucket to land it in.

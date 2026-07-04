@@ -34,11 +34,11 @@ from ludamus.adapters.db.django.models import (
     EventProposalSettings,
     EventSettings,
     Facilitator,
-    HostPersonalData,
     ImportLogEntry,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
     SessionField,
@@ -1602,7 +1602,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     @staticmethod
     def delete_orphans_for_event(event_id: int) -> int:
         # A PersonalDataField is orphan when no facilitator on this event has
-        # a HostPersonalData entry that points at it. Used by the importer's
+        # a PersonalDataFieldValue entry that points at it. Used by the importer's
         # "Apply field layout" action after removing values for unmapped
         # fields.
         deleted, _ = (
@@ -1936,7 +1936,7 @@ class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
     @staticmethod
     def save(entries: list[HostPersonalDataEntry]) -> None:
         for entry in entries:
-            HostPersonalData.objects.update_or_create(
+            PersonalDataFieldValue.objects.update_or_create(
                 facilitator_id=entry["facilitator_id"],
                 event_id=entry["event_id"],
                 field_id=entry["field_id"],
@@ -1947,7 +1947,7 @@ class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]:
-        records = HostPersonalData.objects.filter(
+        records = PersonalDataFieldValue.objects.filter(
             facilitator_id=facilitator_id, event_id=event_id
         ).select_related("field")
         return {hpd.field.slug: hpd.value for hpd in records}
@@ -1957,20 +1957,22 @@ class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
         facilitator_id: int, event_id: int
     ) -> list[int]:
         return list(
-            HostPersonalData.objects.filter(
+            PersonalDataFieldValue.objects.filter(
                 facilitator_id=facilitator_id, event_id=event_id
             ).values_list("field_id", flat=True)
         )
 
     @staticmethod
     def delete_by_facilitators(facilitator_ids: list[int]) -> None:
-        HostPersonalData.objects.filter(facilitator_id__in=facilitator_ids).delete()
+        PersonalDataFieldValue.objects.filter(
+            facilitator_id__in=facilitator_ids
+        ).delete()
 
     @staticmethod
     def delete_for_facilitator_fields(facilitator_id: int, field_ids: list[int]) -> int:
         if not field_ids:
             return 0
-        deleted, _ = HostPersonalData.objects.filter(
+        deleted, _ = PersonalDataFieldValue.objects.filter(
             facilitator_id=facilitator_id, field_id__in=field_ids
         ).delete()
         return deleted

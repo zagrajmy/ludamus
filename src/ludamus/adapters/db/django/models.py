@@ -1266,7 +1266,7 @@ class PersonalDataFieldRequirement(models.Model):
         return f"{self.field.name} ({req}) for {self.category.name}"
 
 
-class HostPersonalData(models.Model):
+class PersonalDataFieldValue(models.Model):
     """Stores personal data values for a host within an event."""
 
     user = models.ForeignKey(
@@ -1294,7 +1294,7 @@ class HostPersonalData(models.Model):
     modification_time = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "host_personal_data"
+        db_table = "personal_data_field_value"
         constraints = (
             models.UniqueConstraint(
                 fields=("user", "event", "field"),
