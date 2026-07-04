@@ -117,6 +117,7 @@ class TestFacilitatorDetailPageView:
                         category_name="RPG",
                         creation_time=session.creation_time,
                         display_name="Host",
+                        is_scheduled=False,
                         pk=session.pk,
                         status=SessionStatus.PENDING,
                         title="Attached Session",

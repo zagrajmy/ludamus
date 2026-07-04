@@ -89,12 +89,23 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         if filter_category_pk not in {c.pk for c in categories}:
             filter_category_pk = None
 
+        status_raw = self.request.GET.get("status")
+        if status_raw is None:
+            filter_status = SessionStatus.PENDING
+        elif status_raw in set(SessionStatus):
+            filter_status = SessionStatus(status_raw)
+        else:
+            filter_status = None
+
         all_proposals = self.request.di.uow.sessions.list_sessions_by_event(
             current_event.pk,
-            field_filters=field_filters or None,
-            search=search,
-            track_pk=filter_track_pk,
-            category_pk=filter_category_pk,
+            {
+                "field_filters": field_filters or None,
+                "search": search,
+                "track_pk": filter_track_pk,
+                "category_pk": filter_category_pk,
+                "status": filter_status,
+            },
         )
         # ponytail: paginate the already-loaded list in the view. The repo
         # loads all matching rows today anyway; DB-level slicing is a future
@@ -119,6 +130,14 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_track_pk"] = filter_track_pk
         context["categories"] = categories
         context["filter_category_pk"] = filter_category_pk
+        status_labels = {
+            SessionStatus.PENDING: _("Pending"),
+            SessionStatus.ACCEPTED: _("Accepted"),
+            SessionStatus.ON_HOLD: _("On hold"),
+            SessionStatus.REJECTED: _("Rejected"),
+        }
+        context["statuses"] = [(s, status_labels[s]) for s in SessionStatus]
+        context["filter_status"] = filter_status
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 

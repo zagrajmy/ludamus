@@ -90,6 +90,21 @@
                             </select>
                         </div>
                     {% endif %}
+                    <div class="w-full sm:w-48 min-w-0">
+                        <label for="filter-status"
+                               title="{% translate "Status" %}"
+                               class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                            {% translate "Status" %}
+                        </label>
+                        <select id="filter-status"
+                                name="status"
+                                class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                            <option value="" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
+                            {% for s, label in statuses %}
+                                <option value="{{ s.value }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     {% for field in session_fields %}
                         <div class="w-full sm:w-48 min-w-0">
                             <label for="filter-field-{{ field.pk }}"
@@ -169,7 +184,7 @@
                                 title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                {% include "panel/_proposal_status_badge.html" with status=proposal.status %}
+                                {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
                                 {{ proposal.creation_time|date:"d M Y H:i" }}

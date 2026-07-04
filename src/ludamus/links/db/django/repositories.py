@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal, cast  # pylint: disable=unused-import
 from django.db import IntegrityError, transaction
 from django.db.models import (
     Count,
+    Exists,
     IntegerField,
     Max,
     OuterRef,
@@ -102,6 +103,7 @@ from ludamus.pacts import (
     SessionFieldUpdateData,
     SessionFieldValueData,
     SessionFieldValueDTO,
+    SessionListFilters,
     SessionListItemDTO,
     SessionRepositoryProtocol,
     SessionStatus,
@@ -336,6 +338,11 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 category__event_id=event_pk, deleted_at__isnull=False
             )
             .select_related("presenter", "category")
+            .annotate(
+                is_scheduled=Exists(
+                    AgendaItem.objects.filter(session_id=OuterRef("pk"))
+                )
+            )
             .order_by("-creation_time")
         )
         return [
@@ -346,6 +353,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
+                is_scheduled=s.is_scheduled,
             )
             for s in qs
         ]
@@ -355,6 +363,11 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         qs = (
             Session.objects.filter(facilitators__id=facilitator_id)
             .select_related("category")
+            .annotate(
+                is_scheduled=Exists(
+                    AgendaItem.objects.filter(session_id=OuterRef("pk"))
+                )
+            )
             .order_by("-creation_time")
         )
         return [
@@ -365,6 +378,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
+                is_scheduled=s.is_scheduled,
             )
             for s in qs
         ]
@@ -534,19 +548,29 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
     @staticmethod
     def list_sessions_by_event(
-        event_id: int,
-        *,
-        field_filters: dict[int, str] | None = None,
-        search: str | None = None,
-        track_pk: int | None = None,
-        category_pk: int | None = None,
+        event_id: int, filters: SessionListFilters | None = None
     ) -> list[SessionListItemDTO]:
-        qs = Session.objects.filter(category__event_id=event_id).select_related(
-            "presenter", "category"
+        filters = filters or {}
+        field_filters = filters.get("field_filters")
+        search = filters.get("search")
+        track_pk = filters.get("track_pk")
+        category_pk = filters.get("category_pk")
+        status = filters.get("status")
+        qs = (
+            Session.objects.filter(category__event_id=event_id)
+            .select_related("presenter", "category")
+            .annotate(
+                is_scheduled=Exists(
+                    AgendaItem.objects.filter(session_id=OuterRef("pk"))
+                )
+            )
         )
 
         if category_pk is not None:
             qs = qs.filter(category_id=category_pk)
+
+        if status is not None:
+            qs = qs.filter(status=status)
 
         if field_filters:
             for field_id, value in field_filters.items():
@@ -574,6 +598,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 category_name=s.category.name if s.category else "",
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
+                is_scheduled=s.is_scheduled,
             )
             for s in qs.order_by("-creation_time")
         ]
@@ -648,7 +673,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     ) -> tuple[list[UnscheduledSessionDTO], bool]:
         qs = (
             Session.objects.filter(category__event_id=event_pk)
-            .exclude(status=SessionStatus.REJECTED)
+            .filter(status=SessionStatus.ACCEPTED)
             .filter(agenda_item__isnull=True)
             .select_related("category")
         )

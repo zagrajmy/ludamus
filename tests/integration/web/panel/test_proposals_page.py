@@ -21,11 +21,22 @@ from ludamus.pacts import (
     TrackDTO,
 )
 from ludamus.pacts.crowd import UserDTO
-from tests.integration.conftest import EventFactory, UserFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    SpaceFactory,
+    UserFactory,
+)
 from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
+_STATUSES = [
+    (SessionStatus.PENDING, "Pending"),
+    (SessionStatus.ACCEPTED, "Accepted"),
+    (SessionStatus.ON_HOLD, "On hold"),
+    (SessionStatus.REJECTED, "Rejected"),
+]
 
 _TRACK_FILTER_CONTEXT = {
     "all_tracks": [],
@@ -33,6 +44,8 @@ _TRACK_FILTER_CONTEXT = {
     "filter_track_pk": None,
     "page_obj": PageMatcher(number=1, num_pages=1),
     "filter_category_pk": None,
+    "filter_status": SessionStatus.PENDING,
+    "statuses": _STATUSES,
 }
 
 _PAGE_SIZE = 50
@@ -138,7 +151,7 @@ class TestProposalsPageView:
             participants_limit=5,
             status="rejected",
         )
-        Session.objects.create(
+        scheduled_session = Session.objects.create(
             event=event,
             category=category,
             presenter=active_user,
@@ -146,10 +159,11 @@ class TestProposalsPageView:
             title="Scheduled One",
             slug="scheduled-one",
             participants_limit=5,
-            status="scheduled",
+            status="accepted",
         )
+        AgendaItemFactory(session=scheduled_session, space=SpaceFactory(event=event))
 
-        response = authenticated_client.get(self.get_url(event))
+        response = authenticated_client.get(self.get_url(event), {"status": ""})
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -182,7 +196,7 @@ class TestProposalsPageView:
             status="on_hold",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = authenticated_client.get(self.get_url(event), {"status": ""})
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -232,6 +246,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -380,6 +395,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -443,6 +459,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session_pseudonym.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -505,6 +522,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session_b.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -579,6 +597,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [
@@ -662,6 +681,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [
@@ -743,6 +763,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -819,6 +840,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -856,6 +878,8 @@ class TestProposalsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
+                "filter_status": SessionStatus.PENDING,
+                "statuses": _STATUSES,
             },
         )
 
@@ -889,6 +913,8 @@ class TestProposalsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
+                "filter_status": SessionStatus.PENDING,
+                "statuses": _STATUSES,
             },
         )
 
@@ -937,6 +963,97 @@ class TestProposalsPageView:
                 "filter_search": "",
             },
         )
+
+    def test_default_status_filter_shows_only_pending(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Pending Session"]
+        assert response.context["filter_status"] == SessionStatus.PENDING
+
+    def test_filters_by_status_param(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": "accepted"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Accepted Session"]
+        assert response.context["filter_status"] == SessionStatus.ACCEPTED
+
+    def test_empty_status_param_shows_all_statuses(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": ""})
+
+        assert response.status_code == HTTPStatus.OK
+        titles = {p.title for p in response.context["proposals"]}
+        assert titles == {"Pending Session", "Accepted Session"}
+        assert response.context["filter_status"] is None
 
 
 class TestProposalDetailPageView:

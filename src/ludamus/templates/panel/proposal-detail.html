@@ -16,10 +16,10 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex flex-wrap items-center gap-3">
-            {% include "panel/_proposal_status_badge.html" with status=proposal.status %}
+            {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
             <a href="{% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk %}"
                class="btn btn-secondary">{% translate "Edit" %}</a>
-            {% if proposal.status != "scheduled" %}
+            {% if not agenda_item %}
                 {% if proposal.status != "accepted" %}
                     <form method="post"
                           action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">

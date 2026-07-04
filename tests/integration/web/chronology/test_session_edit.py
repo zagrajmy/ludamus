@@ -44,7 +44,7 @@ def owned_session_fixture(event, active_user):
         display_name=active_user.name,
         participants_limit=10,
         min_age=0,
-        status="scheduled",
+        status="accepted",
     )
 
 
@@ -86,7 +86,7 @@ class TestSessionEditViewGet:
     def test_non_owner_404(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
-        session = SessionFactory(category=category, presenter=other, status="scheduled")
+        session = SessionFactory(category=category, presenter=other, status="accepted")
 
         response = authenticated_client.get(_url(event, session))
 
@@ -334,7 +334,7 @@ class TestSessionEditViewPost:
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
         session = SessionFactory(
-            category=category, presenter=other, title="Original", status="scheduled"
+            category=category, presenter=other, title="Original", status="accepted"
         )
 
         response = authenticated_client.post(

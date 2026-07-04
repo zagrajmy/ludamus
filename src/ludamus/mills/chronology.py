@@ -344,8 +344,8 @@ class TimetableService:
             self._uow.spaces.lock(placement.space_pk)
             self._clear_existing_assignment(session_pk, event_pk, user_pk)
             session = self._uow.sessions.read(session_pk)
-            if session.status != SessionStatus.PENDING:
-                msg = f"Session {session_pk} is not in PENDING status"
+            if session.status != SessionStatus.ACCEPTED:
+                msg = f"Session {session_pk} is not in ACCEPTED status"
                 raise ValueError(msg)
             event = self._uow.sessions.read_event(session_pk)
             self._uow.agenda_items.create(
@@ -357,7 +357,6 @@ class TimetableService:
                     "session_confirmed": event.auto_confirm_sessions,
                 }
             )
-            self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
             log_data: ScheduleChangeLogData = {
                 "event_id": event.pk,
                 "session_id": session_pk,
@@ -377,7 +376,6 @@ class TimetableService:
             raise NotFoundError
         event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.delete(agenda_item.pk)
-        self._uow.sessions.update(session_pk, {"status": SessionStatus.PENDING})
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
@@ -415,9 +413,6 @@ class TimetableService:
                 if agenda_item is None:
                     raise NotFoundError
                 self._uow.agenda_items.delete(agenda_item.pk)
-                self._uow.sessions.update(
-                    log.session_id, {"status": SessionStatus.PENDING}
-                )
             elif log.action == ScheduleChangeAction.UNASSIGN:
                 if (
                     log.old_space_id is None
@@ -427,8 +422,8 @@ class TimetableService:
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
                 session = self._uow.sessions.read(log.session_id)
-                if session.status != SessionStatus.PENDING:
-                    msg = f"Session {log.session_id} is not in PENDING status"
+                if session.status != SessionStatus.ACCEPTED:
+                    msg = f"Session {log.session_id} is not in ACCEPTED status"
                     raise ValueError(msg)
                 self._uow.agenda_items.create(
                     {
@@ -438,9 +433,6 @@ class TimetableService:
                         "end_time": log.old_end_time,
                         "session_confirmed": False,
                     }
-                )
-                self._uow.sessions.update(
-                    log.session_id, {"status": SessionStatus.SCHEDULED}
                 )
             else:
                 msg = f"Cannot revert action: {log.action}"
@@ -847,14 +839,10 @@ class TimetableOverviewService:
         result = []
         for track in tracks:
             sessions = self._uow.sessions.list_sessions_by_event(
-                event_pk, track_pk=track.pk
+                event_pk, {"track_pk": track.pk}
             )
-            accepted = [
-                s
-                for s in sessions
-                if s.status in {SessionStatus.PENDING, SessionStatus.SCHEDULED}
-            ]
-            scheduled = [s for s in sessions if s.status == SessionStatus.SCHEDULED]
+            accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
+            scheduled = [s for s in accepted if s.is_scheduled]
             accepted_count = len(accepted)
             scheduled_count = len(scheduled)
             progress_pct = (

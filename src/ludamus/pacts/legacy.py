@@ -157,6 +157,7 @@ class SessionListItemDTO(BaseModel):
     category_name: str
     creation_time: datetime
     display_name: str
+    is_scheduled: bool
     pk: int
     status: "SessionStatus"
     title: str
@@ -248,7 +249,14 @@ class SessionStatus(StrEnum):
     ACCEPTED = auto()
     ON_HOLD = auto()
     REJECTED = auto()
-    SCHEDULED = auto()
+
+
+class SessionListFilters(TypedDict, total=False):
+    field_filters: dict[int, str] | None
+    search: str | None
+    track_pk: int | None
+    category_pk: int | None
+    status: SessionStatus | None
 
 
 class SessionParticipationStatus(StrEnum):
@@ -877,12 +885,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> int: ...
     @staticmethod
     def list_sessions_by_event(
-        event_id: int,
-        *,
-        field_filters: dict[int, str] | None = None,
-        search: str | None = None,
-        track_pk: int | None = None,
-        category_pk: int | None = None,
+        event_id: int, filters: SessionListFilters | None = None
     ) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_track_ids(session_id: int) -> list[int]: ...
