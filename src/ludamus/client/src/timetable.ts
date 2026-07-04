@@ -44,8 +44,18 @@ function snappedStartAt(cal: HTMLElement, col: HTMLElement, clientY: number): Da
   return startDt;
 }
 
-function formatHm(d: Date): string {
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+// Display in the event's own UTC offset (parsed from data-event-start), not the
+// browser's local timezone -- they can disagree with the grid's own labels.
+function eventUtcOffsetMinutes(cal: HTMLElement): number {
+  const match = /([+-])(\d{2}):(\d{2})$/.exec(cal.dataset.eventStart ?? "");
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3]));
+}
+
+function formatHm(d: Date, utcOffsetMinutes: number): string {
+  const shifted = new Date(d.getTime() + utcOffsetMinutes * 60_000);
+  return `${String(shifted.getUTCHours()).padStart(2, "0")}:${String(shifted.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 const hoverPreview = (): HTMLElement => {
@@ -228,8 +238,9 @@ document.addEventListener("mousemove", (e) => {
   const startDt = snappedStartAt(cal, col, e.clientY);
   const endDt = new Date(startDt.getTime() + assignDuration * 60_000);
 
+  const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
   const preview = hoverPreview();
-  preview.textContent = `${formatHm(startDt)} – ${formatHm(endDt)}`;
+  preview.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
   preview.style.left = `${e.clientX + 12}px`;
   preview.style.top = `${e.clientY + 12}px`;
   preview.classList.remove("hidden");
