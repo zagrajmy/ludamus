@@ -139,12 +139,13 @@ document.addEventListener("click", (e) => {
       const cal = calendar()!;
       const eventStart = cal.dataset.eventStart!;
       const slotMinutes = Number(cal.dataset.slotMinutes);
-      const pxPerSlot = slotMinutes * pxPerMinute(cal);
+      const snapMinutes = Number(cal.dataset.snapMinutes) || slotMinutes;
+      const pxPerSnap = snapMinutes * pxPerMinute(cal);
 
       const rect = col.getBoundingClientRect();
       const yOffset = e instanceof MouseEvent ? e.clientY - rect.top : 0;
-      const slotIndex = Math.floor(yOffset / pxPerSlot);
-      const offsetMinutes = slotIndex * slotMinutes;
+      const snapIndex = Math.floor(yOffset / pxPerSnap);
+      const offsetMinutes = snapIndex * snapMinutes;
 
       const startDt = new Date(eventStart);
       startDt.setMinutes(startDt.getMinutes() + offsetMinutes);
