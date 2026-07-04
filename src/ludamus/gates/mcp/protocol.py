@@ -8,13 +8,19 @@ self-contained, which is all a tool-only server needs.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+from typing import TYPE_CHECKING, Literal
 
-from ludamus.gates.mcp.registry import ToolError, UnknownToolError
+from ludamus.gates.mcp.registry import (
+    InvalidArgumentsError,
+    ToolError,
+    UnknownToolError,
+)
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolRegistry
+    from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -26,7 +32,12 @@ INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 
+logger = logging.getLogger(__name__)
+
 type JsonDict = dict[str, object]
+type ToolOutcome = Literal[
+    "ok", "error", "invalid-arguments", "invalid-params", "unknown-tool"
+]
 
 
 def error_response(*, message_id: object, code: int, message: str) -> JsonDict:
@@ -65,34 +76,71 @@ def _call_tool(
     *,
     registry: ToolRegistry,
     services: ServicesProtocol,
+    actor: ActorContext,
     message_id: object,
     params: JsonDict,
 ) -> JsonDict:
     name = params.get("name")
-    arguments = params.get("arguments") or {}
+    if (arguments := params.get("arguments")) is None:
+        arguments = {}
+    outcome: ToolOutcome
     if not isinstance(name, str) or not isinstance(arguments, dict):
-        return error_response(
-            message_id=message_id,
-            code=INVALID_PARAMS,
-            message="Invalid tool call params",
+        outcome, text = "invalid-params", "Invalid tool call params"
+    else:
+        outcome, text = _run_tool(
+            registry=registry,
+            services=services,
+            actor=actor,
+            name=name,
+            arguments=arguments,
         )
+    # Audit trail (#480): one line per tools/call.
+    # %r on client-controlled values: repr escapes newlines, so a crafted
+    # tool name cannot inject fake audit lines.
+    logger.info(
+        "mcp.tools_call user_id=%s scope=%s sphere_id=%s tool=%r outcome=%s "
+        "arguments=%r",
+        actor.user_id,
+        actor.scope,
+        actor.sphere_id,
+        name,
+        outcome,
+        arguments,
+    )
+    if outcome in {"invalid-params", "unknown-tool"}:
+        return error_response(message_id=message_id, code=INVALID_PARAMS, message=text)
+    return _text_result(message_id=message_id, text=text, is_error=outcome != "ok")
+
+
+def _run_tool(
+    *,
+    registry: ToolRegistry,
+    services: ServicesProtocol,
+    actor: ActorContext,
+    name: str,
+    arguments: dict[str, object],
+) -> tuple[ToolOutcome, str]:
     try:
-        text = registry.call(services=services, name=name, arguments=arguments)
+        text = registry.call(
+            services=services, actor=actor, name=name, arguments=arguments
+        )
     except UnknownToolError:
-        return error_response(
-            message_id=message_id, code=INVALID_PARAMS, message=f"Unknown tool: {name}"
-        )
+        return "unknown-tool", f"Unknown tool: {name}"
+    except InvalidArgumentsError as error:
+        return "invalid-arguments", str(error)
     except NotFoundError:
-        return _text_result(
-            message_id=message_id, text="Resource not found", is_error=True
-        )
+        return "error", "Resource not found"
     except ToolError as error:
-        return _text_result(message_id=message_id, text=str(error), is_error=True)
-    return _text_result(message_id=message_id, text=text, is_error=False)
+        return "error", str(error)
+    return "ok", text
 
 
 def handle_message(
-    *, registry: ToolRegistry, services: ServicesProtocol, message: JsonDict
+    *,
+    registry: ToolRegistry,
+    services: ServicesProtocol,
+    actor: ActorContext,
+    message: JsonDict,
 ) -> JsonDict | None:
     method = message.get("method")
     message_id = message.get("id")
@@ -119,6 +167,7 @@ def handle_message(
             return _call_tool(
                 registry=registry,
                 services=services,
+                actor=actor,
                 message_id=message_id,
                 params=params,
             )

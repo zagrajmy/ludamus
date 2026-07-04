@@ -8,15 +8,7 @@
     <div class="max-w-2xl mx-auto px-4 py-10">
         <h1 class="text-3xl font-bold mb-3 text-foreground">{% translate "MCP access token" %}</h1>
         {% if token %}
-            <p class="text-foreground-muted mb-4">
-                {% translate "Copy the token now — it is shown only once." %}
-            </p>
-            <pre class="p-4 rounded-lg bg-bg-secondary border border-border text-sm break-all whitespace-pre-wrap mb-4"><code>{{ token }}</code></pre>
-            <p class="text-foreground-muted mb-2">
-                {% blocktranslate %}Connect an MCP client with the token as a Bearer header, for example:{% endblocktranslate %}
-            </p>
-            <pre class="p-4 rounded-lg bg-bg-secondary border border-border text-sm break-all whitespace-pre-wrap mb-4"><code>claude mcp add --transport http zagrajmy {{ endpoint_url }} \
-  --header "Authorization: Bearer &lt;token&gt;"</code></pre>
+            {% include "mcp/_token_reveal.html" %}
             <p class="text-foreground-muted mb-6">
                 {% blocktranslate %}The token expires after {{ token_max_age_days }} days and works only while your account stays a superuser. Anyone holding it can act with your permissions — keep it secret.{% endblocktranslate %}
             </p>

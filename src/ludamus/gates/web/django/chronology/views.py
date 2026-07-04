@@ -10,7 +10,13 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBase,
+    JsonResponse,
+)
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -1116,3 +1122,20 @@ class SessionEditView(LoginRequiredMixin, View):
                 "saved": saved,
             },
         )
+
+
+class SessionBookmarkToggleView(View):
+    @staticmethod
+    def post(request: RootRequest, session_id: int) -> JsonResponse:
+        if (user_id := request.context.current_user_id) is None:
+            # fetch() call, not a browser navigation — a redirect would be
+            # useless, so surface the auth failure as JSON for the client.
+            return JsonResponse({"error": "auth"}, status=401)
+        state = request.services.bookmarks.toggle(
+            user_id=user_id,
+            session_id=session_id,
+            sphere_id=request.context.current_sphere_id,
+        )
+        if state is None:
+            return JsonResponse({"error": "not-found"}, status=404)
+        return JsonResponse({"bookmarked": state})

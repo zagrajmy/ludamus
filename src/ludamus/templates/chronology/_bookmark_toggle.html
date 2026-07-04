@@ -1,0 +1,21 @@
+{% load i18n %}
+{% load tessera %}
+{# Bookmark toggle shared by the ledger row and the room-lane tile. The #}
+{# structure — .bookmark-toggle, .bookmark-icon-outline/solid, aria-pressed, #}
+{# the coral classes — is a contract with session-bookmarks.ts; keep the two #}
+{# layouts identical by editing only this file. Sits above the stretched #}
+{# row/tile link (z-20 + pointer-events-auto) so a tap toggles the bookmark #}
+{# instead of opening the detail modal. #}
+<button type="button"
+        class="bookmark-toggle icon-btn icon-btn-clear relative z-20 shrink-0 self-center pointer-events-auto {% if data.user_bookmarked %}text-coral-600 dark:text-coral-400{% endif %}"
+        data-session-id="{{ data.session.pk }}"
+        aria-pressed="{% if data.user_bookmarked %}true{% else %}false{% endif %}">
+    {% if data.user_bookmarked %}
+        {% icon "bookmark" class="bookmark-icon-outline size-4 hidden" variant="outline" %}
+        {% icon "bookmark" class="bookmark-icon-solid size-4" variant="solid" %}
+    {% else %}
+        {% icon "bookmark" class="bookmark-icon-outline size-4" variant="outline" %}
+        {% icon "bookmark" class="bookmark-icon-solid size-4 hidden" variant="solid" %}
+    {% endif %}
+    <span class="sr-only">{% translate "Bookmark session" %}</span>
+</button>

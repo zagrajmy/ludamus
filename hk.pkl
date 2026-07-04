@@ -23,21 +23,18 @@ local linters = new Mapping<String, Step> {
       "**/package-lock.json",
       "**/vendor/**",
       "CLAUDE.md",
+      ".claude/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
     )
     check = "codespell --toml=pyproject.toml {{files}}"
   }
 
-  // Django templates — lint, plus reformat-on-commit (mirrors djlint / djlint-format tasks)
+  // Django templates — lint + format check in one djlint run (mirrors the djlint mise task)
   ["djlint"] {
     glob = List("src/**/*.html")
-    check = "djlint {{files}} --profile=django"
-  }
-  ["djlint-format"] {
-    glob = List("src/**/*.html")
-    check = "djlint {{files}} --check --format-css --format-js --profile=django"
-    fix = "djlint {{files}} --reformat --format-css --format-js --profile=django"
+    check = "djlint {{files}} --lint --check --format-css --format-js --profile=django"
+    fix = "djlint {{files}} --lint --reformat --format-css --format-js --profile=django"
   }
 
   // Frontend — oxfmt (Tailwind sorting via .oxfmtrc.json), run as an aube devDep
@@ -62,8 +59,9 @@ local linters = new Mapping<String, Step> {
   ["hadolint"] = Builtins.hadolint
   ["dockerfmt"] {
     glob = List("**/Dockerfile*")
-    check = "dockerfmt -c {{files}}"
-    fix = "dockerfmt -w {{files}}"
+    // -n keeps the trailing newline so dockerfmt and end-of-file-fixer agree
+    check = "dockerfmt -c -n {{files}}"
+    fix = "dockerfmt -w -n {{files}}"
   }
   ["dclint"] = (Builtins.dclint) {
     prefix = "aube exec"
@@ -71,6 +69,7 @@ local linters = new Mapping<String, Step> {
   }
   ["markdownlint"] {
     glob = List("**/*.md")
+    exclude = List(".claude/**", "**/node_modules/**")
     check = "markdownlint-cli2 {{files}}"
     fix = "markdownlint-cli2 --fix {{files}}"
   }

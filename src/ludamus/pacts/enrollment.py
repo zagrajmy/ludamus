@@ -6,11 +6,16 @@ promotion / offer-lifecycle decisions stay unit-testable with fakes.
 """
 
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import PromotionMode
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from ludamus.pacts.party import HeldSeatNotification
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
 # integer comparison in the pure selection invariant.
@@ -22,24 +27,36 @@ class WaitingParticipantDTO(BaseModel):
 
     participation_id: int
     user_id: int
-    # Effective manager for guardian-managed minors; None for a lone adult.
-    manager_id: int | None
+    # Party this seat was enrolled through; None for solo/legacy rows.
+    party_id: int | None = None
+    # Party leader sponsoring a login-less companion; None for a self-owned
+    # account (a real user always spends their own allowance).
+    sponsor_id: int | None
     full_name: str
     email: str
     creation_time: datetime
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool
-    # Remaining distinct-user membership slots for this participant's manager
-    # (or self) in the event; UNLIMITED_SLOTS when no limit applies.
-    manager_slots_remaining: int
-    # Who is told about the seat — the managing guardian for a minor, otherwise
-    # the participant themselves. Shared across a party.
+    # Remaining distinct-user membership slots for this participant's slot
+    # owner in the event; UNLIMITED_SLOTS when no limit applies.
+    owner_slots_remaining: int
+    # Who is told about the seat — the sponsoring leader for a login-less
+    # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
     recipient_email: str
 
     @property
-    def effective_manager_id(self) -> int:
-        return self.manager_id if self.manager_id is not None else self.user_id
+    def effective_slot_owner(self) -> int:
+        return self.sponsor_id if self.sponsor_id is not None else self.user_id
+
+    @property
+    def promotion_group_key(self) -> tuple[str, int]:
+        # Seats enrolled through a party promote as that party; everything else
+        # falls back to grouping by slot owner (a leader plus the companions
+        # they enrolled without choosing a party still move together).
+        if self.party_id is not None:
+            return ("party", self.party_id)
+        return ("owner", self.effective_slot_owner)
 
 
 class PromotionStateDTO(BaseModel):
@@ -56,6 +73,28 @@ class PromotionStateDTO(BaseModel):
     waiting: list[WaitingParticipantDTO]
 
 
+class OfferRecipientDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    email: str
+
+
+def distinct_recipients(
+    candidates: Iterable[tuple[int, str]],
+) -> list[OfferRecipientDTO]:
+    # One message per person, first mention wins: a party of real co-members
+    # hears about its seats individually, while a leader sponsoring several
+    # login-less companions still gets a single message.
+    recipients: list[OfferRecipientDTO] = []
+    seen: set[int] = set()
+    for user_id, email in candidates:
+        if user_id not in seen:
+            seen.add(user_id)
+            recipients.append(OfferRecipientDTO(user_id=user_id, email=email))
+    return recipients
+
+
 class OfferDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,8 +103,9 @@ class OfferDTO(BaseModel):
     event_slug: str
     # All participations sharing this offer (whole party).
     participant_ids: list[int]
-    recipient_user_id: int
-    recipient_email: str
+    # Everyone who should hear about this offer: each real member for
+    # themselves, the sponsoring leader for login-less companions. Distinct.
+    recipients: list[OfferRecipientDTO]
     offer_expires_at: datetime
 
 
@@ -81,6 +121,27 @@ class ClaimResult(BaseModel):
     session_id: int | None = None
     event_slug: str | None = None
     reason: str | None = None
+
+
+class SeatHoldRequest(BaseModel):
+    # A leader holding a seat for an ACCEPT_INVITES party member (RFC 0001
+    # O-9): the member confirms via the claim link before the seat is theirs.
+    session_id: int
+    session_title: str
+    user_id: int
+    user_email: str
+    party_id: int | None
+    actor_name: str
+
+
+class HeldSeatData(BaseModel):
+    # The OFFERED row a held seat materialises as.
+    session_id: int
+    user_id: int
+    party_id: int | None
+    offered_at: datetime
+    offer_expires_at: datetime
+    claim_token: str
 
 
 class PromotionNotification(BaseModel):
@@ -148,6 +209,10 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
         claim_token: str,
     ) -> None: ...
 
+    def create_offered(self, seat: HeldSeatData) -> int: ...
+
+    def read_offer_claim_window(self, session_id: int) -> timedelta: ...
+
     def read_offer_by_token(self, token: str) -> OfferDTO | None: ...
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...
@@ -163,6 +228,7 @@ class UserNotifierProtocol(Protocol):
     def notify_promoted(self, notification: PromotionNotification) -> None: ...
     def notify_offered(self, notification: OfferNotification) -> None: ...
     def notify_offer_expired(self, notification: PromotionNotification) -> None: ...
+    def notify_seat_held(self, notification: HeldSeatNotification) -> None: ...
 
 
 class OfferExpirySchedulerProtocol(Protocol):
@@ -171,6 +237,8 @@ class OfferExpirySchedulerProtocol(Protocol):
 
 class WaitlistPromotionServiceProtocol(Protocol):
     def fill_freed_seats(self, *, session_id: int) -> PromotionResult: ...
+    def hold_seat(self, *, hold: SeatHoldRequest) -> None: ...
     def peek_offer(self, *, token: str) -> OfferDTO | None: ...
     def claim_offer(self, *, token: str) -> ClaimResult: ...
+    def decline_offer(self, *, token: str) -> ClaimResult: ...
     def expire_offer(self, *, participation_id: int) -> PromotionResult: ...

@@ -27,84 +27,84 @@
         <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
             {% tab "types" active=True href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
-            {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
-            {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
-            {% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        {% if categories %}
-            {% tessera_table %}
-            <thead class="bg-bg-tertiary">
+        {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
+    {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
+{% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    {% if categories %}
+        {% tessera_table %}
+        <thead class="bg-bg-tertiary">
+            <tr>
+                <th scope="col"
+                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                    {% translate "Name" context "place" %}
+                </th>
+                <th scope="col"
+                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                    {% translate "Statistics" %}
+                </th>
+                <th scope="col"
+                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                    {% translate "Submissions" %}
+                </th>
+                <th scope="col"
+                    class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                    {% translate "Actions" %}
+                </th>
+            </tr>
+        </thead>
+        <tbody class="bg-bg-secondary divide-y divide-border">
+            {% for category in categories %}
                 <tr>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Name" context "place" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Statistics" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Submissions" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Actions" %}
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="bg-bg-secondary divide-y divide-border">
-                {% for category in categories %}
-                    <tr>
-                        <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ category.name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                            {% with cat_stats=category_stats|get_item:category.pk %}
-                                {% if cat_stats %}
-                                    {{ cat_stats.accepted_count }} / {{ cat_stats.proposals_count }}
-                                {% else %}
-                                    0 / 0
-                                {% endif %}
-                            {% endwith %}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-foreground-muted">
-                            {% with status=category|cfp_status %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ status.class }}">
-                                    {{ status.label }}
+                    <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ category.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                        {% with cat_stats=category_stats|get_item:category.pk %}
+                            {% if cat_stats %}
+                                {{ cat_stats.accepted_count }} / {{ cat_stats.proposals_count }}
+                            {% else %}
+                                0 / 0
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-foreground-muted">
+                        {% with status=category|cfp_status %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ status.class }}">
+                                {{ status.label }}
+                            </span>
+                            {% if category.start_time or category.end_time %}
+                                <span class="ml-2">
+                                    {{ category.start_time|date:"d M H:i"|default:"—" }} – {{ category.end_time|date:"d M H:i"|default:"—" }}
                                 </span>
-                                {% if category.start_time or category.end_time %}
-                                    <span class="ml-2">
-                                        {{ category.start_time|date:"d M H:i"|default:"—" }} – {{ category.end_time|date:"d M H:i"|default:"—" }}
-                                    </span>
-                                {% endif %}
-                            {% endwith %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{% url 'panel:cfp-edit' event_slug=current_event.slug category_slug=category.slug %}"
-                               class="text-primary hover:text-primary/80 mr-4">{% translate "Configure" %}</a>
-                            <form method="post"
-                                  action="{% url 'panel:cfp-delete' event_slug=current_event.slug category_slug=category.slug %}"
-                                  class="inline"
-                                  data-confirm="{% translate "Are you sure you want to delete this session type?" %}">
-                                {% csrf_token %}
-                                <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
-                            </form>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        {% end_tessera_table %}
-    {% else %}
-        <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
-            <p class="text-foreground-muted mb-4">
-                {% translate "No session types yet. Add a session type to allow hosts to submit proposals." %}
-            </p>
-            {% url 'panel:cfp-create' slug=current_event.slug as create_url %}
-            {% translate "New Session Type" as t_create %}
-            {% tessera_button t_create href=create_url icon="plus" %}
-        </div>
-    {% endif %}
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'panel:cfp-edit' event_slug=current_event.slug category_slug=category.slug %}"
+                           class="text-primary hover:text-primary/80 mr-4">{% translate "Configure" %}</a>
+                        <form method="post"
+                              action="{% url 'panel:cfp-delete' event_slug=current_event.slug category_slug=category.slug %}"
+                              class="inline"
+                              data-confirm="{% translate "Are you sure you want to delete this session type?" %}">
+                            {% csrf_token %}
+                            <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    {% end_tessera_table %}
+{% else %}
+    <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+        <p class="text-foreground-muted mb-4">
+            {% translate "No session types yet. Add a session type to allow hosts to submit proposals." %}
+        </p>
+        {% url 'panel:cfp-create' slug=current_event.slug as create_url %}
+        {% translate "New Session Type" as t_create %}
+        {% tessera_button t_create href=create_url icon="plus" %}
+    </div>
+{% endif %}
 </div>
 {% else %}
 <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">

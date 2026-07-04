@@ -6,7 +6,7 @@ test.describe("Profile — Personal Information (edit.html)", () => {
 
     // Tab navigation
     await expect(page.getByRole("tab", { name: /Personal Information/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Connected users/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Parties/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Avatar/ })).toBeVisible();
 
     // Active tab is Personal Information
@@ -33,27 +33,37 @@ test.describe("Profile — Personal Information (edit.html)", () => {
   });
 });
 
-test.describe("Profile — Connected Users (connected.html)", () => {
-  test("shows connected users page with tab navigation", async ({ page }) => {
-    await page.goto("/crowd/profile/connected-users/");
+test.describe("Profile — Parties (parties.html)", () => {
+  test("shows parties page with tab navigation", async ({ page }) => {
+    await page.goto("/crowd/profile/parties/");
 
     // Tab navigation present
     await expect(page.getByRole("tab", { name: /Personal Information/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Connected users/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Parties/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Avatar/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Connected users/ })).toHaveAttribute(
+    await expect(page.getByRole("tab", { name: /Parties/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
 
-    // Page content — either empty state or connected users list
-    const heading = page.getByRole("heading", { level: 2 }).or(page.getByText(/connected/i));
+    // Page content — either empty state or the parties list
+    const heading = page.getByRole("heading", { level: 2 }).or(page.getByText(/parties/i));
     await expect(heading.first()).toBeVisible();
 
     await page.screenshot({
-      path: "test-results/profile-connected.png",
+      path: "test-results/profile-parties.png",
       fullPage: true,
     });
+  });
+
+  test("old connected-users URL redirects to parties", async ({ page }) => {
+    await page.goto("/crowd/profile/connected-users/");
+
+    await expect(page).toHaveURL(/profile\/parties/);
+    await expect(page.getByRole("tab", { name: /Parties/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });
 

@@ -123,8 +123,7 @@ export type SoundRole = keyof typeof ROLES;
 
 const isRole = (value: string): value is SoundRole => value in ROLES;
 
-const rand = (min: number, max: number): number =>
-  min + Math.random() * (max - min);
+const rand = (min: number, max: number): number => min + Math.random() * (max - min);
 
 class VelvetEngine {
   private ctx: AudioContext | null = null;
@@ -136,8 +135,7 @@ class VelvetEngine {
     if (this.ctx) return;
     const Ctor =
       globalThis.AudioContext ??
-      (globalThis as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
+      (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
 
     const ctx = new Ctor();
@@ -200,8 +198,7 @@ class VelvetEngine {
 
     const pitchVar = rand(-v.pitchVarPct, v.pitchVarPct) / 100;
     const freq = v.baseHz * (hit.pitch ?? 1) * (1 + pitchVar);
-    const gain =
-      0.8 * (hit.gain ?? 1) * (1 + rand(-v.volJitterPct, v.volJitterPct) / 100);
+    const gain = 0.8 * (hit.gain ?? 1) * (1 + rand(-v.volJitterPct, v.volJitterPct) / 100);
     const attack = Math.max(0.001, v.attackMs / 1000);
     const decay = (v.decayMs / 1000) * (def.decay ?? 1);
     const spread = Math.max(0, (v.layerSpreadMs + rand(-1, 1)) / 1000);
@@ -242,13 +239,8 @@ class VelvetEngine {
     const osc = ctx.createOscillator();
     osc.type = v.waveform;
     osc.frequency.setValueAtTime(freq, bodyStart);
-    const endFreq = hit.glide
-      ? freq * hit.glide
-      : Math.max(40, freq * (1 - v.bodyDropPct / 100));
-    osc.frequency.exponentialRampToValueAtTime(
-      endFreq,
-      bodyStart + attack + 0.7 * decay,
-    );
+    const endFreq = hit.glide ? freq * hit.glide : Math.max(40, freq * (1 - v.bodyDropPct / 100));
+    osc.frequency.exponentialRampToValueAtTime(endFreq, bodyStart + attack + 0.7 * decay);
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.value = v.bodyLp;
@@ -332,9 +324,7 @@ const api: VelvetSoundApi = {
 
 const syncToggles = (): void => {
   const on = isEnabled();
-  for (const el of document.querySelectorAll<HTMLElement>(
-    "[data-velvet-toggle]",
-  )) {
+  for (const el of document.querySelectorAll<HTMLElement>("[data-velvet-toggle]")) {
     el.setAttribute("aria-pressed", on ? "true" : "false");
   }
 };
@@ -350,17 +340,14 @@ interface SoundTrigger {
   readonly type: keyof DocumentEventMap;
 }
 
-const SUBMIT_SELECTOR =
-  'button[type="submit"], button:not([type]), [type="submit"]';
+const SUBMIT_SELECTOR = 'button[type="submit"], button:not([type]), [type="submit"]';
 const TAP_SELECTOR = 'a[href], button, [role="button"], summary';
-const OPT_OUT_SELECTOR =
-  "[data-velvet-toggle], [data-velvet-play], [data-no-sound]";
+const OPT_OUT_SELECTOR = "[data-velvet-toggle], [data-velvet-play], [data-no-sound]";
 
 const SOUND_TRIGGERS: readonly SoundTrigger[] = [
   {
     capture: true,
-    resolve: (event) =>
-      event.target instanceof HTMLFormElement ? "action.send" : null,
+    resolve: (event) => (event.target instanceof HTMLFormElement ? "action.send" : null),
     type: "submit",
   },
   {

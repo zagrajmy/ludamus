@@ -183,6 +183,15 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Snap the app scroller to whole hours on the compact event schedule so a tap
+   or drag on the hour rail lands on a section rather than mid-row. Proximity
+   (not mandatory) keeps the header and filter bar freely scrollable. Added by
+   event-timeline.ts only when a compact schedule is on the page, so other
+   pages never opt the shared scroller into snapping. */
+.app-scroll.schedule-snap {
+  scroll-snap-type: y proximity;
+}
+
 /* Lock the page scroll while any modal is open. Freezing the container keeps its
    offset and moves nothing (no body pin, no scroll save/restore), so the page
    can't jump or flash the top on open/close. `scrollbar-gutter: stable` above
@@ -513,6 +522,23 @@ button:active {
 
   .dark .icon-btn:hover {
     box-shadow: inset 0 -2px 1px -1px var(--color-border);
+  }
+
+  /* Bare icon trigger — no surface of its own: the surrounding row or tile
+     provides one (e.g. the schedule bookmark toggles). Keeps the base
+     padding, focus ring, and color transitions. */
+  .icon-btn-clear,
+  .icon-btn-clear:hover,
+  .dark .icon-btn-clear:hover {
+    box-shadow: none;
+  }
+
+  .icon-btn-clear::before {
+    content: none;
+  }
+
+  .icon-btn-clear:hover {
+    color: var(--color-foreground);
   }
 
   .card {

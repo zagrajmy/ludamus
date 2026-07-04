@@ -10,7 +10,6 @@ from ludamus.mills import (
     ProposeSessionService,
     check_proposal_rate_limit,
     generate_ics_content,
-    get_days_to_event,
     google_calendar_url,
     is_proposal_active,
     outlook_calendar_url,
@@ -619,25 +618,6 @@ class TestGetDaysToEvent:
             "sphere_id": 1,
             "start_time": now + timedelta(days=5),
         }
-
-    def test_returns_positive_days_for_future_event(self, base_event_data):
-        days_ahead = 5
-        base_event_data["start_time"] = datetime.now(tz=UTC) + timedelta(
-            days=days_ahead
-        )
-        event = EventDTO(**base_event_data)
-
-        result = get_days_to_event(event)
-
-        assert result == days_ahead - 1  # timedelta.days truncates partial day
-
-    def test_returns_zero_for_past_event(self, base_event_data):
-        base_event_data["start_time"] = datetime.now(tz=UTC) - timedelta(days=2)
-        event = EventDTO(**base_event_data)
-
-        result = get_days_to_event(event)
-
-        assert result == 0
 
 
 class TestProposeSessionService:

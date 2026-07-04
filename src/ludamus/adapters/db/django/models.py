@@ -26,6 +26,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import ImportLogStatus
 
 if TYPE_CHECKING:
@@ -93,13 +94,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
     )
-    manager = models.ForeignKey(
-        "User",
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        related_name="connected",
-    )
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)
     user_type = models.CharField(
@@ -133,6 +127,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    # Single-use handle that lets the intended person sign in and take over a
+    # managed (connected) row as their own account. Mirrors the waitlist-offer
+    # claim_token pattern. Empty for active accounts.
+    claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
     shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
         "self",
         symmetrical=False,
@@ -153,11 +151,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self) -> str:
         return self.get_full_name()
-
-    @property
-    def initials(self) -> str:
-        name = self.name or self.username or ""
-        return "".join(word[0].upper() for word in name.split() if word)[:2] or "?"
 
     class Meta:
         db_table = "user"
@@ -214,6 +207,72 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+class Party(models.Model):
+    # The group that enrolls together. See RFC 0001.
+    name = models.CharField(max_length=255, blank=True, default="")
+    leader = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="led_parties"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "party"
+
+    def __str__(self) -> str:
+        return f"{self.name or 'party'} (#{self.pk})"
+
+
+class PartyMembership(models.Model):
+    party = models.ForeignKey(
+        Party, on_delete=models.CASCADE, related_name="memberships"
+    )
+    member = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="party_memberships"
+    )
+    consent_mode = models.CharField(
+        max_length=32,
+        choices=[(c.value, c.name) for c in PartyConsentMode],
+        default=PartyConsentMode.ACCEPT_INVITES,
+    )
+    status = models.CharField(
+        max_length=32,
+        choices=[(s.value, s.name) for s in PartyMembershipStatus],
+        default=PartyMembershipStatus.ACTIVE,
+    )
+
+    class Meta:
+        db_table = "party_membership"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("party", "member"), name="party_membership_unique"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.member_id} in party {self.party_id}"
+
+
+class SessionBookmark(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="session_bookmarks"
+    )
+    session = models.ForeignKey(
+        "Session", on_delete=models.CASCADE, related_name="bookmarks"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "session_bookmark"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "session"), name="session_bookmark_unique_user_session"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} bookmarked session {self.session_id}"
+
+
 class Sphere(models.Model):
     """Big group for whole provinces, topics, organizations or big events."""
 
@@ -266,6 +325,9 @@ class Event(models.Model):
         null=True, blank=True, default=None
     )
     use_session_cover_placeholders = models.BooleanField(default=False)
+    # Label for the enrolled-people count on the public event page: off →
+    # "Players" (gaming events), on → "Participants" (general events).
+    use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
     # turn off for a draft → confirm workflow on large events.
     auto_confirm_sessions = models.BooleanField(default=True)
@@ -830,7 +892,7 @@ class Session(SoftDeleteModel):
         default=0, help_text="Minimum age requirement (0 = no restriction)"
     )
     participants: models.ManyToManyField[User, Never] = models.ManyToManyField(
-        User, through="SessionParticipation"
+        User, through="SessionParticipation", through_fields=("session", "user")
     )
     tracks: models.ManyToManyField[Track, Never] = models.ManyToManyField(
         "Track", blank=True, related_name="sessions"
@@ -1025,6 +1087,21 @@ class SessionParticipation(models.Model):
     )
     user = models.ForeignKey(
         User, models.CASCADE, related_name="session_participations"
+    )
+    # The party this seat was enrolled through; whole-party waitlist promotion
+    # groups by it. Nullable: solo enrollments and pre-party rows fall back to
+    # slot-owner grouping, and a deleted party must not touch seats.
+    party = models.ForeignKey(
+        "Party",
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="session_participations",
+    )
+    # The account that brought an anonymous +N guest; NULL for regular
+    # enrollments (people enrolled themselves or via the party flows).
+    enrolled_by = models.ForeignKey(
+        User, models.SET_NULL, null=True, blank=True, related_name="enrollments_made"
     )
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)

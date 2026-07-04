@@ -5,11 +5,28 @@
 // On success a `[data-copy-popover]` child confirms the copy without resizing
 // the button (it's absolute + pointer-events-none). The popover is an aria-live
 // region: writing its label on success announces it to screen readers, clearing
-// it on hide stops it re-announcing. An unavailable clipboard (insecure context)
-// or a rejected write shows nothing rather than a false confirmation.
+// it once the fade-out ends stops it re-announcing. An unavailable clipboard
+// (insecure context) or a rejected write shows nothing rather than a false
+// confirmation.
 
 const FEEDBACK_MS = 1500;
 const timers = new WeakMap<HTMLElement, number>();
+
+const hidePopover = (popover: HTMLElement): void => {
+  delete popover.dataset.show;
+  // Keep the label through the fade-out — clearing it up front collapses the
+  // popover to an empty pill and the exit reads as a glitch, not a fade. It
+  // still must be cleared afterwards so the next copy re-announces on the
+  // aria-live region. The guard covers a re-copy mid-fade: the entrance's own
+  // transitionend consumes the listener while the popover is back on show.
+  popover.addEventListener(
+    "transitionend",
+    () => {
+      if (popover.dataset.show === undefined) popover.textContent = "";
+    },
+    { once: true },
+  );
+};
 
 const confirmCopy = (button: HTMLElement): void => {
   const popover = button.querySelector<HTMLElement>("[data-copy-popover]");
@@ -21,8 +38,7 @@ const confirmCopy = (button: HTMLElement): void => {
   timers.set(
     button,
     globalThis.setTimeout(() => {
-      delete popover.dataset.show;
-      popover.textContent = "";
+      hidePopover(popover);
       timers.delete(button);
     }, FEEDBACK_MS),
   );

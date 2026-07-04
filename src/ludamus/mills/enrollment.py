@@ -21,12 +21,15 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     ClaimResult,
+    HeldSeatData,
     NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
@@ -42,8 +45,10 @@ if TYPE_CHECKING:
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
+        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
+        SeatHoldRequest,
         UserNotifierProtocol,
         WaitingParticipantDTO,
     )
@@ -58,6 +63,10 @@ def _now() -> datetime:
 
 def _token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
+    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
 
 
 class WaitlistPromotionService:
@@ -115,15 +124,15 @@ class WaitlistPromotionService:
             ids = [p.participation_id for p in party]
             self._participations.confirm(ids)
             result.promoted.extend(ids)
-            lead = party[0]
-            promotions.append(
+            promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
+                for recipient in _party_recipients(party)
             )
 
     def _offer(
@@ -143,19 +152,56 @@ class WaitlistPromotionService:
                 ids, offered_at=now, offer_expires_at=expires_at, claim_token=token
             )
             result.offered.extend(ids)
-            lead = party[0]
-            offers.append(
+            offers.extend(
                 OfferNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
+                for recipient in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
+
+    def hold_seat(self, *, hold: SeatHoldRequest) -> None:
+        # A held seat is an OFFERED row with a personal claim token — the same
+        # shape a waitlist offer uses — so claiming, declining, and expiry all
+        # ride the existing offer machinery and release only this seat. The
+        # notification is written with the row (it must roll back together);
+        # the expiry timer is armed after, like fill_freed_seats does.
+        now = _now()
+        with self._transaction.atomic():
+            expires_at = now + self._participations.read_offer_claim_window(
+                hold.session_id
+            )
+            token = _token()
+            participation_id = self._participations.create_offered(
+                HeldSeatData(
+                    session_id=hold.session_id,
+                    user_id=hold.user_id,
+                    party_id=hold.party_id,
+                    offered_at=now,
+                    offer_expires_at=expires_at,
+                    claim_token=token,
+                )
+            )
+            self._notifier.notify_seat_held(
+                HeldSeatNotification(
+                    recipient_user_id=hold.user_id,
+                    recipient_email=hold.user_email,
+                    actor_name=hold.actor_name,
+                    session_id=hold.session_id,
+                    session_title=hold.session_title,
+                    claim_token=token,
+                    offer_expires_at=expires_at,
+                )
+            )
+        self._scheduler.schedule_expiry(
+            participation_id=participation_id, run_at=expires_at
+        )
 
     def peek_offer(self, *, token: str) -> OfferDTO | None:
         return self._participations.read_offer_by_token(token)
@@ -179,6 +225,21 @@ class WaitlistPromotionService:
                 success=True, session_id=offer.session_id, event_slug=offer.event_slug
             )
 
+    def decline_offer(self, *, token: str) -> ClaimResult:
+        # Token-authorised way out: a member turning down a held seat or a
+        # waiter passing on an offer. Drops the whole offered party (the offer
+        # is party-wide, like claiming) and rolls the freed seats on. The
+        # status guard in drop() makes a racing claim/expiry a no-op here.
+        with self._transaction.atomic():
+            if (offer := self._participations.read_offer_by_token(token)) is None:
+                return ClaimResult(success=False, reason="not_found")
+            self._participations.drop(offer.participant_ids)
+            session_id = offer.session_id
+            event_slug = offer.event_slug
+
+        self.fill_freed_seats(session_id=session_id)
+        return ClaimResult(success=True, session_id=session_id, event_slug=event_slug)
+
     def expire_offer(self, *, participation_id: int) -> PromotionResult:
         # Drop a lapsed offered party (terminal), notify them, then re-enter
         # fill_freed_seats so the released seats roll on to the next party.
@@ -189,16 +250,20 @@ class WaitlistPromotionService:
             if _now() <= offer.offer_expires_at:
                 return PromotionResult()
             self._participations.drop(offer.participant_ids)
-            notification = PromotionNotification(
-                recipient_user_id=offer.recipient_user_id,
-                recipient_email=offer.recipient_email,
-                session_id=offer.session_id,
-                session_title=offer.session_title,
-                event_slug=offer.event_slug,
-            )
+            notifications = [
+                PromotionNotification(
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
+                    session_id=offer.session_id,
+                    session_title=offer.session_title,
+                    event_slug=offer.event_slug,
+                )
+                for recipient in offer.recipients
+            ]
             session_id = offer.session_id
 
-        self._notifier.notify_offer_expired(notification)
+        for notification in notifications:
+            self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
 
 
@@ -224,6 +289,18 @@ class NotificationsService:
             self._notifications.mark_all_read(user_id)
 
 
+def build_anonymous_user(slug: str, name: str = "") -> UserData:
+    # The single recipe for throwaway ANONYMOUS accounts (code-based
+    # self-enrollment, +N headcount guests); only the slug/name vary.
+    return UserData(
+        username=f"anon_{token_urlsafe(8).lower()}",
+        slug=slug,
+        name=name,
+        user_type=UserType.ANONYMOUS,
+        is_active=False,
+    )
+
+
 class AnonymousEnrollmentService:
     SLUG_TEMPLATE = "code_{code}"
 
@@ -236,12 +313,7 @@ class AnonymousEnrollmentService:
         return UserDTO.model_validate(user)
 
     def build_user(self, code: str) -> UserData:
-        return UserData(
-            username=f"anon_{token_urlsafe(8).lower()}",
-            slug=self.SLUG_TEMPLATE.format(code=code),
-            user_type=UserType.ANONYMOUS,
-            is_active=False,
-        )
+        return build_anonymous_user(self.SLUG_TEMPLATE.format(code=code))
 
 
 def _refresh_user_config_from_api(

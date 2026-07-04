@@ -13,6 +13,7 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter
 from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
     SessionConfirmationService,
@@ -20,6 +21,7 @@ from ludamus.mills.chronology import (
     SessionDeletionService,
     SessionSelfEditService,
 )
+from ludamus.mills.crowd import ClaimService
 from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
@@ -29,6 +31,7 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.party import PartyService
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
@@ -67,6 +70,16 @@ class Services:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return ConnectionsService(
             self._transaction, self._repos.connections, FernetEncryptor(key)
+        )
+
+    @cached_property
+    def claims(self) -> ClaimService:
+        return ClaimService(self._transaction, self._repos.claims)
+
+    @cached_property
+    def parties(self) -> PartyService:
+        return PartyService(
+            self._transaction, self._repos.parties, DjangoUserNotifier()
         )
 
     @cached_property
@@ -172,6 +185,10 @@ class Services:
     @cached_property
     def event_bans(self) -> EventBanService:
         return EventBanService(self._transaction, self._repos.event_bans)
+
+    @cached_property
+    def bookmarks(self) -> BookmarkService:
+        return BookmarkService(self._transaction, self._repos.bookmarks)
 
     @cached_property
     def discounts(self) -> DiscountsService:

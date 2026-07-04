@@ -3,27 +3,16 @@
 {% load tessera %}
 <article class="session-card-wrapper h-full min-w-0">
     <div class="session-card relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
-         data-title="{{ data.session.title|lower }}"
-         data-session-id="{{ data.session.pk }}"
-         data-host="{{ data.session.display_name|lower }}"
-         data-tags="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ val }}{% if not forloop.last %},{% endif %}{% endfor %}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}"
-         data-tag-categories="{% for fv in data.field_values %}{% if fv.field_type == 'select' and fv.is_public %}{% for val in fv.value %}{{ fv.field_slug }}:{{ val }}{% if not forloop.last %};{% endif %}{% endfor %}{% if not forloop.last %};{% endif %}{% endif %}{% endfor %}"
-         data-status="{% if ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
-         data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
-         data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
-         data-min-age="{{ data.session.min_age }}"
-         data-venue="{{ data.loc.parent_slug }}"
-         data-venue-name="{{ data.loc.parent_name }}"
-         data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
-         data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
-         data-hour="{{ data.agenda_item.start_time|date:'H:i' }}">
-        <a href="?session={{ data.session.pk }}"
-           class="session-card-link absolute inset-0 z-10 rounded-2xl"
-           aria-haspopup="dialog"
-           aria-controls="session-{{ data.session.pk }}"
-           aria-label="{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}">
-            <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
-        </a>
+         {% include "chronology/_session_data_attrs.html" %}>
+        {% if not data.is_pending_proposal %}
+            <a href="?session={{ data.session.pk }}"
+               class="session-card-link absolute inset-0 z-10 rounded-2xl"
+               aria-haspopup="dialog"
+               aria-controls="session-{{ data.session.pk }}"
+               aria-label="{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}">
+                <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
+            </a>
+        {% endif %}
         {% session_cover_image data.session as cover_image_url %}
         {% if cover_image_url %}
             <img src="{{ cover_image_url }}"
@@ -75,7 +64,12 @@
                     {% endif %}
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
-                    {% if not ended and data.is_enrollment_available and not data.should_show_as_inactive %}
+                    {% if data.is_pending_proposal %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
+                            {% icon "light-bulb" class="w-3.5 h-3.5" variant="mini" %}
+                            {% translate "Awaiting review" %}
+                        </span>
+                    {% elif not data.is_ended and data.is_enrollment_available and not data.should_show_as_inactive %}
                         {% if data.is_full %}
                             {% if data.waiting_count > 0 %}
                                 <span class="text-sm font-medium text-foreground-muted">{{ data.waiting_count }} {% translate "waiting" %}</span>
@@ -89,7 +83,7 @@
                         {% endif %}
                     {% else %}
                         <span class="text-xs font-medium text-foreground-muted">
-                            {% if ended %}
+                            {% if data.is_ended %}
                                 {% translate "Ended" %}
                             {% elif data.should_show_as_inactive %}
                                 {% translate "In Progress" %}

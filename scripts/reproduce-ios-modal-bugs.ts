@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 import type {
   AgentDeviceClient,
   AgentDeviceSelectionOptions,
   CaptureSnapshotResult,
   SnapshotNode,
 } from "agent-device";
+
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 type AgentDeviceModule = typeof import("agent-device");
 
