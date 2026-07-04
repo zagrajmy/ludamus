@@ -27,10 +27,10 @@
     <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
         {% tabs %}
         {% tab "timetable" active=True href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-        {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-        {% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-        {% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-    {% end_tabs %}
+    {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
+{% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
+{% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
+{% end_tabs %}
 </div>
 <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
     <!-- Filter bar: track + date + category chips + duration chips -->
