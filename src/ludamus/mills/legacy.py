@@ -383,8 +383,6 @@ class ProposeSessionService:
                 title=title,
                 slug=slug,
                 description=description,
-                requirements="",
-                needs="",
                 duration=str(session_data.get("duration") or ""),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
@@ -396,7 +394,6 @@ class ProposeSessionService:
 
             session_id = self._uow.sessions.create(
                 create_data,
-                tag_ids=[],
                 time_slot_ids=time_slot_ids,
                 facilitator_ids=[facilitator.pk],
             )

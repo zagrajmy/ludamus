@@ -26,7 +26,6 @@
                 {% if pending.description %}
                     <p class="mt-0.5 text-xs text-foreground-muted">{{ pending.description|truncatechars:100 }}</p>
                 {% endif %}
-                {% include "chronology/_pending_proposal_notes.html" %}
                 <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-muted">
                     <span class="inline-flex items-center gap-1">
                         {% icon "user-circle" class="w-3.5 h-3.5" variant="mini" %}
@@ -73,7 +72,6 @@
                                     <br>
                                     <span class="text-xs text-foreground-muted">{{ pending.description|truncatechars:100 }}</span>
                                 {% endif %}
-                                {% include "chronology/_pending_proposal_notes.html" %}
                             </div>
                         </td>
                         <td class="py-3 px-4">

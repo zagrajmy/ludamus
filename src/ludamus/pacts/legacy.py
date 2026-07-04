@@ -192,22 +192,13 @@ class SessionDTO(BaseModel):
     duration: str = ""
     min_age: int
     modification_time: datetime
-    needs: str
     participants_limit: int
     pk: int
     presenter_id: int | None
     display_name: str
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
-
-
-class PendingSessionTagDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str
-    pk: int
 
 
 class PendingSessionTimeSlotDTO(BaseModel):
@@ -224,12 +215,9 @@ class PendingSessionDTO(BaseModel):
     contact_email: str
     creation_time: datetime
     description: str
-    needs: str
     participants_limit: int
     pk: int
     display_name: str
-    requirements: str
-    tags: list[PendingSessionTagDTO]
     time_slots: list[PendingSessionTimeSlotDTO]
     title: str
 
@@ -362,24 +350,6 @@ class TimeSlotDTO(BaseModel):
     start_time: datetime
 
 
-class TagCategoryDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    icon: str
-    input_type: str
-    name: str
-    pk: int
-
-
-class TagDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    category_id: int
-    confirmed: bool
-    name: str
-    pk: int
-
-
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
@@ -388,11 +358,9 @@ class SessionData(TypedDict, total=False):
     duration: str
     event_id: int
     min_age: int
-    needs: str
     participants_limit: int
     presenter_id: int | None
     display_name: str
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
@@ -406,9 +374,7 @@ class SessionUpdateData(TypedDict, total=False):
     display_name: str
     duration: str
     min_age: int
-    needs: str
     participants_limit: int
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
@@ -855,7 +821,6 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def create(
         session_data: SessionData,
-        tag_ids: Iterable[int],
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
@@ -882,12 +847,6 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
-    def read_tag_ids(session_id: int) -> list[int]: ...
-    @staticmethod
-    def read_tags(session_id: int) -> list[TagDTO]: ...
-    @staticmethod
-    def read_tag_categories(session_id: int) -> list[TagCategoryDTO]: ...
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod

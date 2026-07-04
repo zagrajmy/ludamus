@@ -925,12 +925,6 @@ def _core_comparisons(
         comparisons.append(
             ("description", old_session.description, update["description"])
         )
-    if "requirements" in update:
-        comparisons.append(
-            ("requirements", old_session.requirements, update["requirements"])
-        )
-    if "needs" in update:
-        comparisons.append(("needs", old_session.needs, update["needs"]))
     if "contact_email" in update:
         comparisons.append(
             ("contact_email", old_session.contact_email, update["contact_email"])
@@ -1120,8 +1114,6 @@ class SessionSelfEditService:
             "title": _str("title"),
             "display_name": _str("display_name"),
             "description": _str("description"),
-            "requirements": _str("requirements"),
-            "needs": _str("needs"),
             "contact_email": _str("contact_email"),
             "participants_limit": _int("participants_limit"),
             "min_age": _int("min_age"),

@@ -17,8 +17,6 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     Space,
     Sphere,
-    Tag,
-    TagCategory,
     TimeSlot,
     User,
     UserEnrollmentConfig,
@@ -85,16 +83,6 @@ class SphereAdminForm(forms.ModelForm):  # type: ignore [type-arg]
 @admin.register(Sphere)
 class SphereAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     form = SphereAdminForm
-
-
-@admin.register(Tag)
-class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    ...
-
-
-@admin.register(TagCategory)
-class TagCategoryAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    ...
 
 
 @admin.register(TimeSlot)

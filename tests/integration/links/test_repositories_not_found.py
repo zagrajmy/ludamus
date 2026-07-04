@@ -72,25 +72,6 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_time_slot(MISSING_ID, MISSING_ID)
 
-    def test_read_tag_categories_raises_when_session_missing(self):
-        with pytest.raises(NotFoundError):
-            SessionRepository.read_tag_categories(MISSING_ID)
-
-    def test_read_tag_categories_returns_empty_when_no_category(self, event):
-        session = Session.objects.create(
-            event=event,
-            category=None,
-            presenter=None,
-            display_name="Host",
-            title="No Category Session",
-            slug="no-cat",
-            status="pending",
-            participants_limit=0,
-            min_age=0,
-        )
-
-        assert SessionRepository.read_tag_categories(session.pk) == []
-
     def test_set_session_tracks_raises_when_session_missing(self):
         with pytest.raises(NotFoundError):
             SessionRepository.set_session_tracks(MISSING_ID, [])

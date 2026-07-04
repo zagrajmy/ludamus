@@ -290,7 +290,6 @@ class ImportEngine:
         facilitator_id = self.facilitator_id(event_id, builtins.display_name)
         session_id = self._repos.sessions.create(
             session_data,
-            tag_ids=[],
             time_slot_ids=self.time_slot_ids(
                 event_id=event_id, settings=settings, row=row
             ),
