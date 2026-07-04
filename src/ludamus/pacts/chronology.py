@@ -222,6 +222,7 @@ class SessionDeletionServiceProtocol(Protocol):
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
+TIMETABLE_SNAP_MINUTES = 5
 
 
 class SessionPositionDTO(BaseModel):
@@ -258,6 +259,7 @@ class TimetableGridDTO(BaseModel):
     total_minutes: int
     event_start_iso: str
     slot_minutes: int
+    snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
