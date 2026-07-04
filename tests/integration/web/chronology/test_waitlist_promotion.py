@@ -17,7 +17,7 @@ from ludamus.inits.services import Services
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.pacts.crowd import UserType
-from ludamus.pacts.enrollment import OfferDTO
+from ludamus.pacts.enrollment import OfferDTO, OfferRecipientDTO
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -217,8 +217,9 @@ class TestOfferClaimAndExpiry:
                     session_title=session.title,
                     event_slug=event.slug,
                     participant_ids=[participation.pk],
-                    recipient_user_id=waiter.pk,
-                    recipient_email=waiter.email,
+                    recipients=[
+                        OfferRecipientDTO(user_id=waiter.pk, email=waiter.email)
+                    ],
                     offer_expires_at=participation.offer_expires_at,
                 ),
                 "token": participation.claim_token,

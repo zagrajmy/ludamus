@@ -30,7 +30,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("link", { name: "New Facilitator" }).click();
 
     await page.getByLabel("Display Name").fill(FACILITATOR);
-    await page.locator('select[name="accreditation_type"]').selectOption({ label: "Standard" });
+    await page.getByLabel("Accreditation type").selectOption({ label: "Standard" });
     await page.getByRole("button", { name: "Create Facilitator" }).click();
 
     // Redirects back to the list with the new facilitator present.
@@ -49,7 +49,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     // personal-data hint); the header one comes first in the DOM.
     await page.getByRole("link", { name: "Edit" }).first().click();
 
-    await page.locator('select[name="accreditation_type"]').selectOption({ label: "Guest" });
+    await page.getByLabel("Accreditation type").selectOption({ label: "Guest" });
     await page.getByRole("button", { name: "Save" }).click();
 
     // Save redirects straight to the facilitator detail page, which now
@@ -65,7 +65,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("link", { name: "Create Session" }).first().click();
 
     await page.getByRole("checkbox", { name: FACILITATOR }).check();
-    await page.locator('select[name="category_id"]').selectOption({ label: "RPG Proposals" });
+    await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
     await page.getByLabel("Title").fill(PROPOSAL_TITLE);
     await page.getByLabel("Display Name").fill(FACILITATOR);
     await page.getByRole("button", { name: "Create" }).click();

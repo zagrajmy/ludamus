@@ -610,6 +610,32 @@ class TestProposalEditPageView:
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
+    def test_invalid_post_preserves_submitted_track_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "tracks_submitted": "1",
+                "track_ids": [track.pk],
+            },
+        )
+
+        assert response.context["form"].errors
+        assert response.context["assigned_track_pks"] == {track.pk}
+        assert not session.tracks.exists()
+
     def test_post_ignores_track_from_other_event(
         self, authenticated_client, active_user, sphere, event
     ):

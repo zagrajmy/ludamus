@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -40,6 +40,7 @@ if TYPE_CHECKING:
         FacilitatorDTO,
         FacilitatorListItemDTO,
         PersonalDataFieldDTO,
+        SessionDTO,
         SessionFieldDTO,
         TimeSlotDTO,
         TrackDTO,
@@ -273,6 +274,35 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             )
         return result
 
+    def _read_post_field_value(
+        self, prefix: str, field: PersonalDataFieldDTO
+    ) -> str | list[str] | bool:
+        key = f"{prefix}_{field.slug}"
+        if field.field_type == "checkbox":
+            return self.request.POST.get(key) == "true"
+        if field.is_multiple:
+            return self.request.POST.getlist(key)
+        value = self.request.POST.get(key, "")
+        if field.allow_custom and not value:
+            value = self.request.POST.get(f"{key}_custom", "")
+        return value
+
+    def _get_facilitator_personal_data_post(
+        self, event_pk: int, proposal_id: int
+    ) -> FacilitatorPersonalData:
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        if not fields:
+            return []
+        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        result: FacilitatorPersonalData = []
+        for facilitator in assigned:
+            prefix = f"facilitator_{facilitator.pk}_personal"
+            items: PersonalFieldItems = [
+                (field, self._read_post_field_value(prefix, field)) for field in fields
+            ]
+            result.append((facilitator, prefix, items))
+        return result
+
     def _collect_personal_data(
         self, event_pk: int
     ) -> dict[int, list[HostPersonalDataEntry]] | None:
@@ -286,25 +316,16 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         result: dict[int, list[HostPersonalDataEntry]] = {}
         for facilitator_id in submitted_ids & valid_pks:
-            entries: list[HostPersonalDataEntry] = []
-            for field in fields:
-                key = f"facilitator_{facilitator_id}_personal_{field.slug}"
-                if field.field_type == "checkbox":
-                    value: str | list[str] | bool = self.request.POST.get(key) == "true"
-                elif field.is_multiple:
-                    value = self.request.POST.getlist(key)
-                else:
-                    value = self.request.POST.get(key, "")
-                    if field.allow_custom and not value:
-                        value = self.request.POST.get(f"{key}_custom", "")
-                entries.append(
-                    HostPersonalDataEntry(
-                        facilitator_id=facilitator_id,
-                        event_id=event_pk,
-                        field_id=field.pk,
-                        value=value,
-                    )
+            prefix = f"facilitator_{facilitator_id}_personal"
+            entries = [
+                HostPersonalDataEntry(
+                    facilitator_id=facilitator_id,
+                    event_id=event_pk,
+                    field_id=field.pk,
+                    value=self._read_post_field_value(prefix, field),
                 )
+                for field in fields
+            ]
             result[facilitator_id] = entries
         return result
 
@@ -403,6 +424,45 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
+    def _render_invalid(
+        self,
+        context: dict[str, Any],
+        *,
+        form: forms.Form,
+        session: SessionDTO,
+        event_pk: int,
+    ) -> HttpResponse:
+        all_facilitators, assigned_pks = self._get_facilitator_context(
+            event_pk, session.pk
+        )
+        all_tracks, assigned_track_pks = self._get_track_context(event_pk, session.pk)
+        all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
+            event_pk, session.pk
+        )
+        # Prefer the invalid submission over persisted values so in-progress
+        # selections survive the re-render.
+        if (submitted_tracks := self._collect_track_ids(event_pk)) is not None:
+            assigned_track_pks = set(submitted_tracks)
+        if (submitted_slots := self._collect_time_slot_ids(event_pk)) is not None:
+            assigned_time_slot_pks = set(submitted_slots)
+        personal_data = (
+            self._get_facilitator_personal_data_post(event_pk, session.pk)
+            if (self.request.POST.get("personal_data_submitted") == "1")
+            else self._get_facilitator_personal_data(event_pk, session.pk)
+        )
+        context["active_nav"] = "proposals"
+        context["proposal"] = session
+        context["form"] = form
+        context["all_facilitators"] = all_facilitators
+        context["assigned_facilitator_pks"] = assigned_pks
+        context["session_fields"] = self._get_session_fields(event_pk, session.pk)
+        context["all_tracks"] = all_tracks
+        context["assigned_track_pks"] = assigned_track_pks
+        context["all_time_slots"] = all_time_slots
+        context["assigned_time_slot_pks"] = assigned_time_slot_pks
+        context["facilitator_personal_data"] = personal_data
+        return TemplateResponse(self.request, "panel/proposal-edit.html", context)
+
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -422,30 +482,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         form_class = create_proposal_form(self._category_choices(current_event.pk))
         form = form_class(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            all_facilitators, assigned_pks = self._get_facilitator_context(
-                current_event.pk, proposal_id
+            return self._render_invalid(
+                context, form=form, session=session, event_pk=current_event.pk
             )
-            session_fields = self._get_session_fields(current_event.pk, proposal_id)
-            all_tracks, assigned_track_pks = self._get_track_context(
-                current_event.pk, proposal_id
-            )
-            all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
-                current_event.pk, proposal_id
-            )
-            context["active_nav"] = "proposals"
-            context["proposal"] = session
-            context["form"] = form
-            context["all_facilitators"] = all_facilitators
-            context["assigned_facilitator_pks"] = assigned_pks
-            context["session_fields"] = session_fields
-            context["all_tracks"] = all_tracks
-            context["assigned_track_pks"] = assigned_track_pks
-            context["all_time_slots"] = all_time_slots
-            context["assigned_time_slot_pks"] = assigned_time_slot_pks
-            context["facilitator_personal_data"] = self._get_facilitator_personal_data(
-                current_event.pk, proposal_id
-            )
-            return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
         update_data: SessionUpdateData = {
             "category_id": int(form.cleaned_data["category_id"]),
