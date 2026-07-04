@@ -200,7 +200,7 @@ jobs:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
         run: |
-          set -eu
+          set -euo pipefail
           # envs.json was varlock-validated (as .env.local) above. Output is
           # discarded so values never reach the run log.
           jq '{data: .}' envs.json | curl -fsS -X PATCH \
@@ -216,7 +216,7 @@ jobs:
           APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
           TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
         run: |
-          set -eu
+          set -euo pipefail
           # Pinning the exact sha tag (not `latest`) makes rollback a
           # re-dispatch of this workflow on an older commit.
           jq -n --arg tag "sha-$TARGET_SHA" '{docker_registry_image_tag: $tag}' \
