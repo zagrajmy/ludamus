@@ -39,6 +39,21 @@
     z-index: 5;
   }
 
+  .timetable-hover-preview {
+    position: fixed;
+    z-index: 20;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--color-neutral-900);
+    color: white;
+    font-size: 0.75rem;
+    pointer-events: none;
+  }
+
+  .timetable-hover-preview.hidden {
+    display: none;
+  }
+
   .timetable-preferred-slot {
     position: absolute;
     left: 0;

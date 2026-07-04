@@ -30,6 +30,39 @@ function pxPerMinute(cal: HTMLElement): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+function snappedStartAt(cal: HTMLElement, col: HTMLElement, clientY: number): Date {
+  const slotMinutes = Number(cal.dataset.slotMinutes);
+  const snapMinutes = Number(cal.dataset.snapMinutes) || slotMinutes;
+  const pxPerSnap = snapMinutes * pxPerMinute(cal);
+
+  const yOffset = clientY - col.getBoundingClientRect().top;
+  const snapIndex = Math.floor(yOffset / pxPerSnap);
+  const offsetMinutes = snapIndex * snapMinutes;
+
+  const startDt = new Date(cal.dataset.eventStart!);
+  startDt.setMinutes(startDt.getMinutes() + offsetMinutes);
+  return startDt;
+}
+
+function formatHm(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+const hoverPreview = (): HTMLElement => {
+  let el = document.getElementById("timetable-hover-preview");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "timetable-hover-preview";
+    el.className = "timetable-hover-preview hidden";
+    document.body.append(el);
+  }
+  return el;
+};
+
+function hideHoverPreview(): void {
+  hoverPreview().classList.add("hidden");
+}
+
 function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
   if (!raw) return [];
   try {
@@ -115,6 +148,7 @@ function exitAssignMode(): void {
   banner().classList.add("hidden");
   for (const col of columns()) col.classList.remove("assign-mode-active");
   clearPreferredSlotOverlays();
+  hideHoverPreview();
 }
 
 // Delegate click on Assign buttons inside the left pane
@@ -137,18 +171,8 @@ document.addEventListener("click", (e) => {
     if (col) {
       const spacePk = col.dataset.spacePk!;
       const cal = calendar()!;
-      const eventStart = cal.dataset.eventStart!;
-      const slotMinutes = Number(cal.dataset.slotMinutes);
-      const snapMinutes = Number(cal.dataset.snapMinutes) || slotMinutes;
-      const pxPerSnap = snapMinutes * pxPerMinute(cal);
-
-      const rect = col.getBoundingClientRect();
-      const yOffset = e instanceof MouseEvent ? e.clientY - rect.top : 0;
-      const snapIndex = Math.floor(yOffset / pxPerSnap);
-      const offsetMinutes = snapIndex * snapMinutes;
-
-      const startDt = new Date(eventStart);
-      startDt.setMinutes(startDt.getMinutes() + offsetMinutes);
+      const clientY = e instanceof MouseEvent ? e.clientY : col.getBoundingClientRect().top;
+      const startDt = snappedStartAt(cal, col, clientY);
       const endDt = new Date(startDt.getTime() + assignDuration * 60_000);
 
       const assignUrl = grid().dataset.assignUrl!;
@@ -190,6 +214,28 @@ document.addEventListener("click", (e) => {
     }
   }
 });
+
+// Live snapped-time preview near the cursor while in assign mode
+document.addEventListener("mousemove", (e) => {
+  if (!assignSessionPk) return;
+  const col = (e.target as Element).closest<HTMLElement>(".timetable-column.assign-mode-active");
+  if (!col) {
+    hideHoverPreview();
+    return;
+  }
+
+  const cal = calendar()!;
+  const startDt = snappedStartAt(cal, col, e.clientY);
+  const endDt = new Date(startDt.getTime() + assignDuration * 60_000);
+
+  const preview = hoverPreview();
+  preview.textContent = `${formatHm(startDt)} – ${formatHm(endDt)}`;
+  preview.style.left = `${e.clientX + 12}px`;
+  preview.style.top = `${e.clientY + 12}px`;
+  preview.classList.remove("hidden");
+});
+
+document.addEventListener("mouseleave", hideHoverPreview);
 
 // Re-apply assignment mode UI after HTMX swaps the grid (e.g. room pagination).
 // Module state survives HTMX swaps but DOM classes do not.
