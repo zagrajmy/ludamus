@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 21:29+0200\n"
+"POT-Creation-Date: 2026-07-04 20:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1624,6 +1624,28 @@ msgstr "Pole danych osobowych zostało usunięte."
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 msgid "Space not found."
 msgstr "Przestrzeń nie została znaleziona."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Pending"
+msgstr "Oczekujące"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+msgid "Accepted"
+msgstr "Zaakceptowane"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+msgid "On hold"
+msgstr "Wstrzymane"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Rejected"
+msgstr "Odrzucone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal not found."
@@ -3320,6 +3342,7 @@ msgid "Status"
 msgstr "Status"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
 
@@ -4889,24 +4912,6 @@ msgstr "Zarejestruj się"
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
-
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Pending"
-msgstr "Oczekujące"
-
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-msgid "Accepted"
-msgstr "Zaakceptowane"
-
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-msgid "On hold"
-msgstr "Wstrzymane"
-
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Rejected"
-msgstr "Odrzucone"
 
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
