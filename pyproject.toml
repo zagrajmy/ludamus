@@ -406,6 +406,7 @@ ignore_names = [
     "has_guests",
     "has_secret",
     "is_live",
+    "is_pending_proposal",
     "is_read",
     "is_unlimited",
     "location_label",

@@ -4,28 +4,28 @@
     {% tabs %}
     {% if active_tab == "proposal" %}
         {% tab "proposal" active=True href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
-    {% else %}
-        {% tab "proposal" href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "review" %}
-        {% tab "review" active=True href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
-    {% else %}
-        {% tab "review" href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "json" %}
-        {% tab "json" active=True href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
-    {% else %}
-        {% tab "json" href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "run" %}
-        {% tab "run" active=True href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
-    {% else %}
-        {% tab "run" href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "log" %}
-        {% tab "log" active=True href=tab_urls.log %}{% translate "Log" %}{% end_tab %}
-    {% else %}
-        {% tab "log" href=tab_urls.log %}{% translate "Log" %}{% end_tab %}
-    {% endif %}
+{% else %}
+    {% tab "proposal" href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
+{% endif %}
+{% if active_tab == "review" %}
+    {% tab "review" active=True href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
+{% else %}
+{% tab "review" href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
+{% endif %}
+{% if active_tab == "json" %}
+    {% tab "json" active=True href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
+{% else %}
+{% tab "json" href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
+{% endif %}
+{% if active_tab == "run" %}
+    {% tab "run" active=True href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
+{% else %}
+{% tab "run" href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
+{% endif %}
+{% if active_tab == "log" %}
+    {% tab "log" active=True href=tab_urls.log %}{% translate "Log" %}{% end_tab %}
+{% else %}
+{% tab "log" href=tab_urls.log %}{% translate "Log" %}{% end_tab %}
+{% endif %}
 {% end_tabs %}
 </div>
