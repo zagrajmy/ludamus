@@ -17,8 +17,8 @@ from ludamus.pacts import (
     PersonalDataFieldDTO,
     SessionListItemDTO,
     SessionStatus,
-    UserDTO,
 )
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 

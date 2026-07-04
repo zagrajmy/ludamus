@@ -26,13 +26,13 @@ from ludamus.pacts import (
     SessionStatus,
     TimeSlotDTO,
     TrackDTO,
-    UserDTO,
 )
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
 )
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.submissions import ImportLogEntryDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
