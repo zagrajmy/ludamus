@@ -53,11 +53,11 @@ jobs:
       contents: read
       deployments: write
       packages: write
-    # Separate GitHub environment so the VPS staging (deploy-staging.yml)
-    # keeps its own vars/secrets as a quick-rollback fallback.
+    # Reuses the VPS staging environment (deploy-staging.yml) — same
+    # secrets/vars, same URL (Auth0 is configured for this exact domain).
     environment:
-      name: staging-coolify
-      url: https://staging.zagrajmy.net
+      name: staging
+      url: https://test.zagrajmy.net
       deployment: false
     steps:
       # Order matters: the deploy-SHA checkout lands in the workspace root, and
@@ -81,7 +81,7 @@ jobs:
         id: deployment
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          STAGING_URL: https://staging.zagrajmy.net
+          STAGING_URL: https://test.zagrajmy.net
           TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
         with:
           script: |
@@ -261,7 +261,7 @@ jobs:
         env:
           DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
           JOB_STATUS: ${{ job.status }}
-          STAGING_URL: https://staging.zagrajmy.net
+          STAGING_URL: https://test.zagrajmy.net
         with:
           script: |
             const { pathToFileURL } = require("node:url");
