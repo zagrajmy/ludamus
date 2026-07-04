@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 21:29+0200\n"
+"POT-Creation-Date: 2026-07-04 20:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -125,14 +125,6 @@ msgstr "Przestrzeń główna o tym slugu już istnieje."
 #: src/ludamus/adapters/db/django/models.py
 msgid "Time slots can't overlap!"
 msgstr "Przedziały czasowe nie mogą się nakładać!"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Select from list"
-msgstr "Wybierz z listy"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Type comma-separated"
-msgstr "Wpisz oddzielone przecinkami"
 
 #: src/ludamus/adapters/db/django/models.py
 #: src/ludamus/templates/panel/discounts/list.html
@@ -2429,20 +2421,10 @@ msgid "Active"
 msgstr "Aktywne"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Requirements"
 msgstr "Wymagania"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Needs"
 msgstr "Potrzeby"
 
@@ -2777,10 +2759,6 @@ msgstr[3] "%(limit)s miejsc"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "submitted"
 msgstr "zgłoszono"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Special Needs"
-msgstr "Specjalne potrzeby"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
@@ -7206,3 +7184,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Select from list"
+#~ msgstr "Wybierz z listy"
+
+#~ msgid "Type comma-separated"
+#~ msgstr "Wpisz oddzielone przecinkami"
+
+#~ msgid "Special Needs"
+#~ msgstr "Specjalne potrzeby"
