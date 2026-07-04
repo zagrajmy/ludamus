@@ -16,9 +16,6 @@ _.python.venv = { path = ".venv", create = true }
 # Host wraps `dj`/`start` with `aubr varlock` to load .env. In the
 # container, compose passes env directly and varlock isn't present.
 
-[tasks.p]
-run = "poetry"
-
 [tasks.dj]
 run = "django-admin"
 
