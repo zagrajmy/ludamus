@@ -819,10 +819,6 @@ class SpaceRepository(SpaceRepositoryProtocol):
         Space.objects.filter(pk=pk).delete()
 
     @staticmethod
-    def has_sessions(pk: int) -> bool:
-        return AgendaItem.objects.filter(space_id=pk).exists()
-
-    @staticmethod
     def lock(pk: int) -> None:
         try:
             Space.objects.select_for_update().get(pk=pk)
@@ -2080,13 +2076,6 @@ class EncounterRepository(EncounterRepositoryProtocol):
         except Encounter.DoesNotExist as exception:
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
-
-    @staticmethod
-    def list_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]:
-        encounters = Encounter.objects.filter(
-            sphere_id=sphere_id, creator_id=creator_id
-        ).order_by("-start_time")
-        return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
     def list_upcoming_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]:

@@ -13,16 +13,15 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from ludamus.pacts.crowd import (
-    ConnectedUserRepositoryProtocol,
-    UserDTO,
-    UserRepositoryProtocol,
-)
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.crowd import (
+        ConnectedUserRepositoryProtocol,
+        UserDTO,
+        UserRepositoryProtocol,
+    )
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -281,25 +280,6 @@ class SpherePage(StrEnum):
     @classmethod
     def all_values(cls) -> list[str]:
         return [p.value for p in cls]
-
-
-class SessionParticipationDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    session_id: int
-    user_id: int
-    creation_time: datetime
-    modification_time: datetime
-    status: SessionParticipationStatus
-
-
-class UserParticipation(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    user: UserDTO
-    creation_time: datetime
-    modification_time: datetime
-    status: SessionParticipationStatus
 
 
 class SpaceDTO(BaseModel):
@@ -945,8 +925,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_event(event_pk: int) -> list[AgendaItemDTO]: ...
     @staticmethod
-    def list_by_space(space_pk: int) -> list[AgendaItemDTO]: ...
-    @staticmethod
     def list_by_track(track_pk: int) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
@@ -1000,8 +978,6 @@ class SpaceRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
     @staticmethod
     def lock(pk: int) -> None: ...
 
@@ -1227,8 +1203,6 @@ class EncounterRepositoryProtocol(Protocol):
     def read(pk: int) -> EncounterDTO: ...
     @staticmethod
     def read_by_share_code(share_code: str) -> EncounterDTO: ...
-    @staticmethod
-    def list_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]: ...
     @staticmethod
     def list_upcoming_by_creator(
         sphere_id: int, creator_id: int

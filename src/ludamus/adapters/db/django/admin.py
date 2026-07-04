@@ -110,12 +110,6 @@ class ProposalCategoryAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
-class DomainEnrollmentConfigInline(admin.TabularInline):  # type: ignore [type-arg]
-    model = DomainEnrollmentConfig
-    extra = 0
-    fields = ("domain", "allowed_slots_per_user")
-
-
 @admin.register(EnrollmentConfig)
 class EnrollmentConfigAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = (

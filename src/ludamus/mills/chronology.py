@@ -1071,10 +1071,6 @@ class SessionSelfEditService:
         )
         return allowed, session, event
 
-    def can_edit(self, session_id: int, user_id: int | None) -> bool:
-        allowed, _session, _event = self._gate(session_id, user_id)
-        return allowed
-
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext:
