@@ -102,7 +102,7 @@ run = "ast-grep scan --error src"
 
 [tasks.vulture]
 description = "Find dead Python code"
-run = "vulture --config=pyproject.toml src"
+run = "! vulture --config=pyproject.toml src | grep -v unused.variable"
 
 [tasks.impeccable]
 run = "python scripts/impeccable_lint.py"

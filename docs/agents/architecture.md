@@ -398,8 +398,7 @@ organizers.
   (transitions session → ACCEPTED, creates
   `AgendaItem`), `AnonymousEnrollmentService`
   (code-based anonymous user lookup)
-- **DTOs:** `SessionParticipationDTO`,
-  `EnrollmentConfigDTO`,
+- **DTOs:** `EnrollmentConfigDTO`,
   `UserEnrollmentConfigDTO`,
   `VirtualEnrollmentConfig`, `AgendaItemDTO`
 

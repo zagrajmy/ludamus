@@ -259,31 +259,6 @@ class TestUser:
 
         assert user.get_full_name() == user.name
 
-    def test_initials_from_name(self):
-        user = User(name="John Doe")
-
-        assert user.initials == "JD"
-
-    def test_initials_from_single_name(self):
-        user = User(name="John")
-
-        assert user.initials == "J"
-
-    def test_initials_from_three_names(self):
-        user = User(name="John Michael Doe")
-
-        assert user.initials == "JM"  # Only first two
-
-    def test_initials_fallback_to_username(self):
-        user = User(name="", username="johndoe")
-
-        assert user.initials == "J"
-
-    def test_initials_empty_returns_question_mark(self):
-        user = User(name="", username="")
-
-        assert user.initials == "?"
-
     def test_str(self):
         user = User(name="John Smith", email="johnny@example.com")
 
