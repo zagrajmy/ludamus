@@ -180,7 +180,6 @@ class EventIntegrationsServiceProtocol(Protocol):
 
 
 class SessionSelfEditServiceProtocol(Protocol):
-    def can_edit(self, session_id: int, user_id: int | None) -> bool: ...
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext: ...
