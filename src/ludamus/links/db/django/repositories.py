@@ -247,6 +247,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     @staticmethod
     def create(
         session_data: SessionData,
+        *,
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
