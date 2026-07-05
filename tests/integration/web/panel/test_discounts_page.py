@@ -8,8 +8,14 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Connection, Discount, Facilitator
+from ludamus.links.db.django.repositories import ConnectionsRepository
 from ludamus.links.google_docs import SHEETS_CLEAR_URL
-from ludamus.pacts import EventDTO, FacilitatorDTO, FacilitatorListItemDTO
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorDTO,
+    FacilitatorListItemDTO,
+    NotFoundError,
+)
 from ludamus.pacts.discounts import DiscountDTO
 from tests.integration.conftest import EventFactory, SphereFactory
 from tests.integration.utils import assert_response
@@ -783,11 +789,12 @@ class TestDiscountExportPageView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
         session.post.assert_called_once_with(
-            SHEETS_CLEAR_URL.format(sheet_id="target-sheet", range="Sheet1"), timeout=30
+            SHEETS_CLEAR_URL.format(sheet_id="target-sheet", range="%27Sheet1%27"),
+            timeout=30,
         )
         session.put.assert_called_once_with(
             "https://sheets.googleapis.com/v4/spreadsheets/target-sheet"
-            "/values/Sheet1%21A1?valueInputOption=RAW",
+            "/values/%27Sheet1%27%21A1?valueInputOption=RAW",
             json={
                 "values": [
                     [
@@ -829,6 +836,29 @@ class TestDiscountExportPageView:
                     ),
                 )
             ],
+            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+        )
+        session.put.assert_not_called()
+
+    def test_post_shows_error_when_connection_vanishes_mid_export(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event)
+        session = _google_write_session()
+
+        with patch.object(
+            ConnectionsRepository, "read_secret", side_effect=NotFoundError
+        ):
+            response = self._post(
+                authenticated_client, event, connection_with_secret, session
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            messages=[(messages.ERROR, "Connection not found.")],
             context_data={**_base_context(event), "form": ANY, "has_connections": True},
         )
         session.put.assert_not_called()

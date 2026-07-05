@@ -751,14 +751,43 @@ class TestGoogleSheetsWriter:
             SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
         )
         google.session.post.assert_called_once_with(
-            SHEETS_CLEAR_URL.format(sheet_id="sheet-1", range="Form%20Responses%201"),
+            SHEETS_CLEAR_URL.format(
+                sheet_id="sheet-1", range="%27Form%20Responses%201%27"
+            ),
             timeout=30,
         )
         google.session.put.assert_called_once_with(
             SHEETS_UPDATE_URL.format(
-                sheet_id="sheet-1", range="Form%20Responses%201%21A1"
+                sheet_id="sheet-1", range="%27Form%20Responses%201%27%21A1"
             ),
             json={"values": EXPORT_ROWS},
+            timeout=30,
+        )
+
+    def test_quotes_tab_title_that_looks_like_a_cell_reference(self, google):
+        google.session.get.return_value = _meta_with_title("A1")
+        google.session.post.return_value = _resp(ok=True)
+        google.session.put.return_value = _resp(ok=True)
+
+        GoogleSheetsWriter().write_rows(
+            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+        )
+
+        google.session.post.assert_called_once_with(
+            SHEETS_CLEAR_URL.format(sheet_id="sheet-1", range="%27A1%27"), timeout=30
+        )
+
+    def test_quotes_apostrophe_in_tab_title(self, google):
+        google.session.get.return_value = _meta_with_title("It's")
+        google.session.post.return_value = _resp(ok=True)
+        google.session.put.return_value = _resp(ok=True)
+
+        GoogleSheetsWriter().write_rows(
+            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+        )
+
+        google.session.post.assert_called_once_with(
+            SHEETS_CLEAR_URL.format(sheet_id="sheet-1", range="%27It%27%27s%27"),
             timeout=30,
         )
 

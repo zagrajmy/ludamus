@@ -277,6 +277,11 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
                 spreadsheet_id=form.cleaned_data["spreadsheet"],
                 labels=_export_labels(),
             )
+        except NotFoundError:
+            messages.error(self.request, _("Connection not found."))
+            return self._render(
+                context=context, form=form, has_connections=bool(connections)
+            )
         except SheetExportError as error:
             messages.error(self.request, _("Export failed: %(hint)s") % {"hint": error})
             return self._render(

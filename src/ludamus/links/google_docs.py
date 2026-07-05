@@ -398,6 +398,10 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         )
 
 
+def _a1_quote(title: str) -> str:
+    return "'" + title.replace("'", "''") + "'"
+
+
 class GoogleSheetsWriter(SheetWriterProtocol):
     """Replaces the first tab of a spreadsheet with the given rows."""
 
@@ -411,7 +415,10 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             session = _build_session(secret, self._scopes)
         except _CredentialsError as exc:
             raise SheetExportError(str(exc)) from exc
-        title = self._first_tab_title(session, spreadsheet_id)
+        # A1-quote the tab title: a bare title that parses as a cell reference
+        # (a tab named "A1") or contains an apostrophe would otherwise be read
+        # as a range, clearing a single cell instead of the tab.
+        title = _a1_quote(self._first_tab_title(session, spreadsheet_id))
         # Clear the whole tab first so rows from a previous, longer export
         # don't linger below the fresh data.
         self._call(
