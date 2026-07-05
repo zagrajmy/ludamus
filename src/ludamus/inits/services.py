@@ -24,7 +24,11 @@ from ludamus.mills.chronology import (
 )
 from ludamus.mills.crowd import ClaimService
 from ludamus.mills.discounts import DiscountsService
-from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
+from ludamus.mills.enrollment import (
+    AnonymousEnrollmentService,
+    NotificationsService,
+    WaitlistPromotionService,
+)
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -183,6 +187,15 @@ class Services:
             self._repos.participation_promotion,
             DjangoUserNotifier(),
             self._offer_expiry_scheduler(),
+        )
+
+    @cached_property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentService:
+        return AnonymousEnrollmentService(
+            transaction=self._transaction,
+            user_repository=self._repos.anonymous_users,
+            enrollment_repository=self._repos.anonymous_enrollment,
+            waitlist_promotion=self.waitlist_promotion,
         )
 
     @staticmethod

@@ -6,15 +6,17 @@ promotion / offer-lifecycle decisions stay unit-testable with fakes.
 """
 
 from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.party import HeldSeatNotification
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
@@ -242,3 +244,180 @@ class WaitlistPromotionServiceProtocol(Protocol):
     def claim_offer(self, *, token: str) -> ClaimResult: ...
     def decline_offer(self, *, token: str) -> ClaimResult: ...
     def expire_offer(self, *, participation_id: int) -> PromotionResult: ...
+
+
+class AnonymousEnrollmentErrorCode(StrEnum):
+    EVENT_NOT_FOUND = "event_not_found"
+    NOT_AVAILABLE_FOR_EVENT = "not_available_for_event"
+    SESSION_NOT_FOUND = "session_not_found"
+    # The session belongs to a different event than the visitor's anonymous
+    # session was activated for.
+    NOT_FOR_THIS_SESSION = "not_for_this_session"
+    # The session has no agenda item, so there is nothing to enroll into.
+    NO_ENROLLMENT_CONFIG = "no_enrollment_config"
+    # Anonymous enrollment for this session is no longer (or not yet) open.
+    ENROLLMENT_CLOSED = "enrollment_closed"
+    # No code in the visitor's anonymous session state.
+    SESSION_EXPIRED = "session_expired"
+    USER_NOT_FOUND = "user_not_found"
+    NAME_REQUIRED = "name_required"
+    NO_ENROLLMENTS = "no_enrollments"
+
+
+class AnonymousEnrollmentError(Exception):
+    def __init__(
+        self, code: AnonymousEnrollmentErrorCode, *, event_slug: str | None = None
+    ) -> None:
+        super().__init__(code.value)
+        self.code = code
+        # Where the visitor should be sent back to, when an event page is a
+        # better landing spot than the index.
+        self.event_slug = event_slug
+
+
+class AnonymousEventDTO(BaseModel):
+    event_id: int
+    slug: str
+    allows_anonymous_enrollment: bool
+
+
+class AnonymousSessionContextDTO(BaseModel):
+    session_id: int
+    event_id: int
+    event_slug: str
+    has_agenda_item: bool
+    # An active enrollment config allows anonymous enrollment and covers this
+    # session right now.
+    allows_anonymous_enrollment: bool
+    title: str
+    display_name: str
+    description: str
+    min_age: int
+    enrolled_count: int
+    waiting_count: int
+    effective_participants_limit: int
+    # None when the session has no agenda item (nowhere assigned yet).
+    space_name: str | None
+    start_time: datetime | None
+    end_time: datetime | None
+
+
+class AnonymousSeatingDTO(BaseModel):
+    is_full: bool
+    title: str
+
+
+class AnonymousActivationDTO(BaseModel):
+    code: str
+    event_id: int
+    event_slug: str
+
+
+class AnonymousEnrollPageDTO(BaseModel):
+    session: AnonymousSessionContextDTO
+    user_name: str
+    anonymous_code: str
+    needs_user_data: bool
+    enrollment_status: SessionParticipationStatus | None
+
+    @property
+    def is_enrolled(self) -> bool:
+        return self.enrollment_status is not None
+
+
+class AnonymousEnrollOutcome(StrEnum):
+    ENROLLED = "enrolled"
+    WAITLISTED = "waitlisted"
+    CONFLICT = "conflict"
+
+
+class AnonymousEnrollResultDTO(BaseModel):
+    outcome: AnonymousEnrollOutcome
+    session_title: str
+    event_slug: str
+
+
+class AnonymousCancelResultDTO(BaseModel):
+    cancelled: bool
+    session_title: str
+    event_slug: str
+
+
+class AnonymousLoadDTO(BaseModel):
+    event_id: int
+    event_slug: str
+    site_id: int
+
+
+class AnonymousEnrollmentRequestDTO(BaseModel):
+    # Everything identifying "this visitor acting on this session": URL parts
+    # plus the anonymous state the view read from the Django session.
+    event_slug: str
+    session_id: int
+    site_id: int
+    anonymous_event_id: int | None
+    code: str | None
+
+
+class AnonymousEnrollmentRepositoryProtocol(Protocol):
+    # Raises NotFoundError when no event matches the slug.
+    @staticmethod
+    def read_event(event_slug: str) -> AnonymousEventDTO: ...
+
+    @staticmethod
+    def event_slug_by_id(event_id: int) -> str | None: ...
+
+    # Raises NotFoundError when no session matches within the site.
+    @staticmethod
+    def read_session(
+        *, session_id: int, event_slug: str, site_id: int
+    ) -> AnonymousSessionContextDTO: ...
+
+    @staticmethod
+    def read_participation_status(
+        *, session_id: int, user_id: int
+    ) -> SessionParticipationStatus | None: ...
+
+    @staticmethod
+    def has_conflicts(*, session_id: int, user: UserDTO) -> bool: ...
+
+    # Locks the session row for the enrollment mutation that follows.
+    @staticmethod
+    def lock_seating(session_id: int) -> AnonymousSeatingDTO: ...
+
+    @staticmethod
+    def create_or_confirm(*, session_id: int, user_id: int) -> None: ...
+
+    @staticmethod
+    def create_waiting(*, session_id: int, user_id: int) -> None: ...
+
+    # Deletes the user's participation, returning its status (None if absent).
+    @staticmethod
+    def delete_participation(
+        *, session_id: int, user_id: int
+    ) -> SessionParticipationStatus | None: ...
+
+    @staticmethod
+    def first_enrollment_event(user_id: int) -> AnonymousLoadDTO | None: ...
+
+
+class AnonymousEnrollmentServiceProtocol(Protocol):
+    def get_user_by_code(self, code: str) -> UserDTO: ...
+
+    def activate(self, *, event_slug: str) -> AnonymousActivationDTO: ...
+
+    def get_enroll_page(
+        self, enrollment_request: AnonymousEnrollmentRequestDTO
+    ) -> AnonymousEnrollPageDTO: ...
+
+    def enroll(
+        self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
+    ) -> AnonymousEnrollResultDTO: ...
+
+    def cancel(
+        self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
+    ) -> AnonymousCancelResultDTO: ...
+
+    def load_by_code(self, *, code: str) -> AnonymousLoadDTO: ...
+
+    def event_slug_by_id(self, event_id: int) -> str | None: ...

@@ -15,6 +15,7 @@ from ludamus.adapters.db.django.models import (
     User,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.enrollment import AnonymousSessionContextDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
@@ -36,6 +37,27 @@ def _activate_anonymous_client(client, *, sphere, event, user_code: str) -> None
 def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
     enrollment_config.allow_anonymous_enrollment = True
     enrollment_config.save()
+
+
+def _expected_session_dto(agenda_item) -> AnonymousSessionContextDTO:
+    session = agenda_item.session
+    return AnonymousSessionContextDTO(
+        session_id=session.id,
+        event_id=session.event.id,
+        event_slug=session.event.slug,
+        has_agenda_item=True,
+        allows_anonymous_enrollment=True,
+        title=session.title,
+        display_name=session.display_name,
+        description=session.description,
+        min_age=session.min_age,
+        enrolled_count=session.enrolled_count,
+        waiting_count=session.waiting_count,
+        effective_participants_limit=session.effective_participants_limit,
+        space_name=agenda_item.space.name,
+        start_time=agenda_item.start_time,
+        end_time=agenda_item.end_time,
+    )
 
 
 class TestSessionEnrollmentAnonymousPageView:
@@ -176,12 +198,12 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "session": agenda_item.session,
-                "event": agenda_item.space.event,
-                "anonymous_user": UserDTO.model_validate(user),
+                "session": _expected_session_dto(agenda_item),
+                "event_slug": agenda_item.session.event.slug,
+                "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
                 "needs_user_data": True,
-                "existing_enrollment": None,
+                "enrollment_status": None,
                 "is_enrolled": False,
             },
             template_name="chronology/anonymous_enroll.html",

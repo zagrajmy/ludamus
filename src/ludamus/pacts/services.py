@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.crowd import ClaimServiceProtocol
     from ludamus.pacts.discounts import DiscountsServiceProtocol
     from ludamus.pacts.enrollment import (
+        AnonymousEnrollmentServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
@@ -94,6 +95,8 @@ class ServicesProtocol(Protocol):
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
+    @property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentServiceProtocol: ...
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property
