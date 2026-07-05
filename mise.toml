@@ -274,6 +274,7 @@ description = "Migrate, seed fixtures, and build client for e2e tests"
 run = """
 poetry install
 aube install
+rm -f "{{ config_root }}/dev.e2e.sqlite3"
 mise run _e2e -- django-admin migrate --noinput
 mise run _e2e -- django-admin createcachetable
 mise run _e2e -- django-admin downloadvendor

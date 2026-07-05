@@ -182,7 +182,7 @@ def main() -> None:
             "duration": "PT1H",
             "participants_limit": 6,
             "min_age": 0,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -201,7 +201,7 @@ def main() -> None:
             "duration": "PT2H",
             "participants_limit": 4,
             "min_age": 12,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -220,7 +220,7 @@ def main() -> None:
             "duration": "PT1H30M",
             "participants_limit": 8,
             "min_age": 0,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
