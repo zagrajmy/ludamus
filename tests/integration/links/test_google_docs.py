@@ -1,4 +1,4 @@
-"""Integration tests for the Google Docs proposal importer.
+"""Integration tests for the Google Docs proposal importer and sheet writer.
 
 `google.auth` is mocked at the package boundary (credentials + authorized
 session); the importer's own `check` / `_probe` logic runs for real, so the
@@ -17,12 +17,16 @@ from pydantic import BaseModel
 from ludamus.links.google_docs import (
     FORMS_API_URL,
     SHEETS_API_URL,
+    SHEETS_CLEAR_URL,
     SHEETS_META_URL,
+    SHEETS_UPDATE_URL,
     SHEETS_VALUES_URL,
     GoogleDocsProposalConfig,
     GoogleDocsProposalImporter,
+    GoogleSheetsWriter,
 )
 from ludamus.pacts.chronology import CheckOutcome, SourceQuestion
+from ludamus.pacts.discounts import SheetExportError
 
 SECRET = b'{"type": "service_account"}'
 CONFIG = GoogleDocsProposalConfig(sheet_id="sheet-1", form_id="form-1")
@@ -724,3 +728,129 @@ class TestGoogleDocsProposalImporterFetchResponses:
             GoogleDocsProposalImporter().fetch_responses(secret=SECRET, config=CONFIG)
             == []
         )
+
+
+EXPORT_ROWS = [["Creator", "Accreditation type"], ["Alice", "Guest"]]
+
+
+class TestGoogleSheetsWriter:
+    def test_clears_then_writes_the_first_tab(self, google):
+        google.session.get.return_value = _meta_with_title()
+        google.session.post.return_value = _resp(ok=True)
+        google.session.put.return_value = _resp(ok=True)
+
+        GoogleSheetsWriter().write_rows(
+            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+        )
+
+        google.creds.assert_called_once_with(
+            {"type": "service_account"},
+            scopes=["https://www.googleapis.com/auth/spreadsheets"],
+        )
+        google.session.get.assert_called_once_with(
+            SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
+        )
+        google.session.post.assert_called_once_with(
+            SHEETS_CLEAR_URL.format(sheet_id="sheet-1", range="Form%20Responses%201"),
+            timeout=30,
+        )
+        google.session.put.assert_called_once_with(
+            SHEETS_UPDATE_URL.format(
+                sheet_id="sheet-1", range="Form%20Responses%201%21A1"
+            ),
+            json={"values": EXPORT_ROWS},
+            timeout=30,
+        )
+
+    def test_missing_secret_raises_without_any_request(self, google):
+        with pytest.raises(
+            SheetExportError, match="Connection has no service-account credentials"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=b"", spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+        google.session.get.assert_not_called()
+
+    def test_invalid_credentials_raise(self, google):
+        google.creds.side_effect = ValueError("bad key")
+
+        with pytest.raises(
+            SheetExportError, match="Invalid service-account credentials: bad key"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+    def test_metadata_failure_raises_before_clearing(self, google):
+        google.session.get.return_value = _resp(ok=False, status_code=403, text="deny")
+
+        with pytest.raises(
+            SheetExportError, match="Spreadsheet metadata request failed with 403: deny"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+        google.session.post.assert_not_called()
+        google.session.put.assert_not_called()
+
+    def test_spreadsheet_without_tabs_raises(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True, json=lambda: {"sheets": []}
+        )
+
+        with pytest.raises(
+            SheetExportError, match="Spreadsheet has no sheet tab to write into"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+    def test_untitled_tab_raises(self, google):
+        google.session.get.return_value = _meta_with_title("")
+
+        with pytest.raises(
+            SheetExportError, match="Spreadsheet has no sheet tab to write into"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+    def test_clear_failure_raises_before_writing(self, google):
+        google.session.get.return_value = _meta_with_title()
+        google.session.post.return_value = _resp(
+            ok=False, status_code=403, text="no edit"
+        )
+
+        with pytest.raises(
+            SheetExportError, match="Spreadsheet clear request failed with 403: no edit"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+        google.session.put.assert_not_called()
+
+    def test_write_failure_raises(self, google):
+        google.session.get.return_value = _meta_with_title()
+        google.session.post.return_value = _resp(ok=True)
+        google.session.put.return_value = _resp(ok=False, status_code=500, text="boom")
+
+        with pytest.raises(
+            SheetExportError, match="Spreadsheet write request failed with 500: boom"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )
+
+    def test_request_exception_raises(self, google):
+        google.session.get.return_value = _meta_with_title()
+        google.session.post.side_effect = requests.RequestException("timeout")
+
+        with pytest.raises(
+            SheetExportError, match="Spreadsheet clear request failed: timeout"
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            )

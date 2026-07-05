@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 from django.views.generic.base import View
 
 from ludamus.adapters.db.django.models import AccreditationType
@@ -14,9 +15,18 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.gates.web.django.forms import DiscountForm
+from ludamus.gates.web.django.forms import (
+    DISCOUNT_KIND_LABELS,
+    DiscountExportForm,
+    DiscountForm,
+)
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.discounts import DiscountData, DiscountKind
+from ludamus.pacts.discounts import (
+    DiscountData,
+    DiscountExportLabels,
+    DiscountKind,
+    SheetExportError,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -211,3 +221,87 @@ class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         self.request.services.discounts.soft_delete(pk)
         messages.success(self.request, _("Discount removed successfully."))
         return redirect("panel:discounts", slug=slug)
+
+
+def _export_labels() -> DiscountExportLabels:
+    return DiscountExportLabels(
+        headers=[
+            _("Creator"),
+            _("Accreditation type"),
+            _("Discount kind"),
+            _("Discount value"),
+            _("Note"),
+        ],
+        accreditation_types={
+            choice.value: str(choice.label) for choice in AccreditationType
+        },
+        kinds={kind.value: str(label) for kind, label in DISCOUNT_KIND_LABELS.items()},
+    )
+
+
+class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        connections = self.request.services.connections.list_for_sphere(
+            self.request.context.current_sphere_id
+        )
+        return self._render(
+            context=context,
+            form=DiscountExportForm(connections=connections),
+            has_connections=bool(connections),
+        )
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        sphere_id = self.request.context.current_sphere_id
+        connections = self.request.services.connections.list_for_sphere(sphere_id)
+        form = DiscountExportForm(self.request.POST, connections=connections)
+        if not form.is_valid():
+            return self._render(
+                context=context, form=form, has_connections=bool(connections)
+            )
+
+        try:
+            count = self.request.services.discounts_export.export_to_sheet(
+                sphere_id=sphere_id,
+                event_pk=current_event.pk,
+                connection_id=int(form.cleaned_data["connection"]),
+                spreadsheet_id=form.cleaned_data["spreadsheet"],
+                labels=_export_labels(),
+            )
+        except SheetExportError as error:
+            messages.error(self.request, _("Export failed: %(hint)s") % {"hint": error})
+            return self._render(
+                context=context, form=form, has_connections=bool(connections)
+            )
+
+        messages.success(
+            self.request,
+            ngettext(
+                "Accreditation sheet exported (%(count)d creator).",
+                "Accreditation sheet exported (%(count)d creators).",
+                count,
+            )
+            % {"count": count},
+        )
+        return redirect("panel:discounts", slug=slug)
+
+    def _render(
+        self,
+        *,
+        context: dict[str, object],
+        form: DiscountExportForm,
+        has_connections: bool,
+    ) -> HttpResponse:
+        context["active_nav"] = "discounts"
+        context["form"] = form
+        context["has_connections"] = has_connections
+        return TemplateResponse(self.request, "panel/discounts/export.html", context)

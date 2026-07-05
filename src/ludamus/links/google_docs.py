@@ -1,4 +1,4 @@
-"""Google Docs proposal importer integration implementation."""
+"""Google Docs integrations: proposal importer and sheet writer."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     SourceQuestion,
 )
+from ludamus.pacts.discounts import SheetExportError, SheetWriterProtocol
 from ludamus.pacts.submissions import ImportRow
 
 if TYPE_CHECKING:
@@ -36,6 +37,10 @@ GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/spreadsheets.readonly",
     "https://www.googleapis.com/auth/forms.body.readonly",
 )
+# Service-account credentials mint a token per requested scope set, so the
+# write scope needs no re-authorization — only editor access on the target
+# spreadsheet for the service account.
+SHEETS_WRITE_SCOPES = ("https://www.googleapis.com/auth/spreadsheets",)
 SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A1:Z1"
 SHEETS_META_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}"
@@ -43,6 +48,13 @@ SHEETS_META_URL = (
 )
 SHEETS_VALUES_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
+)
+SHEETS_CLEAR_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}:clear"
+)
+SHEETS_UPDATE_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
+    "?valueInputOption=RAW"
 )
 FORMS_API_URL = "https://forms.googleapis.com/v1/forms/{form_id}"
 ERROR_HINT_LIMIT = 200
@@ -53,6 +65,32 @@ HTTP_NOT_FOUND = 404
 
 class _CredentialsError(Exception):
     """Raised internally when a service-account secret can't build a session."""
+
+
+def _build_session(secret: bytes, scopes: Sequence[str]) -> AuthorizedSession:
+    if not secret:
+        msg = "Connection has no service-account credentials."
+        raise _CredentialsError(msg)
+    try:
+        info = json.loads(secret)
+    except json.JSONDecodeError as exc:
+        msg = f"Connection secret is not valid JSON: {exc}"
+        raise _CredentialsError(msg) from exc
+    if not isinstance(info, dict):
+        msg = "Connection secret must be a JSON object (service-account key)."
+        raise _CredentialsError(msg)
+    # google-auth ships no type stubs, so its callables read as untyped.
+    # Bind them to typed locals (binding, unlike calling, doesn't trip
+    # no-untyped-call) so the call sites stay typed without inline ignores.
+    # Resolved per-call so test patches on these symbols still apply.
+    make_credentials: _CredentialsFactory = Credentials.from_service_account_info
+    authorized_session: Callable[[Credentials], AuthorizedSession] = AuthorizedSession
+    try:
+        credentials = make_credentials(info, scopes=list(scopes))
+    except (ValueError, GoogleAuthError) as exc:
+        msg = f"Invalid service-account credentials: {exc}"
+        raise _CredentialsError(msg) from exc
+    return authorized_session(credentials)
 
 
 def _disambiguate(titles: list[str]) -> list[str]:
@@ -328,31 +366,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         return meta.sheets[0].properties.title if meta.sheets else ""
 
     def _session(self, secret: bytes) -> AuthorizedSession:
-        if not secret:
-            msg = "Connection has no service-account credentials."
-            raise _CredentialsError(msg)
-        try:
-            info = json.loads(secret)
-        except json.JSONDecodeError as exc:
-            msg = f"Connection secret is not valid JSON: {exc}"
-            raise _CredentialsError(msg) from exc
-        if not isinstance(info, dict):
-            msg = "Connection secret must be a JSON object (service-account key)."
-            raise _CredentialsError(msg)
-        # google-auth ships no type stubs, so its callables read as untyped.
-        # Bind them to typed locals (binding, unlike calling, doesn't trip
-        # no-untyped-call) so the call sites stay typed without inline ignores.
-        # Resolved per-call so test patches on these symbols still apply.
-        make_credentials: _CredentialsFactory = Credentials.from_service_account_info
-        authorized_session: Callable[[Credentials], AuthorizedSession] = (
-            AuthorizedSession
-        )
-        try:
-            credentials = make_credentials(info, scopes=list(self._scopes))
-        except (ValueError, GoogleAuthError) as exc:
-            msg = f"Invalid service-account credentials: {exc}"
-            raise _CredentialsError(msg) from exc
-        return authorized_session(credentials)
+        return _build_session(secret, self._scopes)
 
     @staticmethod
     def _probe(*, session: AuthorizedSession, url: str, what: str) -> CheckResult:
@@ -382,3 +396,66 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
             outcome=CheckOutcome.AUTH_FAILED,
             hint=f"Unexpected {response.status_code} from Google: {body}",
         )
+
+
+class GoogleSheetsWriter(SheetWriterProtocol):
+    """Replaces the first tab of a spreadsheet with the given rows."""
+
+    def __init__(self, scopes: Sequence[str] = SHEETS_WRITE_SCOPES) -> None:
+        self._scopes = tuple(scopes)
+
+    def write_rows(
+        self, *, secret: bytes, spreadsheet_id: str, rows: list[list[str]]
+    ) -> None:
+        try:
+            session = _build_session(secret, self._scopes)
+        except _CredentialsError as exc:
+            raise SheetExportError(str(exc)) from exc
+        title = self._first_tab_title(session, spreadsheet_id)
+        # Clear the whole tab first so rows from a previous, longer export
+        # don't linger below the fresh data.
+        self._call(
+            what="Spreadsheet clear",
+            send=lambda: session.post(
+                SHEETS_CLEAR_URL.format(
+                    sheet_id=spreadsheet_id, range=quote(title, safe="")
+                ),
+                timeout=30,
+            ),
+        )
+        self._call(
+            what="Spreadsheet write",
+            send=lambda: session.put(
+                SHEETS_UPDATE_URL.format(
+                    sheet_id=spreadsheet_id, range=quote(f"{title}!A1", safe="")
+                ),
+                json={"values": rows},
+                timeout=30,
+            ),
+        )
+
+    def _first_tab_title(self, session: AuthorizedSession, spreadsheet_id: str) -> str:
+        response = self._call(
+            what="Spreadsheet metadata",
+            send=lambda: session.get(
+                SHEETS_META_URL.format(sheet_id=spreadsheet_id), timeout=10
+            ),
+        )
+        meta = _SpreadsheetMeta.model_validate(response.json())
+        if not meta.sheets or not (title := meta.sheets[0].properties.title):
+            msg = "Spreadsheet has no sheet tab to write into."
+            raise SheetExportError(msg)
+        return title
+
+    @staticmethod
+    def _call(*, what: str, send: Callable[[], requests.Response]) -> requests.Response:
+        try:
+            response = send()
+        except (requests.RequestException, GoogleAuthError) as exc:
+            msg = f"{what} request failed: {exc}"
+            raise SheetExportError(msg) from exc
+        if not response.ok:
+            body = (response.text or "")[:ERROR_HINT_LIMIT]
+            msg = f"{what} request failed with {response.status_code}: {body}"
+            raise SheetExportError(msg)
+        return response

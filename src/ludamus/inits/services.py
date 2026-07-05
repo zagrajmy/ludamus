@@ -11,7 +11,7 @@ from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter
+from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
@@ -23,7 +23,7 @@ from ludamus.mills.chronology import (
     SessionSelfEditService,
 )
 from ludamus.mills.crowd import ClaimService
-from ludamus.mills.discounts import DiscountsService
+from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
@@ -215,6 +215,17 @@ class Services:
     @cached_property
     def discounts(self) -> DiscountsService:
         return DiscountsService(self._transaction, self._repos.discounts)
+
+    @cached_property
+    def discounts_export(self) -> DiscountsExportService:
+        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
+        return DiscountsExportService(
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+            connections=self._repos.connections,
+            decryptor=FernetDecryptor(key),
+            sheet_writer=GoogleSheetsWriter(),
+        )
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:
