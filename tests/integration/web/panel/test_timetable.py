@@ -119,6 +119,7 @@ class TestTimetablePageView:
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
+                "selected_date": None,
                 "slug": event.slug,
                 "tab_urls": {
                     "timetable": reverse(

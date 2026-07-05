@@ -11,6 +11,7 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    TimeSlotFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -79,6 +80,7 @@ class TestTimetableSessionListPartView:
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "filter_track_pk": None,
+                "selected_date": None,
                 "slug": event.slug,
             },
         )
@@ -209,6 +211,67 @@ class TestTimetableSessionListPartView:
         )
 
         assert response.status_code == HTTPStatus.OK
+
+    def test_date_filter_keeps_sessions_with_slot_on_that_date(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        slot_day_one = TimeSlotFactory(event=event)
+        slot_day_two = TimeSlotFactory(
+            event=event, start_time=event.start_time + timedelta(days=1)
+        )
+        on_day_one = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        on_day_one.time_slots.add(slot_day_one)
+        on_day_two = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        on_day_two.time_slots.add(slot_day_two)
+        anytime = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"date": slot_day_one.start_time.date().isoformat()}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        session_pks = [s.pk for s in response.context["sessions"]]
+        assert on_day_one.pk in session_pks
+        assert anytime.pk in session_pks
+        assert on_day_two.pk not in session_pks
+
+    def test_invalid_date_param_does_not_filter(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        session.time_slots.add(
+            TimeSlotFactory(
+                event=event, start_time=event.start_time + timedelta(days=1)
+            )
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "not-a-date"})
+
+        assert response.status_code == HTTPStatus.OK
+        session_pks = [s.pk for s in response.context["sessions"]]
+        assert session.pk in session_pks
 
     def test_caps_results_at_limit_and_flags_has_more(
         self, authenticated_client, active_user, sphere, event, proposal_category

@@ -136,7 +136,12 @@ class TestTimetableSessionDetailPartView:
 
         response = authenticated_client.get(
             self.get_url(event, session.pk),
-            {"category": "5", "max_duration": "60", "search": "magic"},
+            {
+                "category": "5",
+                "max_duration": "60",
+                "search": "magic",
+                "date": "2026-09-04",
+            },
         )
 
         assert response.status_code == HTTPStatus.OK
@@ -144,6 +149,7 @@ class TestTimetableSessionDetailPartView:
         assert "category=5" in back_url
         assert "max_duration=60" in back_url
         assert "search=magic" in back_url
+        assert "date=2026-09-04" in back_url
 
     def test_shows_session_title(
         self, authenticated_client, active_user, sphere, event, proposal_category
