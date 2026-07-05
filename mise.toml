@@ -105,10 +105,14 @@ run = "taplo lint --config=.taplo.toml"
 description = "Find dead Python code"
 run = "! vulture --config=pyproject.toml src | grep -v unused.variable"
 
+[tasks."lint:hk"]
+description = "Run every hk linter on all files (file hygiene, shell, yaml, docker, md)"
+run = "hk check --all"
 
 [tasks.lint]
 description = "Run all linters"
 depends = [
+    { task = "lint:hk" },
     { task = "lint:taplo" },
     { task = "lint:ruff" },
     { task = "lint:import-linter" },
@@ -269,10 +273,10 @@ env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 [tasks.diff-cover]
 description = "Show test coverage for lines changed since main"
 run = [
-    "test:py --cov",
-    "test:e2e:kill",
+    { task = "test:py:cov" },
+    { task = "test:e2e:kill" },
     "rm -f dev.e2e.sqlite3",
-    "e2e",
+    { task = "test:e2e" },
     { task = "coverage:combine" },
     "coverage xml --data-file=.coverage",
     "diff-cover coverage.xml --compare-branch=main",
@@ -282,7 +286,11 @@ run = [
 description = "Combine integration + e2e coverage and export XML"
 run = """
 set -eu
-coverage combine .coverage.unit .coverage.e2e
+if [ -f .coverage.e2e ]; then
+  coverage combine .coverage.unit .coverage.e2e
+else
+  coverage combine .coverage.unit
+fi
 coverage xml -o coverage.xml
 coverage report --fail-under=93
 """
@@ -290,7 +298,7 @@ env.PYTHONPATH = "src"
 
 [tasks.shitcheck]
 description = "Flag suspicious additions vs main (file:line; tests skip Any): noqa, Any, cast"
-depends = [
+run = [
     "scripts/shitcheck.sh 'request.di.uow|nosec|noqa|type: ignore|Any|pylint|pragma|cast\\(|(^|[^[:alnum:]_])object([^[:alnum:]_]|$)' ':(glob)src/**/*.py'",
     "scripts/shitcheck.sh 'nosec|noqa|pylint|pragma|\\.skip$|\\.xfail$|ANY' ':(glob)tests/**/*.py'",
 ]
