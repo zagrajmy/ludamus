@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 11:03+0200\n"
+"POT-Creation-Date: 2026-07-05 21:27+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1191,6 +1191,7 @@ msgid "Implementation"
 msgstr "Implementacja"
 
 #: src/ludamus/gates/web/django/chronology/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Connection"
 msgstr "Połączenie"
@@ -1289,6 +1290,49 @@ msgstr "Zniżka została zaktualizowana."
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 msgid "Discount removed successfully."
 msgstr "Zniżka została usunięta."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Creator"
+msgstr "Twórca programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid "Accreditation type"
+msgstr "Rodzaj akredytacji"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+msgid "Discount kind"
+msgstr "Rodzaj zniżki"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+msgid "Discount value"
+msgstr "Wartość zniżki"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Note"
+msgstr "Notatka"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#, python-format
+msgid "Export failed: %(hint)s"
+msgstr "Eksport nie powiódł się: %(hint)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#, python-format
+msgid "Accreditation sheet exported (%(count)d creator)."
+msgid_plural "Accreditation sheet exported (%(count)d creators)."
+msgstr[0] "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+msgstr[1] "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+msgstr[2] "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+msgstr[3] "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "allowed"
@@ -2202,15 +2246,6 @@ msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-msgid "Accreditation type"
-msgstr "Rodzaj akredytacji"
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Percent"
 msgstr "Procent"
 
@@ -2236,9 +2271,16 @@ msgid "Value must be greater than zero."
 msgstr "Wartość musi być większa niż zero."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "Note"
-msgstr "Notatka"
+msgid "Google Sheets link"
+msgstr "Link do arkusza Google"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Paste the spreadsheet link (or its ID) from the address bar."
+msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enter a Google Sheets link or a spreadsheet ID."
+msgstr "Podaj link do arkusza Google lub ID arkusza."
 
 #: src/ludamus/gates/web/django/multiverse/access.py
 msgid "You don't have permission to access the sphere panel."
@@ -3058,6 +3100,7 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/create.html
 #: src/ludamus/templates/panel/discounts/edit.html
+#: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
@@ -5488,13 +5531,47 @@ msgstr "Przypisz"
 msgid "Edit discount"
 msgstr "Edytuj zniżkę"
 
+#: src/ludamus/templates/panel/discounts/export.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Export accreditation sheet"
+msgstr "Eksport arkusza akredytacji"
+
+#: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Creator discounts"
 msgstr "Zniżki twórców programu"
 
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "Creator"
-msgstr "Twórca programu"
+#: src/ludamus/templates/panel/discounts/export.html
+msgid ""
+"Writes every creator with their accreditation type and discount into the "
+"first tab of the selected spreadsheet, replacing its current content."
+msgstr ""
+"Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+"do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
+#: src/ludamus/templates/panel/discounts/export.html
+msgid ""
+"Share the spreadsheet with the connection's service account e-mail as an "
+"editor first."
+msgstr ""
+"Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+"połączenia."
+
+#: src/ludamus/templates/panel/discounts/export.html
+msgid "Export"
+msgstr "Eksportuj"
+
+#: src/ludamus/templates/panel/discounts/export.html
+msgid ""
+"No connections yet. Add a Google service account connection to export the "
+"accreditation sheet."
+msgstr ""
+"Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+"arkusz akredytacji."
+
+#: src/ludamus/templates/panel/discounts/export.html
+msgid "Go to connections"
+msgstr "Przejdź do połączeń"
 
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Discount"

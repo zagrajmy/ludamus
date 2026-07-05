@@ -2,15 +2,22 @@
 
 from decimal import Decimal
 from http import HTTPStatus
-from unittest.mock import ANY
+from unittest.mock import ANY, MagicMock, patch
 
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Discount, Facilitator
-from ludamus.pacts import EventDTO, FacilitatorDTO, FacilitatorListItemDTO
+from ludamus.adapters.db.django.models import Connection, Discount, Facilitator
+from ludamus.links.db.django.repositories import ConnectionsRepository
+from ludamus.links.google_docs import SHEETS_CLEAR_URL
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorDTO,
+    FacilitatorListItemDTO,
+    NotFoundError,
+)
 from ludamus.pacts.discounts import DiscountDTO
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import EventFactory, SphereFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -650,6 +657,264 @@ class TestDiscountDeleteActionView:
         url = reverse("panel:discount-delete", kwargs={"slug": "nonexistent", "pk": 1})
 
         response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/target-sheet/edit#gid=0"
+
+
+def _google_write_session(*, clear_ok=True, clear_status=200, clear_text=""):
+    session = MagicMock()
+    session.get.return_value = MagicMock(
+        ok=True, json=lambda: {"sheets": [{"properties": {"title": "Sheet1"}}]}
+    )
+    session.post.return_value = MagicMock(
+        ok=clear_ok, status_code=clear_status, text=clear_text
+    )
+    session.put.return_value = MagicMock(ok=True)
+    return session
+
+
+class TestDiscountExportPageView:
+    @staticmethod
+    def get_url(event):
+        return reverse("panel:discount-export", kwargs={"slug": event.slug})
+
+    def _post(self, client, event, connection, session):
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value = session
+            return client.post(
+                self.get_url(event),
+                data={"connection": str(connection.pk), "spreadsheet": SPREADSHEET_URL},
+            )
+
+    def test_get_redirects_anonymous_user_to_login(self, client, event):
+        url = self.get_url(event)
+
+        response = client.get(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
+
+    def test_get_redirects_non_manager_user(self, authenticated_client, event):
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
+        )
+
+    def test_get_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:discount-export", kwargs={"slug": "nonexistent"})
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_get_shows_form_when_a_connection_exists(
+        self, authenticated_client, active_user, sphere, event, connection
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+            contains=[connection.display_name, "Export"],
+        )
+
+    def test_get_shows_empty_state_without_connections(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "has_connections": False,
+            },
+            contains="No connections yet.",
+        )
+
+    def test_post_exports_scoped_rows_and_redirects(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event, accreditation_type="guest")
+        _make_discount(event, facilitator, value=Decimal("15.00"), note="VIP")
+        other_event = EventFactory(sphere=sphere, slug="other-event")
+        other_facilitator = _make_facilitator(
+            other_event, display_name="Bob", slug="bob"
+        )
+        _make_discount(other_event, other_facilitator, value=Decimal("99.00"))
+        session = _google_write_session()
+
+        response = self._post(
+            authenticated_client, event, connection_with_secret, session
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Accreditation sheet exported (1 creator).")],
+            url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+        session.post.assert_called_once_with(
+            SHEETS_CLEAR_URL.format(sheet_id="target-sheet", range="%27Sheet1%27"),
+            timeout=30,
+        )
+        session.put.assert_called_once_with(
+            "https://sheets.googleapis.com/v4/spreadsheets/target-sheet"
+            "/values/%27Sheet1%27%21A1?valueInputOption=RAW",
+            json={
+                "values": [
+                    [
+                        "Creator",
+                        "Accreditation type",
+                        "Discount kind",
+                        "Discount value",
+                        "Note",
+                    ],
+                    ["Alice", "Guest", "Percent", "15.00", "VIP"],
+                ]
+            },
+            timeout=30,
+        )
+
+    def test_post_shows_error_when_google_rejects_the_write(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event)
+        session = _google_write_session(
+            clear_ok=False, clear_status=403, clear_text="no edit"
+        )
+
+        response = self._post(
+            authenticated_client, event, connection_with_secret, session
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Export failed: Spreadsheet clear request failed "
+                        "with 403: no edit"
+                    ),
+                )
+            ],
+            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+        )
+        session.put.assert_not_called()
+
+    def test_post_shows_error_when_connection_vanishes_mid_export(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event)
+        session = _google_write_session()
+
+        with patch.object(
+            ConnectionsRepository, "read_secret", side_effect=NotFoundError
+        ):
+            response = self._post(
+                authenticated_client, event, connection_with_secret, session
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            messages=[(messages.ERROR, "Connection not found.")],
+            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+        )
+        session.put.assert_not_called()
+
+    def test_post_rejects_connection_from_another_sphere(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_sphere = SphereFactory(name="Other")
+        foreign_connection = Connection.objects.create(
+            sphere=other_sphere, display_name="Foreign"
+        )
+        session = _google_write_session()
+
+        response = self._post(authenticated_client, event, foreign_connection, session)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "has_connections": False,
+            },
+        )
+        assert response.context["form"].errors
+        session.get.assert_not_called()
+
+    def test_post_rejects_garbage_spreadsheet_value(
+        self, authenticated_client, active_user, sphere, event, connection
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={"connection": str(connection.pk), "spreadsheet": "not a sheet"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+        )
+        assert response.context["form"].errors == {
+            "spreadsheet": ["Enter a Google Sheets link or a spreadsheet ID."]
+        }
+
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:discount-export", kwargs={"slug": "nonexistent"})
+
+        response = authenticated_client.post(url, data={})
 
         assert_response(
             response,

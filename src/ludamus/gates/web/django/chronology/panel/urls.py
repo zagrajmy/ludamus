@@ -352,6 +352,11 @@ urlpatterns = [
         name="discounts",
     ),
     path(
+        "event/<slug:slug>/discounts/export/",
+        discounts.DiscountExportPageView.as_view(),
+        name="discount-export",
+    ),
+    path(
         "event/<slug:slug>/discounts/<int:facilitator_id>/assign/",
         discounts.DiscountCreatePageView.as_view(),
         name="discount-assign",

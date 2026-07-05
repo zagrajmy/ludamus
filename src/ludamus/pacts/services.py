@@ -20,7 +20,10 @@ if TYPE_CHECKING:
         SessionSelfEditServiceProtocol,
     )
     from ludamus.pacts.crowd import ClaimServiceProtocol
-    from ludamus.pacts.discounts import DiscountsServiceProtocol
+    from ludamus.pacts.discounts import (
+        DiscountsExportServiceProtocol,
+        DiscountsServiceProtocol,
+    )
     from ludamus.pacts.enrollment import (
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
@@ -116,3 +119,5 @@ class ServicesProtocol(Protocol):
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
+    @property
+    def discounts_export(self) -> DiscountsExportServiceProtocol: ...
