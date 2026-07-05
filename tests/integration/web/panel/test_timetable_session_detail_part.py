@@ -257,3 +257,42 @@ class TestTimetableSessionDetailPartView:
         content = response.content.decode()
         assert "Undo confirmation" in content
         assert "Confirm program item" not in content
+
+    def test_reassign_button_carries_confirmed_flag(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+            session_confirmed=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'data-assign-confirmed="true"' in response.content.decode()
+
+    def test_assign_button_of_unscheduled_session_is_unconfirmed(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'data-assign-confirmed="false"' in response.content.decode()

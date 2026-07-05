@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load tessera %}
 {% if not grid.spaces %}
     <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No rooms for this track." %}</p>
@@ -91,6 +92,10 @@
                     {% for pos in col.sessions %}
                         <div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {% if pos.agenda_item.session_id in conflict_session_pks %} bg-danger-bg border-danger hover:opacity-100 {% elif pos.agenda_item.session_id in slot_violation_session_pks %} bg-warning-bg border-warning hover:opacity-100 {% else %} bg-info-bg border-info hover:opacity-100 {% endif %}"
                              tabindex="0"
+                             draggable="true"
+                             data-session-pk="{{ pos.agenda_item.session_id }}"
+                             data-duration="{{ pos.duration_minutes }}"
+                             data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
                              title="{{ pos.agenda_item.session_title }}"
                              style="--offset: {{ pos.start_minutes }};
                                     --duration: {{ pos.duration_minutes }};
@@ -105,6 +110,10 @@
                                         ⚠
                                     {% elif pos.agenda_item.session_id in slot_violation_session_pks %}
                                         ⏰
+                                    {% endif %}
+                                    {% if pos.agenda_item.session_confirmed %}
+                                        {% translate "Confirmed" as t_confirmed %}
+                                        <span aria-label="{{ t_confirmed }}" title="{{ t_confirmed }}">{% icon "lock-closed" variant="mini" class="w-3 h-3 inline" %}</span>
                                     {% endif %}
                                     {{ pos.agenda_item.session_title|truncatechars:256 }}
                                 </div>

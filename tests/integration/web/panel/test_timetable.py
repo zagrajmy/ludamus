@@ -178,6 +178,60 @@ class TestTimetablePageView:
         assert col.sessions[0].agenda_item.session_title == session.title
         assert time_slot is not None
 
+    def test_grid_session_is_draggable_with_placement_data(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'draggable="true"' in content
+        assert f'data-session-pk="{session.pk}"' in content
+        assert 'data-confirmed="false"' in content
+        assert 'title="Confirmed"' not in content
+        assert time_slot is not None
+
+    def test_grid_marks_confirmed_session(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=end,
+            session_confirmed=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'data-confirmed="true"' in content
+        assert 'title="Confirmed"' in content
+        assert time_slot is not None
+
     def test_filters_by_track(
         self, authenticated_client, active_user, sphere, event, space
     ):

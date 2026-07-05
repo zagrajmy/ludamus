@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-03 21:29+0200\n"
+"POT-Creation-Date: 2026-07-05 11:25+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5909,6 +5909,7 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -7106,6 +7107,15 @@ msgstr "Potwierdź blok"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Confirm all"
 msgstr "Potwierdź wszystkie"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "This program item is confirmed. Moving it will clear the confirmation."
+msgstr ""
+"Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Move"
+msgstr "Przenieś"
 
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html

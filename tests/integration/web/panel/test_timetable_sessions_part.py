@@ -212,6 +212,25 @@ class TestTimetableSessionListPartView:
 
         assert response.status_code == HTTPStatus.OK
 
+    def test_session_card_is_draggable_with_duration(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        duration = response.context["sessions"][0].duration_minutes
+        assert 'draggable="true"' in content
+        assert f'data-duration="{duration}"' in content
+
     def test_date_filter_keeps_sessions_with_slot_on_that_date(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):

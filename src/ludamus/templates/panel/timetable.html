@@ -135,6 +135,8 @@
         <div class="flex-1 min-w-0 w-full">
             <div id="timetable-grid"
                  data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
+                 data-confirm-move="{% translate "This program item is confirmed. Moving it will clear the confirmation." %}"
+                 data-confirm-move-action="{% translate "Move" %}"
                  hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page }}"
                  hx-swap="innerHTML"
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
