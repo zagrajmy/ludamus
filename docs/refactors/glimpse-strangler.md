@@ -56,6 +56,16 @@ Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
 - Encounters fully in `gates` + `links` + `mills`/`pacts`.
 - Panel views split into one file per area under
   `gates/web/django/chronology/panel/views/`.
+- Enrollment slot math (`get_used_slots`, `can_enroll_users`,
+  `get_vc_available_slots`) moved out of `adapters/db/django/models.py` into
+  `mills/enrollment.py`, with the ORM query behind
+  `EnrollmentParticipationRepositoryProtocol`
+  (`links/db/django/enrollment.py`). An `EnrollmentService` now lives on
+  `request.services.enrollment`; `SessionEnrollPageView` and
+  `create_enrollment_form` run on it and no longer touch `request.di`
+  (issue #457, PR-7). The view's transactional enrollment batch
+  (`_process_enrollments` and friends) still uses the ORM directly and moves
+  into the service together with the view's relocation to `gates/`.
 
 ## Next step
 
