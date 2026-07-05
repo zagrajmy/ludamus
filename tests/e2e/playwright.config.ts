@@ -22,7 +22,7 @@ loadEnv(path.join(repoRoot, ".env.e2e"));
 
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 
-const WEB_COMMAND = "mise run e2e:prep && exec mise run e2e:serve";
+const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
 const skipIos = !!process.env.E2E_SKIP_IOS;
@@ -75,6 +75,7 @@ export default defineConfig({
       testIgnore: [
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
+        /panel-crud\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,

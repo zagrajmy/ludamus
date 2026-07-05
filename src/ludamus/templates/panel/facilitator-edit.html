@@ -33,15 +33,13 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator Details" %}</h3>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_display_name">{% translate "Display Name" %}</label>
-                            <input type="text"
-                                   name="display_name"
-                                   id="id_display_name"
-                                   value="{{ form.display_name.value|default:'' }}"
-                                   class="w-full border {% if form.display_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                   placeholder="{% translate "e.g., Jan Kowalski" %}">
-                            {% if form.display_name.errors %}<p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>{% endif %}
+                            <dt class="text-xs text-foreground-muted">{% translate "Display Name" %}</dt>
+                            <dd class="text-foreground">
+                                {{ facilitator.display_name }}
+                            </dd>
+                            <p class="mt-1 text-xs text-foreground-muted">
+                                {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
+                            </p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -67,71 +65,7 @@
                 <div class="card mb-6">
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
-                        <div class="space-y-6">
-                            {% for field, current_value in personal_fields %}
-                                <div>
-                                    {% if field.field_type != "checkbox" %}
-                                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                               for="id_personal_{{ field.slug }}">{{ field.name }}</label>
-                                    {% endif %}
-                                    {% if field.field_type == "select" and field.is_multiple %}
-                                        <div class="space-y-1">
-                                            {% for option in field.options %}
-                                                <label class="flex items-center gap-2 text-sm">
-                                                    <input type="checkbox"
-                                                           name="personal_{{ field.slug }}"
-                                                           value="{{ option.value }}"
-                                                           {% if current_value and option.value in current_value %}checked{% endif %}
-                                                           class="rounded border-border">
-                                                    {{ option.label }}
-                                                </label>
-                                            {% endfor %}
-                                        </div>
-                                    {% elif field.field_type == "select" %}
-                                        <select name="personal_{{ field.slug }}"
-                                                id="id_personal_{{ field.slug }}"
-                                                class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                            <option value="">—</option>
-                                            {% for option in field.options %}
-                                                <option value="{{ option.value }}"
-                                                        {% if current_value == option.value %}selected{% endif %}>
-                                                    {{ option.label }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                        {% if field.allow_custom %}
-                                            <input type="text"
-                                                   name="personal_{{ field.slug }}_custom"
-                                                   placeholder="{% translate "Or type a custom value" %}"
-                                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
-                                        {% endif %}
-                                    {% elif field.field_type == "checkbox" %}
-                                        <label class="flex items-center gap-2 text-sm">
-                                            <input type="checkbox"
-                                                   name="personal_{{ field.slug }}"
-                                                   value="true"
-                                                   {% if current_value %}checked{% endif %}
-                                                   class="rounded border-border">
-                                            {{ field.name }}
-                                        </label>
-                                    {% else %}
-                                        <input type="text"
-                                               name="personal_{{ field.slug }}"
-                                               id="id_personal_{{ field.slug }}"
-                                               value="{{ current_value|default:'' }}"
-                                               {% if field.max_length %}maxlength="{{ field.max_length }}"{% endif %}
-                                               class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                        {% if field.allow_custom %}
-                                            <input type="text"
-                                                   name="personal_{{ field.slug }}_custom"
-                                                   placeholder="{% translate "Or type a custom value" %}"
-                                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
-                                        {% endif %}
-                                    {% endif %}
-                                    {% if field.help_text %}<p class="mt-1 text-xs text-foreground-muted">{{ field.help_text }}</p>{% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
+                        {% include "panel/_personal_data_fields.html" with fields=personal_fields name_prefix="personal" %}
                     </div>
                 </div>
             {% endif %}

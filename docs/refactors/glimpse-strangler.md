@@ -36,7 +36,7 @@ views. What remains in `adapters/`:
     `AnonymousResetActionView`
   - `DesignPageView`, error views
 - **`adapters/db/django/models.py`** is still the real ORM module;
-  `links/db/django/repositories.py` imports from it
+  `links/db/django/repositories/` imports from it
   (`from ludamus.adapters.db.django.models import ...`). See
   [links-db-layout.md](links-db-layout.md) for the relocation.
 - **`adapters/web/django/`** also still owns `forms.py`, `entities.py`,
@@ -69,7 +69,7 @@ Migrate the **Crowd / Auth** views (`Auth0LoginActionView`,
    [services-di.md](services-di.md) (do both angles in the same move).
 3. Point `gates/web/django/urls.py` at the new `crowd` include; drop the old
    routes from `adapters/web/django/urls.py`.
-4. Move the auth integration tests alongside; run `mise run test`.
+4. Move the auth integration tests alongside; run `mise run test:py`.
 
 Auth is a good first slice: it is self-contained, has no template-heavy
 surface, and forces the `crowd` package to exist (Profile follows into the

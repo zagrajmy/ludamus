@@ -11,18 +11,19 @@ from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter
+from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
+    ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
     SessionDeletionService,
     SessionSelfEditService,
 )
 from ludamus.mills.crowd import ClaimService
-from ludamus.mills.discounts import DiscountsService
+from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
@@ -37,7 +38,10 @@ from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
+from ludamus.mills.submissions.personal_data_fields import (
+    CFPPersonalDataFieldService,
+    HostPersonalDataService,
+)
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.submissions import ImportRepos
@@ -63,6 +67,16 @@ class Services:
             transaction=self._transaction,
             fields=self._repos.personal_data_fields,
             categories=self._repos.proposal_categories,
+        )
+
+    @cached_property
+    def host_personal_data(self) -> HostPersonalDataService:
+        return HostPersonalDataService(
+            transaction=self._transaction,
+            facilitators=self._repos.facilitators,
+            host_personal_data=self._repos.host_personal_data,
+            personal_data_fields=self._repos.personal_data_fields,
+            facilitator_change_logs=self._repos.facilitator_change_logs,
         )
 
     @cached_property
@@ -146,6 +160,14 @@ class Services:
         )
 
     @cached_property
+    def proposal_status(self) -> ProposalStatusService:
+        return ProposalStatusService(
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+        )
+
+    @cached_property
     def session_self_edit(self) -> SessionSelfEditService:
         return SessionSelfEditService(
             self._repos.sessions,
@@ -193,6 +215,17 @@ class Services:
     @cached_property
     def discounts(self) -> DiscountsService:
         return DiscountsService(self._transaction, self._repos.discounts)
+
+    @cached_property
+    def discounts_export(self) -> DiscountsExportService:
+        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
+        return DiscountsExportService(
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+            connections=self._repos.connections,
+            decryptor=FernetDecryptor(key),
+            sheet_writer=GoogleSheetsWriter(),
+        )
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

@@ -220,6 +220,17 @@ class SessionDeletionServiceProtocol(Protocol):
     def restore(self, event_pk: int, session_pk: int) -> None: ...
 
 
+class ProposalScheduledError(Exception):
+    """Scheduled proposals may only be accepted, never demoted."""
+
+
+class ProposalStatusServiceProtocol(Protocol):
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
 

@@ -210,6 +210,21 @@ urlpatterns = [
         name="proposal-edit",
     ),
     path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/pending",
+        proposals.ProposalPendingActionView.as_view(),
+        name="proposal-pending",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/accept",
+        proposals.ProposalAcceptActionView.as_view(),
+        name="proposal-accept",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/hold",
+        proposals.ProposalHoldActionView.as_view(),
+        name="proposal-hold",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/reject",
         proposals.ProposalRejectActionView.as_view(),
         name="proposal-reject",
@@ -335,6 +350,11 @@ urlpatterns = [
         "event/<slug:slug>/discounts/",
         discounts.DiscountsPageView.as_view(),
         name="discounts",
+    ),
+    path(
+        "event/<slug:slug>/discounts/export/",
+        discounts.DiscountExportPageView.as_view(),
+        name="discount-export",
     ),
     path(
         "event/<slug:slug>/discounts/<int:facilitator_id>/assign/",

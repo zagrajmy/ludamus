@@ -1,0 +1,12 @@
+import "../Builtins.pkl"
+import "../Config.pkl"
+
+@Builtins.meta {
+  category = "Go"
+  description = "Vulnerability scanner"
+}
+go_vuln_check = new Config.Step {
+  glob = "**/*.go"
+  workspace_indicator = "go.mod"
+  check = "cd {{workspace}} && govulncheck ./..."
+}
