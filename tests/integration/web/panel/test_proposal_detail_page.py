@@ -582,6 +582,140 @@ class TestProposalDetailPageView:
         assert "Reverted" in content
         assert "Removed" in content
 
+    def test_unscheduled_proposal_renders_status_buttons(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Pending Proposal",
+            slug="pending-proposal",
+            participants_limit=4,
+            status="pending",
+        )
+        url_kwargs = {"slug": event.slug, "proposal_id": session.pk}
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
+            contains=[
+                reverse("panel:proposal-accept", kwargs=url_kwargs),
+                reverse("panel:proposal-hold", kwargs=url_kwargs),
+                reverse("panel:proposal-reject", kwargs=url_kwargs),
+                'disabled title="This is the current status."',
+            ],
+            not_contains=[reverse("panel:proposal-pending", kwargs=url_kwargs)],
+        )
+
+    def test_scheduled_proposal_disables_non_accept_status_buttons(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Scheduled Proposal",
+            slug="scheduled-proposal",
+            participants_limit=4,
+            status="accepted",
+        )
+        space = SpaceFactory(name="Main Hall", event=event)
+        agenda_item = AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+        url_kwargs = {"slug": event.slug, "proposal_id": session.pk}
+        scheduled_tooltip = (
+            "This session is scheduled and can only be accepted. "
+            "Remove it from the timetable to change its status."
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": AgendaItemDTO(
+                    end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+                    pk=agenda_item.pk,
+                    session_confirmed=False,
+                    start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+                    space_id=space.pk,
+                    space_name="Main Hall",
+                    session_id=session.pk,
+                    session_title="Scheduled Proposal",
+                    session_description="",
+                    presenter_name="Host",
+                    session_duration_minutes=120,
+                    session_status=SessionStatus.ACCEPTED,
+                    category_name="RPG",
+                ),
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+            },
+            contains=[
+                f'disabled title="{scheduled_tooltip}"',
+                'disabled title="This is the current status."',
+            ],
+            not_contains=[
+                reverse("panel:proposal-pending", kwargs=url_kwargs),
+                reverse("panel:proposal-hold", kwargs=url_kwargs),
+                reverse("panel:proposal-reject", kwargs=url_kwargs),
+                reverse("panel:proposal-accept", kwargs=url_kwargs),
+            ],
+        )
+
     def test_facilitators_card_links_to_facilitator_detail(
         self, authenticated_client, active_user, sphere, event
     ):

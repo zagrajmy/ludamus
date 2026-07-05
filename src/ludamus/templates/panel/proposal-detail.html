@@ -19,33 +19,55 @@
             {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
             <a href="{% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk %}"
                class="btn btn-secondary">{% translate "Edit" %}</a>
-            {% if not agenda_item %}
-                {% if proposal.status != "accepted" %}
-                    <form method="post"
-                          action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">
-                        {% csrf_token %}
-                        {% translate "Accept" as accept_label %}
-                        {% tessera_button accept_label variant="primary" %}
-                    </form>
-                {% endif %}
-                {% if proposal.status != "on_hold" %}
-                    <form method="post"
-                          action="{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk %}">
-                        {% csrf_token %}
-                        {% translate "Hold" as hold_label %}
-                        {% tessera_button hold_label variant="secondary" %}
-                    </form>
-                {% endif %}
-                {% if proposal.status != "rejected" %}
-                    <form method="post"
-                          action="{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk %}"
-                          data-confirm="{% translate "Are you sure you want to reject this proposal?" %}"
-                          data-confirm-action="{% translate "Reject" %}">
-                        {% csrf_token %}
-                        {% translate "Reject" as reject_label %}
-                        {% tessera_button reject_label variant="danger" %}
-                    </form>
-                {% endif %}
+            {% translate "This is the current status." as current_status_tooltip %}
+            {% translate "This session is scheduled and can only be accepted. Remove it from the timetable to change its status." as scheduled_tooltip %}
+            {% translate "Move to pending" as pending_label %}
+            {% if proposal.status == "pending" %}
+                {% tessera_button pending_label variant="secondary" disabled=True title=current_status_tooltip %}
+            {% elif agenda_item %}
+                {% tessera_button pending_label variant="secondary" disabled=True title=scheduled_tooltip %}
+            {% else %}
+                <form method="post"
+                      action="{% url 'panel:proposal-pending' slug=current_event.slug proposal_id=proposal.pk %}">
+                    {% csrf_token %}
+                    {% tessera_button pending_label variant="secondary" %}
+                </form>
+            {% endif %}
+            {% translate "Accept" as accept_label %}
+            {% if proposal.status == "accepted" %}
+                {% tessera_button accept_label variant="primary" disabled=True title=current_status_tooltip %}
+            {% else %}
+                <form method="post"
+                      action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">
+                    {% csrf_token %}
+                    {% tessera_button accept_label variant="primary" %}
+                </form>
+            {% endif %}
+            {% translate "Hold" as hold_label %}
+            {% if proposal.status == "on_hold" %}
+                {% tessera_button hold_label variant="secondary" disabled=True title=current_status_tooltip %}
+            {% elif agenda_item %}
+                {% tessera_button hold_label variant="secondary" disabled=True title=scheduled_tooltip %}
+            {% else %}
+                <form method="post"
+                      action="{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk %}">
+                    {% csrf_token %}
+                    {% tessera_button hold_label variant="secondary" %}
+                </form>
+            {% endif %}
+            {% translate "Reject" as reject_label %}
+            {% if proposal.status == "rejected" %}
+                {% tessera_button reject_label variant="danger" disabled=True title=current_status_tooltip %}
+            {% elif agenda_item %}
+                {% tessera_button reject_label variant="danger" disabled=True title=scheduled_tooltip %}
+            {% else %}
+                <form method="post"
+                      action="{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk %}"
+                      data-confirm="{% translate "Are you sure you want to reject this proposal?" %}"
+                      data-confirm-action="{% translate "Reject" %}">
+                    {% csrf_token %}
+                    {% tessera_button reject_label variant="danger" %}
+                </form>
             {% endif %}
             <form method="post"
                   action="{% url 'panel:proposal-delete' slug=current_event.slug proposal_id=proposal.pk %}"
