@@ -22,7 +22,7 @@
                         hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
                         class="btn btn-secondary text-sm">← {% translate "Previous" %}</button>
             {% endif %}
             {% if grid.page < grid.total_pages %}
@@ -30,7 +30,7 @@
                         hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'1' }}"
                         class="btn btn-secondary text-sm">{% translate "Next" %} →</button>
             {% endif %}
         </div>
