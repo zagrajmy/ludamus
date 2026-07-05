@@ -41,180 +41,201 @@
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} switcher {% templatetag closeblock %}</code>
             {% tessera_switcher name="design-switcher" selected="b" aria_label="Example switcher" %}
-                {% tessera_segment "a" icon="list-bullet" title="List" %}List view{% end_tessera_segment %}
-                {% tessera_segment "b" icon="squares-2x2" title="Grid" %}Grid view{% end_tessera_segment %}
-                {% tessera_segment "c" icon="map" title="Map" %}Map view{% end_tessera_segment %}
-            {% end_tessera_switcher %}
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_copy {% templatetag closeblock %}</code>
-            <div class="flex w-56 flex-col items-center gap-4">
-                {% tessera_copy_chip "@ada" %}
-                {% tessera_copy "https://ludamus.example/e/abc123/" %}
-                    {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
-                    Copy link
-                {% endtessera_copy %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} icon {% templatetag closeblock %}</code>
-            <div class="flex flex-wrap items-center justify-center gap-3 text-foreground">
-                {% icon "calendar" class="w-4 h-4" %}
-                {% icon "calendar" class="w-5 h-5" %}
-                {% icon "calendar" class="w-6 h-6" %}
-                {% icon "calendar" variant="solid" class="w-5 h-5" %}
-                {% icon "calendar" variant="mini" class="w-5 h-5" %}
-                {% icon "calendar" variant="micro" class="w-4 h-4" %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">avatar.html</code>
-            <div class="flex items-end justify-center gap-3">
-                {% include "components/avatar.html" with user=design_user size="size-6" %}
-                {% include "components/avatar.html" with user=design_user %}
-                {% include "components/avatar.html" with user=design_user size="size-12" %}
-                {% include "components/avatar.html" with user=design_user size="size-16" %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">.card</code>
-            <div class="card w-full max-w-xs">
-                <div class="card-header">
-                    <h3 class="font-semibold text-foreground">Card title</h3>
-                </div>
-                <div class="card-body">
-                    <p class="text-sm text-foreground-secondary">Contained section, used in panel pages.</p>
-                </div>
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">.alert</code>
-            <div class="w-full max-w-2xl flex flex-col gap-2">
-                <div class="alert alert-success flex items-center" role="alert">
-                    {% icon "check-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
-                    <span>Saved successfully.</span>
-                </div>
-                <div class="alert alert-warning flex items-center" role="status">
-                    {% icon "exclamation-triangle" class="w-5 h-5 mr-3" aria_hidden="true" %}
-                    <span>Heads up — this action is permanent.</span>
-                </div>
-                <div class="alert alert-error flex items-center" role="alert">
-                    {% icon "x-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
-                    <span>Something went wrong.</span>
-                </div>
-                <div class="alert alert-info flex items-center" role="status">
-                    {% icon "information-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
-                    <span>For your information.</span>
-                </div>
-                <div class="alert alert-default flex items-center" role="status">
-                    {% icon "minus-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
-                    <span>Neutral notice.</span>
-                </div>
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">text-field.html</code>
-            <div class="w-full max-w-xs">
-                {% include "components/text-field.html" with id="t-text" name="t-text" placeholder="Placeholder" required=False value="" only %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">textarea.html</code>
-            <div class="w-full max-w-xs">
-                {% include "components/textarea.html" with id="t-textarea" name="t-textarea" rows="3" placeholder="Placeholder" required=False value="" only %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} select {% templatetag closeblock %}</code>
-            <div class="w-full max-w-xs">
-                {% select id="t-select" name="t-select" %}
-                    <option value="">Choose an option…</option>
-                    <option value="a">Option A</option>
-                    <option value="b">Option B</option>
-                {% end_select %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-field.html</code>
-            {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">choice-group.html</code>
-            {% include "components/choice-group.html" with input_type="radio" name="t-radio" options=design_radio_options only %}
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">file-dropzone.html</code>
-            <div class="w-full max-w-md">
-                {% include "components/file-dropzone.html" with id="t-file" name="t-file" label="Upload file" required=False accept="image/*" has_errors=False initial_url="" initial_name="" dropzone_state="empty" only %}
-            </div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_form {% templatetag closeblock %}</code>
-            <div class="w-full max-w-xl">{% tessera_form design_form %}</div>
-        </div>
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tabs {% templatetag closeblock %}</code>
-            {% tabs %}
-            {% tab "a" icon="user" href="#" active=True %}One{% end_tab %}
-            {% tab "b" icon="users" href="#" %}Two{% end_tab %}
-        {% end_tabs %}
+            {% tessera_segment "a" icon="list-bullet" title="List" %}List view{% end_tessera_segment %}
+            {% tessera_segment "b" icon="squares-2x2" title="Grid" %}Grid view{% end_tessera_segment %}
+            {% tessera_segment "c" icon="map" title="Map" %}Map view{% end_tessera_segment %}
+        {% end_tessera_switcher %}
     </div>
     <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
-        <code class="absolute top-3 left-3 text-xs text-foreground-muted">visibility-*</code>
-        <div class="w-full flex flex-col gap-3 text-sm">
-            <div class="flex items-center gap-2">
-                <span class="text-foreground-muted text-xs">badge:</span>
-                {% include "components/visibility-badge.html" with is_public=True %}
-                {% include "components/visibility-badge.html" with is_public=False %}
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="text-foreground-muted text-xs">icon:</span>
-                {% include "components/visibility-icon.html" with is_public=True %}
-                {% include "components/visibility-icon.html" with is_public=False %}
-            </div>
-            {% include "components/visibility-header.html" with is_public=True is_first=True %}
-            {% include "components/visibility-header.html" with is_public=False %}
-            {% include "components/visibility-legend.html" %}
+        <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_copy {% templatetag closeblock %}</code>
+        <div class="flex w-56 flex-col items-center gap-4">
+            {% tessera_copy_chip "@ada" %}
+            {% tessera_copy "https://ludamus.example/e/abc123/" %}
+            {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
+            Copy link
+        {% endtessera_copy %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} icon {% templatetag closeblock %}</code>
+    <div class="flex flex-wrap items-center justify-center gap-3 text-foreground">
+        {% icon "calendar" class="w-4 h-4" %}
+        {% icon "calendar" class="w-5 h-5" %}
+        {% icon "calendar" class="w-6 h-6" %}
+        {% icon "calendar" variant="solid" class="w-5 h-5" %}
+        {% icon "calendar" variant="mini" class="w-5 h-5" %}
+        {% icon "calendar" variant="micro" class="w-4 h-4" %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">avatar.html</code>
+    <div class="flex items-end justify-center gap-3">
+        {% include "components/avatar.html" with user=design_user size="size-6" %}
+        {% include "components/avatar.html" with user=design_user %}
+        {% include "components/avatar.html" with user=design_user size="size-12" %}
+        {% include "components/avatar.html" with user=design_user size="size-16" %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">.card</code>
+    <div class="card w-full max-w-xs">
+        <div class="card-header">
+            <h3 class="font-semibold text-foreground">Card title</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-sm text-foreground-secondary">Contained section, used in panel pages.</p>
         </div>
     </div>
-    <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
-        <code class="absolute top-3 left-3 text-xs text-foreground-muted">event_card.html</code>
-        <div class="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% if design_event %}
-                {% include "components/event_card.html" with event=design_event %}
-                {% include "components/event_card.html" with event=design_event variant="past" %}
-            {% endif %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">.alert</code>
+    <div class="w-full max-w-2xl flex flex-col gap-2">
+        <div class="alert alert-success flex items-center" role="alert">
+            {% icon "check-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
+            <span>Saved successfully.</span>
+        </div>
+        <div class="alert alert-warning flex items-center" role="status">
+            {% icon "exclamation-triangle" class="w-5 h-5 mr-3" aria_hidden="true" %}
+            <span>Heads up — this action is permanent.</span>
+        </div>
+        <div class="alert alert-error flex items-center" role="alert">
+            {% icon "x-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
+            <span>Something went wrong.</span>
+        </div>
+        <div class="alert alert-info flex items-center" role="status">
+            {% icon "information-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
+            <span>For your information.</span>
+        </div>
+        <div class="alert alert-default flex items-center" role="status">
+            {% icon "minus-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
+            <span>Neutral notice.</span>
         </div>
     </div>
-    <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
-        <code class="absolute top-3 left-3 text-xs text-foreground-muted">chronology/_session_card.html</code>
-        <div class="session-grid w-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {% if design_session_data %}
-                {% include "chronology/_session_card.html" with data=design_session_data ended=False %}
-            {% endif %}
-            {% if design_session_data_ended %}
-                {% include "chronology/_session_card.html" with data=design_session_data_ended ended=True %}
-            {% endif %}
-        </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">text-field.html</code>
+    <div class="w-full max-w-xs">
+        {% include "components/text-field.html" with id="t-text" name="t-text" placeholder="Placeholder" required=False value="" only %}
     </div>
-    <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">
-        <code class="absolute top-3 left-3 text-xs text-foreground-muted">velvet-sound.ts</code>
-        <p class="max-w-prose text-center text-sm text-foreground-muted">
-            Procedural interface sounds (Velvet voice), synthesised live with the
-            Web Audio API — no audio files. Press a chip to audition; ambient
-            playback across the app is opt-in via the
-            {% icon "speaker-wave" class="inline w-4 h-4 align-text-bottom" %}
-            toggle in the footer.
-        </p>
-        <div class="flex flex-wrap items-center justify-center gap-2">
-            <button type="button" data-velvet-play="toggle.on" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toggle on</button>
-            <button type="button" data-velvet-play="toggle.off" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toggle off</button>
-            <button type="button" data-velvet-play="action.send" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Action / send</button>
-            <button type="button" data-velvet-play="ui.confirm" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Confirm</button>
-            <button type="button" data-velvet-play="toast.in" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Toast in</button>
-            <button type="button" data-velvet-play="ui.progress" data-no-sound class="btn btn-secondary px-3 py-1.5 text-xs">Progress</button>
-            <button type="button" data-velvet-play="state.error" data-no-sound class="btn btn-danger px-3 py-1.5 text-xs">Error</button>
-        </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">textarea.html</code>
+    <div class="w-full max-w-xs">
+        {% include "components/textarea.html" with id="t-textarea" name="t-textarea" rows="3" placeholder="Placeholder" required=False value="" only %}
     </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} select {% templatetag closeblock %}</code>
+    <div class="w-full max-w-xs">
+        {% select id="t-select" name="t-select" %}
+            <option value="">Choose an option…</option>
+            <option value="a">Option A</option>
+            <option value="b">Option B</option>
+        {% end_select %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-field.html</code>
+    {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">choice-group.html</code>
+    {% include "components/choice-group.html" with input_type="radio" name="t-radio" options=design_radio_options only %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">file-dropzone.html</code>
+    <div class="w-full max-w-md">
+        {% include "components/file-dropzone.html" with id="t-file" name="t-file" label="Upload file" required=False accept="image/*" has_errors=False initial_url="" initial_name="" dropzone_state="empty" only %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_form {% templatetag closeblock %}</code>
+    <div class="w-full max-w-xl">{% tessera_form design_form %}</div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tabs {% templatetag closeblock %}</code>
+    {% tabs %}
+    {% tab "a" icon="user" href="#" active=True %}One{% end_tab %}
+    {% tab "b" icon="users" href="#" %}Two{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">visibility-*</code>
+    <div class="w-full flex flex-col gap-3 text-sm">
+        <div class="flex items-center gap-2">
+            <span class="text-foreground-muted text-xs">badge:</span>
+            {% include "components/visibility-badge.html" with is_public=True %}
+            {% include "components/visibility-badge.html" with is_public=False %}
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-foreground-muted text-xs">icon:</span>
+            {% include "components/visibility-icon.html" with is_public=True %}
+            {% include "components/visibility-icon.html" with is_public=False %}
+        </div>
+        {% include "components/visibility-header.html" with is_public=True is_first=True %}
+        {% include "components/visibility-header.html" with is_public=False %}
+        {% include "components/visibility-legend.html" %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">event_card.html</code>
+    <div class="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% if design_event %}
+            {% include "components/event_card.html" with event=design_event %}
+            {% include "components/event_card.html" with event=design_event variant="past" %}
+        {% endif %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">chronology/_session_card.html</code>
+    <div class="session-grid w-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {% if design_session_data %}
+            {% include "chronology/_session_card.html" with data=design_session_data ended=False %}
+        {% endif %}
+        {% if design_session_data_ended %}
+            {% include "chronology/_session_card.html" with data=design_session_data_ended ended=True %}
+        {% endif %}
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">velvet-sound.ts</code>
+    <p class="max-w-prose text-center text-sm text-foreground-muted">
+        Procedural interface sounds (Velvet voice), synthesised live with the
+        Web Audio API — no audio files. Press a chip to audition; ambient
+        playback across the app is opt-in via the
+        {% icon "speaker-wave" class="inline w-4 h-4 align-text-bottom" %}
+        toggle in the footer.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-2">
+        <button type="button"
+                data-velvet-play="toggle.on"
+                data-no-sound
+                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle on</button>
+        <button type="button"
+                data-velvet-play="toggle.off"
+                data-no-sound
+                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle off</button>
+        <button type="button"
+                data-velvet-play="action.send"
+                data-no-sound
+                class="btn btn-secondary px-3 py-1.5 text-xs">Action / send</button>
+        <button type="button"
+                data-velvet-play="ui.confirm"
+                data-no-sound
+                class="btn btn-secondary px-3 py-1.5 text-xs">Confirm</button>
+        <button type="button"
+                data-velvet-play="toast.in"
+                data-no-sound
+                class="btn btn-secondary px-3 py-1.5 text-xs">Toast in</button>
+        <button type="button"
+                data-velvet-play="ui.progress"
+                data-no-sound
+                class="btn btn-secondary px-3 py-1.5 text-xs">Progress</button>
+        <button type="button"
+                data-velvet-play="state.error"
+                data-no-sound
+                class="btn btn-danger px-3 py-1.5 text-xs">Error</button>
+    </div>
+</div>
 </div>
 {% endblock body %}
