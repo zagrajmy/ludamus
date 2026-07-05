@@ -90,13 +90,6 @@ hooks {
       }
     }
   }
-  ["commit-msg"] {
-    steps {
-      ["gitlint"] {
-        check = "gitlint --msg-filename {{commit_msg_file}}"
-      }
-    }
-  }
   ["fix"] {
     fix = true
     steps = linters
