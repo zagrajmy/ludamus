@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 10:30+0200\n"
+"POT-Creation-Date: 2026-07-05 10:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2606,7 +2606,7 @@ msgstr "Wymagania"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py:69
 #: src/ludamus/templates/chronology/parts/session-edit-form.html:73
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:40
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:42
 msgid "Needs"
 msgstr "Potrzeby"
 
@@ -5130,7 +5130,7 @@ msgid "Reorder %(name)s — use the arrow keys"
 msgstr "Zmień kolejność: %(name)s — użyj strzałek"
 
 #: src/ludamus/templates/panel/_space_tree_node.html:13
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:52
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:54
 #: src/ludamus/templates/panel/timetable-log.html:24
 msgid "Room"
 msgstr "Sala"
@@ -5708,7 +5708,7 @@ msgstr "Przyznaj zniżkę"
 
 #: src/ludamus/templates/panel/discounts/create.html:28
 #: src/ludamus/templates/panel/discounts/list.html:77
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:96
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:98
 msgid "Assign"
 msgstr "Przypisz"
 
@@ -6075,6 +6075,7 @@ msgstr[3] ""
 "                            "
 
 #: src/ludamus/templates/panel/import-log.html:133
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:21
 msgid "View proposal"
 msgstr "Zobacz zgłoszenie"
 
@@ -6612,44 +6613,44 @@ msgstr "Szczegóły punktu programu"
 msgid "No facilitator"
 msgstr "Brak twórcy programu"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:30
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:32
 #, python-format
 msgid "%(age)s+"
 msgstr "%(age)s+"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:46
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:48
 msgid "Assignment"
 msgstr "Przypisanie"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:60
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:62
 msgid "Reassign"
 msgstr "Zmień przypisanie"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:67
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:69
 msgid "Unassign"
 msgstr "Usuń z harmonogramu"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:78
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:80
 msgid "Program item confirmed"
 msgstr "Punkt programu potwierdzony"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:80
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:82
 msgid "Undo confirmation"
 msgstr "Cofnij potwierdzenie"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:83
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:85
 msgid "Program item not confirmed"
 msgstr "Punkt programu niepotwierdzony"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:85
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:87
 msgid "Confirm program item"
 msgstr "Potwierdź punkt programu"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:90
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:92
 msgid "Not assigned"
 msgstr "Nieprzypisane"
 
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html:103
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html:105
 msgid "Preferred slots"
 msgstr "Preferowane przedziały czasowe"
 
