@@ -1,5 +1,9 @@
-amends "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v1.48.0/hk@1.48.0#/Builtins.pkl"
+amends "pkl/Config.pkl"
+import "pkl/Builtins.pkl"
+
+// The vendored hk pkl package (see pkl/Builtins.pkl header) lints itself
+// otherwise — its builtins carry test fixtures like fake private keys.
+exclude = List("pkl")
 
 local linters = new Mapping<String, Step> {
   // File hygiene
