@@ -486,21 +486,34 @@ class SessionEditForm(forms.Form):
         return image
 
 
-def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditForm]:
-    category_field = forms.ChoiceField(
-        choices=[("", _("— Select category —")), *categories],
-        error_messages={
-            "required": _("Please select a category."),
-            "invalid_choice": _("Invalid category selection."),
-        },
-    )
-    return type(
-        "ProposalCreateForm", (SessionEditForm,), {"category_id": category_field}
-    )
+def create_proposal_form(
+    categories: list[tuple[int, str]], facilitators: list[tuple[int, str]] | None = None
+) -> type[SessionEditForm]:
+    attrs: dict[str, forms.Field] = {
+        "category_id": forms.ChoiceField(
+            choices=[("", _("— Select category —")), *categories],
+            error_messages={
+                "required": _("Please select a category."),
+                "invalid_choice": _("Invalid category selection."),
+            },
+        )
+    }
+    # Create variant only: a required facilitator binding so a hand-added
+    # proposal can never exist with zero facilitators. The edit view omits
+    # this — it manages facilitators through its own inline list.
+    if facilitators is not None:
+        attrs["facilitator_ids"] = forms.MultipleChoiceField(
+            choices=facilitators,
+            error_messages={
+                "required": _("Please select at least one facilitator."),
+                "invalid_choice": _("Invalid facilitator selection."),
+            },
+        )
+    return type("ProposalCreateForm", (SessionEditForm,), attrs)
 
 
 class FacilitatorForm(forms.Form):
-    """Form for creating/editing a facilitator."""
+    """Form for creating a facilitator (display_name is required at creation)."""
 
     display_name = forms.CharField(
         max_length=255,
@@ -510,6 +523,20 @@ class FacilitatorForm(forms.Form):
             "required": _("Display name is required."),
         },
     )
+    accreditation_type = forms.ChoiceField(
+        choices=AccreditationType.choices,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+class FacilitatorEditForm(forms.Form):
+    # No display_name: it is a read-only cache (the canonical byline lives on
+    # the session), so the panel edit form only touches accreditation_type.
     accreditation_type = forms.ChoiceField(
         choices=AccreditationType.choices,
         initial=AccreditationType.NONE,

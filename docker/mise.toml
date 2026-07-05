@@ -28,6 +28,18 @@ run = "aube install --filter ./src/ludamus/client --frozen-lockfile --no-optiona
 [tasks.build-frontend]
 run = "aubr -C src/ludamus/client build"
 
+# Coolify runs a single web container: migrations/collectstatic happen at
+# start instead of one-shot compose services. ponytail: single instance;
+# move migrate to a pre-deploy command if replicas ever appear.
+[tasks.prod-start]
+run = [
+    "django-admin migrate --noinput",
+    "django-admin createcachetable",
+    "django-admin downloadvendor",
+    "django-admin collectstatic --noinput --clear",
+    "mise run gunicorn",
+]
+
 [tasks.gunicorn]
 run = """
 gunicorn \

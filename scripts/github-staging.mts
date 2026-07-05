@@ -119,7 +119,9 @@ interface FinishDeploymentArgs extends ActionArgs {
 type DeploymentState = "error" | "failure" | "success";
 
 const STAGING_LABEL = "staging";
-const DEPLOY_WORKFLOW_ID = "deploy-staging.yml";
+// Coolify staging; deploy-staging.yml (VPS) stays manually dispatchable as
+// the quick-rollback fallback until cutover is done.
+const DEPLOY_WORKFLOW_ID = "deploy-staging-coolify.yml";
 
 const repoParams = (context: Context) => ({
   owner: context.repo.owner,

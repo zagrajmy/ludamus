@@ -209,6 +209,7 @@ description = "Migrate, seed fixtures, and build client for e2e tests"
 run = [
     "poetry install",
     "aube install",
+    'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
     "django-admin migrate --noinput",
     "django-admin createcachetable",
     "django-admin downloadvendor",

@@ -80,6 +80,9 @@ services:
     <<: *app-defaults
 
   web:
+    # Image CMD is prod-start (migrate+collectstatic for Coolify staging);
+    # compose runs those as one-shot services above, so pin plain gunicorn.
+    command: [ "run", "gunicorn" ]
     depends_on:
       collectstatic:
         condition: service_completed_successfully

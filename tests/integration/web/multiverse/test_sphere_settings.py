@@ -117,7 +117,7 @@ class TestSphereSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="multiverse/panel/sphere-settings.html",
-            context_data=ANY,
+            context_data=GENERAL_PANEL_CONTEXT,
         )
         assert "spheres/brand.png" in response.content.decode()
 
