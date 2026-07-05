@@ -183,6 +183,15 @@ class TestSessionEnrollPageView:
                 ],
             },
             template_name="chronology/enroll_select.html",
+            contains=[
+                "Spot offered",
+                f'id="user_{active_user.pk}_cancel"',
+                'value="cancel"',
+            ],
+            not_contains=[
+                f'id="user_{active_user.pk}_enroll"',
+                f'id="user_{active_user.pk}_waitlist"',
+            ],
         )
         field = response.context_data["form"].fields[f"user_{active_user.pk}"]
         assert ("cancel", "Decline offer") in list(field.choices)
@@ -193,6 +202,31 @@ class TestSessionEnrollPageView:
         assert "Spot offered" in content
         assert "Seat held" not in content
         assert f'id="user_{active_user.pk}_cancel"' in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_decline_offered(
+        self, active_user, agenda_item, authenticated_client, event
+    ):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
 
     def test_get_error_404(self, authenticated_client, event):
         response = authenticated_client.get(self._get_url(17, event.slug))
