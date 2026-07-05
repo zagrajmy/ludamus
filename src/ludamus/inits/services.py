@@ -13,6 +13,7 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.links.ticket_api import MembershipApiClient
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
@@ -24,7 +25,11 @@ from ludamus.mills.chronology import (
 )
 from ludamus.mills.crowd import ClaimService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
-from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
+from ludamus.mills.enrollment import (
+    EnrollmentService,
+    NotificationsService,
+    WaitlistPromotionService,
+)
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -44,6 +49,7 @@ from ludamus.mills.submissions.personal_data_fields import (
 )
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.submissions import ImportRepos
 
 if TYPE_CHECKING:
@@ -197,6 +203,21 @@ class Services:
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def enrollment(self) -> EnrollmentService:
+        membership_check_interval: int = settings.MEMBERSHIP_API_CHECK_INTERVAL
+        return EnrollmentService(
+            transaction=self._transaction,
+            repos=EnrollmentRepos(
+                users=self._repos.active_users,
+                anonymous_users=self._repos.anonymous_users,
+                enrollment_configs=self._repos.enrollment_configs,
+                participations=self._repos.enrollment_participations,
+                ticket_api=MembershipApiClient(),
+            ),
+            membership_check_interval=membership_check_interval,
+        )
 
     @cached_property
     def shadowban(self) -> ShadowbanService:

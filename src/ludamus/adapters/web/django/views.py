@@ -73,7 +73,6 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.mills import AcceptProposalService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
-    build_anonymous_user,
     get_user_enrollment_config,
 )
 from ludamus.pacts import (
@@ -1646,16 +1645,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         members = self._party_members(session, selection.selected)
         form = create_enrollment_form(
             session=session,
-            current_user=self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
+            current_user=request.services.enrollment.read_viewer(
+                request.context.current_user_slug
             ),
             roster=EnrollmentRoster(
                 companions=tuple(selection.companions),
                 members=tuple(members),
                 guest_count=self._guest_count(session),
             ),
-            enrollment_config_repo=request.di.uow.enrollment_configs,
-            ticket_api=request.di.ticket_api,
+            enrollment=request.services.enrollment,
         )()
 
         return TemplateResponse(
@@ -1735,7 +1733,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return []
         users = {
             user.pk: user
-            for user in self.request.di.uow.active_users.read_by_ids(
+            for user in self.request.services.enrollment.read_users(
                 [member.user_pk for member in eligible]
             )
         }
@@ -1757,18 +1755,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         ]
 
     def _member_has_access(self, session: Session, user: UserDTO) -> bool:
-        # On a restricted event a member's seat spends that member's own
-        # allowance, so a member without slots cannot be seated by the leader.
-        if not user.email:
-            return False
-        config = get_user_enrollment_config(
-            event=EventDTO.model_validate(session.event),
-            user_email=user.email,
-            enrollment_config_repo=self.request.di.uow.enrollment_configs,
-            ticket_api=self.request.di.ticket_api,
-            check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+        return self.request.services.enrollment.has_slot_access(
+            event=EventDTO.model_validate(session.event), user_email=user.email
         )
-        return bool(config and config.allowed_slots)
 
     @staticmethod
     def _validate_request(
@@ -1808,7 +1797,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         user_data: list[SessionUserParticipationData] = []
 
         all_users = [
-            self.request.di.uow.active_users.read(
+            self.request.services.enrollment.read_viewer(
                 self.request.context.current_user_slug
             ),
             *companions,
@@ -1888,12 +1877,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Initialize form with POST data
         form_class = create_enrollment_form(
             session=session,
-            current_user=self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
+            current_user=request.services.enrollment.read_viewer(
+                request.context.current_user_slug
             ),
             roster=roster,
-            enrollment_config_repo=request.di.uow.enrollment_configs,
-            ticket_api=request.di.ticket_api,
+            enrollment=request.services.enrollment,
         )
         form = form_class(data=request.POST)
         if not form.is_valid():
@@ -1905,7 +1893,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             # Check for specific enrollment restrictions and provide helpful messages
             enrollment_config = session.event.get_most_liberal_config(session)
             if enrollment_config and enrollment_config.restrict_to_configured_users:
-                if not request.di.uow.active_users.read(
+                if not request.services.enrollment.read_viewer(
                     request.context.current_user_slug
                 ).email:
                     messages.error(
@@ -1913,16 +1901,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         _("Email address is required for enrollment in this session."),
                     )
                 else:
-                    user_email = request.di.uow.active_users.read(
+                    user_email = request.services.enrollment.read_viewer(
                         request.context.current_user_slug
                     ).email
                     event = session.event
-                    if not get_user_enrollment_config(
-                        event=EventDTO.model_validate(event),
-                        user_email=user_email,
-                        enrollment_config_repo=request.di.uow.enrollment_configs,
-                        ticket_api=request.di.ticket_api,
-                        check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+                    if not request.services.enrollment.virtual_config(
+                        event=EventDTO.model_validate(event), user_email=user_email
                     ):
                         messages.error(
                             self.request,
@@ -1973,7 +1957,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             *(
                 RosterMember(user=user)
                 for user in (
-                    self.request.di.uow.active_users.read(
+                    self.request.services.enrollment.read_viewer(
                         self.request.context.current_user_slug
                     ),
                     *roster.companions,
@@ -2195,7 +2179,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
 
     def _actor_name(self) -> str:
-        return self.request.di.uow.active_users.read(
+        return self.request.services.enrollment.read_viewer(
             self.request.context.current_user_slug
         ).full_name
 
@@ -2378,23 +2362,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _create_guests(
         self, *, session: Session, count: int, party_pk: int | None
     ) -> None:
-        users = self.request.di.uow.anonymous_users
-        viewer_name = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        ).full_name
-        for _i in range(count):
-            user_data = build_anonymous_user(
-                f"guest-{token_urlsafe(8).lower()}", name=f"{viewer_name} +1"
-            )
-            users.create(user_data)
-            guest = users.read(user_data["slug"])
-            SessionParticipation.objects.create(
-                session=session,
-                user_id=guest.pk,
-                status=SessionParticipationStatus.CONFIRMED,
-                party_id=party_pk,
-                enrolled_by_id=self.request.context.current_user_id,
-            )
+        self.request.services.enrollment.create_guests(
+            session_id=session.pk,
+            count=count,
+            party_id=party_pk,
+            enrolled_by_id=self.request.context.current_user_id,
+            viewer_name=self._actor_name(),
+        )
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):
