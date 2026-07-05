@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
@@ -32,10 +33,11 @@ from tests.integration.utils import PageMatcher, assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _STATUSES = [
-    (SessionStatus.PENDING, "Pending"),
-    (SessionStatus.ACCEPTED, "Accepted"),
-    (SessionStatus.ON_HOLD, "On hold"),
-    (SessionStatus.REJECTED, "Rejected"),
+    ("pending", "Pending"),
+    ("accepted", "Accepted"),
+    ("on_hold", "On hold"),
+    ("rejected", "Rejected"),
+    ("scheduled", "Scheduled"),
 ]
 
 _TRACK_FILTER_CONTEXT = {
@@ -1054,6 +1056,82 @@ class TestProposalsPageView:
         titles = {p.title for p in response.context["proposals"]}
         assert titles == {"Pending Session", "Accepted Session"}
         assert response.context["filter_status"] is None
+
+    def test_scheduled_filter_shows_only_scheduled_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Unscheduled Session",
+            slug="unscheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        scheduled = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Scheduled Host",
+            title="Scheduled Session",
+            slug="scheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        AgendaItemFactory(
+            session=scheduled,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"status": "scheduled"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Scheduled Session"]
+        assert response.context["filter_status"] == "scheduled"
+
+    def test_status_filter_excludes_scheduled_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Unscheduled Session",
+            slug="unscheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        scheduled = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Scheduled Host",
+            title="Scheduled Session",
+            slug="scheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        AgendaItemFactory(
+            session=scheduled,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": "accepted"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == [
+            "Unscheduled Session"
+        ]
+        assert response.context["filter_status"] == SessionStatus.ACCEPTED
 
 
 class TestProposalDetailPageView:

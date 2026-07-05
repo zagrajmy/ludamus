@@ -57,6 +57,10 @@ if TYPE_CHECKING:
 
 _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
+# Filter-only pseudo-status: scheduling lives on the agenda item, not on
+# SessionStatus, but organizers still need "show me what's placed".
+SCHEDULED_FILTER = "scheduled"
+
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
     """List submitted proposals for an event."""
@@ -93,12 +97,23 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             filter_category_pk = None
 
         status_raw = self.request.GET.get("status")
+        filter_status: str | None
         if status_raw is None:
             filter_status = SessionStatus.PENDING
-        elif status_raw in set(SessionStatus):
-            filter_status = SessionStatus(status_raw)
+        elif status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus):
+            filter_status = status_raw
         else:
             filter_status = None
+
+        # Scheduled is a placement fact, not a status: the "scheduled" option
+        # filters on agenda-item existence, and picking a real status excludes
+        # scheduled sessions so the backlog views stay clean.
+        if filter_status == SCHEDULED_FILTER:
+            status_filter, scheduled_filter = None, True
+        elif filter_status is not None:
+            status_filter, scheduled_filter = SessionStatus(filter_status), False
+        else:
+            status_filter, scheduled_filter = None, None
 
         all_proposals = self.request.di.uow.sessions.list_sessions_by_event(
             current_event.pk,
@@ -107,7 +122,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
                 "search": search,
                 "track_pk": filter_track_pk,
                 "category_pk": filter_category_pk,
-                "status": filter_status,
+                "status": status_filter,
+                "scheduled": scheduled_filter,
             },
         )
         # ponytail: paginate the already-loaded list in the view. The repo
@@ -139,7 +155,10 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             SessionStatus.ON_HOLD: _("On hold"),
             SessionStatus.REJECTED: _("Rejected"),
         }
-        context["statuses"] = [(s, status_labels[s]) for s in SessionStatus]
+        context["statuses"] = [
+            *((str(s), status_labels[s]) for s in SessionStatus),
+            (SCHEDULED_FILTER, _("Scheduled")),
+        ]
         context["filter_status"] = filter_status
         return TemplateResponse(self.request, "panel/proposals.html", context)
 

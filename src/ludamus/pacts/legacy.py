@@ -257,6 +257,7 @@ class SessionListFilters(TypedDict, total=False):
     track_pk: int | None
     category_pk: int | None
     status: SessionStatus | None
+    scheduled: bool | None
 
 
 class SessionParticipationStatus(StrEnum):

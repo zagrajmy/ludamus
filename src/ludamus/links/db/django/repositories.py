@@ -556,6 +556,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         track_pk = filters.get("track_pk")
         category_pk = filters.get("category_pk")
         status = filters.get("status")
+        scheduled = filters.get("scheduled")
         qs = (
             Session.objects.filter(category__event_id=event_id)
             .select_related("presenter", "category")
@@ -571,6 +572,9 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
         if status is not None:
             qs = qs.filter(status=status)
+
+        if scheduled is not None:
+            qs = qs.filter(is_scheduled=scheduled)
 
         if field_filters:
             for field_id, value in field_filters.items():

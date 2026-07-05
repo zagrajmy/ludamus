@@ -101,7 +101,7 @@
                                 class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
                             <option value="" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
                             {% for s, label in statuses %}
-                                <option value="{{ s.value }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
