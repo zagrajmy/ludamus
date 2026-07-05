@@ -50,5 +50,5 @@ mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may
 
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
 # share the Chromium it provisions.
-mise run install:playwright \
+mise run test:e2e:install \
   || echo "WARN: Playwright install failed; e2e suite and agent-browser screenshots unavailable"

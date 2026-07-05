@@ -25,7 +25,7 @@ The e2e harness already wires an authenticated session, a seeded database, and
 the server — reuse it instead of hand-rolling cookies:
 
 ```bash
-mise run e2e:prep    # migrate + seed + build client; writes tests/e2e/.auth-state.json
+mise run test:e2e:prep    # migrate + seed + build client; writes tests/e2e/.auth-state.json
 ```
 
 `tests/e2e/playwright.config.ts` starts the server itself (`webServer`, with

@@ -69,7 +69,7 @@ Migrate the **Crowd / Auth** views (`Auth0LoginActionView`,
    [services-di.md](services-di.md) (do both angles in the same move).
 3. Point `gates/web/django/urls.py` at the new `crowd` include; drop the old
    routes from `adapters/web/django/urls.py`.
-4. Move the auth integration tests alongside; run `mise run test`.
+4. Move the auth integration tests alongside; run `mise run test:py`.
 
 Auth is a good first slice: it is self-contained, has no template-heavy
 surface, and forces the `crowd` package to exist (Profile follows into the

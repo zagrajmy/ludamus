@@ -70,7 +70,7 @@ Encounters is already fully migrated in `gates`/`links` and is self-contained:
 3. Update imports at the use sites (`gates/web/django/notice_board/`,
    `inits/`). Prefer importing from the new module path directly rather than
    leaning on the `__init__` facade for the moved symbols.
-4. Run `mise run check` (importlinter) + `mise run test`.
+4. Run `mise run check` (importlinter) + `mise run test:py`.
 
 Encounters is the cleanest first cut because nothing else depends on its DTOs.
 Submissions and Chronology are the fat ones. Submissions is now its own
