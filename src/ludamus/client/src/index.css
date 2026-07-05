@@ -558,6 +558,20 @@ button:active {
   }
 }
 
+/*
+ * Chromium paints the native <select> popup with the element's computed
+ * background-color, not the page's color-scheme: Tailwind preflight makes form
+ * controls transparent, which composites the popup over white — in dark mode
+ * that means near-white option text on a white popup. An explicit background
+ * restores a readable popup in both themes. Kept in @layer base so bg-*
+ * utilities on individual selects still win.
+ */
+@layer base {
+  select {
+    background-color: var(--color-bg-secondary);
+  }
+}
+
 /* Select dropdown chevron fix */
 select:not([multiple]):not([size]) {
   appearance: none;
