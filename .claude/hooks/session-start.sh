@@ -48,6 +48,12 @@ mise install || echo "WARN: 'mise install' failed; some tools may be unavailable
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"
 
+# `mise run bootstrap` already runs `hk install --mise`, but only after
+# poetry/aube installs that can fail in restricted sandboxes. Git hooks must be
+# installed in every session regardless, so install them explicitly too
+# (idempotent — hk rewrites .git/hooks in place).
+mise exec -- hk install --mise || echo "WARN: 'hk install' failed; git hooks not installed"
+
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
 # share the Chromium it provisions.
 mise run test:e2e:install \
