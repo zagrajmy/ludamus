@@ -1413,7 +1413,16 @@ class ContentChangeLogRepositoryProtocol(Protocol):
     def create(data: ContentChangeLogData) -> None: ...
 
     @staticmethod
+    def read(pk: int) -> ContentChangeLogDTO: ...
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
 
 
 class FacilitatorChangeLogData(TypedDict):

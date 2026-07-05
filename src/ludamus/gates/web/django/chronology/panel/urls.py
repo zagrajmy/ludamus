@@ -200,6 +200,11 @@ urlpatterns = [
         name="content-log",
     ),
     path(
+        "event/<slug:slug>/proposals/log/<int:pk>/revert/",
+        proposals.ContentLogRevertActionView.as_view(),
+        name="content-log-revert",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/",
         proposals.ProposalDetailPageView.as_view(),
         name="proposal-detail",
