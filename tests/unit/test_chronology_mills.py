@@ -246,10 +246,19 @@ class TestContentEditRevert:
     def test_revert_builds_inverse_from_core_and_field_changes(self, service, repos):
         changes = [
             {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+            {"field": "display_name", "field_id": None, "old": "Old host", "new": "H"},
+            {"field": "description", "field_id": None, "old": "Old desc", "new": "D"},
+            {"field": "requirements", "field_id": None, "old": "Old req", "new": "R"},
+            {"field": "needs", "field_id": None, "old": "Old needs", "new": "N"},
+            {"field": "contact_email", "field_id": None, "old": "a@b.co", "new": "x@y"},
+            {"field": "duration", "field_id": None, "old": "01:00", "new": "02:00"},
             {"field": "category", "field_id": None, "old": 3, "new": 4},
+            {"field": "participants_limit", "field_id": None, "old": 6, "new": 10},
             {"field": "min_age", "field_id": None, "old": 12, "new": 16},
             {"field": "", "field_id": 7, "old": "Pathfinder", "new": "DnD"},
             {"field": "", "field_id": 8, "old": None, "new": "Vegan"},
+            {"field": "", "field_id": 9, "old": ["a", "b"], "new": ["a"]},
+            {"field": "", "field_id": 10, "old": True, "new": False},
         ]
         repos.content_change_logs.read.return_value = self._log(changes=changes)
 
@@ -261,11 +270,44 @@ class TestContentEditRevert:
             event_id=1,
             user_id=9,
             data=SessionContentEditData(
-                update={"title": "Old title", "category_id": 3, "min_age": 12},
+                update={
+                    "title": "Old title",
+                    "display_name": "Old host",
+                    "description": "Old desc",
+                    "requirements": "Old req",
+                    "needs": "Old needs",
+                    "contact_email": "a@b.co",
+                    "duration": "01:00",
+                    "category_id": 3,
+                    "participants_limit": 6,
+                    "min_age": 12,
+                },
                 field_values=[
                     SessionFieldValueData(session_id=5, field_id=7, value="Pathfinder"),
                     SessionFieldValueData(session_id=5, field_id=8, value=""),
+                    SessionFieldValueData(session_id=5, field_id=9, value=["a", "b"]),
+                    SessionFieldValueData(session_id=5, field_id=10, value=True),
                 ],
+            ),
+        )
+
+    def test_revert_drops_a_non_string_scalar_field_answer(self, service, repos):
+        # ContentFieldValue admits int, but dynamic answers are str/list/bool;
+        # a stray int answer is dropped rather than written back as one.
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+            {"field": "", "field_id": 7, "old": 42, "new": "x"},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Old title"}, field_values=None
             ),
         )
 

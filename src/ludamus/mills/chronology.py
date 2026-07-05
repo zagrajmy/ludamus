@@ -1063,11 +1063,8 @@ def _inverse_core_update(
 
 
 def _inverse_field_value(
-    change: ContentFieldChange, session_id: int
+    *, field_id: int, old: ContentFieldValue, session_id: int
 ) -> SessionFieldValueData | None:
-    if (field_id := change["field_id"]) is None:
-        return None
-    old = change["old"]
     # A previously unanswered field was logged as None; restore it to "".
     value = "" if old is None else old
     # Dynamic answers are str | list[str] | bool; a plain int never appears.
@@ -1086,11 +1083,15 @@ def build_inverse_content_edit(
     update: SessionUpdateData = {}
     field_values: list[SessionFieldValueData] = []
     for change in changes:
-        if change["field_id"] is None:
+        if (field_id := change["field_id"]) is None:
             _inverse_core_update(
                 update=update, field=change["field"], old=change["old"]
             )
-        elif (field_value := _inverse_field_value(change, session_id)) is not None:
+        elif (
+            field_value := _inverse_field_value(
+                field_id=field_id, old=change["old"], session_id=session_id
+            )
+        ) is not None:
             field_values.append(field_value)
     if not update and not field_values:
         return None
