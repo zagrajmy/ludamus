@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 21:27+0200\n"
+"POT-Creation-Date: 2026-07-05 22:31+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1321,6 +1321,11 @@ msgid "Note"
 msgstr "Notatka"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
+msgid "Connection not found."
+msgstr "Połączenie nie zostało znalezione."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #, python-format
 msgid "Export failed: %(hint)s"
 msgstr "Eksport nie powiódł się: %(hint)s"
@@ -1329,10 +1334,14 @@ msgstr "Eksport nie powiódł się: %(hint)s"
 #, python-format
 msgid "Accreditation sheet exported (%(count)d creator)."
 msgid_plural "Accreditation sheet exported (%(count)d creators)."
-msgstr[0] "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
-msgstr[1] "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-msgstr[2] "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-msgstr[3] "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+msgstr[0] ""
+"Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+msgstr[1] ""
+"Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+msgstr[2] ""
+"Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+msgstr[3] ""
+"Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "allowed"
@@ -2334,10 +2343,6 @@ msgstr "Ogłoszenie zostało usunięte."
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "A connection with this display name already exists."
 msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
-
-#: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
-msgid "Connection not found."
-msgstr "Połączenie nie zostało znalezione."
 
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "Connection created successfully."
@@ -5546,8 +5551,8 @@ msgid ""
 "Writes every creator with their accreditation type and discount into the "
 "first tab of the selected spreadsheet, replacing its current content."
 msgstr ""
-"Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
-"do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+"Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką do "
+"pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
 
 #: src/ludamus/templates/panel/discounts/export.html
 msgid ""
