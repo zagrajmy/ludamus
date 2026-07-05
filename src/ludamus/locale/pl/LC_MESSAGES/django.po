@@ -760,50 +760,6 @@ msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
 
 #: src/ludamus/adapters/web/django/views.py
-msgid "Please complete your profile."
-msgstr "Proszę uzupełnić profil."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Invalid authentication request: missing state parameter"
-msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Authentication session expired. Please try again."
-msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Invalid authentication state"
-msgstr "Nieprawidłowy stan uwierzytelnienia"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Profile claimed — it is now your own account."
-msgstr "Profil przejęty — to teraz Twoje własne konto."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"You already have an account, so this profile can't be moved into it. Ask the "
-"person who invited you to enroll you directly."
-msgstr ""
-"Masz już konto, więc tego profilu nie można do niego przenieść. Poproś "
-"osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Authentication failed"
-msgstr "Uwierzytelnienie nie powiodło się"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "You have been successfully logged out."
-msgstr "Zostałeś pomyślnie wylogowany."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Invalid redirect URL."
-msgstr "Nieprawidłowy adres URL przekierowania."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Invalid domain for redirect."
-msgstr "Nieprawidłowa domena do przekierowania."
-
-#: src/ludamus/adapters/web/django/views.py
 msgid ""
 "This email address is already in use. Please use a different email address."
 msgstr "Ten adres email został już użyty na innym koncie."
@@ -1896,6 +1852,50 @@ msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 #, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Please complete your profile."
+msgstr "Proszę uzupełnić profil."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication request: missing state parameter"
+msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication session expired. Please try again."
+msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication state"
+msgstr "Nieprawidłowy stan uwierzytelnienia"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Profile claimed — it is now your own account."
+msgstr "Profil przejęty — to teraz Twoje własne konto."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid ""
+"You already have an account, so this profile can't be moved into it. Ask the "
+"person who invited you to enroll you directly."
+msgstr ""
+"Masz już konto, więc tego profilu nie można do niego przenieść. Poproś "
+"osobę, która Cię zaprosiła, aby zapisała Cię bezpośrednio."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication failed"
+msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "You have been successfully logged out."
+msgstr "Zostałeś pomyślnie wylogowany."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid redirect URL."
+msgstr "Nieprawidłowy adres URL przekierowania."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid domain for redirect."
+msgstr "Nieprawidłowa domena do przekierowania."
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Party name"

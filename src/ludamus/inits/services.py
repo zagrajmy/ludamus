@@ -23,7 +23,7 @@ from ludamus.mills.chronology import (
     SessionDeletionService,
     SessionSelfEditService,
 )
-from ludamus.mills.crowd import ClaimService
+from ludamus.mills.crowd import ClaimService, CrowdAuthService
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import (
     EnrollmentService,
@@ -95,6 +95,15 @@ class Services:
     @cached_property
     def claims(self) -> ClaimService:
         return ClaimService(self._transaction, self._repos.claims)
+
+    @cached_property
+    def crowd_auth(self) -> CrowdAuthService:
+        return CrowdAuthService(
+            transaction=self._transaction,
+            users=self._repos.active_users,
+            spheres=self._repos.spheres,
+            claims=self.claims,
+        )
 
     @cached_property
     def parties(self) -> PartyService:

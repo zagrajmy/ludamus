@@ -1,23 +1,19 @@
-import json
 import logging
 from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from email import message_from_bytes, policy
 from enum import StrEnum, auto
 from pathlib import Path
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any, NamedTuple
-from urllib.parse import quote_plus, urlencode, urlparse
+from urllib.parse import urlencode
 
 from django import forms
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import logout as django_logout
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
@@ -27,11 +23,9 @@ from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
-from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
+from django.views.generic.base import ContextMixin, TemplateView, View
 from django.views.generic.detail import DetailView, SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
-from pydantic import BaseModel, ConfigDict
-from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.db.django.models import (
     MAX_CONNECTED_USERS,
@@ -45,7 +39,6 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
@@ -89,13 +82,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import (
-    ClaimOutcome,
-    ConnectedUserDTO,
-    UserData,
-    UserDTO,
-    UserType,
-)
+from ludamus.pacts.crowd import ConnectedUserDTO, UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
 from ludamus.pacts.party import (
     PartyConsentMode,
@@ -128,368 +115,6 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet
 
 MINIMUM_ALLOWED_USER_AGE = 16
-CACHE_TIMEOUT = 600  # 10 minutes
-
-
-def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
-    host = urlparse(url).netloc
-    allowed = {root_domain}
-    if host and (host == root_domain or host.endswith(f".{root_domain}")):
-        allowed.add(host)
-    return url_has_allowed_host_and_scheme(
-        url, allowed_hosts=allowed, require_https=require_https
-    )
-
-
-class LoginRequiredPageView(TemplateView):
-    template_name = "crowd/login_required.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["next"] = self.request.GET.get("next", "")
-        # Variables for login_button.html component
-        context["show_icon"] = True
-        context["text"] = ""
-        context["extra_class"] = ""
-        return context
-
-
-class Auth0LoginActionView(View):
-    @staticmethod
-    def get(request: RootRequest) -> HttpResponse:
-        """Redirect to Auth0 for authentication.
-
-        Returns:
-            HttpResponse: Redirect to Auth0 authorization endpoint.
-
-        Raises:
-            RedirectError: If the request is not from the root domain.
-        """
-        root_domain = request.services.sites.read_site(
-            request.context.root_sphere_id
-        ).domain
-        next_path = request.GET.get("next")
-        if next_path and not _is_safe_login_redirect(
-            next_path, root_domain, require_https=request.is_secure()
-        ):
-            next_path = None
-        if request.get_host() != root_domain:
-            if next_path:
-                next_path = request.build_absolute_uri(next_path)
-            login_url = (
-                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:login')}"
-            )
-            url = (
-                f"{login_url}?{urlencode({'next': next_path})}"
-                if next_path
-                else login_url
-            )
-            raise RedirectError(url)
-
-        # Generate a secure state token
-        state_token = token_urlsafe(32)
-
-        # Store state data in cache with 10 minute timeout
-        state_data = {
-            "redirect_to": next_path,
-            "created_at": datetime.now(UTC).isoformat(),
-            "csrf_token": request.META.get("CSRF_COOKIE", ""),
-        }
-        cache_key = f"oauth_state:{state_token}"
-        cache.set(cache_key, json.dumps(state_data), timeout=CACHE_TIMEOUT)
-
-        return oauth.auth0.authorize_redirect(  # type: ignore [no-any-return]
-            request,
-            request.build_absolute_uri(reverse("web:crowd:auth0:login-callback")),
-            state=state_token,
-        )
-
-
-class Auth0UserInfo(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    email: str = ""
-    family_name: str = ""
-    given_name: str = ""
-    name: str = ""
-    nickname: str = ""
-    picture: str = ""
-    preferred_username: str = ""
-    sub: str
-
-    @property
-    def display_name(self) -> str | None:
-        if self.name.strip():
-            return self.name.strip()
-        parts = [p.strip() for p in (self.given_name, self.family_name) if p.strip()]
-        if parts:
-            return " ".join(parts)
-        if self.nickname.strip():
-            return self.nickname.strip()
-        if self.preferred_username.strip():
-            return self.preferred_username.strip()
-        return None
-
-    @property
-    def username(self) -> str:
-        return f"auth0|{self.sub}"
-
-    def to_create_data(self, *, slug: str, password: str) -> UserData:
-        return UserData(
-            slug=slug,
-            username=self.username,
-            password=password,
-            email=self.email or "",
-            avatar_url=self.picture or "",
-            name=self.display_name or "",
-        )
-
-    def to_update_data(self, user: UserDTO) -> UserData:
-        data: UserData = {}
-        if self.email and user.email != self.email:
-            data["email"] = self.email
-        if self.picture and user.avatar_url != self.picture:
-            data["avatar_url"] = self.picture
-        display_name = self.display_name
-        if display_name and not (user.name or "").strip():
-            data["name"] = display_name
-        return data
-
-
-class Auth0LoginCallbackActionView(RedirectView):
-    request: RootRequest
-
-    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
-        default_redirect = super().get_redirect_url(*args, **kwargs)
-        index_url = self.request.build_absolute_uri(reverse("web:index"))
-
-        if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
-            return index_url
-
-        root_domain = self.request.services.sites.read_site(
-            self.request.context.root_sphere_id
-        ).domain
-        if redirect_to and not _is_safe_login_redirect(
-            redirect_to, root_domain, require_https=self.request.is_secure()
-        ):
-            redirect_to = ""
-
-        if self.request.context.current_user_slug:
-            return redirect_to or index_url
-
-        userinfo = self._get_userinfo()
-        user = self._get_or_create_user(userinfo)
-
-        self.request.di.uow.login_user(self.request, user.slug)
-        if self.request.session.get("anonymous_enrollment_active"):
-            self.request.session.pop("anonymous_user_code", None)
-            self.request.session.pop("anonymous_enrollment_active", None)
-            self.request.session.pop("anonymous_event_id", None)
-        user = self._apply_user_updates(userinfo, user)
-
-        if not (user.name or "").strip():
-            messages.success(self.request, _("Please complete your profile."))
-            if redirect_to:
-                parsed = urlparse(redirect_to)
-                return (
-                    f"{parsed.scheme}://{parsed.netloc}{reverse('web:crowd:profile')}"
-                )
-            return self.request.build_absolute_uri(reverse("web:crowd:profile"))
-
-        return redirect_to or index_url
-
-    def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
-        if not (state_token := self.request.GET.get("state")):
-            messages.error(
-                self.request,
-                _("Invalid authentication request: missing state parameter"),
-            )
-            return None
-
-        cache_key = f"oauth_state:{state_token}"
-        if not (state_data_json := cache.get(cache_key)):
-            messages.error(
-                self.request, _("Authentication session expired. Please try again.")
-            )
-            return None
-
-        cache.delete(cache_key)
-
-        try:
-            state_data = json.loads(state_data_json)
-            redirect_to = state_data.get("redirect_to") or default_redirect or ""
-
-            created_at = datetime.fromisoformat(state_data["created_at"])
-            if datetime.now(UTC) - created_at > timedelta(minutes=10):
-                messages.error(
-                    self.request, _("Authentication session expired. Please try again.")
-                )
-                return None
-
-        except KeyError, ValueError:
-            messages.error(self.request, _("Invalid authentication state"))
-            return None
-
-        return redirect_to
-
-    def _get_or_create_user(self, userinfo: Auth0UserInfo) -> UserDTO:
-        if claimed := self._redeem_pending_claim(userinfo):
-            return claimed
-        try:
-            return self.request.di.uow.active_users.read_by_username(userinfo.username)
-        except NotFoundError:
-            create_data = userinfo.to_create_data(
-                slug=slugify(userinfo.username), password=make_password(None)
-            )
-            if self.request.di.uow.active_users.email_exists(
-                create_data.get("email", "")
-            ):
-                create_data["email"] = ""
-            self.request.di.uow.active_users.create(create_data)
-            return self.request.di.uow.active_users.read_by_username(userinfo.username)
-
-    def _redeem_pending_claim(self, userinfo: Auth0UserInfo) -> UserDTO | None:
-        if not (token := self.request.session.pop("pending_claim_token", "")):
-            return None
-        result = self.request.services.claims.redeem(
-            token=token, username=userinfo.username
-        )
-        if result.outcome == ClaimOutcome.CONVERTED:
-            messages.success(
-                self.request, _("Profile claimed — it is now your own account.")
-            )
-            return self.request.di.uow.active_users.read(result.user_slug)
-        if result.outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
-            messages.info(
-                self.request,
-                _(
-                    "You already have an account, so this profile can't be moved "
-                    "into it. Ask the person who invited you to enroll you directly."
-                ),
-            )
-        return None
-
-    def _apply_user_updates(self, userinfo: Auth0UserInfo, user: UserDTO) -> UserDTO:
-        if update_data := userinfo.to_update_data(user):
-            if (
-                "email" in update_data
-                and self.request.di.uow.active_users.email_exists(
-                    update_data["email"], exclude_slug=user.slug
-                )
-            ):
-                del update_data["email"]
-            if update_data:
-                self.request.di.uow.active_users.update(user.slug, update_data)
-            if "name" in update_data:
-                user = self.request.di.uow.active_users.read(user.slug)
-        return user
-
-    def _get_userinfo(self) -> Auth0UserInfo:
-        token = oauth.auth0.authorize_access_token(self.request)
-        raw: dict[str, Any] = {}
-        source = "token"
-        if isinstance(token, dict):
-            raw = token.get("userinfo") or {}
-        if not raw:
-            source = "/userinfo"
-            try:
-                result = oauth.auth0.userinfo(token=token)
-            except Exception as exc:
-                raise RedirectError(
-                    reverse("web:index"), error=_("Authentication failed")
-                ) from exc
-            raw = result if isinstance(result, dict) else {}
-        try:
-            userinfo = Auth0UserInfo.model_validate(raw)
-        except PydanticValidationError as exc:
-            raise RedirectError(
-                reverse("web:index"), error=_("Authentication failed")
-            ) from exc
-        logger.info(
-            "Auth0 userinfo from %s: sub=%s has_name=%s",
-            source,
-            userinfo.sub,
-            bool(userinfo.name),
-        )
-        return userinfo
-
-
-class Auth0LogoutActionView(RedirectView):
-    request: RootRequest
-
-    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
-        redirect_to = super().get_redirect_url(*args, **kwargs)
-
-        django_logout(self.request)
-
-        last_domain = self.request.di.uow.spheres.read_site(
-            self.request.context.current_sphere_id
-        ).domain
-        messages.success(self.request, _("You have been successfully logged out."))
-
-        return _auth0_logout_url(
-            self.request, last_domain=last_domain, redirect_to=redirect_to
-        )
-
-
-def _auth0_logout_url(
-    request: RootRequest,
-    *,
-    last_domain: str | None = None,
-    redirect_to: str | None = None,
-) -> str:
-    root_domain = request.di.uow.spheres.read_site(
-        request.context.root_sphere_id
-    ).domain
-    last_domain = last_domain or root_domain
-    redirect_to = redirect_to or reverse("web:index")
-    return f"https://{settings.AUTH0_DOMAIN}/v2/logout?" + urlencode(
-        {
-            "returnTo": (
-                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:logout-redirect')}?last_domain={last_domain}&redirect_to={redirect_to}"
-            ),
-            "client_id": settings.AUTH0_CLIENT_ID,
-        },
-        quote_via=quote_plus,
-    )
-
-
-class Auth0LogoutRedirectActionView(RedirectView):
-    request: RootRequest
-    pattern_name = "web:index"
-
-    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
-        redirect_url = super().get_redirect_url(*args, **kwargs)
-
-        # Get the redirect_to parameter
-        if redirect_to := self.request.GET.get("redirect_to"):
-            # Only allow relative URLs (starting with /)
-            if redirect_to.startswith("/") and not redirect_to.startswith("//"):
-                redirect_url = redirect_to
-            else:
-                messages.warning(self.request, _("Invalid redirect URL."))
-
-        # Handle last_domain parameter for multi-site redirects
-        if last_domain := self.request.GET.get("last_domain"):
-            # Also allow subdomains of ROOT_DOMAIN if configured
-            if (
-                last_domain.endswith(f".{settings.ROOT_DOMAIN}")
-                or last_domain == settings.ROOT_DOMAIN
-            ):
-                return f"{self.request.scheme}://{last_domain}{redirect_url}"
-
-            # Check against explicitly allowed domains
-            try:
-                last_sphere = self.request.di.uow.spheres.read_by_domain(last_domain)
-            except NotFoundError:
-                last_sphere = None
-
-            if last_sphere:
-                return f"{self.request.scheme}://{last_domain}{redirect_url}"
-
-            messages.warning(self.request, _("Invalid domain for redirect."))
-
-        return redirect_url
 
 
 class DesignPageView(TemplateView):

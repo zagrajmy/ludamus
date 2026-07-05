@@ -23,9 +23,6 @@ The active `ROOT_URLCONF` is `ludamus.gates.web.django.urls`, but it still
 views. What remains in `adapters/`:
 
 - **`adapters/web/django/views.py`** still hosts:
-  - Auth — `Auth0LoginActionView`, `Auth0LoginCallbackActionView`,
-    `Auth0LogoutActionView`, `Auth0LogoutRedirectActionView`,
-    `LoginRequiredPageView` (Crowd)
   - Profile — `ProfilePageView`, `ProfileConnectedUsersPageView`,
     `ProfileConnectedUserUpdateActionView`,
     `ProfileConnectedUserDeleteActionView`, `ProfileAvatarPageView` (Crowd)
@@ -47,7 +44,7 @@ views. What remains in `adapters/`:
   and `adapters.db.django.apps.DBMainConfig`.
 
 Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
-**Notice Board / Encounters**, and the **CFP** wizard.
+**Notice Board / Encounters**, the **CFP** wizard, and **Crowd / Auth**.
 
 ## Done so far
 
@@ -66,24 +63,28 @@ Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
   (issue #457, PR-7). The view's transactional enrollment batch
   (`_process_enrollments` and friends) still uses the ORM directly and moves
   into the service together with the view's relocation to `gates/`.
+- Crowd / Auth views (`Auth0LoginActionView`, `Auth0LoginCallbackActionView`,
+  `Auth0LogoutActionView`, `Auth0LogoutRedirectActionView`,
+  `LoginRequiredPageView`) moved into `gates/web/django/crowd/auth.py` with
+  URLs under `gates/web/django/crowd/urls.py` (names and paths unchanged).
+  The user-provisioning flow now lives in `CrowdAuthService`
+  (`mills/crowd.py`, exposed as `request.services.crowd_auth`); the gate
+  keeps only OAuth-client, session-login, redirect and message concerns.
 
 ## Next step
 
-Migrate the **Crowd / Auth** views (`Auth0LoginActionView`,
-`Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
-`Auth0LogoutRedirectActionView`, `LoginRequiredPageView`) out of
-`adapters/web/django/views.py` into `gates/web/django/crowd/`:
+Migrate the **Crowd / Profile** views (`ProfilePageView`,
+`ProfileConnectedUsersPageView`, `ProfileConnectedUserUpdateActionView`,
+`ProfileConnectedUserDeleteActionView`, `ProfileAvatarPageView`, claim views)
+out of `adapters/web/django/views.py` into the existing
+`gates/web/django/crowd/` package:
 
-1. Create `gates/web/django/crowd/{views.py,urls.py}` and a `crowd` namespace.
-2. Move the views; replace any `request.di.uow` access per
-   [services-di.md](services-di.md) (do both angles in the same move).
-3. Point `gates/web/django/urls.py` at the new `crowd` include; drop the old
-   routes from `adapters/web/django/urls.py`.
-4. Move the auth integration tests alongside; run `mise run test:py`.
-
-Auth is a good first slice: it is self-contained, has no template-heavy
-surface, and forces the `crowd` package to exist (Profile follows into the
-same package next).
+1. Add a profile view module next to `crowd/auth.py` and `crowd/views.py`.
+2. Move the views; replace `request.di.uow` access with `request.services`
+   (extend the crowd mills/pacts as needed — do both angles in the same move).
+3. Move the profile routes from `adapters/web/django/urls.py` into
+   `gates/web/django/crowd/urls.py`, keeping URL names and paths identical.
+4. Keep the profile integration tests green; run `mise run test:py`.
 
 ## Definition of done
 

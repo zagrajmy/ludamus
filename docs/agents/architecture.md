@@ -488,7 +488,7 @@ and JWT validation; user upsert on callback.
 
 - **URLs:** `/crowd/auth0/`
   (namespace `auth0`)
-- **Views:** `adapters/web/django/views.py` —
+- **Views:** `gates/web/django/crowd/auth.py` —
   `Auth0LoginActionView`,
   `Auth0LoginCallbackActionView`,
   `Auth0LogoutActionView`,
@@ -496,6 +496,10 @@ and JWT validation; user upsert on callback.
   `LoginRequiredPageView`
 - **Templates:**
   `templates/crowd/login_required.html`
+- **Service:** `CrowdAuthService`
+  (`request.services.crowd_auth`) — user
+  provisioning on callback, identity sync,
+  sphere-domain checks
 - **External integration:** Auth0 PKCE/state
   OAuth flow
 

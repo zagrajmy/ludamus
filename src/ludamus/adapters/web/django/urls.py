@@ -16,27 +16,8 @@ from .print_views import PublicEventPrintView
 app_name = "web"  # pylint: disable=invalid-name
 
 
-auth0_urls = [
-    path("do/login", views.Auth0LoginActionView.as_view(), name="login"),
-    path(
-        "do/login/callback",
-        views.Auth0LoginCallbackActionView.as_view(),
-        name="login-callback",
-    ),
-    path("do/logout", views.Auth0LogoutActionView.as_view(), name="logout"),
-    path(
-        "do/logout/redirect",
-        views.Auth0LogoutRedirectActionView.as_view(),
-        name="logout-redirect",
-    ),
-]
-
 crowd_urls: list[URLPattern | URLResolver] = [
     *crowd_gate_urls,
-    path("auth0/", include((auth0_urls, "auth0"), namespace="auth0")),
-    path(
-        "login-required/", views.LoginRequiredPageView.as_view(), name="login-required"
-    ),
     path("profile/", views.ProfilePageView.as_view(), name="profile"),
     path(
         "profile/avatar/", views.ProfileAvatarPageView.as_view(), name="profile-avatar"

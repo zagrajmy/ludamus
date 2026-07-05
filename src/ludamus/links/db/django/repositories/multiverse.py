@@ -9,7 +9,7 @@ from ludamus.pacts import (
     SphereRepositoryProtocol,
     SphereUpdateData,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import SphereDomainRepositoryProtocol, UserDTO
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,
@@ -23,7 +23,15 @@ from ludamus.pacts.multiverse import (
 )
 
 
-class SphereRepository(SphereRepositoryProtocol, SphereDirectoryRepositoryProtocol):
+class SphereRepository(
+    SphereRepositoryProtocol,
+    SphereDirectoryRepositoryProtocol,
+    SphereDomainRepositoryProtocol,
+):
+    @staticmethod
+    def domain_exists(domain: str) -> bool:
+        return Sphere.objects.filter(site__domain=domain).exists()
+
     @staticmethod
     def list_all() -> list[SphereListItemDTO]:
         return [
