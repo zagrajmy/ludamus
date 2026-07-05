@@ -1,4 +1,4 @@
-"""Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/reject."""
+"""Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/accept."""
 
 from datetime import UTC, datetime
 from http import HTTPStatus
@@ -11,10 +11,6 @@ from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFac
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-SCHEDULED_ERROR = (
-    "This session is scheduled and can only be accepted. "
-    "Remove it from the timetable to change its status."
-)
 
 
 def _make_session(event, **kwargs):
@@ -33,13 +29,13 @@ def _make_session(event, **kwargs):
     return Session.objects.create(**defaults)
 
 
-class TestProposalRejectActionView:
-    """Tests for POST /panel/event/<slug>/proposals/<proposal_id>/do/reject."""
+class TestProposalAcceptActionView:
+    """Tests for POST /panel/event/<slug>/proposals/<proposal_id>/do/accept."""
 
     @staticmethod
     def get_url(event, proposal_id):
         return reverse(
-            "panel:proposal-reject",
+            "panel:proposal-accept",
             kwargs={"slug": event.slug, "proposal_id": proposal_id},
         )
 
@@ -65,24 +61,7 @@ class TestProposalRejectActionView:
             url="/",
         )
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-        url = reverse(
-            "panel:proposal-reject", kwargs={"slug": "nonexistent", "proposal_id": 1}
-        )
-
-        response = authenticated_client.post(url)
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
-
-    def test_post_rejects_session_and_redirects(
+    def test_post_accepts_session_and_redirects(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -93,14 +72,60 @@ class TestProposalRejectActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Proposal rejected.")],
+            messages=[(messages.SUCCESS, "Proposal accepted.")],
             url=reverse(
                 "panel:proposal-detail",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
         )
         session.refresh_from_db()
-        assert session.status == "rejected"
+        assert session.status == "accepted"
+
+    def test_post_accepts_session_already_on_hold(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, status="on_hold")
+
+        response = authenticated_client.post(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal accepted.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.status == "accepted"
+
+    def test_post_accepts_scheduled_session(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, status="pending")
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.post(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal accepted.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.status == "accepted"
 
     def test_post_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
@@ -134,29 +159,3 @@ class TestProposalRejectActionView:
         )
         session.refresh_from_db()
         assert session.status == "pending"
-
-    def test_post_rejects_scheduled_session(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        session = _make_session(event, status="accepted")
-        AgendaItemFactory(
-            session=session,
-            space=SpaceFactory(event=event),
-            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
-        )
-
-        response = authenticated_client.post(self.get_url(event, session.pk))
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, SCHEDULED_ERROR)],
-            url=reverse(
-                "panel:proposal-detail",
-                kwargs={"slug": event.slug, "proposal_id": session.pk},
-            ),
-        )
-        session.refresh_from_db()
-        assert session.status == "accepted"

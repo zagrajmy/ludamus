@@ -1615,6 +1615,27 @@ class ContentChangeLog(models.Model):
         return f"edit {self.session} by {self.user}"
 
 
+class FacilitatorChangeLog(models.Model):
+    """Audit trail for facilitator edits (accreditation + personal data)."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="facilitator_change_logs"
+    )
+    facilitator = models.ForeignKey(
+        Facilitator, on_delete=models.CASCADE, related_name="change_logs"
+    )
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=list)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "facilitator_change_log"
+        ordering: ClassVar = ["-creation_time"]
+
+    def __str__(self) -> str:
+        return f"edit {self.facilitator} by {self.user}"
+
+
 def can_enroll_users(
     *,
     users: list[UserDTO],

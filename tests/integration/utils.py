@@ -10,6 +10,25 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
 
+class PageMatcher:
+    def __init__(self, *, number: int, num_pages: int) -> None:
+        self.number = number
+        self.num_pages = num_pages
+
+    def __eq__(self, other: object) -> bool:
+        paginator = getattr(other, "paginator", None)
+        return (
+            getattr(other, "number", None) == self.number
+            and getattr(paginator, "num_pages", None) == self.num_pages
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.number, self.num_pages))
+
+    def __repr__(self) -> str:
+        return f"PageMatcher(number={self.number}, num_pages={self.num_pages})"
+
+
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)

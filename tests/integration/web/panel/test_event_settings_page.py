@@ -92,7 +92,23 @@ class TestEventSettingsPageViewGet:
             response,
             HTTPStatus.OK,
             template_name="panel/settings.html",
-            context_data=ANY,
+            context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": response.context["is_proposal_active"],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 0,
+                    "total_sessions": 0,
+                },
+                "active_nav": "settings",
+                "active_tab": "general",
+                "tab_urls": response.context["tab_urls"],
+                "form": ANY,
+            },
         )
         assert "events/brand.png" in response.content.decode()
 
@@ -109,7 +125,23 @@ class TestEventSettingsPageViewGet:
             response,
             HTTPStatus.OK,
             template_name="panel/settings.html",
-            context_data=ANY,
+            context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": response.context["is_proposal_active"],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 0,
+                    "total_sessions": 0,
+                },
+                "active_nav": "settings",
+                "active_tab": "general",
+                "tab_urls": response.context["tab_urls"],
+                "form": ANY,
+            },
         )
         edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
         assert "disallowed" in dict(edit_field.choices)[""]
@@ -127,7 +159,23 @@ class TestEventSettingsPageViewGet:
             response,
             HTTPStatus.OK,
             template_name="panel/settings.html",
-            context_data=ANY,
+            context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": response.context["is_proposal_active"],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 0,
+                    "total_sessions": 0,
+                },
+                "active_nav": "settings",
+                "active_tab": "general",
+                "tab_urls": response.context["tab_urls"],
+                "form": ANY,
+            },
         )
         assert (
             response.context["form"].initial["allow_facilitator_session_edit"]

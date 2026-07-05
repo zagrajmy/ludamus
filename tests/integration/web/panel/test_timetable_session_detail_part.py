@@ -162,6 +162,27 @@ class TestTimetableSessionDetailPartView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["session"].title == "My Awesome Session"
 
+    def test_links_to_proposal_detail_page(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            title="Linked Session",
+            participants_limit=10,
+            min_age=0,
+        )
+        proposal_url = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert f'href="{proposal_url}"' in response.content.decode()
+
     def test_shows_agenda_item_when_scheduled(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):

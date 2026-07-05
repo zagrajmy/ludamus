@@ -6,6 +6,9 @@ from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.links.db.django.facilitator_change_log import (
+    FacilitatorChangeLogRepository,
+)
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
@@ -82,6 +85,10 @@ class Repositories:
     @cached_property
     def content_change_logs(self) -> ContentChangeLogRepository:
         return ContentChangeLogRepository()
+
+    @cached_property
+    def facilitator_change_logs(self) -> FacilitatorChangeLogRepository:
+        return FacilitatorChangeLogRepository()
 
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:

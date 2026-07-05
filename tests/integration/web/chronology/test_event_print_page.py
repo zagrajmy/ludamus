@@ -6,6 +6,16 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ludamus.adapters.db.django.models import Space, Track
+from ludamus.adapters.web.django.print_views import MATERIAL_SPECS
+from ludamus.pacts import EventDTO
+from ludamus.pacts.printing import (
+    PrintOptionDTO,
+    PrintSessionDTO,
+    PrintTimetableCellDTO,
+    PrintTimetableDocumentDTO,
+    PrintTimetablePageDTO,
+    PrintTimetableRowDTO,
+)
 from ludamus.pacts.venues import PrintScopeOptionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -362,7 +372,35 @@ class TestPublicEventPrintView:
             response,
             HTTPStatus.OK,
             template_name="chronology/print.html",
-            context_data=ANY,
+            context_data={
+                "area_schedule": None,
+                "event": EventDTO.model_validate(event),
+                "logo": "",
+                "material": "track-timetable",
+                "material_options": MATERIAL_SPECS[:3],
+                "print_scopes": [_scope(space)],
+                "qr_svg": response.context_data["qr_svg"],
+                "range_hours": 6,
+                "range_start_value": response.context_data["range_start_value"],
+                "selected_scope": "",
+                "selected_track": "focused-track",
+                "session_list": None,
+                "show_range_controls": False,
+                "show_scope_control": False,
+                "show_track_control": True,
+                "timetable": PrintTimetableDocumentDTO(
+                    event_name=event.name,
+                    event_description=event.description,
+                    event_start=event.start_time,
+                    event_end=event.end_time,
+                    scope_name=track.name,
+                    is_complete=False,
+                    pages=[],
+                ),
+                "tracks": [
+                    PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
+                ],
+            },
         )
         assert response.context_data["selected_track"] == "focused-track"
 
@@ -377,7 +415,55 @@ class TestPublicEventPrintView:
             response,
             HTTPStatus.OK,
             template_name="chronology/print.html",
-            context_data=ANY,
+            context_data={
+                "area_schedule": None,
+                "event": EventDTO.model_validate(event),
+                "logo": "",
+                "material": "timetable",
+                "material_options": MATERIAL_SPECS[:2],
+                "print_scopes": [_scope(space)],
+                "qr_svg": response.context_data["qr_svg"],
+                "range_hours": 6,
+                "range_start_value": response.context_data["range_start_value"],
+                "selected_scope": str(space.pk),
+                "selected_track": "",
+                "session_list": None,
+                "show_range_controls": False,
+                "show_scope_control": True,
+                "show_track_control": False,
+                "timetable": PrintTimetableDocumentDTO(
+                    event_name=event.name,
+                    event_description=event.description,
+                    event_start=event.start_time,
+                    event_end=event.end_time,
+                    scope_name=space.name,
+                    is_complete=False,
+                    pages=[
+                        PrintTimetablePageDTO(
+                            day=event.start_time.date(),
+                            space_names=[space.name],
+                            rows=[
+                                PrintTimetableRowDTO(
+                                    start_time=event.start_time,
+                                    end_time=event.start_time + timedelta(hours=1),
+                                    cells=[
+                                        PrintTimetableCellDTO(
+                                            sessions=[
+                                                PrintSessionDTO(
+                                                    title=session.title,
+                                                    presenter_name="Test User",
+                                                )
+                                            ]
+                                        )
+                                    ],
+                                )
+                            ],
+                            space_range_name=None,
+                        )
+                    ],
+                ),
+                "tracks": [],
+            },
         )
         assert response.context_data["material"] == "timetable"
         assert response.context_data["selected_scope"] == str(space.pk)
@@ -401,7 +487,57 @@ class TestPublicEventPrintView:
             response,
             HTTPStatus.OK,
             template_name="chronology/print.html",
-            context_data=ANY,
+            context_data={
+                "area_schedule": None,
+                "event": EventDTO.model_validate(event),
+                "logo": "",
+                "material": "track-timetable",
+                "material_options": MATERIAL_SPECS[:3],
+                "print_scopes": [_scope(space)],
+                "qr_svg": response.context_data["qr_svg"],
+                "range_hours": 6,
+                "range_start_value": response.context_data["range_start_value"],
+                "selected_scope": "",
+                "selected_track": "main-track",
+                "session_list": None,
+                "show_range_controls": False,
+                "show_scope_control": False,
+                "show_track_control": True,
+                "timetable": PrintTimetableDocumentDTO(
+                    event_name=event.name,
+                    event_description=event.description,
+                    event_start=event.start_time,
+                    event_end=event.end_time,
+                    scope_name=track.name,
+                    is_complete=False,
+                    pages=[
+                        PrintTimetablePageDTO(
+                            day=event.start_time.date(),
+                            space_names=[space.name],
+                            rows=[
+                                PrintTimetableRowDTO(
+                                    start_time=event.start_time,
+                                    end_time=event.start_time + timedelta(hours=1),
+                                    cells=[
+                                        PrintTimetableCellDTO(
+                                            sessions=[
+                                                PrintSessionDTO(
+                                                    title=session.title,
+                                                    presenter_name="Test User",
+                                                )
+                                            ]
+                                        )
+                                    ],
+                                )
+                            ],
+                            space_range_name=None,
+                        )
+                    ],
+                ),
+                "tracks": [
+                    PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
+                ],
+            },
         )
         assert response.context_data["material"] == "track-timetable"
         assert response.context_data["selected_track"] == "main-track"

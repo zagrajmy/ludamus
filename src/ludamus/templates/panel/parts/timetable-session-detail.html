@@ -17,6 +17,8 @@
         {% empty %}
             <div class="text-sm text-foreground-muted">{% translate "No facilitator" %}</div>
         {% endfor %}
+        <a href="{% url 'panel:proposal-detail' slug=slug proposal_id=session.pk %}"
+           class="text-xs text-primary hover:underline">{% translate "View proposal" %} →</a>
     </div>
     <!-- Meta: duration, capacity, age -->
     <div class="flex flex-wrap gap-3 text-xs text-foreground-muted mb-3">

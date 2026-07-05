@@ -55,7 +55,7 @@ def timetable_scale_data_fixture(event, proposal_category):
             end_time=slot_end,
             session_confirmed=False,
         )
-        session.status = "scheduled"
+        session.status = "accepted"
         session.save()
 
     return {"event": event, "spaces": spaces, "sessions": sessions}
