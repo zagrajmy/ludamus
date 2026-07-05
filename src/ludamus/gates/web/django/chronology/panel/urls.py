@@ -210,6 +210,11 @@ urlpatterns = [
         name="proposal-edit",
     ),
     path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/pending",
+        proposals.ProposalPendingActionView.as_view(),
+        name="proposal-pending",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/accept",
         proposals.ProposalAcceptActionView.as_view(),
         name="proposal-accept",

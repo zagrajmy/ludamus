@@ -11,6 +11,7 @@ from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -29,11 +30,13 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.chronology import ProposalScheduledError
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse, QueryDict
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts import (
         EventDTO,
@@ -624,73 +627,82 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
 
-class ProposalAcceptActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
+    """Shared POST handler for proposal status transitions."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+    success_message: str | _StrPromise = ""
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        raise NotImplementedError
+
+    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self._apply_status(event_pk=current_event.pk, session_pk=proposal_id)
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+        except ProposalScheduledError:
+            messages.error(
+                self.request,
+                _(
+                    "This session is scheduled and can only be accepted. "
+                    "Remove it from the timetable to change its status."
+                ),
+            )
+            return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+        messages.success(self.request, self.success_message)
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+
+class ProposalPendingActionView(ProposalStatusActionView):
+    """Move a proposal back to pending (POST only)."""
+
+    success_message = gettext_lazy("Proposal moved back to pending.")
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_pending(
+            event_pk=event_pk, session_pk=session_pk
+        )
+
+
+class ProposalAcceptActionView(ProposalStatusActionView):
     """Mark a proposal accepted (POST only)."""
 
-    request: PanelRequest
-    http_method_names = ("post",)
+    success_message = gettext_lazy("Proposal accepted.")
 
-    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            self.request.services.proposal_status.mark_accepted(
-                event_pk=current_event.pk, session_pk=proposal_id
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        messages.success(self.request, _("Proposal accepted."))
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_accepted(
+            event_pk=event_pk, session_pk=session_pk
+        )
 
 
-class ProposalHoldActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalHoldActionView(ProposalStatusActionView):
     """Put a proposal on hold / reserve list (POST only)."""
 
-    request: PanelRequest
-    http_method_names = ("post",)
+    success_message = gettext_lazy("Proposal put on hold.")
 
-    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            self.request.services.proposal_status.mark_on_hold(
-                event_pk=current_event.pk, session_pk=proposal_id
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        messages.success(self.request, _("Proposal put on hold."))
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_on_hold(
+            event_pk=event_pk, session_pk=session_pk
+        )
 
 
-class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalRejectActionView(ProposalStatusActionView):
     """Reject a proposal (POST only)."""
 
-    request: PanelRequest
-    http_method_names = ("post",)
+    success_message = gettext_lazy("Proposal rejected.")
 
-    def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            self.request.services.proposal_status.mark_rejected(
-                event_pk=current_event.pk, session_pk=proposal_id
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        messages.success(self.request, _("Proposal rejected."))
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_rejected(
+            event_pk=event_pk, session_pk=session_pk
+        )
 
 
 class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):

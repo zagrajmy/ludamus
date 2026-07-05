@@ -1,12 +1,13 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/accept."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import ProposalCategory, Session
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -85,6 +86,32 @@ class TestProposalAcceptActionView:
     ):
         sphere.managers.add(active_user)
         session = _make_session(event, status="on_hold")
+
+        response = authenticated_client.post(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal accepted.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.status == "accepted"
+
+    def test_post_accepts_scheduled_session(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, status="pending")
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 

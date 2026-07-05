@@ -161,7 +161,11 @@ class Services:
 
     @cached_property
     def proposal_status(self) -> ProposalStatusService:
-        return ProposalStatusService(self._transaction, self._repos.sessions)
+        return ProposalStatusService(
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+        )
 
     @cached_property
     def session_self_edit(self) -> SessionSelfEditService:

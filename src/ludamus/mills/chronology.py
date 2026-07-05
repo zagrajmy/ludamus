@@ -49,6 +49,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ProposalScheduledError,
     SessionPlacement,
     SessionPositionDTO,
     SourceQuestion,
@@ -542,10 +543,20 @@ class SessionDeletionService:
 
 class ProposalStatusService:
     def __init__(
-        self, transaction: TransactionProtocol, sessions: SessionRepositoryProtocol
+        self,
+        *,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
+        self._agenda_items = agenda_items
+
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.PENDING
+        )
 
     def mark_accepted(self, *, event_pk: int, session_pk: int) -> None:
         self._set_status(
@@ -571,6 +582,11 @@ class ProposalStatusService:
             # the check and the write (TOCTOU). `lock` raises for missing/dead.
             self._sessions.lock(session_pk)
             require_session_in_event(self._sessions, session_pk, event_pk)
+            if (
+                status != SessionStatus.ACCEPTED
+                and self._agenda_items.read_by_session(session_pk) is not None
+            ):
+                raise ProposalScheduledError
             self._sessions.update(session_pk, {"status": status})
 
 
