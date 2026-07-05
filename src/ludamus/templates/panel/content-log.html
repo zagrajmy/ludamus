@@ -30,6 +30,9 @@
                         class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                         {% translate "Changes" %}
                     </th>
+                    <th scope="col" class="px-6 py-3">
+                        <span class="sr-only">{% translate "Actions" %}</span>
+                    </th>
                 </tr>
             </thead>
             <tbody class="bg-bg-secondary divide-y divide-border">
@@ -56,6 +59,18 @@
                                     </li>
                                 {% endfor %}
                             </ul>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            {% if log.pk in revertible_pks %}
+                                <form method="post"
+                                      action="{% url 'panel:content-log-revert' slug=slug pk=log.pk %}"
+                                      data-confirm="{% translate "Are you sure you want to revert this change?" %}"
+                                      data-confirm-action="{% translate "Revert" %}">
+                                    {% csrf_token %}
+                                    {% translate "Revert" as t_revert %}
+                                    {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
+                                </form>
+                            {% endif %}
                         </td>
                     </tr>
                 {% endfor %}

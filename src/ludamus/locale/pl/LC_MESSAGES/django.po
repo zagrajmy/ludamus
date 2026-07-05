@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 22:31+0200\n"
+"POT-Creation-Date: 2026-07-05 23:59+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1754,6 +1754,25 @@ msgstr "Punkt programu przywrócony."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Facilitators updated."
 msgstr "Twórcy programu zostali zaktualizowani."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Change not found."
+msgstr "Nie znaleziono zmiany."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Only the latest change for a session can be reverted."
+msgstr "Można cofnąć tylko najnowszą zmianę punktu programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid ""
+"This change cannot be reverted: cover image and assignment changes are not "
+"restorable."
+msgstr ""
+"Tej zmiany nie można cofnąć: zmian okładki i przypisań nie da się przywrócić."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Change reverted."
+msgstr "Zmiana została cofnięta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
 msgid "Session field created successfully."
@@ -4688,6 +4707,7 @@ msgstr "Ogłoszenia organizacji dla tej sfery"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
@@ -5508,6 +5528,16 @@ msgstr "Zmiany"
 #: src/ludamus/templates/panel/content-log.html
 msgid "Field"
 msgstr "Pole"
+
+#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Are you sure you want to revert this change?"
+msgstr "Czy na pewno cofnąć tę zmianę?"
+
+#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Revert"
+msgstr "Cofnij"
 
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/timetable-log.html
@@ -7227,14 +7257,6 @@ msgstr "Wyczyść filtry"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Are you sure you want to revert this change?"
-msgstr "Czy na pewno cofnąć tę zmianę?"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Revert"
-msgstr "Cofnij"
 
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Hours to fill"
