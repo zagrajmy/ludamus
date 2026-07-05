@@ -486,7 +486,7 @@ class AcceptProposalService:
             self._uow.sessions.update(
                 session.pk,
                 SessionUpdateData(
-                    status=SessionStatus.SCHEDULED, display_name=session.display_name
+                    status=SessionStatus.ACCEPTED, display_name=session.display_name
                 ),
             )
 

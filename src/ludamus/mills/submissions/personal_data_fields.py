@@ -2,7 +2,12 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import FieldUsageSummary
+from ludamus.pacts import (
+    FacilitatorUpdateData,
+    FieldUsageSummary,
+    NotFoundError,
+    PersonalDataFieldValueRepositoryProtocol,
+)
 from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -10,10 +15,16 @@ from ludamus.pacts.submissions import (
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
+        ContentFieldChange,
+        FacilitatorChangeLogData,
+        FacilitatorChangeLogDTO,
+        FacilitatorChangeLogRepositoryProtocol,
+        FacilitatorRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
+        PersonalDataFieldValueData,
         ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
@@ -106,3 +117,162 @@ class CFPPersonalDataFieldService:
             return False
         self._fields.delete(field.pk)
         return True
+
+
+def _is_blank(*, value: str | list[str] | bool | None) -> bool:
+    if isinstance(value, list):
+        return not value
+    return value in {None, "", False}
+
+
+def _diff_personal_data(
+    *,
+    old_by_slug: dict[str, str | list[str] | bool],
+    fields_by_id: dict[int, PersonalDataFieldDTO],
+    entries: list[PersonalDataFieldValueData],
+) -> list[ContentFieldChange]:
+    changes: list[ContentFieldChange] = []
+    for entry in entries:
+        if (field := fields_by_id.get(entry["field_id"])) is None:
+            continue
+        old = old_by_slug.get(field.slug)
+        new = entry["value"]
+        if _is_blank(value=old) and _is_blank(value=new):
+            continue
+        if old != new:
+            changes.append(
+                {"field": "", "field_id": entry["field_id"], "old": old, "new": new}
+            )
+    return changes
+
+
+class PersonalDataFieldValueService:
+    """Organizer edits of a facilitator's per-event personal-data answers.
+
+    The shared write path for the dedicated facilitator-edit page and the
+    inline personal-data blocks on the proposal-edit page; owns the
+    transactional boundary, event scoping, and the FacilitatorChangeLog audit
+    entry.
+    """
+
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        facilitators: FacilitatorRepositoryProtocol,
+        personal_data_field_values: PersonalDataFieldValueRepositoryProtocol,
+        personal_data_fields: PersonalDataFieldRepositoryProtocol,
+        facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._facilitators = facilitators
+        self._personal_data_field_values = personal_data_field_values
+        self._personal_data_fields = personal_data_fields
+        self._facilitator_change_logs = facilitator_change_logs
+
+    def _personal_data_changes(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+    ) -> list[ContentFieldChange]:
+        old_by_slug = self._personal_data_field_values.read_for_facilitator_event(
+            facilitator_id, event_id
+        )
+        fields_by_id = {
+            f.pk: f for f in self._personal_data_fields.list_by_event(event_id)
+        }
+        return _diff_personal_data(
+            old_by_slug=old_by_slug, fields_by_id=fields_by_id, entries=entries
+        )
+
+    def _log(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        user_id: int | None,
+        changes: list[ContentFieldChange],
+    ) -> None:
+        if changes:
+            log_data: FacilitatorChangeLogData = {
+                "event_id": event_id,
+                "facilitator_id": facilitator_id,
+                "user_id": user_id,
+                "changes": changes,
+            }
+            self._facilitator_change_logs.create(log_data)
+
+    def update_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+        user_id: int | None = None,
+    ) -> None:
+        with self._transaction.atomic():
+            # Event scoping: a facilitator named in the request must belong to
+            # the panel's event, or it is cross-event tampering.
+            if self._facilitators.read(facilitator_id).event_id != event_id:
+                raise NotFoundError
+            changes = self._personal_data_changes(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if entries:
+                self._personal_data_field_values.save(entries)
+            self._log(
+                event_id=event_id,
+                facilitator_id=facilitator_id,
+                user_id=user_id,
+                changes=changes,
+            )
+
+    def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]:
+        return self._facilitator_change_logs.list_by_event(event_id)
+
+    def list_field_names(self, event_id: int) -> dict[int, str]:
+        return {
+            f.pk: f.name for f in self._personal_data_fields.list_by_event(event_id)
+        }
+
+    def update_facilitator(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        accreditation_type: str,
+        entries: list[PersonalDataFieldValueData],
+        user_id: int | None = None,
+    ) -> None:
+        # The dedicated facilitator-edit page write path: accreditation +
+        # personal data in one transaction, logged as a single edit entry.
+        with self._transaction.atomic():
+            facilitator = self._facilitators.read(facilitator_id)
+            if facilitator.event_id != event_id:
+                raise NotFoundError
+            changes = self._personal_data_changes(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if facilitator.accreditation_type != accreditation_type:
+                changes.append(
+                    {
+                        "field": "accreditation_type",
+                        "field_id": None,
+                        "old": facilitator.accreditation_type,
+                        "new": accreditation_type,
+                    }
+                )
+            self._facilitators.update(
+                facilitator_id,
+                FacilitatorUpdateData(accreditation_type=accreditation_type),
+            )
+            if entries:
+                self._personal_data_field_values.save(entries)
+            self._log(
+                event_id=event_id,
+                facilitator_id=facilitator_id,
+                user_id=user_id,
+                changes=changes,
+            )

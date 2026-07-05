@@ -175,8 +175,8 @@ class TestRevertChange:
         with pytest.raises(ValueError, match="missing original placement data"):
             service.revert_change(log_pk=1, event_pk=1)
 
-    def test_revert_unassign_raises_when_session_not_pending(self, service, mock_uow):
-        """Session must be in PENDING status to revert an unassign."""
+    def test_revert_unassign_raises_when_session_not_accepted(self, service, mock_uow):
+        """Session must be in ACCEPTED status to revert an unassign."""
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
@@ -187,10 +187,10 @@ class TestRevertChange:
         mock_uow.schedule_change_logs.read.return_value = log
 
         session = MagicMock()
-        session.status = SessionStatus.SCHEDULED
+        session.status = SessionStatus.PENDING
         mock_uow.sessions.read.return_value = session
 
-        with pytest.raises(ValueError, match="is not in PENDING status"):
+        with pytest.raises(ValueError, match="is not in ACCEPTED status"):
             service.revert_change(log_pk=1, event_pk=1)
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
@@ -262,7 +262,7 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.delete.assert_not_called()
 
-    def _arrange_pending_assignment(self, mock_uow, *, auto_confirm_sessions):
+    def _arrange_acceptable_assignment(self, mock_uow, *, auto_confirm_sessions):
         mock_uow.sessions.read_event.return_value = self._event(
             1, auto_confirm_sessions=auto_confirm_sessions
         )
@@ -272,11 +272,11 @@ class TestAssignUnassignScope:
         mock_uow.spaces.list_by_event.return_value = [space]
         mock_uow.agenda_items.read_by_session.return_value = None
         session = MagicMock()
-        session.status = SessionStatus.PENDING
+        session.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read.return_value = session
 
     def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
-        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=True)
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 
@@ -286,7 +286,7 @@ class TestAssignUnassignScope:
     def test_assign_leaves_unconfirmed_when_event_disables_auto_confirm(
         self, service, mock_uow
     ):
-        self._arrange_pending_assignment(mock_uow, auto_confirm_sessions=False)
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=False)
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 

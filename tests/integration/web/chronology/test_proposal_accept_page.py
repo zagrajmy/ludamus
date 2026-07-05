@@ -51,7 +51,7 @@ class TestProposalAcceptPageView:
         )
 
     def test_get_error_session_exists(self, event, pending_session, staff_client):
-        pending_session.status = "scheduled"
+        pending_session.status = "accepted"
         pending_session.save()
         response = staff_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -317,7 +317,7 @@ class TestProposalAcceptPageView:
         )
 
     def test_post_error_session_exists(self, event, pending_session, staff_client):
-        pending_session.status = "scheduled"
+        pending_session.status = "accepted"
         pending_session.save()
         response = staff_client.post(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -374,7 +374,7 @@ class TestProposalAcceptPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         session = Session.objects.get(pk=pending_session.pk)
-        assert session.status == "scheduled"
+        assert session.status == "accepted"
         assert session.display_name == active_user.name
         assert session.agenda_item.space == space
         assert session.agenda_item.session == session
@@ -418,7 +418,7 @@ class TestProposalAcceptPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         session = Session.objects.get(pk=pending_session.pk)
-        assert session.status == "scheduled"
+        assert session.status == "accepted"
         assert session.slug == f"{base_slug}-4"
 
     def test_post_wrong_permissions(

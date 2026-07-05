@@ -317,7 +317,7 @@ def _create_sessions(
             duration=f"PT{duration_hours}H",
             participants_limit=_participants_limit(spec.track_slug, index),
             min_age=(0, 10, 12, 14, 16)[index % 5],
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         )
         session.facilitators.add(facilitator)
         session.tracks.add(track)

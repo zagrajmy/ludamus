@@ -99,5 +99,5 @@ RUN mise run build-frontend && mise run dj compilemessages
 # Expose port
 EXPOSE 8000
 
-# Start gunicorn (migrations are handled by the compose migrations service)
-CMD ["run", "gunicorn"]
+# Migrate + collectstatic, then gunicorn (see prod-start in docker/mise.toml)
+CMD ["run", "prod-start"]

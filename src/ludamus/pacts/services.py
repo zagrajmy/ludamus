@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
+        ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
         CFPPersonalDataFieldServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
+        PersonalDataFieldValueServiceProtocol,
         ProposalImportServiceProtocol,
     )
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
@@ -63,6 +65,8 @@ class ServicesProtocol(Protocol):
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
+    def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
+    @property
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
     def claims(self) -> ClaimServiceProtocol: ...
@@ -86,6 +90,8 @@ class ServicesProtocol(Protocol):
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
+    @property
+    def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property
