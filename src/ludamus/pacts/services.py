@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
@@ -65,6 +66,8 @@ class ServicesProtocol(Protocol):
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
     def claims(self) -> ClaimServiceProtocol: ...
+    @property
+    def parties(self) -> PartyServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property

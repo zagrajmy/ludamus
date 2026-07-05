@@ -79,14 +79,53 @@
             </div>
         </div>
         {# Enrollment Form Card #}
-        <div class="card">
+        <div class="card" id="enrollment">
             <div class="card-header bg-success text-white flex items-center gap-2">
                 {% icon "user-plus" class="w-5 h-5" %}
                 <h5 class="font-semibold mb-0">{% translate "Enrollment Options" %}</h5>
             </div>
             <div class="card-body">
+                {% if party_choices %}
+                    <div class="mb-4">
+                        <p class="flex items-center gap-1.5 text-sm font-medium mb-2">
+                            {% icon "user-group" class="w-4 h-4" %}
+                            {% translate "Enrolling as" %}
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="?party=none#enrollment"
+                               {% if not selected_party %}aria-current="true"{% endif %}
+                               class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if not selected_party %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
+                                {% translate "Just myself" %}
+                            </a>
+                            {% for party in party_choices %}
+                                <a href="?party={{ party.pk }}#enrollment"
+                                   {% if selected_party.pk == party.pk %}aria-current="true"{% endif %}
+                                   class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if selected_party.pk == party.pk %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
+                                    {% if party.name %}
+                                        {{ party.name }}
+                                    {% elif party.is_own_led %}
+                                        {% translate "Your party" %}
+                                    {% else %}
+                                        {% blocktranslate with leader_name=party.leader_name %}Party of {{ leader_name }}{% endblocktranslate %}
+                                    {% endif %}
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% if selected_party %}
+                            <p class="text-xs text-foreground-muted mt-2">{% translate "The party moves up the waiting list together." %}</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
                 <form method="post">
                     {% csrf_token %}
+                    {% if selected_party %}
+                        <input type="hidden" name="party" value="{{ selected_party.pk }}">
+                    {% elif party_choices %}
+                        <input type="hidden" name="party" value="none">
+                    {% endif %}
+                    {% if form.has_guests %}
+                        <div class="mb-4 max-w-xs">{% tessera_field form.guests %}</div>
+                    {% endif %}
                     <div class="mb-4">
                         <label class="flex items-center gap-1.5 text-sm font-medium mb-3">
                             {% icon "users" class="w-4 h-4" %}
@@ -121,10 +160,12 @@
                                             <td class="px-3 py-2.5">
                                                 {% if user_data.user_enrolled %}
                                                     <span class="inline-flex items-center rounded-full bg-success-bg text-success-text px-2.5 py-0.5 text-xs font-medium">{% translate "Already Enrolled" %}</span>
+                                                {% elif user_data.seat_held %}
+                                                    <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "Seat held — awaiting their approval" %}</span>
+                                                {% elif user_data.offer_pending %}
+                                                    <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "Spot offered" %}</span>
                                                 {% elif user_data.user_waiting %}
                                                     <span class="inline-flex items-center rounded-full bg-warning-bg text-warning-text px-2.5 py-0.5 text-xs font-medium">{% translate "On Waiting List" %}</span>
-                                                {% elif user_data.user_offered %}
-                                                    <span class="inline-flex items-center rounded-full bg-info-bg text-info-text px-2.5 py-0.5 text-xs font-medium">{% translate "Spot on hold" %}</span>
                                                 {% elif user_data.has_time_conflict %}
                                                     <span class="inline-flex items-center rounded-full bg-danger-bg text-danger-text px-2.5 py-0.5 text-xs font-medium">{% translate "Time Conflict" %}</span>
                                                 {% else %}
@@ -141,14 +182,19 @@
                                                        checked>
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.user_offered %}
-                                                    {% if not user_data.has_time_conflict %}
+                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.seat_held and not user_data.offer_pending %}
+                                                    {% if user_data.membership.blocked %}
+                                                        <span class="text-foreground-muted text-xs">{% translate "Access required" %}</span>
+                                                    {% elif not user_data.has_time_conflict %}
                                                         <input type="radio"
                                                                class="accent-success"
                                                                name="user_{{ user_data.user.pk }}"
                                                                id="user_{{ user_data.user.pk }}_enroll"
-                                                               aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}"
+                                                               {% if user_data.membership.needs_accept %} aria-label="{% translate "Hold a seat — needs their approval" %}: {{ user_data.user.full_name }}" {% else %} aria-label="{% translate "Enroll" %}: {{ user_data.user.full_name }}" {% endif %}
                                                                value="enroll">
+                                                        {% if user_data.membership.needs_accept %}
+                                                            <span class="block text-xs text-foreground-muted">{% translate "needs their approval" %}</span>
+                                                        {% endif %}
                                                     {% else %}
                                                         <span class="text-foreground-muted text-xs">{% translate "Time conflict" %}</span>
                                                     {% endif %}
@@ -157,7 +203,9 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if not user_data.user_enrolled and not user_data.user_waiting and not user_data.user_offered %}
+                                                {% if user_data.membership.needs_accept or user_data.membership.blocked or user_data.seat_held or user_data.offer_pending %}
+                                                    <span class="text-foreground-muted">-</span>
+                                                {% elif not user_data.user_enrolled and not user_data.user_waiting %}
                                                     <input type="radio"
                                                            class="accent-warning"
                                                            name="user_{{ user_data.user.pk }}"
@@ -169,34 +217,44 @@
                                                 {% endif %}
                                             </td>
                                             <td class="px-3 py-2.5 text-center">
-                                                {% if user_data.user_enrolled or user_data.user_waiting %}
+                                                {% if user_data.seat_held %}
+                                                    {# The held seat is the leader's pending offer, not the member's own enrollment — withdrawing it is allowed. #}
                                                     <input type="radio"
                                                            class="accent-danger"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_cancel"
-                                                           aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}"
+                                                           aria-label="{% translate "Withdraw held seat" %}: {{ user_data.user.full_name }}"
                                                            value="cancel">
-                                                {% elif user_data.user_offered %}
+                                                    <span class="block text-xs text-foreground-muted">{% translate "withdraw" %}</span>
+                                                {% elif user_data.membership.is_member %}
+                                                    <span class="text-foreground-muted">-</span>
+                                                {% elif user_data.user_enrolled or user_data.user_waiting or user_data.offer_pending %}
                                                     <input type="radio"
                                                            class="accent-danger"
                                                            name="user_{{ user_data.user.pk }}"
                                                            id="user_{{ user_data.user.pk }}_cancel"
-                                                           aria-label="{% translate "Decline offer" %}: {{ user_data.user.full_name }}"
+                                                           {% if user_data.offer_pending %} aria-label="{% translate "Decline offer" %}: {{ user_data.user.full_name }}" {% else %} aria-label="{% translate "Cancel enrollment" %}: {{ user_data.user.full_name }}" {% endif %}
                                                            value="cancel">
+                                                    {% if user_data.offer_pending %}
+                                                        <span class="block text-xs text-foreground-muted">{% translate "decline offer" %}</span>
+                                                    {% endif %}
                                                 {% else %}
                                                     <span class="text-foreground-muted">-</span>
                                                 {% endif %}
                                             </td>
                                         </tr>
                                     {% endfor %}
+                                    {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                                     {% if user_data|length == 1 %}
-                                        <tr>
-                                            <td colspan="6" class="text-center text-foreground-muted py-4 text-sm">
-                                                {% translate "No connected users available. You can add connected users in your" %}
-                                                <a href="{% url 'web:crowd:profile-connected-users' %}"
-                                                   class="text-primary hover:underline">{% translate "profile settings" %}</a>.
-                                            </td>
-                                        </tr>
+                                        {% if not party_choices or selected_party.is_own_led %}
+                                            <tr>
+                                                <td colspan="6" class="text-center text-foreground-muted py-4 text-sm">
+                                                    {% translate "No companions available. You can add companions to your party in your" %}
+                                                    <a href="{% url 'web:crowd:profile-parties' %}"
+                                                       class="text-primary hover:underline">{% translate "profile settings" %}</a>.
+                                                </td>
+                                            </tr>
+                                        {% endif %}
                                     {% endif %}
                                 </tbody>
                             </table>

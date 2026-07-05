@@ -20,9 +20,7 @@
         <div class="flex items-baseline justify-between gap-2 text-xs text-foreground-muted">
             <span class="truncate tabular-nums" data-morph="time">
                 {{ data.agenda_item.start_time|time:"H:i" }}–{{ data.agenda_item.end_time|time:"H:i" }}
-                {% if data.session.duration %}
-                    · {{ data.session.duration|format_duration }}
-                {% endif %}
+                {% if data.session.duration %}· {{ data.session.duration|format_duration }}{% endif %}
                 {% if data.session.min_age > 0 %}
                     · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
                 {% endif %}

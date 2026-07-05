@@ -1,7 +1,6 @@
+import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-
-import { expect, test } from "@playwright/test";
 
 // Multi-user waiting-list promotion (issue scenario 1): the superuser (A) holds
 // the only confirmed seat and a dedicated waiter (B) is waitlisted. When A

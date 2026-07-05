@@ -17,6 +17,7 @@ from ludamus.adapters.db.django.models import (
 from ludamus.inits.services import Services
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -241,6 +242,61 @@ class TestOfferClaimAndExpiry:
             url=reverse("web:events"),
         )
 
+    def test_decline_view_drops_offer_and_rolls_on(
+        self, client, session, event, waiter
+    ):
+        participation = self._offer(session, event, waiter)
+        next_waiter = UserFactory(username="next", email="next@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=next_waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-decline",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Offer declined — the seat was released.")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
+        # The freed seat rolled on: offer mode holds it for the next waiter.
+        rolled = SessionParticipation.objects.get(user=next_waiter)
+        assert rolled.status == SessionParticipationStatus.OFFERED.value
+
+    def test_decline_view_unknown_token_redirects(self, client):
+        response = client.post(
+            reverse("web:chronology:offer-decline", kwargs={"token": "nope"})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "This offer is no longer available or has expired.")
+            ],
+            url=reverse("web:events"),
+        )
+
+    def test_claim_page_offers_a_decline_way_out(self, client, session, event, waiter):
+        participation = self._offer(session, event, waiter)
+
+        response = client.get(
+            reverse(
+                "web:chronology:offer-claim",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        content = response.content.decode()
+        assert "Claim my spot" in content
+        assert "Decline offer" in content
+
     def test_expire_drops_lapsed_party_and_rolls_on(
         self, session, event, waiter, mailoutbox
     ):
@@ -325,12 +381,23 @@ class TestPromotionRepositoryEdges:
             assert repo.read_offer_by_token("no-such-token") is None
 
     def test_lock_and_read_state_reuses_manager_slots_within_a_party(self, session):
-        # Two waiters managed by the same person share one membership-slot
-        # computation: the second reuses the first's cached value.
+        # Two login-less companions sponsored by the same leader share one
+        # membership-slot computation: the second reuses the first's cached
+        # value. (A real user always spends their own allowance instead.)
         manager = UserFactory(username="party-mgr", email="party-mgr@example.com")
         members = [
-            UserFactory(username="party-a", email="a@example.com", manager=manager),
-            UserFactory(username="party-b", email="b@example.com", manager=manager),
+            UserFactory(
+                username="party-a",
+                email="a@example.com",
+                user_type=UserType.CONNECTED,
+                manager=manager,
+            ),
+            UserFactory(
+                username="party-b",
+                email="b@example.com",
+                user_type=UserType.CONNECTED,
+                manager=manager,
+            ),
         ]
         for member in members:
             SessionParticipation.objects.create(
@@ -342,7 +409,7 @@ class TestPromotionRepositoryEdges:
 
         assert state is not None
         assert {w.recipient_user_id for w in state.waiting} == {manager.pk}
-        assert len({w.manager_slots_remaining for w in state.waiting}) == 1
+        assert len({w.owner_slots_remaining for w in state.waiting}) == 1
 
     def test_slots_remaining_handles_email_without_at_sign(
         self, session, enrollment_config
@@ -365,7 +432,7 @@ class TestPromotionRepositoryEdges:
 
         assert state is not None
         [waiting] = state.waiting
-        assert waiting.manager_slots_remaining == allowed_slots
+        assert waiting.owner_slots_remaining == allowed_slots
 
 
 class TestPromotionRepositoryUnscheduledSession:

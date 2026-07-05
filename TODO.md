@@ -180,4 +180,16 @@ kanban
     [Agenda: switch day during assign shows wrong red space]@{
       assigned: 'panel'
     }
+    [Panel: sphere managers cannot create events]@{
+      assigned: 'panel'
+      ticket: 339
+    }
+    [Opening session edit modal is unpleasant]@{
+      assigned: 'panel'
+      ticket: 342
+    }
+    [Space reordering has no keyboard alternative to drag-and-drop]@{
+      assigned: 'frontend'
+      ticket: 281
+    }
 ```

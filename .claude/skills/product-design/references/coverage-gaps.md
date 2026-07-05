@@ -35,6 +35,9 @@ shipped pattern lands here.
 - **Date/time presentation.** There's a `date_tags` library; the rules for
   relative vs absolute, timezone display, and range formatting aren't written
   down. Match the nearest existing usage.
+- **Numeric stepper.** No tessera component; a native number input (min/max
+  passed through `render_input`) is the accepted minimal pattern (guests field,
+  PR #498).
 
 ## How to use this file
 

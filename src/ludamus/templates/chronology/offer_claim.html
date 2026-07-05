@@ -7,7 +7,7 @@
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Claim your spot" %}</h1>
 {% endblock header %}
 {% block description %}
-    {% translate "A spot opened up for you" %}
+    {% translate "A seat is waiting for you" %}
 {% endblock description %}
 {% block body %}
     <div class="max-w-2xl mx-auto">
@@ -16,17 +16,25 @@
                 <h5 class="font-semibold mb-0">{{ offer.session_title }}</h5>
             </div>
             <div class="card-body">
-                <p>
-                    {% translate "A spot opened up. Claim it before the deadline below or it will be offered to the next person on the waiting list." %}
-                </p>
+                {# Flow-neutral copy: this page serves both waitlist offers and seats a party leader held. #}
+                <p>{% translate "A seat is being held for you. Claim it before the deadline below or it will be released." %}</p>
                 <p>
                     <strong>{% translate "Claim by:" %}</strong> {{ offer.offer_expires_at|date:"DATETIME_FORMAT" }}
                 </p>
-                <form method="post"
-                      action="{% url 'web:chronology:offer-claim' token=token %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-primary">{% translate "Claim my spot" %}</button>
-                </form>
+                <div class="flex flex-wrap gap-2">
+                    <form method="post"
+                          action="{% url 'web:chronology:offer-claim' token=token %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary">{% translate "Claim my spot" %}</button>
+                    </form>
+                    <form method="post"
+                          action="{% url 'web:chronology:offer-decline' token=token %}"
+                          data-confirm="{% translate "Decline this offer? The held seat will be released." %}"
+                          data-confirm-action="{% translate "Decline offer" %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary">{% translate "Decline offer" %}</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

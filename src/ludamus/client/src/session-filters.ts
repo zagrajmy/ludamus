@@ -20,11 +20,7 @@ const escapeRegExp = (value: string): string =>
 const selectedLabel = (select: HTMLSelectElement): string =>
   select.options.item(select.selectedIndex)?.text ?? "";
 
-const addOption = (
-  select: HTMLSelectElement,
-  value: string,
-  label: string,
-): void => {
+const addOption = (select: HTMLSelectElement, value: string, label: string): void => {
   const option = document.createElement("option");
   option.value = value;
   option.textContent = label;

@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
 
+from ludamus.adapters.db.django.models import Party, PartyMembership
+from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ClaimableProfileDTO,
@@ -13,8 +15,10 @@ from ludamus.pacts.crowd import (
     UserRepositoryProtocol,
     UserType,
 )
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 
 if TYPE_CHECKING:
+
     from ludamus.adapters.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
@@ -45,6 +49,14 @@ class UserRepository(UserRepositoryProtocol):
             raise NotFoundError from exception
         return UserDTO.model_validate(user)
 
+    def read_by_ids(self, pks: list[int]) -> list[UserDTO]:
+        return [
+            UserDTO.model_validate(user)
+            for user in User.objects.filter(
+                pk__in=pks, user_type=self._user_type
+            ).order_by("pk")
+        ]
+
     def read_by_username(self, username: str) -> UserDTO:
         try:
             user = User.objects.get(username=username, user_type=self._user_type)
@@ -68,46 +80,60 @@ class UserRepository(UserRepositoryProtocol):
         return query.exists()
 
 
+def _default_led_party(leader: User) -> Party:
+    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
+        party = Party.objects.create(leader=leader, name="")
+        PartyMembership.objects.create(
+            party=party,
+            member=leader,
+            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+    return party
+
+
 class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
     @staticmethod
     def read_all(manager_slug: str) -> list[ConnectedUserDTO]:
-        try:
-            manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
+        if not User.objects.filter(
+            user_type=UserType.ACTIVE, slug=manager_slug
+        ).exists():
+            raise NotFoundError
 
         return [
             ConnectedUserDTO.model_validate(connected_user)
-            for connected_user in manager.connected.all()
+            for connected_user in active_companions(manager_slug).order_by("pk")
         ]
 
     @staticmethod
     def create(manager_slug: str, user_data: UserData) -> None:
         manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
-        User.objects.create(manager=manager, **user_data)
+        user = User.objects.create(**user_data)
+        PartyMembership.objects.create(
+            party=_default_led_party(manager),
+            member=user,
+            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+            status=PartyMembershipStatus.ACTIVE,
+        )
 
     @staticmethod
     def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO:
-        try:
-            connected_user = User.objects.get(
-                slug=user_slug, manager__slug=manager_slug
-            )
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
+        connected_user = active_companions(manager_slug).filter(slug=user_slug).first()
+        if connected_user is None:
+            raise NotFoundError
         return ConnectedUserDTO.model_validate(connected_user)
 
     @staticmethod
     def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:
-        User.objects.filter(slug=user_slug, manager__slug=manager_slug).update(
-            **user_data
-        )
+        User.objects.filter(
+            pk__in=active_companions(manager_slug).filter(slug=user_slug)
+        ).update(**user_data)
 
     @staticmethod
     def delete(manager_slug: str, user_slug: str) -> None:
-        try:
-            user = User.objects.get(slug=user_slug, manager__slug=manager_slug)
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
+        companions = active_companions(manager_slug)
+        if (user := companions.filter(slug=user_slug).first()) is None:
+            raise NotFoundError
         user.delete()
 
 
@@ -115,7 +141,7 @@ class ClaimRepository(ClaimRepositoryProtocol):
     @staticmethod
     def issue_token(*, manager_slug: str, user_slug: str, token: str) -> bool:
         updated = User.objects.filter(
-            slug=user_slug, manager__slug=manager_slug, user_type=UserType.CONNECTED
+            pk__in=active_companions(manager_slug).filter(slug=user_slug)
         ).update(claim_token=token)
         return bool(updated)
 
@@ -123,17 +149,14 @@ class ClaimRepository(ClaimRepositoryProtocol):
     def read_claimable(token: str) -> ClaimableProfileDTO | None:
         if not token:
             return None
-        user = (
-            User.objects.filter(claim_token=token, user_type=UserType.CONNECTED)
-            .select_related("manager")
-            .first()
-        )
+        user = User.objects.filter(
+            claim_token=token, user_type=UserType.CONNECTED
+        ).first()
         if user is None:
             return None
+        sponsor = sponsor_of(user)
         return ClaimableProfileDTO(
-            name=user.name,
-            slug=user.slug,
-            manager_name=user.manager.name if user.manager else "",
+            name=user.name, slug=user.slug, manager_name=sponsor.name if sponsor else ""
         )
 
     @staticmethod
@@ -156,14 +179,15 @@ class ClaimRepository(ClaimRepositoryProtocol):
         ).update(
             username=username,
             user_type=UserType.ACTIVE,
-            manager=None,
             password=make_password(None),
             claim_token="",
         )
         if not updated:
             return None
-        return (
-            User.objects.filter(username=username)
-            .values_list("slug", flat=True)
-            .first()
+        user = User.objects.get(username=username)
+        # The claimed member keeps their seat in the party but now has a login
+        # and a say: further enrollments by the leader need their accept (O-9).
+        PartyMembership.objects.filter(member=user).update(
+            consent_mode=PartyConsentMode.ACCEPT_INVITES
         )
+        return user.slug

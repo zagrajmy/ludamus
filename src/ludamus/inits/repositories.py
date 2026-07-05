@@ -7,6 +7,7 @@ from ludamus.links.db.django.content_change_log import ContentChangeLogRepositor
 from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 
 
@@ -37,6 +38,10 @@ class Repositories:
     @cached_property
     def claims(self) -> ClaimRepository:
         return ClaimRepository()
+
+    @cached_property
+    def parties(self) -> PartyRepository:
+        return PartyRepository()
 
     @cached_property
     def announcements(self) -> repositories.AnnouncementsRepository:

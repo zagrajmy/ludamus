@@ -22,6 +22,15 @@ re-checked against the database on every request, so the token works only
 while the account stays an active superuser. Revoke by clearing the superuser
 flag in Django admin; rotate everything by changing `SECRET_KEY`.
 
+### Organizer tier
+
+Sphere managers get their own endpoint at `/mcp/organizer/`, minted from the
+"MCP access" tab in the sphere panel (`/multiverse/panel/mcp/`). Organizer
+tokens embed the sphere id; tools read the sphere from the token, never from
+client input, and every request re-checks `is_manager`. The endpoint loads
+only organizer-scoped tools, so maintainer tools are structurally unreachable
+from it.
+
 ## Architecture
 
 The MCP gate follows GLIMPSE. It is a transport, not an agent: the app has no
@@ -53,10 +62,11 @@ don't get re-derived or contradicted:
   clients. [Executor](https://github.com/RhysSullivan/executor) is the
   recommended client-side control plane (catalog, policy, pause-for-approval,
   audit).
-- Organizer and attendee tiers come later, on the same registry: scope-tagged
-  tools and a separate endpoint per trust level. An endpoint loads only the
-  tools of its tier, so the security boundary is filtering at wiring time
-  rather than per-call policy checks.
+- The organizer tier shipped with a read/announcements toolset; Panel verbs
+  (proposals, scheduling) grow demand-driven. The attendee tier comes later on
+  the same registry: scope-tagged tools and a separate endpoint per trust
+  level, so the security boundary stays filtering at wiring time rather than
+  per-call policy checks.
 - WebMCP also comes later. Once the W3C `navigator.modelContext` API
   stabilizes, annotate existing forms (declarative API) so in-browser agents
   act in the user's own session, reusing the same tool definitions over a
@@ -68,11 +78,17 @@ don't get re-derived or contradicted:
 
 1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py`: pydantic input model
    (field descriptions become the client-facing schema), `name`,
-   `description`, and a `handle()` that calls a service and returns DTO JSON
+   `description`, a `scope` (`ToolScope` from `pacts/mcp.py` — the endpoint
+   loads only its tier's tools), and a `handle(call)` that reads
+   `call.services` / `call.data` / `call.actor` and returns DTO JSON
    (`model_dump_json` / `TypeAdapter.dump_json`).
-2. Register it in `build_registry()`.
+2. Add it to `_all_tools()`.
 3. Add integration tests in `tests/integration/web/mcp/` (tools/list order and
    a tools/call case).
 
 Domain errors need no new plumbing: `NotFoundError` and invalid arguments
 already map to MCP `isError` results, and unknown tools to JSON-RPC errors.
+
+Every `tools/call` is audit-logged **with its arguments verbatim**. Do not add
+a tool whose arguments carry personal data without adding redaction to the
+audit line first.

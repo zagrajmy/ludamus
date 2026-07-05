@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self
 
 from django.utils import timezone
@@ -10,8 +11,6 @@ from django.utils import timezone
 from ludamus.pacts import EventListItemDTO
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from ludamus.gates.web.django.entities import UserInfo
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -64,7 +63,8 @@ class ParticipationInfo:
 
 @dataclass
 class SessionData:  # pylint: disable=too-many-instance-attributes
-    agenda_item: AgendaItemDTO
+    # None for a pending proposal card: the session isn't scheduled yet.
+    agenda_item: AgendaItemDTO | None
     is_enrollment_available: bool
     presenter: UserInfo
     session: SessionDTO
@@ -74,7 +74,6 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     enrolled_count: int
     session_participations: list[ParticipationInfo]
     loc: LocationData
-    has_any_enrollments: bool = False
     can_edit: bool = False
     user_enrolled: bool = False
     user_waiting: bool = False
@@ -87,6 +86,12 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     should_show_as_inactive: bool = (
         False  # True if should be displayed as inactive due to limit_to_end_time
     )
+
+    @property
+    def is_pending_proposal(self) -> bool:
+        # A card without an agenda item is an unscheduled proposal; scheduled
+        # sessions keep their status-agnostic rendering.
+        return self.agenda_item is None
 
     @property
     def is_unlimited(self) -> bool:
@@ -187,6 +192,8 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
     # strand a heading or a rail marker on a hidden sub-slot.
     days: list[ScheduleDay] = []
     for data in sessions_data.values():
+        if data.agenda_item is None:
+            continue
         start = data.agenda_item.start_time
         local_start = timezone.localtime(start)
         if not days or timezone.localtime(days[-1].first_start).date() != (
@@ -199,6 +206,35 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
             hours.append(ScheduleHour(start=hour_start, sessions=[]))
         hours[-1].sessions.append(data)
     return days
+
+
+def group_sessions_by_state(
+    sessions_data: dict[int, SessionData],
+) -> tuple[
+    dict[datetime, list[SessionData]],
+    dict[datetime, list[SessionData]],
+    dict[datetime, list[SessionData]],
+]:
+    current_time = datetime.now(tz=UTC)
+    ended: dict[datetime, list[SessionData]] = defaultdict(list)
+    current: dict[datetime, list[SessionData]] = defaultdict(list)
+    future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
+    for session_data in sessions_data.values():
+        if session_data.agenda_item is None:
+            continue
+        session_start_time = session_data.agenda_item.start_time
+        hour_key = session_start_time
+        if session_data.agenda_item.end_time <= current_time:
+            ended[hour_key].append(session_data)
+        elif (
+            not session_data.is_enrollment_available
+            and session_start_time > current_time
+        ):
+            future_unavailable[hour_key].append(session_data)
+        else:
+            # Current sessions (available for enrollment or in progress)
+            current[hour_key].append(session_data)
+    return dict(ended), dict(current), dict(future_unavailable)
 
 
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
@@ -243,10 +279,30 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     return lane_days
 
 
+@dataclass(frozen=True)
+class PartyMemberFlags:
+    # A real co-member of the selected party (all-False for the viewer and
+    # their login-less companions). The viewer never cancels the member's own
+    # seats; an ACCEPT_INVITES member (needs_accept) can only have a seat held
+    # for them — no direct seating on their behalf.
+    is_member: bool = False
+    needs_accept: bool = False
+    # Restricted event and the member has no enrollment slots of their own —
+    # their seat would spend their allowance, so no enroll/hold choice.
+    blocked: bool = False
+
+
 @dataclass
 class SessionUserParticipationData:
     user: UserDTO
     user_enrolled: bool = False
     user_waiting: bool = False
-    user_offered: bool = False
+    # The OFFERED split, viewer-side: an OFFERED row on a needs-accept member
+    # of the selected party is a seat this viewer held for them (seat_held);
+    # any other OFFERED row is an ordinary pending offer (offer_pending). Who
+    # created the row is not recorded yet, so beyond the viewer's own member
+    # rows the generic offer copy applies.
+    seat_held: bool = False
+    offer_pending: bool = False
     has_time_conflict: bool = False
+    membership: PartyMemberFlags = PartyMemberFlags()

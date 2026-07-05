@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -229,6 +230,9 @@ def _make_enrollment_clean(
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
     field_to_user_name: dict[str, str],
 ) -> Callable[..., dict[str, Any] | None]:
+    # Only user_* fields count against the membership slot cap: +N guests are
+    # walk-ins without memberships, so they intentionally bypass it — the
+    # session capacity check still gates them.
     all_users = [current_user, *connected_users]
 
     def clean(self: forms.Form) -> dict[str, Any] | None:
@@ -286,11 +290,97 @@ def _make_enrollment_clean(
     return clean
 
 
+def _member_no_access_choices() -> tuple[list[tuple[str, str]], str]:
+    return (
+        [("", _("No enrollment options (access required)"))],
+        _("Enrollment access permission required"),
+    )
+
+
+def _build_held_seat_choices(
+    *,
+    current_participation: SessionParticipation | None,
+    has_conflict: bool,
+    user_can_enroll: bool,
+    member_can_enroll: bool,
+) -> tuple[list[tuple[str, str]], str]:
+    # An ACCEPT_INVITES member is never seated directly: the leader may only
+    # hold a seat, which the member confirms via the claim link. A seat still
+    # held (OFFERED) can be withdrawn; any other participation of theirs is
+    # entirely their own business.
+    if current_participation is not None:
+        if current_participation.status == SessionParticipationStatus.OFFERED:
+            return (
+                [("", _("No change")), ("cancel", _("Withdraw held seat"))],
+                _("Withdrawing releases the seat before they claim it"),
+            )
+        return [("", _("No change"))], _("They manage their own enrollment")
+    if has_conflict:
+        return [("", _("No change (time conflict)"))], _("Time conflict detected")
+    if not user_can_enroll:
+        return [("", _("No change"))], ""
+    if not member_can_enroll:
+        return _member_no_access_choices()
+    return (
+        [("", _("No change")), ("enroll", _("Hold a seat — needs their approval"))],
+        _("The seat is released if they do not claim it in time"),
+    )
+
+
+MAX_GUESTS = 10
+
+
+def _build_member_choices(
+    *,
+    current_participation: SessionParticipation | None,
+    has_conflict: bool,
+    user_can_enroll: bool,
+    member_can_enroll: bool,
+    can_join_wl: bool,
+) -> tuple[list[tuple[str, str]], str]:
+    # Power of attorney (ACCEPT_BY_DEFAULT) covers seating a member who has
+    # nothing on this session yet; an existing participation is theirs alone —
+    # never cancel it, never change it.
+    if current_participation is not None:
+        return [("", _("No change"))], _("They manage their own enrollment")
+    if not member_can_enroll:
+        return _member_no_access_choices()
+    return _build_default_choices(
+        user_can_enroll=user_can_enroll,
+        can_join_wl=can_join_wl,
+        has_conflict=has_conflict,
+    )
+
+
+@dataclass(frozen=True)
+class RosterMember:
+    # One person the viewer can act for on the enroll screen.
+    user: UserDTO
+    # ACCEPT_INVITES member: "enroll" holds an OFFERED seat they must claim.
+    needs_accept: bool = False
+    # On a restricted event a member's seat spends that member's own
+    # allowance, so a member without slots gets no enroll/hold choice.
+    can_enroll: bool = True
+
+
+@dataclass(frozen=True)
+class EnrollmentRoster:
+    """Everyone the viewer can act for on the enroll screen."""
+
+    # Login-less companions of the selected party (the viewer leads it).
+    companions: tuple[UserDTO, ...] = ()
+    # Real co-members of the selected led party.
+    members: tuple[RosterMember, ...] = ()
+    # +N headcount guests (anonymous seats); None when the event's enrollment
+    # config does not allow anonymous enrollment for this session.
+    guest_count: int | None = None
+
+
 def create_enrollment_form(
     *,
     session: Session,
     current_user: UserDTO,
-    connected_users: Iterable[UserDTO],
+    roster: EnrollmentRoster,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
     ticket_api: TicketAPIProtocol,
 ) -> type[forms.Form]:
@@ -313,10 +403,17 @@ def create_enrollment_form(
         )
     )
 
-    form_fields: dict[str, _UserEnrollmentChoiceField] = {}
+    form_fields: dict[str, forms.Field] = {}
     field_to_user_name: dict[str, str] = {}
 
-    for user in (current_user, *connected_users):
+    seated = [
+        RosterMember(user=current_user),
+        *(RosterMember(user=user) for user in roster.companions),
+        *roster.members,
+    ]
+    member_pks = {member.user.pk for member in roster.members}
+    for seat in seated:
+        user = seat.user
         current_participation = SessionParticipation.objects.filter(
             session=session, user_id=user.pk
         ).first()
@@ -328,18 +425,34 @@ def create_enrollment_form(
             current_user_enrollment_config=current_user_enrollment_config,
         )
 
-        choices, help_text = _build_user_choices(
-            current_participation=current_participation,
-            has_conflict=has_conflict,
-            user_can_enroll=user_can_enroll,
-            can_join_wl=can_join_wl,
-        )
-        if _has_no_actionable_choices(choices) and not has_conflict:
-            choices, help_text = _build_fallback_choices(
-                enrollment_config=enrollment_config,
-                current_user_enrollment_config=current_user_enrollment_config,
-                user=user,
+        if seat.needs_accept:
+            choices, help_text = _build_held_seat_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                member_can_enroll=seat.can_enroll,
             )
+        elif user.pk in member_pks:
+            choices, help_text = _build_member_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                member_can_enroll=seat.can_enroll,
+                can_join_wl=can_join_wl,
+            )
+        else:
+            choices, help_text = _build_user_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                can_join_wl=can_join_wl,
+            )
+            if _has_no_actionable_choices(choices) and not has_conflict:
+                choices, help_text = _build_fallback_choices(
+                    enrollment_config=enrollment_config,
+                    current_user_enrollment_config=current_user_enrollment_config,
+                    user=user,
+                )
 
         field_name = f"user_{user.pk}"
         field_to_user_name[field_name] = user.full_name
@@ -362,16 +475,35 @@ def create_enrollment_form(
             ),
         )
 
+    # The membership-slot cap guards the viewer's own allowance, so only the
+    # viewer and their sponsored companions count against it — a real member's
+    # seat spends that member's allowance, not the enroller's.
     clean = _make_enrollment_clean(
         current_user=current_user,
-        connected_users=connected_users,
+        connected_users=roster.companions,
         enrollment_config=enrollment_config,
         current_user_enrollment_config=current_user_enrollment_config,
         field_to_user_name=field_to_user_name,
     )
 
+    if roster.guest_count is not None:
+        form_fields["guests"] = forms.IntegerField(
+            required=False,
+            min_value=0,
+            max_value=MAX_GUESTS,
+            initial=roster.guest_count,
+            label=_("Guests without an account"),
+            help_text=_(
+                "One-off company — they need no accounts, and their seats "
+                "come from this session's pool."
+            ),
+        )
+
     form = type("EnrollmentForm", (forms.Form,), form_fields)
     form.clean = clean  # type: ignore [attr-defined]
+    # Template guard: the strict template checks treat a missing variable as an
+    # error, so the guests block keys off an always-present flag.
+    form.has_guests = roster.guest_count is not None  # type: ignore [attr-defined]
     return form
 
 

@@ -94,13 +94,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Designates whether the user can log into this admin site."),
     )
-    manager = models.ForeignKey(
-        "User",
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        related_name="connected",
-    )
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)
     user_type = models.CharField(
@@ -158,11 +151,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self) -> str:
         return self.get_full_name()
-
-    @property
-    def initials(self) -> str:
-        name = self.name or self.username or ""
-        return "".join(word[0].upper() for word in name.split() if word)[:2] or "?"
 
     class Meta:
         db_table = "user"
@@ -904,7 +892,7 @@ class Session(SoftDeleteModel):
         default=0, help_text="Minimum age requirement (0 = no restriction)"
     )
     participants: models.ManyToManyField[User, Never] = models.ManyToManyField(
-        User, through="SessionParticipation"
+        User, through="SessionParticipation", through_fields=("session", "user")
     )
     tracks: models.ManyToManyField[Track, Never] = models.ManyToManyField(
         "Track", blank=True, related_name="sessions"
@@ -1099,6 +1087,21 @@ class SessionParticipation(models.Model):
     )
     user = models.ForeignKey(
         User, models.CASCADE, related_name="session_participations"
+    )
+    # The party this seat was enrolled through; whole-party waitlist promotion
+    # groups by it. Nullable: solo enrollments and pre-party rows fall back to
+    # slot-owner grouping, and a deleted party must not touch seats.
+    party = models.ForeignKey(
+        "Party",
+        models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="session_participations",
+    )
+    # The account that brought an anonymous +N guest; NULL for regular
+    # enrollments (people enrolled themselves or via the party flows).
+    enrolled_by = models.ForeignKey(
+        User, models.SET_NULL, null=True, blank=True, related_name="enrollments_made"
     )
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)

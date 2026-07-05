@@ -27,64 +27,64 @@
         <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
             {% tab "general" href=tab_urls.general %}{% translate "General" %}{% end_tab %}
-            {% tab "proposals" active=True href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
-            {% tab "display" href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
-            {% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        <form id="proposal-settings-form"
-              method="post"
-              action="{% url 'panel:event-proposal-settings' slug=current_event.slug %}"
-              class="max-w-2xl">
-            {% csrf_token %}
-            <div class="space-y-6">
-                <!-- Proposal Description -->
-                <div class="card">
-                    <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Proposal Description" %}</h3>
-                        <p class="text-sm text-foreground-muted mb-6">{% translate "Displayed on the first page of the proposal form." %}</p>
-                        {% include "components/textarea.html" with name="proposal_description" id="id_proposal_description" rows="4" value=form.proposal_description.value|default:"" only %}
-                    </div>
+        {% tab "proposals" active=True href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
+    {% tab "display" href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
+{% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    <form id="proposal-settings-form"
+          method="post"
+          action="{% url 'panel:event-proposal-settings' slug=current_event.slug %}"
+          class="max-w-2xl">
+        {% csrf_token %}
+        <div class="space-y-6">
+            <!-- Proposal Description -->
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Proposal Description" %}</h3>
+                    <p class="text-sm text-foreground-muted mb-6">{% translate "Displayed on the first page of the proposal form." %}</p>
+                    {% include "components/textarea.html" with name="proposal_description" id="id_proposal_description" rows="4" value=form.proposal_description.value|default:"" only %}
                 </div>
-                <!-- Proposal Dates -->
-                <div class="card">
-                    <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Proposal Period" %}</h3>
-                        <div class="space-y-6">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                           for="id_proposal_start_time">{% translate "Proposals Open" %}</label>
-                                    {{ form.proposal_start_time }}
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                           for="id_proposal_end_time">{% translate "Proposals Close" %}</label>
-                                    {{ form.proposal_end_time }}
-                                </div>
+            </div>
+            <!-- Proposal Dates -->
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Proposal Period" %}</h3>
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_proposal_start_time">{% translate "Proposals Open" %}</label>
+                                {{ form.proposal_start_time }}
                             </div>
-                            <p class="text-sm text-foreground-muted">{% translate "Leave both empty to disable proposals." %}</p>
-                            {% translate "Apply these dates to all proposal categories" as t_apply_dates %}
-                            {% include "components/checkbox-field.html" with name="apply_dates_to_categories" label=t_apply_dates checked=form.apply_dates_to_categories.value only %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_proposal_end_time">{% translate "Proposals Close" %}</label>
+                                {{ form.proposal_end_time }}
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <!-- Anonymous proposals -->
-                <div class="card">
-                    <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Anonymous proposals" %}</h3>
-                        <p class="text-sm text-foreground-muted mb-6">{% translate "Let people submit proposals without logging in. They provide a contact email instead of an account." %}</p>
-                        {% translate "Allow anonymous proposal submissions" as t_allow_anon %}
-                        {% include "components/checkbox-field.html" with name="allow_anonymous_proposals" label=t_allow_anon checked=form.allow_anonymous_proposals.value only %}
+                        <p class="text-sm text-foreground-muted">{% translate "Leave both empty to disable proposals." %}</p>
+                        {% translate "Apply these dates to all proposal categories" as t_apply_dates %}
+                        {% include "components/checkbox-field.html" with name="apply_dates_to_categories" label=t_apply_dates checked=form.apply_dates_to_categories.value only %}
                     </div>
                 </div>
             </div>
-        </form>
-    </div>
+            <!-- Anonymous proposals -->
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Anonymous proposals" %}</h3>
+                    <p class="text-sm text-foreground-muted mb-6">{% translate "Let people submit proposals without logging in. They provide a contact email instead of an account." %}</p>
+                    {% translate "Allow anonymous proposal submissions" as t_allow_anon %}
+                    {% include "components/checkbox-field.html" with name="allow_anonymous_proposals" label=t_allow_anon checked=form.allow_anonymous_proposals.value only %}
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
 {% else %}
-    <div class="card p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-    </div>
+<div class="card p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
 {% endif %}
 {% endblock content %}

@@ -47,7 +47,6 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     Space,
     Sphere,
-    Tag,
     TimeSlot,
     TimeSlotRequirement,
     Track,
@@ -113,8 +112,6 @@ from ludamus.pacts import (
     SphereDTO,
     SphereRepositoryProtocol,
     SphereUpdateData,
-    TagCategoryDTO,
-    TagDTO,
     TimeSlotDTO,
     TimeSlotRepositoryProtocol,
     TimeSlotRequirementDTO,
@@ -388,30 +385,6 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return TimeSlotDTO.model_validate(time_slot)
 
     @staticmethod
-    def read_tag_ids(session_id: int) -> list[int]:
-        return list(
-            Tag.objects.filter(session__id=session_id).values_list("id", flat=True)
-        )
-
-    @staticmethod
-    def read_tags(session_id: int) -> list[TagDTO]:
-        session = Session.objects.get(id=session_id)
-        return [TagDTO.model_validate(tag) for tag in session.tags.all()]
-
-    @staticmethod
-    def read_tag_categories(session_id: int) -> list[TagCategoryDTO]:
-        try:
-            session = Session.objects.select_related("category").get(id=session_id)
-        except Session.DoesNotExist as exception:
-            raise NotFoundError from exception
-        if session.category is None:
-            return []
-        return [
-            TagCategoryDTO.model_validate(tc)
-            for tc in session.category.tag_categories.all()
-        ]
-
-    @staticmethod
     def count_by_category(category_id: int) -> int:
         return Session.objects.filter(category_id=category_id).count()
 
@@ -420,39 +393,6 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         sessions = (
             Session.objects.filter(
                 category__event_id=event_id, status=SessionStatus.PENDING
-            )
-            .prefetch_related("tags", "time_slots")
-            .order_by("-creation_time")
-        )
-        return [
-            PendingSessionDTO(
-                contact_email=s.contact_email,
-                creation_time=s.creation_time,
-                description=s.description,
-                needs=s.needs,
-                participants_limit=s.participants_limit,
-                pk=s.pk,
-                display_name=s.display_name,
-                requirements=s.requirements,
-                tags=[PendingSessionTagDTO.model_validate(t) for t in s.tags.all()],
-                time_slots=[
-                    PendingSessionTimeSlotDTO.model_validate(ts)
-                    for ts in s.time_slots.all()
-                ],
-                title=s.title,
-            )
-            for s in sessions
-        ]
-
-    @staticmethod
-    def read_pending_by_event_for_user(
-        event_id: int, presenter_id: int
-    ) -> list[PendingSessionDTO]:
-        sessions = (
-            Session.objects.filter(
-                category__event_id=event_id,
-                status=SessionStatus.PENDING,
-                presenter_id=presenter_id,
             )
             .prefetch_related("tags", "time_slots")
             .order_by("-creation_time")
@@ -883,10 +823,6 @@ class SpaceRepository(SpaceRepositoryProtocol):
     @staticmethod
     def delete(pk: int) -> None:
         Space.objects.filter(pk=pk).delete()
-
-    @staticmethod
-    def has_sessions(pk: int) -> bool:
-        return AgendaItem.objects.filter(space_id=pk).exists()
 
     @staticmethod
     def lock(pk: int) -> None:
@@ -2144,13 +2080,6 @@ class EncounterRepository(EncounterRepositoryProtocol):
         except Encounter.DoesNotExist as exception:
             raise NotFoundError from exception
         return EncounterDTO.model_validate(encounter)
-
-    @staticmethod
-    def list_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]:
-        encounters = Encounter.objects.filter(
-            sphere_id=sphere_id, creator_id=creator_id
-        ).order_by("-start_time")
-        return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
     def list_upcoming_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]:
