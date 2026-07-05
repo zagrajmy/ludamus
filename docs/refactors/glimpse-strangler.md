@@ -36,7 +36,7 @@ views. What remains in `adapters/`:
     `AnonymousResetActionView`
   - `DesignPageView`, error views
 - **`adapters/db/django/models.py`** is still the real ORM module;
-  `links/db/django/repositories.py` imports from it
+  `links/db/django/repositories/` imports from it
   (`from ludamus.adapters.db.django.models import ...`). See
   [links-db-layout.md](links-db-layout.md) for the relocation.
 - **`adapters/web/django/`** also still owns `forms.py`, `entities.py`,
