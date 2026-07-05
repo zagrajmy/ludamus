@@ -17,6 +17,7 @@ from ludamus.pacts.crowd import (
     ClaimServiceProtocol,
     CrowdAuthServiceProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import (
@@ -105,8 +106,13 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         data = create_data.copy()
         if self._users.email_exists(data.get("email", "")):
             data["email"] = ""
-        with self._transaction.atomic():
-            self._users.create(data)
+        try:
+            with self._transaction.savepoint():
+                self._users.create(data)
+        except DatabaseConstraintError:
+            # A concurrent callback for the same identity inserted the row
+            # between our read_by_username miss and this insert; adopt it.
+            pass
         return self._users.read_by_username(username)
 
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:

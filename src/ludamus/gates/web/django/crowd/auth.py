@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 CACHE_TIMEOUT = 600  # 10 minutes
+
+# A bare hostname: dot-separated DNS labels, no scheme, path, port, credentials,
+# or fragment. Rejects the `evil.com#x.ROOT_DOMAIN` suffix-match bypass, where a
+# browser would parse the host as `evil.com` once embedded in a URL.
+_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+)
 
 
 def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
@@ -337,16 +346,25 @@ class Auth0LogoutRedirectActionView(RedirectView):
     def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
         redirect_url = super().get_redirect_url(*args, **kwargs)
 
-        # Get the redirect_to parameter
+        # Get the redirect_to parameter. url_has_allowed_host_and_scheme accepts
+        # only same-host relative targets, closing the `//evil.com` and
+        # backslash (`/\evil.com`) bypasses a hand-rolled prefix check would miss.
         if redirect_to := self.request.GET.get("redirect_to"):
-            # Only allow relative URLs (starting with /)
-            if redirect_to.startswith("/") and not redirect_to.startswith("//"):
+            if url_has_allowed_host_and_scheme(
+                redirect_to, allowed_hosts=None, require_https=self.request.is_secure()
+            ):
                 redirect_url = redirect_to
             else:
                 messages.warning(self.request, _("Invalid redirect URL."))
 
-        # Handle last_domain parameter for multi-site redirects
+        # Handle last_domain parameter for multi-site redirects. Reject anything
+        # that is not a bare hostname before the suffix/allowlist checks, so a
+        # value like `evil.com#x.ROOT_DOMAIN` cannot satisfy the suffix match.
         if last_domain := self.request.GET.get("last_domain"):
+            if not _HOSTNAME_RE.match(last_domain):
+                messages.warning(self.request, _("Invalid domain for redirect."))
+                return redirect_url
+
             # Also allow subdomains of ROOT_DOMAIN if configured
             if (
                 last_domain.endswith(f".{settings.ROOT_DOMAIN}")

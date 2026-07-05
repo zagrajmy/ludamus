@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO, UserType
+from ludamus.pacts.services import DatabaseConstraintError
 
 
 @contextmanager
@@ -14,9 +15,14 @@ def _atomic():
 class FakeTransaction:
     def __init__(self):
         self.entered = 0
+        self.savepoints = 0
 
     def atomic(self):
         self.entered += 1
+        return _atomic()
+
+    def savepoint(self):
+        self.savepoints += 1
         return _atomic()
 
 
@@ -89,6 +95,31 @@ class FakeUsers:
         )
 
 
+class _RacingUsers:
+    # read_by_username misses on the first call (before the concurrent insert
+    # is visible) and hits on the second; create raises the constraint error a
+    # concurrent inserter would trigger.
+    def __init__(self):
+        self.create_attempts = 0
+        self._reads = 0
+
+    def read_by_username(self, username):
+        self._reads += 1
+        if self._reads == 1:
+            raise NotFoundError
+        return _user_dto(username=username)
+
+    @staticmethod
+    def email_exists(email, exclude_slug=None):
+        _ = (email, exclude_slug)
+        return False
+
+    def create(self, user_data):
+        _ = user_data
+        self.create_attempts += 1
+        raise DatabaseConstraintError("duplicate key")
+
+
 class FakeClaims:
     def __init__(self, result=None):
         self._result = result or ClaimResultDTO(outcome=ClaimOutcome.INVALID)
@@ -149,7 +180,7 @@ class TestProvisionUser:
             },
         )
 
-        assert transaction.entered == 1
+        assert transaction.savepoints == 1
         assert users.created == [
             {"slug": "auth0user", "username": "auth0|sub", "email": "new@example.com"}
         ]
@@ -214,6 +245,21 @@ class TestProvisionUser:
         )
 
         assert not claims.redeemed
+
+    def test_concurrent_insert_is_adopted(self):
+        # read_by_username misses, then create raises the unique-constraint
+        # error because a concurrent callback already inserted the row; the
+        # service swallows it and re-reads the now-present user.
+        users = _RacingUsers()
+        service = _service(users=users)
+
+        result = service.provision_user(
+            username="auth0|sub",
+            create_data={"slug": "auth0user", "username": "auth0|sub"},
+        )
+
+        assert result.user.username == "auth0|sub"
+        assert users.create_attempts == 1
 
 
 class TestSyncIdentity:
