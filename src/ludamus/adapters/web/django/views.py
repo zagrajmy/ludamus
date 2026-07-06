@@ -8,27 +8,22 @@ from enum import StrEnum, auto
 from pathlib import Path
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any, NamedTuple
-from urllib.parse import urlencode
 
-from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
-from django.views.generic.base import ContextMixin, TemplateView, View
-from django.views.generic.detail import DetailView, SingleObjectTemplateResponseMixin
-from django.views.generic.edit import FormMixin, ProcessFormView
+from django.views.generic.base import TemplateView, View
+from django.views.generic.detail import DetailView
 
 from ludamus.adapters.db.django.models import (
-    MAX_CONNECTED_USERS,
     SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
@@ -52,11 +47,6 @@ from ludamus.adapters.web.django.entities import (
 )
 from ludamus.adapters.web.django.forms import EnrollmentRoster, RosterMember
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
-from ludamus.gates.web.django.crowd.helpers import (
-    COMPANION_CREATE_AUTO_ID,
-    build_parties_context,
-    companion_edit_auto_id,
-)
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -97,15 +87,12 @@ from .design_fixtures import (
     mock_session_data_ended,
     mock_user,
 )
-from .forms import (
-    ConnectedUserForm,
-    UserForm,
-    create_enrollment_form,
-    create_proposal_acceptance_form,
-)
+from .forms import create_enrollment_form, create_proposal_acceptance_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from django import forms
 
     from ludamus.pacts.party import EnrollmentPartiesDTO, SelectedEnrollmentPartyDTO
 
@@ -235,314 +222,6 @@ class EventsPageView(TemplateView):
             )
             for i, item in enumerate(items)
         ]
-
-
-class ProfilePageView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    form_class = UserForm
-    request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:index")
-    template_name = "crowd/user/edit.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        kwargs["user"] = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        )
-        kwargs["object"] = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        )
-        kwargs["confirmed_participations_count"] = SessionParticipation.objects.filter(
-            user_id=self.request.context.current_user_id,
-            status=SessionParticipationStatus.CONFIRMED,
-        ).count()
-        return super().get_context_data(**kwargs)
-
-    def form_valid(self, form: UserForm) -> HttpResponse:
-        # Check if email is being changed and if it already exists
-        email = form.user_data.get("email", "").strip()
-        if email and self.request.di.uow.active_users.email_exists(
-            email, exclude_slug=self.request.context.current_user_slug
-        ):
-            form.add_error(
-                "email",
-                _(
-                    "This email address is already in use. "
-                    "Please use a different email address."
-                ),
-            )
-            return self.form_invalid(form)
-
-        self.request.di.uow.active_users.update(
-            self.request.context.current_user_slug, form.user_data
-        )
-        messages.success(self.request, _("Profile updated successfully!"))
-        return super().form_valid(form)
-
-    def form_invalid(self, form: forms.Form) -> HttpResponse:
-        messages.warning(self.request, _("Please correct the errors below."))
-        return super().form_invalid(form)
-
-    def get_initial(self) -> dict[str, Any]:
-        return self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        ).model_dump()
-
-
-class ProfileConnectedUsersPageView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    form_class = ConnectedUserForm
-    object: UserDTO
-    request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name = "crowd/user/parties.html"
-    template_name_suffix = "_form"
-
-    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        # The page moved to the parties tab; this endpoint keeps handling the
-        # add-companion POST.
-        _ = (request, args, kwargs)  # Django View dispatch
-        return redirect(self.get_success_url())
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        return super().get_form_kwargs() | {"auto_id": COMPANION_CREATE_AUTO_ID}
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = build_parties_context(self.request, create_form=kwargs.get("form"))
-        context.update(kwargs)
-        return super().get_context_data(**context)
-
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
-        # Check if user has reached the maximum number of connected users
-
-        connected_count = len(
-            self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            )
-        )
-        if connected_count >= MAX_CONNECTED_USERS:
-            messages.error(
-                self.request,
-                _("You can only have up to %(max)s connected users.")
-                % {"max": MAX_CONNECTED_USERS},
-            )
-            return self.form_invalid(form)
-
-        user_data = form.user_data
-        user_data["username"] = f"connected|{token_urlsafe(50)}"
-        user_data["slug"] = slugify(user_data["username"][:50])
-        result = super().form_valid(form)
-        self.request.di.uow.connected_users.create(
-            self.request.context.current_user_slug, user_data=user_data
-        )
-        messages.success(self.request, _("Connected user added successfully!"))
-        return result
-
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
-        messages.warning(self.request, _("Please correct the errors below."))
-        return super().form_invalid(form)
-
-
-class ProfileConnectedUserUpdateActionView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    form_class = ConnectedUserForm
-    request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name = "crowd/user/parties.html"
-    template_name_suffix = "_form"
-
-    def get_object(self) -> UserDTO:
-        return self.request.di.uow.connected_users.read(
-            self.request.context.current_user_slug, self.kwargs["slug"]
-        )
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        return super().get_form_kwargs() | {
-            "auto_id": companion_edit_auto_id(self.kwargs["slug"])
-        }
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = build_parties_context(
-            self.request, edit_slug=self.kwargs["slug"], edit_form=kwargs.get("form")
-        )
-        context.update(kwargs)
-        return super().get_context_data(**context)
-
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
-        self.request.di.uow.connected_users.update(
-            manager_slug=self.request.context.current_user_slug,
-            user_slug=self.kwargs["slug"],
-            user_data=form.user_data,
-        )
-        messages.success(self.request, _("Connected user updated successfully!"))
-        return super().form_valid(form)
-
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
-        messages.warning(self.request, _("Please correct the errors below."))
-        return super().form_invalid(form)
-
-
-class ProfileConnectedUserDeleteActionView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    context_object_name = None
-    form_class = forms.Form
-    model = UserDTO
-    pk_url_kwarg = "pk"
-    query_pk_and_slug = False
-    queryset = None
-    request: AuthenticatedRootRequest
-    slug_field = "slug"
-    slug_url_kwarg = "slug"
-    success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name_suffix = "_confirm_delete"
-
-    def form_valid(self, form: forms.Form) -> HttpResponseRedirect:  # noqa: ARG002
-        success_url = self.get_success_url()
-        self.request.di.uow.connected_users.delete(
-            self.request.context.current_user_slug, self.kwargs["slug"]
-        )
-        messages.success(self.request, _("Connected user deleted successfully."))
-        return HttpResponseRedirect(success_url)
-
-
-class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
-    # POST: mint a share link that lets a connected person take over their
-    # profile as their own self-login account.
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest, slug: str) -> HttpResponse:
-        token = request.services.claims.issue(
-            manager_slug=request.context.current_user_slug, user_slug=slug
-        )
-        if token is None:
-            messages.error(request, _("Could not create a claim link for this person."))
-        else:
-            messages.success(request, _("Claim link created."))
-        return redirect("web:crowd:profile-parties")
-
-
-class ClaimPageView(View):
-    # Landing page for a claim link. The recipient signs in via Auth0 and the
-    # managed row becomes their own account.
-    @staticmethod
-    def _reject_invalid_link(request: RootRequest) -> HttpResponse:
-        messages.error(
-            request, _("This claim link is invalid or has already been used.")
-        )
-        return redirect("web:index")
-
-    @staticmethod
-    def get(request: RootRequest, token: str) -> HttpResponse:
-        if request.context.current_user_slug:
-            messages.info(
-                request,
-                _(
-                    "You're already signed in. Log out first to claim this "
-                    "profile into a new account."
-                ),
-            )
-            return redirect("web:index")
-        if (claimable := request.services.claims.read_claimable(token)) is None:
-            return ClaimPageView._reject_invalid_link(request)
-        return TemplateResponse(
-            request, "crowd/claim.html", {"claimable": claimable, "token": token}
-        )
-
-    @staticmethod
-    def post(request: RootRequest, token: str) -> HttpResponse:
-        if request.context.current_user_slug:
-            return redirect("web:index")
-        if request.services.claims.read_claimable(token) is None:
-            return ClaimPageView._reject_invalid_link(request)
-        request.session["pending_claim_token"] = token
-        login_url = reverse("web:crowd:auth0:login")
-        next_url = reverse("web:crowd:profile")
-        return redirect(f"{login_url}?{urlencode({'next': next_url})}")
-
-
-class ProfileAvatarPageView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        user = request.di.uow.active_users.read(request.context.current_user_slug)
-        return TemplateResponse(
-            request,
-            "crowd/user/avatar.html",
-            {
-                "user": user,
-                "gravatar_url": request.di.gravatar_url(user.email),
-                "has_auth0_avatar": bool(user.avatar_url),
-            },
-        )
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        use_gravatar = request.POST.get("use_gravatar") == "true"
-        request.di.uow.active_users.update(
-            request.context.current_user_slug, UserData(use_gravatar=use_gravatar)
-        )
-        messages.success(request, _("Avatar preference updated successfully!"))
-        return redirect("web:crowd:profile-avatar")
-
-
-class ProfileShadowbanPageView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        candidates = request.services.shadowban.list_candidates(
-            request.context.current_user_id
-        )
-        return TemplateResponse(
-            request, "crowd/user/shadowbans.html", {"candidates": candidates}
-        )
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        if identifier := request.POST.get("identifier", "").strip():
-            # Neutral message either way: never confirm whether an account with
-            # this username/email exists (no enumeration of the user base).
-            request.services.shadowban.add_by_identifier(
-                owner_id=request.context.current_user_id, identifier=identifier
-            )
-            messages.success(
-                request, _("If a matching player exists, they have been shadowbanned.")
-            )
-            return redirect("web:crowd:profile-shadowbans")
-
-        if slug := request.POST.get("slug", ""):
-            banned = request.POST.get("banned") == "true"
-            request.services.shadowban.set_shadowban(
-                owner_id=request.context.current_user_id,
-                target_slug=slug,
-                banned=banned,
-            )
-            messages.success(
-                request,
-                _("Player shadowbanned.") if banned else _("Shadowban removed."),
-            )
-        return redirect("web:crowd:profile-shadowbans")
 
 
 def _get_displayed_field_ids(event: Event) -> set[int]:

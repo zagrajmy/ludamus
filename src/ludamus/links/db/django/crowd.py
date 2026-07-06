@@ -2,7 +2,12 @@ from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
 
-from ludamus.adapters.db.django.models import Party, PartyMembership
+from ludamus.adapters.db.django.models import (
+    Party,
+    PartyMembership,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
@@ -10,6 +15,7 @@ from ludamus.pacts.crowd import (
     ClaimRepositoryProtocol,
     ConnectedUserDTO,
     ConnectedUserRepositoryProtocol,
+    ProfileParticipationRepositoryProtocol,
     UserData,
     UserDTO,
     UserRepositoryProtocol,
@@ -135,6 +141,14 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
         if (user := companions.filter(slug=user_slug).first()) is None:
             raise NotFoundError
         user.delete()
+
+
+class ProfileStatsRepository(ProfileParticipationRepositoryProtocol):
+    @staticmethod
+    def confirmed_count(user_id: int) -> int:
+        return SessionParticipation.objects.filter(
+            user_id=user_id, status=SessionParticipationStatus.CONFIRMED
+        ).count()
 
 
 class ClaimRepository(ClaimRepositoryProtocol):

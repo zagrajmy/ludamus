@@ -16,39 +16,7 @@ from .print_views import PublicEventPrintView
 app_name = "web"  # pylint: disable=invalid-name
 
 
-crowd_urls: list[URLPattern | URLResolver] = [
-    *crowd_gate_urls,
-    path("profile/", views.ProfilePageView.as_view(), name="profile"),
-    path(
-        "profile/avatar/", views.ProfileAvatarPageView.as_view(), name="profile-avatar"
-    ),
-    path(
-        "profile/shadowbans/",
-        views.ProfileShadowbanPageView.as_view(),
-        name="profile-shadowbans",
-    ),
-    path(
-        "profile/connected-users/",
-        views.ProfileConnectedUsersPageView.as_view(),
-        name="profile-connected-users",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/update",
-        views.ProfileConnectedUserUpdateActionView.as_view(),
-        name="profile-connected-users-update",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/delete",
-        views.ProfileConnectedUserDeleteActionView.as_view(),
-        name="profile-connected-users-delete",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/claim-link",
-        views.ProfileConnectedUserClaimLinkActionView.as_view(),
-        name="profile-connected-users-claim-link",
-    ),
-    path("claim/<str:token>/", views.ClaimPageView.as_view(), name="claim"),
-]
+crowd_urls: list[URLPattern | URLResolver] = [*crowd_gate_urls]
 
 chronology_urls = [
     *chronology_gate_urls,

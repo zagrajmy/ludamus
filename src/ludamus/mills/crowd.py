@@ -12,19 +12,26 @@ from typing import TYPE_CHECKING
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     AuthProvisionDTO,
+    AvatarPageDTO,
     ClaimOutcome,
     ClaimResultDTO,
     ClaimServiceProtocol,
+    CompanionsServiceProtocol,
     CrowdAuthServiceProtocol,
+    ProfileServiceProtocol,
+    UserData,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import (
+        AvatarUrlProviderProtocol,
         ClaimableProfileDTO,
         ClaimRepositoryProtocol,
+        ConnectedUserDTO,
+        ConnectedUserRepositoryProtocol,
+        ProfileParticipationRepositoryProtocol,
         SphereDomainRepositoryProtocol,
-        UserData,
         UserDTO,
         UserRepositoryProtocol,
     )
@@ -128,3 +135,71 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def is_known_sphere_domain(self, domain: str) -> bool:
         return self._spheres.domain_exists(domain)
+
+
+class ProfileService(ProfileServiceProtocol):
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        users: UserRepositoryProtocol,
+        participations: ProfileParticipationRepositoryProtocol,
+        avatar_url: AvatarUrlProviderProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._users = users
+        self._participations = participations
+        self._avatar_url = avatar_url
+
+    def read(self, user_slug: str) -> UserDTO:
+        return self._users.read(user_slug)
+
+    def confirmed_participations_count(self, user_id: int) -> int:
+        return self._participations.confirmed_count(user_id)
+
+    def email_in_use(self, email: str, *, exclude_slug: str) -> bool:
+        return self._users.email_exists(email, exclude_slug=exclude_slug)
+
+    def update(self, user_slug: str, data: UserData) -> None:
+        with self._transaction.atomic():
+            self._users.update(user_slug, data)
+
+    def read_avatar(self, user_slug: str) -> AvatarPageDTO:
+        user = self._users.read(user_slug)
+        return AvatarPageDTO(
+            user=user,
+            gravatar_url=self._avatar_url(user.email),
+            has_auth0_avatar=bool(user.avatar_url),
+        )
+
+    def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None:
+        with self._transaction.atomic():
+            self._users.update(user_slug, UserData(use_gravatar=use_gravatar))
+
+
+class CompanionsService(CompanionsServiceProtocol):
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        companions: ConnectedUserRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._companions = companions
+
+    def list_companions(self, manager_slug: str) -> list[ConnectedUserDTO]:
+        return self._companions.read_all(manager_slug)
+
+    def read(self, *, manager_slug: str, user_slug: str) -> ConnectedUserDTO:
+        return self._companions.read(manager_slug, user_slug)
+
+    def create(self, *, manager_slug: str, user_data: UserData) -> None:
+        with self._transaction.atomic():
+            self._companions.create(manager_slug, user_data=user_data)
+
+    def update(self, *, manager_slug: str, user_slug: str, user_data: UserData) -> None:
+        with self._transaction.atomic():
+            self._companions.update(manager_slug, user_slug, user_data)
+
+    def delete(self, *, manager_slug: str, user_slug: str) -> None:
+        with self._transaction.atomic():
+            self._companions.delete(manager_slug, user_slug)

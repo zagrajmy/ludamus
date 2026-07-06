@@ -508,21 +508,33 @@ and JWT validation; user upsert on callback.
 User profile management and delegate (connected)
 accounts.
 
-- **URLs:** `/crowd/profile/` and
-  `/crowd/profile/connected-users/`
-- **Views:** `adapters/web/django/views.py` —
+- **URLs:** `/crowd/profile/`,
+  `/crowd/profile/connected-users/` and
+  `/crowd/claim/<token>/`
+- **Views:** `gates/web/django/crowd/profile.py` —
   `ProfilePageView`,
   `ProfileAvatarPageView`,
+  `ProfileShadowbanPageView`,
   `ProfileConnectedUsersPageView`,
   `ProfileConnectedUserUpdateActionView`,
-  `ProfileConnectedUserDeleteActionView`
+  `ProfileConnectedUserDeleteActionView`,
+  `ProfileConnectedUserClaimLinkActionView`,
+  `ClaimPageView`
 - **Templates:**
   `templates/crowd/user/edit.html`,
-  `avatar.html`, `connected.html`
-- **DTOs:** `UserDTO`, `UserData`, `UserType`
+  `avatar.html`, `parties.html`,
+  `shadowbans.html`, `crowd/claim.html`
+- **Services:** `ProfileService` (self-profile
+  reads/updates, avatar, confirmed-participation
+  count), `CompanionsService` (connected-user CRUD),
+  `ClaimService` (issue/redeem claim links),
+  `ShadowbanService`
+- **DTOs:** `UserDTO`, `ConnectedUserDTO`,
+  `AvatarPageDTO`, `UserData`, `UserType`
   (`ACTIVE` / `CONNECTED` / `ANONYMOUS`)
 - **Repositories:** `UserRepository`,
-  `ConnectedUserRepository`
+  `ConnectedUserRepository`,
+  `ProfileStatsRepository`
 - **External integration:**
   `MembershipApiClient` (`links/ticket_api.py`)
   — fetches enrollment quotas; Gravatar
