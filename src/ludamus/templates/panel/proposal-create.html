@@ -37,9 +37,16 @@
                                 {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
                             </label>
                             {% if form.facilitator_ids.field.choices %}
-                                <div class="space-y-2 {% if form.facilitator_ids.errors %}border border-danger rounded-lg p-2{% endif %}">
+                                <input type="text"
+                                       id="facilitator-search"
+                                       placeholder="{% translate "Search by name…" %}"
+                                       autocomplete="off"
+                                       class="w-full border border-border rounded-lg px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                                <div id="facilitator-list"
+                                     class="space-y-2 {% if form.facilitator_ids.errors %}border border-danger rounded-lg p-2{% endif %}">
                                     {% for value, label in form.facilitator_ids.field.choices %}
-                                        <label class="flex items-center text-sm">
+                                        <label class="facilitator-row flex items-center text-sm"
+                                               data-name="{{ label|lower }}">
                                             <input type="checkbox"
                                                    name="facilitator_ids"
                                                    value="{{ value }}"
@@ -49,6 +56,10 @@
                                         </label>
                                     {% endfor %}
                                 </div>
+                                <p id="no-facilitators-found"
+                                   class="hidden text-sm text-foreground-muted mt-2">
+                                    {% translate "No facilitators match your search." %}
+                                </p>
                                 {% if form.facilitator_ids.errors %}
                                     <p class="mt-1 text-sm text-danger">{{ form.facilitator_ids.errors.0 }}</p>
                                 {% endif %}
@@ -160,5 +171,23 @@
                 </div>
             </div>
         </form>
+        <script>
+            (function() {
+                const search = document.getElementById('facilitator-search');
+                if (!search) return;
+                search.addEventListener('input', function() {
+                    const query = this.value.toLowerCase().trim();
+                    const rows = document.querySelectorAll('.facilitator-row');
+                    let visible = 0;
+                    rows.forEach(function(row) {
+                        const show = !query || (row.dataset.name || '').includes(query);
+                        row.classList.toggle('hidden', !show);
+                        if (show) visible++;
+                    });
+                    const noResults = document.getElementById('no-facilitators-found');
+                    if (noResults) noResults.classList.toggle('hidden', visible > 0);
+                });
+            })();
+        </script>
     {% endif %}
 {% endblock content %}
