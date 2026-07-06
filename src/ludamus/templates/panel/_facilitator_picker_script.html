@@ -1,0 +1,42 @@
+<script>
+    (function() {
+        const search = document.getElementById('facilitator-search');
+        if (!search) return;
+        const rows = Array.from(document.querySelectorAll('.facilitator-row'));
+        const noResults = document.getElementById('no-facilitators-found');
+        const noAssigned = document.getElementById('no-facilitators-assigned');
+        const capHint = document.getElementById('facilitator-cap-hint');
+        const CAP = 20;
+
+        function isChecked(row) {
+            const box = row.querySelector('input[type=checkbox]');
+            return box && box.checked;
+        }
+
+        function refresh() {
+            const query = search.value.toLowerCase().trim();
+            let assigned = 0,
+                matches = 0,
+                shown = 0;
+            rows.forEach(function(row) {
+                const checked = isChecked(row);
+                if (checked) assigned++;
+                const nameMatch = query && (row.dataset.name || '').includes(query);
+                let show = checked;
+                if (!checked && nameMatch) {
+                    matches++;
+                    if (shown < CAP) {
+                        show = true;
+                        shown++;
+                    }
+                }
+                row.classList.toggle('hidden', !show);
+            });
+            if (noAssigned) noAssigned.classList.toggle('hidden', !(assigned === 0 && !query));
+            if (noResults) noResults.classList.toggle('hidden', !(query && matches === 0));
+            if (capHint) capHint.classList.toggle('hidden', matches <= CAP);
+        }
+        search.addEventListener('input', refresh);
+        refresh();
+    })();
+</script>
