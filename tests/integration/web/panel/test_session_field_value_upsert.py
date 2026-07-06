@@ -22,6 +22,7 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
             order=0,
         )
         data = {
+            "category_id": session.category_id,
             "title": "Updated",
             "display_name": "Host",
             "participants_limit": 5,

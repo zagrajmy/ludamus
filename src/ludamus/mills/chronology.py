@@ -33,6 +33,8 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
     EventIntegrationCreateData,
     EventIntegrationDTO,
     EventIntegrationsRepositoryProtocol,
@@ -49,6 +51,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ProposalScheduledError,
     SessionPlacement,
     SessionPositionDTO,
     SourceQuestion,
@@ -80,6 +83,7 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SpaceDTO,
         SphereRepositoryProtocol,
+        TimeSlotDTO,
         TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
@@ -343,8 +347,8 @@ class TimetableService:
             self._uow.spaces.lock(placement.space_pk)
             self._clear_existing_assignment(session_pk, event_pk, user_pk)
             session = self._uow.sessions.read(session_pk)
-            if session.status != SessionStatus.PENDING:
-                msg = f"Session {session_pk} is not in PENDING status"
+            if session.status != SessionStatus.ACCEPTED:
+                msg = f"Session {session_pk} is not in ACCEPTED status"
                 raise ValueError(msg)
             event = self._uow.sessions.read_event(session_pk)
             self._uow.agenda_items.create(
@@ -356,7 +360,6 @@ class TimetableService:
                     "session_confirmed": event.auto_confirm_sessions,
                 }
             )
-            self._uow.sessions.update(session_pk, {"status": SessionStatus.SCHEDULED})
             log_data: ScheduleChangeLogData = {
                 "event_id": event.pk,
                 "session_id": session_pk,
@@ -376,7 +379,6 @@ class TimetableService:
             raise NotFoundError
         event = self._uow.sessions.read_event(session_pk)
         self._uow.agenda_items.delete(agenda_item.pk)
-        self._uow.sessions.update(session_pk, {"status": SessionStatus.PENDING})
         log_data: ScheduleChangeLogData = {
             "event_id": event.pk,
             "session_id": session_pk,
@@ -414,9 +416,6 @@ class TimetableService:
                 if agenda_item is None:
                     raise NotFoundError
                 self._uow.agenda_items.delete(agenda_item.pk)
-                self._uow.sessions.update(
-                    log.session_id, {"status": SessionStatus.PENDING}
-                )
             elif log.action == ScheduleChangeAction.UNASSIGN:
                 if (
                     log.old_space_id is None
@@ -426,8 +425,8 @@ class TimetableService:
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
                 session = self._uow.sessions.read(log.session_id)
-                if session.status != SessionStatus.PENDING:
-                    msg = f"Session {log.session_id} is not in PENDING status"
+                if session.status != SessionStatus.ACCEPTED:
+                    msg = f"Session {log.session_id} is not in ACCEPTED status"
                     raise ValueError(msg)
                 self._uow.agenda_items.create(
                     {
@@ -437,9 +436,6 @@ class TimetableService:
                         "end_time": log.old_end_time,
                         "session_confirmed": False,
                     }
-                )
-                self._uow.sessions.update(
-                    log.session_id, {"status": SessionStatus.SCHEDULED}
                 )
             else:
                 msg = f"Cannot revert action: {log.action}"
@@ -545,6 +541,55 @@ class SessionDeletionService:
         # scopes to the event (the alive-manager check can't see deleted rows).
         with self._transaction.atomic():
             self._sessions.restore(session_pk, event_pk)
+
+
+class ProposalStatusService:
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._agenda_items = agenda_items
+
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.PENDING
+        )
+
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ACCEPTED
+        )
+
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ON_HOLD
+        )
+
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None:
+        self._set_status(
+            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.REJECTED
+        )
+
+    def _set_status(
+        self, *, event_pk: int, session_pk: int, status: SessionStatus
+    ) -> None:
+        with self._transaction.atomic():
+            # Lock first, then re-check event membership under the lock so a
+            # concurrent request can't move the session to another event between
+            # the check and the write (TOCTOU). `lock` raises for missing/dead.
+            self._sessions.lock(session_pk)
+            require_session_in_event(self._sessions, session_pk, event_pk)
+            if (
+                status != SessionStatus.ACCEPTED
+                and self._agenda_items.read_by_session(session_pk) is not None
+            ):
+                raise ProposalScheduledError
+            self._sessions.update(session_pk, {"status": status})
 
 
 class ConflictDetectionService:
@@ -812,14 +857,10 @@ class TimetableOverviewService:
         result = []
         for track in tracks:
             sessions = self._uow.sessions.list_sessions_by_event(
-                event_pk, track_pk=track.pk
+                event_pk, {"track_pk": track.pk}
             )
-            accepted = [
-                s
-                for s in sessions
-                if s.status in {SessionStatus.PENDING, SessionStatus.SCHEDULED}
-            ]
-            scheduled = [s for s in sessions if s.status == SessionStatus.SCHEDULED]
+            accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
+            scheduled = [s for s in accepted if s.is_scheduled]
             accepted_count = len(accepted)
             scheduled_count = len(scheduled)
             progress_pct = (
@@ -909,11 +950,11 @@ def _diff_field_values(
     return changes
 
 
-def _core_comparisons(
+def _text_comparisons(
     old_session: SessionDTO, update: SessionUpdateData
 ) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
     # Keys are accessed literally (not in a loop) so the TypedDict / DTO field
-    # types stay statically known. cover_image is handled separately.
+    # types stay statically known.
     comparisons: list[tuple[str, ContentFieldValue, ContentFieldValue]] = []
     if "title" in update:
         comparisons.append(("title", old_session.title, update["title"]))
@@ -935,6 +976,18 @@ def _core_comparisons(
         comparisons.append(
             ("contact_email", old_session.contact_email, update["contact_email"])
         )
+    if "duration" in update:
+        comparisons.append(("duration", old_session.duration, update["duration"]))
+    return comparisons
+
+
+def _core_comparisons(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> list[tuple[str, ContentFieldValue, ContentFieldValue]]:
+    # cover_image is handled separately.
+    comparisons = _text_comparisons(old_session, update)
+    if "category_id" in update:
+        comparisons.append(("category", old_session.category_id, update["category_id"]))
     if "participants_limit" in update:
         comparisons.append(
             (
@@ -945,9 +998,104 @@ def _core_comparisons(
         )
     if "min_age" in update:
         comparisons.append(("min_age", old_session.min_age, update["min_age"]))
-    if "duration" in update:
-        comparisons.append(("duration", old_session.duration, update["duration"]))
     return comparisons
+
+
+def _time_slot_labels(slots: list[TimeSlotDTO]) -> list[str]:
+    return [f"{s.start_time.isoformat()} - {s.end_time.isoformat()}" for s in slots]
+
+
+def _append_m2m_change(
+    changes: list[ContentFieldChange], field: str, before: list[str], after: list[str]
+) -> None:
+    # M2M membership change rendered as a comma-joined name list (sorted so
+    # reordering alone isn't logged as a change). Identity-only, like the
+    # core-field diff.
+    old = ", ".join(sorted(before))
+    new = ", ".join(sorted(after))
+    if old != new:
+        changes.append({"field": field, "field_id": None, "old": old, "new": new})
+
+
+def _inverse_text_update(
+    *, update: SessionUpdateData, field: str, old: ContentFieldValue
+) -> bool:
+    if not isinstance(old, str):
+        return False
+    if field == "title":
+        update["title"] = old
+    elif field == "display_name":
+        update["display_name"] = old
+    elif field == "description":
+        update["description"] = old
+    elif field == "requirements":
+        update["requirements"] = old
+    elif field == "needs":
+        update["needs"] = old
+    elif field == "contact_email":
+        update["contact_email"] = old
+    elif field == "duration":
+        update["duration"] = old
+    else:
+        return False
+    return True
+
+
+def _inverse_core_update(
+    *, update: SessionUpdateData, field: str, old: ContentFieldValue
+) -> bool:
+    # Restores `field` to `old` in the update payload. Returns False for
+    # irreversible entries: the old cover-image binary is gone, and m2m
+    # assignments (facilitators/tracks/time_slots) are logged as display
+    # names, not ids.
+    if _inverse_text_update(update=update, field=field, old=old):
+        return True
+    if field == "category" and (old is None or isinstance(old, int)):
+        update["category_id"] = old
+        return True
+    if field == "participants_limit" and isinstance(old, int):
+        update["participants_limit"] = old
+        return True
+    if field == "min_age" and isinstance(old, int):
+        update["min_age"] = old
+        return True
+    return False
+
+
+def _inverse_field_value(
+    *, field_id: int, old: ContentFieldValue, session_id: int
+) -> SessionFieldValueData | None:
+    # A previously unanswered field was logged as None; restore it to "".
+    value = "" if old is None else old
+    # Dynamic answers are str | list[str] | bool; a plain int never appears.
+    if isinstance(value, bool) or not isinstance(value, int):
+        return SessionFieldValueData(
+            session_id=session_id, field_id=field_id, value=value
+        )
+    return None
+
+
+def build_inverse_content_edit(
+    changes: list[ContentFieldChange], session_id: int
+) -> SessionContentEditData | None:
+    # The inverse of a logged content change: every revertible entry set back
+    # to its `old` value. None when nothing in the change can be restored.
+    update: SessionUpdateData = {}
+    field_values: list[SessionFieldValueData] = []
+    for change in changes:
+        if (field_id := change["field_id"]) is None:
+            _inverse_core_update(
+                update=update, field=change["field"], old=change["old"]
+            )
+        elif (
+            field_value := _inverse_field_value(
+                field_id=field_id, old=change["old"], session_id=session_id
+            )
+        ) is not None:
+            field_values.append(field_value)
+    if not update and not field_values:
+        return None
+    return SessionContentEditData(update=update, field_values=field_values or None)
 
 
 def diff_session_content(
@@ -1017,11 +1165,34 @@ class SessionContentEditService:
                     for fv in old_values
                 ]
             )
+            m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
+                before = [
+                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                ]
                 self._sessions.set_facilitators(session_id, data.facilitator_ids)
+                after = [
+                    f.display_name for f in self._sessions.read_facilitators(session_id)
+                ]
+                _append_m2m_change(m2m_changes, "facilitators", before, after)
+            if data.track_ids is not None:
+                before = [t.name for t in self._sessions.read_tracks(session_id)]
+                self._sessions.set_session_tracks(session_id, data.track_ids)
+                after = [t.name for t in self._sessions.read_tracks(session_id)]
+                _append_m2m_change(m2m_changes, "tracks", before, after)
+            if data.time_slot_ids is not None:
+                before = _time_slot_labels(
+                    self._sessions.read_preferred_time_slots(session_id)
+                )
+                self._sessions.set_time_slots(session_id, data.time_slot_ids)
+                after = _time_slot_labels(
+                    self._sessions.read_preferred_time_slots(session_id)
+                )
+                _append_m2m_change(m2m_changes, "time_slots", before, after)
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )
+            changes.extend(m2m_changes)
             if changes:
                 log_data: ContentChangeLogData = {
                     "event_id": event_id,
@@ -1031,6 +1202,33 @@ class SessionContentEditService:
                 }
                 self._content_change_logs.create(log_data)
 
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None:
+        with self._transaction.atomic():
+            log = self._content_change_logs.read(log_pk)
+            if log.event_id != event_pk:
+                # The log belongs to another event — reject before reverting.
+                raise NotFoundError
+            # Lock the session row so concurrent reverts serialize: the
+            # latest-pk check and the inverse edit run under one transaction,
+            # so a second revert re-reads a now-stale latest_pk and is
+            # rejected instead of racing past the check (TOCTOU).
+            self._sessions.lock(log.session_id)
+            latest_pk = self._content_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
+            )
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                raise ContentChangeNotLatestError
+            data = build_inverse_content_edit(log.changes, log.session_id)
+            if data is None:
+                raise ContentChangeNotRevertibleError
+            # Route through apply() so the revert is itself audited as a
+            # content edit — its log row becomes the newest change.
+            self.apply(
+                session_id=log.session_id, event_id=event_pk, user_id=user_pk, data=data
+            )
+
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
         return self._content_change_logs.list_by_event(event_id)
 
@@ -1038,6 +1236,17 @@ class SessionContentEditService:
         # Render-time resolution of dynamic session-field labels (user content,
         # not UI text) so the log shows the field's current name.
         return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
+
+    def revertible_log_pks(self, event_id: int) -> set[int]:
+        # Rows offered a Revert button: the newest change per session, and only
+        # if at least one of its entries can actually be restored.
+        latest = set(self._content_change_logs.latest_pks_by_session(event_id).values())
+        return {
+            log.pk
+            for log in self._content_change_logs.list_by_event(event_id)
+            if log.pk in latest
+            and build_inverse_content_edit(log.changes, log.session_id) is not None
+        }
 
 
 class SessionSelfEditService:

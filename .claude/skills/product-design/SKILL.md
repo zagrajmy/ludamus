@@ -111,7 +111,7 @@ suite. Don't claim a box you didn't check.
       labels; focus order is sane.
 - [ ] **Copy.** All strings wrapped in `{% translate %}`; Polish terms match the
       table in copy.md; `mise run messages-check` passes.
-- [ ] **Linters.** `mise run ast-grep` and `mise run impeccable` pass; no new
+- [ ] **Linters.** `mise run lint:ast-grep` and `mise run lint:impeccable` pass; no new
       `--theme-`/`--color-` inline vars (use Tailwind utilities).
 - [ ] **Viewports.** Checked compact and wide. Long content / large values don't
       break the layout.

@@ -31,6 +31,7 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
     icon: str | None = None,
     full_width_mobile: bool | None = None,
     onclick: str | None = None,
+    title: str | None = None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
 
@@ -41,6 +42,9 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
     form-submit buttons that should stretch on mobile but rarely desired for
     link buttons in toolbars. Defaults to ``href is None``: form-submit
     buttons stretch, link buttons don't.
+
+    ``title`` renders a native tooltip — mainly for explaining *why* a
+    disabled button is disabled.
 
     Returns:
         HTML string of the rendered button.
@@ -65,31 +69,41 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
         else ""
     )
     body = format_html("{}{}", mark_safe(icon_html), text)  # noqa: S308
+    title_attr = format_html(' title="{}"', title) if title is not None else ""
 
     if href is not None:
         if disabled:
             return format_html(
-                '<a class="{}" aria-disabled="true" tabindex="-1">{}</a>',
+                '<a class="{}" aria-disabled="true" tabindex="-1"{}>{}</a>',
                 class_str,
+                title_attr,
                 body,
             )
-        return format_html('<a href="{}" class="{}">{}</a>', href, class_str, body)
+        return format_html(
+            '<a href="{}" class="{}"{}>{}</a>', href, class_str, title_attr, body
+        )
 
     if disabled:
         return format_html(
-            '<button type="{}" class="{}" disabled>{}</button>',
+            '<button type="{}" class="{}" disabled{}>{}</button>',
             button_type,
             class_str,
+            title_attr,
             body,
         )
     if onclick is not None:
         return format_html(
-            '<button type="{}" class="{}" onclick="{}">{}</button>',
+            '<button type="{}" class="{}" onclick="{}"{}>{}</button>',
             button_type,
             class_str,
             onclick,
+            title_attr,
             body,
         )
     return format_html(
-        '<button type="{}" class="{}">{}</button>', button_type, class_str, body
+        '<button type="{}" class="{}"{}>{}</button>',
+        button_type,
+        class_str,
+        title_attr,
+        body,
     )

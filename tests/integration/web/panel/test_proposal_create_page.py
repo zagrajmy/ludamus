@@ -6,8 +6,9 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ProposalCategory, Session
+from ludamus.adapters.db.django.models import Facilitator, ProposalCategory, Session
 from ludamus.pacts import EventDTO
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -88,6 +89,47 @@ class TestProposalCreatePageView:
             context_data={**_base_context(event), "form": ANY},
         )
 
+    def test_get_renders_facilitator_checkboxes_when_event_has_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'name="facilitator_ids"' in content
+        assert f'value="{facilitator.pk}"' in content
+        assert "Alice" in content
+
+    def test_post_renders_facilitator_error_with_checkboxes(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "category_id": category.pk,
+                "title": "Missing Facilitator",
+                "display_name": "Test Host",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["form"].errors
+        content = response.content.decode()
+        assert 'name="facilitator_ids"' in content
+        assert response.context["form"]["facilitator_ids"].errors[0] in content
+
     # POST tests
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
@@ -129,6 +171,9 @@ class TestProposalCreatePageView:
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
         Session.objects.create(
             event=event,
             category=category,
@@ -143,12 +188,11 @@ class TestProposalCreatePageView:
         response = authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "My New Session",
                 "display_name": "Test Host",
                 "description": "",
-                "requirements": "",
-                "needs": "",
                 "contact_email": "",
                 "participants_limit": "",
                 "min_age": "",
@@ -156,17 +200,57 @@ class TestProposalCreatePageView:
             },
         )
 
+        new_session = Session.objects.get(title="My New Session", status="pending")
         assert_response(
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Proposal created successfully.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
         )
-        assert Session.objects.filter(title="My New Session", status="pending").exists()
-        new_session = Session.objects.get(title="My New Session", status="pending")
         assert new_session.slug != "my-new-session"
 
-    def test_post_creates_session_and_redirects(
+    def test_post_creates_session_with_facilitator_and_redirects(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "My New Session",
+                "display_name": "Test Host",
+                "description": "A great session",
+                "contact_email": "",
+                "participants_limit": "",
+                "min_age": "",
+                "duration": "",
+            },
+        )
+
+        new_session = Session.objects.get(title="My New Session", status="pending")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert list(new_session.facilitators.values_list("pk", flat=True)) == [
+            facilitator.pk
+        ]
+
+    def test_post_without_facilitator_shows_error(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -176,25 +260,55 @@ class TestProposalCreatePageView:
             self.get_url(event),
             data={
                 "category_id": category.pk,
-                "title": "My New Session",
+                "title": "No Facilitator",
                 "display_name": "Test Host",
-                "description": "A great session",
-                "requirements": "",
-                "needs": "",
-                "contact_email": "",
-                "participants_limit": "",
-                "min_age": "",
-                "duration": "",
             },
         )
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Proposal created successfully.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
+            HTTPStatus.OK,
+            template_name="panel/proposal-create.html",
+            context_data={**_base_context(event), "form": ANY},
         )
-        assert Session.objects.filter(title="My New Session", status="pending").exists()
+        assert response.context["form"].errors
+        assert not Session.objects.filter(title="No Facilitator").exists()
+
+    def test_post_ignores_facilitator_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        other_event = EventFactory(sphere=sphere)
+        foreign = Facilitator.objects.create(
+            event=other_event, display_name="Bob", slug="bob", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [foreign.pk],
+                "category_id": category.pk,
+                "title": "Foreign Facilitator",
+                "display_name": "Test Host",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-create.html",
+            context_data={
+                **_base_context(event),
+                "events": [
+                    EventDTO.model_validate(other_event),
+                    EventDTO.model_validate(event),
+                ],
+                "form": ANY,
+            },
+        )
+        assert response.context["form"].errors
+        assert not Session.objects.filter(title="Foreign Facilitator").exists()
 
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event

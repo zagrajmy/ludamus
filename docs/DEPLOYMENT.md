@@ -15,7 +15,7 @@ mise install
 
 # 3. Install Python dependencies
 #    Re-run after pulling to sync lockfile changes
-mise run p install
+mise exec -- poetry install
 
 # 4. Run database migrations (if any new ones)
 mise run dj migrate
@@ -213,7 +213,7 @@ mise run dc prod down         # Stop production
 
 # Local development
 mise run start                # Django dev server + Tailwind watch (:8000)
-mise run test                 # Run all tests
+mise run test:py              # Run all tests
 mise run check                # Format + lint (black, ruff, mypy, pylint, etc.)
 mise run dj <command>         # Run any django-admin command
 mise run build-frontend       # Build production CSS + JS

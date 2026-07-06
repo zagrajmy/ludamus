@@ -14,7 +14,7 @@ which is what makes the suite safe to run with parallel workers.
 Run after ``bootstrap_data.py`` and ``bootstrap_facilitators.py``.
 
 Usage:
-    mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
+    mise run test:e2e:boot tests/e2e/scripts/bootstrap_timetable.py
 """
 
 from __future__ import annotations
@@ -182,7 +182,7 @@ def main() -> None:
             "duration": "PT1H",
             "participants_limit": 6,
             "min_age": 0,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -201,7 +201,7 @@ def main() -> None:
             "duration": "PT2H",
             "participants_limit": 4,
             "min_age": 12,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -220,7 +220,7 @@ def main() -> None:
             "duration": "PT1H30M",
             "participants_limit": 8,
             "min_age": 0,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )

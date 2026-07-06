@@ -5,6 +5,7 @@ service depends on these ports (repository, notifier, scheduler) so the
 promotion / offer-lifecycle decisions stay unit-testable with fakes.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Protocol
 
@@ -15,6 +16,13 @@ from ludamus.pacts.legacy import PromotionMode
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.legacy import (
+        EnrollmentConfigRepositoryProtocol,
+        EventDTO,
+        TicketAPIProtocol,
+        VirtualEnrollmentConfig,
+    )
     from ludamus.pacts.party import HeldSeatNotification
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
@@ -233,6 +241,77 @@ class UserNotifierProtocol(Protocol):
 
 class OfferExpirySchedulerProtocol(Protocol):
     def schedule_expiry(self, *, participation_id: int, run_at: datetime) -> None: ...
+
+
+class GuestSeatData(BaseModel):
+    # The CONFIRMED row a +N headcount guest materialises as.
+    session_id: int
+    user_id: int
+    party_id: int | None
+    enrolled_by_id: int
+
+
+class EnrollmentParticipationRepositoryProtocol(Protocol):
+    @staticmethod
+    def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]: ...
+
+    @staticmethod
+    def create_confirmed(seat: GuestSeatData) -> None: ...
+
+
+@dataclass(frozen=True)
+class EnrollmentRepos:
+    # The repos the enrollment service reads rosters and writes guest seats
+    # through; `ticket_api` rides along because membership lookups always
+    # accompany the config reads. Mirrors the `ImportRepos` bundle the
+    # submissions services use to keep a many-repo constructor within the
+    # argument-count limit.
+    users: UserRepositoryProtocol
+    anonymous_users: UserRepositoryProtocol
+    enrollment_configs: EnrollmentConfigRepositoryProtocol
+    participations: EnrollmentParticipationRepositoryProtocol
+    ticket_api: TicketAPIProtocol
+
+
+class EnrollmentServiceProtocol(Protocol):
+    def read_viewer(self, slug: str) -> UserDTO: ...
+
+    def read_users(self, pks: list[int]) -> list[UserDTO]: ...
+
+    def virtual_config(
+        self, *, event: EventDTO, user_email: str
+    ) -> VirtualEnrollmentConfig | None: ...
+
+    def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool: ...
+
+    def can_enroll_users(
+        self,
+        *,
+        users: list[UserDTO],
+        event: EventDTO,
+        virtual_config: VirtualEnrollmentConfig,
+        users_to_enroll: list[UserDTO],
+    ) -> bool: ...
+
+    def get_used_slots(self, *, users: list[UserDTO], event: EventDTO) -> int: ...
+
+    def get_vc_available_slots(
+        self,
+        *,
+        users: list[UserDTO],
+        event: EventDTO,
+        virtual_config: VirtualEnrollmentConfig,
+    ) -> int: ...
+
+    def create_guests(
+        self,
+        *,
+        session_id: int,
+        count: int,
+        party_id: int | None,
+        enrolled_by_id: int,
+        viewer_name: str,
+    ) -> None: ...
 
 
 class WaitlistPromotionServiceProtocol(Protocol):

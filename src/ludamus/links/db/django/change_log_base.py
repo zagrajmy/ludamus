@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+
+    from ludamus.adapters.db.django.models import ContentChangeLog, ScheduleChangeLog
+
+    ChangeLogQuerySet = QuerySet[ContentChangeLog] | QuerySet[ScheduleChangeLog]
 
 
 class _SessionLike(Protocol):
@@ -38,3 +45,16 @@ def base_log_fields(log: _LoggableChange) -> dict[str, object]:
         "user_id": log.user_id,
         "user_name": log.user.name if log.user else "",
     }
+
+
+def latest_log_pks_by_session(qs: ChangeLogQuerySet) -> dict[int, int]:
+    latest: dict[int, int] = {}
+    for session_id, pk in qs.order_by(
+        "session_id", "-creation_time", "-pk"
+    ).values_list("session_id", "pk"):
+        latest.setdefault(session_id, pk)
+    return latest
+
+
+def latest_log_pk(qs: ChangeLogQuerySet) -> int | None:
+    return qs.order_by("-creation_time", "-pk").values_list("pk", flat=True).first()
