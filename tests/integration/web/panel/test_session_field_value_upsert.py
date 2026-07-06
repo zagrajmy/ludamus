@@ -1,6 +1,10 @@
 from http import HTTPStatus
 
-from ludamus.adapters.db.django.models import SessionField, SessionFieldValue
+from ludamus.adapters.db.django.models import (
+    SessionField,
+    SessionFieldRequirement,
+    SessionFieldValue,
+)
 from tests.integration.web.panel.test_proposal_edit_page import (
     TestProposalEditPageView,
     _make_session,
@@ -20,6 +24,9 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
             slug="adult",
             field_type="checkbox",
             order=0,
+        )
+        SessionFieldRequirement.objects.create(
+            category=session.category, field=field, is_required=False, order=0
         )
         data = {
             "category_id": session.category_id,

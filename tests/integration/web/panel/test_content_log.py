@@ -9,6 +9,7 @@ from ludamus.adapters.db.django.models import (
     FacilitatorChangeLog,
     PersonalDataField,
     SessionField,
+    SessionFieldRequirement,
 )
 from tests.integration.conftest import SessionFactory
 from tests.integration.utils import assert_response
@@ -298,6 +299,9 @@ class TestContentLogRecordsEdits:
             slug="system",
             field_type="text",
             order=0,
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False, order=0
         )
 
         authenticated_client.post(

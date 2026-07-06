@@ -52,6 +52,7 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         SessionDTO,
         SessionFieldDTO,
+        SessionFieldValueDTO,
         TimeSlotDTO,
         TrackDTO,
     )
@@ -83,6 +84,13 @@ def _duration_choices(
     if current_value and current_value not in durations:
         durations.append(current_value)
     return [(iso, format_duration(iso)) for iso in durations]
+
+
+def _field_visible(*, field_pk: int, value: object, configured_ids: set[int]) -> bool:
+    # A session field shows on the detail/edit views when the proposal's
+    # category marks it required-or-optional, or when it already holds a value
+    # (so imported/legacy answers stay visible and survive a save).
+    return field_pk in configured_ids or bool(value)
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -191,6 +199,22 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _visible_field_values(self, session: SessionDTO) -> list[SessionFieldValueDTO]:
+        configured: set[int] = set()
+        if session.category_id is not None:
+            configured = set(
+                self.request.di.uow.proposal_categories.get_session_field_requirements(
+                    session.category_id
+                )
+            )
+        return [
+            fv
+            for fv in self.request.di.uow.sessions.read_field_values(session.pk)
+            if _field_visible(
+                field_pk=fv.field_id, value=fv.value, configured_ids=configured
+            )
+        ]
+
     def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -207,7 +231,7 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        field_values = self.request.di.uow.sessions.read_field_values(proposal_id)
+        field_values = self._visible_field_values(session)
         assigned_facilitators = self.request.di.uow.sessions.read_facilitators(
             proposal_id
         )
@@ -414,8 +438,21 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         if self.request.POST.get("session_fields_submitted") != "1":
             return None
         event_fields = self.request.di.uow.session_fields.list_by_event(event_pk)
+        session = self.request.di.uow.sessions.read(session_pk)
+        configured = self._configured_field_ids(session.category_id)
+        existing = self.request.di.uow.sessions.read_field_values(session_pk)
+        values_by_slug = {fv.field_slug: fv.value for fv in existing}
         field_entries: list[SessionFieldValueData] = []
         for field in event_fields:
+            # Only persist visible fields, so a save never stamps empty rows on
+            # fields the proposal's category doesn't use (and never wipes a
+            # hidden legacy value the form didn't render).
+            if not _field_visible(
+                field_pk=field.pk,
+                value=values_by_slug.get(field.slug),
+                configured_ids=configured,
+            ):
+                continue
             key = f"session_field_{field.slug}"
             if field.field_type == "checkbox":
                 value: str | list[str] | bool = self.request.POST.get(key) == "true"
@@ -432,13 +469,32 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             )
         return field_entries
 
+    def _configured_field_ids(self, category_id: int | None) -> set[int]:
+        if category_id is None:
+            return set()
+        return set(
+            self.request.di.uow.proposal_categories.get_session_field_requirements(
+                category_id
+            )
+        )
+
     def _get_session_fields(
         self, event_pk: int, proposal_id: int
     ) -> list[tuple[SessionFieldDTO, str | list[str] | bool | None]]:
         fields = self.request.di.uow.session_fields.list_by_event(event_pk)
         existing = self.request.di.uow.sessions.read_field_values(proposal_id)
         values_by_slug = {fv.field_slug: fv.value for fv in existing}
-        return [(field, values_by_slug.get(field.slug)) for field in fields]
+        session = self.request.di.uow.sessions.read(proposal_id)
+        configured = self._configured_field_ids(session.category_id)
+        return [
+            (field, values_by_slug.get(field.slug))
+            for field in fields
+            if _field_visible(
+                field_pk=field.pk,
+                value=values_by_slug.get(field.slug),
+                configured_ids=configured,
+            )
+        ]
 
     def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)

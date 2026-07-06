@@ -18,6 +18,7 @@ from ludamus.adapters.db.django.models import (
     Session,
     SessionField,
     SessionFieldOption,
+    SessionFieldRequirement,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
@@ -1168,6 +1169,9 @@ class TestProposalEditPageView:
             field_type="checkbox",
             order=0,
         )
+        SessionFieldRequirement.objects.create(
+            category=session.category, field=field, is_required=False, order=0
+        )
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1199,6 +1203,9 @@ class TestProposalEditPageView:
             is_multiple=True,
             order=0,
         )
+        SessionFieldRequirement.objects.create(
+            category=session.category, field=field, is_required=False, order=0
+        )
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1229,6 +1236,9 @@ class TestProposalEditPageView:
             field_type="text",
             allow_custom=True,
             order=0,
+        )
+        SessionFieldRequirement.objects.create(
+            category=session.category, field=field, is_required=False, order=0
         )
 
         authenticated_client.post(
@@ -1326,6 +1336,77 @@ class TestProposalEditPageView:
         assert 'name="session_field_notes"' in html
         assert 'maxlength="99"' in html
         assert 'name="session_field_notes_custom"' in html
+
+    def test_get_shows_only_configured_or_filled_session_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        required = SessionField.objects.create(
+            event=event,
+            name="Req",
+            question="?",
+            slug="req",
+            field_type="text",
+            order=0,
+        )
+        SessionField.objects.create(
+            event=event,
+            name="Orphan",
+            question="?",
+            slug="orphan",
+            field_type="text",
+            order=1,
+        )
+        filled = SessionField.objects.create(
+            event=event,
+            name="Filled",
+            question="?",
+            slug="filled",
+            field_type="text",
+            order=2,
+        )
+        SessionFieldRequirement.objects.create(
+            category=session.category, field=required, is_required=True, order=0
+        )
+        SessionFieldValue.objects.create(session=session, field=filled, value="kept")
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        slugs = [field.slug for field, _ in response.context["session_fields"]]
+        assert slugs == ["req", "filled"]
+
+    def test_post_does_not_stamp_empty_rows_on_hidden_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        orphan = SessionField.objects.create(
+            event=event,
+            name="Orphan",
+            question="?",
+            slug="orphan",
+            field_type="text",
+            order=0,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_fields_submitted": "1",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=orphan
+        ).exists()
 
     def test_partial_post_without_session_fields_marker_preserves_field_values(
         self, authenticated_client, active_user, sphere, event
