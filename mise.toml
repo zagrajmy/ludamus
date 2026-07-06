@@ -68,7 +68,7 @@ run = [
 
 [tasks."lint:ast-grep"]
 description = "Run structural code pattern checks via ast-grep"
-run = "ast-grep scan --error src"
+run = "ast-grep scan --error src tests"
 
 [tasks."lint:codespell"]
 description = "Find typos in source and test files"
