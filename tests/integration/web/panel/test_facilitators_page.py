@@ -38,6 +38,7 @@ def _base_context(event):
         "active_nav": "facilitators",
         "filter_search": "",
         "filter_accreditation": None,
+        "filter_flagged": False,
         "filter_sort": "name",
         "accreditation_types": [(t.value, t.label) for t in AccreditationType],
         "accreditation_labels": {t.value: t.label for t in AccreditationType},
@@ -242,6 +243,24 @@ class TestFacilitatorsPageView:
             "Alice",
         ]
 
+    def test_flagged_filter(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Flagged",
+            slug="flagged",
+            user=None,
+            flagged_for_deletion=True,
+        )
+        Facilitator.objects.create(
+            event=event, display_name="Normal", slug="normal", user=None
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"flagged": "true"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [f.display_name for f in response.context["facilitators"]] == ["Flagged"]
+
     def test_paginates_facilitators(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -258,3 +277,109 @@ class TestFacilitatorsPageView:
         assert page1.context["page_obj"].paginator.num_pages == _TOTAL_PAGES
         assert len(page2.context["facilitators"]) == _LAST_PAGE_COUNT
         assert page2.context["page_obj"].number == _TOTAL_PAGES
+
+
+class TestFacilitatorActions:
+    """Flag / unflag / mark-as-guest POST actions."""
+
+    @staticmethod
+    def _facilitator(event, **kwargs):
+        defaults = {"display_name": "Alice", "slug": "alice", "user": None}
+        defaults.update(kwargs)
+        return Facilitator.objects.create(event=event, **defaults)
+
+    @staticmethod
+    def _url(name, event, facilitator):
+        return reverse(
+            name, kwargs={"slug": event.slug, "facilitator_slug": facilitator.slug}
+        )
+
+    def test_flag(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-flag", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator flagged for deletion.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.flagged_for_deletion is True
+
+    def test_unflag(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event, flagged_for_deletion=True)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unflag", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator unflagged.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.flagged_for_deletion is False
+
+    def test_mark_guest(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-mark-guest", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator marked as guest.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == AccreditationType.GUEST
+
+    def test_flag_preserves_next(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+        next_url = (
+            reverse("panel:facilitators", kwargs={"slug": event.slug})
+            + "?flagged=true&sort=-name"
+        )
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-flag", event, facilitator), {"next": next_url}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator flagged for deletion.")],
+            url=next_url,
+        )
+
+    def test_flag_missing_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:facilitator-flag",
+            kwargs={"slug": event.slug, "facilitator_slug": "ghost"},
+        )
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )

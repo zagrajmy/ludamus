@@ -789,6 +789,9 @@ class Facilitator(models.Model):
     accreditation_type = models.CharField(
         max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
     )
+    # Reversible triage marker: organizers flag likely duplicates/removals, then
+    # act on them (merge or delete) as a separate deliberate step.
+    flagged_for_deletion = models.BooleanField(default=False)
 
     class Meta:
         db_table = "facilitator"

@@ -905,12 +905,19 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if accreditation := filters.get("accreditation"):
             qs = qs.filter(accreditation_type=accreditation)
 
+        if filters.get("flagged"):
+            qs = qs.filter(flagged_for_deletion=True)
+
         sort = filters.get("sort") or "name"
         field = _FACILITATOR_SORT_FIELDS.get(sort.lstrip("-"), "display_name")
         order = f"-{field}" if sort.startswith("-") else field
         qs = qs.order_by(order, "display_name", "pk")
 
         return [FacilitatorListItemDTO.model_validate(f) for f in qs]
+
+    @staticmethod
+    def set_flag(pk: int, *, flagged: bool) -> None:
+        Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
 
     @staticmethod
     def delete(pk: int) -> None:

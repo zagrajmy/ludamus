@@ -352,6 +352,21 @@ urlpatterns = [
         name="facilitator-edit",
     ),
     path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/flag",
+        facilitators.FacilitatorFlagActionView.as_view(),
+        name="facilitator-flag",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unflag",
+        facilitators.FacilitatorUnflagActionView.as_view(),
+        name="facilitator-unflag",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",
+        facilitators.FacilitatorMarkGuestActionView.as_view(),
+        name="facilitator-mark-guest",
+    ),
+    path(
         "event/<slug:slug>/discounts/",
         discounts.DiscountsPageView.as_view(),
         name="discounts",

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 20:16+0200\n"
+"POT-Creation-Date: 2026-07-06 20:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1285,6 +1285,18 @@ msgstr ""
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator flagged for deletion."
+msgstr "Twórca programu oznaczony do usunięcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator unflagged."
+msgstr "Usunięto oznaczenie do usunięcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator marked as guest."
+msgstr "Twórca programu oznaczony jako gość."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -5788,6 +5800,10 @@ msgid "All accreditations"
 msgstr "Wszystkie akredytacje"
 
 #: src/ludamus/templates/panel/facilitators.html
+msgid "Flagged for deletion only"
+msgstr "Tylko oznaczeni do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
@@ -5799,8 +5815,24 @@ msgid "Clear"
 msgstr "Wyczyść"
 
 #: src/ludamus/templates/panel/facilitators.html
+msgid "Flagged"
+msgstr "Oznaczony"
+
+#: src/ludamus/templates/panel/facilitators.html
 msgid "Linked"
 msgstr "Powiązany"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Mark as guest"
+msgstr "Oznacz jako gościa"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Remove deletion flag"
+msgstr "Usuń oznaczenie do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Flag for deletion"
+msgstr "Oznacz do usunięcia"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html

@@ -8,7 +8,10 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.adapters.db.django.models import AccreditationType
@@ -22,13 +25,16 @@ from ludamus.gates.web.django.forms import FacilitatorEditForm, FacilitatorForm
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
+    FacilitatorDTO,
     FacilitatorMergeError,
+    FacilitatorUpdateData,
     HostPersonalDataEntry,
     NotFoundError,
 )
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts import PersonalDataFieldDTO
 
@@ -54,10 +60,16 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             else None
         )
         sort = self.request.GET.get("sort", "").strip() or "name"
+        flagged = self.request.GET.get("flagged") == "true"
 
         all_facilitators = self.request.di.uow.facilitators.list_by_event(
             current_event.pk,
-            {"search": search, "accreditation": accreditation, "sort": sort},
+            {
+                "search": search,
+                "accreditation": accreditation,
+                "flagged": flagged or None,
+                "sort": sort,
+            },
         )
         page_obj = Paginator(all_facilitators, _FACILITATORS_PAGE_SIZE).get_page(
             self.request.GET.get("page")
@@ -68,6 +80,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["page_obj"] = page_obj
         context["filter_search"] = search or ""
         context["filter_accreditation"] = accreditation
+        context["filter_flagged"] = flagged
         context["filter_sort"] = sort
         context["accreditation_types"] = [(t.value, t.label) for t in AccreditationType]
         context["accreditation_labels"] = {t.value: t.label for t in AccreditationType}
@@ -349,3 +362,74 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Facilitators merged successfully."))
         return redirect("panel:facilitators", slug=slug)
+
+
+class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
+    """Shared POST handler for single-facilitator triage actions."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+    success_message: str | _StrPromise = ""
+
+    def _apply(self, facilitator: FacilitatorDTO) -> None:
+        raise NotImplementedError
+
+    def post(
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
+    ) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            facilitator = self.request.di.uow.facilitators.read_by_event_and_slug(
+                current_event.pk, facilitator_slug
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitators", slug=slug)
+
+        self._apply(facilitator)
+        messages.success(self.request, self.success_message)
+        return redirect(self._safe_next(slug))
+
+    def _safe_next(self, slug: str) -> str:
+        next_url = self.request.POST.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={self.request.get_host()}
+        ):
+            return next_url
+        return reverse("panel:facilitators", kwargs={"slug": slug})
+
+
+class FacilitatorFlagActionView(_FacilitatorActionView):
+    """Flag a facilitator for deletion (POST only)."""
+
+    success_message = gettext_lazy("Facilitator flagged for deletion.")
+
+    def _apply(self, facilitator: FacilitatorDTO) -> None:
+        self.request.di.uow.facilitators.set_flag(facilitator.pk, flagged=True)
+
+
+class FacilitatorUnflagActionView(_FacilitatorActionView):
+    """Clear a facilitator's deletion flag (POST only)."""
+
+    success_message = gettext_lazy("Facilitator unflagged.")
+
+    def _apply(self, facilitator: FacilitatorDTO) -> None:
+        self.request.di.uow.facilitators.set_flag(facilitator.pk, flagged=False)
+
+
+class FacilitatorMarkGuestActionView(_FacilitatorActionView):
+    """Set a facilitator's accreditation to guest (POST only)."""
+
+    success_message = gettext_lazy("Facilitator marked as guest.")
+
+    def _apply(self, facilitator: FacilitatorDTO) -> None:
+        # ponytail: quick accreditation set via repo.update; skips the
+        # FacilitatorChangeLog the full edit form records. Fine for a one-click
+        # tag — use Edit for a logged, full change.
+        self.request.di.uow.facilitators.update(
+            facilitator.pk,
+            FacilitatorUpdateData(accreditation_type=AccreditationType.GUEST.value),
+        )

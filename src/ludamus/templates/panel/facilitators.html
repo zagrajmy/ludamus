@@ -28,7 +28,7 @@
 {% block content %}
     <div class="p-4">
         {% if current_event %}
-            {% if facilitators or filter_search or filter_accreditation %}
+            {% if facilitators or filter_search or filter_accreditation or filter_flagged %}
                 <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
                     <form method="get" class="flex flex-wrap gap-4 items-end">
                         {% if filter_sort and filter_sort != "name" %}
@@ -63,6 +63,15 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <div class="flex items-center gap-2 pb-2">
+                            <input type="checkbox"
+                                   id="filter-flagged"
+                                   name="flagged"
+                                   value="true"
+                                   {% if filter_flagged %}checked{% endif %}
+                                   class="filter-input rounded border-border">
+                            <label for="filter-flagged" class="text-sm text-foreground-muted">{% translate "Flagged for deletion only" %}</label>
+                        </div>
                         <div class="flex items-center">
                             <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
                             <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
@@ -91,11 +100,16 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for facilitator in facilitators %}
-                        <tr class="hover:bg-bg-tertiary">
+                        <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                                 <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                    class="text-primary hover:text-primary/80"
                                    title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
+                                {% if facilitator.flagged_for_deletion %}
+                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
+                                        {% translate "Flagged" %}
+                                    </span>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
                                 {% if facilitator.user_id %}
@@ -109,11 +123,48 @@
                                 {{ accreditation_labels|get_item:facilitator.accreditation_type }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                   class="text-primary hover:text-primary/80 inline-flex items-center">
-                                    {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                    {% translate "Edit" %}
-                                </a>
+                                <div class="inline-flex items-center gap-3 justify-end">
+                                    {% if facilitator.accreditation_type != "guest" %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Mark as guest" %}"
+                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                {% icon "user-plus" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    {% if facilitator.flagged_for_deletion %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-unflag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Remove deletion flag" %}"
+                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                {% icon "arrow-uturn-left" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-flag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Flag for deletion" %}"
+                                                    class="text-foreground-muted hover:text-danger inline-flex items-center">
+                                                {% icon "flag" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                       class="text-primary hover:text-primary/80 inline-flex items-center">
+                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                        {% translate "Edit" %}
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}
@@ -138,7 +189,7 @@
                     </div>
                 </div>
             {% endif %}
-        {% elif filter_search or filter_accreditation %}
+        {% elif filter_search or filter_accreditation or filter_flagged %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
                 <a href="{% url 'panel:facilitators' slug=current_event.slug %}"

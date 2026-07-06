@@ -100,6 +100,7 @@ class FacilitatorListItemDTO(BaseModel):
 
     accreditation_type: str
     display_name: str
+    flagged_for_deletion: bool = False
     pk: int
     session_count: int
     slug: str
@@ -109,6 +110,7 @@ class FacilitatorListItemDTO(BaseModel):
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     accreditation: str | None
+    flagged: bool | None
     sort: str | None
 
 
@@ -1283,6 +1285,8 @@ class FacilitatorRepositoryProtocol(Protocol):
     def list_by_event(
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]: ...
+    @staticmethod
+    def set_flag(pk: int, *, flagged: bool) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
