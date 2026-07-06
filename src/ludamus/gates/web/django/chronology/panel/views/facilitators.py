@@ -253,14 +253,13 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                     value=value,
                 )
             )
-        if entries:
-            self.request.services.personal_data_field_values.update_facilitator(
-                event_id=current_event.pk,
-                facilitator_id=facilitator.pk,
-                accreditation_type=form.cleaned_data["accreditation_type"],
-                entries=entries,
-                user_id=self.request.context.current_user_id,
-            )
+        self.request.services.personal_data_field_values.update_facilitator(
+            event_id=current_event.pk,
+            facilitator_id=facilitator.pk,
+            accreditation_type=form.cleaned_data["accreditation_type"],
+            entries=entries,
+            user_id=self.request.context.current_user_id,
+        )
 
         messages.success(self.request, _("Facilitator updated successfully."))
         return redirect(
