@@ -14,6 +14,7 @@ from ludamus.adapters.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories.chronology import event_dto
+from ludamus.links.db.django.repositories.slugs import generate_unique_slug
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
@@ -136,7 +137,16 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
-        session.restore()
+        # The unique-slug constraint is alive-only, so a live session may have
+        # taken this slug while it was soft-deleted. Re-slug against the live
+        # rows before restoring, or the restore would raise IntegrityError.
+        session.slug = generate_unique_slug(
+            queryset=Session.objects.filter(category__event_id=event_pk),
+            base_slug=session.slug,
+            exclude_pk=session.pk,
+        )
+        session.deleted_at = None
+        session.save(update_fields=["slug", "deleted_at"])
 
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]:

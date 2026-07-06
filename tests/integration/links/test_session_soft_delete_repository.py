@@ -89,6 +89,39 @@ class TestSessionRepositoryRestore:
         with pytest.raises(NotFoundError):
             SessionRepository.restore(session.pk, other_category.event.pk)
 
+    def test_restore_reslugs_when_slug_taken_by_live_session(self):
+        category = ProposalCategoryFactory()
+        session = SessionFactory(category=category, slug="shared")
+        SessionRepository.soft_delete(session.pk)
+        # A live session reclaims the slug while the original is soft-deleted.
+        live = SessionFactory(category=category, slug="shared")
+
+        SessionRepository.restore(session.pk, category.event.pk)
+
+        restored = Session.objects.get(pk=session.pk)
+        assert restored.deleted_at is None
+        assert restored.slug != "shared"
+        assert restored.slug.startswith("shared-")
+        assert Session.objects.get(pk=live.pk).slug == "shared"
+
+
+class TestSessionSlugConstraint:
+    def test_new_session_reuses_slug_of_soft_deleted(self):
+        category = ProposalCategoryFactory()
+        dead = SessionFactory(category=category, slug="reused")
+        SessionRepository.soft_delete(dead.pk)
+
+        # No IntegrityError: the alive-only constraint ignores the dead row.
+        live = SessionFactory(category=category, slug="reused")
+
+        assert live.pk != dead.pk
+        assert (
+            Session.objects.filter(
+                category__event=category.event, slug="reused"
+            ).count()
+            == 1
+        )
+
 
 class TestSessionRepositoryListDeletedByEvent:
     def test_returns_only_deleted_sessions_for_event(self):

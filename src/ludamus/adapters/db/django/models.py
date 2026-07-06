@@ -903,7 +903,9 @@ class Session(SoftDeleteModel):
         db_table = "session"
         constraints = (
             models.UniqueConstraint(
-                fields=["slug", "event"], name="session_unique_slug_in_event"
+                fields=["slug", "event"],
+                condition=Q(deleted_at__isnull=True),
+                name="session_unique_slug_in_event",
             ),
             models.CheckConstraint(
                 condition=Q(min_age__gte=0, min_age__lte=80),
