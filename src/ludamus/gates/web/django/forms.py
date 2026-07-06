@@ -493,7 +493,10 @@ class SessionEditForm(forms.Form):
 
 
 def create_proposal_form(
-    categories: list[tuple[int, str]], facilitators: list[tuple[int, str]] | None = None
+    categories: list[tuple[int, str]],
+    *,
+    facilitators: list[tuple[int, str]] | None = None,
+    duration_choices: list[tuple[str, str]] | None = None,
 ) -> type[SessionEditForm]:
     attrs: dict[str, forms.Field] = {
         "category_id": forms.ChoiceField(
@@ -514,6 +517,13 @@ def create_proposal_form(
                 "required": _("Please select at least one facilitator."),
                 "invalid_choice": _("Invalid facilitator selection."),
             },
+        )
+    # Swap the inherited free-text ISO field for a select over the event's
+    # configured durations. When there are none (and no legacy value to
+    # preserve) the CharField stays and the template renders nothing.
+    if duration_choices:
+        attrs["duration"] = forms.ChoiceField(
+            required=False, choices=[("", "---"), *duration_choices]
         )
     return type("ProposalCreateForm", (SessionEditForm,), attrs)
 

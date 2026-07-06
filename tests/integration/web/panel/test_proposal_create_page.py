@@ -28,6 +28,7 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "proposals",
+        "duration_choices": [],
     }
 
 

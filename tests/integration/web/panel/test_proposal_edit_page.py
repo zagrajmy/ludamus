@@ -84,6 +84,7 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "proposals",
+        "duration_choices": [],
     }
 
 
@@ -360,6 +361,84 @@ class TestProposalEditPageView:
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
         assert session.duration == "2h"
+
+    def test_get_offers_configured_durations_plus_legacy_value(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, duration="PT2H")
+        session.category.durations = ["PT30M", "PT1H"]
+        session.category.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "session_fields": [],
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+                # Configured durations, plus the legacy PT2H injected so an
+                # unrelated edit can't silently wipe it.
+                "duration_choices": [
+                    ("PT30M", "30min"),
+                    ("PT1H", "1h"),
+                    ("PT2H", "2h"),
+                ],
+            },
+        )
+
+    def test_post_saves_configured_duration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        session.category.durations = ["PT1H"]
+        session.category.save()
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "description": "",
+                "contact_email": "",
+                "participants_limit": 5,
+                "min_age": 0,
+                "duration": "PT1H",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.duration == "PT1H"
 
     def test_post_reassigns_category(
         self, authenticated_client, active_user, sphere, event

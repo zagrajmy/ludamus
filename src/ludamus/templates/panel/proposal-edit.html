@@ -117,16 +117,24 @@
                                    class="w-full border {% if form.min_age.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                             {% if form.min_age.errors %}<p class="mt-1 text-sm text-danger">{{ form.min_age.errors.0 }}</p>{% endif %}
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_duration">{% translate "Duration" %}</label>
-                            <input type="text"
-                                   name="duration"
-                                   id="id_duration"
-                                   value="{{ form.duration.value|default:'' }}"
-                                   class="w-full border {% if form.duration.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.duration.errors %}<p class="mt-1 text-sm text-danger">{{ form.duration.errors.0 }}</p>{% endif %}
-                        </div>
+                        {% if duration_choices %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_duration">{% translate "Duration" %}</label>
+                                <select name="duration"
+                                        id="id_duration"
+                                        class="w-full border {% if form.duration.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="">---</option>
+                                    {% for value, label in duration_choices %}
+                                        <option value="{{ value }}"
+                                                {% if form.duration.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.duration.errors %}<p class="mt-1 text-sm text-danger">{{ form.duration.errors.0 }}</p>{% endif %}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -21,7 +21,8 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import create_proposal_form
+from ludamus.gates.web.django.forms import SessionEditForm, create_proposal_form
+from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts import (
     HostPersonalDataEntry,
     NotFoundError,
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
         FacilitatorDTO,
         FacilitatorListItemDTO,
         PersonalDataFieldDTO,
+        ProposalCategoryDTO,
         SessionDTO,
         SessionFieldDTO,
         TimeSlotDTO,
@@ -65,6 +67,22 @@ _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 # Filter-only pseudo-status: scheduling lives on the agenda item, not on
 # SessionStatus, but organizers still need "show me what's placed".
 SCHEDULED_FILTER = "scheduled"
+
+
+def _duration_choices(
+    categories: list[ProposalCategoryDTO], *, current_value: str | None = None
+) -> list[tuple[str, str]]:
+    # Flat union of every category's configured durations. A legacy/imported
+    # value that isn't in any category is injected so an unrelated edit can't
+    # silently wipe it (the select would otherwise post nothing for it).
+    durations: list[str] = []
+    for category in categories:
+        for iso in category.durations:
+            if iso not in durations:
+                durations.append(iso)
+    if current_value and current_value not in durations:
+        durations.append(current_value)
+    return [(iso, format_duration(iso)) for iso in durations]
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -264,9 +282,15 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
 
-    def _category_choices(self, event_pk: int) -> list[tuple[int, str]]:
+    def _build_form_class(
+        self, event_pk: int, *, current_duration: str | None = None
+    ) -> tuple[type[SessionEditForm], list[tuple[str, str]]]:
         categories = self.request.di.uow.proposal_categories.list_by_event(event_pk)
-        return [(c.pk, c.name) for c in categories]
+        duration_choices = _duration_choices(categories, current_value=current_duration)
+        form_class = create_proposal_form(
+            [(c.pk, c.name) for c in categories], duration_choices=duration_choices
+        )
+        return form_class, duration_choices
 
     def _get_track_context(
         self, event_pk: int, proposal_id: int
@@ -435,9 +459,12 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_facilitators, assigned_pks = self._get_facilitator_context(
             current_event.pk, proposal_id
         )
-        form_class = create_proposal_form(self._category_choices(current_event.pk))
+        form_class, duration_choices = self._build_form_class(
+            current_event.pk, current_duration=session.duration
+        )
         context["active_nav"] = "proposals"
         context["proposal"] = session
+        context["duration_choices"] = duration_choices
         context["form"] = form_class(
             initial={
                 "title": session.title,
@@ -477,6 +504,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         form: forms.Form,
         session: SessionDTO,
         event_pk: int,
+        duration_choices: list[tuple[str, str]],
     ) -> HttpResponse:
         all_facilitators, assigned_pks = self._get_facilitator_context(
             event_pk, session.pk
@@ -499,6 +527,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["form"] = form
+        context["duration_choices"] = duration_choices
         context["all_facilitators"] = all_facilitators
         context["assigned_facilitator_pks"] = assigned_pks
         context["session_fields"] = self._get_session_fields(event_pk, session.pk)
@@ -525,11 +554,17 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        form_class = create_proposal_form(self._category_choices(current_event.pk))
+        form_class, duration_choices = self._build_form_class(
+            current_event.pk, current_duration=session.duration
+        )
         form = form_class(self.request.POST, self.request.FILES)
         if not form.is_valid():
             return self._render_invalid(
-                context, form=form, session=session, event_pk=current_event.pk
+                context,
+                form=form,
+                session=session,
+                event_pk=current_event.pk,
+                duration_choices=duration_choices,
             )
 
         update_data: SessionUpdateData = {
@@ -587,23 +622,29 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
     def _get_form(
         self, current_event: EventDTO, data: QueryDict | None = None
-    ) -> forms.Form:
+    ) -> tuple[forms.Form, list[tuple[str, str]]]:
         categories = self.request.di.uow.proposal_categories.list_by_event(
             current_event.pk
         )
         choices = [(c.pk, c.name) for c in categories]
         facilitators = self.request.di.uow.facilitators.list_by_event(current_event.pk)
         facilitator_choices = [(f.pk, f.display_name) for f in facilitators]
-        form_class = create_proposal_form(choices, facilitator_choices)
-        return form_class(data) if data is not None else form_class()
+        duration_choices = _duration_choices(categories)
+        form_class = create_proposal_form(
+            choices, facilitators=facilitator_choices, duration_choices=duration_choices
+        )
+        form = form_class(data) if data is not None else form_class()
+        return form, duration_choices
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
+        form, duration_choices = self._get_form(current_event)
         context["active_nav"] = "proposals"
-        context["form"] = self._get_form(current_event)
+        context["form"] = form
+        context["duration_choices"] = duration_choices
         return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -611,10 +652,11 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        form = self._get_form(current_event, self.request.POST)
+        form, duration_choices = self._get_form(current_event, self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "proposals"
             context["form"] = form
+            context["duration_choices"] = duration_choices
             return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
         title = form.cleaned_data["title"]
