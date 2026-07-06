@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 02:45+0200\n"
+"POT-Creation-Date: 2026-07-06 20:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5770,6 +5770,35 @@ msgid "Merge facilitators"
 msgstr "Scal twórców programu"
 
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Search"
+msgstr "Szukaj"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Name, linked user or field values"
+msgstr "Nazwa, użytkownik lub wartości pól"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Accreditation"
+msgstr "Akredytacja"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "All accreditations"
+msgstr "Wszystkie akredytacje"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Filter"
+msgstr "Filtruj"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Clear"
+msgstr "Wyczyść"
+
+#: src/ludamus/templates/panel/facilitators.html
 msgid "Linked"
 msgstr "Powiązany"
 
@@ -5800,6 +5829,15 @@ msgstr "Poprzednia"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "No facilitators match your filters."
+msgstr "Żaden twórca programu nie pasuje do filtrów."
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Clear filters"
+msgstr "Wyczyść filtry"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators yet."
@@ -5869,16 +5907,6 @@ msgstr "Szukaj po tytule lub nazwie wyświetlanej"
 #: src/ludamus/templates/panel/import-log.html
 msgid "Search title or display name"
 msgstr "Szukaj tytułu lub nazwy wyświetlanej"
-
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Search"
-msgstr "Szukaj"
-
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Clear"
-msgstr "Wyczyść"
 
 #: src/ludamus/templates/panel/import-log.html
 #, python-format
@@ -6960,10 +6988,6 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Filter"
-msgstr "Filtruj"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
 msgstr "Brak przesłanych zgłoszeń."
 
@@ -7249,10 +7273,6 @@ msgstr "Przegląd harmonogramu"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Problems"
 msgstr "Problemy"
-
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Clear filters"
-msgstr "Wyczyść filtry"
 
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"

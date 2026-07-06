@@ -106,6 +106,12 @@ class FacilitatorListItemDTO(BaseModel):
     user_id: int | None
 
 
+class FacilitatorListFilters(TypedDict, total=False):
+    search: str | None
+    accreditation: str | None
+    sort: str | None
+
+
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -1274,7 +1280,9 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod
-    def list_by_event(event_id: int) -> list[FacilitatorListItemDTO]: ...
+    def list_by_event(
+        event_id: int, filters: FacilitatorListFilters | None = None
+    ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

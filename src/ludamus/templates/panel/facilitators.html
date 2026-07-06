@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load cfp_tags %}
 {% block title_prefix %}
     {% translate "Facilitators" %} -
 {% endblock title_prefix %}
@@ -27,22 +28,61 @@
 {% block content %}
     <div class="p-4">
         {% if current_event %}
+            {% if facilitators or filter_search or filter_accreditation %}
+                <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
+                    <form method="get" class="flex flex-wrap gap-4 items-end">
+                        {% if filter_sort and filter_sort != "name" %}
+                            <input type="hidden" name="sort" value="{{ filter_sort }}">
+                        {% endif %}
+                        <div class="w-full sm:w-64 min-w-0">
+                            <label for="filter-search"
+                                   title="{% translate "Search" %}"
+                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                {% translate "Search" %}
+                            </label>
+                            <input type="text"
+                                   id="filter-search"
+                                   name="search"
+                                   value="{{ filter_search }}"
+                                   placeholder="{% translate "Name, linked user or field values" %}"
+                                   class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
+                        </div>
+                        <div class="w-full sm:w-48 min-w-0">
+                            <label for="filter-accreditation"
+                                   title="{% translate "Accreditation" %}"
+                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                {% translate "Accreditation" %}
+                            </label>
+                            <select id="filter-accreditation"
+                                    name="accreditation"
+                                    class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                <option value="">{% translate "All accreditations" %}</option>
+                                {% for value, label in accreditation_types %}
+                                    <option value="{{ value }}"
+                                            {% if filter_accreditation == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex items-center">
+                            <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
+                            <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+                               class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
             {% if facilitators %}
                 {% tessera_table %}
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Display Name" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Linked User" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Sessions" %}
-                        </th>
+                        {% translate "Display Name" as t_name %}
+                        {% include "panel/_sort_th.html" with column="name" label=t_name %}
+                        {% translate "Linked User" as t_linked %}
+                        {% include "panel/_sort_th.html" with column="linked" label=t_linked %}
+                        {% translate "Sessions" as t_sessions %}
+                        {% include "panel/_sort_th.html" with column="sessions" label=t_sessions %}
+                        {% translate "Accreditation" as t_accr %}
+                        {% include "panel/_sort_th.html" with column="accreditation" label=t_accr %}
                         <th scope="col"
                             class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
                             {% translate "Actions" %}
@@ -65,6 +105,9 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                {{ accreditation_labels|get_item:facilitator.accreditation_type }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                    class="text-primary hover:text-primary/80 inline-flex items-center">
@@ -95,6 +138,12 @@
                     </div>
                 </div>
             {% endif %}
+        {% elif filter_search or filter_accreditation %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
+                <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+                   class="btn btn-secondary text-sm">{% translate "Clear filters" %}</a>
+            </div>
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>

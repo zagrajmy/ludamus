@@ -1,3 +1,4 @@
+import json
 from typing import Literal, cast  # pylint: disable=unused-import
 
 from django.db.models import Count, Max, Q
@@ -26,6 +27,7 @@ from ludamus.pacts import (
     EventProposalSettingsRepositoryProtocol,
     FacilitatorData,
     FacilitatorDTO,
+    FacilitatorListFilters,
     FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
@@ -57,6 +59,15 @@ from ludamus.pacts.submissions import (
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+
+# Whitelist of sortable facilitator columns -> ORM field. `linked` sorts by
+# user_id so linked/unlinked facilitators group together.
+_FACILITATOR_SORT_FIELDS = {
+    "name": "display_name",
+    "accreditation": "accreditation_type",
+    "sessions": "session_count",
+    "linked": "user_id",
+}
 
 
 class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
@@ -869,10 +880,36 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
-    def list_by_event(event_id: int) -> list[FacilitatorListItemDTO]:
+    def list_by_event(
+        event_id: int, filters: FacilitatorListFilters | None = None
+    ) -> list[FacilitatorListItemDTO]:
+        filters = filters or {}
         qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions")
+            session_count=Count("sessions", distinct=True)
         )
+
+        if search := filters.get("search"):
+            # Text personal-data values are stored JSON-encoded; match both the
+            # raw string and its JSON-escaped form (mirrors proposals search).
+            encoded = json.dumps(search)[1:-1]
+            text_value = Q(personal_data__field__field_type="text") & (
+                Q(personal_data__value__icontains=search)
+                | Q(personal_data__value__icontains=encoded)
+            )
+            qs = qs.filter(
+                Q(display_name__icontains=search)
+                | Q(user__name__icontains=search)
+                | text_value
+            ).distinct()
+
+        if accreditation := filters.get("accreditation"):
+            qs = qs.filter(accreditation_type=accreditation)
+
+        sort = filters.get("sort") or "name"
+        field = _FACILITATOR_SORT_FIELDS.get(sort.lstrip("-"), "display_name")
+        order = f"-{field}" if sort.startswith("-") else field
+        qs = qs.order_by(order, "display_name", "pk")
+
         return [FacilitatorListItemDTO.model_validate(f) for f in qs]
 
     @staticmethod

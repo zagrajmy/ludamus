@@ -46,8 +46,18 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        search = self.request.GET.get("search", "").strip() or None
+        accreditation_raw = self.request.GET.get("accreditation", "").strip()
+        accreditation = (
+            accreditation_raw
+            if accreditation_raw in set(AccreditationType.values)
+            else None
+        )
+        sort = self.request.GET.get("sort", "").strip() or "name"
+
         all_facilitators = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
+            current_event.pk,
+            {"search": search, "accreditation": accreditation, "sort": sort},
         )
         page_obj = Paginator(all_facilitators, _FACILITATORS_PAGE_SIZE).get_page(
             self.request.GET.get("page")
@@ -56,6 +66,11 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitators"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
+        context["filter_search"] = search or ""
+        context["filter_accreditation"] = accreditation
+        context["filter_sort"] = sort
+        context["accreditation_types"] = [(t.value, t.label) for t in AccreditationType]
+        context["accreditation_labels"] = {t.value: t.label for t in AccreditationType}
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 
