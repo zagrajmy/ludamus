@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 02:45+0200\n"
+"POT-Creation-Date: 2026-07-06 22:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1618,6 +1618,19 @@ msgid "Proposal accepted."
 msgstr "Zgłoszenie zostało zaakceptowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#, python-format
+msgid "Accepted %(count)d proposal."
+msgid_plural "Accepted %(count)d proposals."
+msgstr[0] "Zaakceptowano %(count)d zgłoszenie."
+msgstr[1] "Zaakceptowano %(count)d zgłoszenia."
+msgstr[2] "Zaakceptowano %(count)d zgłoszeń."
+msgstr[3] "Utworzono zgłoszenia: %(count)d."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "No proposals were accepted."
+msgstr "Nie zaakceptowano żadnych zgłoszeń."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal put on hold."
 msgstr "Zgłoszenie zostało wstrzymane."
 
@@ -2587,6 +2600,7 @@ msgstr "Twórcy programu"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/track-create.html
@@ -5731,6 +5745,7 @@ msgstr ""
 "zachowanego."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Search by name…"
 msgstr "Szukaj po nazwie…"
@@ -5749,6 +5764,7 @@ msgid "Keep"
 msgstr "Zachowaj"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "No facilitators match your search."
 msgstr "Żaden twórca programu nie pasuje do wyszukiwania."
@@ -6751,12 +6767,31 @@ msgid "Create Session"
 msgstr "Utwórz punkt programu"
 
 #: src/ludamus/templates/panel/proposal-create.html
+msgid "Search to add facilitators to this proposal."
+msgstr "Wyszukaj, aby dodać twórców programu do tego zgłoszenia."
+
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "No facilitators assigned yet — search to add them."
+msgstr "Nie przypisano jeszcze twórców programu — wyszukaj, aby ich dodać."
+
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Showing the first 20 matches — refine your search."
+msgstr "Wyświetlono pierwszych 20 wyników — zawęź wyszukiwanie."
+
+#: src/ludamus/templates/panel/proposal-create.html
 msgid "This event has no facilitators yet."
 msgstr "To wydarzenie nie ma jeszcze twórców programu."
 
 #: src/ludamus/templates/panel/proposal-create.html
 msgid "Create one first"
 msgstr "Najpierw utwórz twórcę programu"
+
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Assign this proposal to one or more programme tracks."
+msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Proposal Details"
@@ -6870,8 +6905,9 @@ msgid "Edit Proposal"
 msgstr "Edytuj zgłoszenie"
 
 #: src/ludamus/templates/panel/proposal-edit.html
-msgid "Assign this proposal to one or more programme tracks."
-msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
+msgid "Assigned facilitators are shown below. Search to add more."
+msgstr ""
+"Przypisani twórcy programu są widoczni poniżej. Wyszukaj, aby dodać kolejnych."
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid ""
@@ -6952,8 +6988,8 @@ msgid "All tracks"
 msgstr "Wszystkie bloki"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Search by facilitator or field values"
-msgstr "Szukaj po prowadzącym lub wartościach pól"
+msgid "Search by title, facilitator or field values"
+msgstr "Szukaj po tytule, twórcy programu lub wartościach pól"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "All categories"
@@ -6962,6 +6998,19 @@ msgstr "Wszystkie kategorie"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Accept selected"
+msgstr "Zaakceptuj zaznaczone"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Select all on page"
+msgstr "Zaznacz wszystkie na stronie"
+
+#: src/ludamus/templates/panel/proposals.html
+#, python-format
+msgid "Select %(title)s"
+msgstr "Zaznacz %(title)s"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
