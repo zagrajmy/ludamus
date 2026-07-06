@@ -41,10 +41,13 @@ def _base_context(event):
         "filter_accreditation": None,
         "filter_flagged": False,
         "filter_sort": "name",
+        "filters_active": False,
         "accreditation_types": [(t.value, t.label) for t in AccreditationType],
         "accreditation_labels": {t.value: t.label for t in AccreditationType},
         "displayed_fields": [],
         "column_values": {},
+        "filterable_fields": [],
+        "filter_fields": {},
     }
 
 
@@ -293,6 +296,76 @@ class TestFacilitatorsPageView:
             response.context["column_values"][facilitator.pk]["email"]
             == "alice@example.com"
         )
+
+    def test_select_field_filter(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Team",
+            question="Team?",
+            slug="team",
+            field_type="select",
+            order=0,
+        )
+        reds = Facilitator.objects.create(
+            event=event, display_name="Reds member", slug="reds", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=reds, event=event, field=field, value="Reds"
+        )
+        blues = Facilitator.objects.create(
+            event=event, display_name="Blues member", slug="blues", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=blues, event=event, field=field, value="Blues"
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {f"field_{field.pk}": "Reds"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [f.display_name for f in response.context["facilitators"]] == [
+            "Reds member"
+        ]
+
+    def test_sort_by_personal_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Email",
+            question="Email?",
+            slug="email",
+            field_type="text",
+            order=0,
+        )
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=alice, event=event, field=field, value="zoe@example.com"
+        )
+        bob = Facilitator.objects.create(
+            event=event, display_name="Bob", slug="bob", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=bob, event=event, field=field, value="anna@example.com"
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"sort": f"field_{field.pk}"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        # Ascending by email value: anna (Bob) before zoe (Alice).
+        assert [f.display_name for f in response.context["facilitators"]] == [
+            "Bob",
+            "Alice",
+        ]
 
     def test_paginates_facilitators(
         self, authenticated_client, active_user, sphere, event

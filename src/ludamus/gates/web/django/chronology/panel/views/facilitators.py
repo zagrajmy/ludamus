@@ -55,6 +55,20 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _read_field_filters(
+        self, filterable_fields: list[PersonalDataFieldDTO]
+    ) -> dict[int, str | bool]:
+        field_filters: dict[int, str | bool] = {}
+        for field in filterable_fields:
+            if not (raw := self.request.GET.get(f"field_{field.pk}", "").strip()):
+                continue
+            if field.field_type == "checkbox":
+                if raw == "true":
+                    field_filters[field.pk] = True
+            else:
+                field_filters[field.pk] = raw
+        return field_filters
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -70,12 +84,21 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         sort = self.request.GET.get("sort", "").strip() or "name"
         flagged = self.request.GET.get("flagged") == "true"
 
+        personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
+        filterable_fields = [
+            f for f in personal_fields if f.field_type in {"select", "checkbox"}
+        ]
+        field_filters = self._read_field_filters(filterable_fields)
+
         all_facilitators = self.request.di.uow.facilitators.list_by_event(
             current_event.pk,
             {
                 "search": search,
                 "accreditation": accreditation,
                 "flagged": flagged or None,
+                "field_filters": field_filters or None,
                 "sort": sort,
             },
         )
@@ -88,13 +111,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         selected_ids = set(panel_settings.displayed_facilitator_field_ids)
         displayed_fields = sorted(
-            (
-                field
-                for field in self.request.di.uow.personal_data_fields.list_by_event(
-                    current_event.pk
-                )
-                if field.pk in selected_ids
-            ),
+            (field for field in personal_fields if field.pk in selected_ids),
             key=lambda field: (field.order, field.name),
         )
         # ponytail: one batched query for every facilitator's chosen-column
@@ -114,10 +131,18 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["page_obj"] = page_obj
         context["displayed_fields"] = displayed_fields
         context["column_values"] = column_values
+        context["filterable_fields"] = filterable_fields
+        context["filter_fields"] = {
+            field.pk: self.request.GET.get(f"field_{field.pk}", "")
+            for field in filterable_fields
+        }
         context["filter_search"] = search or ""
         context["filter_accreditation"] = accreditation
         context["filter_flagged"] = flagged
         context["filter_sort"] = sort
+        context["filters_active"] = bool(
+            search or accreditation or flagged or field_filters
+        )
         context["accreditation_types"] = [(t.value, t.label) for t in AccreditationType]
         context["accreditation_labels"] = {t.value: t.label for t in AccreditationType}
         return TemplateResponse(self.request, "panel/facilitators.html", context)

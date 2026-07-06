@@ -111,6 +111,7 @@ class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     accreditation: str | None
     flagged: bool | None
+    field_filters: dict[int, str | bool] | None
     sort: str | None
 
 

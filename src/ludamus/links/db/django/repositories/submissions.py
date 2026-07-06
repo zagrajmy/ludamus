@@ -1,7 +1,7 @@
 import json
 from typing import Literal, cast  # pylint: disable=unused-import
 
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
@@ -68,6 +68,28 @@ _FACILITATOR_SORT_FIELDS = {
     "sessions": "session_count",
     "linked": "user_id",
 }
+
+
+def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
+    descending = sort.startswith("-")
+    key = sort.lstrip("-")
+    # `field_<pk>` sorts by a personal-data column: annotate its value via a
+    # correlated subquery. JSON values order by their text form — good enough
+    # to line up near-duplicate entries.
+    if key.startswith("field_") and key[len("field_") :].isdigit():
+        field_id = int(key[len("field_") :])
+        qs = qs.annotate(
+            _sort_value=Subquery(
+                HostPersonalData.objects.filter(
+                    facilitator_id=OuterRef("pk"), field_id=field_id
+                ).values("value")[:1]
+            )
+        )
+        order_field = "_sort_value"
+    else:
+        order_field = _FACILITATOR_SORT_FIELDS.get(key, "display_name")
+    order = f"-{order_field}" if descending else order_field
+    return qs.order_by(order, "display_name", "pk")
 
 
 class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
@@ -908,12 +930,12 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if filters.get("flagged"):
             qs = qs.filter(flagged_for_deletion=True)
 
-        sort = filters.get("sort") or "name"
-        field = _FACILITATOR_SORT_FIELDS.get(sort.lstrip("-"), "display_name")
-        order = f"-{field}" if sort.startswith("-") else field
-        qs = qs.order_by(order, "display_name", "pk")
+        for field_id, value in (filters.get("field_filters") or {}).items():
+            # Each condition is its own join, so different fields AND together.
+            qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
 
-        return [FacilitatorListItemDTO.model_validate(f) for f in qs]
+        ordered = _order_facilitators(qs, filters.get("sort") or "name")
+        return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
 
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None:

@@ -31,7 +31,7 @@
 {% block content %}
     <div class="p-4">
         {% if current_event %}
-            {% if facilitators or filter_search or filter_accreditation or filter_flagged %}
+            {% if facilitators or filters_active %}
                 <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
                     <form method="get" class="flex flex-wrap gap-4 items-end">
                         {% if filter_sort and filter_sort != "name" %}
@@ -66,6 +66,37 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        {% for field in filterable_fields %}
+                            <div class="w-full sm:w-48 min-w-0">
+                                <label for="filter-field-{{ field.pk }}"
+                                       title="{{ field.name }}"
+                                       class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                    {{ field.name }}
+                                </label>
+                                {% if field.field_type == "select" %}
+                                    <select id="filter-field-{{ field.pk }}"
+                                            name="field_{{ field.pk }}"
+                                            class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                        <option value="">—</option>
+                                        {% for option in field.options %}
+                                            <option value="{{ option.value }}"
+                                                    {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
+                                                {{ option.label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <div class="flex items-center h-9">
+                                        <input type="checkbox"
+                                               id="filter-field-{{ field.pk }}"
+                                               name="field_{{ field.pk }}"
+                                               value="true"
+                                               {% if filter_fields|get_item:field.pk %}checked{% endif %}
+                                               class="filter-input rounded border-border">
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
                         <div class="flex items-center gap-2 pb-2">
                             <input type="checkbox"
                                    id="filter-flagged"
@@ -96,10 +127,9 @@
                         {% translate "Accreditation" as t_accr %}
                         {% include "panel/_sort_th.html" with column="accreditation" label=t_accr %}
                         {% for field in displayed_fields %}
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {{ field.name }}
-                            </th>
+                            {% with pk_str=field.pk|stringformat:"s" %}
+                                {% include "panel/_sort_th.html" with column="field_"|add:pk_str label=field.name %}
+                            {% endwith %}
                         {% endfor %}
                         <th scope="col"
                             class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
@@ -204,7 +234,7 @@
                     </div>
                 </div>
             {% endif %}
-        {% elif filter_search or filter_accreditation or filter_flagged %}
+        {% elif filters_active %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
                 <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
