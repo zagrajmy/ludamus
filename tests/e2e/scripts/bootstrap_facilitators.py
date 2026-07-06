@@ -11,7 +11,7 @@ Run after ``bootstrap_data.py`` (which creates both events).
 Idempotent — safe to re-run.
 
 Usage:
-    mise run _e2e -- python tests/e2e/scripts/bootstrap_facilitators.py
+    mise run test:e2e:boot tests/e2e/scripts/bootstrap_facilitators.py
 """
 
 from __future__ import annotations

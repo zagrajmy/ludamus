@@ -22,7 +22,6 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
     SpherePage,
-    VirtualEnrollmentConfig,
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
@@ -32,7 +31,6 @@ from ludamus.pacts.submissions import ImportLogStatus
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
 
-    from ludamus.pacts import EventDTO
     from ludamus.pacts.crowd import UserDTO
 
 
@@ -1615,50 +1613,25 @@ class ContentChangeLog(models.Model):
         return f"edit {self.session} by {self.user}"
 
 
-def can_enroll_users(
-    *,
-    users: list[UserDTO],
-    event: EventDTO,
-    virtual_config: VirtualEnrollmentConfig,
-    users_to_enroll: list[UserDTO],
-) -> bool:
-    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
-    currently_enrolled = set(
-        SessionParticipation.objects.filter(
-            status__in=OCCUPYING_PARTICIPATION_STATUSES,
-            user_id__in=[u.pk for u in users],
-            session__event_id=event.pk,
-        )
-        .values_list("user_id", flat=True)
-        .distinct()
+class FacilitatorChangeLog(models.Model):
+    """Audit trail for facilitator edits (accreditation + personal data)."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="facilitator_change_logs"
     )
-
-    # Add new users to enroll
-    users_to_enroll_ids = {u.pk for u in users_to_enroll}
-    total_enrolled = currently_enrolled | users_to_enroll_ids
-
-    return len(total_enrolled) <= virtual_config.allowed_slots
-
-
-def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
-    # Count unique users who hold at least one seat (confirmed or offered)
-    return len(
-        SessionParticipation.objects.filter(
-            status__in=OCCUPYING_PARTICIPATION_STATUSES,
-            user_id__in=[u.pk for u in users],
-            session__event_id=event.pk,
-        )
-        .values_list("user", flat=True)
-        .distinct()
+    facilitator = models.ForeignKey(
+        Facilitator, on_delete=models.CASCADE, related_name="change_logs"
     )
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=list)
+    creation_time = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        db_table = "facilitator_change_log"
+        ordering: ClassVar = ["-creation_time"]
 
-def get_vc_available_slots(
-    *, users: list[UserDTO], event: EventDTO, virtual_config: VirtualEnrollmentConfig
-) -> int:
-    return max(
-        0, virtual_config.allowed_slots - get_used_slots(users=users, event=event)
-    )
+    def __str__(self) -> str:
+        return f"edit {self.facilitator} by {self.user}"
 
 
 class Connection(models.Model):

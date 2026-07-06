@@ -1,0 +1,12 @@
+import "../Builtins.pkl"
+import "../Config.pkl"
+
+@Builtins.meta {
+  category = "Go"
+  description = "Fast Go linter"
+}
+revive = new Config.Step {
+  glob = "**/*.go"
+  workspace_indicator = "go.mod"
+  check = "cd {{workspace}} && revive ./..."
+}

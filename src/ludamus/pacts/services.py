@@ -13,14 +13,24 @@ if TYPE_CHECKING:
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
+        ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
-    from ludamus.pacts.crowd import ClaimServiceProtocol
-    from ludamus.pacts.discounts import DiscountsServiceProtocol
+    from ludamus.pacts.crowd import (
+        ClaimServiceProtocol,
+        CompanionsServiceProtocol,
+        CrowdAuthServiceProtocol,
+        ProfileServiceProtocol,
+    )
+    from ludamus.pacts.discounts import (
+        DiscountsExportServiceProtocol,
+        DiscountsServiceProtocol,
+    )
     from ludamus.pacts.enrollment import (
+        EnrollmentServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
@@ -36,6 +46,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        HostPersonalDataServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         ProposalImportServiceProtocol,
@@ -63,9 +74,17 @@ class ServicesProtocol(Protocol):
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
+    def host_personal_data(self) -> HostPersonalDataServiceProtocol: ...
+    @property
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
     def claims(self) -> ClaimServiceProtocol: ...
+    @property
+    def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
+    @property
+    def profile(self) -> ProfileServiceProtocol: ...
+    @property
+    def companions(self) -> CompanionsServiceProtocol: ...
     @property
     def parties(self) -> PartyServiceProtocol: ...
     @property
@@ -87,9 +106,13 @@ class ServicesProtocol(Protocol):
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
     @property
+    def proposal_status(self) -> ProposalStatusServiceProtocol: ...
+    @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
+    @property
+    def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
@@ -110,3 +133,5 @@ class ServicesProtocol(Protocol):
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
+    @property
+    def discounts_export(self) -> DiscountsExportServiceProtocol: ...

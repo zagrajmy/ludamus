@@ -113,7 +113,7 @@ class TestTimetableLogPageView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -146,15 +146,13 @@ class TestTimetableLogPageView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
-        session.status = "scheduled"
-        session.save()
 
         authenticated_client.post(
             reverse("panel:timetable-unassign", kwargs={"slug": event.slug}),
@@ -177,13 +175,13 @@ class TestTimetableLogPageView:
         space_b = SpaceFactory(event=event)
         session_a = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
         session_b = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )

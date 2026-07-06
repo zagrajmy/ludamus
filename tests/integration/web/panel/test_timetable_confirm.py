@@ -27,7 +27,7 @@ class TestTimetableConfirmView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
-            status="scheduled",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )

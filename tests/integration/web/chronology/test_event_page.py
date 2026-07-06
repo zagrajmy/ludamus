@@ -3362,7 +3362,7 @@ class TestEventPageEditAffordance:
             display_name=presenter.name,
             participants_limit=10,
             min_age=0,
-            status="scheduled",
+            status="accepted",
         )
 
     def test_owner_sees_edit_affordance(

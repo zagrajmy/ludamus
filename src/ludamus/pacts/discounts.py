@@ -50,3 +50,34 @@ class DiscountsServiceProtocol(Protocol):
     def create(self, event_pk: int, data: DiscountData) -> DiscountDTO: ...
     def update(self, pk: int, data: DiscountData) -> DiscountDTO: ...
     def soft_delete(self, pk: int) -> None: ...
+
+
+class SheetExportError(Exception):
+    pass
+
+
+class DiscountExportLabels(BaseModel):
+    # Localized strings the export sheet is rendered with. Built at the gate
+    # (where gettext lives) so the mill stays framework-free; maps are keyed
+    # by the raw enum values stored on the DTOs.
+    headers: list[str]
+    accreditation_types: dict[str, str]
+    kinds: dict[str, str]
+
+
+class SheetWriterProtocol(Protocol):
+    def write_rows(
+        self, *, secret: bytes, spreadsheet_id: str, rows: list[list[str]]
+    ) -> None: ...
+
+
+class DiscountsExportServiceProtocol(Protocol):
+    def export_to_sheet(
+        self,
+        *,
+        sphere_id: int,
+        event_pk: int,
+        connection_id: int,
+        spreadsheet_id: str,
+        labels: DiscountExportLabels,
+    ) -> int: ...

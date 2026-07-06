@@ -97,7 +97,7 @@ class TestTimetableRevertView:
         other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -124,7 +124,7 @@ class TestTimetableRevertView:
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         other_session.refresh_from_db()
-        assert other_session.status == "scheduled"
+        assert other_session.status == "accepted"
 
     def test_revert_assign_unschedules_session(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -133,7 +133,7 @@ class TestTimetableRevertView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -176,15 +176,13 @@ class TestTimetableRevertView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
-        session.status = "scheduled"
-        session.save()
 
         # Unassign the session (creates log)
         authenticated_client.post(
@@ -215,7 +213,7 @@ class TestTimetableRevertView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -243,7 +241,7 @@ class TestTimetableRevertView:
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         session.refresh_from_db()
-        assert session.status == "pending"
+        assert session.status == "accepted"
 
     def test_log_page_marks_only_latest_change_revertible(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -252,7 +250,7 @@ class TestTimetableRevertView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )

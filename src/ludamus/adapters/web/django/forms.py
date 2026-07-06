@@ -3,10 +3,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django import forms
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
@@ -17,56 +16,18 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     Space,
     TimeSlot,
-    can_enroll_users,
-    get_used_slots,
-    get_vc_available_slots,
 )
-from ludamus.mills.enrollment import get_user_enrollment_config
-from ludamus.pacts import (
-    EnrollmentConfigRepositoryProtocol,
-    EventDTO,
-    TicketAPIProtocol,
-    VirtualEnrollmentConfig,
-)
-from ludamus.pacts.crowd import UserData, UserDTO, UserType
+from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
+
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.enrollment import EnrollmentServiceProtocol
 
 
 TODAY = datetime.now(tz=UTC).date()
 logger = logging.getLogger(__name__)
-
-
-class BaseUserForm(forms.Form):
-    name = forms.CharField(
-        label=_("User name"),
-        help_text=_(
-            "Your public display name that others will see. This can be a nickname "
-            "and does not need to be your legal name."
-        ),
-    )
-
-    @property
-    def user_data(self) -> UserData:
-        return cast("UserData", self.cleaned_data)
-
-
-class UserForm(BaseUserForm):
-    user_type = forms.CharField(initial=UserType.ACTIVE, widget=forms.HiddenInput())
-    email = forms.EmailField(label=_("email address"), required=False)
-    discord_username = forms.CharField(
-        label=_("Discord username"),
-        required=False,
-        max_length=150,
-        help_text=_("Your Discord username for session coordination"),
-    )
-
-
-class ConnectedUserForm(BaseUserForm):
-    user_type = forms.CharField(
-        initial=UserType.CONNECTED.value, widget=forms.HiddenInput()
-    )
 
 
 def _can_join_waitlist(
@@ -224,16 +185,15 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
 
 def _make_enrollment_clean(
     *,
-    current_user: UserDTO,
-    connected_users: Iterable[UserDTO],
+    all_users: list[UserDTO],
     enrollment_config: EnrollmentConfig | None,
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
     field_to_user_name: dict[str, str],
+    enrollment: EnrollmentServiceProtocol,
 ) -> Callable[..., dict[str, Any] | None]:
     # Only user_* fields count against the membership slot cap: +N guests are
     # walk-ins without memberships, so they intentionally bypass it — the
     # session capacity check still gates them.
-    all_users = [current_user, *connected_users]
 
     def clean(self: forms.Form) -> dict[str, Any] | None:
         if not (cleaned_data := forms.Form.clean(self)):
@@ -252,7 +212,7 @@ def _make_enrollment_clean(
             and enrollment_config
             and enrollment_config.restrict_to_configured_users
             and current_user_enrollment_config
-            and not can_enroll_users(
+            and not enrollment.can_enroll_users(
                 users=all_users,
                 event=EventDTO.model_validate(enrollment_config.event),
                 virtual_config=current_user_enrollment_config,
@@ -260,8 +220,8 @@ def _make_enrollment_clean(
             )
         ):
             event = EventDTO.model_validate(enrollment_config.event)
-            used_slots = get_used_slots(users=all_users, event=event)
-            available_slots = get_vc_available_slots(
+            used_slots = enrollment.get_used_slots(users=all_users, event=event)
+            available_slots = enrollment.get_vc_available_slots(
                 users=all_users,
                 event=event,
                 virtual_config=current_user_enrollment_config,
@@ -381,16 +341,11 @@ def create_enrollment_form(
     session: Session,
     current_user: UserDTO,
     roster: EnrollmentRoster,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-    ticket_api: TicketAPIProtocol,
+    enrollment: EnrollmentServiceProtocol,
 ) -> type[forms.Form]:
     enrollment_config = session.event.get_most_liberal_config(session)
-    current_user_enrollment_config = get_user_enrollment_config(
-        event=EventDTO.model_validate(session.event),
-        user_email=current_user.email,
-        enrollment_config_repo=enrollment_config_repo,
-        ticket_api=ticket_api,
-        check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+    current_user_enrollment_config = enrollment.virtual_config(
+        event=EventDTO.model_validate(session.event), user_email=current_user.email
     )
     user_can_enroll = bool(
         enrollment_config
@@ -479,11 +434,11 @@ def create_enrollment_form(
     # viewer and their sponsored companions count against it — a real member's
     # seat spends that member's allowance, not the enroller's.
     clean = _make_enrollment_clean(
-        current_user=current_user,
-        connected_users=roster.companions,
+        all_users=[current_user, *roster.companions],
         enrollment_config=enrollment_config,
         current_user_enrollment_config=current_user_enrollment_config,
         field_to_user_name=field_to_user_name,
+        enrollment=enrollment,
     )
 
     if roster.guest_count is not None:
