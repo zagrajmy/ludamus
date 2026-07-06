@@ -928,7 +928,7 @@ test.describe("Backoffice Panel", () => {
 
       // Wait for redirect after submission
       await page.waitForURL(/\/frostfire-con\//);
-      await expect(page.getByText(proposalTitle)).toBeVisible();
+      await expect(page.getByRole("heading", { name: proposalTitle })).toBeVisible();
 
       await context.close();
     });
