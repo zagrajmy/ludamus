@@ -23,9 +23,6 @@ The active `ROOT_URLCONF` is `ludamus.gates.web.django.urls`, but it still
 views. What remains in `adapters/`:
 
 - **`adapters/web/django/views.py`** still hosts:
-  - Profile — `ProfilePageView`, `ProfileConnectedUsersPageView`,
-    `ProfileConnectedUserUpdateActionView`,
-    `ProfileConnectedUserDeleteActionView`, `ProfileAvatarPageView` (Crowd)
   - Public Event Pages — `EventPageView`, `EventsPageView`, `IndexRedirectView`
   - Enrollment — `SessionEnrollPageView`,
     `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
@@ -44,7 +41,8 @@ views. What remains in `adapters/`:
   and `adapters.db.django.apps.DBMainConfig`.
 
 Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
-**Notice Board / Encounters**, the **CFP** wizard, and **Crowd / Auth**.
+**Notice Board / Encounters**, the **CFP** wizard, and **Crowd** (both
+**Auth** and **Profile**).
 
 ## Done so far
 
@@ -70,21 +68,32 @@ Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
   The user-provisioning flow now lives in `CrowdAuthService`
   (`mills/crowd.py`, exposed as `request.services.crowd_auth`); the gate
   keeps only OAuth-client, session-login, redirect and message concerns.
+- Crowd / Profile views (`ProfilePageView`, `ProfileAvatarPageView`,
+  `ProfileShadowbanPageView`, `ProfileConnectedUsersPageView`,
+  `ProfileConnectedUserUpdateActionView`,
+  `ProfileConnectedUserDeleteActionView`,
+  `ProfileConnectedUserClaimLinkActionView`, `ClaimPageView`) moved into
+  `gates/web/django/crowd/profile.py`, with `UserForm` / `ConnectedUserForm`
+  in `crowd/forms.py` and the routes in `crowd/urls.py` (names and paths
+  unchanged). Profile self-service now runs on `ProfileService` and
+  connected-user CRUD on `CompanionsService` (`mills/crowd.py`, exposed as
+  `request.services.profile` and `request.services.companions`); the
+  confirmed-participation count reads through `ProfileStatsRepository`
+  (`links/db/django/crowd.py`). No Profile view touches `request.di.uow`
+  any more — this completes issue #457's Tier-1 (Crowd on `request.services`)
+  (issue #457, PR-4).
 
 ## Next step
 
-Migrate the **Crowd / Profile** views (`ProfilePageView`,
-`ProfileConnectedUsersPageView`, `ProfileConnectedUserUpdateActionView`,
-`ProfileConnectedUserDeleteActionView`, `ProfileAvatarPageView`, claim views)
-out of `adapters/web/django/views.py` into the existing
-`gates/web/django/crowd/` package:
-
-1. Add a profile view module next to `crowd/auth.py` and `crowd/views.py`.
-2. Move the views; replace `request.di.uow` access with `request.services`
-   (extend the crowd mills/pacts as needed — do both angles in the same move).
-3. Move the profile routes from `adapters/web/django/urls.py` into
-   `gates/web/django/crowd/urls.py`, keeping URL names and paths identical.
-4. Keep the profile integration tests green; run `mise run test:py`.
+Migrate the remaining **Public Event Pages** and **Enrollment** views
+(`EventPageView`, `EventsPageView`, `IndexRedirectView`,
+`SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
+`EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
+`AnonymousResetActionView`) out of `adapters/web/django/views.py` into their
+`gates/web/django/chronology/` homes, lifting the remaining `request.di.uow`
+access onto `request.services`. Then relocate the ORM models
+(`adapters/db/django/models.py` → `links/db/django/`) so `adapters/` can be
+emptied and locked down with an importlinter contract.
 
 ## Definition of done
 

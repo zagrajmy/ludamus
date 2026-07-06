@@ -19,7 +19,12 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
-    from ludamus.pacts.crowd import ClaimServiceProtocol, CrowdAuthServiceProtocol
+    from ludamus.pacts.crowd import (
+        ClaimServiceProtocol,
+        CompanionsServiceProtocol,
+        CrowdAuthServiceProtocol,
+        ProfileServiceProtocol,
+    )
     from ludamus.pacts.discounts import (
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
@@ -76,6 +81,10 @@ class ServicesProtocol(Protocol):
     def claims(self) -> ClaimServiceProtocol: ...
     @property
     def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
+    @property
+    def profile(self) -> ProfileServiceProtocol: ...
+    @property
+    def companions(self) -> CompanionsServiceProtocol: ...
     @property
     def parties(self) -> PartyServiceProtocol: ...
     @property

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 23:59+0200\n"
+"POT-Creation-Date: 2026-07-06 02:45+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -24,7 +24,7 @@ msgid "date joined"
 msgstr "data dołączenia"
 
 #: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/gates/web/django/crowd/forms.py
 msgid "email address"
 msgstr "adres email"
 
@@ -49,7 +49,7 @@ msgid "Designates whether the user can log into this admin site."
 msgstr "Określa czy użytkownik może zalogować się do panelu administracyjnego."
 
 #: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/gates/web/django/crowd/forms.py
 msgid "User name"
 msgstr "Nazwa użytkownika"
 
@@ -66,12 +66,12 @@ msgid "A user with that username already exists."
 msgstr "Użytkownik o tej nazwie już istnieje."
 
 #: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Discord username"
 msgstr "Nazwa użytkownika Discord"
 
 #: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/adapters/web/django/forms.py
+#: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Your Discord username for session coordination"
 msgstr "Twoja nazwa użytkownika Discord do koordynacji sesji"
 
@@ -553,15 +553,6 @@ msgid "Madness spreads through every circuit..."
 msgstr "Szaleństwo rozprzestrzenia się przez każdy obwód..."
 
 #: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-msgid ""
-"Your public display name that others will see. This can be a nickname and "
-"does not need to be your legal name."
-msgstr ""
-"Twoja publiczna nazwa widoczna dla innych. Może to być pseudonim i nie musi "
-"być Twoim prawdziwym imieniem."
-
-#: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "No change"
 msgstr "Bez zmian"
@@ -758,71 +749,6 @@ msgstr "Skopiowano!"
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
 msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"This email address is already in use. Please use a different email address."
-msgstr "Ten adres email został już użyty na innym koncie."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Profile updated successfully!"
-msgstr "Profil został zaktualizowany!"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Please correct the errors below."
-msgstr "Proszę poprawić błędy poniżej."
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid "You can only have up to %(max)s connected users."
-msgstr "Możesz mieć maksymalnie %(max)s powiązanych użytkowników."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Connected user added successfully!"
-msgstr "Powiązana osoba została dodana!"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Connected user updated successfully!"
-msgstr "Powiązana osoba została zaktualizowana!"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Connected user deleted successfully."
-msgstr "Powiązana osoba została usunięta."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Could not create a claim link for this person."
-msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Claim link created."
-msgstr "Utworzono link przejęcia."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This claim link is invalid or has already been used."
-msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"You're already signed in. Log out first to claim this profile into a new "
-"account."
-msgstr ""
-"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Avatar preference updated successfully!"
-msgstr "Preferencja awatara została zaktualizowana!"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "If a matching player exists, they have been shadowbanned."
-msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Player shadowbanned."
-msgstr "Gracz został cicho zbanowany."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Shadowban removed."
-msgstr "Cichy ban został usunięty."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "yourself"
@@ -1898,6 +1824,15 @@ msgid "Invalid domain for redirect."
 msgstr "Nieprawidłowa domena do przekierowania."
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+msgid ""
+"Your public display name that others will see. This can be a nickname and "
+"does not need to be your legal name."
+msgstr ""
+"Twoja publiczna nazwa widoczna dla innych. Może to być pseudonim i nie musi "
+"być Twoim prawdziwym imieniem."
+
+#: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Party name"
 msgstr "Nazwa drużyny"
 
@@ -1908,6 +1843,71 @@ msgstr "Email"
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "The invited person needs a Ludamus account with this email."
 msgstr "Zapraszana osoba musi mieć konto Ludamus z tym adresem email."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid ""
+"This email address is already in use. Please use a different email address."
+msgstr "Ten adres email został już użyty na innym koncie."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Profile updated successfully!"
+msgstr "Profil został zaktualizowany!"
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Please correct the errors below."
+msgstr "Proszę poprawić błędy poniżej."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+#, python-format
+msgid "You can only have up to %(max)s connected users."
+msgstr "Możesz mieć maksymalnie %(max)s powiązanych użytkowników."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Connected user added successfully!"
+msgstr "Powiązana osoba została dodana!"
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Connected user updated successfully!"
+msgstr "Powiązana osoba została zaktualizowana!"
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Connected user deleted successfully."
+msgstr "Powiązana osoba została usunięta."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Could not create a claim link for this person."
+msgstr "Nie udało się utworzyć linku przejęcia dla tej osoby."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Claim link created."
+msgstr "Utworzono link przejęcia."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "This claim link is invalid or has already been used."
+msgstr "Ten link przejęcia jest nieprawidłowy lub został już użyty."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid ""
+"You're already signed in. Log out first to claim this profile into a new "
+"account."
+msgstr ""
+"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Avatar preference updated successfully!"
+msgstr "Preferencja awatara została zaktualizowana!"
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "If a matching player exists, they have been shadowbanned."
+msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Player shadowbanned."
+msgstr "Gracz został cicho zbanowany."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Shadowban removed."
+msgstr "Cichy ban został usunięty."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Party created."

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -18,47 +18,16 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
 )
 from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
-from ludamus.pacts.crowd import UserData, UserDTO, UserType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import EnrollmentServiceProtocol
 
 
 TODAY = datetime.now(tz=UTC).date()
 logger = logging.getLogger(__name__)
-
-
-class BaseUserForm(forms.Form):
-    name = forms.CharField(
-        label=_("User name"),
-        help_text=_(
-            "Your public display name that others will see. This can be a nickname "
-            "and does not need to be your legal name."
-        ),
-    )
-
-    @property
-    def user_data(self) -> UserData:
-        return cast("UserData", self.cleaned_data)
-
-
-class UserForm(BaseUserForm):
-    user_type = forms.CharField(initial=UserType.ACTIVE, widget=forms.HiddenInput())
-    email = forms.EmailField(label=_("email address"), required=False)
-    discord_username = forms.CharField(
-        label=_("Discord username"),
-        required=False,
-        max_length=150,
-        help_text=_("Your Discord username for session coordination"),
-    )
-
-
-class ConnectedUserForm(BaseUserForm):
-    user_type = forms.CharField(
-        initial=UserType.CONNECTED.value, widget=forms.HiddenInput()
-    )
 
 
 def _can_join_waitlist(

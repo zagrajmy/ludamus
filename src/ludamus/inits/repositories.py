@@ -4,7 +4,12 @@ from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
-from ludamus.links.db.django.crowd import ClaimRepository, UserRepository
+from ludamus.links.db.django.crowd import (
+    ClaimRepository,
+    ConnectedUserRepository,
+    ProfileStatsRepository,
+    UserRepository,
+)
 from ludamus.links.db.django.enrollment import (
     EnrollmentParticipationRepository,
     ParticipationPromotionRepository,
@@ -93,6 +98,14 @@ class Repositories:
     @cached_property
     def anonymous_users(self) -> UserRepository:
         return UserRepository(user_type=UserType.ANONYMOUS)
+
+    @cached_property
+    def connected_users(self) -> ConnectedUserRepository:
+        return ConnectedUserRepository()
+
+    @cached_property
+    def profile_stats(self) -> ProfileStatsRepository:
+        return ProfileStatsRepository()
 
     @cached_property
     def notifications(self) -> NotificationReadRepository:
