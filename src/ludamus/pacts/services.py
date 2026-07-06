@@ -19,10 +19,19 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
-    from ludamus.pacts.crowd import ClaimServiceProtocol
-    from ludamus.pacts.discounts import DiscountsServiceProtocol
+    from ludamus.pacts.crowd import (
+        ClaimServiceProtocol,
+        CompanionsServiceProtocol,
+        CrowdAuthServiceProtocol,
+        ProfileServiceProtocol,
+    )
+    from ludamus.pacts.discounts import (
+        DiscountsExportServiceProtocol,
+        DiscountsServiceProtocol,
+    )
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
+        EnrollmentServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
@@ -72,6 +81,12 @@ class ServicesProtocol(Protocol):
     @property
     def claims(self) -> ClaimServiceProtocol: ...
     @property
+    def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
+    @property
+    def profile(self) -> ProfileServiceProtocol: ...
+    @property
+    def companions(self) -> CompanionsServiceProtocol: ...
+    @property
     def parties(self) -> PartyServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
@@ -100,6 +115,8 @@ class ServicesProtocol(Protocol):
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property
+    def enrollment(self) -> EnrollmentServiceProtocol: ...
+    @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
     def venues(self) -> VenuesServiceProtocol: ...
@@ -119,3 +136,5 @@ class ServicesProtocol(Protocol):
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
+    @property
+    def discounts_export(self) -> DiscountsExportServiceProtocol: ...

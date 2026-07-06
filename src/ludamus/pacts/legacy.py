@@ -3,7 +3,6 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
-    Any,
     Literal,
     NotRequired,
     Protocol,
@@ -1413,7 +1412,16 @@ class ContentChangeLogRepositoryProtocol(Protocol):
     def create(data: ContentChangeLogData) -> None: ...
 
     @staticmethod
+    def read(pk: int) -> ContentChangeLogDTO: ...
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
 
 
 class FacilitatorChangeLogData(TypedDict):
@@ -1447,10 +1455,6 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
-    @staticmethod
-    def login_user(  # type: ignore [explicit-any]
-        request: Any, user_slug: str  # noqa: ANN401
-    ) -> None: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property

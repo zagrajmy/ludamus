@@ -20,10 +20,9 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     User,
     UserEnrollmentConfig,
-    get_used_slots,
 )
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
-from ludamus.pacts import EventDTO
+from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
@@ -32,6 +31,7 @@ from ludamus.pacts.enrollment import (
     AnonymousLoadDTO,
     AnonymousSeatingDTO,
     AnonymousSessionContextDTO,
+    EnrollmentParticipationRepositoryProtocol,
     OfferDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
@@ -45,9 +45,33 @@ from ludamus.pacts.legacy import (
 
 if TYPE_CHECKING:
 
-    from ludamus.pacts.enrollment import HeldSeatData
+    from ludamus.pacts.enrollment import GuestSeatData, HeldSeatData
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
+
+
+class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtocol):
+    @staticmethod
+    def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]:
+        return set(
+            SessionParticipation.objects.filter(
+                status__in=OCCUPYING_PARTICIPATION_STATUSES,
+                user_id__in=user_ids,
+                session__event_id=event_id,
+            )
+            .values_list("user_id", flat=True)
+            .distinct()
+        )
+
+    @staticmethod
+    def create_confirmed(seat: GuestSeatData) -> None:
+        SessionParticipation.objects.create(
+            session_id=seat.session_id,
+            user_id=seat.user_id,
+            status=SessionParticipationStatus.CONFIRMED,
+            party_id=seat.party_id,
+            enrolled_by_id=seat.enrolled_by_id,
+        )
 
 
 class ParticipationPromotionRepository:
@@ -161,7 +185,14 @@ class ParticipationPromotionRepository:
             UserDTO.model_validate(owner),
             *(UserDTO.model_validate(c) for c in companions),
         ]
-        return max(0, allowed - get_used_slots(members, event_dto))
+        # Used slots = distinct owner/companion users holding a seat; the same
+        # accounting `mills.enrollment.get_used_slots` applies at the gates.
+        used = len(
+            EnrollmentParticipationRepository.occupying_user_ids(
+                user_ids=[member.pk for member in members], event_id=event_dto.pk
+            )
+        )
+        return max(0, allowed - used)
 
     @staticmethod
     def confirm(participation_ids: list[int]) -> None:

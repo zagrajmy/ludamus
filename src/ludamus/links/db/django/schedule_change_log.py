@@ -3,7 +3,11 @@ from __future__ import annotations
 from django.db.models import Q
 
 from ludamus.adapters.db.django.models import ScheduleChangeLog
-from ludamus.links.db.django.change_log_base import base_log_fields
+from ludamus.links.db.django.change_log_base import (
+    base_log_fields,
+    latest_log_pk,
+    latest_log_pks_by_session,
+)
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
@@ -71,20 +75,12 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
 
     @staticmethod
     def latest_pks_by_session(event_pk: int) -> dict[int, int]:
-        latest: dict[int, int] = {}
-        for session_id, pk in (
+        return latest_log_pks_by_session(
             ScheduleChangeLog.objects.filter(event_id=event_pk)
-            .order_by("session_id", "-creation_time", "-pk")
-            .values_list("session_id", "pk")
-        ):
-            latest.setdefault(session_id, pk)
-        return latest
+        )
 
     @staticmethod
     def latest_pk_for_session(event_pk: int, session_id: int) -> int | None:
-        return (
+        return latest_log_pk(
             ScheduleChangeLog.objects.filter(event_id=event_pk, session_id=session_id)
-            .order_by("-creation_time", "-pk")
-            .values_list("pk", flat=True)
-            .first()
         )

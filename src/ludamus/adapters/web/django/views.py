@@ -1,40 +1,28 @@
-import json
 import logging
 from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from email import message_from_bytes, policy
 from enum import StrEnum, auto
 from pathlib import Path
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any, NamedTuple
-from urllib.parse import quote_plus, urlencode, urlparse
 
-from django import forms
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import logout as django_logout
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
-from django.views.generic.base import ContextMixin, RedirectView, TemplateView, View
-from django.views.generic.detail import DetailView, SingleObjectTemplateResponseMixin
-from django.views.generic.edit import FormMixin, ProcessFormView
-from pydantic import BaseModel, ConfigDict
-from pydantic import ValidationError as PydanticValidationError
+from django.views.generic.base import TemplateView, View
+from django.views.generic.detail import DetailView
 
 from ludamus.adapters.db.django.models import (
-    MAX_CONNECTED_USERS,
     SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
@@ -45,7 +33,6 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.adapters.oauth import oauth
 from ludamus.adapters.web.django.entities import (
     EventInfo,
     ParticipationInfo,
@@ -59,11 +46,6 @@ from ludamus.adapters.web.django.entities import (
 )
 from ludamus.adapters.web.django.forms import EnrollmentRoster, RosterMember
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
-from ludamus.gates.web.django.crowd.helpers import (
-    COMPANION_CREATE_AUTO_ID,
-    build_parties_context,
-    companion_edit_auto_id,
-)
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -71,7 +53,7 @@ from ludamus.gates.web.django.entities import (
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.mills import AcceptProposalService
-from ludamus.mills.enrollment import build_anonymous_user, get_user_enrollment_config
+from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
@@ -86,13 +68,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import (
-    ClaimOutcome,
-    ConnectedUserDTO,
-    UserData,
-    UserDTO,
-    UserType,
-)
+from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
 from ludamus.pacts.party import (
     PartyConsentMode,
@@ -107,15 +83,12 @@ from .design_fixtures import (
     mock_session_data_ended,
     mock_user,
 )
-from .forms import (
-    ConnectedUserForm,
-    UserForm,
-    create_enrollment_form,
-    create_proposal_acceptance_form,
-)
+from .forms import create_enrollment_form, create_proposal_acceptance_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from django import forms
 
     from ludamus.pacts.party import EnrollmentPartiesDTO, SelectedEnrollmentPartyDTO
 
@@ -125,368 +98,6 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet
 
 MINIMUM_ALLOWED_USER_AGE = 16
-CACHE_TIMEOUT = 600  # 10 minutes
-
-
-def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
-    host = urlparse(url).netloc
-    allowed = {root_domain}
-    if host and (host == root_domain or host.endswith(f".{root_domain}")):
-        allowed.add(host)
-    return url_has_allowed_host_and_scheme(
-        url, allowed_hosts=allowed, require_https=require_https
-    )
-
-
-class LoginRequiredPageView(TemplateView):
-    template_name = "crowd/login_required.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["next"] = self.request.GET.get("next", "")
-        # Variables for login_button.html component
-        context["show_icon"] = True
-        context["text"] = ""
-        context["extra_class"] = ""
-        return context
-
-
-class Auth0LoginActionView(View):
-    @staticmethod
-    def get(request: RootRequest) -> HttpResponse:
-        """Redirect to Auth0 for authentication.
-
-        Returns:
-            HttpResponse: Redirect to Auth0 authorization endpoint.
-
-        Raises:
-            RedirectError: If the request is not from the root domain.
-        """
-        root_domain = request.services.sites.read_site(
-            request.context.root_sphere_id
-        ).domain
-        next_path = request.GET.get("next")
-        if next_path and not _is_safe_login_redirect(
-            next_path, root_domain, require_https=request.is_secure()
-        ):
-            next_path = None
-        if request.get_host() != root_domain:
-            if next_path:
-                next_path = request.build_absolute_uri(next_path)
-            login_url = (
-                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:login')}"
-            )
-            url = (
-                f"{login_url}?{urlencode({'next': next_path})}"
-                if next_path
-                else login_url
-            )
-            raise RedirectError(url)
-
-        # Generate a secure state token
-        state_token = token_urlsafe(32)
-
-        # Store state data in cache with 10 minute timeout
-        state_data = {
-            "redirect_to": next_path,
-            "created_at": datetime.now(UTC).isoformat(),
-            "csrf_token": request.META.get("CSRF_COOKIE", ""),
-        }
-        cache_key = f"oauth_state:{state_token}"
-        cache.set(cache_key, json.dumps(state_data), timeout=CACHE_TIMEOUT)
-
-        return oauth.auth0.authorize_redirect(  # type: ignore [no-any-return]
-            request,
-            request.build_absolute_uri(reverse("web:crowd:auth0:login-callback")),
-            state=state_token,
-        )
-
-
-class Auth0UserInfo(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    email: str = ""
-    family_name: str = ""
-    given_name: str = ""
-    name: str = ""
-    nickname: str = ""
-    picture: str = ""
-    preferred_username: str = ""
-    sub: str
-
-    @property
-    def display_name(self) -> str | None:
-        if self.name.strip():
-            return self.name.strip()
-        parts = [p.strip() for p in (self.given_name, self.family_name) if p.strip()]
-        if parts:
-            return " ".join(parts)
-        if self.nickname.strip():
-            return self.nickname.strip()
-        if self.preferred_username.strip():
-            return self.preferred_username.strip()
-        return None
-
-    @property
-    def username(self) -> str:
-        return f"auth0|{self.sub}"
-
-    def to_create_data(self, *, slug: str, password: str) -> UserData:
-        return UserData(
-            slug=slug,
-            username=self.username,
-            password=password,
-            email=self.email or "",
-            avatar_url=self.picture or "",
-            name=self.display_name or "",
-        )
-
-    def to_update_data(self, user: UserDTO) -> UserData:
-        data: UserData = {}
-        if self.email and user.email != self.email:
-            data["email"] = self.email
-        if self.picture and user.avatar_url != self.picture:
-            data["avatar_url"] = self.picture
-        display_name = self.display_name
-        if display_name and not (user.name or "").strip():
-            data["name"] = display_name
-        return data
-
-
-class Auth0LoginCallbackActionView(RedirectView):
-    request: RootRequest
-
-    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
-        default_redirect = super().get_redirect_url(*args, **kwargs)
-        index_url = self.request.build_absolute_uri(reverse("web:index"))
-
-        if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
-            return index_url
-
-        root_domain = self.request.services.sites.read_site(
-            self.request.context.root_sphere_id
-        ).domain
-        if redirect_to and not _is_safe_login_redirect(
-            redirect_to, root_domain, require_https=self.request.is_secure()
-        ):
-            redirect_to = ""
-
-        if self.request.context.current_user_slug:
-            return redirect_to or index_url
-
-        userinfo = self._get_userinfo()
-        user = self._get_or_create_user(userinfo)
-
-        self.request.di.uow.login_user(self.request, user.slug)
-        if self.request.session.get("anonymous_enrollment_active"):
-            self.request.session.pop("anonymous_user_code", None)
-            self.request.session.pop("anonymous_enrollment_active", None)
-            self.request.session.pop("anonymous_event_id", None)
-        user = self._apply_user_updates(userinfo, user)
-
-        if not (user.name or "").strip():
-            messages.success(self.request, _("Please complete your profile."))
-            if redirect_to:
-                parsed = urlparse(redirect_to)
-                return (
-                    f"{parsed.scheme}://{parsed.netloc}{reverse('web:crowd:profile')}"
-                )
-            return self.request.build_absolute_uri(reverse("web:crowd:profile"))
-
-        return redirect_to or index_url
-
-    def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
-        if not (state_token := self.request.GET.get("state")):
-            messages.error(
-                self.request,
-                _("Invalid authentication request: missing state parameter"),
-            )
-            return None
-
-        cache_key = f"oauth_state:{state_token}"
-        if not (state_data_json := cache.get(cache_key)):
-            messages.error(
-                self.request, _("Authentication session expired. Please try again.")
-            )
-            return None
-
-        cache.delete(cache_key)
-
-        try:
-            state_data = json.loads(state_data_json)
-            redirect_to = state_data.get("redirect_to") or default_redirect or ""
-
-            created_at = datetime.fromisoformat(state_data["created_at"])
-            if datetime.now(UTC) - created_at > timedelta(minutes=10):
-                messages.error(
-                    self.request, _("Authentication session expired. Please try again.")
-                )
-                return None
-
-        except KeyError, ValueError:
-            messages.error(self.request, _("Invalid authentication state"))
-            return None
-
-        return redirect_to
-
-    def _get_or_create_user(self, userinfo: Auth0UserInfo) -> UserDTO:
-        if claimed := self._redeem_pending_claim(userinfo):
-            return claimed
-        try:
-            return self.request.di.uow.active_users.read_by_username(userinfo.username)
-        except NotFoundError:
-            create_data = userinfo.to_create_data(
-                slug=slugify(userinfo.username), password=make_password(None)
-            )
-            if self.request.di.uow.active_users.email_exists(
-                create_data.get("email", "")
-            ):
-                create_data["email"] = ""
-            self.request.di.uow.active_users.create(create_data)
-            return self.request.di.uow.active_users.read_by_username(userinfo.username)
-
-    def _redeem_pending_claim(self, userinfo: Auth0UserInfo) -> UserDTO | None:
-        if not (token := self.request.session.pop("pending_claim_token", "")):
-            return None
-        result = self.request.services.claims.redeem(
-            token=token, username=userinfo.username
-        )
-        if result.outcome == ClaimOutcome.CONVERTED:
-            messages.success(
-                self.request, _("Profile claimed — it is now your own account.")
-            )
-            return self.request.di.uow.active_users.read(result.user_slug)
-        if result.outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
-            messages.info(
-                self.request,
-                _(
-                    "You already have an account, so this profile can't be moved "
-                    "into it. Ask the person who invited you to enroll you directly."
-                ),
-            )
-        return None
-
-    def _apply_user_updates(self, userinfo: Auth0UserInfo, user: UserDTO) -> UserDTO:
-        if update_data := userinfo.to_update_data(user):
-            if (
-                "email" in update_data
-                and self.request.di.uow.active_users.email_exists(
-                    update_data["email"], exclude_slug=user.slug
-                )
-            ):
-                del update_data["email"]
-            if update_data:
-                self.request.di.uow.active_users.update(user.slug, update_data)
-            if "name" in update_data:
-                user = self.request.di.uow.active_users.read(user.slug)
-        return user
-
-    def _get_userinfo(self) -> Auth0UserInfo:
-        token = oauth.auth0.authorize_access_token(self.request)
-        raw: dict[str, Any] = {}
-        source = "token"
-        if isinstance(token, dict):
-            raw = token.get("userinfo") or {}
-        if not raw:
-            source = "/userinfo"
-            try:
-                result = oauth.auth0.userinfo(token=token)
-            except Exception as exc:
-                raise RedirectError(
-                    reverse("web:index"), error=_("Authentication failed")
-                ) from exc
-            raw = result if isinstance(result, dict) else {}
-        try:
-            userinfo = Auth0UserInfo.model_validate(raw)
-        except PydanticValidationError as exc:
-            raise RedirectError(
-                reverse("web:index"), error=_("Authentication failed")
-            ) from exc
-        logger.info(
-            "Auth0 userinfo from %s: sub=%s has_name=%s",
-            source,
-            userinfo.sub,
-            bool(userinfo.name),
-        )
-        return userinfo
-
-
-class Auth0LogoutActionView(RedirectView):
-    request: RootRequest
-
-    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
-        redirect_to = super().get_redirect_url(*args, **kwargs)
-
-        django_logout(self.request)
-
-        last_domain = self.request.di.uow.spheres.read_site(
-            self.request.context.current_sphere_id
-        ).domain
-        messages.success(self.request, _("You have been successfully logged out."))
-
-        return _auth0_logout_url(
-            self.request, last_domain=last_domain, redirect_to=redirect_to
-        )
-
-
-def _auth0_logout_url(
-    request: RootRequest,
-    *,
-    last_domain: str | None = None,
-    redirect_to: str | None = None,
-) -> str:
-    root_domain = request.di.uow.spheres.read_site(
-        request.context.root_sphere_id
-    ).domain
-    last_domain = last_domain or root_domain
-    redirect_to = redirect_to or reverse("web:index")
-    return f"https://{settings.AUTH0_DOMAIN}/v2/logout?" + urlencode(
-        {
-            "returnTo": (
-                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:logout-redirect')}?last_domain={last_domain}&redirect_to={redirect_to}"
-            ),
-            "client_id": settings.AUTH0_CLIENT_ID,
-        },
-        quote_via=quote_plus,
-    )
-
-
-class Auth0LogoutRedirectActionView(RedirectView):
-    request: RootRequest
-    pattern_name = "web:index"
-
-    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
-        redirect_url = super().get_redirect_url(*args, **kwargs)
-
-        # Get the redirect_to parameter
-        if redirect_to := self.request.GET.get("redirect_to"):
-            # Only allow relative URLs (starting with /)
-            if redirect_to.startswith("/") and not redirect_to.startswith("//"):
-                redirect_url = redirect_to
-            else:
-                messages.warning(self.request, _("Invalid redirect URL."))
-
-        # Handle last_domain parameter for multi-site redirects
-        if last_domain := self.request.GET.get("last_domain"):
-            # Also allow subdomains of ROOT_DOMAIN if configured
-            if (
-                last_domain.endswith(f".{settings.ROOT_DOMAIN}")
-                or last_domain == settings.ROOT_DOMAIN
-            ):
-                return f"{self.request.scheme}://{last_domain}{redirect_url}"
-
-            # Check against explicitly allowed domains
-            try:
-                last_sphere = self.request.di.uow.spheres.read_by_domain(last_domain)
-            except NotFoundError:
-                last_sphere = None
-
-            if last_sphere:
-                return f"{self.request.scheme}://{last_domain}{redirect_url}"
-
-            messages.warning(self.request, _("Invalid domain for redirect."))
-
-        return redirect_url
 
 
 class DesignPageView(TemplateView):
@@ -607,314 +218,6 @@ class EventsPageView(TemplateView):
             )
             for i, item in enumerate(items)
         ]
-
-
-class ProfilePageView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    form_class = UserForm
-    request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:index")
-    template_name = "crowd/user/edit.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        kwargs["user"] = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        )
-        kwargs["object"] = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        )
-        kwargs["confirmed_participations_count"] = SessionParticipation.objects.filter(
-            user_id=self.request.context.current_user_id,
-            status=SessionParticipationStatus.CONFIRMED,
-        ).count()
-        return super().get_context_data(**kwargs)
-
-    def form_valid(self, form: UserForm) -> HttpResponse:
-        # Check if email is being changed and if it already exists
-        email = form.user_data.get("email", "").strip()
-        if email and self.request.di.uow.active_users.email_exists(
-            email, exclude_slug=self.request.context.current_user_slug
-        ):
-            form.add_error(
-                "email",
-                _(
-                    "This email address is already in use. "
-                    "Please use a different email address."
-                ),
-            )
-            return self.form_invalid(form)
-
-        self.request.di.uow.active_users.update(
-            self.request.context.current_user_slug, form.user_data
-        )
-        messages.success(self.request, _("Profile updated successfully!"))
-        return super().form_valid(form)
-
-    def form_invalid(self, form: forms.Form) -> HttpResponse:
-        messages.warning(self.request, _("Please correct the errors below."))
-        return super().form_invalid(form)
-
-    def get_initial(self) -> dict[str, Any]:
-        return self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        ).model_dump()
-
-
-class ProfileConnectedUsersPageView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    form_class = ConnectedUserForm
-    object: UserDTO
-    request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name = "crowd/user/parties.html"
-    template_name_suffix = "_form"
-
-    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        # The page moved to the parties tab; this endpoint keeps handling the
-        # add-companion POST.
-        _ = (request, args, kwargs)  # Django View dispatch
-        return redirect(self.get_success_url())
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        return super().get_form_kwargs() | {"auto_id": COMPANION_CREATE_AUTO_ID}
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = build_parties_context(self.request, create_form=kwargs.get("form"))
-        context.update(kwargs)
-        return super().get_context_data(**context)
-
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
-        # Check if user has reached the maximum number of connected users
-
-        connected_count = len(
-            self.request.di.uow.connected_users.read_all(
-                self.request.context.current_user_slug
-            )
-        )
-        if connected_count >= MAX_CONNECTED_USERS:
-            messages.error(
-                self.request,
-                _("You can only have up to %(max)s connected users.")
-                % {"max": MAX_CONNECTED_USERS},
-            )
-            return self.form_invalid(form)
-
-        user_data = form.user_data
-        user_data["username"] = f"connected|{token_urlsafe(50)}"
-        user_data["slug"] = slugify(user_data["username"][:50])
-        result = super().form_valid(form)
-        self.request.di.uow.connected_users.create(
-            self.request.context.current_user_slug, user_data=user_data
-        )
-        messages.success(self.request, _("Connected user added successfully!"))
-        return result
-
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
-        messages.warning(self.request, _("Please correct the errors below."))
-        return super().form_invalid(form)
-
-
-class ProfileConnectedUserUpdateActionView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    form_class = ConnectedUserForm
-    request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name = "crowd/user/parties.html"
-    template_name_suffix = "_form"
-
-    def get_object(self) -> UserDTO:
-        return self.request.di.uow.connected_users.read(
-            self.request.context.current_user_slug, self.kwargs["slug"]
-        )
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        return super().get_form_kwargs() | {
-            "auto_id": companion_edit_auto_id(self.kwargs["slug"])
-        }
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = build_parties_context(
-            self.request, edit_slug=self.kwargs["slug"], edit_form=kwargs.get("form")
-        )
-        context.update(kwargs)
-        return super().get_context_data(**context)
-
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
-        self.request.di.uow.connected_users.update(
-            manager_slug=self.request.context.current_user_slug,
-            user_slug=self.kwargs["slug"],
-            user_data=form.user_data,
-        )
-        messages.success(self.request, _("Connected user updated successfully!"))
-        return super().form_valid(form)
-
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
-        messages.warning(self.request, _("Please correct the errors below."))
-        return super().form_invalid(form)
-
-
-class ProfileConnectedUserDeleteActionView(
-    LoginRequiredMixin,
-    SingleObjectTemplateResponseMixin,
-    FormMixin,  # type: ignore [type-arg]
-    ContextMixin,
-    ProcessFormView,
-):
-    context_object_name = None
-    form_class = forms.Form
-    model = UserDTO
-    pk_url_kwarg = "pk"
-    query_pk_and_slug = False
-    queryset = None
-    request: AuthenticatedRootRequest
-    slug_field = "slug"
-    slug_url_kwarg = "slug"
-    success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name_suffix = "_confirm_delete"
-
-    def form_valid(self, form: forms.Form) -> HttpResponseRedirect:  # noqa: ARG002
-        success_url = self.get_success_url()
-        self.request.di.uow.connected_users.delete(
-            self.request.context.current_user_slug, self.kwargs["slug"]
-        )
-        messages.success(self.request, _("Connected user deleted successfully."))
-        return HttpResponseRedirect(success_url)
-
-
-class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
-    # POST: mint a share link that lets a connected person take over their
-    # profile as their own self-login account.
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest, slug: str) -> HttpResponse:
-        token = request.services.claims.issue(
-            manager_slug=request.context.current_user_slug, user_slug=slug
-        )
-        if token is None:
-            messages.error(request, _("Could not create a claim link for this person."))
-        else:
-            messages.success(request, _("Claim link created."))
-        return redirect("web:crowd:profile-parties")
-
-
-class ClaimPageView(View):
-    # Landing page for a claim link. The recipient signs in via Auth0 and the
-    # managed row becomes their own account.
-    @staticmethod
-    def _reject_invalid_link(request: RootRequest) -> HttpResponse:
-        messages.error(
-            request, _("This claim link is invalid or has already been used.")
-        )
-        return redirect("web:index")
-
-    @staticmethod
-    def get(request: RootRequest, token: str) -> HttpResponse:
-        if request.context.current_user_slug:
-            messages.info(
-                request,
-                _(
-                    "You're already signed in. Log out first to claim this "
-                    "profile into a new account."
-                ),
-            )
-            return redirect("web:index")
-        if (claimable := request.services.claims.read_claimable(token)) is None:
-            return ClaimPageView._reject_invalid_link(request)
-        return TemplateResponse(
-            request, "crowd/claim.html", {"claimable": claimable, "token": token}
-        )
-
-    @staticmethod
-    def post(request: RootRequest, token: str) -> HttpResponse:
-        if request.context.current_user_slug:
-            return redirect("web:index")
-        if request.services.claims.read_claimable(token) is None:
-            return ClaimPageView._reject_invalid_link(request)
-        request.session["pending_claim_token"] = token
-        login_url = reverse("web:crowd:auth0:login")
-        next_url = reverse("web:crowd:profile")
-        return redirect(f"{login_url}?{urlencode({'next': next_url})}")
-
-
-class ProfileAvatarPageView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        user = request.di.uow.active_users.read(request.context.current_user_slug)
-        return TemplateResponse(
-            request,
-            "crowd/user/avatar.html",
-            {
-                "user": user,
-                "gravatar_url": request.di.gravatar_url(user.email),
-                "has_auth0_avatar": bool(user.avatar_url),
-            },
-        )
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        use_gravatar = request.POST.get("use_gravatar") == "true"
-        request.di.uow.active_users.update(
-            request.context.current_user_slug, UserData(use_gravatar=use_gravatar)
-        )
-        messages.success(request, _("Avatar preference updated successfully!"))
-        return redirect("web:crowd:profile-avatar")
-
-
-class ProfileShadowbanPageView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        candidates = request.services.shadowban.list_candidates(
-            request.context.current_user_id
-        )
-        return TemplateResponse(
-            request, "crowd/user/shadowbans.html", {"candidates": candidates}
-        )
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        if identifier := request.POST.get("identifier", "").strip():
-            # Neutral message either way: never confirm whether an account with
-            # this username/email exists (no enumeration of the user base).
-            request.services.shadowban.add_by_identifier(
-                owner_id=request.context.current_user_id, identifier=identifier
-            )
-            messages.success(
-                request, _("If a matching player exists, they have been shadowbanned.")
-            )
-            return redirect("web:crowd:profile-shadowbans")
-
-        if slug := request.POST.get("slug", ""):
-            banned = request.POST.get("banned") == "true"
-            request.services.shadowban.set_shadowban(
-                owner_id=request.context.current_user_id,
-                target_slug=slug,
-                banned=banned,
-            )
-            messages.success(
-                request,
-                _("Player shadowbanned.") if banned else _("Shadowban removed."),
-            )
-        return redirect("web:crowd:profile-shadowbans")
 
 
 def _get_displayed_field_ids(event: Event) -> set[int]:
@@ -1649,16 +952,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         members = self._party_members(session, selection.selected)
         form = create_enrollment_form(
             session=session,
-            current_user=self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
+            current_user=request.services.enrollment.read_viewer(
+                request.context.current_user_slug
             ),
             roster=EnrollmentRoster(
                 companions=tuple(selection.companions),
                 members=tuple(members),
                 guest_count=self._guest_count(session),
             ),
-            enrollment_config_repo=request.di.uow.enrollment_configs,
-            ticket_api=request.di.ticket_api,
+            enrollment=request.services.enrollment,
         )()
 
         return TemplateResponse(
@@ -1738,7 +1040,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return []
         users = {
             user.pk: user
-            for user in self.request.di.uow.active_users.read_by_ids(
+            for user in self.request.services.enrollment.read_users(
                 [member.user_pk for member in eligible]
             )
         }
@@ -1760,18 +1062,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         ]
 
     def _member_has_access(self, session: Session, user: UserDTO) -> bool:
-        # On a restricted event a member's seat spends that member's own
-        # allowance, so a member without slots cannot be seated by the leader.
-        if not user.email:
-            return False
-        config = get_user_enrollment_config(
-            event=EventDTO.model_validate(session.event),
-            user_email=user.email,
-            enrollment_config_repo=self.request.di.uow.enrollment_configs,
-            ticket_api=self.request.di.ticket_api,
-            check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+        return self.request.services.enrollment.has_slot_access(
+            event=EventDTO.model_validate(session.event), user_email=user.email
         )
-        return bool(config and config.allowed_slots)
 
     @staticmethod
     def _validate_request(
@@ -1811,7 +1104,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         user_data: list[SessionUserParticipationData] = []
 
         all_users = [
-            self.request.di.uow.active_users.read(
+            self.request.services.enrollment.read_viewer(
                 self.request.context.current_user_slug
             ),
             *companions,
@@ -1891,12 +1184,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Initialize form with POST data
         form_class = create_enrollment_form(
             session=session,
-            current_user=self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
+            current_user=request.services.enrollment.read_viewer(
+                request.context.current_user_slug
             ),
             roster=roster,
-            enrollment_config_repo=request.di.uow.enrollment_configs,
-            ticket_api=request.di.ticket_api,
+            enrollment=request.services.enrollment,
         )
         form = form_class(data=request.POST)
         if not form.is_valid():
@@ -1908,7 +1200,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             # Check for specific enrollment restrictions and provide helpful messages
             enrollment_config = session.event.get_most_liberal_config(session)
             if enrollment_config and enrollment_config.restrict_to_configured_users:
-                if not request.di.uow.active_users.read(
+                if not request.services.enrollment.read_viewer(
                     request.context.current_user_slug
                 ).email:
                     messages.error(
@@ -1916,16 +1208,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                         _("Email address is required for enrollment in this session."),
                     )
                 else:
-                    user_email = request.di.uow.active_users.read(
+                    user_email = request.services.enrollment.read_viewer(
                         request.context.current_user_slug
                     ).email
                     event = session.event
-                    if not get_user_enrollment_config(
-                        event=EventDTO.model_validate(event),
-                        user_email=user_email,
-                        enrollment_config_repo=request.di.uow.enrollment_configs,
-                        ticket_api=request.di.ticket_api,
-                        check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+                    if not request.services.enrollment.virtual_config(
+                        event=EventDTO.model_validate(event), user_email=user_email
                     ):
                         messages.error(
                             self.request,
@@ -1976,7 +1264,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             *(
                 RosterMember(user=user)
                 for user in (
-                    self.request.di.uow.active_users.read(
+                    self.request.services.enrollment.read_viewer(
                         self.request.context.current_user_slug
                     ),
                     *roster.companions,
@@ -2198,7 +1486,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
 
     def _actor_name(self) -> str:
-        return self.request.di.uow.active_users.read(
+        return self.request.services.enrollment.read_viewer(
             self.request.context.current_user_slug
         ).full_name
 
@@ -2381,23 +1669,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _create_guests(
         self, *, session: Session, count: int, party_pk: int | None
     ) -> None:
-        users = self.request.di.uow.anonymous_users
-        viewer_name = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        ).full_name
-        for _i in range(count):
-            user_data = build_anonymous_user(
-                f"guest-{token_urlsafe(8).lower()}", name=f"{viewer_name} +1"
-            )
-            users.create(user_data)
-            guest = users.read(user_data["slug"])
-            SessionParticipation.objects.create(
-                session=session,
-                user_id=guest.pk,
-                status=SessionParticipationStatus.CONFIRMED,
-                party_id=party_pk,
-                enrolled_by_id=self.request.context.current_user_id,
-            )
+        self.request.services.enrollment.create_guests(
+            session_id=session.pk,
+            count=count,
+            party_id=party_pk,
+            enrolled_by_id=self.request.context.current_user_id,
+            viewer_name=self._actor_name(),
+        )
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):

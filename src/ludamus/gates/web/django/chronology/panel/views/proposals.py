@@ -30,7 +30,11 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
-from ludamus.pacts.chronology import ProposalScheduledError
+from ludamus.pacts.chronology import (
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
+    ProposalScheduledError,
+)
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
@@ -817,9 +821,45 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         service = self.request.services.session_content_edit
         context["logs"] = service.list_log(current_event.pk)
         context["field_names"] = service.list_field_names(current_event.pk)
+        context["revertible_pks"] = service.revertible_log_pks(current_event.pk)
         facilitator_service = self.request.services.host_personal_data
         context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
         context["facilitator_field_names"] = facilitator_service.list_field_names(
             current_event.pk
         )
         return TemplateResponse(self.request, "panel/content-log.html", context)
+
+
+class ContentLogRevertActionView(PanelAccessMixin, EventContextMixin, View):
+    """Revert a logged session content change (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        service = self.request.services.session_content_edit
+        try:
+            service.revert(
+                event_pk=current_event.pk, log_pk=pk, user_pk=self.request.user.pk
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Change not found."))
+        except ContentChangeNotLatestError:
+            messages.error(
+                self.request, _("Only the latest change for a session can be reverted.")
+            )
+        except ContentChangeNotRevertibleError:
+            messages.error(
+                self.request,
+                _(
+                    "This change cannot be reverted: cover image and assignment "
+                    "changes are not restorable."
+                ),
+            )
+        else:
+            messages.success(self.request, _("Change reverted."))
+        return redirect("panel:content-log", slug=slug)

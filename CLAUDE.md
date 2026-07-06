@@ -4,13 +4,9 @@ Django event management. Python 3.14, Poetry, mise.
 
 ## Commands
 
-```bash
-mise run start      # dev server :8000
-mise run test       # all tests
-mise run check      # format + lint
-mise run dj <cmd>   # django-admin
-mise tasks          # list all tasks with descriptions
-```
+`mise tasks` is the source of truth for every runnable task and its
+description — run it rather than trusting a hardcoded list here. Most used:
+`mise run start`, `mise run test:py`, `mise run check`, `mise run dj <cmd>`.
 
 ## Workflow
 

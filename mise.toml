@@ -1,6 +1,9 @@
 [settings]
 experimental = true
-jobs = 1
+# We switch to multitask mode
+# use run = [...] to enforce synchronous run
+# user depends = [...] to allow asynchronous execution
+jobs = 8
 
 [hooks]
 enter = "poetry install"
@@ -8,7 +11,7 @@ enter = "poetry install"
 [tools]
 python = "3.14"
 node = "v25.6.1"
-poetry = { version = "2.3.2", pyproject = "{{ config_root }}/pyproject.toml" }
+"pipx:poetry" = "2.3.2"
 "ast-grep" = "0.42.1"
 markdownlint-cli2 = "0.22.1"
 "github:endevco/aube" = "latest"
@@ -17,11 +20,13 @@ actionlint = "1.7.12"
 shellcheck = "0.11.0"
 hadolint = "2.14.0"
 "github:reteps/dockerfmt" = "0.5.2"
+pipx = "1.15.0"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
 _.path = "/opt/homebrew/opt/gettext/bin:/usr/local/opt/gettext/bin:/home/linuxbrew/.linuxbrew/opt/gettext/bin"
 LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
+PYTHONPATH = "src"
 
 [bootstrap.packages]
 "brew:libxml2" = "latest"
@@ -30,132 +35,210 @@ LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
 [task_config]
 includes = ["tasks.toml"]
 
-[tasks.update]
-description = "Update all dependencies: mise tools, pip, Poetry packages"
-run = """
-mise upgrade
-pip install -U pip
-pip install -U poetry
-poetry update
-deptry .
-pip-audit .
-poetry show -o
-"""
+# Tasks
 
+## Format
 
-[tasks._lint]
-description = "Base env vars for lint tasks"
-run = ""
-env.DB_NAME = ":memory:"
-env.ENV = "local"
-env.PYTHONPATH = "src"
-env.SECRET_KEY = "dev-secret-key"
-env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
-
-[tasks.black]
+[tasks."format:black"]
 description = "Format Python code with Black"
-run = "mise run _lint -- black src tests"
+run = "black scripts src tests"
 
-[tasks.codespell]
-description = "Find typos in source and test files"
-run = "mise run _lint -- codespell src tests/unit tests/integration"
-
-[tasks.deptry]
-description = "Detect missing, unused, or transitive dependency imports"
-run = "mise run _lint -- deptry src tests"
-
-[tasks.djlint]
-description = "Lint Django templates and check formatting (no changes)"
-run = "mise run _lint -- djlint src --lint --check --format-css --format-js --profile=django"
-
-[tasks.djlint-format]
+[tasks."format:djlint"]
 description = "Lint Django templates and reformat them, CSS and JS included"
-run = "mise run _lint -- djlint src --lint --reformat --format-css --format-js --profile=django"
+run = "djlint src --lint --reformat --format-css --format-js --profile=django"
 
-[tasks.hk-check]
-description = "Run every hk linter on all files (same steps as the git hooks)"
-run = "hk check --all"
-
-[tasks.hk-fix]
-description = "Run every hk linter on all files and apply fixes"
-run = "hk fix --all"
-
-[tasks.il]
-description = "Enforce GLIMPSE layer import rules"
-run = "mise run _lint -- lint-imports --config=pyproject.toml"
-
-[tasks.mypy]
-description = "Type-check Python source with mypy"
-run = "mise run _lint -- mypy src"
-
-[tasks.pylint]
-description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
-run = "mise run _lint -- pylint src && mise run _lint -- pylint --disable=duplicate-code tests"
-
-[tasks.ruff-fix]
+[tasks."format:ruff"]
 description = "Lint Python with Ruff and auto-fix violations"
-run = "mise run _lint -- ruff check --fix src tests"
+run = "ruff check --fix scripts src tests"
 
-[tasks.ast-grep]
+[tasks."format:taplo"]
+description = "Format TOML files"
+run = "taplo format --config=.taplo.toml"
+
+[tasks.format]
+description = "Run all formatters"
+run = [
+    { task = "format:taplo" },
+    { task = "format:black" },
+    { task = "format:djlint" },
+    { task = "format:ruff" },
+]
+
+## Lint
+
+[tasks."lint:ast-grep"]
 description = "Run structural code pattern checks via ast-grep"
-run = "ast-grep scan --error src"
+run = "ast-grep scan --error src tests"
 
-[tasks.vulture]
+[tasks."lint:codespell"]
+description = "Find typos in source and test files"
+run = "codespell scripts src tests/unit tests/integration"
+
+[tasks."lint:djlint"]
+description = "Lint Django templates and check formatting (no changes)"
+run = "djlint src --lint --check --format-css --format-js --profile=django"
+
+[tasks."lint:impeccable"]
+run = "python scripts/impeccable_lint.py"
+
+[tasks."lint:import-linter"]
+description = "Enforce GLIMPSE layer import rules"
+run = "lint-imports --config=pyproject.toml"
+
+[tasks."lint:mypy"]
+description = "Type-check Python source with mypy"
+run = "mypy src"
+env = { _.file = '.env.test' }
+
+[tasks."lint:pylint"]
+description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
+run = ["pylint"]
+
+[tasks."lint:ruff"]
+run = ["ruff check --no-fix scripts src tests"]
+
+[tasks."lint:taplo"]
+description = "Format TOML files"
+run = "taplo lint --config=.taplo.toml"
+
+[tasks."lint:vulture"]
 description = "Find dead Python code"
 run = "! vulture --config=pyproject.toml src | grep -v unused.variable"
 
-[tasks.impeccable]
-run = "python scripts/impeccable_lint.py"
+[tasks."lint:hk"]
+description = "Run every hk linter on all files (file hygiene, shell, yaml, docker, md)"
+run = "hk check --all"
 
-[tasks.check]
-description = "Format, lint, and fix — run all code quality tools"
+[tasks.lint]
+description = "Run all linters"
 depends = [
-  "hk-fix",
-  "mypy",
-  "il",
-  "pylint",
-  "vulture",
-  "ast-grep",
-  "impeccable",
+    { task = "lint:hk" },
+    { task = "lint:taplo" },
+    { task = "lint:ruff" },
+    { task = "lint:import-linter" },
+    { task = "lint:ast-grep" },
+    { task = "lint:codespell" },
+    { task = "format:black", args = ["--check"] },
+    { task = "lint:vulture" },
+    { task = "lint:djlint" },
+    { task = "lint:mypy" },
+    { task = "lint:impeccable" },
+    { task = "lint:pylint", args = ["src"] },
+    { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
 ]
 
-[tasks.prcheck]
-description = "CI-style lint pass: report violations without fixing"
-depends = [
-  "hk-check",
-  "mypy",
-  "il",
-  "pylint",
-  "vulture",
-  "ast-grep",
+## Dependencies
+
+[tasks.update]
+description = "Update all dependencies: mise tools, pip, Poetry packages"
+run = [
+    "mise upgrade",
+    "pip install -U pip",
+    "poetry update",
+    "deptry src tests",
+    "pip-audit .",
+    "poetry show -o",
 ]
 
-[tasks._pytest]
-description = "Base pytest runner with test env (internal)"
-run = "pytest"
-env.ALLOWED_HOSTS = ".testserver"
-env.AUTH0_CLIENT_ID = "test-auth0-client-id"
-env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
-env.AUTH0_DOMAIN = "auth0.example.com"
-env.DB_NAME = ":memory:"
-env.ENV = "local"
-env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
-env.MEMBERSHIP_API_TOKEN = "membership-test-token"
-env.PYTHONPATH = "src"
-env.ROOT_DOMAIN = "testserver"
-env.SECRET_KEY = "dev-secret-key"
-env.SESSION_COOKIE_DOMAIN = ".testserver"
-env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
-env.IN_TESTS = 'True'
+## Tests
 
-[tasks.unittest]
+### Python tests
+
+[tasks."test:unit"]
 description = "Run unit tests"
-run = "mise run _pytest -- tests/unit --cov=tests.unit --cov=ludamus"
+run = "pytest tests/unit"
+env = { _.file = '.env.test' }
 
-[tasks.test]
-description = "Run all tests"
-run = "mise run _pytest -- tests/integration tests/unit"
-env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
+[tasks."test:unit:cov"]
+description = "Run unit tests"
+run = "pytest tests/unit --cov=tests.unit --cov=ludamus"
+env = { _.file = '.env.test' }
+
+[tasks."test:int:cov:diff"]
+description = "Show test coverage of integration tests for lines changed since main"
+run = [
+    "pytest tests/integration --cov=ludamus.gates --cov=ludamus.links --cov=ludamus.adapters.web --cov=src/ludamus/templates/",
+    "coverage xml",
+    "diff-cover coverage.xml --compare-branch=main",
+]
+env = { _.file = '.env.test' }
+
+[tasks."test:int"]
+description = "Run integration tests"
+run = "pytest tests/integration"
+env = { _.file = '.env.test' }
+
+[tasks."test:int:cov"]
+description = "Run integration tests"
+run = "pytest tests/integration --cov=tests.integration --cov=ludamus"
+env = { _.file = '.env.test' }
+
+[tasks."test:unit:cov:diff"]
+description = "Show test coverage of unit tests for lines changed since main"
+run = [
+    "pytest tests/unit --cov=ludamus.mills",
+    "coverage xml",
+    "diff-cover coverage.xml --compare-branch=main",
+]
+env = { _.file = '.env.test' }
+
+[tasks."test:py"]
+description = "Run all Python tests"
+run = "pytest tests/integration tests/unit"
+env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
+
+[tasks."test:py:cov"]
+description = "Run all Python tests"
+run = "pytest tests/integration tests/unit --cov"
+env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
+
+### End-to-End tests
+
+
+[tasks."test:e2e"]
+description = "Run end-to-end Playwright tests"
+run = [
+    "npx playwright test",
+    "coverage report --rcfile={{ config_root }}/pyproject.toml",
+]
+env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
+dir = "tests/e2e"
+
+[tasks."test:e2e:install"]
+description = "Install Playwright (node deps + browsers)"
+run = ["aube install", "aube exec -C tests/e2e playwright install --with-deps"]
+
+[tasks."test:e2e:prep"]
+description = "Migrate, seed fixtures, and build client for e2e tests"
+run = [
+    "poetry install",
+    "aube install",
+    'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
+    "django-admin migrate --noinput",
+    "django-admin createcachetable",
+    "django-admin downloadvendor",
+    "python tests/e2e/scripts/bootstrap_data.py",
+    "python tests/e2e/scripts/bootstrap_facilitators.py",
+    "python tests/e2e/scripts/bootstrap_timetable.py",
+    "aubr -C src/ludamus/client build",
+]
+env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
+
+[tasks."test:e2e:kill"]
+description = "Kill the e2e dev server (Django on :8000)"
+run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
+
+[tasks."test:e2e:serve"]
+description = "Run the e2e dev server (assumes `test:e2e:prep` has run)"
+run = "coverage run --source=src -m django runserver --insecure --noreload localhost:8000"
+env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
+
+[tasks."test:e2e:boot"]
+description = "Run bootstrap script"
+run = "python"
+env = { _.file = '.env.e2e' }
+
+### Other types
 
 [tasks."test:postgres"]
 description = "Run PostgreSQL-only tests (row locking / concurrency) on real Postgres"
@@ -182,40 +265,21 @@ env.IN_TESTS = 'True'
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
-run = "mise run _pytest -- --gremlins tests"
-env.COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
+run = "pytest --gremlins tests"
+env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
+
+## Complex
 
 [tasks.diff-cover]
 description = "Show test coverage for lines changed since main"
-depends = ["coverage"]
-run = """
-coverage xml --data-file=.coverage
-diff-cover coverage.xml --compare-branch=main
-"""
-
-[tasks."test:int:cov:diff"]
-description = "Show test coverage of integration tests for lines changed since main"
 run = [
-  { task = "_pytest", args = [
-    "tests/integration",
-    "--cov=ludamus.gates",
-    "--cov=ludamus.links",
-    "--cov=ludamus.adapters.web",
-    "--cov=src/ludamus/templates/",
-  ] },
-  "coverage xml",
-  "diff-cover coverage.xml --compare-branch=main",
-]
-
-[tasks."test:unit:cov:diff"]
-description = "Show test coverage of unit tests for lines changed since main"
-run = [
-  { task = "_pytest", args = [
-    "tests/unit",
-    "--cov=ludamus.mills",
-  ] },
-  "coverage xml",
-  "diff-cover coverage.xml --compare-branch=main",
+    { task = "test:py:cov" },
+    { task = "test:e2e:kill" },
+    "rm -f dev.e2e.sqlite3",
+    { task = "test:e2e" },
+    { task = "coverage:combine" },
+    "coverage xml --data-file=.coverage",
+    "diff-cover coverage.xml --compare-branch=main",
 ]
 
 [tasks."coverage:combine"]
@@ -232,66 +296,30 @@ coverage report --fail-under=93
 """
 env.PYTHONPATH = "src"
 
+[tasks.shitcheck]
+description = "Flag suspicious additions vs main (file:line; tests skip Any): noqa, Any, cast"
+run = [
+    "scripts/shitcheck.sh 'request.di.uow|nosec|noqa|type: ignore|Any|pylint|pragma|cast\\(|(^|[^[:alnum:]_])object([^[:alnum:]_]|$)' ':(glob)src/**/*.py'",
+    "scripts/shitcheck.sh 'nosec|noqa|pylint|pragma|\\.skip$|\\.xfail$|ANY' ':(glob)tests/**/*.py'",
+]
 
-[tasks._e2e]
-description = "Base env vars for e2e tasks (internal)"
-run = ''
-env.ALLOWED_HOSTS = ".localhost"
-env.AUTH0_CLIENT_ID = "test-auth0-client-id"
-env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
-env.AUTH0_DOMAIN = "auth0.example.com"
-env.COVERAGE_FILE = "{{ config_root }}/.coverage.e2e"
-env.DB_NAME = "dev.e2e.sqlite3"
-env.DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
-env.EMAIL_URL = "filemail:///tests/e2e/.e2e-mail"
-env.ENV = "local"
-env.MEMBERSHIP_API_BASE_URL = ""
-env.MEMBERSHIP_API_TOKEN = "membership-test-token"
-env.PYTHONPATH = "src"
-env.ROOT_DOMAIN = "localhost:8000"
-env.SECRET_KEY = "e2e-secret-key"
-env.SESSION_COOKIE_DOMAIN = ".localhost"
-env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
-env.IN_TESTS = 'True'
+[tasks.check]
+run = [{ task = "format" }, { task = "lint" }]
 
-[tasks."install:playwright"]
-description = "Install Playwright (node deps + browsers)"
-run = """
-aube install
-aube exec -C tests/e2e playwright install --with-deps
-"""
+[tasks.devcheck]
+run = [
+    { task = "check" },
+    { task = "test:py", args = ["-xvv"] },
+    { task = "shitcheck" },
+]
 
-[tasks.e2e]
-description = "Run end-to-end Playwright tests"
-run = """
-npx playwright test
-mise run _e2e -- coverage report
-"""
-dir = "tests/e2e"
 
-[tasks."e2e:prep"]
-description = "Migrate, seed fixtures, and build client for e2e tests"
-run = """
-poetry install
-aube install
-rm -f "{{ config_root }}/dev.e2e.sqlite3"
-mise run _e2e -- django-admin migrate --noinput
-mise run _e2e -- django-admin createcachetable
-mise run _e2e -- django-admin downloadvendor
-mise run _e2e -- python tests/e2e/scripts/bootstrap_data.py
-mise run _e2e -- python tests/e2e/scripts/bootstrap_facilitators.py
-mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
-aubr -C src/ludamus/client build
-"""
+[tasks.fullcheck]
+env.E2E_SKIP_IOS = "1"
+run = [{ task = "check" }, { task = "diff-cover" }, { task = "shitcheck" }]
 
-[tasks."e2e:kill"]
-description = "Kill the e2e dev server (Django on :8000)"
-run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
 
-[tasks."e2e:serve"]
-description = "Run the e2e dev server (assumes `e2e:prep` has run)"
-run = "exec mise run _e2e -- coverage run --source=src -m django runserver --insecure --noreload localhost:8000"
-
+## Other
 
 [tasks.dc]
 description = "Run docker compose for a target environment (local or prod)"
@@ -359,29 +387,3 @@ run = "aubr -C src/ludamus/client lint"
 description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
-
-
-[tasks.shitcheck]
-description = "Flag suspicious additions vs main (file:line; tests skip Any): noqa, Any, cast"
-run = [
-  "scripts/shitcheck.sh 'request.di.uow|nosec|noqa|type: ignore|Any|pylint|pragma|cast\\(|(^|[^[:alnum:]_])object([^[:alnum:]_]|$)' ':(glob)src/**/*.py'",
-  "scripts/shitcheck.sh 'nosec|noqa|pylint|pragma|\\.skip$|\\.xfail$|ANY' ':(glob)tests/**/*.py'"
-]
-
-[tasks.coverage]
-description = "Run all tests, collect coverage, enforce 93% threshold"
-depends = ["test --cov", "e2e:kill", "e2e", "coverage:combine"]
-
-[tasks.devcheck]
-run = [
-  { task = "check" },
-  { task = "test", args = [
-    "-xvv",
-  ] },
-  { task = "shitcheck" },
-]
-
-
-[tasks.fullcheck]
-env.E2E_SKIP_IOS = "1"
-run = [{ task = "check" }, { task = "diff-cover" }, { task = "shitcheck" }]
