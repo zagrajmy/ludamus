@@ -678,6 +678,15 @@ class EventSettingsDTO(BaseModel):
     pk: int
 
 
+class EventPanelSettingsDTO(BaseModel):
+    """Organizer-only backoffice settings for an event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    displayed_facilitator_field_ids: list[int] = []
+    pk: int
+
+
 class EventUpdateData(TypedDict, total=False):
     """Write shape for updating event fields."""
 
@@ -1211,6 +1220,15 @@ class EventSettingsRepositoryProtocol(Protocol):
     def update_displayed_fields(event_id: int, field_ids: list[int]) -> None: ...
 
 
+class EventPanelSettingsRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
+    @staticmethod
+    def update_displayed_facilitator_fields(
+        event_id: int, field_ids: list[int]
+    ) -> None: ...
+
+
 class EnrollmentConfigRepositoryProtocol(Protocol):
     @staticmethod
     def read_list(
@@ -1300,6 +1318,10 @@ class HostPersonalDataRepositoryProtocol(Protocol):
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
+    @staticmethod
+    def list_values_for_event(
+        event_id: int, field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def list_field_ids_for_facilitator_event(
         facilitator_id: int, event_id: int
@@ -1481,6 +1503,8 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     def events(self) -> EventRepositoryProtocol: ...
     @property
     def event_settings(self) -> EventSettingsRepositoryProtocol: ...
+    @property
+    def event_panel_settings(self) -> EventPanelSettingsRepositoryProtocol: ...
     @property
     def facilitators(self) -> FacilitatorRepositoryProtocol: ...
     @property

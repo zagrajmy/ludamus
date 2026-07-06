@@ -1521,6 +1521,22 @@ class EventSettings(models.Model):
         return f"Settings for {self.event}"
 
 
+class EventPanelSettings(models.Model):
+    """Organizer-only (backoffice) settings — never surfaced to attendees."""
+
+    event = models.OneToOneField(
+        Event, on_delete=models.CASCADE, related_name="panel_settings"
+    )
+    # Which personal-data fields show as columns on the facilitators list.
+    displayed_facilitator_fields = models.ManyToManyField(PersonalDataField, blank=True)
+
+    class Meta:
+        db_table = "event_panel_settings"
+
+    def __str__(self) -> str:
+        return f"Panel settings for {self.event}"
+
+
 class Track(models.Model):
     """Thematic track for organizing sessions within an event."""
 

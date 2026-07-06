@@ -43,6 +43,10 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
         return repositories.EventSettingsRepository()
 
     @cached_property
+    def event_panel_settings(self) -> repositories.EventPanelSettingsRepository:
+        return repositories.EventPanelSettingsRepository()
+
+    @cached_property
     def events(self) -> repositories.EventRepository:
         return repositories.EventRepository()
 

@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     AccreditationType,
+    EventPanelSettings,
     Facilitator,
     HostPersonalData,
     PersonalDataField,
@@ -42,6 +43,8 @@ def _base_context(event):
         "filter_sort": "name",
         "accreditation_types": [(t.value, t.label) for t in AccreditationType],
         "accreditation_labels": {t.value: t.label for t in AccreditationType},
+        "displayed_fields": [],
+        "column_values": {},
     }
 
 
@@ -261,6 +264,36 @@ class TestFacilitatorsPageView:
         assert response.status_code == HTTPStatus.OK
         assert [f.display_name for f in response.context["facilitators"]] == ["Flagged"]
 
+    def test_displayed_columns_show_field_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Email",
+            question="Email?",
+            slug="email",
+            field_type="text",
+            order=0,
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=facilitator, event=event, field=field, value="alice@example.com"
+        )
+        panel_settings = EventPanelSettings.objects.create(event=event)
+        panel_settings.displayed_facilitator_fields.add(field)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert [f.name for f in response.context["displayed_fields"]] == ["Email"]
+        assert (
+            response.context["column_values"][facilitator.pk]["email"]
+            == "alice@example.com"
+        )
+
     def test_paginates_facilitators(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -383,3 +416,69 @@ class TestFacilitatorActions:
             messages=[(messages.ERROR, "Facilitator not found.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
+
+
+class TestFacilitatorColumns:
+    """Configure which personal-data fields show as list columns."""
+
+    @staticmethod
+    def _url(event):
+        return reverse("panel:facilitator-columns", kwargs={"slug": event.slug})
+
+    @staticmethod
+    def _field(event):
+        return PersonalDataField.objects.create(
+            event=event,
+            name="Email",
+            question="Email?",
+            slug="email",
+            field_type="text",
+            order=0,
+        )
+
+    def test_get_lists_fields(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        field = self._field(event)
+
+        response = authenticated_client.get(self._url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert [f.pk for f in response.context["fields"]] == [field.pk]
+        assert response.context["selected_field_ids"] == []
+
+    def test_post_saves_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = self._field(event)
+
+        response = authenticated_client.post(
+            self._url(event), {"fields": [str(field.pk)]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Columns updated.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert list(
+            settings.displayed_facilitator_fields.values_list("pk", flat=True)
+        ) == [field.pk]
+
+    def test_post_ignores_unknown_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(self._url(event), {"fields": ["99999"]})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Columns updated.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert settings.displayed_facilitator_fields.count() == 0

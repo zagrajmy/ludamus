@@ -16,6 +16,9 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
+            {% url 'panel:facilitator-columns' slug=current_event.slug as columns_url %}
+            {% translate "Columns" as t_columns %}
+            {% tessera_button t_columns href=columns_url variant="secondary" icon="view-columns" %}
             {% url 'panel:facilitator-merge' slug=current_event.slug as merge_url %}
             {% translate "Merge facilitators" as t_merge %}
             {% tessera_button t_merge href=merge_url variant="secondary" icon="funnel" %}
@@ -92,6 +95,12 @@
                         {% include "panel/_sort_th.html" with column="sessions" label=t_sessions %}
                         {% translate "Accreditation" as t_accr %}
                         {% include "panel/_sort_th.html" with column="accreditation" label=t_accr %}
+                        {% for field in displayed_fields %}
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {{ field.name }}
+                            </th>
+                        {% endfor %}
                         <th scope="col"
                             class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
                             {% translate "Actions" %}
@@ -122,6 +131,12 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
                                 {{ accreditation_labels|get_item:facilitator.accreditation_type }}
                             </td>
+                            {% for field in displayed_fields %}
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted"
+                                    title="{{ column_values|get_item:facilitator.pk|get_item:field.slug }}">
+                                    {{ column_values|get_item:facilitator.pk|get_item:field.slug|truncatechars:40 }}
+                                </td>
+                            {% endfor %}
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="inline-flex items-center gap-3 justify-end">
                                     {% if facilitator.accreditation_type != "guest" %}

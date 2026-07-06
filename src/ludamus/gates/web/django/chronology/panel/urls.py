@@ -337,6 +337,11 @@ urlpatterns = [
         name="facilitator-create",
     ),
     path(
+        "event/<slug:slug>/facilitators/columns/",
+        facilitators.FacilitatorColumnsPageView.as_view(),
+        name="facilitator-columns",
+    ),
+    path(
         "event/<slug:slug>/facilitators/merge/",
         facilitators.FacilitatorMergePageView.as_view(),
         name="facilitator-merge",

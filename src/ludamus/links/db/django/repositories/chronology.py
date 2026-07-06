@@ -9,6 +9,7 @@ from ludamus.adapters.db.django.models import (
     EnrollmentConfig,
     Event,
     EventIntegration,
+    EventPanelSettings,
     EventProposalSettings,
     EventSettings,
     Session,
@@ -22,6 +23,8 @@ from ludamus.pacts import (
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
     EventListItemDTO,
+    EventPanelSettingsDTO,
+    EventPanelSettingsRepositoryProtocol,
     EventRepositoryProtocol,
     EventSettingsDTO,
     EventSettingsRepositoryProtocol,
@@ -182,6 +185,25 @@ class EventSettingsRepository(EventSettingsRepositoryProtocol):
     def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
         settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
         settings.displayed_session_fields.set(field_ids)
+
+
+class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
+    @staticmethod
+    def read_or_create(event_id: int) -> EventPanelSettingsDTO:
+        settings, _ = EventPanelSettings.objects.get_or_create(event_id=event_id)
+        return EventPanelSettingsDTO(
+            pk=settings.pk,
+            displayed_facilitator_field_ids=list(
+                settings.displayed_facilitator_fields.values_list("pk", flat=True)
+            ),
+        )
+
+    @staticmethod
+    def update_displayed_facilitator_fields(
+        event_id: int, field_ids: list[int]
+    ) -> None:
+        settings, _ = EventPanelSettings.objects.get_or_create(event_id=event_id)
+        settings.displayed_facilitator_fields.set(field_ids)
 
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):

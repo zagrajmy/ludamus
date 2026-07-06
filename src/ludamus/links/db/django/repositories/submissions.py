@@ -949,6 +949,23 @@ class HostPersonalDataRepository(HostPersonalDataRepositoryProtocol):
         return {hpd.field.slug: hpd.value for hpd in records}
 
     @staticmethod
+    def list_values_for_event(
+        event_id: int, field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]:
+        # Batch load for the facilitators list: one query for all facilitators'
+        # values across the chosen columns, keyed by facilitator_id.
+        if not field_ids:
+            return {}
+        records = HostPersonalData.objects.filter(
+            event_id=event_id, field_id__in=field_ids
+        ).select_related("field")
+        result: dict[int, dict[str, str | list[str] | bool]] = {}
+        for hpd in records:
+            if hpd.facilitator_id is not None:
+                result.setdefault(hpd.facilitator_id, {})[hpd.field.slug] = hpd.value
+        return result
+
+    @staticmethod
     def list_field_ids_for_facilitator_event(
         facilitator_id: int, event_id: int
     ) -> list[int]:

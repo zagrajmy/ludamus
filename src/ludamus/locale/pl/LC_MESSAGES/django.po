@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 20:52+0200\n"
+"POT-Creation-Date: 2026-07-06 21:04+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1265,6 +1265,17 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Yes"
+msgstr "Tak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "No"
+msgstr "Nie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
 msgstr "Twórca programu został utworzony."
 
@@ -1297,6 +1308,10 @@ msgstr "Usunięto oznaczenie do usunięcia."
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator marked as guest."
 msgstr "Twórca programu oznaczony jako gość."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Columns updated."
+msgstr "Kolumny zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -2607,15 +2622,6 @@ msgstr "Twórcy programu"
 msgid "Tracks"
 msgstr "Bloki programowe"
 
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Yes"
-msgstr "Tak"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "No"
-msgstr "Nie"
-
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "You're in: a spot opened in %(session)s"
@@ -3743,6 +3749,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
@@ -3962,6 +3969,7 @@ msgstr "(wymagane)"
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/chronology/propose/parts/timeslots.html
+#: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Back"
 msgstr "Wróć"
@@ -5509,6 +5517,7 @@ msgstr ""
 
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/import-run.html
@@ -5667,6 +5676,36 @@ msgid ""
 msgstr ""
 "Nie zdefiniowano pól punktu programu. Najpierw utwórz pola w sekcji zgłoszeń."
 
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Columns"
+msgstr "Kolumny"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid "Facilitator columns"
+msgstr "Kolumny twórców programu"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Session Hosts"
+msgstr "Twórcy programu"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid "Personal-data columns"
+msgstr "Kolumny danych osobowych"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid ""
+"Select which personal-data fields show as columns on the facilitators list. "
+"Organizers only."
+msgstr ""
+"Wybierz, które pola danych osobowych mają być kolumnami na liście twórców "
+"programu. Tylko dla organizatorów."
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid "No personal-data fields defined for this event yet."
+msgstr "Nie zdefiniowano jeszcze pól danych osobowych dla tego wydarzenia."
+
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "New Facilitator"
@@ -5772,10 +5811,6 @@ msgstr "Scal"
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "No facilitators available to merge."
 msgstr "Brak twórców programu do scalenia."
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Session Hosts"
-msgstr "Twórcy programu"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Merge facilitators"

@@ -42,6 +42,14 @@ if TYPE_CHECKING:
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
 
+def _format_field_value(*, value: str | list[str] | bool | None) -> str:
+    if isinstance(value, bool):
+        return _("Yes") if value else _("No")
+    if isinstance(value, list):
+        return ", ".join(value)
+    return value or ""
+
+
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
     """List facilitators for an event."""
 
@@ -75,9 +83,37 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             self.request.GET.get("page")
         )
 
+        panel_settings = self.request.di.uow.event_panel_settings.read_or_create(
+            current_event.pk
+        )
+        selected_ids = set(panel_settings.displayed_facilitator_field_ids)
+        displayed_fields = sorted(
+            (
+                field
+                for field in self.request.di.uow.personal_data_fields.list_by_event(
+                    current_event.pk
+                )
+                if field.pk in selected_ids
+            ),
+            key=lambda field: (field.order, field.name),
+        )
+        # ponytail: one batched query for every facilitator's chosen-column
+        # values; page-scoped narrowing is a later concern if events grow huge.
+        raw_values = self.request.di.uow.host_personal_data.list_values_for_event(
+            current_event.pk, [field.pk for field in displayed_fields]
+        )
+        column_values = {
+            facilitator_pk: {
+                slug: _format_field_value(value=value) for slug, value in values.items()
+            }
+            for facilitator_pk, values in raw_values.items()
+        }
+
         context["active_nav"] = "facilitators"
         context["facilitators"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
+        context["displayed_fields"] = displayed_fields
+        context["column_values"] = column_values
         context["filter_search"] = search or ""
         context["filter_accreditation"] = accreditation
         context["filter_flagged"] = flagged
@@ -433,3 +469,46 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
             facilitator.pk,
             FacilitatorUpdateData(accreditation_type=AccreditationType.GUEST.value),
         )
+
+
+class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
+    """Choose which personal-data fields show as columns on the list."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        settings = self.request.di.uow.event_panel_settings.read_or_create(
+            current_event.pk
+        )
+        context["active_nav"] = "facilitators"
+        context["fields"] = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
+        context["selected_field_ids"] = settings.displayed_facilitator_field_ids
+        return TemplateResponse(self.request, "panel/facilitator-columns.html", context)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        valid_pks = {
+            field.pk
+            for field in self.request.di.uow.personal_data_fields.list_by_event(
+                current_event.pk
+            )
+        }
+        selected_ids = [
+            pk
+            for raw in self.request.POST.getlist("fields")
+            if raw.isdigit() and (pk := int(raw)) in valid_pks
+        ]
+        self.request.di.uow.event_panel_settings.update_displayed_facilitator_fields(
+            current_event.pk, selected_ids
+        )
+        messages.success(self.request, _("Columns updated."))
+        return redirect("panel:facilitators", slug=slug)
