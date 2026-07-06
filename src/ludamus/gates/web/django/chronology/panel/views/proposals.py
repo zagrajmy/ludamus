@@ -692,6 +692,14 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         form = form_class(data) if data is not None else form_class()
         return form, duration_choices
 
+    def _collect_track_ids(self, event_pk: int) -> list[int]:
+        if self.request.POST.get("tracks_submitted") != "1":
+            return []
+        raw_ids = self.request.POST.getlist("track_ids")
+        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
+        valid_pks = {t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)}
+        return list(submitted_ids & valid_pks)
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -701,6 +709,10 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["form"] = form
         context["duration_choices"] = duration_choices
+        context["all_tracks"] = self.request.di.uow.tracks.list_by_event(
+            current_event.pk
+        )
+        context["assigned_track_pks"] = set()
         return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -708,11 +720,16 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        track_ids = self._collect_track_ids(current_event.pk)
         form, duration_choices = self._get_form(current_event, self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "proposals"
             context["form"] = form
             context["duration_choices"] = duration_choices
+            context["all_tracks"] = self.request.di.uow.tracks.list_by_event(
+                current_event.pk
+            )
+            context["assigned_track_pks"] = set(track_ids)
             return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
         title = form.cleaned_data["title"]
@@ -744,6 +761,7 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             ),
             tag_ids=[],
             facilitator_ids=facilitator_ids,
+            track_ids=track_ids,
         )
         messages.success(self.request, _("Proposal created successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)

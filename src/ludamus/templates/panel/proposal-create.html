@@ -187,6 +187,29 @@
                     </div>
                 </div>
             </div>
+            {% if all_tracks %}
+                <div class="card mt-6">
+                    <div class="card-body">
+                        <input type="hidden" name="tracks_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Tracks" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Assign this proposal to one or more programme tracks." %}
+                        </p>
+                        <div class="space-y-2">
+                            {% for t in all_tracks %}
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox"
+                                           name="track_ids"
+                                           value="{{ t.pk }}"
+                                           {% if t.pk in assigned_track_pks %}checked{% endif %}
+                                           class="mr-2">
+                                    {{ t.name }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </form>
         {% include "panel/_facilitator_picker_script.html" %}
     {% endif %}
