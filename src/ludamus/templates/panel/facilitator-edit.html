@@ -58,6 +58,15 @@
                                 <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
                             {% endif %}
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                   for="id_internal_comment">{% translate "Internal comment" %}</label>
+                            <textarea name="internal_comment"
+                                      id="id_internal_comment"
+                                      rows="3"
+                                      class="w-full border border-border rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ form.internal_comment.value|default:"" }}</textarea>
+                            <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
+                        </div>
                     </div>
                 </div>
             </div>

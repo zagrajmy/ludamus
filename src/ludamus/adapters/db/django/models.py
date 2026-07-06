@@ -792,6 +792,8 @@ class Facilitator(models.Model):
     # Reversible triage marker: organizers flag likely duplicates/removals, then
     # act on them (merge or delete) as a separate deliberate step.
     flagged_for_deletion = models.BooleanField(default=False)
+    # Free-form organizer note, never shown to attendees.
+    internal_comment = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "facilitator"

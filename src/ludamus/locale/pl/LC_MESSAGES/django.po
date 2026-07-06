@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 21:04+0200\n"
+"POT-Creation-Date: 2026-07-06 21:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2299,6 +2299,18 @@ msgstr "Nieprawidłowy wybór twórcy programu."
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid "Internal comment"
+msgstr "Komentarz wewnętrzny"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid "Visible to organizers only."
+msgstr "Widoczne tylko dla organizatorów."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Percent"

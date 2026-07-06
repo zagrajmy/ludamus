@@ -206,6 +206,23 @@ class TestFacilitatorEditPageView:
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == "honorary"
 
+    def test_post_saves_internal_comment(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "accreditation_type": "none",
+                "internal_comment": "Possible duplicate of Bob",
+            },
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.internal_comment == "Possible duplicate of Bob"
+
     def test_get_preselects_current_accreditation_type(
         self, authenticated_client, active_user, sphere, event
     ):

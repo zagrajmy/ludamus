@@ -70,6 +70,20 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
         )
 
+    def test_get_exposes_internal_comment(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, internal_comment="Possible duplicate of Bob")
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert (
+            response.context["facilitator"].internal_comment
+            == "Possible duplicate of Bob"
+        )
+
     def test_get_renders_sessions_linking_to_proposal_detail(
         self, authenticated_client, active_user, sphere, event
     ):

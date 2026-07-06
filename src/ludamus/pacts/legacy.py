@@ -77,6 +77,7 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    internal_comment: str = ""
     pk: int
     slug: str
     user_id: int | None
@@ -93,6 +94,7 @@ class FacilitatorData(TypedDict, total=False):
 class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
+    internal_comment: str
 
 
 class FacilitatorListItemDTO(BaseModel):

@@ -285,7 +285,10 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["form"] = FacilitatorEditForm(
-            initial={"accreditation_type": facilitator.accreditation_type}
+            initial={
+                "accreditation_type": facilitator.accreditation_type,
+                "internal_comment": facilitator.internal_comment,
+            }
         )
         context["personal_fields"] = personal_fields
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
@@ -346,6 +349,12 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             accreditation_type=form.cleaned_data["accreditation_type"],
             entries=entries,
             user_id=self.request.context.current_user_id,
+        )
+        self.request.di.uow.facilitators.update(
+            facilitator.pk,
+            FacilitatorUpdateData(
+                internal_comment=form.cleaned_data["internal_comment"]
+            ),
         )
 
         messages.success(self.request, _("Facilitator updated successfully."))
