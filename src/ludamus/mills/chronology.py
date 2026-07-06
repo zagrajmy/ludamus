@@ -27,6 +27,7 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -195,6 +196,7 @@ class TimetableService:
                 total_minutes=0,
                 event_start_iso="",
                 slot_minutes=TIMETABLE_SLOT_MINUTES,
+                snap_minutes=TIMETABLE_SNAP_MINUTES,
                 page=space_page,
                 total_pages=total_pages,
                 total_spaces=total_spaces,
@@ -259,6 +261,7 @@ class TimetableService:
             total_minutes=num_slots * TIMETABLE_SLOT_MINUTES,
             event_start_iso=grid_start.isoformat(),
             slot_minutes=TIMETABLE_SLOT_MINUTES,
+            snap_minutes=TIMETABLE_SNAP_MINUTES,
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,

@@ -225,7 +225,7 @@ class TestTimetableSessionListPartView:
         sphere.managers.add(active_user)
         SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -248,21 +248,21 @@ class TestTimetableSessionListPartView:
         )
         on_day_one = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
         on_day_one.time_slots.add(slot_day_one)
         on_day_two = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
         on_day_two.time_slots.add(slot_day_two)
         anytime = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -283,7 +283,7 @@ class TestTimetableSessionListPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )

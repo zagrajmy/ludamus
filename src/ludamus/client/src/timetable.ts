@@ -40,6 +40,35 @@ function pxPerMinute(cal: HTMLElement): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+// Display in the event's own UTC offset (parsed from data-event-start), not the
+// browser's local timezone -- they can disagree with the grid's own labels.
+function eventUtcOffsetMinutes(cal: HTMLElement): number {
+  const match = /([+-])(\d{2}):(\d{2})$/.exec(cal.dataset.eventStart ?? "");
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3]));
+}
+
+function formatHm(d: Date, utcOffsetMinutes: number): string {
+  const shifted = new Date(d.getTime() + utcOffsetMinutes * 60_000);
+  return `${String(shifted.getUTCHours()).padStart(2, "0")}:${String(shifted.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+const hoverPreview = (): HTMLElement => {
+  let el = document.getElementById("timetable-hover-preview");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "timetable-hover-preview";
+    el.className = "timetable-hover-preview hidden";
+    document.body.append(el);
+  }
+  return el;
+};
+
+function hideHoverPreview(): void {
+  hoverPreview().classList.add("hidden");
+}
+
 function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
   if (!raw) return [];
   try {
@@ -117,6 +146,7 @@ function exitAssignMode(): void {
   banner().classList.add("hidden");
   markColumnsActive(false);
   clearPreferredSlotOverlays();
+  hideHoverPreview();
 }
 
 function placementFromAssignButton(btn: HTMLElement): Placement {
@@ -146,11 +176,12 @@ function startTimeAt(col: HTMLElement, clientY: number): Date | null {
   const { eventStart } = cal.dataset;
   if (!eventStart) return null;
   const slotMinutes = Number(cal.dataset.slotMinutes);
-  const pxPerSlot = slotMinutes * pxPerMinute(cal);
+  const snapMinutes = Number(cal.dataset.snapMinutes) || slotMinutes;
+  const pxPerSnap = snapMinutes * pxPerMinute(cal);
 
   const rect = col.getBoundingClientRect();
-  const slotIndex = Math.floor((clientY - rect.top) / pxPerSlot);
-  const offsetMinutes = slotIndex * slotMinutes;
+  const snapIndex = Math.floor((clientY - rect.top) / pxPerSnap);
+  const offsetMinutes = snapIndex * snapMinutes;
 
   const startDt = new Date(eventStart);
   startDt.setMinutes(startDt.getMinutes() + offsetMinutes);
@@ -281,6 +312,30 @@ document.body.addEventListener("htmx:load", (evt) => {
     exitAssignMode();
   }
 });
+
+// Live snapped-time preview near the cursor while in assign mode
+document.addEventListener("mousemove", (e) => {
+  if (!armed) return;
+  const col = (e.target as Element).closest<HTMLElement>(".timetable-column.assign-mode-active");
+  if (!col) {
+    hideHoverPreview();
+    return;
+  }
+
+  const cal = calendar();
+  const startDt = cal && startTimeAt(col, e.clientY);
+  if (!cal || !startDt) return;
+  const endDt = new Date(startDt.getTime() + armed.duration * 60_000);
+
+  const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
+  const preview = hoverPreview();
+  preview.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
+  preview.style.left = `${e.clientX + 12}px`;
+  preview.style.top = `${e.clientY + 12}px`;
+  preview.classList.remove("hidden");
+});
+
+document.addEventListener("mouseleave", hideHoverPreview);
 
 // Re-apply assignment mode UI after HTMX swaps the grid (e.g. room pagination).
 // Module state survives HTMX swaps but DOM classes do not.
