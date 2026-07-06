@@ -229,10 +229,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (
-                    messages.ERROR,
-                    "No enrollment configuration is available for this session.",
-                )
+                (messages.ERROR, "Anonymous enrollment for this session is closed.")
             ],
             url=reverse(
                 "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
@@ -838,10 +835,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (
-                    messages.ERROR,
-                    "No enrollment configuration is available for this session.",
-                )
+                (messages.ERROR, "Anonymous enrollment for this session is closed.")
             ],
             url=reverse(
                 "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}

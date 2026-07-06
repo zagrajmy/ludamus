@@ -1,9 +1,10 @@
-"""Waiting-list promotion service.
+"""Enrollment services: waitlist promotion, anonymous enrollment, notifications.
 
-Owns the promotion / offer-lifecycle decisions and the transactional boundary,
-delegating IO to injected ports (repository, notifier, scheduler). Pure
-selection lives in `specs.enrollment`; everything here is orchestration so the
-logic stays unit-testable with fakes.
+Each service owns its decisions and transactional boundary, delegating IO to
+injected ports (repositories, notifier, scheduler) so the logic stays
+unit-testable with fakes. Pure promotion selection lives in
+`specs.enrollment`. Also holds the user-enrollment-config helpers backed by
+the ticket API.
 """
 
 from __future__ import annotations

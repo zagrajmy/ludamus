@@ -152,6 +152,7 @@ class FakePromotion:
 
 def _service(
     repo: FakeRepo,
+    *,
     users: FakeUsers | None = None,
     promotion: FakePromotion | None = None,
 ) -> AnonymousEnrollmentService:

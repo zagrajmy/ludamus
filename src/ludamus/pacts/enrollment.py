@@ -1,8 +1,9 @@
-"""Protocols and DTOs for waiting-list promotion (offer-and-claim).
+"""Protocols and DTOs for enrollment: waitlist promotion and anonymous flows.
 
-Bottom-layer contracts consumed by the `WaitlistPromotionService` mill. The
-service depends on these ports (repository, notifier, scheduler) so the
-promotion / offer-lifecycle decisions stay unit-testable with fakes.
+Bottom-layer contracts consumed by the enrollment mills
+(`WaitlistPromotionService`, `AnonymousEnrollmentService`,
+`NotificationsService`). The services depend on these ports (repositories,
+notifier, scheduler) so their decisions stay unit-testable with fakes.
 """
 
 from datetime import datetime, timedelta

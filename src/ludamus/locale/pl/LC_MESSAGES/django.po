@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 11:03+0200\n"
+"POT-Creation-Date: 2026-07-06 06:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -873,10 +873,12 @@ msgid "yourself"
 msgstr "siebie"
 
 #: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Session not found."
 msgstr "Punkt programu nie został znaleziony."
 
 #: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "No enrollment configuration is available for this session."
 msgstr "Brak dostępnej konfiguracji zapisów dla tego punktu programu."
 
@@ -1024,47 +1026,55 @@ msgstr ""
 "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
 "utwórz przedziały czasowe."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "Event not found."
 msgstr "Festiwal nie został znaleziony."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not available for this event."
 msgstr "Anonimowy zapis nie jest dostępny dla tego wydarzenia."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not available for this session."
 msgstr "Anonimowy zapis nie jest dostępny dla tego punktu programu."
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "Anonymous enrollment is not active."
-msgstr "Anonimowy zapis nie jest aktywny."
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Anonymous enrollment for this session is closed."
+msgstr "Anonimowy zapis na ten punkt programu jest zamknięty."
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "Anonymous enrollment session is not valid for this site."
-msgstr "Anonimowa sesja zapisu nie jest ważna dla tej strony."
-
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous session expired."
 msgstr "Anonimowa sesja wygasła."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous user not found."
 msgstr "Anonimowy użytkownik nie znaleziony."
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "No enrollment found to cancel."
-msgstr "Nie znaleziono zapisu do anulowania."
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Name is required."
+msgstr "Imię jest wymagane."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Anonymous enrollment is not active."
+msgstr "Anonimowy zapis nie jest aktywny."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Anonymous enrollment session is not valid for this site."
+msgstr "Anonimowa sesja zapisu nie jest ważna dla tej strony."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Successfully cancelled enrollment in session: %(title)s"
 msgstr "Pomyślnie anulowano zapis na sesję: %(title)s"
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "No enrollment found to cancel."
+msgstr "Nie znaleziono zapisu do anulowania."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid ""
 "Cannot enroll: You are already enrolled in another session that conflicts "
 "with this time slot."
@@ -1072,35 +1082,31 @@ msgstr ""
 "Nie można się zapisać: Jesteś już zapisany na inną sesję, która koliduje z "
 "tym terminem."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
 msgstr ""
 "Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: "
 "%(title)s"
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Successfully enrolled in session: %(title)s"
 msgstr "Pomyślnie zapisano na sesję: %(title)s"
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "Name is required."
-msgstr "Imię jest wymagane."
-
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Please enter a code."
 msgstr "Proszę wprowadzić kod."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Invalid code. Please check and try again."
 msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "No enrollments found for this code."
 msgstr "Nie znaleziono zapisów dla tego kodu."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 

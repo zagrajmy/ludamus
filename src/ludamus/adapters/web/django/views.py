@@ -1524,6 +1524,10 @@ def _guest_participations(
 
 
 def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
+    # Unscheduled sessions have no enrollment to join — and eligibility below
+    # reads agenda times, which they don't have.
+    if not hasattr(session, "agenda_item"):
+        return False
     return any(
         config.allow_anonymous_enrollment and config.is_session_eligible(session)
         for config in event.get_active_enrollment_configs()

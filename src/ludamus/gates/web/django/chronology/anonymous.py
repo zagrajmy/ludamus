@@ -43,7 +43,7 @@ _ERROR_MESSAGES: dict[AnonymousEnrollmentErrorCode, _StrPromise] = {
         "No enrollment configuration is available for this session."
     ),
     AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED: gettext_lazy(
-        "No enrollment configuration is available for this session."
+        "Anonymous enrollment for this session is closed."
     ),
     AnonymousEnrollmentErrorCode.SESSION_EXPIRED: gettext_lazy(
         "Anonymous session expired."
@@ -77,7 +77,7 @@ def _state_error_redirect(request: RootRequest) -> HttpResponse | None:
 
 
 def _enrollment_request(
-    request: RootRequest, event_slug: str, session_id: int
+    request: RootRequest, *, event_slug: str, session_id: int
 ) -> AnonymousEnrollmentRequestDTO:
     return AnonymousEnrollmentRequestDTO(
         event_slug=event_slug,
@@ -160,7 +160,9 @@ class SessionEnrollmentAnonymousPageView(View):
 
         try:
             page = request.services.anonymous_enrollment.get_enroll_page(
-                _enrollment_request(request, event_slug, session_id)
+                _enrollment_request(
+                    request, event_slug=event_slug, session_id=session_id
+                )
             )
         except AnonymousEnrollmentError as error:
             return _error_response(
@@ -189,7 +191,9 @@ class SessionEnrollmentAnonymousPageView(View):
         if early_redirect := _state_error_redirect(request):
             return early_redirect
 
-        enrollment_request = _enrollment_request(request, event_slug, session_id)
+        enrollment_request = _enrollment_request(
+            request, event_slug=event_slug, session_id=session_id
+        )
         name = request.POST.get("name", "").strip()
         try:
             if request.POST.get("action", "enroll") == "cancel":
@@ -239,8 +243,6 @@ class SessionEnrollmentAnonymousPageView(View):
 
 
 class AnonymousLoadActionView(View):
-    """Handle entering an anonymous code to load a previous session."""
-
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
         if request.context.current_user_slug:

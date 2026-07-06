@@ -1,10 +1,11 @@
-"""Repositories for waiting-list promotion (offer-and-claim).
+"""Repositories for enrollment: waitlist promotion and anonymous flows.
 
-Implements `ParticipationPromotionRepositoryProtocol`: locks a session, reports
-the promotion state (seats, mode, FIFO waiters with per-member eligibility) and
-applies the confirm / offer / claim / drop mutations. Membership allowance is
-read from stored enrollment configs (no live ticket-API call on the promotion
-path).
+`ParticipationPromotionRepository` locks a session, reports the promotion
+state (seats, mode, FIFO waiters with per-member eligibility) and applies the
+confirm / offer / claim / drop mutations; membership allowance is read from
+stored enrollment configs (no live ticket-API call on the promotion path).
+`AnonymousEnrollmentRepository` covers the code-based anonymous enrollment
+reads and participation mutations.
 """
 
 from __future__ import annotations
@@ -410,6 +411,7 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
         participation = (
             SessionParticipation.objects.filter(user_id=user_id)
             .select_related("session__event__sphere")
+            .order_by("creation_time")
             .first()
         )
         if participation is None:
