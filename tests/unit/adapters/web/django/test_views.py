@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from ludamus.adapters.web.django.views import Auth0UserInfo
+from ludamus.gates.web.django.crowd.auth import Auth0UserInfo
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import UserDTO, UserType

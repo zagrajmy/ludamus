@@ -3,7 +3,6 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
-    Any,
     Literal,
     NotRequired,
     Protocol,
@@ -1456,10 +1455,6 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
-    @staticmethod
-    def login_user(  # type: ignore [explicit-any]
-        request: Any, user_slug: str  # noqa: ANN401
-    ) -> None: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property
