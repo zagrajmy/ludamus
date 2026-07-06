@@ -470,6 +470,68 @@ class TestProposalsPageView:
             },
         )
 
+    def test_search_matches_title(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="Alpha Quest",
+            slug="alpha-quest",
+            participants_limit=5,
+            status="pending",
+        )
+        session_beta = Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="Beta Quest",
+            slug="beta-quest",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"search": "Beta"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 1,
+                    "pending_proposals": 2,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 2,
+                    "total_sessions": 2,
+                },
+                "proposals": [
+                    SessionListItemDTO(
+                        pk=session_beta.pk,
+                        title="Beta Quest",
+                        display_name=active_user.name,
+                        category_name="RPG",
+                        status=SessionStatus.PENDING,
+                        creation_time=session_beta.creation_time,
+                        is_scheduled=False,
+                    )
+                ],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "Beta",
+            },
+        )
+
     def test_search_matches_host_name(
         self, authenticated_client, active_user, sphere, event
     ):

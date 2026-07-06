@@ -392,7 +392,8 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         if search:
             encoded = json.dumps(search)[1:-1]
             qs = qs.filter(
-                Q(display_name__icontains=search)
+                Q(title__icontains=search)
+                | Q(display_name__icontains=search)
                 | Q(presenter__name__icontains=search)
                 | Q(field_values__value__icontains=search)
                 | Q(field_values__value__icontains=encoded)
