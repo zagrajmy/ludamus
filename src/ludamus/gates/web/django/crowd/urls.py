@@ -1,8 +1,23 @@
-from django.urls import path
+from django.urls import URLPattern, URLResolver, include, path
 
-from ludamus.gates.web.django.crowd import views
+from ludamus.gates.web.django.crowd import auth, profile, views
 
-urlpatterns = [
+auth0_urlpatterns = [
+    path("do/login", auth.Auth0LoginActionView.as_view(), name="login"),
+    path(
+        "do/login/callback",
+        auth.Auth0LoginCallbackActionView.as_view(),
+        name="login-callback",
+    ),
+    path("do/logout", auth.Auth0LogoutActionView.as_view(), name="logout"),
+    path(
+        "do/logout/redirect",
+        auth.Auth0LogoutRedirectActionView.as_view(),
+        name="logout-redirect",
+    ),
+]
+
+urlpatterns: list[URLPattern | URLResolver] = [
     path("profile/parties/", views.PartiesPageView.as_view(), name="profile-parties"),
     path(
         "profile/parties/do/create",
@@ -49,4 +64,40 @@ urlpatterns = [
         views.PartyInviteDeclineActionView.as_view(),
         name="party-invites-decline",
     ),
+    path("auth0/", include((auth0_urlpatterns, "auth0"), namespace="auth0")),
+    path(
+        "login-required/", auth.LoginRequiredPageView.as_view(), name="login-required"
+    ),
+    path("profile/", profile.ProfilePageView.as_view(), name="profile"),
+    path(
+        "profile/avatar/",
+        profile.ProfileAvatarPageView.as_view(),
+        name="profile-avatar",
+    ),
+    path(
+        "profile/shadowbans/",
+        profile.ProfileShadowbanPageView.as_view(),
+        name="profile-shadowbans",
+    ),
+    path(
+        "profile/connected-users/",
+        profile.ProfileConnectedUsersPageView.as_view(),
+        name="profile-connected-users",
+    ),
+    path(
+        "profile/connected-users/<str:slug>/do/update",
+        profile.ProfileConnectedUserUpdateActionView.as_view(),
+        name="profile-connected-users-update",
+    ),
+    path(
+        "profile/connected-users/<str:slug>/do/delete",
+        profile.ProfileConnectedUserDeleteActionView.as_view(),
+        name="profile-connected-users-delete",
+    ),
+    path(
+        "profile/connected-users/<str:slug>/do/claim-link",
+        profile.ProfileConnectedUserClaimLinkActionView.as_view(),
+        name="profile-connected-users-claim-link",
+    ),
+    path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),
 ]

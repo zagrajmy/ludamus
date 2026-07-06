@@ -1,0 +1,12 @@
+import "../Builtins.pkl"
+import "../Config.pkl"
+
+@Builtins.meta {
+  category = "Other Languages"
+  description = "Swift style and conventions"
+}
+swiftlint = new Config.Step {
+  glob = "**/*.swift"
+  check = "swiftlint lint {{ files }}"
+  fix = "swiftlint --fix {{ files }}"
+}

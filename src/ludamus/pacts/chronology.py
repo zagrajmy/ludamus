@@ -192,6 +192,14 @@ class SessionSelfEditServiceProtocol(Protocol):
     ) -> None: ...
 
 
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
+
+
 class SessionContentEditServiceProtocol(Protocol):
     def apply(
         self,
@@ -201,8 +209,10 @@ class SessionContentEditServiceProtocol(Protocol):
         user_id: int | None,
         data: SessionContentEditData,
     ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(self, event_id: int) -> set[int]: ...
 
 
 class SessionConfirmationServiceProtocol(Protocol):
@@ -218,6 +228,17 @@ class SessionDeletionServiceProtocol(Protocol):
         self, event_pk: int, session_pk: int, user_pk: int | None = None
     ) -> None: ...
     def restore(self, event_pk: int, session_pk: int) -> None: ...
+
+
+class ProposalScheduledError(Exception):
+    """Scheduled proposals may only be accepted, never demoted."""
+
+
+class ProposalStatusServiceProtocol(Protocol):
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

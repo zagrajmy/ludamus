@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS
-from ludamus.adapters.web.django.forms import ConnectedUserForm
-from ludamus.gates.web.django.crowd.forms import PartyInviteForm, PartyNameForm
+from ludamus.gates.web.django.crowd.forms import (
+    ConnectedUserForm,
+    PartyInviteForm,
+    PartyNameForm,
+)
 
 if TYPE_CHECKING:
     from django import forms
@@ -28,7 +31,7 @@ def build_parties_context(
     overview = request.services.parties.overview(request.context.current_user_id)
     own_companions = {
         companion.slug: companion
-        for companion in request.di.uow.connected_users.read_all(
+        for companion in request.services.companions.list_companions(
             request.context.current_user_slug
         )
     }

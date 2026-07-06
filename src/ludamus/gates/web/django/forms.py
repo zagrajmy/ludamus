@@ -1,7 +1,8 @@
 """Django forms for panel views."""
 
+import re
 from decimal import Decimal
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -10,6 +11,11 @@ from django.utils.translation import gettext_lazy as _
 
 from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.pacts.discounts import DiscountKind
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # Image-upload invariants (business rules, not gate trivia): every cover/header
@@ -486,21 +492,34 @@ class SessionEditForm(forms.Form):
         return image
 
 
-def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditForm]:
-    category_field = forms.ChoiceField(
-        choices=[("", _("— Select category —")), *categories],
-        error_messages={
-            "required": _("Please select a category."),
-            "invalid_choice": _("Invalid category selection."),
-        },
-    )
-    return type(
-        "ProposalCreateForm", (SessionEditForm,), {"category_id": category_field}
-    )
+def create_proposal_form(
+    categories: list[tuple[int, str]], facilitators: list[tuple[int, str]] | None = None
+) -> type[SessionEditForm]:
+    attrs: dict[str, forms.Field] = {
+        "category_id": forms.ChoiceField(
+            choices=[("", _("— Select category —")), *categories],
+            error_messages={
+                "required": _("Please select a category."),
+                "invalid_choice": _("Invalid category selection."),
+            },
+        )
+    }
+    # Create variant only: a required facilitator binding so a hand-added
+    # proposal can never exist with zero facilitators. The edit view omits
+    # this — it manages facilitators through its own inline list.
+    if facilitators is not None:
+        attrs["facilitator_ids"] = forms.MultipleChoiceField(
+            choices=facilitators,
+            error_messages={
+                "required": _("Please select at least one facilitator."),
+                "invalid_choice": _("Invalid facilitator selection."),
+            },
+        )
+    return type("ProposalCreateForm", (SessionEditForm,), attrs)
 
 
 class FacilitatorForm(forms.Form):
-    """Form for creating/editing a facilitator."""
+    """Form for creating a facilitator (display_name is required at creation)."""
 
     display_name = forms.CharField(
         max_length=255,
@@ -521,7 +540,21 @@ class FacilitatorForm(forms.Form):
         return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
 
 
-_DISCOUNT_KIND_LABELS = {
+class FacilitatorEditForm(forms.Form):
+    # No display_name: it is a read-only cache (the canonical byline lives on
+    # the session), so the panel edit form only touches accreditation_type.
+    accreditation_type = forms.ChoiceField(
+        choices=AccreditationType.choices,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+DISCOUNT_KIND_LABELS = {
     DiscountKind.PERCENT: _("Percent"),
     DiscountKind.AMOUNT: _("Amount"),
 }
@@ -529,7 +562,7 @@ _DISCOUNT_KIND_LABELS = {
 
 class DiscountForm(forms.Form):
     kind = forms.ChoiceField(
-        choices=[(k.value, _DISCOUNT_KIND_LABELS[k]) for k in DiscountKind],
+        choices=[(k.value, DISCOUNT_KIND_LABELS[k]) for k in DiscountKind],
         initial=DiscountKind.PERCENT,
         label=_("Kind"),
     )
@@ -551,3 +584,36 @@ class DiscountForm(forms.Form):
         label=_("Note"),
         widget=forms.Textarea(attrs={"rows": 3}),
     )
+
+
+_SPREADSHEET_URL_ID_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
+_SPREADSHEET_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+class DiscountExportForm(forms.Form):
+    connection = forms.ChoiceField(label=_("Connection"))
+    spreadsheet = forms.CharField(
+        label=_("Google Sheets link"),
+        max_length=500,
+        strip=True,
+        help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
+    )
+
+    def __init__(
+        self, *args: Any, connections: Iterable[ConnectionDTO], **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        connection_field = cast("forms.ChoiceField", self.fields["connection"])
+        connection_field.choices = [
+            (str(connection.pk), connection.display_name) for connection in connections
+        ]
+
+    def clean_spreadsheet(self) -> str:
+        raw = str(self.cleaned_data["spreadsheet"])
+        if match := _SPREADSHEET_URL_ID_RE.search(raw):
+            return match.group(1)
+        if _SPREADSHEET_ID_RE.fullmatch(raw):
+            return raw
+        raise forms.ValidationError(
+            _("Enter a Google Sheets link or a spreadsheet ID.")
+        )

@@ -168,7 +168,7 @@ class TestTimetableAssignView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -188,7 +188,7 @@ class TestTimetableAssignView:
         assert response.status_code == HTTPStatus.NO_CONTENT
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
-        assert session.status == "scheduled"
+        assert session.status == "accepted"
         assert session.agenda_item.session_confirmed is True
 
     def test_assign_leaves_unconfirmed_when_auto_confirm_off(
@@ -199,7 +199,7 @@ class TestTimetableAssignView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -228,7 +228,7 @@ class TestTimetableAssignView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -288,7 +288,7 @@ class TestTimetableAssignView:
         new_space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -297,8 +297,6 @@ class TestTimetableAssignView:
         AgendaItemFactory(
             session=session, space=old_space, start_time=old_start, end_time=old_end
         )
-        session.status = "scheduled"
-        session.save()
         new_start = old_start + timedelta(hours=2)
         new_end = new_start + timedelta(hours=1)
 
@@ -314,7 +312,7 @@ class TestTimetableAssignView:
 
         assert response.status_code == HTTPStatus.NO_CONTENT
         session.refresh_from_db()
-        assert session.status == "scheduled"
+        assert session.status == "accepted"
         agenda_item = session.agenda_item
         assert agenda_item.space_id == new_space.pk
         assert agenda_item.start_time == new_start
@@ -427,7 +425,7 @@ class TestTimetableUnassignView:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="scheduled",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -444,7 +442,8 @@ class TestTimetableUnassignView:
         assert response.status_code == HTTPStatus.NO_CONTENT
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
-        assert session.status == "pending"
+        assert session.status == "accepted"
+        assert not AgendaItem.objects.filter(session=session).exists()
 
     def test_returns_422_for_unscheduled_session(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -452,7 +451,7 @@ class TestTimetableUnassignView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -471,7 +470,7 @@ class TestTimetableUnassignView:
         other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            status="scheduled",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -490,5 +489,5 @@ class TestTimetableUnassignView:
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         other_session.refresh_from_db()
-        assert other_session.status == "scheduled"
+        assert other_session.status == "accepted"
         assert AgendaItem.objects.filter(session=other_session).exists()

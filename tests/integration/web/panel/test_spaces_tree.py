@@ -614,6 +614,25 @@ class TestSpaceReorder:
             content_type="application/json",
         )
 
+    def test_reorder_ignores_foreign_event_spaces(self, manager_client, event):
+        local = _root(event, "Local", order=0)
+        other_event = EventFactory(sphere=event.sphere)
+        foreign = Space.objects.create(
+            event=other_event, name="Foreign", slug="foreign", order=1
+        )
+
+        response = self._reorder(
+            manager_client,
+            event,
+            {"parent_pk": None, "space_ids": [foreign.pk, local.pk]},
+        )
+
+        assert_response(response, HTTPStatus.OK)
+        foreign.refresh_from_db()
+        local.refresh_from_db()
+        assert foreign.order == 1
+        assert local.order == 1
+
     def test_reorder_non_object_body_returns_400(self, manager_client, event):
         response = self._reorder(manager_client, event, [1, 2, 3])
 

@@ -23,7 +23,7 @@ class TestConflictDetectionOnAssign:
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -51,7 +51,7 @@ class TestConflictDetectionOnAssign:
         space = SpaceFactory(event=event)
         existing_session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -65,7 +65,7 @@ class TestConflictDetectionOnAssign:
         )
         new_session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
