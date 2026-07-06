@@ -36,6 +36,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
     SessionPlacement,
+    TrackProgressDTO,
 )
 
 
@@ -1038,3 +1039,70 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         )
 
         assert env.svc.get_cached_questions(2, 3) == []
+
+
+class TestTimetableOverviewTrackProgress:
+    @staticmethod
+    def _uow(sessions):
+        uow = MagicMock()
+        uow.tracks.list_by_event.return_value = [SimpleNamespace(pk=1, name="Track")]
+        uow.tracks.list_manager_names.return_value = ["Alice"]
+        uow.sessions.list_sessions_by_event.return_value = sessions
+        return uow
+
+    @staticmethod
+    def _session(status, *, is_scheduled=False):
+        return SimpleNamespace(status=status, is_scheduled=is_scheduled)
+
+    def test_pending_sessions_count_toward_denominator(self):
+        uow = self._uow(
+            [
+                self._session(SessionStatus.ACCEPTED, is_scheduled=True),
+                self._session(SessionStatus.ACCEPTED),
+                self._session(SessionStatus.PENDING),
+                self._session(SessionStatus.PENDING),
+            ]
+        )
+
+        result = TimetableOverviewService(uow).track_progress(event_pk=1)
+
+        assert result == [
+            TrackProgressDTO(
+                track_pk=1,
+                track_name="Track",
+                manager_names=["Alice"],
+                planned_count=4,
+                scheduled_count=1,
+                progress_pct=25,
+            )
+        ]
+
+    def test_on_hold_and_rejected_are_excluded(self):
+        uow = self._uow(
+            [
+                self._session(SessionStatus.ACCEPTED, is_scheduled=True),
+                self._session(SessionStatus.ON_HOLD, is_scheduled=True),
+                self._session(SessionStatus.REJECTED),
+            ]
+        )
+
+        result = TimetableOverviewService(uow).track_progress(event_pk=1)
+
+        assert result == [
+            TrackProgressDTO(
+                track_pk=1,
+                track_name="Track",
+                manager_names=["Alice"],
+                planned_count=1,
+                scheduled_count=1,
+                progress_pct=100,
+            )
+        ]
+
+    def test_track_with_no_planned_sessions_has_zero_progress(self):
+        uow = self._uow([self._session(SessionStatus.REJECTED)])
+
+        result = TimetableOverviewService(uow).track_progress(event_pk=1)
+
+        assert result[0].planned_count == 0
+        assert result[0].progress_pct == 0

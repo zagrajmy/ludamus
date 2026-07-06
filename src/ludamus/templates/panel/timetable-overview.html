@@ -129,8 +129,8 @@
                                 {% endif %}
                             </td>
                             <td class="py-2 pr-4">
-                                {{ tp.scheduled_count }}/{{ tp.accepted_count }}
-                                {% if tp.accepted_count > 0 and tp.scheduled_count < tp.accepted_count %}
+                                {{ tp.scheduled_count }}/{{ tp.planned_count }}
+                                {% if tp.planned_count > 0 and tp.scheduled_count < tp.planned_count %}
                                     <span class="text-warning text-xs ml-1">({{ tp.unassigned_count }} {% translate "unassigned" %})</span>
                                 {% endif %}
                             </td>

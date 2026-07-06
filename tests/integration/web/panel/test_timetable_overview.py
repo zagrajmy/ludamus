@@ -150,7 +150,7 @@ class TestTimetableOverviewPageView:
         progress = response.context["track_progress"]
         assert len(progress) == 1
         assert progress[0].track_name == "Test Track"
-        assert progress[0].accepted_count == 1
+        assert progress[0].planned_count == 1
         assert progress[0].scheduled_count == 0
         assert progress[0].unassigned_count == 1
         assert "(1 unassigned)" in response.content.decode()

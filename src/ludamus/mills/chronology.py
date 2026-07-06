@@ -859,12 +859,20 @@ class TimetableOverviewService:
             sessions = self._uow.sessions.list_sessions_by_event(
                 event_pk, {"track_pk": track.pk}
             )
-            accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
-            scheduled = [s for s in accepted if s.is_scheduled]
-            accepted_count = len(accepted)
+            planned = [
+                s
+                for s in sessions
+                if s.status in {SessionStatus.PENDING, SessionStatus.ACCEPTED}
+            ]
+            scheduled = [
+                s
+                for s in planned
+                if s.status == SessionStatus.ACCEPTED and s.is_scheduled
+            ]
+            planned_count = len(planned)
             scheduled_count = len(scheduled)
             progress_pct = (
-                round(scheduled_count * 100 / accepted_count) if accepted_count else 0
+                round(scheduled_count * 100 / planned_count) if planned_count else 0
             )
             manager_names = self._uow.tracks.list_manager_names(track.pk)
             result.append(
@@ -872,7 +880,7 @@ class TimetableOverviewService:
                     track_pk=track.pk,
                     track_name=track.name,
                     manager_names=manager_names,
-                    accepted_count=accepted_count,
+                    planned_count=planned_count,
                     scheduled_count=scheduled_count,
                     progress_pct=progress_pct,
                 )

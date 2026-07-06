@@ -364,13 +364,13 @@ class TrackProgressDTO(BaseModel):
     track_pk: int
     track_name: str
     manager_names: list[str]
-    accepted_count: int
+    planned_count: int
     scheduled_count: int
     progress_pct: int
 
     @property
     def unassigned_count(self) -> int:
-        return self.accepted_count - self.scheduled_count
+        return self.planned_count - self.scheduled_count
 
 
 class CapacityHoursDTO(BaseModel):
