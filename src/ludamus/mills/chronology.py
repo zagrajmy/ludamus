@@ -575,6 +575,25 @@ class ProposalStatusService:
             event_pk=event_pk, session_pk=session_pk, status=SessionStatus.REJECTED
         )
 
+    def bulk_accept(self, *, event_pk: int, session_pks: list[int]) -> int:
+        # Accept is legal from every status, so no ProposalScheduledError branch.
+        # Each row runs in its own savepoint: an id that names a missing session
+        # or one from another event is skipped without aborting the batch.
+        accepted = 0
+        with self._transaction.atomic():
+            for session_pk in session_pks:
+                try:
+                    with self._transaction.atomic():
+                        self._sessions.lock(session_pk)
+                        require_session_in_event(self._sessions, session_pk, event_pk)
+                        self._sessions.update(
+                            session_pk, {"status": SessionStatus.ACCEPTED}
+                        )
+                except NotFoundError:
+                    continue
+                accepted += 1
+        return accepted
+
     def _set_status(
         self, *, event_pk: int, session_pk: int, status: SessionStatus
     ) -> None:

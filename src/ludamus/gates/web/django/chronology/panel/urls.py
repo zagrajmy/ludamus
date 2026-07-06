@@ -195,6 +195,11 @@ urlpatterns = [
         name="proposal-create",
     ),
     path(
+        "event/<slug:slug>/proposals/do/bulk-accept",
+        proposals.ProposalBulkAcceptActionView.as_view(),
+        name="proposal-bulk-accept",
+    ),
+    path(
         "event/<slug:slug>/proposals/log/",
         proposals.ContentLogPageView.as_view(),
         name="content-log",

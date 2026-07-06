@@ -10,8 +10,9 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
+from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -704,6 +705,41 @@ class ProposalAcceptActionView(ProposalStatusActionView):
         self.request.services.proposal_status.mark_accepted(
             event_pk=event_pk, session_pk=session_pk
         )
+
+
+class ProposalBulkAcceptActionView(PanelAccessMixin, EventContextMixin, View):
+    """Accept several proposals at once from the list (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        session_pks = [
+            int(pk) for pk in self.request.POST.getlist("proposal_ids") if pk.isdigit()
+        ]
+        count = self.request.services.proposal_status.bulk_accept(
+            event_pk=current_event.pk, session_pks=session_pks
+        )
+        if count:
+            messages.success(
+                self.request,
+                ngettext(
+                    "Accepted %(count)d proposal.",
+                    "Accepted %(count)d proposals.",
+                    count,
+                )
+                % {"count": count},
+            )
+        else:
+            messages.info(self.request, _("No proposals were accepted."))
+
+        query = self.request.GET.urlencode()
+        url = reverse("panel:proposals", kwargs={"slug": slug})
+        return redirect(f"{url}?{query}" if query else url)
 
 
 class ProposalHoldActionView(ProposalStatusActionView):

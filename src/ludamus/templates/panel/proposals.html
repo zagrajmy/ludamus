@@ -148,9 +148,27 @@
                 </form>
             </div>
             {% if proposals %}
+                <form id="bulk-accept-form"
+                      method="post"
+                      action="{% url 'panel:proposal-bulk-accept' slug=current_event.slug %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+                      class="mb-3">
+                    {% csrf_token %}
+                    <button type="submit"
+                            id="bulk-accept-btn"
+                            class="btn btn-primary text-sm"
+                            disabled>
+                        {% translate "Accept selected" %} (<span id="bulk-accept-count">0</span>)
+                    </button>
+                </form>
                 {% tessera_table %}
                 <thead class="bg-bg-tertiary">
                     <tr>
+                        <th scope="col" class="px-6 py-3 text-left w-8">
+                            <input type="checkbox"
+                                   id="select-all-proposals"
+                                   aria-label="{% translate "Select all on page" %}"
+                                   class="rounded border-border">
+                        </th>
                         <th scope="col"
                             class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                             {% translate "Title" %}
@@ -176,6 +194,14 @@
                 <tbody class="bg-bg-secondary divide-y divide-border">
                     {% for proposal in proposals %}
                         <tr>
+                            <td class="px-6 py-4 w-8">
+                                <input type="checkbox"
+                                       name="proposal_ids"
+                                       value="{{ proposal.pk }}"
+                                       form="bulk-accept-form"
+                                       aria-label="{% blocktranslate with title=proposal.title %}Select {{ title }}{% endblocktranslate %}"
+                                       class="proposal-checkbox rounded border-border">
+                            </td>
                             <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
                                 <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
                                    class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
@@ -281,4 +307,33 @@
     </div>
 {% endif %}
 </div>
+<script>
+    (function() {
+        const form = document.getElementById('bulk-accept-form');
+        if (!form) return;
+        const btn = document.getElementById('bulk-accept-btn');
+        const count = document.getElementById('bulk-accept-count');
+        const selectAll = document.getElementById('select-all-proposals');
+        const boxes = document.querySelectorAll('.proposal-checkbox');
+
+        function refresh() {
+            const checked = document.querySelectorAll('.proposal-checkbox:checked').length;
+            count.textContent = checked;
+            btn.disabled = checked === 0;
+            if (selectAll) selectAll.checked = checked > 0 && checked === boxes.length;
+        }
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                boxes.forEach(function(box) {
+                    box.checked = selectAll.checked;
+                });
+                refresh();
+            });
+        }
+        boxes.forEach(function(box) {
+            box.addEventListener('change', refresh);
+        });
+        refresh();
+    })();
+</script>
 {% endblock content %}
