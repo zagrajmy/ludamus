@@ -69,6 +69,38 @@ function hideHoverPreview(): void {
   hoverPreview().classList.add("hidden");
 }
 
+const dropGuide = (): HTMLElement => {
+  let el = document.getElementById("timetable-drop-guide");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "timetable-drop-guide";
+    el.className = "timetable-drop-guide";
+  }
+  return el;
+};
+
+function hideDropGuide(): void {
+  document.getElementById("timetable-drop-guide")?.remove();
+}
+
+// A ghost block, snapped to the drop time and sized to the session, shown
+// inside the hovered column while dragging -- the Google-Calendar drop preview.
+function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): void {
+  const cal = calendar();
+  if (!cal?.dataset.eventStart) return;
+  const minutePx = pxPerMinute(cal);
+  const topPx =
+    ((startDt.getTime() - new Date(cal.dataset.eventStart).getTime()) / 60_000) * minutePx;
+  const endDt = new Date(startDt.getTime() + placement.duration * 60_000);
+  const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
+
+  const guide = dropGuide();
+  guide.style.top = `calc(${topPx}px + 20px)`;
+  guide.style.height = `${Math.max(20, placement.duration * minutePx)}px`;
+  guide.textContent = `${formatHm(startDt, utcOffsetMinutes)} – ${formatHm(endDt, utcOffsetMinutes)}`;
+  if (guide.parentElement !== col) col.append(guide);
+}
+
 function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
   if (!raw) return [];
   try {
@@ -259,9 +291,8 @@ document.addEventListener("click", (e) => {
 });
 
 // Drag & drop: session cards in the left pane and placed sessions on the grid
-// are draggable; dropping on a column places the session at the drop time.
-// ponytail: no drop-position ghost preview; add one if placements keep missing
-// their intended slot.
+// are draggable; dropping on a column places the session at the drop time. A
+// ghost guide (showDropGuide) tracks the snapped drop position while dragging.
 document.addEventListener("dragstart", (e) => {
   const el = (e.target as Element).closest?.<HTMLElement>('[draggable="true"][data-session-pk]');
   if (!el || !e.dataTransfer) return;
@@ -273,14 +304,21 @@ document.addEventListener("dragstart", (e) => {
 });
 
 document.addEventListener("dragover", (e) => {
-  if (dragging && (e.target as Element).closest?.(".timetable-column")) {
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  if (!dragging) return;
+  const col = (e.target as Element).closest?.<HTMLElement>(".timetable-column");
+  if (!col) {
+    hideDropGuide();
+    return;
   }
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  const startDt = startTimeAt(col, e.clientY);
+  if (startDt) showDropGuide(col, startDt, dragging);
 });
 
 document.addEventListener("drop", (e) => {
   const col = (e.target as Element).closest?.<HTMLElement>(".timetable-column");
+  hideDropGuide();
   if (!dragging || !col) return;
   e.preventDefault();
   const startDt = startTimeAt(col, e.clientY);
@@ -290,6 +328,7 @@ document.addEventListener("drop", (e) => {
 
 document.addEventListener("dragend", () => {
   dragging = null;
+  hideDropGuide();
   if (armed) {
     renderPreferredSlotOverlays();
   } else {
