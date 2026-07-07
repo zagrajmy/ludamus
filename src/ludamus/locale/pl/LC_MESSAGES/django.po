@@ -2210,10 +2210,13 @@ msgid "Capacity"
 msgstr "Pojemność"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Only meaningful for the innermost spaces that hold sessions."
+msgid ""
+"Set the number of seats for a room that holds sessions, at any level. Leave "
+"empty for a space that only groups other spaces."
 msgstr ""
-"Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które zawierają "
-"punkty programu."
+"Podaj liczbę miejsc dla sali, w której odbywają się punkty programu — na "
+"dowolnym poziomie. Zostaw puste dla przestrzeni, która tylko grupuje inne "
+"przestrzenie."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Capacity must be at least 1."
@@ -7142,14 +7145,14 @@ msgstr "Czym są lokalizacje?"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid ""
-"Organise the physical layout of your event as a tree: buildings contain "
-"floors or wings, which contain the individual rooms that hold sessions. Nest "
-"spaces as deeply as you need; only the innermost rooms take a capacity."
+"Organise the physical layout of your event. Add a single room on its own, or "
+"nest spaces as deeply as you need — a building with floors and rooms inside. "
+"Any space that holds sessions takes a capacity."
 msgstr ""
-"Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki zawierają "
-"piętra lub skrzydła, które zawierają poszczególne sale, gdzie odbywają się "
-"punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz; "
-"tylko najbardziej wewnętrzne sale mają pojemność."
+"Zorganizuj fizyczny układ swojego wydarzenia. Dodaj pojedynczą salę albo "
+"zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz — budynek z piętrami "
+"i salami w środku. Każda przestrzeń, w której odbywają się punkty programu, "
+"ma pojemność."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Physical Locations"
@@ -7164,11 +7167,10 @@ msgid "Could not save the new order. Reloading the page."
 msgstr "Nie udało się zapisać nowej kolejności. Ponowne ładowanie strony."
 
 #: src/ludamus/templates/panel/spaces.html
-msgid ""
-"No spaces yet. Add a top-level space to start building your event's layout."
+msgid "No spaces yet. Add a single room, or nest spaces to map a larger venue."
 msgstr ""
-"Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
-"budowanie układu swojego wydarzenia."
+"Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
+"odwzorować większy obiekt."
 
 #: src/ludamus/templates/panel/time-slot-create.html
 msgid "New Time Slot"
