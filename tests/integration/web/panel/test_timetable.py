@@ -1,3 +1,4 @@
+import math
 from datetime import timedelta
 from http import HTTPStatus
 
@@ -8,6 +9,7 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
+    TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
     TIMETABLE_SNAP_MINUTES,
     TimetableGridDTO,
@@ -287,6 +289,28 @@ class TestTimetablePageView:
         )
 
         assert response.status_code == HTTPStatus.OK
+
+    def test_room_pagination_renders_prev_and_next_on_middle_page(
+        self, authenticated_client, active_user, sphere, event, time_slot
+    ):
+        sphere.managers.add(active_user)
+        room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1  # -> 3 pages
+        expected_pages = math.ceil(room_count / TIMETABLE_ROOM_PAGE_SIZE)
+        middle_page = 2
+        for _ in range(room_count):
+            SpaceFactory(event=event)
+
+        response = authenticated_client.get(
+            self.get_url(event), {"room_page": middle_page}
+        )
+
+        # Middle page renders both Previous and Next pagination buttons,
+        # exercising both hx-push-url branches in timetable-grid.html.
+        assert response.status_code == HTTPStatus.OK
+        grid = response.context["grid"]
+        assert grid.page == middle_page
+        assert grid.total_pages == expected_pages
+        assert time_slot is not None
 
     def test_grid_marks_session_outside_preferred_slot(
         self, authenticated_client, active_user, sphere, event, proposal_category, space
