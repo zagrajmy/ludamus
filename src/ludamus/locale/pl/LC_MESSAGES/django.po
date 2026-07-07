@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 02:45+0200\n"
+"POT-Creation-Date: 2026-07-07 21:32+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2546,14 +2546,6 @@ msgstr "Nadchodzące"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Active"
 msgstr "Aktywne"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "Requirements"
-msgstr "Wymagania"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "Needs"
-msgstr "Potrzeby"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Participants limit"
@@ -7465,6 +7457,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Requirements"
+#~ msgstr "Wymagania"
+
+#~ msgid "Needs"
+#~ msgstr "Potrzeby"
 
 #~ msgid "Select from list"
 #~ msgstr "Wybierz z listy"
