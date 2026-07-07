@@ -10,7 +10,7 @@
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
-        {{ current_event.name }} · {% translate "Session Types" %}
+        {{ current_event.name }} · {% translate "Categories" %}
     {% endif %}
 {% endblock page_subtitle %}
 {% block header_actions %}
@@ -18,7 +18,7 @@
         <a href="{% url 'panel:cfp-create' slug=current_event.slug %}"
            class="btn btn-primary flex items-center">
             {% icon "plus" class="w-4 h-4 mr-2" %}
-            {% translate "New Session Type" %}
+            {% translate "New Category" %}
         </a>
     {% endif %}
 {% endblock header_actions %}
@@ -26,7 +26,7 @@
     {% if current_event %}
         <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
-            {% tab "types" active=True href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
+            {% tab "types" active=True href=tab_urls.types %}{% translate "Categories" %}{% end_tab %}
         {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
     {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
 {% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
@@ -86,7 +86,7 @@
                         <form method="post"
                               action="{% url 'panel:cfp-delete' event_slug=current_event.slug category_slug=category.slug %}"
                               class="inline"
-                              data-confirm="{% translate "Are you sure you want to delete this session type?" %}">
+                              data-confirm="{% translate "Are you sure you want to delete this category?" %}">
                             {% csrf_token %}
                             <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
                         </form>
@@ -98,10 +98,10 @@
 {% else %}
     <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
         <p class="text-foreground-muted mb-4">
-            {% translate "No session types yet. Add a session type to allow hosts to submit proposals." %}
+            {% translate "No categories yet. Add a category to allow facilitators to submit proposals." %}
         </p>
         {% url 'panel:cfp-create' slug=current_event.slug as create_url %}
-        {% translate "New Session Type" as t_create %}
+        {% translate "New Category" as t_create %}
         {% tessera_button t_create href=create_url icon="plus" %}
     </div>
 {% endif %}

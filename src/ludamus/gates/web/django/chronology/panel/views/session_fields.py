@@ -304,7 +304,7 @@ class SessionFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         service = PanelService(self.request.di.uow)
         if not service.delete_session_field(field.pk):
             messages.error(
-                self.request, _("Cannot delete field that is used in session types.")
+                self.request, _("Cannot delete field that is used in categories.")
             )
             return redirect("panel:session-fields", slug=slug)
 

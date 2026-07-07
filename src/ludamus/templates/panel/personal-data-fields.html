@@ -23,7 +23,7 @@
     {% if current_event %}
         <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
-            {% tab "types" href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
+            {% tab "types" href=tab_urls.types %}{% translate "Categories" %}{% end_tab %}
         {% tab "host" active=True href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
     {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
 {% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
@@ -36,10 +36,10 @@
             <div>
                 <p class="text-sm font-medium">{% translate "What are Host Data Fields?" %}</p>
                 <p class="text-sm mt-1">
-                    {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. This data is shared across all session types for the event - each host fills it once." %}
+                    {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. This data is shared across all categories for the event - each host fills it once." %}
                 </p>
                 <p class="text-sm mt-2">
-                    {% translate "After creating fields here, configure which ones are required or optional in each session type's settings." %}
+                    {% translate "After creating fields here, configure which ones are required or optional in each category's settings." %}
                 </p>
             </div>
         </div>
