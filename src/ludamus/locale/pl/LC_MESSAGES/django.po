@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 21:50+0200\n"
+"POT-Creation-Date: 2026-07-07 21:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5305,8 +5305,8 @@ msgid "Participant Limits"
 msgstr "Limity uczestników"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Set minimum and maximum participant limits for sessions of this type."
-msgstr "Ustaw minimalny i maksymalny limit uczestników dla sesji tego typu."
+msgid "Set minimum and maximum participant limits for this category."
+msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Minimum participants"
@@ -5325,8 +5325,8 @@ msgid "Allowed Durations"
 msgstr "Dozwolone czasy trwania"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Define how long sessions of this type can be."
-msgstr "Określ jak długo mogą trwać punkty programu tego typu."
+msgid "Define how long sessions of this category can be."
+msgstr "Określ jak długo mogą trwać punkty programu w tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "h"
