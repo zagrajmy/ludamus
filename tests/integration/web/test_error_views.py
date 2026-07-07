@@ -38,29 +38,32 @@ class TestCustom404:
         assert "message" in context
         assert "subtitle" in context
         assert "icon" in context
+        assert "guidance" in context
 
     @staticmethod
-    def test_message_is_stable_across_requests(rf):
-        titles = set()
+    def test_guidance_is_stable_across_requests(rf):
+        guidance = set()
         for _ in range(10):
             request = rf.get("/nonexistent-page/")
-            titles.add(custom_404(request, None).context_data["title"])
+            guidance.add(str(custom_404(request, None).context_data["guidance"]))
 
-        assert titles == {"Page not found"}
+        assert guidance == {
+            "The page you're looking for doesn't exist or may have moved."
+        }
 
     @staticmethod
-    def test_context_is_calm_and_informative(rf):
+    def test_themed_fields_are_present_alongside_guidance(rf):
         request = rf.get("/nonexistent-page/")
         response = custom_404(request, None)
         context = response.context_data
 
-        assert context["title"] == "Page not found"
-        assert context["message"] == "We couldn't find the page you were looking for."
-        assert context["subtitle"] == (
-            "The link may be broken or the page may have moved. "
-            "Use the buttons below to go back or return to the home page."
+        assert str(context["guidance"]) == (
+            "The page you're looking for doesn't exist or may have moved."
         )
-        assert context["icon"] == "question-mark-circle"
+        assert str(context["title"])
+        assert str(context["message"])
+        assert str(context["subtitle"])
+        assert str(context["icon"])
 
 
 @pytest.mark.django_db
@@ -90,28 +93,32 @@ class TestCustom500:
         assert "message" in context
         assert "subtitle" in context
         assert "icon" in context
+        assert "guidance" in context
+        assert "support_email" in context
 
     @staticmethod
-    def test_message_is_stable_across_requests(rf):
-        titles = set()
+    def test_guidance_is_stable_across_requests(rf):
+        guidance = set()
         for _ in range(10):
             request = rf.get("/test/")
-            titles.add(custom_500(request).context_data["title"])
+            guidance.add(str(custom_500(request).context_data["guidance"]))
 
-        assert titles == {"Something went wrong on our side"}
+        assert guidance == {"Something broke on our end. Try again in a moment."}
 
     @staticmethod
-    def test_context_owns_the_error_and_surfaces_support(rf):
+    def test_guidance_and_support_are_present(rf):
         request = rf.get("/test/")
         response = custom_500(request)
         context = response.context_data
 
-        assert context["title"] == "Something went wrong on our side"
-        assert (
-            context["message"] == "An unexpected error stopped this page from loading."
+        assert str(context["guidance"]) == (
+            "Something broke on our end. Try again in a moment."
         )
-        assert settings.SUPPORT_EMAIL in context["subtitle"]
-        assert context["icon"] == "exclamation-triangle"
+        assert context["support_email"] == settings.SUPPORT_EMAIL
+        assert str(context["title"])
+        assert str(context["message"])
+        assert str(context["subtitle"])
+        assert str(context["icon"])
 
 
 @pytest.mark.django_db

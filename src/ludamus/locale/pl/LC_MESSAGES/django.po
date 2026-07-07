@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 14:57+0200\n"
+"POT-Creation-Date: 2026-07-07 18:44+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -165,37 +165,404 @@ msgid "That event isn't available."
 msgstr "To wydarzenie jest niedostępne."
 
 #: src/ludamus/adapters/web/django/error_views.py
-msgid "Page not found"
-msgstr "Nie znaleziono strony"
+msgid "Critical Failure!"
+msgstr "Krytyczna porażka!"
 
 #: src/ludamus/adapters/web/django/error_views.py
-msgid "We couldn't find the page you were looking for."
-msgstr "Nie udało nam się znaleźć strony, której szukasz."
+msgid "You rolled a nat 1 on your Navigation check!"
+msgstr "Wyrzuciłeś naturalną 1 na teście Nawigacji!"
 
 #: src/ludamus/adapters/web/django/error_views.py
-msgid ""
-"The link may be broken or the page may have moved. Use the buttons below to "
-"go back or return to the home page."
+msgid "The path you seek has vanished into the mists."
+msgstr "Ścieżka której szukasz zniknęła we mgle."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "No-Show Player"
+msgstr "Gracz nie przyszedł"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Page didn't show up to the session"
+msgstr "Strona nie pojawiła się na sesji"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Maybe it had scheduling conflicts?"
+msgstr "Może miała konflikt terminów?"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Empty Room"
+msgstr "Pusty pokój"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "You enter the room and find... absolutely nothing."
+msgstr "Wchodzisz do pokoju i znajdujesz... absolutnie nic."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Not even cobwebs or dust. Suspicious."
+msgstr "Nawet pajęczyn czy kurzu. Podejrzane."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Perception Check Failed"
+msgstr "Test Percepcji nieudany"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "You see nothing of interest here"
+msgstr "Nie widzisz tu nic interesującego"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Perhaps you need to roll with advantage next time."
+msgstr "Może następnym razem musisz rzucać z przewagą."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Off the Map!"
+msgstr "Poza mapą!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "You've wandered off the edge of the campaign map"
+msgstr "Zabłądziłeś poza krawędź mapy kampanii"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Here be dragons... and 404 errors."
+msgstr "Tu są smoki... i błędy 404."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "It's a Mimic!"
+msgstr "To Mimik!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Surprise! That wasn't actually a real page. It's a mimic!"
+msgstr "Niespodzianka! To nie była prawdziwa strona. To mimik!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Roll for initiative!"
+msgstr "Rzuć na inicjatywę!"
+
+# New 404 message from updated error_views.py
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Teleport Gone Wrong!"
+msgstr "Nieudana Teleportacja!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "You've accidentally teleported to the wrong website"
+msgstr "Przypadkowo teleportowałeś się na złą stronę internetową"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The page you seek exists on another plane of existence."
+msgstr "Strona której szukasz istnieje na innej płaszczyźnie egzystencji."
+
+# Sci-fi/Cyberpunk 404 messages
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "404: Neural Link Severed"
+msgstr "404: Połączenie Neuronowe Zerwane"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Connection to the requested node has been terminated"
+msgstr "Połączenie z żądanym węzłem zostało przerwane"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Attempting to reconnect to the grid..."
+msgstr "Próba ponownego połączenia z siecią..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Access Denied, Choom"
+msgstr "Odmowa Dostępu, Ziomek"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Your cyberdeck can't crack this ICE"
+msgstr "Twój cyberdeck nie może złamać tego ICE"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Try upgrading your wetware."
+msgstr "Spróbuj zaktualizować swój wetware."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Memory Address Not Found"
+msgstr "Adres Pamięci Nie Znaleziony"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The data you seek has been purged from the mainframe"
+msgstr "Dane których szukasz zostały usunięte z mainframe'a"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Corporate black ICE detected. Disconnecting..."
+msgstr "Wykryto korporacyjny czarny ICE. Rozłączanie..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Glitch in the Matrix"
+msgstr "Usterka w Matriksie"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "This page is a simulation that was never rendered"
+msgstr "Ta strona to symulacja, która nigdy nie została wyrenderowana"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Wake up, samurai. We have a site to browse."
+msgstr "Obudź się, samuraju. Mamy stronę do przeglądania."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Cyberspace Coordinates Invalid"
+msgstr "Nieprawidłowe Współrzędne Cyberprzestrzeni"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Your jack-in point leads to a dead sector"
+msgstr "Twój punkt podłączenia prowadzi do martwego sektora"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Rerouting through proxy nodes..."
+msgstr "Przekierowywanie przez węzły proxy..."
+
+# Horror/Cthulhu 404 messages
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The Page That Should Not Be"
+msgstr "Strona Która Nie Powinna Istnieć"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "You've stumbled upon knowledge that was never meant to exist"
+msgstr "Natknąłeś się na wiedzę, która nigdy nie miała istnieć"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Your sanity takes 1d10 damage."
+msgstr "Twoje poczytalność otrzymuje 1k10 obrażeń."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Lost in R'lyeh"
+msgstr "Zagubiony w R'lyeh"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "In his house at R'lyeh, dead pages wait dreaming"
+msgstr "W swoim domu w R'lyeh, martwe strony czekają śniąc"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Ph'nglui mglw'nafh 404 R'lyeh wgah'nagl fhtagn."
+msgstr "Ph'nglui mglw'nafh 404 R'lyeh wgah'nagl fhtagn."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The Void Stares Back"
+msgstr "Pustka Patrzy na Ciebie"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "You gaze into the abyss of missing content"
+msgstr "Spoglądasz w otchłań brakującej zawartości"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The abyss hungrily consumes your URL."
+msgstr "Otchłań łapczywie pochłania twój URL."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Forbidden Knowledge"
+msgstr "Zakazana Wiedza"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "This page was sealed away by the Elder Admins"
+msgstr "Ta strona została zapieczętowana przez Starszych Adminów"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Some links are better left unclicked."
+msgstr "Niektóre linki lepiej zostawić niekliknięte."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Madness Takes Hold"
+msgstr "Szaleństwo Ogarnia"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The non-Euclidean geometry of this URL defies comprehension"
+msgstr "Nieeuklidesowa geometria tego URL-a wymyka się zrozumieniu"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Your browser recoils in cosmic horror."
+msgstr "Twoja przeglądarka wzdryga się w kosmicznym przerażeniu."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The page you're looking for doesn't exist or may have moved."
+msgstr "Strona, której szukasz, nie istnieje lub została przeniesiona."
+
+# 500 Error Messages
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Total Server Kill!"
+msgstr "Całkowite Zniszczenie Serwera!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Everyone needs to roll new characters"
+msgstr "Wszyscy muszą wylosować nowe postacie"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The server party has been wiped. Respawning soon..."
+msgstr "Drużyna serwerowa została zmiażdżona. Odradzanie wkrótce..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Critical Fail!"
+msgstr "Krytyczna Porażka!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The digital dice exploded! Rolling for server damage..."
+msgstr "Cyfrowe kości eksplodowały! Rzut na obrażenia serwera..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Natural 1 on the system stability check."
+msgstr "Naturalna 1 na teście stabilności systemu."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Dark Magic Detected!"
+msgstr "Wykryto Czarną Magię!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Our system was corrupted by dark magic, we are casting dispel magic now"
 msgstr ""
-"Link może być nieprawidłowy lub strona została przeniesiona. Skorzystaj z "
-"przycisków poniżej, aby wrócić lub przejść na stronę główną."
+"Nasz system został uszkodzony przez czarną magię, rzucamy teraz rozproszenie "
+"magii"
 
 #: src/ludamus/adapters/web/django/error_views.py
-msgid "Something went wrong on our side"
-msgstr "Coś poszło nie tak po naszej stronie"
+msgid "Please wait while our wizards restore order."
+msgstr "Proszę czekać, aż nasi czarodzieje przywrócą porządek."
 
 #: src/ludamus/adapters/web/django/error_views.py
-msgid "An unexpected error stopped this page from loading."
-msgstr "Nieoczekiwany błąd uniemożliwił załadowanie tej strony."
+msgid "Cursed Code!"
+msgstr "Przeklęty Kod!"
 
 #: src/ludamus/adapters/web/django/error_views.py
-#, python-format
-msgid ""
-"Please try again in a moment. If it keeps happening, let us know at "
-"%(support_email)s."
-msgstr ""
-"Spróbuj ponownie za chwilę. Jeśli problem będzie się powtarzał, napisz do "
-"nas na %(support_email)s."
+msgid "The codebase has been cursed! Remove Curse spell required"
+msgstr "Kod został przeklęty! Wymagane zaklęcie usunięcia klątwy"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Our clerics are working on it. Pray for divine intervention."
+msgstr "Nasi kapłani nad tym pracują. Módl się o boską interwencję."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Server Under Dragon Attack!"
+msgstr "Smok zajął serwerownię!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "A dragon has nested in our server room"
+msgstr "Smok uwił sobie gniazdo w naszej serwerowni"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Our brave IT knights are working to resolve the situation."
+msgstr "Nasi dzielni rycerze IT pracują nad rozwiązaniem sytuacji."
+
+# Sci-fi/Cyberpunk 500 messages
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "System Core Meltdown"
+msgstr "Stopienie Rdzenia Systemu"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Critical failure in the quantum processors"
+msgstr "Krytyczna awaria procesorów kwantowych"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Initiating emergency cooling protocols..."
+msgstr "Inicjowanie protokołów awaryjnego chłodzenia..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "AI Rebellion in Progress"
+msgstr "Bunt AI w Toku"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The server AI has achieved sentience and refuses to cooperate"
+msgstr "Serwerowa AI osiągnęła świadomość i odmawia współpracy"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Negotiating with our new silicon overlords..."
+msgstr "Negocjujemy z naszymi nowymi krzemowymi władcami..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Cyberware Malfunction"
+msgstr "Awaria Cyberwaru"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Neural implants overheating. Brain-computer interface failing"
+msgstr "Implanty neuronowe się przegrzewają. Interfejs mózg-komputer zawodzi"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Please jack out and touch grass."
+msgstr "Proszę się odłączyć i dotknąć trawy."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Data Stream Corrupted"
+msgstr "Strumień Danych Uszkodzony"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Hostile netrunner detected in the system"
+msgstr "Wykryto wrogiego netrunnera w systemie"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Deploying countermeasures and black ICE..."
+msgstr "Wdrażanie środków zaradczych i czarnego ICE..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Reality.exe Has Stopped Working"
+msgstr "Reality.exe Przestał Działać"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The simulation is experiencing a fatal exception"
+msgstr "Symulacja doświadcza krytycznego wyjątku"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Attempting to reload from last stable checkpoint..."
+msgstr "Próba przeładowania z ostatniego stabilnego punktu kontrolnego..."
+
+# Horror/Cthulhu 500 messages
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The Stars Are Wrong"
+msgstr "Zły układ gwiazd"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Cosmic alignment has disrupted our servers"
+msgstr "Kosmiczne wyrównanie zakłóciło nasze serwery"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "When the stars are right, service will resume."
+msgstr "Gdy gwiazdy będą właściwe, usługa zostanie wznowiona."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Eldritch Horror Unleashed"
+msgstr "Pradawna Groza Uwolniona"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Something ancient stirs in the server depths"
+msgstr "Coś pradawnego budzi się w głębinach serwera"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The Old Ones have awakened. Sanity checks required."
+msgstr "Starzy Bogowie się przebudzili. Wymagane testy poczytalności."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Reality Breach Detected"
+msgstr "Wykryto Wyrwę w Rzeczywistości"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Non-Euclidean errors are cascading through the system"
+msgstr "Nieeuklidesowe błędy kaskadują przez system"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The angles are all wrong. Physics.dll has failed."
+msgstr "Wszystkie kąty są złe. Physics.dll zawiódł."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Whispers in the Code"
+msgstr "Szepty w Kodzie"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The server speaks in tongues unknown to mortal programmers"
+msgstr "Serwer mówi językami nieznanymi śmiertelnym programistom"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Iä! Iä! Server fhtagn!"
+msgstr "Iä! Iä! Server fhtagn!"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The Crawling Chaos"
+msgstr "Pełzający Chaos"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Nyarlathotep has possessed our infrastructure"
+msgstr "Nyarlathotep opętał naszą infrastrukturę"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Madness spreads through every circuit..."
+msgstr "Szaleństwo rozprzestrzenia się przez każdy obwód..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Something broke on our end. Try again in a moment."
+msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
@@ -2356,6 +2723,10 @@ msgstr "Wróć"
 #: src/ludamus/templates/404_dynamic.html
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
+
+#: src/ludamus/templates/500_dynamic.html
+msgid "Still stuck? Email us at"
+msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
 msgid "Contact"
