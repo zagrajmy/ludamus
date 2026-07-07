@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
+from django.conf import settings
+from django.contrib import messages
 from django.http import (  # Django
     HttpRequest,
     HttpResponse,
@@ -79,10 +81,12 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
 
     # Missing and unpublished events return the same response on purpose, so a
     # 404 never reveals whether an unannounced event exists. The visitor
-    # reached the right sphere, so offer the sphere home rather than a dead end.
+    # reached the right sphere, so send them to the events list with a neutral
+    # explanation rather than dropping them on the home page with no context.
     # (A clean URL to a public event renders normally and never reaches here.)
     if state in {_EVENT_MISSING, _EVENT_UNPUBLISHED}:
-        return HttpResponseRedirect(reverse("web:index"))
+        messages.info(request, _("That event isn't available."))
+        return HttpResponseRedirect(reverse("web:events"))
 
     return None
 
@@ -210,6 +214,7 @@ def custom_404(
         "message": selected["message"],
         "subtitle": selected["subtitle"],
         "icon": selected["icon"],
+        "guidance": _("The page you're looking for doesn't exist or may have moved."),
     }
 
     response = TemplateResponse(request, "404_dynamic.html", context)
@@ -330,6 +335,8 @@ def custom_500(request: HttpRequest) -> TemplateResponse:
         "message": selected["message"],
         "subtitle": selected["subtitle"],
         "icon": selected["icon"],
+        "guidance": _("Our best people are on it."),
+        "support_email": settings.SUPPORT_EMAIL,
     }
 
     response = TemplateResponse(request, "500_dynamic.html", context)
