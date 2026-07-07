@@ -105,11 +105,11 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         # load. Explicit picks (a real status or the "scheduled" pseudo-filter)
         # still narrow the list.
         status_raw = self.request.GET.get("status")
-        filter_status: str | None
-        if status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus):
-            filter_status = status_raw
-        else:
-            filter_status = None
+        filter_status: str | None = (
+            status_raw
+            if status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus)
+            else None
+        )
 
         # Scheduled is a placement fact, not a status: the "scheduled" option
         # filters on agenda-item existence, and picking a real status excludes
