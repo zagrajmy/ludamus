@@ -100,11 +100,13 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         if filter_category_pk not in {c.pk for c in categories}:
             filter_category_pk = None
 
+        # Default (no status param) shows every proposal: an event whose
+        # sessions weren't created via proposals should not look empty on first
+        # load. Explicit picks (a real status or the "scheduled" pseudo-filter)
+        # still narrow the list.
         status_raw = self.request.GET.get("status")
         filter_status: str | None
-        if status_raw is None:
-            filter_status = SessionStatus.PENDING
-        elif status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus):
+        if status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus):
             filter_status = status_raw
         else:
             filter_status = None
