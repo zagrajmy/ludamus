@@ -74,3 +74,37 @@ class TestAuth0LogoutRedirectActionView:
             url="/test-page",
             messages=[(messages.WARNING, "Invalid domain for redirect.")],
         )
+
+    def test_safe_relative_redirect_accepted(self, client):
+        response = client.get(self.URL, {"redirect_to": "/dashboard"})
+
+        assert_response(response, HTTPStatus.FOUND, url="/dashboard")
+
+    def test_invalid_redirect_url_backslash(self, client):
+        response = client.get(self.URL, {"redirect_to": "/\\evil.com"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:index"),
+            messages=[(messages.WARNING, "Invalid redirect URL.")],
+        )
+
+    def test_last_domain_fragment_bypass_rejected(self, client, settings):
+        # `evil.com#x.<ROOT_DOMAIN>` satisfies a naive endswith() suffix match,
+        # but a browser parses the host as evil.com. The hostname guard rejects
+        # it before any suffix check runs.
+        response = client.get(
+            self.URL,
+            {
+                "last_domain": f"evil.com#x.{settings.ROOT_DOMAIN}",
+                "redirect_to": "/test-page",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/test-page",
+            messages=[(messages.WARNING, "Invalid domain for redirect.")],
+        )

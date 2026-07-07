@@ -69,7 +69,7 @@ FROM base AS dev
 COPY docker/Procfile.dev /app/
 
 # Install Python dependencies (all groups)
-RUN mise run p install
+RUN mise exec -- poetry install
 
 # Copy application code
 COPY --chown=appuser:appuser src ./src
@@ -88,7 +88,7 @@ CMD ["run", "start"]
 FROM base AS prod
 
 # Install production Python dependencies only
-RUN mise run p install --only main
+RUN mise exec -- poetry install --only main
 
 # Copy application code
 COPY --chown=appuser:appuser src ./src

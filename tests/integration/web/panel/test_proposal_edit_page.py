@@ -584,6 +584,31 @@ class TestProposalEditPageView:
 
         assert list(session.facilitators.values_list("pk", flat=True)) == [alice.pk]
 
+    def test_post_ignores_facilitator_assignment_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        other_event = EventFactory(sphere=sphere)
+        foreign_facilitator = Facilitator.objects.create(
+            event=other_event, display_name="Mallory", slug="mallory", user=None
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitators_submitted": "1",
+                "facilitator_ids": [foreign_facilitator.pk],
+            },
+        )
+
+        assert not session.facilitators.exists()
+
     def test_post_assigns_tracks(
         self, authenticated_client, active_user, sphere, event
     ):

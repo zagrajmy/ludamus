@@ -1,10 +1,8 @@
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from django.contrib.auth import login as django_login
 from django.db import transaction
 
-from ludamus.adapters.db.django.models import User
 from ludamus.links.db.django import crowd, repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
@@ -14,18 +12,11 @@ from ludamus.pacts.crowd import UserType
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
-    from django.http import HttpRequest
-
 
 class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]:
         return transaction.atomic()
-
-    @staticmethod
-    def login_user(request: HttpRequest, user_slug: str) -> None:
-        user = User.objects.get(slug=user_slug)
-        django_login(request, user)
 
     @cached_property
     def active_users(self) -> crowd.UserRepository:

@@ -1,0 +1,12 @@
+include = [
+    "mise.toml",
+    "pyproject.toml",
+    "docker/mise.toml",
+    "tasks.toml",
+    ".taplo.toml",
+]
+
+[formatting]
+column_width = 88
+inline_table_expand = false
+indent_string = "    "

@@ -192,6 +192,14 @@ class SessionSelfEditServiceProtocol(Protocol):
     ) -> None: ...
 
 
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
+
+
 class SessionContentEditServiceProtocol(Protocol):
     def apply(
         self,
@@ -201,8 +209,10 @@ class SessionContentEditServiceProtocol(Protocol):
         user_id: int | None,
         data: SessionContentEditData,
     ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(self, event_id: int) -> set[int]: ...
 
 
 class SessionConfirmationServiceProtocol(Protocol):

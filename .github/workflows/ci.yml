@@ -23,9 +23,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
       - run: mise install
-      - run: mise run p install
+      - run: mise exec -- poetry install
       - run: mise bootstrap packages apply --yes
-      - run: mise run prcheck --jobs 4
+      - run: mise run lint --jobs "$(nproc)"
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
         run: mise run messages-check
 
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
       - run: mise install
-      - run: mise run impeccable
+      - run: mise run lint:impeccable
 
   frontend-analysis:
     runs-on: ubuntu-latest
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
       - run: mise install
-      - run: mise run p install
+      - run: mise exec -- poetry install
       # PostgreSQL-only tests: row-level locking (select_for_update) is a
       # no-op on the SQLite backend used by the main `test` job below.
       - run: mise run test:postgres
@@ -97,17 +97,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
       - run: mise install
-      - run: mise run p install
+      - run: mise exec -- poetry install
 
       # Integration/unit tests → .coverage.unit
-      - run: mise run test -- --cov
+      - run: mise run test:py:cov
 
       # E2E tests → .coverage.e2e
       - name: Install Playwright Browsers
-        run: mise run install:playwright
+        run: mise run test:e2e:install
       - name: Run end-to-end tests
         id: e2e
-        run: mise run e2e
+        run: mise run test:e2e
 
       # Combine and upload only when unit + e2e tests passed
       - name: Combine coverage reports

@@ -11,8 +11,10 @@ from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter
+from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
+from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.links.ticket_api import MembershipApiClient
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
@@ -22,9 +24,18 @@ from ludamus.mills.chronology import (
     SessionDeletionService,
     SessionSelfEditService,
 )
-from ludamus.mills.crowd import ClaimService
-from ludamus.mills.discounts import DiscountsService
-from ludamus.mills.enrollment import NotificationsService, WaitlistPromotionService
+from ludamus.mills.crowd import (
+    ClaimService,
+    CompanionsService,
+    CrowdAuthService,
+    ProfileService,
+)
+from ludamus.mills.discounts import DiscountsExportService, DiscountsService
+from ludamus.mills.enrollment import (
+    EnrollmentService,
+    NotificationsService,
+    WaitlistPromotionService,
+)
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -44,6 +55,7 @@ from ludamus.mills.submissions.personal_data_fields import (
 )
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.submissions import ImportRepos
 
 if TYPE_CHECKING:
@@ -89,6 +101,28 @@ class Services:
     @cached_property
     def claims(self) -> ClaimService:
         return ClaimService(self._transaction, self._repos.claims)
+
+    @cached_property
+    def profile(self) -> ProfileService:
+        return ProfileService(
+            transaction=self._transaction,
+            users=self._repos.active_users,
+            participations=self._repos.profile_stats,
+            avatar_url=gravatar_url,
+        )
+
+    @cached_property
+    def companions(self) -> CompanionsService:
+        return CompanionsService(self._transaction, self._repos.connected_users)
+
+    @cached_property
+    def crowd_auth(self) -> CrowdAuthService:
+        return CrowdAuthService(
+            transaction=self._transaction,
+            users=self._repos.active_users,
+            spheres=self._repos.spheres,
+            claims=self.claims,
+        )
 
     @cached_property
     def parties(self) -> PartyService:
@@ -199,6 +233,21 @@ class Services:
         return NotificationsService(self._transaction, self._repos.notifications)
 
     @cached_property
+    def enrollment(self) -> EnrollmentService:
+        membership_check_interval: int = settings.MEMBERSHIP_API_CHECK_INTERVAL
+        return EnrollmentService(
+            transaction=self._transaction,
+            repos=EnrollmentRepos(
+                users=self._repos.active_users,
+                anonymous_users=self._repos.anonymous_users,
+                enrollment_configs=self._repos.enrollment_configs,
+                participations=self._repos.enrollment_participations,
+                ticket_api=MembershipApiClient(),
+            ),
+            membership_check_interval=membership_check_interval,
+        )
+
+    @cached_property
     def shadowban(self) -> ShadowbanService:
         return ShadowbanService(
             self._transaction, self._repos.shadowban, DjangoUserNotifier()
@@ -215,6 +264,17 @@ class Services:
     @cached_property
     def discounts(self) -> DiscountsService:
         return DiscountsService(self._transaction, self._repos.discounts)
+
+    @cached_property
+    def discounts_export(self) -> DiscountsExportService:
+        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
+        return DiscountsExportService(
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+            connections=self._repos.connections,
+            decryptor=FernetDecryptor(key),
+            sheet_writer=GoogleSheetsWriter(),
+        )
 
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:

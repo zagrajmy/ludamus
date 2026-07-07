@@ -33,6 +33,8 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
     EventIntegrationCreateData,
     EventIntegrationDTO,
     EventIntegrationsRepositoryProtocol,
@@ -1009,6 +1011,83 @@ def _append_m2m_change(
         changes.append({"field": field, "field_id": None, "old": old, "new": new})
 
 
+def _inverse_text_update(
+    *, update: SessionUpdateData, field: str, old: ContentFieldValue
+) -> bool:
+    if not isinstance(old, str):
+        return False
+    if field == "title":
+        update["title"] = old
+    elif field == "display_name":
+        update["display_name"] = old
+    elif field == "description":
+        update["description"] = old
+    elif field == "contact_email":
+        update["contact_email"] = old
+    elif field == "duration":
+        update["duration"] = old
+    else:
+        return False
+    return True
+
+
+def _inverse_core_update(
+    *, update: SessionUpdateData, field: str, old: ContentFieldValue
+) -> bool:
+    # Restores `field` to `old` in the update payload. Returns False for
+    # irreversible entries: the old cover-image binary is gone, and m2m
+    # assignments (facilitators/tracks/time_slots) are logged as display
+    # names, not ids.
+    if _inverse_text_update(update=update, field=field, old=old):
+        return True
+    if field == "category" and (old is None or isinstance(old, int)):
+        update["category_id"] = old
+        return True
+    if field == "participants_limit" and isinstance(old, int):
+        update["participants_limit"] = old
+        return True
+    if field == "min_age" and isinstance(old, int):
+        update["min_age"] = old
+        return True
+    return False
+
+
+def _inverse_field_value(
+    *, field_id: int, old: ContentFieldValue, session_id: int
+) -> SessionFieldValueData | None:
+    # A previously unanswered field was logged as None; restore it to "".
+    value = "" if old is None else old
+    # Dynamic answers are str | list[str] | bool; a plain int never appears.
+    if isinstance(value, bool) or not isinstance(value, int):
+        return SessionFieldValueData(
+            session_id=session_id, field_id=field_id, value=value
+        )
+    return None
+
+
+def build_inverse_content_edit(
+    changes: list[ContentFieldChange], session_id: int
+) -> SessionContentEditData | None:
+    # The inverse of a logged content change: every revertible entry set back
+    # to its `old` value. None when nothing in the change can be restored.
+    update: SessionUpdateData = {}
+    field_values: list[SessionFieldValueData] = []
+    for change in changes:
+        if (field_id := change["field_id"]) is None:
+            _inverse_core_update(
+                update=update, field=change["field"], old=change["old"]
+            )
+        elif (
+            field_value := _inverse_field_value(
+                field_id=field_id, old=change["old"], session_id=session_id
+            )
+        ) is not None:
+            field_values.append(field_value)
+    if not update and not field_values:
+        return None
+    return SessionContentEditData(update=update, field_values=field_values or None)
+
+
 def diff_session_content(
     old_session: SessionDTO,
     update: SessionUpdateData,
@@ -1113,6 +1192,33 @@ class SessionContentEditService:
                 }
                 self._content_change_logs.create(log_data)
 
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None:
+        with self._transaction.atomic():
+            log = self._content_change_logs.read(log_pk)
+            if log.event_id != event_pk:
+                # The log belongs to another event — reject before reverting.
+                raise NotFoundError
+            # Lock the session row so concurrent reverts serialize: the
+            # latest-pk check and the inverse edit run under one transaction,
+            # so a second revert re-reads a now-stale latest_pk and is
+            # rejected instead of racing past the check (TOCTOU).
+            self._sessions.lock(log.session_id)
+            latest_pk = self._content_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
+            )
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                raise ContentChangeNotLatestError
+            data = build_inverse_content_edit(log.changes, log.session_id)
+            if data is None:
+                raise ContentChangeNotRevertibleError
+            # Route through apply() so the revert is itself audited as a
+            # content edit — its log row becomes the newest change.
+            self.apply(
+                session_id=log.session_id, event_id=event_pk, user_id=user_pk, data=data
+            )
+
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
         return self._content_change_logs.list_by_event(event_id)
 
@@ -1120,6 +1226,17 @@ class SessionContentEditService:
         # Render-time resolution of dynamic session-field labels (user content,
         # not UI text) so the log shows the field's current name.
         return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
+
+    def revertible_log_pks(self, event_id: int) -> set[int]:
+        # Rows offered a Revert button: the newest change per session, and only
+        # if at least one of its entries can actually be restored.
+        latest = set(self._content_change_logs.latest_pks_by_session(event_id).values())
+        return {
+            log.pk
+            for log in self._content_change_logs.list_by_event(event_id)
+            if log.pk in latest
+            and build_inverse_content_edit(log.changes, log.session_id) is not None
+        }
 
 
 class SessionSelfEditService:
