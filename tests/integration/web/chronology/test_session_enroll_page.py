@@ -769,7 +769,7 @@ class TestSessionEnrollPageView:
                     "Skipped (already enrolled or conflicts): Test User (session host)",
                 )
             ],
-            url=f"/chronology/event/{proposal_category.event.slug}/",
+            url=f"/event/{proposal_category.event.slug}/",
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
@@ -836,7 +836,7 @@ class TestSessionEnrollPageView:
                     ),
                 )
             ],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session2
@@ -1080,7 +1080,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
 
     def test_post_restrict_to_configured_users_config_exists_too_many_enrollment2(
@@ -1295,7 +1295,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, f"Enrolled: {connected_user.name}")],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
 
     def test_post_cant_join_waitlist(

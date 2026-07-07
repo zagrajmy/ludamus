@@ -9,7 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
-from django.urls import reverse
+from django.urls import resolve, reverse
 from django.utils import timezone
 
 from ludamus.adapters.db.django.models import (
@@ -28,6 +28,7 @@ from ludamus.adapters.web.django.entities import (
     SessionData,
     build_display_field_row,
 )
+from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url
@@ -3425,3 +3426,33 @@ class TestEventPageEditAffordance:
         content = response.content.decode()
         assert edit_url not in content
         assert f'data-edit-open="{session.pk}"' not in content
+
+
+class TestPublicEventUrlShape:
+    def test_event_url_has_no_chronology_segment(self, event):
+        url = reverse("web:chronology:event", kwargs={"slug": event.slug})
+
+        assert url == f"/event/{event.slug}/"
+
+    def test_new_event_url_resolves_and_renders(self, client, event):
+        match = resolve(f"/event/{event.slug}/")
+
+        assert match.view_name == "web:chronology:event"
+        assert match.func.view_class is EventPageView
+        assert client.get(f"/event/{event.slug}/").status_code == HTTPStatus.OK
+
+    def test_legacy_chronology_url_redirects_permanently(self, client, event):
+        response = client.get(f"/chronology/event/{event.slug}/")
+
+        assert_response(
+            response, HTTPStatus.MOVED_PERMANENTLY, url=f"/event/{event.slug}/"
+        )
+
+    def test_legacy_chronology_subpath_preserves_query_string(self, client, event):
+        response = client.get(f"/chronology/event/{event.slug}/session/propose/?step=2")
+
+        assert_response(
+            response,
+            HTTPStatus.MOVED_PERMANENTLY,
+            url=f"/event/{event.slug}/session/propose/?step=2",
+        )

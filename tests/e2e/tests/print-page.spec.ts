@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const densePrintUrl = "/chronology/event/kapitularz-2025-anonymized/print/";
+const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
 
 const countPdfPages = (pdf: Buffer) => {
   const text = pdf.toString("latin1");
