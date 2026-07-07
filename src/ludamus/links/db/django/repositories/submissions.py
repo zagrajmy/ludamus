@@ -66,6 +66,15 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         return EventProposalSettingsDTO.model_validate(settings)
 
     @staticmethod
+    def read_by_event(event_id: int) -> EventProposalSettingsDTO:
+        settings = EventProposalSettings.objects.filter(event_id=event_id).first()
+        if settings is None:
+            return EventProposalSettingsDTO(
+                allow_anonymous_proposals=False, description="", pk=0
+            )
+        return EventProposalSettingsDTO.model_validate(settings)
+
+    @staticmethod
     def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None:
         settings, _ = EventProposalSettings.objects.get_or_create(event_id=event_id)
         settings.allow_anonymous_proposals = allow

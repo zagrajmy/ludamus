@@ -129,8 +129,8 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "proposal_settings": EventProposalSettingsDTO.model_validate(
-                    EventProposalSettings.objects.get(event=event)
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "categories": [
                     ProposalCategoryDTO.model_validate(cat1),
@@ -165,8 +165,8 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "proposal_settings": EventProposalSettingsDTO.model_validate(
-                    EventProposalSettings.objects.get(event=event)
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": form,
@@ -1562,8 +1562,8 @@ class TestProposeSessionPageView:
                 "field_descriptors": [],
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "proposal_settings": EventProposalSettingsDTO.model_validate(
-                    EventProposalSettings.objects.get(event=event)
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "public_tracks": [],
                 "selected_track_pks": [],
@@ -1609,8 +1609,8 @@ class TestProposeSessionPageView:
                 "field_descriptors": [],
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "proposal_settings": EventProposalSettingsDTO.model_validate(
-                    EventProposalSettings.objects.get(event=event)
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
                 ),
                 "public_tracks": [],
                 "selected_track_pks": [],

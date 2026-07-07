@@ -260,7 +260,7 @@ def _login_nudge_context(request: HttpRequest) -> dict[str, object]:
 def _proposal_settings(
     request: RootRequest, event: EventDTO
 ) -> EventProposalSettingsDTO:
-    return request.di.uow.event_proposal_settings.read_or_create_by_event(event.pk)
+    return request.di.uow.event_proposal_settings.read_by_event(event.pk)
 
 
 def _render_category(
