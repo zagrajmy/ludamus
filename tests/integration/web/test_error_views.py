@@ -120,6 +120,15 @@ class TestCustom500:
         assert str(context["subtitle"])
         assert str(context["icon"])
 
+    @staticmethod
+    def test_rendered_page_shows_guidance_and_support_mailto(rf):
+        request = rf.get("/test/")
+
+        content = custom_500(request).render().content.decode()
+
+        assert "Something broke on our end. Try again in a moment." in content
+        assert f"mailto:{settings.SUPPORT_EMAIL}" in content
+
 
 @pytest.mark.django_db
 class TestSemantic404Recovery:
