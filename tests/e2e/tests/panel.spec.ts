@@ -119,10 +119,12 @@ test.describe("Backoffice Panel", () => {
     // Page header
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
-    // Stats cards
-    await expect(page.getByText("All Sessions")).toBeVisible();
-    await expect(page.getByText("Facilitators")).toBeVisible();
-    await expect(page.getByText("Rooms")).toBeVisible();
+    // Stats cards (scoped to main so "Facilitators" doesn't also match the
+    // sidebar nav link of the same name).
+    const stats = page.getByRole("main");
+    await expect(stats.getByText("All Sessions")).toBeVisible();
+    await expect(stats.getByText("Facilitators")).toBeVisible();
+    await expect(stats.getByText("Rooms")).toBeVisible();
 
     // Event selector in sidebar
     await expect(page.locator("#eventSelector")).toBeVisible();
