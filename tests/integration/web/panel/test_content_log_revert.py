@@ -31,8 +31,6 @@ def _make_session(proposal_category):
         title="Original title",
         display_name="Original host",
         description="",
-        requirements="",
-        needs="",
         contact_email="",
         duration="",
         participants_limit=5,

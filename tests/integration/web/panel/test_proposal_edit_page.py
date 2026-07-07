@@ -235,12 +235,6 @@ class TestProposalEditPageView:
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [],
             },
-            not_contains=[
-                'name="requirements"',
-                'name="needs"',
-                "Some requirements",
-                "Some needs",
-            ],
         )
 
     # POST tests
