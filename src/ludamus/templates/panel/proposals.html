@@ -214,10 +214,14 @@
             {% endif %}
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
-                {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
-                {% translate "Create Session" as t_create %}
-                {% tessera_button t_create href=create_url icon="plus" %}
+                {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
+                    <p class="text-foreground-muted">{% translate "No proposals match the current filters." %}</p>
+                {% else %}
+                    <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
+                    {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+                    {% translate "Create Session" as t_create %}
+                    {% tessera_button t_create href=create_url icon="plus" %}
+                {% endif %}
             </div>
         {% endif %}
         {% if deleted_proposals %}
