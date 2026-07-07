@@ -419,17 +419,8 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         # (a tab named "A1") or contains an apostrophe would otherwise be read
         # as a range, clearing a single cell instead of the tab.
         title = _a1_quote(self._first_tab_title(session, spreadsheet_id))
-        # Clear the whole tab first so rows from a previous, longer export
-        # don't linger below the fresh data.
-        self._call(
-            what="Spreadsheet clear",
-            send=lambda: session.post(
-                SHEETS_CLEAR_URL.format(
-                    sheet_id=spreadsheet_id, range=quote(title, safe="")
-                ),
-                timeout=30,
-            ),
-        )
+        old_row_count = self._row_count(session, spreadsheet_id, title)
+        # Write first so a failed write never leaves the sheet empty.
         self._call(
             what="Spreadsheet write",
             send=lambda: session.put(
@@ -440,6 +431,32 @@ class GoogleSheetsWriter(SheetWriterProtocol):
                 timeout=30,
             ),
         )
+        if (new_row_count := len(rows)) < old_row_count:
+            trailing_range = f"{title}!A{new_row_count + 1}:ZZ{old_row_count}"
+            self._call(
+                what="Spreadsheet clear trailing rows",
+                send=lambda: session.post(
+                    SHEETS_CLEAR_URL.format(
+                        sheet_id=spreadsheet_id, range=quote(trailing_range, safe="")
+                    ),
+                    timeout=30,
+                ),
+            )
+
+    def _row_count(
+        self, session: AuthorizedSession, spreadsheet_id: str, title: str
+    ) -> int:
+        response = self._call(
+            what="Spreadsheet read",
+            send=lambda: session.get(
+                SHEETS_VALUES_URL.format(
+                    sheet_id=spreadsheet_id, range=quote(f"{title}!A:A", safe="")
+                ),
+                timeout=10,
+            ),
+        )
+        values = response.json().get("values") or []
+        return len(values)
 
     def _first_tab_title(self, session: AuthorizedSession, spreadsheet_id: str) -> str:
         response = self._call(

@@ -2099,7 +2099,9 @@ class SessionEnrollmentAnonymousPageView(View):
                 session_id=session_id,
             )
 
-        request.di.uow.anonymous_users.update(anonymous_user.slug, UserData(name=name))
+        request.di.uow.anonymous_users.update(
+            anonymous_user.slug, UserData(name=anonymous_user.name)
+        )
 
         if request.POST.get("action", "enroll") == "cancel":
             _cancel_anonymous_enrollment(request, session, anonymous_user)
