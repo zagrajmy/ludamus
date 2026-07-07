@@ -12,7 +12,7 @@ test.describe("Event index", () => {
     await expect(page.getByRole("link", { name: /Retro Mini Jam/ })).toBeVisible();
 
     await upcomingCard.click();
-    await expect(page).toHaveURL(/\/chronology\/event\/autumn-open\//);
+    await expect(page).toHaveURL(/\/event\/autumn-open\//);
     await expect(page.getByRole("heading", { name: "Autumn Open Playtest" })).toBeVisible();
   });
 });

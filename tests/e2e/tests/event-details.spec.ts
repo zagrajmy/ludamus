@@ -342,7 +342,7 @@ test.describe("Anonymous code modal", () => {
     await dialog.getByLabel("Anonymous Code").fill("zzzz99");
     await dialog.getByRole("button", { name: "Switch to This Code" }).click();
 
-    await expect(page).toHaveURL(/\/chronology\/event\/autumn-open/);
+    await expect(page).toHaveURL(/\/event\/autumn-open/);
     await expect(page.getByText(/Invalid code/i)).toBeVisible();
   });
 });
