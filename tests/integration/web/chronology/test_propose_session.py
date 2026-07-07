@@ -1562,6 +1562,9 @@ class TestProposeSessionPageView:
                 "field_descriptors": [],
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
@@ -1606,6 +1609,9 @@ class TestProposeSessionPageView:
                 "field_descriptors": [],
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,

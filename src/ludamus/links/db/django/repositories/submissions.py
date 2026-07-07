@@ -71,6 +71,12 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         settings.allow_anonymous_proposals = allow
         settings.save(update_fields=["allow_anonymous_proposals"])
 
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None:
+        settings, _ = EventProposalSettings.objects.get_or_create(event_id=event_id)
+        settings.description = description
+        settings.save(update_fields=["description"])
+
 
 class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: PLR0904
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
