@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 23:05+0200\n"
+"POT-Creation-Date: 2026-07-07 23:23+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5231,7 +5231,11 @@ msgid "Venues"
 msgstr "Lokalizacje"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Harmonogram"
+#: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable-overview.html
+#: src/ludamus/templates/panel/timetable-problems.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "Schedule"
 msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/base.html
@@ -7255,13 +7259,6 @@ msgstr "Dziennik zmian harmonogramu"
 #: src/ludamus/templates/panel/timetable-overview.html
 #: src/ludamus/templates/panel/timetable-problems.html
 #: src/ludamus/templates/panel/timetable.html
-msgid "Schedule"
-msgstr "Harmonogram"
-
-#: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
 msgid "Organizer Overview"
 msgstr "Przegląd harmonogramu"
 
@@ -7503,6 +7500,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Harmonogram"
+#~ msgstr "Harmonogram"
 
 #~ msgid "Something broke on our end. Try again in a moment."
 #~ msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."
