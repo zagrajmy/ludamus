@@ -5,6 +5,7 @@ from unittest.mock import ANY
 
 import pytest
 import responses
+from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import override_settings
@@ -3317,25 +3318,35 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
-    # Unpublished events are not 404s but redirects to the sphere home: the 404
+    # Unpublished events are not 404s but redirects to the events list: the 404
     # fallback routes missing and unpublished events identically so a response
     # never reveals whether an unannounced event exists. See
     # TestSemantic404Recovery in tests/integration/web/test_error_views.py.
-    def test_unpublished_event_redirects_anonymous_to_home(self, client, sphere):
+    def test_unpublished_event_redirects_anonymous_to_events_list(self, client, sphere):
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = client.get(self._get_url(event.slug))
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:events"),
+            messages=[(messages.INFO, "That event isn't available.")],
+        )
 
-    def test_unpublished_event_redirects_regular_user_to_home(
+    def test_unpublished_event_redirects_regular_user_to_events_list(
         self, authenticated_client, sphere
     ):
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:events"),
+            messages=[(messages.INFO, "That event isn't available.")],
+        )
 
     def test_unpublished_event_visible_for_manager(
         self, authenticated_client, active_user, sphere
