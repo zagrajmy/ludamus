@@ -8,76 +8,73 @@
     {{ facilitator.display_name }}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {{ current_event.name }} · {% translate "Facilitators" %}
-    {% endif %}
+    {{ current_event.name }} · {% translate "Facilitators" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
-        <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit" form="facilitator-edit-form" class="btn btn-primary">
-                {% icon "check" class="w-4 h-4 mr-2" %}
-                {% translate "Save" %}
-            </button>
-        </div>
-    {% endif %}
+    <div class="flex items-center space-x-3">
+        <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+           class="btn btn-secondary">{% translate "Cancel" %}</a>
+        <button type="submit" form="facilitator-edit-form" class="btn btn-primary">
+            {% icon "check" class="w-4 h-4 mr-2" %}
+            {% translate "Save" %}
+        </button>
+    </div>
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event and facilitator %}
-        <form id="facilitator-edit-form" method="post" class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card mb-6">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator Details" %}</h3>
-                    <div class="space-y-6">
-                        <div>
-                            <dt class="text-xs text-foreground-muted">{% translate "Display Name" %}</dt>
-                            <dd class="text-foreground">
-                                {{ facilitator.display_name }}
-                            </dd>
-                            <p class="mt-1 text-xs text-foreground-muted">
-                                {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
-                            </p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_accreditation_type">{% translate "Accreditation type" %}</label>
-                            <select name="accreditation_type"
-                                    id="id_accreditation_type"
-                                    class="w-full border {% if form.accreditation_type.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                {% for value, label in form.accreditation_type.field.choices %}
-                                    <option value="{{ value }}"
-                                            {% if form.accreditation_type.value|default:"none" == value %}selected{% endif %}>
-                                        {{ label }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                            {% if form.accreditation_type.errors %}
-                                <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_internal_comment">{% translate "Internal comment" %}</label>
-                            <textarea name="internal_comment"
-                                      id="id_internal_comment"
-                                      rows="3"
-                                      class="w-full border border-border rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ form.internal_comment.value|default:"" }}</textarea>
-                            <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
-                        </div>
+    <form id="facilitator-edit-form" method="post" class="max-w-2xl">
+        {% csrf_token %}
+        <div class="card mb-6">
+            <div class="card-body">
+                <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator Details" %}</h3>
+                <div class="space-y-6">
+                    <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Display Name" %}</dt>
+                        <dd class="text-foreground">
+                            {{ facilitator.display_name }}
+                        </dd>
+                        <p class="mt-1 text-xs text-foreground-muted">
+                            {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                               for="id_accreditation_type">{% translate "Accreditation type" %}</label>
+                        <select name="accreditation_type"
+                                id="id_accreditation_type"
+                                class="w-full border {% if form.accreditation_type.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                            {% for value, label in form.accreditation_type.field.choices %}
+                                <option value="{{ value }}"
+                                        {% if form.accreditation_type.value|default:"none" == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.accreditation_type.errors %}
+                            <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                               for="id_internal_comment">{% translate "Internal comment" %}</label>
+                        <textarea name="internal_comment"
+                                  id="id_internal_comment"
+                                  rows="3"
+                                  class="w-full border {% if form.internal_comment.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ form.internal_comment.value|default:"" }}</textarea>
+                        {% if form.internal_comment.errors %}
+                            <p class="mt-1 text-sm text-danger">{{ form.internal_comment.errors.0 }}</p>
+                        {% endif %}
+                        <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
                     </div>
                 </div>
             </div>
-            {% if personal_fields %}
-                <div class="card mb-6">
-                    <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
-                        {% include "panel/_personal_data_fields.html" with fields=personal_fields name_prefix="personal" %}
-                    </div>
+        </div>
+        {% if personal_fields %}
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
+                    {% include "panel/_personal_data_fields.html" with fields=personal_fields name_prefix="personal" %}
                 </div>
-            {% endif %}
-        </form>
-    {% endif %}
+            </div>
+        {% endif %}
+    </form>
 {% endblock content %}

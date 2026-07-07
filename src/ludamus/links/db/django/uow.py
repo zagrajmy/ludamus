@@ -35,16 +35,16 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
         return crowd.ConnectedUserRepository()
 
     @cached_property
+    def event_panel_settings(self) -> repositories.EventPanelSettingsRepository:
+        return repositories.EventPanelSettingsRepository()
+
+    @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
         return repositories.EventProposalSettingsRepository()
 
     @cached_property
     def event_settings(self) -> repositories.EventSettingsRepository:
         return repositories.EventSettingsRepository()
-
-    @cached_property
-    def event_panel_settings(self) -> repositories.EventPanelSettingsRepository:
-        return repositories.EventPanelSettingsRepository()
 
     @cached_property
     def events(self) -> repositories.EventRepository:

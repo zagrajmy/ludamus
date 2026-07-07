@@ -346,15 +346,12 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         self.request.services.host_personal_data.update_facilitator(
             event_id=current_event.pk,
             facilitator_id=facilitator.pk,
-            accreditation_type=form.cleaned_data["accreditation_type"],
+            data=FacilitatorUpdateData(
+                accreditation_type=form.cleaned_data["accreditation_type"],
+                internal_comment=form.cleaned_data["internal_comment"],
+            ),
             entries=entries,
             user_id=self.request.context.current_user_id,
-        )
-        self.request.di.uow.facilitators.update(
-            facilitator.pk,
-            FacilitatorUpdateData(
-                internal_comment=form.cleaned_data["internal_comment"]
-            ),
         )
 
         messages.success(self.request, _("Facilitator updated successfully."))

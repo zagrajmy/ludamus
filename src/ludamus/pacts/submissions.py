@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorRepositoryProtocol,
+        FacilitatorUpdateData,
         FieldUsageSummary,
         HostPersonalDataEntry,
         HostPersonalDataRepositoryProtocol,
@@ -356,7 +357,7 @@ class HostPersonalDataServiceProtocol(Protocol):
         *,
         event_id: int,
         facilitator_id: int,
-        accreditation_type: str,
+        data: FacilitatorUpdateData,
         entries: list[HostPersonalDataEntry],
         user_id: int | None = None,
     ) -> None: ...

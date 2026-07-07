@@ -74,13 +74,28 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, internal_comment="Possible duplicate of Bob")
+        facilitator = _make_facilitator(
+            event, internal_comment="Possible duplicate of Bob"
+        )
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **_base_context(event),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
         assert (
-            response.context["facilitator"].internal_comment
+            FacilitatorDTO.model_validate(facilitator).internal_comment
             == "Possible duplicate of Bob"
         )
 

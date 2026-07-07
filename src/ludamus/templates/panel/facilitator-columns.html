@@ -8,64 +8,54 @@
     {% translate "Facilitator columns" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {{ current_event.name }} · {% translate "Session Hosts" %}
-    {% endif %}
+    {{ current_event.name }} · {% translate "Session Hosts" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
-        <div class="flex items-center space-x-3">
-            {% url 'panel:facilitators' slug=current_event.slug as back_url %}
-            {% translate "Back" as t_back %}
-            {% tessera_button t_back href=back_url variant="secondary" icon="arrow-left" %}
-            <button type="submit"
-                    form="columns-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "check" class="w-4 h-4 mr-2" %}
-                {% translate "Save" %}
-            </button>
-        </div>
-    {% endif %}
+    <div class="flex items-center space-x-3">
+        {% url 'panel:facilitators' slug=current_event.slug as back_url %}
+        {% translate "Back" as t_back %}
+        {% tessera_button t_back href=back_url variant="secondary" icon="arrow-left" %}
+        <button type="submit"
+                form="columns-form"
+                class="btn btn-primary flex items-center">
+            {% icon "check" class="w-4 h-4 mr-2" %}
+            {% translate "Save" %}
+        </button>
+    </div>
 {% endblock header_actions %}
 {% block content %}
     <div class="px-3 sm:px-4 py-6">
-        {% if current_event %}
-            <form id="columns-form"
-                  method="post"
-                  action="{% url 'panel:facilitator-columns' slug=current_event.slug %}"
-                  class="max-w-2xl">
-                {% csrf_token %}
-                <div class="card">
-                    <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Personal-data columns" %}</h3>
-                        <p class="text-sm text-foreground-muted mb-6">
-                            {% translate "Select which personal-data fields show as columns on the facilitators list. Organizers only." %}
+        <form id="columns-form"
+              method="post"
+              action="{% url 'panel:facilitator-columns' slug=current_event.slug %}"
+              class="max-w-2xl">
+            {% csrf_token %}
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Personal-data columns" %}</h3>
+                    <p class="text-sm text-foreground-muted mb-6">
+                        {% translate "Select which personal-data fields show as columns on the facilitators list. Organizers only." %}
+                    </p>
+                    {% if fields %}
+                        <div class="space-y-3">
+                            {% for field in fields %}
+                                <label class="flex items-center">
+                                    <input type="checkbox"
+                                           name="fields"
+                                           value="{{ field.pk }}"
+                                           {% if field.pk in selected_field_ids %}checked{% endif %}
+                                           class="rounded border-border text-primary focus:ring-primary">
+                                    <span class="ml-2 text-sm text-foreground-secondary">{{ field.name }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-sm text-foreground-muted italic">
+                            {% translate "No personal-data fields defined for this event yet." %}
                         </p>
-                        {% if fields %}
-                            <div class="space-y-3">
-                                {% for field in fields %}
-                                    <label class="flex items-center">
-                                        <input type="checkbox"
-                                               name="fields"
-                                               value="{{ field.pk }}"
-                                               {% if field.pk in selected_field_ids %}checked{% endif %}
-                                               class="rounded border-border text-primary focus:ring-primary">
-                                        <span class="ml-2 text-sm text-foreground-secondary">{{ field.name }}</span>
-                                    </label>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <p class="text-sm text-foreground-muted italic">
-                                {% translate "No personal-data fields defined for this event yet." %}
-                            </p>
-                        {% endif %}
-                    </div>
+                    {% endif %}
                 </div>
-            </form>
-        {% else %}
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
             </div>
-        {% endif %}
+        </form>
     </div>
 {% endblock content %}

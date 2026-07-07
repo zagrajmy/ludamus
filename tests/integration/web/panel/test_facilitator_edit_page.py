@@ -156,6 +156,29 @@ class TestFacilitatorEditPageView:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
 
+    def test_post_invalid_accreditation_rerenders_form_with_error(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"accreditation_type": "bogus"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "personal_fields": [],
+            },
+        )
+        assert response.context["form"].errors["accreditation_type"]
+
     def test_post_redirects_and_keeps_cached_display_name(
         self, authenticated_client, active_user, sphere, event
     ):

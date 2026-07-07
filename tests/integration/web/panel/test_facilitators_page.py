@@ -153,8 +153,27 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"search": "Alic"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == ["Alice"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=response.context["facilitators"][0].pk,
+                        slug="alice",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_search": "Alic",
+                "filters_active": True,
+            },
+        )
 
     def test_search_matches_text_personal_data(
         self, authenticated_client, active_user, sphere, event
@@ -182,8 +201,27 @@ class TestFacilitatorsPageView:
             self.get_url(event), {"search": "alice@example"}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == ["Alice"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=response.context["facilitators"][0].pk,
+                        slug="alice",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_search": "alice@example",
+                "filters_active": True,
+            },
+        )
 
     def test_search_ignores_select_personal_data(
         self, authenticated_client, active_user, sphere, event
@@ -228,8 +266,27 @@ class TestFacilitatorsPageView:
             self.get_url(event), {"accreditation": "guest"}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == ["Guest"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="guest",
+                        display_name="Guest",
+                        pk=response.context["facilitators"][0].pk,
+                        slug="guest",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_accreditation": "guest",
+                "filters_active": True,
+            },
+        )
 
     def test_sort_by_name_descending(
         self, authenticated_client, active_user, sphere, event
@@ -242,12 +299,28 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"sort": "-name"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == [
-            "Carol",
-            "Bob",
-            "Alice",
-        ]
+        listed = response.context["facilitators"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name=name,
+                        pk=listed[index].pk,
+                        slug=name.lower(),
+                        user_id=None,
+                        session_count=0,
+                    )
+                    for index, name in enumerate(("Carol", "Bob", "Alice"))
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_sort": "-name",
+            },
+        )
 
     def test_flagged_filter(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
@@ -264,8 +337,28 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"flagged": "true"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == ["Flagged"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Flagged",
+                        flagged_for_deletion=True,
+                        pk=response.context["facilitators"][0].pk,
+                        slug="flagged",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_flagged": True,
+                "filters_active": True,
+            },
+        )
 
     def test_displayed_columns_show_field_values(
         self, authenticated_client, active_user, sphere, event
@@ -296,6 +389,82 @@ class TestFacilitatorsPageView:
             response.context["column_values"][facilitator.pk]["email"]
             == "alice@example.com"
         )
+
+    def test_displayed_columns_format_bool_and_list(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        checkbox_field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+        multi_field = PersonalDataField.objects.create(
+            event=event,
+            name="Teams",
+            question="Teams?",
+            slug="teams",
+            field_type="select",
+            is_multiple=True,
+            order=1,
+        )
+        yes = Facilitator.objects.create(
+            event=event, display_name="Yes", slug="yes", user=None
+        )
+        no = Facilitator.objects.create(
+            event=event, display_name="No", slug="no", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=yes, event=event, field=checkbox_field, value=True
+        )
+        HostPersonalData.objects.create(
+            facilitator=no, event=event, field=checkbox_field, value=False
+        )
+        HostPersonalData.objects.create(
+            facilitator=yes, event=event, field=multi_field, value=["Reds", "Blues"]
+        )
+        panel_settings = EventPanelSettings.objects.create(event=event)
+        panel_settings.displayed_facilitator_fields.add(checkbox_field, multi_field)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        column_values = response.context["column_values"]
+        assert column_values[yes.pk]["vegan"] == "Yes"
+        assert column_values[no.pk]["vegan"] == "No"
+        assert column_values[yes.pk]["teams"] == "Reds, Blues"
+
+    def test_checkbox_field_filter(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+        vegan = Facilitator.objects.create(
+            event=event, display_name="Vegan", slug="vegan-f", user=None
+        )
+        HostPersonalData.objects.create(
+            facilitator=vegan, event=event, field=field, value=True
+        )
+        Facilitator.objects.create(
+            event=event, display_name="Omnivore", slug="omni", user=None
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {f"field_{field.pk}": "true"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [f.display_name for f in response.context["facilitators"]] == ["Vegan"]
 
     def test_select_field_filter(
         self, authenticated_client, active_user, sphere, event
@@ -472,6 +641,24 @@ class TestFacilitatorActions:
             url=next_url,
         )
 
+    def test_action_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:facilitator-flag",
+            kwargs={"slug": "nonexistent", "facilitator_slug": "ghost"},
+        )
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
     def test_flag_missing_facilitator(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -518,6 +705,50 @@ class TestFacilitatorColumns:
         assert response.status_code == HTTPStatus.OK
         assert [f.pk for f in response.context["fields"]] == [field.pk]
         assert response.context["selected_field_ids"] == []
+
+    def test_get_renders_empty_state_without_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self._url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["fields"] == []
+        assert (
+            "No personal-data fields defined for this event yet."
+            in response.content.decode()
+        )
+
+    def test_get_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:facilitator-columns", kwargs={"slug": "nonexistent"})
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:facilitator-columns", kwargs={"slug": "nonexistent"})
+
+        response = authenticated_client.post(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
 
     def test_post_saves_selection(
         self, authenticated_client, active_user, sphere, event

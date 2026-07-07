@@ -1,5 +1,5 @@
 import json
-from typing import Literal, cast  # pylint: disable=unused-import
+from typing import Literal, cast
 
 from django.db.models import Count, Max, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone as django_timezone
@@ -59,6 +59,9 @@ from ludamus.pacts.submissions import (
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+
+# The DB stores field_type as a plain CharField; DTOs type it as this Literal.
+_FieldType = Literal["text", "select", "checkbox"]
 
 # Whitelist of sortable facilitator columns -> ORM field. `linked` sorts by
 # user_id so linked/unlinked facilitators group together.
@@ -473,9 +476,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             ]
             field_dto = PersonalDataFieldDTO(
                 allow_custom=field.allow_custom,
-                field_type=cast(
-                    "Literal['text', 'select', 'checkbox']", field.field_type
-                ),
+                field_type=cast("_FieldType", field.field_type),
                 help_text=field.help_text,
                 is_multiple=field.is_multiple,
                 is_public=field.is_public,
@@ -512,9 +513,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             ]
             field_dto = SessionFieldDTO(
                 allow_custom=field.allow_custom,
-                field_type=cast(
-                    "Literal['text', 'select', 'checkbox']", field.field_type
-                ),
+                field_type=cast("_FieldType", field.field_type),
                 help_text=field.help_text,
                 icon=field.icon,
                 is_multiple=field.is_multiple,
@@ -697,7 +696,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         ]
         return PersonalDataFieldDTO(
             allow_custom=field.allow_custom,
-            field_type=cast("Literal['text', 'select', 'checkbox']", field.field_type),
+            field_type=cast("_FieldType", field.field_type),
             help_text=field.help_text,
             is_multiple=field.is_multiple,
             is_public=field.is_public,
@@ -845,7 +844,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         options = [SessionFieldOptionDTO.model_validate(o) for o in field.options.all()]
         return SessionFieldDTO(
             allow_custom=field.allow_custom,
-            field_type=cast("Literal['text', 'select', 'checkbox']", field.field_type),
+            field_type=cast("_FieldType", field.field_type),
             help_text=field.help_text,
             icon=field.icon,
             is_multiple=field.is_multiple,
