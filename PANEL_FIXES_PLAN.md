@@ -211,6 +211,53 @@ most of the viewport is empty margin and the page scrolls forever.
 **Tests**: none new (pure layout); screenshots at both desktop and narrow
 width in the PR (`mise run shots`).
 
+## Step 8 — Import fails on slugs of soft-deleted sessions (prod bug)
+
+**Problem**: re-importing rows whose sessions were deleted fails with
+`duplicate key value violates unique constraint "session_unique_slug_in_event"`.
+Root cause is a scope mismatch between the DB constraint and the app checks:
+
+- `session_unique_slug_in_event` (`Session.Meta`) is unconditional — it
+  counts soft-deleted rows.
+- The importer's collision checks (`SessionRepository.slug_exists` /
+  `find_id_by_slug`) use `Session.objects`, the alive-only manager — they
+  don't see soft-deleted rows.
+
+Deleting a session in the app is a soft delete (`deleted_at` timestamp), so
+the row keeps holding its slug at the DB level while being invisible to the
+importer's duplicate check: the importer proceeds to INSERT and the raw
+`IntegrityError` surfaces as the row error.
+
+### Changes
+
+- Migration: `RemoveConstraint` + `AddConstraint` with
+  `condition=Q(deleted_at__isnull=True)` — live rows stay unique, dead rows
+  release their slug. Alive-only everywhere: constraint and repo checks now
+  agree, so no repository changes.
+- Restore path (`SessionRepository.restore`): a dead session's slug can now
+  be taken by a live one, so restore re-slugs with a random suffix when its
+  slug is occupied (same `-xxxx` shape as `generate_unique_slug`).
+- No data migration: the old unconditional constraint guarantees no existing
+  duplicates at any scope.
+- Skipped: friendlier `IntegrityError` rendering in the import UI — with the
+  scopes aligned the only remaining trigger is a concurrent-import race,
+  where a loud row failure + per-row Retry is fine.
+- Importer (`engine.py` `_resolve_slug`): when the identity slug matches an
+  existing session, the duplicate result names the matched session (title +
+  link) instead of a bare "duplicate", so two sheet rows with identical
+  unique-key values are visible as a data problem, not a mystery.
+
+**Data note (no code)**: the prod incident's root trigger was title as the
+unique-key column — two different people's submissions shared a title (modulo
+trailing whitespace) and collapsed into one identity. Same-title sessions are
+already supported everywhere (the constraint is on slug, and non-identity
+slugs get `-xxxx` suffixes); the import settings for this event should use
+Timestamp + Email Address as unique-key columns instead of the title.
+
+**Tests**: integration — import a row whose slug matches a soft-deleted
+session → new session created; restore a session whose slug was reclaimed →
+restored with suffixed slug.
+
 ## Cross-cutting
 
 - i18n: after adding strings, run makemessages/compilemessages via mise and
