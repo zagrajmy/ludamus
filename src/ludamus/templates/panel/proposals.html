@@ -215,9 +215,7 @@
         {% else %}
             <div class="card p-8 text-center">
                 {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
-                    <p class="text-foreground-muted mb-4">{% translate "No proposals match the current filters." %}</p>
-                    <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-                       class="btn btn-secondary text-sm">{% translate "Clear filters" %}</a>
+                    <p class="text-foreground-muted">{% translate "No proposals match the current filters." %}</p>
                 {% else %}
                     <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
                     {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
