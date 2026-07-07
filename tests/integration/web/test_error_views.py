@@ -103,7 +103,7 @@ class TestCustom500:
             request = rf.get("/test/")
             guidance.add(str(custom_500(request).context_data["guidance"]))
 
-        assert guidance == {"Something broke on our end. Try again in a moment."}
+        assert guidance == {"Our best people are on it."}
 
     @staticmethod
     def test_guidance_and_support_are_present(rf):
@@ -111,9 +111,7 @@ class TestCustom500:
         response = custom_500(request)
         context = response.context_data
 
-        assert str(context["guidance"]) == (
-            "Something broke on our end. Try again in a moment."
-        )
+        assert str(context["guidance"]) == "Our best people are on it."
         assert context["support_email"] == settings.SUPPORT_EMAIL
         assert str(context["title"])
         assert str(context["message"])
@@ -126,7 +124,7 @@ class TestCustom500:
 
         content = custom_500(request).render().content.decode()
 
-        assert "Something broke on our end. Try again in a moment." in content
+        assert "Our best people are on it." in content
         assert f"mailto:{settings.SUPPORT_EMAIL}" in content
 
 

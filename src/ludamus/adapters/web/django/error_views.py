@@ -335,7 +335,7 @@ def custom_500(request: HttpRequest) -> TemplateResponse:
         "message": selected["message"],
         "subtitle": selected["subtitle"],
         "icon": selected["icon"],
-        "guidance": _("Something broke on our end. Try again in a moment."),
+        "guidance": _("Our best people are on it."),
         "support_email": settings.SUPPORT_EMAIL,
     }
 
