@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 23:05+0200\n"
+"POT-Creation-Date: 2026-07-08 14:54+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -594,6 +594,7 @@ msgstr "Bez zmian (konflikt czasowy)"
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "Join waiting list"
 msgstr "Dołącz do listy oczekujących"
 
@@ -603,6 +604,7 @@ msgstr "Konflikt czasowy"
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "Enroll"
 msgstr "Zapisz się"
 
@@ -796,6 +798,10 @@ msgid "Choose one of your parties or enroll by yourself."
 msgstr "Wybierz jedną ze swoich drużyn lub zapisz się samodzielnie."
 
 #: src/ludamus/adapters/web/django/views.py
+msgid "Please review the enrollment options below."
+msgstr "Proszę przejrzeć opcje zapisu poniżej."
+
+#: src/ludamus/adapters/web/django/views.py
 msgid "Email address is required for enrollment in this session."
 msgstr "Do zapisu na ten punkt programu wymagany jest adres email."
 
@@ -806,10 +812,6 @@ msgid ""
 msgstr ""
 "Do zapisu na tę sesję wymagane jest uprawnienie dostępu. Skontaktuj się z "
 "organizatorami, aby uzyskać dostęp."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Please review the enrollment options below."
-msgstr "Proszę przejrzeć opcje zapisu poniżej."
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -3066,7 +3068,6 @@ msgid "Complete Enrollment"
 msgstr "Dokończ Zapis"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/event.html
 msgid "Enroll Now"
 msgstr "Zapisz się teraz"
 
@@ -3131,6 +3132,7 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
 #: src/ludamus/templates/chronology/panel/integrations/edit.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 #: src/ludamus/templates/components/confirm-dialog.html
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/multiverse/panel/announcements/create.html
@@ -3816,6 +3818,30 @@ msgstr "Zapisz zmiany"
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Saved"
 msgstr "Zapisano"
+
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid "You're enrolled"
+msgstr "Jesteś zapisany/a"
+
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid ""
+"This session is full — cancelling hands your seat to the next person "
+"waiting. Cancel anyway?"
+msgstr ""
+"Ten punkt programu jest pełny — anulowanie przekaże Twoje miejsce następnej "
+"osobie z listy oczekujących. Anulować mimo to?"
+
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid "On the waiting list"
+msgstr "Jesteś na liście oczekujących"
+
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid "Leave"
+msgstr "Opuść"
+
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid "More options"
+msgstr "Więcej opcji"
 
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/print/base.html

@@ -1166,10 +1166,86 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         return user_data
 
+    def _render_enroll_actions(
+        self, session: Session, *, enroll_error: str = ""
+    ) -> HttpResponse:
+        # The single card-footer fragment the event page swaps in place after an
+        # inline (HX-Request) self-enroll; state is re-read fresh from the DB.
+        viewer_pk = self.request.context.current_user_id
+        viewer_participations = SessionParticipation.objects.filter(
+            session=session, user_id=viewer_pk
+        )
+        return TemplateResponse(
+            self.request,
+            "chronology/parts/session-enroll-actions.html",
+            {
+                "event_slug": session.event.slug,
+                "session_pk": session.pk,
+                "viewer_pk": viewer_pk,
+                "can_act": True,
+                "is_enrollment_available": session.is_enrollment_available,
+                "user_enrolled": (
+                    viewer_participations.filter(
+                        status=SessionParticipationStatus.CONFIRMED
+                    ).exists()
+                ),
+                "user_waiting": (
+                    viewer_participations.filter(
+                        status=SessionParticipationStatus.WAITING
+                    ).exists()
+                ),
+                "is_full": session.is_full,
+                "is_unlimited": session.effective_participants_limit == 0,
+                "enroll_error": enroll_error,
+            },
+        )
+
+    def _drain_messages(self) -> str:
+        # HX-Request responses swap only the footer fragment, so nothing renders
+        # the message framework — surface the flashed text inline instead.
+        return " ".join(str(message) for message in messages.get_messages(self.request))
+
+    def _add_invalid_form_messages(self, session: Session, form: forms.Form) -> None:
+        # Detailed field errors without the field-name prefix.
+        for field_errors in form.errors.values():
+            for error in field_errors:
+                messages.error(self.request, str(error))
+
+        enrollment_config = session.event.get_most_liberal_config(session)
+        if not (enrollment_config and enrollment_config.restrict_to_configured_users):
+            messages.warning(
+                self.request, _("Please review the enrollment options below.")
+            )
+            return
+
+        viewer_email = self.request.services.enrollment.read_viewer(
+            self.request.context.current_user_slug
+        ).email
+        if not viewer_email:
+            messages.error(
+                self.request,
+                _("Email address is required for enrollment in this session."),
+            )
+        elif not self.request.services.enrollment.virtual_config(
+            event=EventDTO.model_validate(session.event), user_email=viewer_email
+        ):
+            messages.error(
+                self.request,
+                _(
+                    "Enrollment access permission is required for this session. "
+                    "Please contact the organizers to obtain access."
+                ),
+            )
+        else:
+            messages.warning(
+                self.request, _("Please review the enrollment options below.")
+            )
+
     def post(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         session = _get_session_or_redirect(request, event_slug, session_id)
+        is_htmx = bool(request.headers.get("HX-Request"))
         selection = self._party_selection(session, request.POST.get("party"))
         members = self._party_members(session, selection.selected)
         roster = EnrollmentRoster(
@@ -1189,48 +1265,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
         form = form_class(data=request.POST)
         if not form.is_valid():
-            # Add detailed form validation error messages without field name prefixes
-            for field_errors in form.errors.values():
-                for error in field_errors:
-                    messages.error(self.request, str(error))
-
-            # Check for specific enrollment restrictions and provide helpful messages
-            enrollment_config = session.event.get_most_liberal_config(session)
-            if enrollment_config and enrollment_config.restrict_to_configured_users:
-                if not request.services.enrollment.read_viewer(
-                    request.context.current_user_slug
-                ).email:
-                    messages.error(
-                        self.request,
-                        _("Email address is required for enrollment in this session."),
-                    )
-                else:
-                    user_email = request.services.enrollment.read_viewer(
-                        request.context.current_user_slug
-                    ).email
-                    event = session.event
-                    if not request.services.enrollment.virtual_config(
-                        event=EventDTO.model_validate(event), user_email=user_email
-                    ):
-                        messages.error(
-                            self.request,
-                            _(
-                                "Enrollment access permission is required for this "
-                                "session. Please contact the organizers to obtain "
-                                "access."
-                            ),
-                        )
-                    else:
-                        messages.warning(
-                            self.request,
-                            _("Please review the enrollment options below."),
-                        )
-            else:
-                messages.warning(
-                    self.request, _("Please review the enrollment options below.")
+            self._add_invalid_form_messages(session, form)
+            if is_htmx:
+                return self._render_enroll_actions(
+                    session, enroll_error=self._drain_messages()
                 )
-
-            # Re-render with form errors
             return TemplateResponse(
                 request,
                 "chronology/enroll_select.html",
@@ -1241,16 +1280,30 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         # Only validate enrollment requirements when form is valid
         enrollment_requests = self._get_enrollment_requests(form, roster)
-        enrollment_config = self._validate_request(session, enrollment_requests)
+        try:
+            enrollment_config = self._validate_request(session, enrollment_requests)
+            self._manage_enrollments(
+                form=form,
+                session=session,
+                enrollment_config=enrollment_config,
+                roster=roster,
+                party_pk=selection.selected.pk if selection.selected else None,
+            )
+        except RedirectError as exc:
+            # An inline action races a full session (or hits a config gap): swap
+            # the footer back with the reason instead of a full-page redirect.
+            if is_htmx:
+                return self._render_enroll_actions(
+                    session,
+                    enroll_error=exc.error or exc.warning or self._drain_messages(),
+                )
+            raise
 
-        self._manage_enrollments(
-            form=form,
-            session=session,
-            enrollment_config=enrollment_config,
-            roster=roster,
-            party_pk=selection.selected.pk if selection.selected else None,
-        )
-
+        if is_htmx:
+            # The swapped-in state badge is the confirmation, so consume the
+            # success flash rather than leaking it onto the next full page load.
+            self._drain_messages()
+            return self._render_enroll_actions(session)
         return redirect("web:chronology:event", slug=session.event.slug)
 
     def _get_enrollment_requests(

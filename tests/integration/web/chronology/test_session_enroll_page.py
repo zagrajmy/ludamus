@@ -1963,3 +1963,174 @@ class TestSessionEnrollPageView:
             session_id=session.pk, status=SessionParticipationStatus.CONFIRMED
         ).count()
         assert confirmed == 1
+
+
+@pytest.mark.django_db
+class TestSessionEnrollInline:
+    # The event-page footer enrolls the viewer with one click via HTMX: the
+    # endpoint swaps a footer fragment back instead of a full-page redirect, so
+    # nothing navigates and the new state is the confirmation.
+    URL_NAME = "web:chronology:session-enrollment"
+    FRAGMENT = "chronology/parts/session-enroll-actions.html"
+
+    def _url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
+
+    @staticmethod
+    def _ctx(
+        *,
+        session,
+        viewer_pk,
+        user_enrolled=False,
+        user_waiting=False,
+        is_full=False,
+        enroll_error="",
+    ):
+        return {
+            "event_slug": session.event.slug,
+            "session_pk": session.pk,
+            "viewer_pk": viewer_pk,
+            "can_act": True,
+            "is_enrollment_available": True,
+            "user_enrolled": user_enrolled,
+            "user_waiting": user_waiting,
+            "is_full": is_full,
+            "is_unlimited": False,
+            "enroll_error": enroll_error,
+        }
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_htmx_enroll_swaps_fragment_instead_of_redirecting(
+        self, staff_user, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session, viewer_pk=staff_user.id, user_enrolled=True
+            ),
+            messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
+            contains=['value="cancel"'],
+            not_contains=['value="enroll"', 'value="waitlist"'],
+        )
+        SessionParticipation.objects.get(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_htmx_cancel_swaps_back_the_enroll_button(
+        self, staff_user, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "cancel"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(session=session, viewer_pk=staff_user.id),
+            messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
+            contains=['value="enroll"'],
+            not_contains=['value="cancel"'],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_htmx_waitlist_on_full_session(self, staff_user, agenda_item, staff_client):
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "waitlist"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                user_waiting=True,
+                is_full=True,
+            ),
+            messages=[(messages.SUCCESS, f"Added to waiting list: {staff_user.name}")],
+            contains=["On the waiting list", 'value="cancel"'],
+        )
+        SessionParticipation.objects.get(
+            user=staff_user, session=session, status=SessionParticipationStatus.WAITING
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_htmx_enroll_over_capacity_surfaces_error_inline(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # A racing enroll on a session that filled after the page loaded gets the
+        # reason in the swapped fragment, not a lost redirect.
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        capacity_error = (
+            "Not enough spots available. 1 spots requested, 0 available. "
+            "Please use waiting list for some users."
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                is_full=True,
+                enroll_error=capacity_error,
+            ),
+            messages=[(messages.ERROR, capacity_error)],
+            contains=["Not enough spots available."],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=session
+        ).exists()
