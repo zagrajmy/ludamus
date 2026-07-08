@@ -80,6 +80,7 @@ def assert_response_404(
             "message": ANY,
             "subtitle": ANY,
             "icon": ANY,
+            "guidance": ANY,
         },
         template_name="404_dynamic.html",
         messages=messages,

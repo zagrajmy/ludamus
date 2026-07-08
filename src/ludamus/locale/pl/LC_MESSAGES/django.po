@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-06 02:45+0200\n"
+"POT-Creation-Date: 2026-07-07 23:23+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -159,6 +159,10 @@ msgstr "Twórca programu"
 #: src/ludamus/adapters/db/django/models.py
 msgid "Twórcy programu"
 msgstr "Twórcy programu"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "That event isn't available."
+msgstr "To wydarzenie jest niedostępne."
 
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "Critical Failure!"
@@ -367,6 +371,10 @@ msgstr "Nieeuklidesowa geometria tego URL-a wymyka się zrozumieniu"
 msgid "Your browser recoils in cosmic horror."
 msgstr "Twoja przeglądarka wzdryga się w kosmicznym przerażeniu."
 
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The page you're looking for doesn't exist or may have moved."
+msgstr "Strona, której szukasz, nie istnieje lub została przeniesiona."
+
 # 500 Error Messages
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "Total Server Kill!"
@@ -551,6 +559,10 @@ msgstr "Nyarlathotep opętał naszą infrastrukturę"
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "Madness spreads through every circuit..."
 msgstr "Szaleństwo rozprzestrzenia się przez każdy obwód..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Our best people are on it."
+msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
@@ -2198,10 +2210,13 @@ msgid "Capacity"
 msgstr "Pojemność"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Only meaningful for the innermost spaces that hold sessions."
+msgid ""
+"Set the number of seats for a room that holds sessions, at any level. Leave "
+"empty for a space that only groups other spaces."
 msgstr ""
-"Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które zawierają "
-"punkty programu."
+"Podaj liczbę miejsc dla sali, w której odbywają się punkty programu — na "
+"dowolnym poziomie. Zostaw puste dla przestrzeni, która tylko grupuje inne "
+"przestrzenie."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Capacity must be at least 1."
@@ -2711,6 +2726,10 @@ msgstr "Wróć"
 #: src/ludamus/templates/404_dynamic.html
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
+
+#: src/ludamus/templates/500_dynamic.html
+msgid "Still stuck? Email us at"
+msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
 msgid "Contact"
@@ -5212,7 +5231,11 @@ msgid "Venues"
 msgstr "Lokalizacje"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Harmonogram"
+#: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable-overview.html
+#: src/ludamus/templates/panel/timetable-problems.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "Schedule"
 msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/base.html
@@ -6965,6 +6988,10 @@ msgid "Filter"
 msgstr "Filtruj"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "No proposals match the current filters."
+msgstr "Żadne zgłoszenia nie pasują do bieżących filtrów."
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
 msgstr "Brak przesłanych zgłoszeń."
 
@@ -7123,14 +7150,14 @@ msgstr "Czym są lokalizacje?"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid ""
-"Organise the physical layout of your event as a tree: buildings contain "
-"floors or wings, which contain the individual rooms that hold sessions. Nest "
-"spaces as deeply as you need; only the innermost rooms take a capacity."
+"Organise the physical layout of your event. Add a single room on its own, or "
+"nest spaces as deeply as you need — a building with floors and rooms inside. "
+"Any space that holds sessions takes a capacity."
 msgstr ""
-"Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki zawierają "
-"piętra lub skrzydła, które zawierają poszczególne sale, gdzie odbywają się "
-"punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz; "
-"tylko najbardziej wewnętrzne sale mają pojemność."
+"Zorganizuj fizyczny układ swojego wydarzenia. Dodaj pojedynczą salę albo "
+"zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz — budynek z piętrami "
+"i salami w środku. Każda przestrzeń, w której odbywają się punkty programu, "
+"ma pojemność."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Physical Locations"
@@ -7145,11 +7172,10 @@ msgid "Could not save the new order. Reloading the page."
 msgstr "Nie udało się zapisać nowej kolejności. Ponowne ładowanie strony."
 
 #: src/ludamus/templates/panel/spaces.html
-msgid ""
-"No spaces yet. Add a top-level space to start building your event's layout."
+msgid "No spaces yet. Add a single room, or nest spaces to map a larger venue."
 msgstr ""
-"Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
-"budowanie układu swojego wydarzenia."
+"Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
+"odwzorować większy obiekt."
 
 #: src/ludamus/templates/panel/time-slot-create.html
 msgid "New Time Slot"
@@ -7229,13 +7255,6 @@ msgstr ""
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
-
-#: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Schedule"
-msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/timetable-log.html
 #: src/ludamus/templates/panel/timetable-overview.html
@@ -7491,3 +7510,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Harmonogram"
+#~ msgstr "Harmonogram"
+
+#~ msgid "Something broke on our end. Try again in a moment."
+#~ msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."
