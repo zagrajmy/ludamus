@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 23:23+0200\n"
+"POT-Creation-Date: 2026-07-08 20:32+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1430,6 +1430,16 @@ msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Sheet settings saved."
 msgstr "Zapisano ustawienia arkusza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid ""
+"Import aborted: unique-key columns not found in the sheet: %(columns)s. Fix "
+"the unique-key selection on the run tab, then try again."
+msgstr ""
+"Przerwano import: nie znaleziono w arkuszu kolumn klucza unikalnego: "
+"%(columns)s. Popraw wybór klucza unikalnego na karcie uruchamiania i spróbuj "
+"ponownie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format

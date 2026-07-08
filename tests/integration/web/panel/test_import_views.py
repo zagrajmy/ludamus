@@ -2185,7 +2185,7 @@ class TestEventImportRunPageView:
                 "header_row": 1,
                 "email_column": None,
                 "unique_key_columns": [],
-                "available_columns": ["Timestamp", "Email Address"],
+                "available_columns": [],
                 "fields_imported": False,
                 "fields_count": 0,
                 "mapping_total": 0,
@@ -2247,7 +2247,7 @@ class TestEventImportRunPageView:
                 "header_row": header_row,
                 "email_column": None,
                 "unique_key_columns": ["Email Address"],
-                "available_columns": ["Timestamp", "Email Address", "Title", "System"],
+                "available_columns": ["Title", "System"],
                 "fields_imported": True,
                 "fields_count": len(["Title", "System"]),
                 "mapping_total": len(["Title", "System"]),
@@ -3833,3 +3833,90 @@ class TestImportViewsIntegrationNotFound:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "panel/import-log.html"
         assert response.context_data["active_integration"] is None
+
+
+# Real Google Forms drop localized metadata headers; a Polish-language form's
+# first two columns are "Sygnatura czasowa" / "Adres e-mail", not the English
+# "Timestamp" / "Email Address" the UI used to offer as unique-key candidates.
+_LOCALIZED_HEADER = ["Sygnatura czasowa", "Adres e-mail", "Tytuł punktu programu"]
+_LOCALIZED_ROWS = [
+    ["2026-05-21 22:56:15", "first@email.com", "Czy androidy śnią o owcach?"],
+    ["2026-05-21 23:56:15", "second@email.com", "Czy androidy śnią o owcach?"],
+]
+
+
+@pytest.mark.django_db
+class TestImportDistinctSessionsSameName:
+    @staticmethod
+    def _settings(unique_key_columns: list[str]) -> str:
+        return json.dumps(
+            {
+                "questions": {
+                    "Tytuł punktu programu": {"to": "session.title"},
+                    "Adres e-mail": {"to": "session.contact_email"},
+                },
+                "unique_key_columns": unique_key_columns,
+                "email_column": 2,
+                "header_row": 1,
+            }
+        )
+
+    def _run(self, client, event, integration):
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [_LOCALIZED_HEADER, *_LOCALIZED_ROWS]
+            )
+            return client.post(_run_url(event, integration))
+
+    def test_run_aborts_when_unique_key_column_missing_from_sheet(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        # English metadata names don't match the localized sheet headers, so
+        # keying on them used to collapse both rows onto the title-only slug.
+        integration.settings_json = self._settings(
+            ["Timestamp", "Email Address", "Tytuł punktu programu"]
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = self._run(authenticated_client, event, integration)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Import aborted: unique-key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "selection on the run tab, then try again."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(event=event).exists()
+
+    def test_same_title_distinct_rows_are_not_merged(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = self._settings(_LOCALIZED_HEADER)
+        integration.save(update_fields=["settings_json"])
+
+        self._run(authenticated_client, event, integration)
+
+        emails = sorted(
+            Session.objects.filter(event=event).values_list("contact_email", flat=True)
+        )
+        assert emails == ["first@email.com", "second@email.com"]
