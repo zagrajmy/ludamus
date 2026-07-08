@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from hashlib import blake2b
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, Never
 
@@ -317,6 +318,24 @@ def slugify(value: str, *, max_length: int = 50) -> str:
     transliterated = unidecode(value).lower()
     slug = re.sub(r"[^\w\s-]", "", transliterated)
     return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
+
+
+def dedup_slug(*, event_id: int, identity: str, max_length: int = 50) -> str:
+    # Idempotency key for unique-key imports. Must fit the SlugField column, but
+    # `slugify`'s bare truncation drops the tail — so two rows sharing a long
+    # leading column (e.g. an identical session name) but differing in a later
+    # column (email/facilitator) collapsed to one slug and got merged. Keep the
+    # readable slug when the whole identity fits; otherwise reserve the tail for
+    # a deterministic digest of the *full* identity so distinct rows never
+    # collide. Short (already-correct) imports keep their existing slug.
+    full = slugify(f"e{event_id}-{identity}", max_length=len(identity) + 32)
+    if not full:
+        return f"e{event_id}-row"
+    if len(full) <= max_length:
+        return full
+    digest = blake2b(identity.encode(), digest_size=6).hexdigest()
+    head = full[: max_length - len(digest) - 1].rstrip("-")
+    return f"{head}-{digest}"
 
 
 class SlugCollisionError(Exception):
