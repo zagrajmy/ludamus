@@ -2,14 +2,14 @@
 {% if categories %}
     <div class="flex flex-wrap items-center gap-1">
         <span class="text-xs text-foreground-muted mr-1">{% translate "Category:" %}</span>
-        <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}"
+        <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&date={{ selected_date|date:'Y-m-d' }}"
            hx-target="#session-list"
            hx-swap="innerHTML"
            class="px-2 py-0.5 rounded-full text-xs cursor-pointer {% if not category_pk %}bg-primary text-white{% else %}bg-bg-tertiary text-foreground-secondary hover:bg-bg-tertiary/70{% endif %}">
             {% translate "All" %}
         </a>
         {% for cat in categories %}
-            <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ cat.pk }}&max_duration={{ max_duration_minutes|default:'' }}"
+            <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ cat.pk }}&max_duration={{ max_duration_minutes|default:'' }}&date={{ selected_date|date:'Y-m-d' }}"
                hx-target="#session-list"
                hx-swap="innerHTML"
                class="px-2 py-0.5 rounded-full text-xs cursor-pointer {% if category_pk == cat.pk %}bg-primary text-white{% else %}bg-bg-tertiary text-foreground-secondary hover:bg-bg-tertiary/70{% endif %}">
@@ -20,14 +20,14 @@
 {% endif %}
 <div class="flex flex-wrap items-center gap-1">
     <span class="text-xs text-foreground-muted mr-1">{% translate "Duration:" %}</span>
-    <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}"
+    <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&date={{ selected_date|date:'Y-m-d' }}"
        hx-target="#session-list"
        hx-swap="innerHTML"
        class="px-2 py-0.5 rounded-full text-xs cursor-pointer {% if not max_duration_minutes %}bg-secondary text-white{% else %}bg-bg-tertiary text-foreground-secondary hover:bg-bg-tertiary/70{% endif %}">
         {% translate "Any" %}
     </a>
     {% for label, value in duration_chips %}
-        <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ value }}"
+        <a hx-get="{% url 'panel:timetable-sessions-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ value }}&date={{ selected_date|date:'Y-m-d' }}"
            hx-target="#session-list"
            hx-swap="innerHTML"
            class="px-2 py-0.5 rounded-full text-xs cursor-pointer {% if max_duration_minutes == value %}bg-secondary text-white{% else %}bg-bg-tertiary text-foreground-secondary hover:bg-bg-tertiary/70{% endif %}">

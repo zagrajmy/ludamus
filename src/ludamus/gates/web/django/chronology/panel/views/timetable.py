@@ -24,7 +24,11 @@ from ludamus.mills.chronology import (
     TimetableOverviewService,
     TimetableService,
 )
-from ludamus.pacts import UNSCHEDULED_LIST_LIMIT, NotFoundError
+from ludamus.pacts import (
+    UNSCHEDULED_LIST_LIMIT,
+    NotFoundError,
+    UnscheduledSessionFilter,
+)
 from ludamus.pacts.chronology import SessionPlacement
 
 
@@ -45,7 +49,7 @@ def _timetable_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
-_BACK_URL_KEYS = ("track", "category", "max_duration", "search")
+_BACK_URL_KEYS = ("track", "category", "max_duration", "search", "date")
 
 
 def _build_back_url(slug: str, query: QueryDict) -> str:
@@ -120,6 +124,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
+        context["selected_date"] = grid.selected_date
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
         context["print_scopes"] = self.get_print_scopes(current_event.pk)
@@ -143,14 +148,18 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
         category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        selected_date = _parse_date_param(self.request.GET.get("date"))
 
         uow = self.request.di.uow
         sessions, has_more = uow.sessions.list_unscheduled_by_event(
             current_event.pk,
-            track_pk=filter_track_pk,
-            search=search,
-            max_duration_minutes=max_duration_minutes,
-            category_pk=category_pk,
+            UnscheduledSessionFilter(
+                track_pk=filter_track_pk,
+                search=search,
+                max_duration_minutes=max_duration_minutes,
+                category_pk=category_pk,
+                available_on=selected_date,
+            ),
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
 
@@ -166,6 +175,7 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
             "max_duration_minutes": max_duration_minutes,
             "duration_chips": duration_chips,
             "filter_track_pk": filter_track_pk,
+            "selected_date": selected_date,
             "slug": slug,
         }
         return TemplateResponse(
@@ -190,12 +200,14 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
         search = self.request.GET.get("search", "").strip()
+        selected_date = _parse_date_param(self.request.GET.get("date"))
 
         context = {
             "filter_track_pk": filter_track_pk,
             "category_pk": category_pk,
             "max_duration_minutes": max_duration_minutes,
             "search": search,
+            "selected_date": selected_date,
             "slug": slug,
             "current_event": current_event,
         }

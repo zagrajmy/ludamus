@@ -511,6 +511,16 @@ class TestAssignUnassignScope:
         created = mock_uow.agenda_items.create.call_args.args[0]
         assert created["session_confirmed"] is False
 
+    def test_move_unconfirms_even_when_event_auto_confirms(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        # An existing agenda item means this assignment is a move.
+        mock_uow.agenda_items.read_by_session.return_value = MagicMock()
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is False
+
 
 class TestSessionConfirmation:
     """The service toggles confirmation and rejects foreign agenda items."""
@@ -616,6 +626,7 @@ class TestListAllForTrackAttribution:
 
         session = MagicMock()
         session.participants_limit = 5
+        session.title = "Subject"
         uow.sessions.read.return_value = session
 
         space = MagicMock()

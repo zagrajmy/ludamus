@@ -136,7 +136,12 @@ class TestTimetableSessionDetailPartView:
 
         response = authenticated_client.get(
             self.get_url(event, session.pk),
-            {"category": "5", "max_duration": "60", "search": "magic"},
+            {
+                "category": "5",
+                "max_duration": "60",
+                "search": "magic",
+                "date": "2026-09-04",
+            },
         )
 
         assert response.status_code == HTTPStatus.OK
@@ -144,6 +149,7 @@ class TestTimetableSessionDetailPartView:
         assert "category=5" in back_url
         assert "max_duration=60" in back_url
         assert "search=magic" in back_url
+        assert "date=2026-09-04" in back_url
 
     def test_shows_session_title(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -272,3 +278,42 @@ class TestTimetableSessionDetailPartView:
         content = response.content.decode()
         assert "Undo confirmation" in content
         assert "Confirm program item" not in content
+
+    def test_reassign_button_carries_confirmed_flag(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+            session_confirmed=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'data-assign-confirmed="true"' in response.content.decode()
+
+    def test_assign_button_of_unscheduled_session_is_unconfirmed(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'data-assign-confirmed="false"' in response.content.decode()
