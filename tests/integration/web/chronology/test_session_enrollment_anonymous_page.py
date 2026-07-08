@@ -209,6 +209,42 @@ class TestSessionEnrollmentAnonymousPageView:
             template_name="chronology/anonymous_enroll.html",
         )
 
+    def test_get_shows_already_enrolled_waiting(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
+        user = anonymous_user_factory()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=user,
+            status=SessionParticipationStatus.WAITING,
+        )
+
+        response = client.get(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "session": _expected_session_dto(agenda_item),
+                "event_slug": agenda_item.session.event.slug,
+                "user_name": UserDTO.model_validate(user).full_name,
+                "anonymous_code": user.slug.removeprefix("code_"),
+                "needs_user_data": True,
+                "enrollment_status": SessionParticipationStatus.WAITING,
+                "is_enrolled": True,
+            },
+            template_name="chronology/anonymous_enroll.html",
+        )
+
     @pytest.mark.usefixtures("enrollment_config")
     def test_get_not_enrollable_without_existing_enrollment(
         self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config

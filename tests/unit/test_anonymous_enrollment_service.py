@@ -360,7 +360,7 @@ class TestEnroll:
 
     def test_name_required_when_user_has_none(self):
         service = _service(
-            FakeRepo(session=_session_ctx()), users=FakeUsers(_user(name=""))
+            repo=FakeRepo(session=_session_ctx()), users=FakeUsers(_user(name=""))
         )
 
         with pytest.raises(AnonymousEnrollmentError) as excinfo:
