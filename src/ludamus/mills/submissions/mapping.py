@@ -328,8 +328,7 @@ def dedup_slug(*, event_id: int, identity: str, max_length: int = 50) -> str:
     # readable slug when the whole identity fits; otherwise reserve the tail for
     # a deterministic digest of the *full* identity so distinct rows never
     # collide. Short (already-correct) imports keep their existing slug.
-    full = slugify(f"e{event_id}-{identity}", max_length=len(identity) + 32)
-    if not full:
+    if not (full := slugify(f"e{event_id}-{identity}", max_length=len(identity) + 32)):
         return f"e{event_id}-row"
     if len(full) <= max_length:
         return full
