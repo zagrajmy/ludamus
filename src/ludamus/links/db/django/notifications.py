@@ -28,6 +28,7 @@ if TYPE_CHECKING:
         PartyEnrolledNotification,
         PartyInviteNotification,
     )
+    from ludamus.pacts.printing import PrintablesReadyNotification
     from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
@@ -193,6 +194,28 @@ class DjangoUserNotifier:
                     "claim_token": notification.claim_token,
                     "offer_expires_at": notification.offer_expires_at.isoformat(),
                 },
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_printables_ready(
+        self, notification: PrintablesReadyNotification
+    ) -> None:
+        title = _("Print your materials for %(event)s") % {
+            "event": notification.event_name
+        }
+        body = _(
+            "%(event)s starts in two days. Print the timetable and door cards "
+            "for your event using the link below before it begins."
+        ) % {"event": notification.event_name}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PRINTABLES_READY.value,
+                title=title,
+                body=body,
+                url=notification.materials_url,
+                payload={"event_name": notification.event_name},
             ),
             notification.recipient_email,
         )

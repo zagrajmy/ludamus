@@ -44,7 +44,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.party import PartyService
-from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
@@ -146,6 +146,12 @@ class Services:
             self._repos.agenda_items,
             self._repos.time_slots,
             self._repos.tracks,
+        )
+
+    @cached_property
+    def printables_reminder(self) -> PrintablesReminderService:
+        return PrintablesReminderService(
+            self._transaction, self._repos.printables_reminders, DjangoUserNotifier()
         )
 
     @cached_property

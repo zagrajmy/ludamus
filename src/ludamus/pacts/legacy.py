@@ -301,6 +301,7 @@ class NotificationKind(StrEnum):
     PARTY_INVITE = auto()
     PARTY_ENROLLED = auto()
     PARTY_SEAT_HELD = auto()
+    PRINTABLES_READY = auto()
 
 
 class SpherePage(StrEnum):

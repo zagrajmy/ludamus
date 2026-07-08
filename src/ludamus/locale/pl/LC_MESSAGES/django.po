@@ -5243,6 +5243,20 @@ msgstr "Harmonogram"
 msgid "Print Materials"
 msgstr "Materiały do druku"
 
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Print your materials for %(event)s"
+msgstr "Wydrukuj materiały na %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"%(event)s starts in two days. Print the timetable and door cards for your "
+"event using the link below before it begins."
+msgstr ""
+"%(event)s zaczyna się za dwa dni. Wydrukuj harmonogram i tabliczki na drzwi "
+"dla swojego wydarzenia, korzystając z poniższego linku, zanim się rozpocznie."
+
 #: src/ludamus/templates/panel/base.html
 msgid "Settings"
 msgstr "Ustawienia"

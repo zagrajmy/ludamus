@@ -8,7 +8,7 @@ pages in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timedelta, tzinfo
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -147,6 +147,47 @@ class PrintSessionListDocumentDTO(BaseModel):
     event_end: datetime
     scope_name: str | None = None
     sessions: list[PrintSessionListItemDTO]
+
+
+class PrintablesReminderRecipientDTO(BaseModel):
+    user_id: int
+    email: str
+
+
+class PrintablesReminderDTO(BaseModel):
+    event_pk: int
+    event_name: str
+    # Absolute URL to the panel's print-materials hub, ready to drop into email.
+    materials_url: str
+    recipients: list[PrintablesReminderRecipientDTO]
+
+
+class PrintablesReadyNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str
+    event_name: str
+    materials_url: str
+
+
+class PrintablesReminderRepositoryProtocol(Protocol):
+    def list_pending_reminders(
+        self, *, now: datetime, lead_time: timedelta
+    ) -> list[PrintablesReminderDTO]: ...
+    def mark_printed(self, event_pk: int) -> None: ...
+    def mark_reminder_sent(self, event_pk: int, *, at: datetime) -> None: ...
+
+
+class PrintablesNotifierProtocol(Protocol):
+    def notify_printables_ready(
+        self, notification: PrintablesReadyNotification
+    ) -> None: ...
+
+
+class PrintablesReminderServiceProtocol(Protocol):
+    def mark_printed(self, event_pk: int) -> None: ...
+    def send_due_reminders(
+        self, *, now: datetime, lead_time: timedelta = ...
+    ) -> int: ...
 
 
 class PrintMaterialsServiceProtocol(Protocol):

@@ -10,6 +10,7 @@ Empty time slots render as explicit gaps.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from ludamus.mills.timeslots import slot_windows_by_local_date
@@ -22,6 +23,8 @@ from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
+    PrintablesReadyNotification,
+    PrintablesReminderServiceProtocol,
     PrintOptionDTO,
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
@@ -45,6 +48,11 @@ if TYPE_CHECKING:
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
+    from ludamus.pacts.printing import (
+        PrintablesNotifierProtocol,
+        PrintablesReminderRepositoryProtocol,
+    )
+    from ludamus.pacts.services import TransactionProtocol
 
 
 MAX_TIMETABLE_SPACES_PER_PAGE = 4
@@ -371,3 +379,49 @@ class PrintMaterialsService:
         for grouped in items_by_space.values():
             grouped.sort(key=lambda x: x.start_time)
         return items_by_space
+
+
+PRINTABLES_REMINDER_LEAD_TIME = timedelta(days=2)
+
+
+class PrintablesReminderService(PrintablesReminderServiceProtocol):
+    """Reminds organizers to print their materials before the event.
+
+    `mark_printed` records that an organizer opened a print-ready page;
+    `send_due_reminders` (run periodically) emails organizers of events starting
+    within the lead time who have not printed yet, once per event.
+    """
+
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        reminders: PrintablesReminderRepositoryProtocol,
+        notifier: PrintablesNotifierProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._reminders = reminders
+        self._notifier = notifier
+
+    def mark_printed(self, event_pk: int) -> None:
+        self._reminders.mark_printed(event_pk)
+
+    def send_due_reminders(
+        self, *, now: datetime, lead_time: timedelta = PRINTABLES_REMINDER_LEAD_TIME
+    ) -> int:
+        due = self._reminders.list_pending_reminders(now=now, lead_time=lead_time)
+        for reminder in due:
+            # Mark sent inside the same transaction as the notifications so a
+            # crash mid-batch never leaves an event marked-but-unnotified; the
+            # emails themselves are deferred to after-commit by the notifier.
+            with self._transaction.atomic():
+                self._reminders.mark_reminder_sent(reminder.event_pk, at=now)
+                for recipient in reminder.recipients:
+                    self._notifier.notify_printables_ready(
+                        PrintablesReadyNotification(
+                            recipient_user_id=recipient.user_id,
+                            recipient_email=recipient.email,
+                            event_name=reminder.event_name,
+                            materials_url=reminder.materials_url,
+                        )
+                    )
+        return len(due)
