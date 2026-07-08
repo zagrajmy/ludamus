@@ -337,19 +337,14 @@ document.addEventListener("dragend", () => {
   }
 });
 
-// Clicking a session (list card or grid block) loads the detail pane; arm
-// assign/move mode from whatever Assign button it carries so the very next
-// grid click places the session. Swapping in a pane without an Assign button
-// (e.g. Back to the browse list) cancels the mode.
+// Clicking a session (list card or grid block) loads the detail pane for
+// review only — it never arms assign mode. Placement arms solely from an
+// explicit Assign/Reassign click (handled by the delegated click listener
+// above). Loading any pane cancels a mode armed from a previous session.
 document.body.addEventListener("htmx:load", (evt) => {
   const el = (evt as CustomEvent).detail?.elt;
   if (!(el instanceof Element) || el.id !== "left-pane") return;
-  const btn = el.querySelector<HTMLElement>("[data-assign-session-pk]");
-  if (btn) {
-    enterAssignMode(placementFromAssignButton(btn));
-  } else {
-    exitAssignMode();
-  }
+  exitAssignMode();
 });
 
 // Live snapped-time preview near the cursor while in assign mode
