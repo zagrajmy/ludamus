@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -148,6 +148,14 @@ class UnscheduledSessionDTO(BaseModel):
     category_pk: int | None
     duration_minutes: int
     participants_limit: int
+
+
+class UnscheduledSessionFilter(BaseModel):
+    track_pk: int | None = None
+    search: str | None = None
+    max_duration_minutes: int | None = None
+    category_pk: int | None = None
+    available_on: date | None = None
 
 
 class SessionListItemDTO(BaseModel):
@@ -454,7 +462,6 @@ class EventDTO(BaseModel):
     logo_url: str = ""
     name: str
     pk: int
-    proposal_description: str = ""
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
@@ -907,12 +914,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> None: ...
     @staticmethod
     def list_unscheduled_by_event(
-        event_pk: int,
-        *,
-        track_pk: int | None = None,
-        search: str | None = None,
-        max_duration_minutes: int | None = None,
-        category_pk: int | None = None,
+        event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]: ...
 
 
@@ -995,8 +997,6 @@ class EventRepositoryProtocol(Protocol):
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None: ...
 
 
 class SpaceRepositoryProtocol(Protocol):
@@ -1193,7 +1193,13 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
 
     @staticmethod
+    def read_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
     def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
+
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None: ...
 
 
 class EventSettingsRepositoryProtocol(Protocol):

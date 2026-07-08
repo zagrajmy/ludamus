@@ -36,7 +36,9 @@
     <!-- Filter bar: track + date + category chips + duration chips -->
     <div id="filter-bar" class="mb-4 flex items-center gap-4 flex-wrap">
         {% if all_tracks or grid.available_dates %}
-            <form method="get" class="flex items-center gap-2 flex-wrap">
+            <form method="get"
+                  action="{% url 'panel:timetable' slug=current_event.slug %}"
+                  class="flex items-center gap-2 flex-wrap">
                 {% if room_page > 1 %}<input type="hidden" name="room_page" value="{{ room_page }}">{% endif %}
                 {% if all_tracks %}
                     <span class="text-sm text-foreground-muted">{% translate "Track:" %}</span>
@@ -56,11 +58,7 @@
                 {% if grid.available_dates %}
                     <span class="text-sm text-foreground-muted ml-2">{% translate "Day:" %}</span>
                     <select name="date"
-                            hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}"
-                            hx-target="#timetable-grid"
-                            hx-swap="innerHTML"
-                            hx-trigger="change"
-                            hx-push-url="true"
+                            onchange="this.form.submit()"
                             class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                         {% for d in grid.available_dates %}
                             <option value="{{ d|date:"Y-m-d" }}"
@@ -137,6 +135,8 @@
         <div class="flex-1 min-w-0 w-full">
             <div id="timetable-grid"
                  data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
+                 data-confirm-move="{% translate "This program item is confirmed. Moving it will clear the confirmation." %}"
+                 data-confirm-move-action="{% translate "Move" %}"
                  hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page }}"
                  hx-swap="innerHTML"
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>

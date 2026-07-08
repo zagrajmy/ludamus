@@ -10,7 +10,7 @@
 {% endblock page_title %}
 {% block page_title_adornment %}
     {% translate "What are venues?" as t_info_title %}
-    {% translate "Organise the physical layout of your event as a tree: buildings contain floors or wings, which contain the individual rooms that hold sessions. Nest spaces as deeply as you need; only the innermost rooms take a capacity." as t_info_body %}
+    {% translate "Organise the physical layout of your event. Add a single room on its own, or nest spaces as deeply as you need — a building with floors and rooms inside. Any space that holds sessions takes a capacity." as t_info_body %}
     {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
 {% endblock page_title_adornment %}
 {% block page_subtitle %}
@@ -42,7 +42,7 @@
             <div class="card p-8 text-center">
                 <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
                 <p class="text-foreground-muted mb-4">
-                    {% translate "No spaces yet. Add a top-level space to start building your event's layout." %}
+                    {% translate "No spaces yet. Add a single room, or nest spaces to map a larger venue." %}
                 </p>
                 {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
                 {% translate "New top-level space" as t_new_space %}
