@@ -348,6 +348,10 @@ class TimetableService:
             # no-sessions check) can't cascade this AgendaItem away in the gap
             # between that check and the delete.
             self._uow.spaces.lock(placement.space_pk)
+            # Moving an already-scheduled session invalidates any prior
+            # confirmation, so a re-assignment always lands unconfirmed --
+            # even in an auto-confirm event -- and must be re-verified.
+            is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
             self._clear_existing_assignment(session_pk, event_pk, user_pk)
             session = self._uow.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
@@ -360,7 +364,7 @@ class TimetableService:
                     "space_id": placement.space_pk,
                     "start_time": placement.start_time,
                     "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions,
+                    "session_confirmed": event.auto_confirm_sessions and not is_move,
                 }
             )
             log_data: ScheduleChangeLogData = {
@@ -617,6 +621,8 @@ class ConflictDetectionService:
                 ConflictDTO(
                     type=ConflictType.SPACE_OVERLAP,
                     severity=ConflictSeverity.ERROR,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
                     session_title=item.session_title,
                     session_pk=item.session_id,
                 )
@@ -631,6 +637,8 @@ class ConflictDetectionService:
                 ConflictDTO(
                     type=ConflictType.CAPACITY_EXCEEDED,
                     severity=ConflictSeverity.WARNING,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
                     session_title=session.title,
                     session_pk=session_pk,
                     space_capacity=space.capacity,
@@ -651,6 +659,8 @@ class ConflictDetectionService:
                     ConflictDTO(
                         type=ConflictType.FACILITATOR_OVERLAP,
                         severity=ConflictSeverity.ERROR,
+                        subject_session_title=session.title,
+                        subject_session_pk=session_pk,
                         session_title=item.session_title,
                         session_pk=item.session_id,
                         facilitator_name=facilitator.display_name,
@@ -706,6 +716,8 @@ class ConflictDetectionService:
         return ConflictDTO(
             type=conflict.type,
             severity=conflict.severity,
+            subject_session_title=conflict.subject_session_title,
+            subject_session_pk=conflict.subject_session_pk,
             session_title=conflict.session_title,
             session_pk=conflict.session_pk,
             facilitator_name=conflict.facilitator_name,

@@ -40,7 +40,7 @@
                     <div class="space-y-2 pl-6">
                         {% for conflict in conflicts %}
                             <div class="text-sm text-foreground-secondary">
-                                {{ conflict.session_title }} —
+                                {{ conflict.subject_session_title }} —
                                 {% if conflict.type == "space_overlap" %}
                                     {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}
                                 {% elif conflict.type == "capacity_exceeded" %}
