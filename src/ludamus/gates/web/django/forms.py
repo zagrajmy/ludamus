@@ -406,7 +406,10 @@ class SpaceForm(forms.Form):
         required=False,
         min_value=1,
         label=_("Capacity"),
-        help_text=_("Only meaningful for the innermost spaces that hold sessions."),
+        help_text=_(
+            "Set the number of seats for a room that holds sessions, at any level."
+            " Leave empty for a space that only groups other spaces."
+        ),
         error_messages={"min_value": _("Capacity must be at least 1.")},
     )
     description = forms.CharField(
