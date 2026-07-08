@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 21:57+0200\n"
+"POT-Creation-Date: 2026-07-08 13:10+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -158,6 +158,10 @@ msgstr "Twórca programu"
 #: src/ludamus/adapters/db/django/models.py
 msgid "Twórcy programu"
 msgstr "Twórcy programu"
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "That event isn't available."
+msgstr "To wydarzenie jest niedostępne."
 
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "Critical Failure!"
@@ -366,6 +370,10 @@ msgstr "Nieeuklidesowa geometria tego URL-a wymyka się zrozumieniu"
 msgid "Your browser recoils in cosmic horror."
 msgstr "Twoja przeglądarka wzdryga się w kosmicznym przerażeniu."
 
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "The page you're looking for doesn't exist or may have moved."
+msgstr "Strona, której szukasz, nie istnieje lub została przeniesiona."
+
 # 500 Error Messages
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "Total Server Kill!"
@@ -550,6 +558,10 @@ msgstr "Nyarlathotep opętał naszą infrastrukturę"
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "Madness spreads through every circuit..."
 msgstr "Szaleństwo rozprzestrzenia się przez każdy obwód..."
+
+#: src/ludamus/adapters/web/django/error_views.py
+msgid "Our best people are on it."
+msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/templates/chronology/enroll_select.html
@@ -2197,10 +2209,13 @@ msgid "Capacity"
 msgstr "Pojemność"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Only meaningful for the innermost spaces that hold sessions."
+msgid ""
+"Set the number of seats for a room that holds sessions, at any level. Leave "
+"empty for a space that only groups other spaces."
 msgstr ""
-"Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które zawierają "
-"punkty programu."
+"Podaj liczbę miejsc dla sali, w której odbywają się punkty programu — na "
+"dowolnym poziomie. Zostaw puste dla przestrzeni, która tylko grupuje inne "
+"przestrzenie."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Capacity must be at least 1."
@@ -2711,6 +2726,10 @@ msgstr "Wróć"
 #: src/ludamus/templates/404_dynamic.html
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
+
+#: src/ludamus/templates/500_dynamic.html
+msgid "Still stuck? Email us at"
+msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
 msgid "Contact"
@@ -5213,7 +5232,11 @@ msgid "Venues"
 msgstr "Lokalizacje"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Harmonogram"
+#: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable-overview.html
+#: src/ludamus/templates/panel/timetable-problems.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "Schedule"
 msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/base.html
@@ -6140,6 +6163,7 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -7117,14 +7141,14 @@ msgstr "Czym są lokalizacje?"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid ""
-"Organise the physical layout of your event as a tree: buildings contain "
-"floors or wings, which contain the individual rooms that hold sessions. Nest "
-"spaces as deeply as you need; only the innermost rooms take a capacity."
+"Organise the physical layout of your event. Add a single room on its own, or "
+"nest spaces as deeply as you need — a building with floors and rooms inside. "
+"Any space that holds sessions takes a capacity."
 msgstr ""
-"Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki zawierają "
-"piętra lub skrzydła, które zawierają poszczególne sale, gdzie odbywają się "
-"punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz; "
-"tylko najbardziej wewnętrzne sale mają pojemność."
+"Zorganizuj fizyczny układ swojego wydarzenia. Dodaj pojedynczą salę albo "
+"zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz — budynek z piętrami "
+"i salami w środku. Każda przestrzeń, w której odbywają się punkty programu, "
+"ma pojemność."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Physical Locations"
@@ -7139,11 +7163,10 @@ msgid "Could not save the new order. Reloading the page."
 msgstr "Nie udało się zapisać nowej kolejności. Ponowne ładowanie strony."
 
 #: src/ludamus/templates/panel/spaces.html
-msgid ""
-"No spaces yet. Add a top-level space to start building your event's layout."
+msgid "No spaces yet. Add a single room, or nest spaces to map a larger venue."
 msgstr ""
-"Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
-"budowanie układu swojego wydarzenia."
+"Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
+"odwzorować większy obiekt."
 
 #: src/ludamus/templates/panel/time-slot-create.html
 msgid "New Time Slot"
@@ -7223,13 +7246,6 @@ msgstr ""
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
-
-#: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Schedule"
-msgstr "Harmonogram"
 
 #: src/ludamus/templates/panel/timetable-log.html
 #: src/ludamus/templates/panel/timetable-overview.html
@@ -7377,6 +7393,15 @@ msgstr "Potwierdź blok"
 msgid "Confirm all"
 msgstr "Potwierdź wszystkie"
 
+#: src/ludamus/templates/panel/timetable.html
+msgid "This program item is confirmed. Moving it will clear the confirmation."
+msgstr ""
+"Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Move"
+msgstr "Przenieś"
+
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "New Track"
@@ -7477,6 +7502,99 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Only meaningful for the innermost spaces that hold sessions."
+#~ msgstr ""
+#~ "Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które "
+#~ "zawierają punkty programu."
+
+#~ msgid "Harmonogram"
+#~ msgstr "Harmonogram"
+
+#~ msgid ""
+#~ "Organise the physical layout of your event as a tree: buildings contain "
+#~ "floors or wings, which contain the individual rooms that hold sessions. "
+#~ "Nest spaces as deeply as you need; only the innermost rooms take a "
+#~ "capacity."
+#~ msgstr ""
+#~ "Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki "
+#~ "zawierają piętra lub skrzydła, które zawierają poszczególne sale, gdzie "
+#~ "odbywają się punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak "
+#~ "potrzebujesz; tylko najbardziej wewnętrzne sale mają pojemność."
+
+#~ msgid ""
+#~ "No spaces yet. Add a top-level space to start building your event's "
+#~ "layout."
+#~ msgstr ""
+#~ "Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
+#~ "budowanie układu swojego wydarzenia."
+
+#~ msgid "Cannot delete session type with existing proposals."
+#~ msgstr "Nie można usunąć typu punktu programu z istniejącymi zgłoszeniami."
+
+#~ msgid "Cannot delete field that is used in session types."
+#~ msgstr "Nie można usunąć pola używanego w typach punktów programu."
+
+#~ msgid "Describe this session type for proposers."
+#~ msgstr "Opisz ten typ punktu programu dla zgłaszających."
+
+#~ msgid ""
+#~ "Set minimum and maximum participant limits for sessions of this type."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla sesji tego typu."
+
+#~ msgid "Define how long sessions of this type can be."
+#~ msgstr "Określ jak długo mogą trwać punkty programu tego typu."
+
+#, python-format
+#~ msgid "There is %(count)s existing proposal for this session type."
+#~ msgid_plural "There are %(count)s existing proposals for this session type."
+#~ msgstr[0] "Istnieje %(count)s zgłoszenie dla tego typu punktu programu."
+#~ msgstr[1] "Istnieją %(count)s zgłoszenia dla tego typu punktu programu."
+#~ msgstr[2] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
+#~ msgstr[3] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
+
+#~ msgid "Select which time slots are available for this session type."
+#~ msgstr ""
+#~ "Wybierz, które przedziały czasowe są dostępne dla tego typu punktu "
+#~ "programu."
+
+#~ msgid ""
+#~ "No session types yet. Add a session type to allow hosts to submit "
+#~ "proposals."
+#~ msgstr ""
+#~ "Brak typów punktów programu. Dodaj typ, aby twórcy mogli składać "
+#~ "zgłoszenia."
+
+#~ msgid ""
+#~ "Writes every creator with their accreditation type and discount into the "
+#~ "first tab of the selected spreadsheet, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
+#~ msgid "Select which session types should include this field."
+#~ msgstr "Wybierz, które typy punktów programu mają zawierać to pole."
+
+#~ msgid "No session types have been created yet."
+#~ msgstr "Nie utworzono jeszcze żadnych typów punktów programu."
+
+#~ msgid ""
+#~ "Host data fields collect contact and personal information from session "
+#~ "hosts when they submit proposals. Examples: email address, phone number, "
+#~ "Discord username. This data is shared across all session types for the "
+#~ "event - each host fills it once."
+#~ msgstr ""
+#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
+#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
+#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
+#~ "wszystkich typów punktów programu - każdy twórca wypełnia je tylko raz."
+
+#~ msgid ""
+#~ "After creating fields here, configure which ones are required or optional "
+#~ "in each session type's settings."
+#~ msgstr ""
+#~ "Po utworzeniu pól tutaj, skonfiguruj które z nich są wymagane lub "
+#~ "opcjonalne w ustawieniach każdego typu punktu programu."
+
 #~ msgid "Session type created successfully."
 #~ msgstr "Typ punktu programu został utworzony."
 
@@ -7515,3 +7633,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Program Hosts"
 #~ msgstr "Twórcy programu"
+
+#~ msgid "Something broke on our end. Try again in a moment."
+#~ msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."
