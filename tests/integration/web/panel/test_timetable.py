@@ -1,5 +1,6 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -10,6 +11,7 @@ from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import TIMETABLE_SLOT_MINUTES, TimetableGridDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
+    EventFactory,
     SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
@@ -253,3 +255,70 @@ class TestTimetablePageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["slot_violation_session_pks"] == {session.pk}
         assert response.context["conflict_session_pks"] == set()
+
+
+class TestPanelBaseHeader:
+    """Tests for the shared panel/base.html sidebar and header."""
+
+    @staticmethod
+    def get_url(event):
+        return reverse("panel:timetable", kwargs={"slug": event.slug})
+
+    def test_schedule_nav_label_renders_in_english(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=ANY,
+            contains='<span class="sidebar-label">Schedule</span>',
+            not_contains="Harmonogram",
+        )
+
+    def test_single_day_event_shows_one_date(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        event = EventFactory(
+            sphere=sphere,
+            slug="one-day",
+            start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
+            end_time=datetime(2026, 8, 6, 18, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=ANY,
+            contains="<strong>06 Aug 2026</strong>",
+            not_contains="06 Aug - 06 Aug",
+        )
+
+    def test_multi_day_event_shows_date_range(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        event = EventFactory(
+            sphere=sphere,
+            slug="multi-day",
+            start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
+            end_time=datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=ANY,
+            contains="<strong>06 Aug - 08 Aug 2026</strong>",
+        )

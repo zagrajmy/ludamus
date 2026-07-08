@@ -10,7 +10,6 @@ from ludamus.adapters.db.django.models import (
     Event,
     EventIntegration,
     EventPanelSettings,
-    EventProposalSettings,
     EventSettings,
     Session,
     Space,
@@ -162,12 +161,6 @@ class EventRepository(EventRepositoryProtocol):
 
         if old_cover and old_cover != event.cover_image.name:
             delete_stored_file(event.cover_image, old_cover)
-
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None:
-        EventProposalSettings.objects.update_or_create(
-            event_id=event_id, defaults={"description": description}
-        )
 
 
 class EventSettingsRepository(EventSettingsRepositoryProtocol):
