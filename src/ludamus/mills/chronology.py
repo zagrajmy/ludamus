@@ -325,14 +325,6 @@ class TimetableService:
         if space_pk not in leaf_pks:
             raise NotFoundError
 
-    def _clear_existing_assignment(
-        self, session_pk: int, event_pk: int, user_pk: int | None
-    ) -> None:
-        # Re-assigning an already-scheduled session: drop the old placement
-        # first so the new one becomes its only agenda item.
-        if self._uow.agenda_items.read_by_session(session_pk) is not None:
-            self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
-
     def assign_session(
         self,
         session_pk: int,
@@ -352,7 +344,10 @@ class TimetableService:
             # confirmation, so a re-assignment always lands unconfirmed --
             # even in an auto-confirm event -- and must be re-verified.
             is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
-            self._clear_existing_assignment(session_pk, event_pk, user_pk)
+            # Re-assigning an already-scheduled session: drop the old placement
+            # first so the new one becomes its only agenda item.
+            if is_move:
+                self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
             session = self._uow.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
                 msg = f"Session {session_pk} is not in ACCEPTED status"
