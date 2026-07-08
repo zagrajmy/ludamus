@@ -130,7 +130,17 @@ class TestTimetableProblemsPageView:
         assert response.status_code == HTTPStatus.OK
         grouped = response.context["conflicts_grouped"]
         assert "space_overlap" in grouped
-        assert grouped["space_overlap"]
+        overlaps = grouped["space_overlap"]
+        # Dedup keeps a single row for the A/B clash; it must name the subject
+        # session AND the distinct occupier, never the same session twice.
+        assert len(overlaps) == 1
+        conflict = overlaps[0]
+        assert conflict.subject_session_pk != conflict.session_pk
+        assert conflict.subject_session_title != conflict.session_title
+        assert {conflict.subject_session_pk, conflict.session_pk} == {
+            session_a.pk,
+            session_b.pk,
+        }
 
     def test_lists_session_outside_preferred_slot(
         self, authenticated_client, active_user, sphere, event, proposal_category

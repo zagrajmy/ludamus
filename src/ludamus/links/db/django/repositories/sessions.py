@@ -35,6 +35,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TrackDTO,
     UnscheduledSessionDTO,
+    UnscheduledSessionFilter,
 )
 from ludamus.pacts.crowd import UserDTO
 
@@ -470,12 +471,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
     @staticmethod
     def list_unscheduled_by_event(
-        event_pk: int,
-        *,
-        track_pk: int | None = None,
-        search: str | None = None,
-        max_duration_minutes: int | None = None,
-        category_pk: int | None = None,
+        event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]:
         qs = (
             Session.objects.filter(category__event_id=event_pk)
@@ -483,21 +479,27 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             .filter(agenda_item__isnull=True)
             .select_related("category")
         )
-        if track_pk is not None:
-            qs = qs.filter(tracks__pk=track_pk)
-        if category_pk is not None:
-            qs = qs.filter(category__pk=category_pk)
-        if search:
+        if filters.track_pk is not None:
+            qs = qs.filter(tracks__pk=filters.track_pk)
+        if filters.available_on is not None:
             qs = qs.filter(
-                Q(title__icontains=search) | Q(display_name__icontains=search)
+                Q(time_slots__isnull=True)
+                | Q(time_slots__start_time__date=filters.available_on)
+            ).distinct()
+        if filters.category_pk is not None:
+            qs = qs.filter(category__pk=filters.category_pk)
+        if filters.search:
+            qs = qs.filter(
+                Q(title__icontains=filters.search)
+                | Q(display_name__icontains=filters.search)
             ).distinct()
         results: list[UnscheduledSessionDTO] = []
         has_more = False
         for s in qs.order_by("title").iterator():
             duration_minutes = _parse_iso8601_duration_minutes(s.duration)
             if (
-                max_duration_minutes is not None
-                and duration_minutes > max_duration_minutes
+                filters.max_duration_minutes is not None
+                and duration_minutes > filters.max_duration_minutes
             ):
                 continue
             if len(results) >= UNSCHEDULED_LIST_LIMIT:

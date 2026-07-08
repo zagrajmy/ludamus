@@ -27,6 +27,7 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -195,6 +196,7 @@ class TimetableService:
                 total_minutes=0,
                 event_start_iso="",
                 slot_minutes=TIMETABLE_SLOT_MINUTES,
+                snap_minutes=TIMETABLE_SNAP_MINUTES,
                 page=space_page,
                 total_pages=total_pages,
                 total_spaces=total_spaces,
@@ -259,6 +261,7 @@ class TimetableService:
             total_minutes=num_slots * TIMETABLE_SLOT_MINUTES,
             event_start_iso=grid_start.isoformat(),
             slot_minutes=TIMETABLE_SLOT_MINUTES,
+            snap_minutes=TIMETABLE_SNAP_MINUTES,
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,
@@ -322,14 +325,6 @@ class TimetableService:
         if space_pk not in leaf_pks:
             raise NotFoundError
 
-    def _clear_existing_assignment(
-        self, session_pk: int, event_pk: int, user_pk: int | None
-    ) -> None:
-        # Re-assigning an already-scheduled session: drop the old placement
-        # first so the new one becomes its only agenda item.
-        if self._uow.agenda_items.read_by_session(session_pk) is not None:
-            self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
-
     def assign_session(
         self,
         session_pk: int,
@@ -345,7 +340,14 @@ class TimetableService:
             # no-sessions check) can't cascade this AgendaItem away in the gap
             # between that check and the delete.
             self._uow.spaces.lock(placement.space_pk)
-            self._clear_existing_assignment(session_pk, event_pk, user_pk)
+            # Moving an already-scheduled session invalidates any prior
+            # confirmation, so a re-assignment always lands unconfirmed --
+            # even in an auto-confirm event -- and must be re-verified.
+            is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
+            # Re-assigning an already-scheduled session: drop the old placement
+            # first so the new one becomes its only agenda item.
+            if is_move:
+                self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
             session = self._uow.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
                 msg = f"Session {session_pk} is not in ACCEPTED status"
@@ -357,7 +359,7 @@ class TimetableService:
                     "space_id": placement.space_pk,
                     "start_time": placement.start_time,
                     "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions,
+                    "session_confirmed": event.auto_confirm_sessions and not is_move,
                 }
             )
             log_data: ScheduleChangeLogData = {
@@ -614,6 +616,8 @@ class ConflictDetectionService:
                 ConflictDTO(
                     type=ConflictType.SPACE_OVERLAP,
                     severity=ConflictSeverity.ERROR,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
                     session_title=item.session_title,
                     session_pk=item.session_id,
                 )
@@ -628,6 +632,8 @@ class ConflictDetectionService:
                 ConflictDTO(
                     type=ConflictType.CAPACITY_EXCEEDED,
                     severity=ConflictSeverity.WARNING,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
                     session_title=session.title,
                     session_pk=session_pk,
                     space_capacity=space.capacity,
@@ -648,6 +654,8 @@ class ConflictDetectionService:
                     ConflictDTO(
                         type=ConflictType.FACILITATOR_OVERLAP,
                         severity=ConflictSeverity.ERROR,
+                        subject_session_title=session.title,
+                        subject_session_pk=session_pk,
                         session_title=item.session_title,
                         session_pk=item.session_id,
                         facilitator_name=facilitator.display_name,
@@ -703,6 +711,8 @@ class ConflictDetectionService:
         return ConflictDTO(
             type=conflict.type,
             severity=conflict.severity,
+            subject_session_title=conflict.subject_session_title,
+            subject_session_pk=conflict.subject_session_pk,
             session_title=conflict.session_title,
             session_pk=conflict.session_pk,
             facilitator_name=conflict.facilitator_name,

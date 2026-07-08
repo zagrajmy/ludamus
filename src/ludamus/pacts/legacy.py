@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -148,6 +148,14 @@ class UnscheduledSessionDTO(BaseModel):
     category_pk: int | None
     duration_minutes: int
     participants_limit: int
+
+
+class UnscheduledSessionFilter(BaseModel):
+    track_pk: int | None = None
+    search: str | None = None
+    max_duration_minutes: int | None = None
+    category_pk: int | None = None
+    available_on: date | None = None
 
 
 class SessionListItemDTO(BaseModel):
@@ -889,12 +897,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> None: ...
     @staticmethod
     def list_unscheduled_by_event(
-        event_pk: int,
-        *,
-        track_pk: int | None = None,
-        search: str | None = None,
-        max_duration_minutes: int | None = None,
-        category_pk: int | None = None,
+        event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]: ...
 
 
