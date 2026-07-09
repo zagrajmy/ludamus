@@ -210,7 +210,7 @@ disallow_any_explicit = false
 # relaxed only for the thin scheduler adapter that wraps them, the same way
 # links.db.django.* is relaxed for the ORM.
 [[tool.mypy.overrides]]
-module = ["ludamus.inits.dbos_offer_scheduler"]
+module = ["ludamus.inits.dbos_scheduler"]
 disallow_any_expr = false
 
 # pydantic's model_json_schema() returns dict[str, Any]; relaxed only for the

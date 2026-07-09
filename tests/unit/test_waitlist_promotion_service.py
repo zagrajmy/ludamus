@@ -42,14 +42,18 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, states=None, offer=None):
+    def __init__(self, states=None, offer=None, lapsed=None):
         self._states = list(states or [])
         self._offer = offer
+        self._lapsed = list(lapsed or [])
         self.confirmed: list[list[int]] = []
         self.offered: list[dict] = []
         self.created: list[dict] = []
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
+
+    def list_lapsed_offers(self, _now):
+        return list(self._lapsed)
 
     def create_offered(self, seat):
         self.created.append(seat)
@@ -138,8 +142,8 @@ def _state(waiting, *, mode=PromotionMode.AUTO, seats=1):
     )
 
 
-def _build(states=None, offer=None):
-    repo = FakeRepo(states=states, offer=offer)
+def _build(states=None, offer=None, lapsed=None):
+    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed)
     notifier = FakeNotifier()
     scheduler = FakeScheduler()
     service = WaitlistPromotionService(FakeTransaction(), repo, notifier, scheduler)
@@ -296,6 +300,34 @@ class TestExpireOffer:
 
         service.expire_offer(participation_id=1)
 
+        assert not repo.dropped
+        assert not notifier.expired
+
+
+class TestExpireLapsedOffers:
+    def test_expires_each_lapsed_party_once(self):
+        offer = OfferDTO(
+            session_id=_SESSION_ID,
+            session_title="Dragons",
+            event_slug="con",
+            participant_ids=[1, 2],
+            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            offer_expires_at=_NOW - timedelta(minutes=1),
+        )
+        service, repo, notifier, _ = _build(states=[None], offer=offer, lapsed=[1])
+
+        expired = service.expire_lapsed_offers(now=_NOW)
+
+        assert expired == 1
+        assert repo.dropped == [[1, 2]]
+        assert len(notifier.expired) == 1
+
+    def test_no_lapsed_offers_is_noop(self):
+        service, repo, notifier, _ = _build(lapsed=[])
+
+        expired = service.expire_lapsed_offers(now=_NOW)
+
+        assert expired == 0
         assert not repo.dropped
         assert not notifier.expired
 

@@ -1,7 +1,12 @@
 # Durable execution & in-system cron: Absurd vs DBOS
 
-**Status:** evaluation + ran a real bake-off ([§8](#8-bake-off-results-empirical--this-spike));
-recommendation stands, decision not yet made
+**Status:** DECIDED — DBOS, implemented. `inits/dbos_scheduler.py` hosts the
+durable offer timers plus `@DBOS.scheduled` cron workflows (offers sweep every
+5 min, printables reminders daily); `ServiceInjectionMiddleware` launches DBOS
+per serving process (fail-soft, on a daemon thread); the system DB defaults to
+the app Postgres (SQLite in dev); `OFFER_EXPIRY_SCHEDULER` defaults to `dbos`
+with the management commands kept as the manual floor. Bake-off that informed
+the call: [§8](#8-bake-off-results-empirical--this-spike).
 
 **Question:** We want scheduled jobs ("crons") handled *inside the system*
 rather than relying on hand-wired host cron. Should we build on **DBOS**

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 import environ
 from google.oauth2 import service_account
@@ -54,12 +55,15 @@ env = environ.Env(
     # smtp://user:pass@host:587/?tls=True in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
-    # Waiting-list offer-expiry trigger: "cron" (default; the expire_offers
-    # sweep) or "dbos" (durable in-process workflow timer).
-    OFFER_EXPIRY_SCHEDULER=(str, "cron"),
-    # DBOS system database (separate from the app DB). SQLite in dev, set to a
-    # Postgres URL in production.
-    DBOS_SYSTEM_DATABASE_URL=(str, "sqlite:///dbos_sys.sqlite"),
+    # In-system scheduler: "dbos" (default; durable offer timers plus the
+    # DBOS-scheduled cron workflows, all in the web process) or "cron"
+    # (external cron invokes the management commands instead). The name
+    # predates the cron workflows and governs both.
+    OFFER_EXPIRY_SCHEDULER=(str, "dbos"),
+    # DBOS system database. Empty (default) derives it from the app database:
+    # the app Postgres (system tables live under the "dbos" schema) or a local
+    # SQLite file when the app DB is SQLite.
+    DBOS_SYSTEM_DATABASE_URL=(str, ""),
     ENV=str,
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
@@ -413,9 +417,21 @@ EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# Waiting-list offer-expiry scheduler (see inits/services.py).
+# In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
 OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
 DBOS_SYSTEM_DATABASE_URL = env("DBOS_SYSTEM_DATABASE_URL")
+if not DBOS_SYSTEM_DATABASE_URL:
+    if env("USE_POSTGRES"):
+        _dbos_host = env.str("DB_HOST")
+        if _dbos_port := env.str("DB_PORT"):
+            _dbos_host = f"{_dbos_host}:{_dbos_port}"
+        DBOS_SYSTEM_DATABASE_URL = (
+            f"postgresql://{quote(env.str('DB_USER'), safe='')}"
+            f":{quote(env.str('DB_PASSWORD'), safe='')}"
+            f"@{_dbos_host}/{env('DB_NAME')}"
+        )
+    else:
+        DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
 # Cache configuration
 CACHES = (

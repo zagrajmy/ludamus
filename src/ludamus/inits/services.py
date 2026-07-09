@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.dbos_offer_scheduler import DBOSOfferExpiryScheduler
+from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
