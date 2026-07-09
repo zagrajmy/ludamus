@@ -65,12 +65,7 @@ class IntegrationImplementation(Protocol):
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
     def fetch_questions(
-        self,
-        *,
-        secret: bytes,
-        config: BaseModel,
-        header_row: int = 1,
-        email_column: int | None = None,
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
     def fetch_headers(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1

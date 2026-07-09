@@ -45,37 +45,34 @@ def _resp(*, ok: bool, status_code: int = 200, text: str = "") -> MagicMock:
     return response
 
 
-def _email_form_response() -> MagicMock:
-    # A form that collects respondent email and carries one mapped question, so
-    # fetch_questions runs the sheet-header email-synthesis path.
-    return MagicMock(
-        ok=True,
-        json=lambda: {
-            "items": [
-                {"title": "Title", "questionItem": {"question": {"textQuestion": {}}}}
-            ],
-            "settings": {"emailCollectionType": "RESPONDER_INPUT"},
-        },
-    )
-
-
 def _meta_with_title(title: str = "Form Responses 1") -> MagicMock:
     return MagicMock(
         ok=True, json=lambda: {"sheets": [{"properties": {"title": title}}]}
     )
 
 
-def _route_email_synthesis(*, meta: MagicMock, values: MagicMock):
+def _form_response(items: list[dict]) -> MagicMock:
+    return MagicMock(ok=True, json=lambda: {"items": items})
+
+
+def _header_values(headers: list[str]) -> MagicMock:
+    return MagicMock(ok=True, json=lambda: {"values": [headers]})
+
+
+def _route_questions(
+    *, form: MagicMock, meta: MagicMock | None = None, values: MagicMock | None = None
+):
     # Route the three fetch_questions calls (Forms API, sheet metadata, sheet
-    # values) so the email-synthesis path's sheet-header read can be steered.
-    form = _email_form_response()
+    # values) so both the form schema and the header row can be steered.
+    resolved_meta = meta if meta is not None else _meta_with_title()
+    resolved_values = values if values is not None else _header_values([])
 
     def get(url: str, **_kwargs: object) -> MagicMock:
         if url.startswith("https://forms.googleapis.com/"):
             return form
         if "/values/" in url:
-            return values
-        return meta
+            return resolved_values
+        return resolved_meta
 
     return get
 
@@ -201,11 +198,15 @@ class TestGoogleDocsProposalImporterProbe:
 
 
 class TestGoogleDocsProposalImporterFetchQuestions:
-    def test_returns_questions_with_setup_in_form_order(self, google):
-        google.session.get.return_value = MagicMock(
-            ok=True,
-            json=lambda: {
-                "items": [
+    def test_returns_sheet_columns_enriched_with_form_setup_in_sheet_order(
+        self, google
+    ):
+        # The sheet's header row decides which columns exist and in what order;
+        # the form only supplies the field type and options for the columns it
+        # recognizes.
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [
                     {
                         "title": "Imię",
                         "questionItem": {"question": {"textQuestion": {}}},
@@ -239,7 +240,8 @@ class TestGoogleDocsProposalImporterFetchQuestions:
                         },
                     },
                 ]
-            },
+            ),
+            values=_header_values(["Dostępność", "Imię", "Ile masz lat?"]),
         )
 
         result = GoogleDocsProposalImporter().fetch_questions(
@@ -247,6 +249,13 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         )
 
         assert result == [
+            SourceQuestion(
+                title="Dostępność",
+                field_type="select",
+                is_multiple=True,
+                allow_custom=False,
+                options=["18+", "dzieci"],
+            ),
             SourceQuestion(title="Imię", field_type="text"),
             SourceQuestion(
                 title="Ile masz lat?",
@@ -255,27 +264,78 @@ class TestGoogleDocsProposalImporterFetchQuestions:
                 allow_custom=True,
                 options=["do 16", "18+"],
             ),
-            SourceQuestion(
-                title="Dostępność",
-                field_type="select",
-                is_multiple=True,
-                allow_custom=False,
-                options=["18+", "dzieci"],
-            ),
         ]
-        google.session.get.assert_called_once_with(
-            FORMS_API_URL.format(form_id="form-1"), timeout=10
+
+    def test_sheet_only_columns_become_plain_text_questions(self, google):
+        # Timestamp and the auto-collected email are real sheet columns the
+        # Forms API never reports. They must still reach the recipe so the
+        # operator can map the email to session.contact_email.
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [{"title": "Tytuł", "questionItem": {"question": {"textQuestion": {}}}}]
+            ),
+            values=_header_values(["Sygnatura czasowa", "Adres e-mail", "Tytuł"]),
         )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
+
+        assert result == [
+            SourceQuestion(title="Sygnatura czasowa", field_type="text"),
+            SourceQuestion(title="Adres e-mail", field_type="text"),
+            SourceQuestion(title="Tytuł", field_type="text"),
+        ]
+
+    def test_blank_and_repeated_headers_collapse_to_one_entry_each(self, google):
+        # ImportSettings.questions is dict[title, target] and ImportRow matches a
+        # bare header against every " (2)"-suffixed column, so one entry already
+        # addresses them all. A blank cell names no column.
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [{"title": "Imię", "questionItem": {"question": {"textQuestion": {}}}}]
+            ),
+            values=_header_values(["Imię", "", "Imię", "Wiek"]),
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
+
+        assert [q.title for q in result] == ["Imię", "Wiek"]
+
+    def test_falls_back_to_form_questions_when_the_sheet_read_fails(self, google):
+        # A transient Sheets outage must not blank the whole recipe.
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [
+                    {
+                        "title": "Imię",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    },
+                    {
+                        "title": "Wiek",
+                        "questionItem": {"question": {"textQuestion": {}}},
+                    },
+                ]
+            ),
+            values=MagicMock(ok=False),
+        )
+
+        result = GoogleDocsProposalImporter().fetch_questions(
+            secret=SECRET, config=CONFIG
+        )
+
+        assert [q.title for q in result] == ["Imię", "Wiek"]
 
     def test_duplicate_titles_collapse_to_a_single_recipe_entry(self, google):
         # Two form questions with the same title produce a single recipe entry —
         # ImportSettings.questions is dict[title, target] and the mill maps the
         # cell at the title-level. ImportRow.get_value re-collapses the sheet
         # columns the same way.
-        google.session.get.return_value = MagicMock(
-            ok=True,
-            json=lambda: {
-                "items": [
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [
                     {
                         "title": "Imię",
                         "questionItem": {"question": {"textQuestion": {}}},
@@ -289,7 +349,8 @@ class TestGoogleDocsProposalImporterFetchQuestions:
                         "questionItem": {"question": {"textQuestion": {}}},
                     },
                 ]
-            },
+            ),
+            values=_header_values(["Imię", "Wiek"]),
         )
 
         result = GoogleDocsProposalImporter().fetch_questions(
@@ -297,93 +358,6 @@ class TestGoogleDocsProposalImporterFetchQuestions:
         )
 
         assert [q.title for q in result] == ["Imię", "Wiek"]
-
-    def test_synthesizes_email_question_from_sheet_header_at_configured_column(
-        self, google
-    ):
-        # The auto-collected email column doesn't appear in items[]; the Forms
-        # API surfaces collection state on settings.emailCollectionType. With
-        # an email_column set, the importer reads the sheet header at that
-        # 1-indexed column and synthesizes a SourceQuestion the recipe can map
-        # to session.contact_email.
-        form_response = MagicMock(
-            ok=True,
-            json=lambda: {
-                "items": [
-                    {
-                        "title": "Title",
-                        "questionItem": {"question": {"textQuestion": {}}},
-                    }
-                ],
-                "settings": {"emailCollectionType": "RESPONDER_INPUT"},
-            },
-        )
-        sheet_meta = MagicMock(
-            ok=True,
-            json=lambda: {"sheets": [{"properties": {"title": "Form Responses 1"}}]},
-        )
-        sheet_values = MagicMock(
-            ok=True, json=lambda: {"values": [["Timestamp", "email-header", "Title"]]}
-        )
-
-        def get(url: str, **_kwargs: object) -> MagicMock:
-            if url.startswith("https://forms.googleapis.com/"):
-                return form_response
-            if "/values/" in url:
-                return sheet_values
-            return sheet_meta
-
-        google.session.get.side_effect = get
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=2
-        )
-
-        assert [q.title for q in result] == ["Title", "email-header"]
-        email_question = result[-1]
-        assert email_question.field_type == "text"
-        assert email_question.is_multiple is False
-        assert email_question.allow_custom is False
-
-    def test_does_not_synthesize_email_when_column_not_configured(self, google):
-        google.session.get.return_value = MagicMock(
-            ok=True,
-            json=lambda: {
-                "items": [
-                    {
-                        "title": "Title",
-                        "questionItem": {"question": {"textQuestion": {}}},
-                    }
-                ],
-                "settings": {"emailCollectionType": "RESPONDER_INPUT"},
-            },
-        )
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG
-        )
-
-        assert [q.title for q in result] == ["Title"]
-
-    def test_does_not_synthesize_email_when_form_does_not_collect_email(self, google):
-        google.session.get.return_value = MagicMock(
-            ok=True,
-            json=lambda: {
-                "items": [
-                    {
-                        "title": "Title",
-                        "questionItem": {"question": {"textQuestion": {}}},
-                    }
-                ],
-                "settings": {"emailCollectionType": "DO_NOT_COLLECT"},
-            },
-        )
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=2
-        )
-
-        assert [q.title for q in result] == ["Title"]
 
     def test_wrong_config_type_returns_empty(self):
         assert not GoogleDocsProposalImporter().fetch_questions(
@@ -437,10 +411,9 @@ class TestGoogleDocsProposalImporterFetchQuestions:
     def test_duplicate_select_titles_merge_their_setup(self, google):
         # Same title, both select: the second occurrence folds into the first —
         # multiple/allow_custom OR together, options become the deduped union.
-        google.session.get.return_value = MagicMock(
-            ok=True,
-            json=lambda: {
-                "items": [
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [
                     {
                         "title": "Q",
                         "questionItem": {
@@ -468,7 +441,8 @@ class TestGoogleDocsProposalImporterFetchQuestions:
                         },
                     },
                 ]
-            },
+            ),
+            values=_header_values(["Q"]),
         )
 
         result = GoogleDocsProposalImporter().fetch_questions(
@@ -485,58 +459,16 @@ class TestGoogleDocsProposalImporterFetchQuestions:
             )
         ]
 
-    def test_email_header_skipped_when_column_below_one(self, google):
-        google.session.get.return_value = _email_form_response()
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=0
-        )
-
-        # An out-of-range column yields no header, so no email question.
-        assert [q.title for q in result] == ["Title"]
-
-    def test_email_header_skipped_when_responses_tab_has_no_title(self, google):
-        google.session.get.side_effect = _route_email_synthesis(
-            meta=MagicMock(ok=True, json=lambda: {"sheets": []}), values=MagicMock()
+    def test_falls_back_to_form_questions_when_responses_tab_has_no_title(self, google):
+        google.session.get.side_effect = _route_questions(
+            form=_form_response(
+                [{"title": "Title", "questionItem": {"question": {"textQuestion": {}}}}]
+            ),
+            meta=MagicMock(ok=True, json=lambda: {"sheets": []}),
         )
 
         result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=2
-        )
-
-        assert [q.title for q in result] == ["Title"]
-
-    def test_email_header_skipped_when_values_request_fails(self, google):
-        google.session.get.side_effect = _route_email_synthesis(
-            meta=_meta_with_title(), values=MagicMock(ok=False)
-        )
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=2
-        )
-
-        assert [q.title for q in result] == ["Title"]
-
-    def test_email_header_skipped_when_values_are_empty(self, google):
-        google.session.get.side_effect = _route_email_synthesis(
-            meta=_meta_with_title(),
-            values=MagicMock(ok=True, json=lambda: {"values": []}),
-        )
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=2
-        )
-
-        assert [q.title for q in result] == ["Title"]
-
-    def test_email_header_skipped_when_column_exceeds_row_width(self, google):
-        google.session.get.side_effect = _route_email_synthesis(
-            meta=_meta_with_title(),
-            values=MagicMock(ok=True, json=lambda: {"values": [["A"]]}),
-        )
-
-        result = GoogleDocsProposalImporter().fetch_questions(
-            secret=SECRET, config=CONFIG, header_row=1, email_column=5
+            secret=SECRET, config=CONFIG
         )
 
         assert [q.title for q in result] == ["Title"]
@@ -582,16 +514,18 @@ class TestGoogleDocsProposalImporterFetchHeaders:
         )
         assert quote("Form Responses 1!3:3", safe="") in values_url
 
-    def test_duplicate_headers_get_occurrence_suffixes(self, google):
-        # Matches fetch_responses' disambiguation so a unique-key column chosen
-        # here names a key that actually exists on the imported row.
-        google.session.get.side_effect = _route_get(values=[["Dur", "Dur", "Dur"]])
+    def test_repeated_and_blank_headers_collapse(self, google):
+        # ImportRow matches a bare header against every " (2)"-suffixed column,
+        # so one entry addresses them all; a blank cell names no column.
+        google.session.get.side_effect = _route_get(
+            values=[["Dur", "", "Dur", " Dur ", "Tytuł"]]
+        )
 
         result = GoogleDocsProposalImporter().fetch_headers(
             secret=SECRET, config=CONFIG, header_row=1
         )
 
-        assert result == ["Dur", "Dur (2)", "Dur (3)"]
+        assert result == ["Dur", "Tytuł"]
 
     def test_wrong_config_returns_empty(self):
         result = GoogleDocsProposalImporter().fetch_headers(
@@ -620,8 +554,9 @@ class TestGoogleDocsProposalImporterFetchHeaders:
         assert not result
 
     def test_non_ok_values_response_returns_empty(self, google):
-        google.session.get.side_effect = _route_email_synthesis(
-            meta=_meta_with_title(), values=MagicMock(ok=False)
+        failing_values = MagicMock(ok=False)
+        google.session.get.side_effect = lambda url, **_kwargs: (
+            failing_values if "/values/" in url else _meta_with_title()
         )
 
         result = GoogleDocsProposalImporter().fetch_headers(

@@ -1430,10 +1430,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.fetch_questions(
-            secret=plaintext,
-            config=config,
-            header_row=settings.header_row,
-            email_column=settings.email_column,
+            secret=plaintext, config=config, header_row=settings.header_row
         )
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:

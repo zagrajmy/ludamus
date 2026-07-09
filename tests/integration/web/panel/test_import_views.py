@@ -235,7 +235,6 @@ class TestEventImportProposalView:
                 "active_tab": "proposal",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "summary_rows": [],
-                "email_column_missing": True,
             },
             contains="No source questions found yet.",
         )
@@ -290,7 +289,6 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
-                "email_column_missing": True,
             },
         )
         # The Edit action column links each row to the Review tab.
@@ -2183,7 +2181,6 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
-                "email_column": None,
                 "unique_key_columns": [],
                 "available_columns": [],
                 "fields_imported": False,
@@ -2245,7 +2242,6 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": header_row,
-                "email_column": None,
                 "unique_key_columns": ["Email Address"],
                 "available_columns": ["Title", "System"],
                 "fields_imported": True,
@@ -2301,7 +2297,6 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
-                "email_column": None,
                 "unique_key_columns": ["Sygnatura czasowa"],
                 "available_columns": headers,
                 "fields_imported": True,
@@ -2378,70 +2373,6 @@ class TestEventImportSettingsSaveView:
             HTTPStatus.FOUND,
             url=_run_page_url(event, integration),
             messages=[(messages.ERROR, "Header row must be 1 or greater.")],
-        )
-
-    def test_post_saves_email_column_when_provided(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-        email_column = 2
-
-        response = authenticated_client.post(
-            self._save_url(event, integration),
-            data={"header_row": "1", "email_column": str(email_column)},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_run_page_url(event, integration),
-            messages=[(messages.SUCCESS, "Sheet settings saved.")],
-        )
-        integration.refresh_from_db()
-        settings = ImportSettings.model_validate_json(integration.settings_json)
-        assert settings.email_column == email_column
-
-    def test_post_clears_email_column_when_blank(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-        integration.settings_json = json.dumps({"email_column": 2})
-        integration.save(update_fields=["settings_json"])
-
-        response = authenticated_client.post(
-            self._save_url(event, integration),
-            data={"header_row": "1", "email_column": ""},
-        )
-
-        assert response.status_code == HTTPStatus.FOUND
-        integration.refresh_from_db()
-        settings = ImportSettings.model_validate_json(integration.settings_json)
-        assert settings.email_column is None
-
-    def test_post_rejects_non_positive_email_column(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-
-        response = authenticated_client.post(
-            self._save_url(event, integration),
-            data={"header_row": "1", "email_column": "0"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_run_page_url(event, integration),
-            messages=[(messages.ERROR, "Email column must be 1 or greater.")],
         )
 
 
@@ -3912,7 +3843,6 @@ class TestImportDistinctSessionsSameName:
                     "Adres e-mail": {"to": "session.contact_email"},
                 },
                 "unique_key_columns": unique_key_columns,
-                "email_column": 2,
                 "header_row": 1,
             }
         )

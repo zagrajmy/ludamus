@@ -35,19 +35,6 @@
                                class="w-32 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-foreground"
-                               for="email_column">{% translate "Email column" %}</label>
-                        <p class="mb-2 text-xs text-foreground-muted">
-                            {% translate "The 1-indexed sheet column that holds the auto-collected respondent email. Leave blank if the form does not collect email; otherwise set it so the importer can synthesize a question that maps to the proposal's contact email." %}
-                        </p>
-                        <input type="number"
-                               id="email_column"
-                               name="email_column"
-                               value="{{ email_column|default_if_none:'' }}"
-                               min="1"
-                               class="w-32 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                    </div>
-                    <div>
                         <p class="mb-1 text-sm font-medium text-foreground">{% translate "Unique key columns" %}</p>
                         <p class="mb-2 text-xs text-foreground-muted">
                             {% translate "Columns whose values together identify a row uniquely. Retry uses them to find the same row again after the sheet shifts." %}
