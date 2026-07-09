@@ -2305,3 +2305,110 @@ class TestSessionEnrollInline:
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session
         ).exists()
+
+
+@pytest.mark.django_db
+class TestSeatProjection:
+    # The page tells the viewer who gets a seat and who joins the waiting list:
+    # a static seats-left line plus data attributes that drive the client-side
+    # per-row projection (enroll-preview.ts) with the same seat accounting as
+    # the server routing.
+    URL_NAME = "web:chronology:session-enrollment"
+
+    def _url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_seats_left_line_and_projection_scaffolding(
+        self, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        session.participants_limit = 2
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        content = " ".join(response.content.decode().split())
+        assert "There is 1 seat left" in content
+        assert 'data-seats-left="1"' in content
+        assert "data-enroll-preview" in content
+        assert 'data-msg-seat="Gets a seat"' in content
+        assert 'data-msg-wait="Joins the waiting list"' in content
+        assert 'data-msg-leave="Will leave the session"' in content
+        assert 'data-current-in="0"' in content
+        assert 'data-occupies-seat="0"' in content
+        assert "data-seat-hint" in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_full_session_says_everyone_joins_the_waiting_list(
+        self, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        content = " ".join(response.content.decode().split())
+        assert (
+            "The session is full — everyone you add joins the waiting list." in content
+        )
+        assert 'data-seats-left="0"' in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_unlimited_session_has_no_seat_counter(self, agenda_item, staff_client):
+        session = agenda_item.session
+        session.participants_limit = 0
+        session.save(update_fields=["participants_limit"])
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        content = " ".join(response.content.decode().split())
+        assert "Tick everyone who should take part." in content
+        assert "data-seats-left" not in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_enrolled_viewer_row_occupies_a_seat(
+        self, staff_user, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        content = " ".join(response.content.decode().split())
+        assert 'data-current-in="1"' in content
+        assert 'data-occupies-seat="1"' in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_waiting_viewer_row_frees_no_seat(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # A waiting-list place is not a seat: unticking it must not credit the
+        # projection with a freed seat, mirroring OCCUPYING_PARTICIPATION_STATUSES.
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user, session=session, status=SessionParticipationStatus.WAITING
+        )
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        content = " ".join(response.content.decode().split())
+        assert 'data-current-in="1"' in content
+        assert 'data-occupies-seat="0"' in content

@@ -40,6 +40,7 @@ export default defineConfig({
         copy: resolve(rootDir, "src/copy.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
+        "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
         "event-timeline": resolve(rootDir, "src/event-timeline.ts"),
         flash: resolve(rootDir, "src/flash.ts"),

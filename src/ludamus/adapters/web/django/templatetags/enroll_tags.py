@@ -10,6 +10,7 @@ from django.utils.translation import gettext as _
 if TYPE_CHECKING:
     from django import forms
 
+    from ludamus.adapters.db.django.models import Session
     from ludamus.adapters.web.django.entities import SessionUserParticipationData
 
 register = template.Library()
@@ -25,6 +26,10 @@ class EnrollRowState:
     reason: str
     badge_variant: str
     badge_label: str
+    # Unticking this person frees a confirmed seat (CONFIRMED, or an OFFERED
+    # held seat / pending offer) — a waiting-list place frees nothing. Feeds
+    # the client-side projection so it counts exactly like the server routing.
+    occupies_seat: bool = False
 
 
 # Status renders as a small colored dot beside neutral text — never text on a
@@ -86,6 +91,7 @@ def enroll_row_state(
             reason=reason,
             badge_variant=variant,
             badge_label=label,
+            occupies_seat=(data.user_enrolled or data.seat_held or data.offer_pending),
         )
 
     if data.has_time_conflict:
@@ -108,3 +114,13 @@ def enroll_row_state(
 @register.filter
 def badge_classes(variant: str) -> str:
     return _BADGE_CLASSES.get(variant, _BADGE_CLASSES["muted"])
+
+
+@register.simple_tag
+def enroll_seats_left(session: Session) -> int | None:
+    # None means unlimited. Mirrors EnrollmentConfig.get_available_slots for the
+    # most liberal config: effective_participants_limit already applies that
+    # config's percentage, and enrolled_count counts the occupying statuses.
+    if session.participants_limit == 0:
+        return None
+    return max(0, session.effective_participants_limit - session.enrolled_count)

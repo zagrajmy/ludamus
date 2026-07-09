@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load enroll_tags %}
+{% load django_vite %}
 {% block title %}
     {% translate "Enrollment" %} - {{ session.title }}
 {% endblock title %}
@@ -112,16 +113,33 @@
                     <input type="hidden" name="party" value="none">
                 {% endif %}
                 <h2 class="text-lg font-semibold mb-1">{% translate "Who should be in this session?" %}</h2>
+                {% enroll_seats_left session as seats_left %}
                 <p class="text-sm text-foreground-muted mb-4">
-                    {% translate "Tick everyone who should take part. If the session is full, they join the waiting list automatically." %}
+                    {% if seats_left is None %}
+                        {% translate "Tick everyone who should take part." %}
+                    {% elif seats_left == 0 %}
+                        {% translate "The session is full — everyone you add joins the waiting list." %}
+                    {% else %}
+                        {% blocktranslate count counter=seats_left %}There is {{ counter }} seat left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% plural %}There are {{ counter }} seats left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% endblocktranslate %}
+                    {% endif %}
                 </p>
                 {# One quiet surface holds every seat-consumer: people rows first, #}
                 {# then the guests stepper. The whole row is the toggle's hit area. #}
-                <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden mb-6">
+                {# The data attributes feed enroll-preview.ts, which projects each #}
+                {# ticked row to "gets a seat" / "joins the waiting list" using the #}
+                {# same order and seat accounting as the server's routing. #}
+                <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden mb-6"
+                     data-enroll-preview
+                     {% if seats_left is not None %}data-seats-left="{{ seats_left }}"{% endif %}
+                     data-msg-seat="{% translate "Gets a seat" %}"
+                     data-msg-wait="{% translate "Joins the waiting list" %}"
+                     data-msg-leave="{% translate "Will leave the session" %}">
                     <ul class="divide-y divide-border">
                         {% for row in user_data %}
                             {% enroll_row_state form row as state %}
-                            <li>
+                            <li data-enroll-row
+                                data-current-in="{% if state.checked %}1{% else %}0{% endif %}"
+                                data-occupies-seat="{% if state.occupies_seat %}1{% else %}0{% endif %}">
                                 <label class="flex items-center gap-3 px-4 py-3 transition-colors {% if state.disabled %}opacity-60 cursor-not-allowed{% else %}cursor-pointer hover:bg-bg-tertiary{% endif %}">
                                     {% include "components/avatar.html" with user=row.user size="size-10" %}
                                     <span class="min-w-0 flex-1">
@@ -143,6 +161,7 @@
                                             {% if state.disabled and state.reason and state.reason != state.badge_label %}
                                                 <span class="text-foreground-muted">{{ state.reason }}</span>
                                             {% endif %}
+                                            <span data-seat-hint hidden class="font-medium" aria-live="polite"></span>
                                         </span>
                                     </span>
                                     <input type="checkbox"
@@ -187,3 +206,6 @@
         </div>
     </div>
 {% endblock body %}
+{% block extra_scripts %}
+    {% vite_asset 'src/enroll-preview.ts' %}
+{% endblock extra_scripts %}
