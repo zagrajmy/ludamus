@@ -55,10 +55,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         # alongside (a co-participant of a session the owner also joined), plus
         # anyone already shadowbanned so a ban can always be lifted.
         played_alongside = Q(
-            **{
-                "session_participations__session"
-                "__session_participations__user_id": owner_id
-            }
+            session_participations__session__session_participations__user_id=owner_id
         )
         players = (
             User.objects.filter(
