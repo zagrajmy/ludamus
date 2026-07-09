@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import Mock, patch
@@ -26,6 +27,12 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
+
+
+def _input_tag(content: str, pk: int) -> str:
+    match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
+    assert match, f"no checkbox for user_{pk}"
+    return match.group(0)
 
 
 def _url(agenda_item):
@@ -108,11 +115,14 @@ class TestHeldSeatForConsentingMember:
 
         response = authenticated_client.get(_url(agenda_item))
 
-        content = response.content.decode()
+        content = " ".join(response.content.decode().split())
         assert "Mira Member" in content
-        assert "Hold a seat — needs their approval" in content
+        # Ticking the box holds a seat the member must approve; the hint says so
+        # and there is no separate waiting-list control.
+        assert "needs their approval" in content
         member = User.objects.get(username="member")
-        assert f'id="user_{member.pk}_waitlist"' not in content
+        assert f'name="user_{member.pk}" value="include"' in content
+        assert "waitlist" not in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_holds_offered_seat_and_notifies(
@@ -546,11 +556,13 @@ class TestWayOutOfHeldSeat:
 
         response = authenticated_client.get(_url(agenda_item))
 
-        content = response.content.decode()
+        content = " ".join(response.content.decode().split())
         assert "Seat held — awaiting their approval" in content
-        assert f'id="user_{member.pk}_cancel"' in content
-        assert f'id="user_{member.pk}_enroll"' not in content
-        assert f'id="user_{member.pk}_waitlist"' not in content
+        # The held seat starts checked and stays toggleable, so unchecking it
+        # withdraws the seat.
+        tag = _input_tag(content, member.pk)
+        assert "checked" in tag
+        assert "disabled" not in tag
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_leader_withdraws_held_seat(

@@ -130,6 +130,14 @@ def _build_fallback_choices(
     return [("", _("No change"))], _("No enrollment options available")
 
 
+# The desired-state checkbox on the full enroll page posts this token when a
+# person is included; the view diffs it against current participation and routes
+# to a confirmed seat or the waiting list. Legacy string values ("enroll",
+# "waitlist", "cancel") still flow through unchanged for the one-click inline
+# fragment on the event page.
+INCLUDE_VALUE = "include"
+
+
 class _UserEnrollmentChoiceField(forms.ChoiceField):
     def __init__(
         self,
@@ -148,7 +156,19 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
         self._current_user = current_user
         super().__init__(**kwargs)
 
+    def to_python(self, value: object) -> str:
+        # A checked "Include" box posts "include" (or a bare "on"); normalise both
+        # to the canonical include token before validation.
+        if value in {"on", INCLUDE_VALUE}:
+            return INCLUDE_VALUE
+        return str(super().to_python(value))
+
     def validate(self, value: str) -> None:
+        # "include" is the desired-state intent; eligibility is enforced by the
+        # per-person choices already baked into this field and re-checked by the
+        # view when it routes, so accept it here without the choice-membership test.
+        if value == INCLUDE_VALUE:
+            return
         if value and value not in [choice[0] for choice in self.choices]:  # type: ignore [index, union-attr]
             user_name = self.user_obj.name or _("User")
             self._validate_rejected_value(value, user_name)
@@ -188,12 +208,25 @@ def _make_enrollment_clean(
     all_users: list[UserDTO],
     enrollment_config: EnrollmentConfig | None,
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
-    field_to_user_name: dict[str, str],
     enrollment: EnrollmentServiceProtocol,
+    currently_seated_pks: set[int],
 ) -> Callable[..., dict[str, Any] | None]:
     # Only user_* fields count against the membership slot cap: +N guests are
     # walk-ins without memberships, so they intentionally bypass it — the
     # session capacity check still gates them.
+    name_by_pk = {user.pk: user.full_name for user in all_users}
+
+    def _is_new_seat(field_name: str, value: object) -> bool:
+        if not field_name.startswith("user_"):
+            return False
+        # Explicit "enroll" (inline fragment / legacy) always counts; a checkbox
+        # "include" only counts when it newly seats someone not already in.
+        if value == "enroll":
+            return True
+        return (
+            value == INCLUDE_VALUE
+            and int(field_name.split("_")[1]) not in currently_seated_pks
+        )
 
     def clean(self: forms.Form) -> dict[str, Any] | None:
         if not (cleaned_data := forms.Form.clean(self)):
@@ -202,7 +235,7 @@ def _make_enrollment_clean(
         enroll_requests = [
             user
             for field_name, value in cleaned_data.items()
-            if field_name.startswith("user_") and value == "enroll"
+            if _is_new_seat(field_name, value)
             for user in all_users
             if user.pk == int(field_name.split("_")[1])
         ]
@@ -229,9 +262,9 @@ def _make_enrollment_clean(
             user_field = next(
                 field_name
                 for field_name, value in cleaned_data.items()
-                if field_name.startswith("user_") and value == "enroll"
+                if _is_new_seat(field_name, value)
             )
-            user_name = field_to_user_name.get(user_field, "User")
+            user_name = name_by_pk.get(int(user_field.split("_")[1]), "User")
             self.add_error(
                 user_field,
                 (
@@ -359,7 +392,6 @@ def create_enrollment_form(
     )
 
     form_fields: dict[str, forms.Field] = {}
-    field_to_user_name: dict[str, str] = {}
 
     seated = [
         RosterMember(user=current_user),
@@ -367,11 +399,16 @@ def create_enrollment_form(
         *roster.members,
     ]
     member_pks = {member.user.pk for member in roster.members}
+    # Anyone already holding any participation on this session: a checkbox
+    # "include" for them is a no-op, so it must not count against the slot cap.
+    currently_seated_pks: set[int] = set()
     for seat in seated:
         user = seat.user
         current_participation = SessionParticipation.objects.filter(
             session=session, user_id=user.pk
         ).first()
+        if current_participation is not None:
+            currently_seated_pks.add(user.pk)
         has_conflict = Session.objects.has_conflicts(session, user)
         can_join_wl = _can_join_waitlist(
             user=user,
@@ -410,7 +447,6 @@ def create_enrollment_form(
                 )
 
         field_name = f"user_{user.pk}"
-        field_to_user_name[field_name] = user.full_name
         form_fields[field_name] = _UserEnrollmentChoiceField(
             user_obj=user,
             enrollment_config=enrollment_config,
@@ -437,8 +473,8 @@ def create_enrollment_form(
         all_users=[current_user, *roster.companions],
         enrollment_config=enrollment_config,
         current_user_enrollment_config=current_user_enrollment_config,
-        field_to_user_name=field_to_user_name,
         enrollment=enrollment,
+        currently_seated_pks=currently_seated_pks,
     )
 
     if roster.guest_count is not None:

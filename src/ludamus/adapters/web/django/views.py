@@ -45,7 +45,11 @@ from ludamus.adapters.web.django.entities import (
     build_schedule_days,
     group_sessions_by_state,
 )
-from ludamus.adapters.web.django.forms import EnrollmentRoster, RosterMember
+from ludamus.adapters.web.django.forms import (
+    INCLUDE_VALUE,
+    EnrollmentRoster,
+    RosterMember,
+)
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
@@ -1279,7 +1283,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
 
         # Only validate enrollment requirements when form is valid
-        enrollment_requests = self._get_enrollment_requests(form, roster)
+        enrollment_requests = self._get_enrollment_requests(form, roster, session)
         try:
             enrollment_config = self._validate_request(session, enrollment_requests)
             self._manage_enrollments(
@@ -1306,11 +1310,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return self._render_enroll_actions(session)
         return redirect("web:chronology:event", slug=session.event.slug)
 
-    def _get_enrollment_requests(
-        self, form: forms.Form, roster: EnrollmentRoster
-    ) -> list[EnrollmentRequest]:
-        enrollment_requests = []
-        household = [
+    def _household(self, roster: EnrollmentRoster) -> list[RosterMember]:
+        return [
             *(
                 RosterMember(user=user)
                 for user in (
@@ -1322,6 +1323,23 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             ),
             *roster.members,
         ]
+
+    def _get_enrollment_requests(
+        self, form: forms.Form, roster: EnrollmentRoster, session: Session
+    ) -> list[EnrollmentRequest]:
+        # The full page submits a single "include" checkbox per person and lets
+        # the system decide seat-vs-waitlist (desired-state mode). The one-click
+        # inline fragment on the event page still posts explicit enroll / waitlist
+        # / cancel actions, which keep their exact legacy semantics.
+        if self.request.POST.get("enroll_mode") == "desired":
+            return self._desired_state_requests(form, roster, session)
+        return self._explicit_requests(form, roster)
+
+    def _explicit_requests(
+        self, form: forms.Form, roster: EnrollmentRoster
+    ) -> list[EnrollmentRequest]:
+        enrollment_requests = []
+        household = self._household(roster)
         member_pks = {member.user.pk for member in roster.members}
         for member in household:
             user = member.user
@@ -1329,8 +1347,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             if not user.is_active:
                 continue
             user_field = f"user_{user.pk}"
-            if form.cleaned_data.get(user_field):
-                choice = form.cleaned_data[user_field]
+            choice = form.cleaned_data.get(user_field)
+            if choice and choice != INCLUDE_VALUE:
                 enrollment_requests.append(
                     EnrollmentRequest(
                         user=user,
@@ -1341,6 +1359,110 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     )
                 )
         return enrollment_requests
+
+    _CURRENTLY_IN_STATUSES = (
+        SessionParticipationStatus.CONFIRMED,
+        SessionParticipationStatus.WAITING,
+        SessionParticipationStatus.OFFERED,
+    )
+
+    def _desired_state_requests(
+        self, form: forms.Form, roster: EnrollmentRoster, session: Session
+    ) -> list[EnrollmentRequest]:
+        household = self._household(roster)
+        member_pks = {member.user.pk for member in roster.members}
+        active = [member for member in household if member.user.is_active]
+        status_by_pk = {
+            participation.user_id: participation.status
+            for participation in SessionParticipation.objects.filter(
+                session=session, user_id__in=[member.user.pk for member in active]
+            )
+        }
+
+        cancels: list[EnrollmentRequest] = []
+        wants_in: list[RosterMember] = []
+        freed = 0
+        for member in active:
+            user = member.user
+            choices = self._choice_values(form, user.pk)
+            desired_in = form.cleaned_data.get(f"user_{user.pk}") == INCLUDE_VALUE
+            status = status_by_pk.get(user.pk)
+            currently_in = status in self._CURRENTLY_IN_STATUSES
+            if desired_in:
+                # A conflicting person cannot be brought in (they would only be
+                # skipped in processing anyway); leave them untouched.
+                if currently_in or Session.objects.has_conflicts(session, user):
+                    continue
+                if "enroll" in choices or "waitlist" in choices:
+                    wants_in.append(member)
+            elif currently_in and "cancel" in choices:
+                cancels.append(
+                    EnrollmentRequest(
+                        user=user,
+                        choice=EnrollmentChoice.CANCEL,
+                        name=user.full_name,
+                        is_party_member=user.pk in member_pks,
+                        needs_accept=member.needs_accept,
+                    )
+                )
+                if status in OCCUPYING_PARTICIPATION_STATUSES:
+                    freed += 1
+
+        return cancels + self._route_wants_in(
+            form, session, wants_in, member_pks, freed
+        )
+
+    def _route_wants_in(
+        self,
+        form: forms.Form,
+        session: Session,
+        wants_in: list[RosterMember],
+        member_pks: set[int],
+        freed: int,
+    ) -> list[EnrollmentRequest]:
+        # Fill confirmed seats first (viewer, then companions, then members — the
+        # household order), overflow to the waiting list. Counting matches
+        # _is_capacity_invalid so the capacity net never rejects this routing.
+        enrollment_config = session.event.get_most_liberal_config(session)
+        available = freed + (
+            enrollment_config.get_available_slots(session) if enrollment_config else 0
+        )
+        routed: list[EnrollmentRequest] = []
+        for member in wants_in:
+            user = member.user
+            choices = self._choice_values(form, user.pk)
+            has_room = available > 0
+            if member.needs_accept:
+                # A held seat always occupies a confirmed spot; there is no
+                # waiting-list form of it, so only offer one when there is room.
+                if not has_room:
+                    continue
+                choice = EnrollmentChoice.ENROLL
+            elif has_room and "enroll" in choices:
+                choice = EnrollmentChoice.ENROLL
+            elif "waitlist" in choices:
+                choice = EnrollmentChoice.WAITLIST
+            else:
+                # Full and this person cannot wait (limit reached / no access).
+                continue
+            if choice == EnrollmentChoice.ENROLL:
+                available -= 1
+            routed.append(
+                EnrollmentRequest(
+                    user=user,
+                    choice=choice,
+                    name=user.full_name,
+                    is_party_member=user.pk in member_pks,
+                    needs_accept=member.needs_accept,
+                )
+            )
+        return routed
+
+    @staticmethod
+    def _choice_values(form: forms.Form, user_pk: int) -> set[str]:
+        if (form_field := form.fields.get(f"user_{user_pk}")) is None:
+            return set()
+        return {choice[0] for choice in form_field.choices}  # type: ignore[attr-defined]
 
     def _process_enrollments(
         self,
@@ -1644,7 +1766,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         roster: EnrollmentRoster,
         party_pk: int | None,
     ) -> None:
-        enrollment_requests = self._get_enrollment_requests(form, roster)
+        enrollment_requests = self._get_enrollment_requests(form, roster, session)
         # An empty guests box means "leave unchanged" (the field is prefilled
         # with the current count, so this only happens when cleared on purpose).
         guests_target: int | None = (

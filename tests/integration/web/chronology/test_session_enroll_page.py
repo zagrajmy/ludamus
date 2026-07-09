@@ -1,3 +1,4 @@
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
@@ -32,6 +33,14 @@ from tests.integration.conftest import (
     sponsor_user,
 )
 from tests.integration.utils import assert_response
+
+
+def _input_tag(content: str, pk: int) -> str:
+    # The single <input> tag for a person's Include checkbox, so a test can check
+    # its checked / disabled attributes without depending on attribute order.
+    match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
+    assert match, f"no checkbox for user_{pk}"
+    return match.group(0)
 
 
 def _party_context(viewer):
@@ -78,9 +87,11 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    def test_get_renders_default_checked_no_change_radio_per_row(
+    def test_get_renders_one_include_checkbox_per_row(
         self, active_user, connected_user, authenticated_client, agenda_item
     ):
+        # The desired-state redesign: one "Include" checkbox per person, checked
+        # when they are already in, unchecked otherwise. No enroll/waitlist split.
         connected_user.name = "Connected Person"
         connected_user.save()
         SessionParticipation.objects.create(
@@ -121,11 +132,11 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
         content = " ".join(response.content.decode().split())
+        assert 'name="enroll_mode" value="desired"' in content
         for user in (active_user, connected_user):
-            assert (
-                f'name="user_{user.pk}" id="user_{user.pk}_no_change" '
-                f'aria-label="No change: {user.full_name}" value="" checked' in content
-            )
+            assert f'name="user_{user.pk}" value="include"' in content
+        # The already-enrolled companion starts checked.
+        assert _input_tag(content, connected_user.pk).count("checked") == 1
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_no_change_value_leaves_user_unenrolled(
@@ -183,25 +194,19 @@ class TestSessionEnrollPageView:
                 ],
             },
             template_name="chronology/enroll_select.html",
-            contains=[
-                "Spot offered",
-                f'id="user_{active_user.pk}_cancel"',
-                'value="cancel"',
-            ],
-            not_contains=[
-                f'id="user_{active_user.pk}_enroll"',
-                f'id="user_{active_user.pk}_waitlist"',
-            ],
+            contains=["Spot offered"],
         )
         field = response.context_data["form"].fields[f"user_{active_user.pk}"]
         assert ("cancel", "Decline offer") in list(field.choices)
-        content = response.content.decode()
-        # The generic pending-offer chip (not the leader-held-seat one), and a
-        # rendered decline radio so the way out is on the page, not only in
-        # the form definition.
+        content = " ".join(response.content.decode().split())
+        # The generic pending-offer chip (not the leader-held-seat one). The
+        # Include box starts checked (they hold a spot) and stays toggleable, so
+        # unchecking it declines the offer.
         assert "Spot offered" in content
         assert "Seat held" not in content
-        assert f'id="user_{active_user.pk}_cancel"' in content
+        tag = _input_tag(content, active_user.pk)
+        assert "checked" in tag
+        assert "disabled" not in tag
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_decline_offered(
@@ -1963,6 +1968,172 @@ class TestSessionEnrollPageView:
             session_id=session.pk, status=SessionParticipationStatus.CONFIRMED
         ).count()
         assert confirmed == 1
+
+
+@pytest.mark.django_db
+class TestDesiredStateRouting:
+    # The full page posts one "include" checkbox per person plus the
+    # enroll_mode=desired marker; the system routes each included person to a
+    # confirmed seat or the waiting list. Enroll and waitlist are one intent now.
+    def _url(self, session):
+        return reverse(
+            "web:chronology:session-enrollment",
+            kwargs={"event_slug": session.event.slug, "session_id": session.pk},
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_include_with_room_confirms(
+        self, staff_user, agenda_item, staff_client, event
+    ):
+        response = staff_client.post(
+            self._url(agenda_item.session),
+            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        SessionParticipation.objects.get(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_include_on_full_session_waitlists_without_error(
+        self, staff_user, agenda_item, staff_client, session, event
+    ):
+        # The key single-intent change: a full session no longer errors — the
+        # included person simply lands on the waiting list.
+        session.participants_limit = 1
+        session.save()
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(agenda_item.session),
+            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Added to waiting list: {staff_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        SessionParticipation.objects.get(
+            user=staff_user, session=session, status=SessionParticipationStatus.WAITING
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_unchecking_an_enrolled_person_cancels(
+        self, active_user, agenda_item, authenticated_client, event
+    ):
+        agenda_item.session.presenter = None
+        agenda_item.session.save(update_fields=["presenter_id"])
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        # The box is left unchecked (omitted) — desired state is "out".
+        response = authenticated_client.post(
+            self._url(agenda_item.session), data={"enroll_mode": "desired"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_including_more_than_seats_confirms_first_then_waitlists(
+        self,
+        active_user,
+        connected_user,
+        agenda_item,
+        authenticated_client,
+        session,
+        event,
+    ):
+        session.participants_limit = 1
+        session.save()
+        agenda_item.session.presenter = None
+        agenda_item.session.save(update_fields=["presenter_id"])
+
+        response = authenticated_client.post(
+            self._url(agenda_item.session),
+            data={
+                "enroll_mode": "desired",
+                f"user_{active_user.id}": "include",
+                f"user_{connected_user.id}": "include",
+            },
+        )
+
+        # Household order (viewer first) decides who gets the seat.
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, f"Enrolled: {active_user.name}"),
+                (messages.SUCCESS, f"Added to waiting list: {connected_user.name}"),
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert (
+            SessionParticipation.objects.get(user=active_user, session=session).status
+            == SessionParticipationStatus.CONFIRMED
+        )
+        assert (
+            SessionParticipation.objects.get(
+                user=connected_user, session=session
+            ).status
+            == SessionParticipationStatus.WAITING
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_swap_out_frees_a_seat_for_someone_included(
+        self, active_user, connected_user, agenda_item, authenticated_client, session
+    ):
+        # Uncheck the seated viewer and include the companion on a full session:
+        # the freed seat is credited so the companion is confirmed, not waitlisted.
+        session.participants_limit = 1
+        session.save()
+        agenda_item.session.presenter = None
+        agenda_item.session.save(update_fields=["presenter_id"])
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._url(agenda_item.session),
+            data={"enroll_mode": "desired", f"user_{connected_user.id}": "include"},
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
+        ).exists()
+        assert (
+            SessionParticipation.objects.get(
+                user=connected_user, session=session
+            ).status
+            == SessionParticipationStatus.CONFIRMED
+        )
 
 
 @pytest.mark.django_db
