@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 from django.contrib import messages
@@ -67,6 +67,12 @@ class TestDirectEnrollmentWithPowerOfAttorney:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = response.content.decode()
         assert "Mira Member" in content
         assert "Hold a seat" not in content
@@ -108,6 +114,12 @@ class TestHeldSeatForConsentingMember:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = " ".join(response.content.decode().split())
         assert "Mira Member" in content
         # Ticking the box holds a seat the member must approve; the hint says so
@@ -228,6 +240,12 @@ class TestHeldSeatForConsentingMember:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = response.content.decode()
         # No action radios for a member who handles their own enrollment.
         assert f'id="user_{member.pk}_enroll"' not in content
@@ -256,6 +274,12 @@ class TestHeldSeatUnavailable:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = response.content.decode()
         assert response.status_code == HTTPStatus.OK
         assert "Mira Member" in content
@@ -299,6 +323,12 @@ class TestHeldSeatUnavailable:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = response.content.decode()
         assert response.status_code == HTTPStatus.OK
         assert "Mira Member" in content
@@ -449,6 +479,12 @@ class TestMemberAllowanceOnRestrictedEvent:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = response.content.decode()
         assert response.status_code == HTTPStatus.OK
         assert "Mira Member" in content
@@ -466,6 +502,12 @@ class TestMemberAllowanceOnRestrictedEvent:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = response.content.decode()
         assert response.status_code == HTTPStatus.OK
         assert f'id="user_{member.pk}_enroll"' not in content
@@ -549,6 +591,19 @@ class TestWayOutOfHeldSeat:
 
         response = authenticated_client.get(_url(agenda_item))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+            # The hold's own flash from the setup POST is rendered on this GET.
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                )
+            ],
+        )
         content = " ".join(response.content.decode().split())
         assert "Seat held — awaiting their approval" in content
         # The held seat starts checked and stays toggleable, so unchecking it

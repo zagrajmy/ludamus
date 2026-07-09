@@ -2326,6 +2326,12 @@ class TestSeatProjection:
 
         response = staff_client.get(self._url(session.pk, session.event.slug))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = " ".join(response.content.decode().split())
         assert "There is 1 seat left" in content
         assert 'data-seats-left="1"' in content
@@ -2352,6 +2358,12 @@ class TestSeatProjection:
 
         response = staff_client.get(self._url(session.pk, session.event.slug))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = " ".join(response.content.decode().split())
         assert (
             "The session is full — everyone you add joins the waiting list." in content
@@ -2366,6 +2378,12 @@ class TestSeatProjection:
 
         response = staff_client.get(self._url(session.pk, session.event.slug))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = " ".join(response.content.decode().split())
         assert "Tick everyone who should take part." in content
         assert "data-seats-left" not in content
@@ -2383,6 +2401,12 @@ class TestSeatProjection:
 
         response = staff_client.get(self._url(session.pk, session.event.slug))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = " ".join(response.content.decode().split())
         assert 'data-current-in="1"' in content
         assert 'data-occupies-seat="1"' in content
@@ -2400,6 +2424,12 @@ class TestSeatProjection:
 
         response = staff_client.get(self._url(session.pk, session.event.slug))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+        )
         content = " ".join(response.content.decode().split())
         assert 'data-current-in="1"' in content
         assert 'data-occupies-seat="0"' in content
@@ -2512,3 +2542,81 @@ class TestDesiredStateEdgeCases:
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session
         ).exists()
+
+
+@pytest.mark.django_db
+class TestOutcomeStatedCta:
+    # Luma-style registration: the solo viewer's box starts ticked and the
+    # panel's primary action states the outcome, so joining is one click.
+    URL_NAME = "web:chronology:session-enrollment"
+
+    def _url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_solo_viewer_is_prechecked_and_cta_says_join(
+        self, staff_user, agenda_item, staff_client
+    ):
+        response = staff_client.get(
+            self._url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+            contains=["Join this session"],
+            not_contains=["Save changes"],
+        )
+        content = " ".join(response.content.decode().split())
+        assert "checked" in input_tag(content, staff_user.pk)
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_full_session_cta_says_join_the_waiting_list(
+        self, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+            contains=["Join the waiting list"],
+            not_contains=["Join this session"],
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_enrolled_viewer_gets_save_changes(
+        self, staff_user, agenda_item, staff_client
+    ):
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.get(
+            self._url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+            contains=["Save changes"],
+            not_contains=["Join this session"],
+        )

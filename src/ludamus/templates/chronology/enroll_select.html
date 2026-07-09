@@ -170,12 +170,15 @@
                                             <span data-seat-hint hidden class="font-medium" aria-live="polite"></span>
                                         </span>
                                     </span>
+                                    {# The viewer's own box starts ticked when they can join — the #}
+                                    {# common case is "I want in", so the primary action is one click #}
+                                    {# (the strong default; untick only to deviate). #}
                                     <input type="checkbox"
                                            class="w-5 h-5 rounded border border-border accent-primary shrink-0 focus:ring-1 focus:ring-offset-0"
                                            name="user_{{ row.user.pk }}"
                                            value="include"
                                            aria-label="{% blocktranslate with name=row.user.full_name %}Include {{ name }}{% endblocktranslate %}"
-                                           {% if state.checked %}checked{% endif %}
+                                           {% if state.checked or row.user.pk == request.user.pk and not state.disabled %}checked{% endif %}
                                            {% if state.disabled %}disabled{% endif %}>
                                 </label>
                             </li>
@@ -186,28 +189,46 @@
                             <div class="max-w-xs">{% tessera_field form.guests %}</div>
                         </div>
                     {% endif %}
+                    {# The action is anchored to the panel it acts on, and its label #}
+                    {# states the outcome for the common solo case instead of a #}
+                    {# generic "save". #}
+                    <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-3">
+                        <a href="{% url 'web:chronology:event' slug=event.slug %}"
+                           class="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground">
+                            {% icon "arrow-left" class="w-4 h-4" variant="mini" %}
+                            {% translate "Back to event" %}
+                        </a>
+                        {% enroll_row_state form user_data.0 as viewer_state %}
+                        {% if user_data|length == 1 and not viewer_state.checked and not viewer_state.disabled %}
+                            {% if seats_left is None or seats_left > 0 %}
+                                <button type="submit" class="btn btn-primary">
+                                    {% icon "user-plus" class="w-4 h-4" %}
+                                    {% translate "Join this session" %}
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-primary">
+                                    {% icon "clock" class="w-4 h-4" %}
+                                    {% translate "Join the waiting list" %}
+                                </button>
+                            {% endif %}
+                        {% else %}
+                            <button type="submit" class="btn btn-primary">
+                                {% icon "check" class="w-4 h-4" %}
+                                {% translate "Save changes" %}
+                            </button>
+                        {% endif %}
+                    </div>
                 </div>
                 {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                 {% if user_data|length == 1 %}
                     {% if not party_choices or selected_party.is_own_led %}
-                        <p class="text-sm text-foreground-muted mb-6">
+                        <p class="text-sm text-foreground-muted">
                             {% translate "No companions available. You can add companions to your party in your" %}
                             <a href="{% url 'web:crowd:profile-parties' %}"
                                class="text-primary hover:underline">{% translate "profile settings" %}</a>.
                         </p>
                     {% endif %}
                 {% endif %}
-                <div class="flex items-center justify-between gap-3">
-                    <a href="{% url 'web:chronology:event' slug=event.slug %}"
-                       class="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground">
-                        {% icon "arrow-left" class="w-4 h-4" variant="mini" %}
-                        {% translate "Back to event" %}
-                    </a>
-                    <button type="submit" class="btn btn-primary">
-                        {% icon "check" class="w-4 h-4" %}
-                        {% translate "Save who's in" %}
-                    </button>
-                </div>
             </form>
         </div>
     </div>

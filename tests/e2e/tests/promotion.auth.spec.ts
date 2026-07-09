@@ -47,7 +47,7 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
   // The superuser is the only user on this page, so its Include box is unique;
   // unticking it means "I should be out" and saving cancels the seat.
   await adminPage.getByRole("checkbox", { name: /Include/i }).uncheck();
-  await adminPage.getByRole("button", { name: /Save who/ }).click();
+  await adminPage.getByRole("button", { name: /Save changes/ }).click();
   await adminPage.waitForURL(/\/event\//);
   await adminContext.close();
 

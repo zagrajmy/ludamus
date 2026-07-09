@@ -11,13 +11,15 @@
 
 const root = document.querySelector<HTMLElement>("[data-enroll-preview]");
 
-const HINT_TONES: Record<string, string[]> = {
+type HintTone = "leave" | "seat" | "wait";
+
+const HINT_TONES: Record<HintTone, string[]> = {
   leave: ["text-foreground-muted"],
   seat: ["text-success-text"],
   wait: ["text-warning-text"],
 };
 
-const paint = (hint: HTMLElement, kind: keyof typeof HINT_TONES | null, text = ""): void => {
+const paint = (hint: HTMLElement, kind: HintTone | null, text = ""): void => {
   for (const classes of Object.values(HINT_TONES)) hint.classList.remove(...classes);
   if (kind === null) {
     hint.hidden = true;
