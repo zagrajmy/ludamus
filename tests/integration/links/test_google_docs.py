@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 import requests
@@ -553,6 +554,90 @@ def _route_get(*, values: list[list[str]], title: str = "Form Responses 1"):
         return vals if "/values/" in url else meta
 
     return get
+
+
+class TestGoogleDocsProposalImporterFetchHeaders:
+    def test_returns_the_configured_header_row_including_metadata_columns(self, google):
+        google.session.get.side_effect = _route_get(
+            values=[["Sygnatura czasowa", "Adres e-mail", "Tytuł"], ["a", "b", "c"]]
+        )
+
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=1
+        )
+
+        assert result == ["Sygnatura czasowa", "Adres e-mail", "Tytuł"]
+
+    def test_reads_the_named_row_not_the_first(self, google):
+        google.session.get.side_effect = _route_get(values=[["Real", "Headers"]])
+
+        GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=3
+        )
+
+        values_url = next(
+            call.args[0]
+            for call in google.session.get.call_args_list
+            if "/values/" in call.args[0]
+        )
+        assert quote("Form Responses 1!3:3", safe="") in values_url
+
+    def test_duplicate_headers_get_occurrence_suffixes(self, google):
+        # Matches fetch_responses' disambiguation so a unique-key column chosen
+        # here names a key that actually exists on the imported row.
+        google.session.get.side_effect = _route_get(values=[["Dur", "Dur", "Dur"]])
+
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=1
+        )
+
+        assert result == ["Dur", "Dur (2)", "Dur (3)"]
+
+    def test_wrong_config_returns_empty(self):
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=_OtherConfig(), header_row=1
+        )
+
+        assert not result
+
+    def test_header_row_below_one_returns_empty(self, google):
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=0
+        )
+
+        assert not result
+        assert google.session.get.call_count == 0
+
+    def test_no_sheets_returns_empty(self, google):
+        google.session.get.return_value = MagicMock(
+            ok=True, json=lambda: {"sheets": []}
+        )
+
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=1
+        )
+
+        assert not result
+
+    def test_non_ok_values_response_returns_empty(self, google):
+        google.session.get.side_effect = _route_email_synthesis(
+            meta=_meta_with_title(), values=MagicMock(ok=False)
+        )
+
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=1
+        )
+
+        assert not result
+
+    def test_empty_values_returns_empty(self, google):
+        google.session.get.side_effect = _route_get(values=[])
+
+        result = GoogleDocsProposalImporter().fetch_headers(
+            secret=SECRET, config=CONFIG, header_row=1
+        )
+
+        assert not result
 
 
 class TestGoogleDocsProposalImporterFetchResponses:

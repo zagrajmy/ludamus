@@ -2256,6 +2256,62 @@ class TestEventImportRunPageView:
             },
         )
 
+    def test_get_offers_cached_sheet_headers_as_unique_key_columns(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # The header row carries the localized metadata columns (Timestamp,
+        # Email Address) that the form schema — and so the questions snapshot —
+        # never sees. Those are exactly the columns a unique key wants.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.questions_snapshot_json = json.dumps(
+            [
+                {
+                    "title": "Tytuł",
+                    "options": [],
+                    "field_type": "text",
+                    "is_multiple": False,
+                    "allow_custom": False,
+                }
+            ]
+        )
+        headers = ["Sygnatura czasowa", "Adres e-mail", "Tytuł"]
+        integration.settings_json = json.dumps(
+            {
+                "header_row": 1,
+                "unique_key_columns": ["Sygnatura czasowa"],
+                "sheet_headers": headers,
+                "questions": {"Tytuł": {"to": "session.title", "confirmed": True}},
+            }
+        )
+        integration.save(update_fields=("questions_snapshot_json", "settings_json"))
+
+        response = authenticated_client.get(_run_page_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-run.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "run",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "header_row": 1,
+                "email_column": None,
+                "unique_key_columns": ["Sygnatura czasowa"],
+                "available_columns": headers,
+                "fields_imported": True,
+                "fields_count": 1,
+                "mapping_total": 1,
+                "mapping_confirmed": 1,
+                "no_unique_keys_label": "No columns selected.",
+            },
+        )
+
 
 @pytest.mark.django_db
 class TestEventImportSettingsSaveView:

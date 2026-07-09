@@ -289,18 +289,46 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
 
         return list(dedup_questions.values())
 
+    def fetch_headers(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[str]:
+        if not isinstance(config, GoogleDocsProposalConfig):
+            return []
+        try:
+            session = self._session(secret)
+        except _CredentialsError:
+            return []
+        return self._fetch_sheet_headers(
+            session=session, sheet_id=config.sheet_id, header_row=header_row
+        )
+
     def _fetch_sheet_header(
         self, *, session: AuthorizedSession, sheet_id: str, header_row: int, column: int
     ) -> str:
         # Read the cell at (header_row, column), both 1-indexed, from the
         # responses tab so the email column's actual label drives the recipe.
-        # Fetches the whole header row via A1 range notation and picks the
-        # column out by index — Sheets API is picky about R1C1 mixed with a
-        # sheet prefix, but a plain row range is universally supported.
-        if column < 1 or header_row < 1:
+        if column < 1:
             return ""
+        row = self._fetch_sheet_headers(
+            session=session, sheet_id=sheet_id, header_row=header_row
+        )
+        if column > len(row):
+            return ""
+        return row[column - 1]
+
+    def _fetch_sheet_headers(
+        self, *, session: AuthorizedSession, sheet_id: str, header_row: int
+    ) -> list[str]:
+        # The whole header row, 1-indexed, from the responses tab: these are the
+        # real column labels the importer keys rows on, including the metadata
+        # columns (Timestamp, Email Address) a Form schema never carries and
+        # whose wording follows the form's locale. Fetched via A1 range notation
+        # — Sheets is picky about R1C1 mixed with a sheet prefix, but a plain
+        # row range is universally supported.
+        if header_row < 1:
+            return []
         if not (title := self._responses_tab_title(session, sheet_id)):
-            return ""
+            return []
         row_range = f"{title}!{header_row}:{header_row}"
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
@@ -311,13 +339,10 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
                 timeout=10,
             )
         if response is None or not response.ok:
-            return ""
+            return []
         if not (values := response.json().get("values") or []):
-            return ""
-        row = values[0]
-        if column > len(row):
-            return ""
-        return str(row[column - 1])
+            return []
+        return _disambiguate([str(cell) for cell in values[0]])
 
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1

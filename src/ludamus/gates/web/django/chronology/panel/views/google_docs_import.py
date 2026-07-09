@@ -833,12 +833,16 @@ class EventImportRunPageView(_ImportTabView):
                 current_event.pk, active.pk
             )
             # Unique-key columns name real sheet headers used to identify rows
-            # across refetches, so offer every snapshot question title — not just
-            # the headers the operator has already mapped. Only real columns are
-            # offered: a hardcoded English "Timestamp"/"Email Address" pair would
-            # not match a localized form's actual headers, so keying on it
-            # silently collapsed distinct rows onto one slug.
-            available = list(dict.fromkeys(q.title for q in cached if q.title))
+            # across refetches, so offer the cached header row: it carries the
+            # metadata columns (Timestamp, Email Address) the form schema never
+            # sees, under whatever wording the form's locale gave them. Fall
+            # back to the snapshot's question titles until the first refetch
+            # fills the header cache.
+            available = list(
+                dict.fromkeys(
+                    settings.sheet_headers or [q.title for q in cached if q.title]
+                )
+            )
             context["header_row"] = settings.header_row
             context["email_column"] = settings.email_column
             context["unique_key_columns"] = settings.unique_key_columns

@@ -174,11 +174,16 @@ class ImportSettings(BaseModel):
     # the auto-collected responder email (only present when the form has
     # email collection on). With it set, the importer synthesizes a question
     # the recipe can map to session.contact_email.
+    # `sheet_headers` caches the source sheet's header row, refreshed whenever
+    # the questions snapshot is. It is the set `unique_key_columns` is chosen
+    # from: the form schema alone can't offer the metadata columns (Timestamp,
+    # Email Address), whose wording follows the form's locale.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
     email_column: int | None = None
+    sheet_headers: list[str] = []
 
 
 class ImportLogStatus(StrEnum):

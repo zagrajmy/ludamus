@@ -72,6 +72,9 @@ class IntegrationImplementation(Protocol):
         header_row: int = 1,
         email_column: int | None = None,
     ) -> list[SourceQuestion]: ...
+    def fetch_headers(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[str]: ...
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
