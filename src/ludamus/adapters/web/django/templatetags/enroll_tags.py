@@ -27,11 +27,13 @@ class EnrollRowState:
     badge_label: str
 
 
+# Status renders as a small colored dot beside neutral text — never text on a
+# tinted chip.
 _BADGE_CLASSES = {
-    "success": "bg-success-bg text-success-text",
-    "warning": "bg-warning-bg text-warning-text",
-    "danger": "bg-danger-bg text-danger-text",
-    "muted": "bg-bg-tertiary text-foreground-secondary",
+    "success": "bg-success",
+    "warning": "bg-warning",
+    "danger": "bg-danger",
+    "muted": "bg-foreground-muted",
 }
 
 

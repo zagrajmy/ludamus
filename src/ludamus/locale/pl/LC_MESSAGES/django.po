@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-09 23:43+0200\n"
+"POT-Creation-Date: 2026-07-09 23:53+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3002,6 +3002,7 @@ msgid "or"
 msgstr "lub"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Back to event"
 msgstr "Powrót do wydarzenia"
 
@@ -3075,7 +3076,6 @@ msgid "Name"
 msgstr "Imię"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Back to Event"
 msgstr "Powrót do wydarzenia"
 
@@ -3146,14 +3146,6 @@ msgstr "Ty"
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "needs their approval"
 msgstr "wymaga ich zgody"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "Include me"
-msgstr "Uwzględnij mnie"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "Include"
-msgstr "Uwzględnij"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 #, python-format
@@ -7496,6 +7488,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Include me"
+#~ msgstr "Uwzględnij mnie"
+
+#~ msgid "Include"
+#~ msgstr "Uwzględnij"
 
 #~ msgid "Select who to enroll in"
 #~ msgstr "Wybierz kogo zapisać na"
