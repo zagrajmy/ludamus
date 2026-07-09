@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 23:23+0200\n"
+"POT-Creation-Date: 2026-07-09 23:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4584,10 +4584,6 @@ msgstr ""
 "prowadzisz punkt programu."
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
-msgid "Shadowban a player"
-msgstr "Cicho zbanuj gracza"
-
-#: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "Players you have met"
 msgstr "Gracze, których spotkałeś"
 
@@ -4600,16 +4596,29 @@ msgid "Remove shadowban"
 msgstr "Usuń cichy ban"
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
+#, python-format
+msgid ""
+"Shadowban %(name)s? They will not see your sessions, and they are never told."
+msgstr ""
+"Cicho zbanować %(name)s? Nie zobaczy twoich punktów programu i nigdy się o "
+"tym nie dowie."
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "No players yet"
 msgstr "Brak graczy"
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
 msgid ""
-"Players you have run sessions for will appear here, and anyone you shadowban "
-"by username or email."
+"Players you have run sessions for or played alongside will appear here, and "
+"anyone you shadowban by username or email."
 msgstr ""
-"Gracze, dla których prowadziłeś punkty programu, pojawią się tutaj, a także "
-"każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
+"Gracze, dla których prowadziłeś punkty programu lub z którymi grałeś, "
+"pojawią się tutaj, a także każdy, kogo cicho zbanujesz po nazwie użytkownika "
+"lub adresie e-mail."
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Shadowban by username or email"
+msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_tabs.html
@@ -7510,6 +7519,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Shadowban a player"
+#~ msgstr "Cicho zbanuj gracza"
 
 #~ msgid "Harmonogram"
 #~ msgstr "Harmonogram"
