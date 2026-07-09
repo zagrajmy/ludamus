@@ -262,6 +262,8 @@ env.SECRET_KEY = "dev-secret-key"
 env.SESSION_COOKIE_DOMAIN = ".testserver"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 env.IN_TESTS = 'True'
+# Tests drive DBOS explicitly (test_dbos_scheduler.py); never launch implicitly.
+env.OFFER_EXPIRY_SCHEDULER = "cron"
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
