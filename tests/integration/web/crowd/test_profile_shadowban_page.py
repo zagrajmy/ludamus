@@ -154,6 +154,49 @@ class TestProfileShadowbanPageView:
             template_name="crowd/user/shadowbans.html",
         )
 
+    def test_get_lists_shadowbanned_players_first(
+        self, authenticated_client, active_user
+    ):
+        # Shadowbanned players come first so active bans are reviewable at a
+        # glance; within each group the name order is preserved (stable sort).
+        # Names are interleaved so a plain name sort could not reproduce this.
+        anna = UserFactory(username="anna", email="anna@example.com", name="Anna")
+        bob = UserFactory(username="bob", email="bob@example.com", name="Bob")
+        yara = UserFactory(username="yara", email="yara@example.com", name="Yara")
+        zoe = UserFactory(username="zoe", email="zoe@example.com", name="Zoe")
+        session = SessionFactory(presenter=active_user)
+        for player in (anna, bob, yara, zoe):
+            SessionParticipation.objects.create(
+                session=session,
+                user=player,
+                status=SessionParticipationStatus.CONFIRMED.value,
+            )
+        active_user.shadowbanned.add(anna, zoe)
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "candidates": [
+                    ShadowbanCandidateDTO(
+                        pk=anna.pk, name="Anna", slug=anna.slug, is_shadowbanned=True
+                    ),
+                    ShadowbanCandidateDTO(
+                        pk=zoe.pk, name="Zoe", slug=zoe.slug, is_shadowbanned=True
+                    ),
+                    ShadowbanCandidateDTO(
+                        pk=bob.pk, name="Bob", slug=bob.slug, is_shadowbanned=False
+                    ),
+                    ShadowbanCandidateDTO(
+                        pk=yara.pk, name="Yara", slug=yara.slug, is_shadowbanned=False
+                    ),
+                ]
+            },
+            template_name="crowd/user/shadowbans.html",
+        )
+
     def test_shadowban_by_slug(self, authenticated_client, active_user):
         player = UserFactory(
             username="player6", email="player6@example.com", name="Player Six"

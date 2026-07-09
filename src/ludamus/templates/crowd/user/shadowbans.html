@@ -22,8 +22,8 @@
     {% translate "Username or email" as identifier_label %}
     {% translate "Shadowban" as t_shadowban %}
     {# Info banner #}
-    <div class="alert alert-info flex items-center gap-3 mb-4">
-        {% icon "information-circle" class="w-5 h-5 shrink-0" %}
+    <div class="alert alert-info flex items-start gap-3 mb-4">
+        {% icon "information-circle" class="w-5 h-5 shrink-0 mt-0.5" %}
         <p>
             {% translate "Shadowbanned players will not see your sessions, and they are never told they are banned. You get an email whenever one of them signs up to any session at an event where you run a session." %}
         </p>
@@ -53,11 +53,11 @@
         </h6>
         <div class="flex flex-col gap-3">
             {% for candidate in candidates %}
-                <div class="card">
+                <div class="card{% if candidate.is_shadowbanned %} ring-1 ring-danger-light{% endif %}">
                     <div class="card-body">
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <h6 class="font-semibold text-sm flex items-center gap-2">
-                                {{ candidate.name }}
+                            <h6 class="font-semibold text-sm flex flex-wrap items-center gap-2 min-w-0">
+                                <span class="break-words">{{ candidate.name }}</span>
                                 {% if candidate.is_shadowbanned %}
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
                                         {% icon "shield-exclamation" class="w-3.5 h-3.5" %}

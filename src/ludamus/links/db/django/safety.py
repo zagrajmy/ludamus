@@ -61,7 +61,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .distinct()
             .order_by("name")
         )
-        return [
+        candidates = [
             ShadowbanCandidateDTO(
                 pk=player.pk,
                 name=player.full_name,
@@ -70,6 +70,10 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             )
             for player in players
         ]
+        # Shadowbanned players first so the active bans are reviewable at a
+        # glance; the sort is stable, so names stay ordered within each group.
+        candidates.sort(key=lambda candidate: not candidate.is_shadowbanned)
+        return candidates
 
     @staticmethod
     def banned_user_ids(owner_id: int) -> set[int]:
