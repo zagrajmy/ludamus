@@ -140,6 +140,10 @@ run = [
     "poetry show -o",
 ]
 
+[tasks.audit]
+description = "Audit dependencies: known CVEs (pip-audit), drift (deptry)"
+run = ["pip-audit .", "deptry src tests"]
+
 ## Tests
 
 ### Python tests
