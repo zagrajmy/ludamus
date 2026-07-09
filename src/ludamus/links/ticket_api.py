@@ -41,14 +41,12 @@ class MembershipApiClient:
             data = response.json()
             membership_count: int = data.get("membership_count", 0)
 
-            logger.info(
-                "Fetched membership count %d for user %s", membership_count, email
-            )
+            logger.info("Fetched membership count %d", membership_count)
         except requests.RequestException as exception:
-            logger.exception("Failed to fetch membership for %s", email)
+            logger.exception("Failed to fetch membership")
             raise MembershipAPIError from exception
         except Exception as exception:
-            logger.exception("Unexpected error fetching membership for %s", email)
+            logger.exception("Unexpected error fetching membership")
             raise MembershipAPIError from exception
 
         return membership_count
