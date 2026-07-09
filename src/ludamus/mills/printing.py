@@ -394,6 +394,7 @@ class PrintablesReminderService(PrintablesReminderServiceProtocol):
 
     def __init__(
         self,
+        *,
         transaction: TransactionProtocol,
         reminders: PrintablesReminderRepositoryProtocol,
         notifier: PrintablesNotifierProtocol,

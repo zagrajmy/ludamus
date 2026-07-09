@@ -79,4 +79,27 @@ def test_launch_scheduler_skips_when_cron(settings, monkeypatch):
 
     scheduler_module.launch_scheduler()
 
-    assert calls == []
+    assert not calls
+
+
+def test_launch_race_loser_rechecks_under_the_lock(settings, monkeypatch):
+    # The loser of a concurrent launch must take the double-checked return
+    # instead of constructing DBOS a second time.
+    settings.OFFER_EXPIRY_SCHEDULER = "dbos"
+    constructed = []
+    monkeypatch.setattr(
+        scheduler_module, "DBOS", lambda *_args, **_kwargs: constructed.append(1)
+    )
+    launched = threading.Event()
+    lock = threading.Lock()
+    monkeypatch.setattr(scheduler_module, "_launched", launched)
+    monkeypatch.setattr(scheduler_module, "_launch_lock", lock)
+
+    with lock:  # the launch thread blocks here, losing the race
+        scheduler_module.launch_scheduler()
+        launched.set()  # the "winner" finishes while the loser waits
+    for thread in threading.enumerate():
+        if thread.name == "dbos-launch":
+            thread.join(timeout=10)
+
+    assert not constructed

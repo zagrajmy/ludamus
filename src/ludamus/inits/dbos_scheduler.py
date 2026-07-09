@@ -58,7 +58,9 @@ def _build_service() -> WaitlistPromotionService:
 
 def _build_printables_service() -> PrintablesReminderService:
     return PrintablesReminderService(
-        DjangoTransaction(), Repositories().printables_reminders, DjangoUserNotifier()
+        transaction=DjangoTransaction(),
+        reminders=Repositories().printables_reminders,
+        notifier=DjangoUserNotifier(),
     )
 
 

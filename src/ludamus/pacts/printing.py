@@ -170,11 +170,14 @@ class PrintablesReadyNotification(BaseModel):
 
 
 class PrintablesReminderRepositoryProtocol(Protocol):
+    @staticmethod
     def list_pending_reminders(
-        self, *, now: datetime, lead_time: timedelta
+        *, now: datetime, lead_time: timedelta
     ) -> list[PrintablesReminderDTO]: ...
-    def mark_printed(self, event_pk: int) -> None: ...
-    def mark_reminder_sent(self, event_pk: int, *, at: datetime) -> None: ...
+    @staticmethod
+    def mark_printed(event_pk: int) -> None: ...
+    @staticmethod
+    def mark_reminder_sent(event_pk: int, *, at: datetime) -> None: ...
 
 
 class PrintablesNotifierProtocol(Protocol):

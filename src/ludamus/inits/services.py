@@ -151,7 +151,9 @@ class Services:
     @cached_property
     def printables_reminder(self) -> PrintablesReminderService:
         return PrintablesReminderService(
-            self._transaction, self._repos.printables_reminders, DjangoUserNotifier()
+            transaction=self._transaction,
+            reminders=self._repos.printables_reminders,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property

@@ -42,18 +42,21 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, states=None, offer=None, lapsed=None):
+    def __init__(self, states=None, offer=None):
         self._states = list(states or [])
         self._offer = offer
-        self._lapsed = list(lapsed or [])
         self.confirmed: list[list[int]] = []
         self.offered: list[dict] = []
         self.created: list[dict] = []
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
 
-    def list_lapsed_offers(self, _now):
-        return list(self._lapsed)
+    def list_lapsed_offers(self, now):
+        # Mirrors the real repo: one representative per offered party whose
+        # deadline has passed.
+        if self._offer is not None and self._offer.offer_expires_at < now:
+            return [self._offer.participant_ids[0]]
+        return []
 
     def create_offered(self, seat):
         self.created.append(seat)
@@ -142,8 +145,8 @@ def _state(waiting, *, mode=PromotionMode.AUTO, seats=1):
     )
 
 
-def _build(states=None, offer=None, lapsed=None):
-    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed)
+def _build(states=None, offer=None):
+    repo = FakeRepo(states=states, offer=offer)
     notifier = FakeNotifier()
     scheduler = FakeScheduler()
     service = WaitlistPromotionService(FakeTransaction(), repo, notifier, scheduler)
@@ -314,7 +317,7 @@ class TestExpireLapsedOffers:
             recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
             offer_expires_at=_NOW - timedelta(minutes=1),
         )
-        service, repo, notifier, _ = _build(states=[None], offer=offer, lapsed=[1])
+        service, repo, notifier, _ = _build(states=[None], offer=offer)
 
         expired = service.expire_lapsed_offers(now=_NOW)
 
@@ -323,7 +326,7 @@ class TestExpireLapsedOffers:
         assert len(notifier.expired) == 1
 
     def test_no_lapsed_offers_is_noop(self):
-        service, repo, notifier, _ = _build(lapsed=[])
+        service, repo, notifier, _ = _build()
 
         expired = service.expire_lapsed_offers(now=_NOW)
 

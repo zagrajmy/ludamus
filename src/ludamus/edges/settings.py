@@ -419,8 +419,7 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
 OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
-DBOS_SYSTEM_DATABASE_URL = env("DBOS_SYSTEM_DATABASE_URL")
-if not DBOS_SYSTEM_DATABASE_URL:
+if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
     if env("USE_POSTGRES"):
         _dbos_host = env.str("DB_HOST")
         if _dbos_port := env.str("DB_PORT"):
