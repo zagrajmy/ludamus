@@ -1,11 +1,11 @@
 #!/bin/bash
 # Fallback bootstrap for egress-restricted sandboxes (Claude Code on the web
-# and similar). mise's GitHub-backed downloads are blocked there: the
-# python-build-standalone release assets 403, so `mise install` cannot provide
-# python (aube installs fine — mise.toml pulls it from npm as
-# `npm:@endevco/aube`, and registry.npmjs.org bypasses the proxy). This script
-# fills the remaining gaps through hosts that stay reachable — apt (deadsnakes
-# PPA), pypi.org / files.pythonhosted.org, and registry.npmjs.org.
+# and similar), where all GitHub downloads 403. Package registries stay
+# reachable — npm, PyPI, crates.io, the Go module proxy, apt — so every
+# GitHub-backed tool gets an equivalent from one of those (python via the
+# deadsnakes PPA, hk via cargo, shellcheck/hadolint via PyPI wheels,
+# actionlint/dockerfmt via go; aube and ast-grep already come from npm in
+# mise.toml), and `mise run` tasks work unchanged.
 #
 # Idempotent and additive: every step checks whether the normal path already
 # works and skips itself if so; failures print a WARN line and never abort the
@@ -47,6 +47,49 @@ else
       note "SKIP apt fallback (not root or no apt-get)"
     fi
   fi
+fi
+
+# --- pipx (needed by mise's pipx: backends) ----------------------------------
+if ! command -v pipx > /dev/null 2>&1; then
+  if [ "$(id -u)" = "0" ] && command -v apt-get > /dev/null 2>&1; then
+    note "installing pipx via apt"
+    apt-get install -y -q pipx > /dev/null || note "WARN apt-get install pipx failed"
+  else
+    note "SKIP pipx (not root or no apt-get)"
+  fi
+fi
+
+# --- sandbox tool replacements (.mise.local.toml) -----------------------------
+# The GitHub-release tools in [tools] cannot download here, but each has an
+# official-enough distribution on a reachable host: crates.io (hk), the npm
+# registry (ast-grep already switched in mise.toml), PyPI binary wheels
+# (shellcheck/hadolint), and the Go module proxy (actionlint/dockerfmt).
+# Declare them in the gitignored .mise.local.toml so `mise install` provisions
+# them and the shims expose the same binary names the tasks call; the
+# session-start hook disables the blocked originals. Keep versions in sync
+# with [tools] in mise.toml.
+if command -v mise > /dev/null 2>&1; then
+  if [ ! -f .mise.local.toml ]; then
+    note "writing .mise.local.toml with sandbox tool replacements"
+    cat > .mise.local.toml <<'EOF'
+# Written by scripts/sandbox-bootstrap for egress-restricted sandboxes;
+# gitignored, safe to delete. Same tools as mise.toml, GitHub-free backends.
+[tools]
+"cargo:hk" = "1.48.0"
+"pipx:shellcheck-py" = "0.11"
+"go:github.com/rhysd/actionlint/cmd/actionlint" = "v1.7.12"
+"pipx:hadolint-py" = "2.14"
+"go:github.com/reteps/dockerfmt" = "v0.5.2"
+EOF
+  else
+    note "SKIP .mise.local.toml (already present)"
+  fi
+  # mise's npm backend auto-detects aube as its package manager; mid-bootstrap
+  # the aube shim can't resolve yet, so pin the backend to plain npm.
+  mise settings set npm.package_manager npm 2> /dev/null \
+    || note "WARN could not set npm.package_manager"
+  note "installing replacement tools (cargo:hk compiles — takes a few minutes)"
+  mise install --quiet 2> /dev/null || note "WARN some mise tools failed to install"
 fi
 
 # --- venv + Python deps -----------------------------------------------------

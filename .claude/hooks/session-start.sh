@@ -48,11 +48,11 @@ fi
 mise trust || echo "WARN: 'mise trust' failed"
 mise install || echo "WARN: 'mise install' failed; some tools may be unavailable"
 
-# GitHub-release-backed tools (shellcheck, pipx, ...) cannot download through
-# the sandbox egress proxy, and one failed [tools] install wedges every
-# subsequent `mise run`. Disable exactly the tools whose install failed so
-# tasks still run, then vendor shellcheck from its PyPI wheel (registry
-# traffic bypasses the proxy) — actionlint shells out to it when present.
+# GitHub-release-backed tools cannot download through the sandbox egress
+# proxy, and one failed [tools] install wedges every subsequent `mise run`.
+# Disable exactly the tools whose install failed; scripts/sandbox-bootstrap
+# below re-provides each of them from a reachable registry via the
+# gitignored .mise.local.toml.
 missing="$(MISE_DISABLE_TOOLS='' mise ls --current --json 2>/dev/null | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
@@ -64,24 +64,11 @@ if [ -n "$missing" ]; then
   echo "WARN: disabling uninstallable mise tools: $missing"
   mise settings set disable_tools "$missing" \
     || echo "WARN: could not persist disable_tools"
-  case ",$missing," in
-    *,shellcheck,*)
-      if ! command -v shellcheck > /dev/null 2>&1; then
-        # Keep the pin in sync with [tools].shellcheck in mise.toml.
-        python3 -m pip install --quiet 'shellcheck-py==0.11.*' \
-          && mkdir -p "$HOME/.local/bin" \
-          && ln -sf "$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts"))')/shellcheck" \
-            "$HOME/.local/bin/shellcheck" \
-          || echo "WARN: shellcheck PyPI fallback failed"
-      fi
-      ;;
-  esac
 fi
-# The same blocked GitHub downloads also take out python (python-build-
-# standalone release assets 403) and aube, which `mise run bootstrap` below
-# depends on. scripts/sandbox-bootstrap fills those gaps via apt (deadsnakes),
-# PyPI and npm; it is idempotent, per-step best-effort, and a no-op where the
-# normal tools already work. See docs/agents/sandbox.md.
+# scripts/sandbox-bootstrap substitutes every blocked tool from a reachable
+# host (apt python, cargo hk, PyPI wheels, Go module proxy — see the script
+# header); idempotent, per-step best-effort, no-op where the normal tools
+# already work. See docs/agents/sandbox.md.
 bash scripts/sandbox-bootstrap || echo "WARN: sandbox-bootstrap failed"
 
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
