@@ -94,7 +94,7 @@ one.
 | Install         | `mise install && poetry install` | exit 0              |
 | All Py tests    | `mise run test:py`               | all pass            |
 | One test file   | `mise run test:int -- <path>`    | all pass            |
-| CI-style checks | `mise run prcheck`               | exit 0              |
+| CI-style checks | `mise run check`                 | exit 0              |
 
 ## Scope
 
@@ -163,7 +163,7 @@ must be rate-limited. Follow the file's existing test structure and the
 
 ### Step 3: Full gate
 
-**Verify**: `mise run prcheck` → exit 0, and `mise run test:py` → all
+**Verify**: `mise run check` → exit 0, and `mise run test:py` → all
 pass.
 
 ## Test plan
@@ -183,7 +183,7 @@ Machine-checkable. ALL must hold:
   `rsplit(",", maxsplit=1)[-1]` and no leftmost `split(...)[0]`
 - [ ] `mise run test:py` exits 0; the two new regression tests exist
   and pass
-- [ ] `mise run prcheck` exits 0
+- [ ] `mise run check` exits 0
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated
 

@@ -78,7 +78,7 @@ weekly schedule (CVEs appear without any commit happening).
 |-----------------|----------------------------------|----------------------|
 | Install         | `mise install && poetry install` | exit 0               |
 | Run the audit   | `mise run audit`                 | exit 0 (see Step 1)  |
-| CI-style checks | `mise run prcheck`               | exit 0               |
+| CI-style checks | `mise run check`                 | exit 0               |
 
 ## Scope
 
@@ -169,7 +169,7 @@ exit 0.
 
 ### Step 3: Full gate
 
-**Verify**: `mise run prcheck` → exit 0. Committing must pass the
+**Verify**: `mise run check` → exit 0. Committing must pass the
 pre-commit hooks (yamllint, actionlint run automatically).
 
 ## Test plan
@@ -184,8 +184,8 @@ Machine-checkable. ALL must hold:
 
 - [ ] `mise run audit` exits 0
 - [ ] `actionlint .github/workflows/audit.yml` exits 0
-- [ ] `grep -c "pip-audit" mise.toml` returns 2 (update task + audit
-  task)
+- [ ] `grep -c "pip-audit" mise.toml` returns 3 (update run line,
+  audit description, audit run line)
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated
 

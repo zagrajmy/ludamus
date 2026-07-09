@@ -138,7 +138,7 @@ the `request.di.uow` surface").
 | All Py tests    | `mise run test:py`               | all pass            |
 | One test file   | `mise run test:int -- <path>`    | all pass            |
 | Unit tests      | `mise run test:unit`             | all pass            |
-| CI-style checks | `mise run prcheck`               | exit 0              |
+| CI-style checks | `mise run check`                 | exit 0              |
 
 ## Scope
 
@@ -288,7 +288,7 @@ exercise the context processor on every page).
 
 ### Step 5: Full gate
 
-**Verify**: `mise run prcheck` → exit 0 (this runs the import-linter
+**Verify**: `mise run check` → exit 0 (this runs the import-linter
 contracts — pacts/mills/links/gates layering must hold — plus mypy
 strict, vulture, and the rest), and `mise run test:py` → all pass.
 
@@ -310,7 +310,7 @@ Machine-checkable. ALL must hold:
 - [ ] `grep -c "read_site\|di.uow" src/ludamus/gates/web/django/context_processors.py`
   returns 0
 - [ ] `mise run test:py` exits 0, including the new repo and unit tests
-- [ ] `mise run prcheck` exits 0 (import-linter, mypy, vulture all
+- [ ] `mise run check` exits 0 (import-linter, mypy, vulture all
   green)
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated

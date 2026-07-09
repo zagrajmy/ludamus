@@ -92,7 +92,7 @@ repo root; the repo's own TODO kanban lists cleaning up such files.
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
 | Lint markdown | `markdownlint-cli2 README.md docs/refactors/README.md` | exit 0 |
-| Full CI checks | `mise run prcheck` | exit 0 |
+| Full CI checks | `mise run check` | exit 0 |
 
 ## Scope
 
@@ -162,13 +162,13 @@ git rm PLAN_PROPOSAL_PANEL_CRUD.md
 
 ### Step 4: Full gate
 
-**Verify**: `mise run prcheck` → exit 0; committing passes the
+**Verify**: `mise run check` → exit 0; committing passes the
 pre-commit hooks (markdownlint, codespell).
 
 ## Test plan
 
 - No code changes — the verification gates are markdownlint on the two
-  edited files and a green `mise run prcheck`.
+  edited files and a green `mise run check`.
 
 ## Done criteria
 
@@ -178,7 +178,7 @@ Machine-checkable. ALL must hold:
   `grep -c "mise run bootstrap" README.md` returns 2
 - [ ] `grep -c "Auth/Profile" docs/refactors/README.md` returns 0
 - [ ] `PLAN_PROPOSAL_PANEL_CRUD.md` does not exist
-- [ ] `mise run prcheck` exits 0
+- [ ] `mise run check` exits 0
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated
 

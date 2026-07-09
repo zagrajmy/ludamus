@@ -81,7 +81,7 @@ log calls just never got the same treatment.
 | Install | `mise install && poetry install` | exit 0 |
 | These tests | `mise run test:int -- tests/integration/links/test_ticket_api.py` | all pass |
 | All Py tests | `mise run test:py` | all pass |
-| CI-style checks | `mise run prcheck` | exit 0 |
+| CI-style checks | `mise run check` | exit 0 |
 
 ## Scope
 
@@ -145,7 +145,7 @@ all pass, including the new test.
 
 ### Step 3: Full gate
 
-**Verify**: `mise run prcheck` → exit 0 and `mise run test:py` → all
+**Verify**: `mise run check` → exit 0 and `mise run test:py` → all
 pass.
 
 ## Test plan
@@ -163,7 +163,7 @@ Machine-checkable. ALL must hold:
 - [ ] No `logger.*` call in `src/ludamus/links/ticket_api.py`
   references `email`
 - [ ] `mise run test:py` exits 0, including the new caplog test
-- [ ] `mise run prcheck` exits 0
+- [ ] `mise run check` exits 0
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated
 

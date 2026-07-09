@@ -15,11 +15,28 @@ deferred finding later.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
-| 001 | Key throttles on a trusted X-Forwarded-For entry | P1 | S | — | TODO |
-| 002 | Run pip-audit and deptry in CI | P1 | S | — | TODO |
-| 003 | Halve sphere/site queries in context processor | P2 | S | — | TODO |
-| 004 | Stop logging e-mails in the membership client | P2 | S | — | TODO |
-| 005 | Fix onboarding and refactor-index doc drift | P3 | S | — | TODO |
+| 001 | Key throttles on a trusted X-Forwarded-For entry | P1 | S | — | DONE |
+| 002 | Run pip-audit and deptry in CI | P1 | S | — | DONE |
+| 003 | Halve sphere/site queries in context processor | P2 | S | — | DONE |
+| 004 | Stop logging e-mails in the membership client | P2 | S | — | DONE |
+| 005 | Fix onboarding and refactor-index doc drift | P3 | S | — | DONE |
+
+## Execution log (2026-07-09)
+
+All five plans were executed by dispatched subagents in isolated
+worktrees, reviewed against their done criteria, and landed on this
+branch the same day. Learnings recorded for the next audit cycle:
+
+- The plans originally cited `mise run prcheck` as the CI-style gate —
+  that task does not exist; `mise run check` is the real one. The
+  plan files were corrected. New docs-drift finding for a future pass:
+  `README.md:33` still advertises the nonexistent `mise prcheck`.
+- Follow-up surfaced by plan 003: `current_user()` in
+  `gates/web/django/context_processors.py` still uses
+  `request.di.uow.active_users`; migrating it to `request.services`
+  is a natural next slice.
+- Plan 004 learning: `tests/integration/links/test_ticket_api.py`
+  stubs with `unittest.mock.patch`, not the `responses` library.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line
 reason) | REJECTED (with one-line rationale).
