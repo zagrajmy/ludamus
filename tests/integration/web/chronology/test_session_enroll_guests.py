@@ -138,7 +138,7 @@ class TestGuestEnrollment:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, "Guests you bring: 2")],
         )
         guests = _guests(agenda_item, active_user)
@@ -179,7 +179,7 @@ class TestGuestEnrollment:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, "Guests you bring: 1")],
         )
         assert _guests(agenda_item, active_user).count() == 1
@@ -211,7 +211,7 @@ class TestGuestEnrollment:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, "Guests you bring: 1")],
         )
         waiting = SessionParticipation.objects.get(user=waiter)
@@ -259,7 +259,7 @@ class TestGuestEnrollment:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, "Guests you bring: 1")],
         )
         guest = _guests(agenda_item, active_user).get()
@@ -286,7 +286,7 @@ class TestGuestEnrollment:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, "Guests you bring: 1")],
         )
         assert _guests(agenda_item, active_user).count() == 1

@@ -852,7 +852,7 @@ test.describe("Backoffice Panel", () => {
       const page = await context.newPage();
 
       // Step 1: Category
-      await page.goto("/chronology/event/frostfire-con/session/propose/");
+      await page.goto("/event/frostfire-con/session/propose/");
       await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
@@ -945,7 +945,7 @@ test.describe("Backoffice Panel", () => {
       const context = await browser.newContext({ storageState });
       const page = await context.newPage();
 
-      await page.goto("/chronology/event/frostfire-con/session/propose/");
+      await page.goto("/event/frostfire-con/session/propose/");
       await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
