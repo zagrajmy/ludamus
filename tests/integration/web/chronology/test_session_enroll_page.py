@@ -1,4 +1,3 @@
-import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
@@ -32,15 +31,7 @@ from tests.integration.conftest import (
     UserFactory,
     sponsor_user,
 )
-from tests.integration.utils import assert_response
-
-
-def _input_tag(content: str, pk: int) -> str:
-    # The single <input> tag for a person's Include checkbox, so a test can check
-    # its checked / disabled attributes without depending on attribute order.
-    match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
-    assert match, f"no checkbox for user_{pk}"
-    return match.group(0)
+from tests.integration.utils import assert_response, input_tag
 
 
 def _party_context(viewer):
@@ -136,7 +127,7 @@ class TestSessionEnrollPageView:
         for user in (active_user, connected_user):
             assert f'name="user_{user.pk}" value="include"' in content
         # The already-enrolled companion starts checked.
-        assert _input_tag(content, connected_user.pk).count("checked") == 1
+        assert input_tag(content, connected_user.pk).count("checked") == 1
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_no_change_value_leaves_user_unenrolled(
@@ -204,7 +195,7 @@ class TestSessionEnrollPageView:
         # unchecking it declines the offer.
         assert "Spot offered" in content
         assert "Seat held" not in content
-        tag = _input_tag(content, active_user.pk)
+        tag = input_tag(content, active_user.pk)
         assert "checked" in tag
         assert "disabled" not in tag
 

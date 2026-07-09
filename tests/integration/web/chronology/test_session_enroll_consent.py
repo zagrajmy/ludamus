@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import Mock, patch
@@ -26,13 +25,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
-
-
-def _input_tag(content: str, pk: int) -> str:
-    match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
-    assert match, f"no checkbox for user_{pk}"
-    return match.group(0)
+from tests.integration.utils import assert_response, input_tag
 
 
 def _url(agenda_item):
@@ -560,7 +553,7 @@ class TestWayOutOfHeldSeat:
         assert "Seat held — awaiting their approval" in content
         # The held seat starts checked and stays toggleable, so unchecking it
         # withdraws the seat.
-        tag = _input_tag(content, member.pk)
+        tag = input_tag(content, member.pk)
         assert "checked" in tag
         assert "disabled" not in tag
 

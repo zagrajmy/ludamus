@@ -12,9 +12,9 @@
 const root = document.querySelector<HTMLElement>("[data-enroll-preview]");
 
 const HINT_TONES: Record<string, string[]> = {
+  leave: ["text-foreground-muted"],
   seat: ["text-success-text"],
   wait: ["text-warning-text"],
-  leave: ["text-foreground-muted"],
 };
 
 const paint = (hint: HTMLElement, kind: keyof typeof HINT_TONES | null, text = ""): void => {

@@ -31,7 +31,13 @@
         {% endif %}
         <span class="inline-flex items-center gap-1.5 tabular-nums">
             {% icon "users" class="w-4 h-4" variant="mini" %}
-            {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
+            {# An unlimited session has effective limit 0 — show the bare count #}
+            {# rather than a nonsense "3/0". #}
+            {% if session.effective_participants_limit > 0 %}
+                {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
+            {% else %}
+                {{ session.enrolled_count }}
+            {% endif %}
             {% if session.waiting_count > 0 %}
                 (+{{ session.waiting_count }} {% translate "waiting" %})
             {% endif %}
