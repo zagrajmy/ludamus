@@ -319,6 +319,11 @@ class Event(models.Model):
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
+    # Printables reminder: when an organizer first opened a print-ready page, and
+    # when the "print your materials" reminder email went out. Both drive the
+    # pre-event reminder sweep — organizers who already printed are skipped.
+    printables_last_printed_at = models.DateTimeField(blank=True, null=True)
+    printables_reminder_sent_at = models.DateTimeField(blank=True, null=True)
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )

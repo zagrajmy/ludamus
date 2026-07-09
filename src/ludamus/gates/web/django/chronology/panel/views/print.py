@@ -49,6 +49,9 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
 
         tz = get_current_timezone()
         service = self.request.services.print_materials
+        # Opening a print-ready page is our signal that this event's organizers
+        # have printed, which suppresses the pre-event reminder email.
+        self.request.services.printables_reminder.mark_printed(current_event.pk)
 
         if self.material == "door-cards":
             return TemplateResponse(
