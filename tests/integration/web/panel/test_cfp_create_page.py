@@ -117,7 +117,7 @@ class TestCFPCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type created successfully.")],
+            messages=[(messages.SUCCESS, "Category created successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert ProposalCategory.objects.filter(
@@ -138,7 +138,7 @@ class TestCFPCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type created successfully.")],
+            messages=[(messages.SUCCESS, "Category created successfully.")],
             url=f"/panel/event/{event.slug}/cfp/{category.slug}/",
         )
 

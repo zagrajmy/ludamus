@@ -54,6 +54,7 @@ export default defineConfig({
         "session-edit": resolve(rootDir, "src/session-edit.ts"),
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
         "space-tree": resolve(rootDir, "src/space-tree.ts"),
+        "tab-scroll": resolve(rootDir, "src/tab-scroll.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
         "velvet-sound": resolve(rootDir, "src/velvet-sound.ts"),

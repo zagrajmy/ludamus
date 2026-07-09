@@ -243,6 +243,7 @@ class ProposalStatusServiceProtocol(Protocol):
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
+TIMETABLE_SNAP_MINUTES = 5
 
 
 class SessionPositionDTO(BaseModel):
@@ -279,6 +280,7 @@ class TimetableGridDTO(BaseModel):
     total_minutes: int
     event_start_iso: str
     slot_minutes: int
+    snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
@@ -309,6 +311,10 @@ class SessionPlacement:
 class ConflictDTO(BaseModel):
     type: ConflictType
     severity: ConflictSeverity
+    # The session that has the problem (the one being placed / examined).
+    subject_session_title: str
+    subject_session_pk: int
+    # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
     facilitator_name: str | None = None

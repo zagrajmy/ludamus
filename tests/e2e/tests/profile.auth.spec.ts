@@ -15,7 +15,7 @@ test.describe("Profile — Personal Information (edit.html)", () => {
     await expect(activeTab).toHaveAttribute("href", /profile/);
 
     // Form with submit button
-    await expect(page.getByRole("button", { name: "OK" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
 
     await page.screenshot({ path: "test-results/profile-edit.png", fullPage: true });
   });
@@ -26,7 +26,7 @@ test.describe("Profile — Personal Information (edit.html)", () => {
     const nameField = page.getByLabel(/name/i);
     if (await nameField.isVisible({ timeout: 3000 }).catch(() => false)) {
       await nameField.fill(`E2E Tester ${Date.now()}`);
-      await page.getByRole("button", { name: "OK" }).click();
+      await page.getByRole("button", { name: "Save" }).click();
       // Should stay on profile or redirect back
       await expect(page).toHaveURL(/profile|crowd/);
     }

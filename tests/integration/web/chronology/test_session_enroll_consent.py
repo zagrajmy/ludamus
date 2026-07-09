@@ -95,7 +95,7 @@ class TestDirectEnrollmentWithPowerOfAttorney:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, expected)],
         )
         participation = SessionParticipation.objects.get(user=member)
@@ -140,7 +140,7 @@ class TestHeldSeatForConsentingMember:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[
                 (
                     messages.SUCCESS,
@@ -346,7 +346,7 @@ class TestHeldSeatUnavailable:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[
                 (
                     messages.SUCCESS,

@@ -50,18 +50,28 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 "target_id", flat=True
             )
         )
-        # Players the proposer has met (participated in a session they run) plus
-        # anyone already shadowbanned, so a ban can always be lifted.
+        # Players the owner has met: anyone who played a session the owner ran
+        # (a participant of their presented session) OR whom the owner played
+        # alongside, plus anyone already shadowbanned so a ban can always be
+        # lifted. "Played alongside" means both seats were CONFIRMED — being
+        # waitlisted next to someone is not meeting them.
+        confirmed = SessionParticipationStatus.CONFIRMED
+        played_alongside = Q(
+            session_participations__status=confirmed,
+            session_participations__session__session_participations__user_id=owner_id,
+            session_participations__session__session_participations__status=confirmed,
+        )
         players = (
             User.objects.filter(
                 Q(session_participations__session__presenter_id=owner_id)
+                | played_alongside
                 | Q(shadowbanned_by__id=owner_id)
             )
             .exclude(pk=owner_id)
             .distinct()
             .order_by("name")
         )
-        return [
+        candidates = [
             ShadowbanCandidateDTO(
                 pk=player.pk,
                 name=player.full_name,
@@ -70,6 +80,10 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             )
             for player in players
         ]
+        # Shadowbanned players first so the active bans are reviewable at a
+        # glance; the sort is stable, so names stay ordered within each group.
+        candidates.sort(key=lambda candidate: not candidate.is_shadowbanned)
+        return candidates
 
     @staticmethod
     def banned_user_ids(owner_id: int) -> set[int]:

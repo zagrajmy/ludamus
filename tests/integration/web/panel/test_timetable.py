@@ -1,5 +1,7 @@
-from datetime import timedelta
+import math
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -7,9 +9,15 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import TIMETABLE_SLOT_MINUTES, TimetableGridDTO
+from ludamus.pacts.chronology import (
+    TIMETABLE_ROOM_PAGE_SIZE,
+    TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
+    TimetableGridDTO,
+)
 from tests.integration.conftest import (
     AgendaItemFactory,
+    EventFactory,
     SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
@@ -28,6 +36,7 @@ def _empty_grid():
         total_minutes=0,
         event_start_iso="",
         slot_minutes=TIMETABLE_SLOT_MINUTES,
+        snap_minutes=TIMETABLE_SNAP_MINUTES,
         page=1,
         total_pages=1,
         total_spaces=0,
@@ -119,6 +128,7 @@ class TestTimetablePageView:
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
+                "selected_date": None,
                 "slug": event.slug,
                 "tab_urls": {
                     "timetable": reverse(
@@ -177,6 +187,60 @@ class TestTimetablePageView:
         assert col.sessions[0].agenda_item.session_title == session.title
         assert time_slot is not None
 
+    def test_grid_session_is_draggable_with_placement_data(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'draggable="true"' in content
+        assert f'data-session-pk="{session.pk}"' in content
+        assert 'data-confirmed="false"' in content
+        assert 'title="Confirmed"' not in content
+        assert time_slot is not None
+
+    def test_grid_marks_confirmed_session(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=end,
+            session_confirmed=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'data-confirmed="true"' in content
+        assert 'title="Confirmed"' in content
+        assert time_slot is not None
+
     def test_filters_by_track(
         self, authenticated_client, active_user, sphere, event, space
     ):
@@ -228,6 +292,28 @@ class TestTimetablePageView:
 
         assert response.status_code == HTTPStatus.OK
 
+    def test_room_pagination_renders_prev_and_next_on_middle_page(
+        self, authenticated_client, active_user, sphere, event, time_slot
+    ):
+        sphere.managers.add(active_user)
+        room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1  # -> 3 pages
+        expected_pages = math.ceil(room_count / TIMETABLE_ROOM_PAGE_SIZE)
+        middle_page = 2
+        for _ in range(room_count):
+            SpaceFactory(event=event)
+
+        response = authenticated_client.get(
+            self.get_url(event), {"room_page": middle_page}
+        )
+
+        # Middle page renders both Previous and Next pagination buttons,
+        # exercising both hx-push-url branches in timetable-grid.html.
+        assert response.status_code == HTTPStatus.OK
+        grid = response.context["grid"]
+        assert grid.page == middle_page
+        assert grid.total_pages == expected_pages
+        assert time_slot is not None
+
     def test_grid_marks_session_outside_preferred_slot(
         self, authenticated_client, active_user, sphere, event, proposal_category, space
     ):
@@ -253,3 +339,70 @@ class TestTimetablePageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["slot_violation_session_pks"] == {session.pk}
         assert response.context["conflict_session_pks"] == set()
+
+
+class TestPanelBaseHeader:
+    """Tests for the shared panel/base.html sidebar and header."""
+
+    @staticmethod
+    def get_url(event):
+        return reverse("panel:timetable", kwargs={"slug": event.slug})
+
+    def test_schedule_nav_label_renders_in_english(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=ANY,
+            contains='<span class="sidebar-label">Schedule</span>',
+            not_contains="Harmonogram",
+        )
+
+    def test_single_day_event_shows_one_date(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        event = EventFactory(
+            sphere=sphere,
+            slug="one-day",
+            start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
+            end_time=datetime(2026, 8, 6, 18, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=ANY,
+            contains="<strong>06 Aug 2026</strong>",
+            not_contains="06 Aug - 06 Aug",
+        )
+
+    def test_multi_day_event_shows_date_range(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        event = EventFactory(
+            sphere=sphere,
+            slug="multi-day",
+            start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
+            end_time=datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=ANY,
+            contains="<strong>06 Aug - 08 Aug 2026</strong>",
+        )

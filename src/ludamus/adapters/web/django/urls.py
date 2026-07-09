@@ -1,5 +1,5 @@
 from django.urls import URLPattern, URLResolver, include, path
-from django.views.generic.base import TemplateView
+from django.views.generic.base import RedirectView, TemplateView
 
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
@@ -79,8 +79,14 @@ urlpatterns = [
         TemplateView.as_view(template_name="design_tailwind.html"),
         name="design-tailwind",
     ),
+    path("", include((chronology_urls, "chronology"), namespace="chronology")),
+    # Permanent redirects for links shared before the `chronology/` path segment
+    # was dropped from public event URLs (issue #543, A4). View names are
+    # unchanged, so only externally shared literal URLs need this shim.
     path(
-        "chronology/", include((chronology_urls, "chronology"), namespace="chronology")
+        "chronology/<path:subpath>",
+        RedirectView.as_view(url="/%(subpath)s", permanent=True, query_string=True),
+        name="chronology-legacy-redirect",
     ),
     path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
     path(

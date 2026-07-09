@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load tessera %}
 {% if not grid.spaces %}
     <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No rooms for this track." %}</p>
@@ -22,7 +23,7 @@
                         hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
                         class="btn btn-secondary text-sm">← {% translate "Previous" %}</button>
             {% endif %}
             {% if grid.page < grid.total_pages %}
@@ -30,7 +31,7 @@
                         hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'1' }}"
                         class="btn btn-secondary text-sm">{% translate "Next" %} →</button>
             {% endif %}
         </div>
@@ -40,6 +41,7 @@
          id="timetable-calendar"
          data-event-start="{{ grid.event_start_iso }}"
          data-slot-minutes="{{ grid.slot_minutes }}"
+         data-snap-minutes="{{ grid.snap_minutes }}"
          data-total-minutes="{{ grid.total_minutes }}"
          style="--grid-extent: {{ grid.total_minutes }}">
         <!-- Space headers (sticky, two rows: parent group / space) -->
@@ -91,6 +93,10 @@
                     {% for pos in col.sessions %}
                         <div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {% if pos.agenda_item.session_id in conflict_session_pks %} bg-danger-bg border-danger hover:opacity-100 {% elif pos.agenda_item.session_id in slot_violation_session_pks %} bg-warning-bg border-warning hover:opacity-100 {% else %} bg-info-bg border-info hover:opacity-100 {% endif %}"
                              tabindex="0"
+                             draggable="true"
+                             data-session-pk="{{ pos.agenda_item.session_id }}"
+                             data-duration="{{ pos.duration_minutes }}"
+                             data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
                              title="{{ pos.agenda_item.session_title }}"
                              style="--offset: {{ pos.start_minutes }};
                                     --duration: {{ pos.duration_minutes }};
@@ -105,6 +111,10 @@
                                         ⚠
                                     {% elif pos.agenda_item.session_id in slot_violation_session_pks %}
                                         ⏰
+                                    {% endif %}
+                                    {% if pos.agenda_item.session_confirmed %}
+                                        {% translate "Confirmed" as t_confirmed %}
+                                        <span aria-label="{{ t_confirmed }}" title="{{ t_confirmed }}">{% icon "lock-closed" variant="mini" class="w-3 h-3 inline" %}</span>
                                     {% endif %}
                                     {{ pos.agenda_item.session_title|truncatechars:256 }}
                                 </div>
