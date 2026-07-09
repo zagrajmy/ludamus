@@ -1,0 +1,113 @@
+#!/bin/bash
+# Fallback bootstrap for egress-restricted sandboxes (Claude Code on the web
+# and similar). mise's GitHub-backed downloads are blocked there: the
+# python-build-standalone release assets 403 and `github:endevco/aube` is out
+# of scope, so `mise install` cannot provide python or aube. This script fills
+# exactly those gaps through hosts that stay reachable — apt (deadsnakes PPA),
+# pypi.org / files.pythonhosted.org, and registry.npmjs.org.
+#
+# Idempotent and additive: every step checks whether the normal path already
+# works and skips itself if so; failures print a WARN line and never abort the
+# run. Local dev is unaffected — keep using `mise run bootstrap` there.
+set -u
+
+cd "$(dirname "$0")/.." || exit 1
+
+VENV="${SANDBOX_BOOTSTRAP_VENV:-.venv}"
+case "$VENV" in
+  /*) VENV_ABS="$VENV" ;;
+  *) VENV_ABS="$PWD/$VENV" ;;
+esac
+CLIENT=src/ludamus/client
+
+note() { printf 'sandbox-bootstrap: %s\n' "$*"; }
+
+# --- python3.14 -------------------------------------------------------------
+if command -v python3.14 > /dev/null 2>&1; then
+  note "python3.14 present: $(command -v python3.14)"
+else
+  # Outside the sandbox mise is the normal provider; give it one chance
+  # before falling back. In the sandbox (CLAUDE_CODE_REMOTE) we already know
+  # its GitHub download 403s, so skip straight to apt.
+  if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ] \
+    && command -v mise > /dev/null 2>&1; then
+    note "python3.14 missing; trying 'mise install python'"
+    mise install python || note "WARN 'mise install python' failed"
+  fi
+  if ! command -v python3.14 > /dev/null 2>&1; then
+    if [ "$(id -u)" = "0" ] && command -v apt-get > /dev/null 2>&1; then
+      note "installing python3.14 via apt (deadsnakes)"
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -q > /dev/null \
+        || note "WARN apt-get update failed; trying install anyway"
+      apt-get install -y -q python3.14 python3.14-venv > /dev/null \
+        || note "WARN apt-get install python3.14 failed"
+    else
+      note "SKIP apt fallback (not root or no apt-get)"
+    fi
+  fi
+fi
+
+# --- venv + Python deps -----------------------------------------------------
+PY="$(command -v python3.14 || true)"
+if [ -z "$PY" ]; then
+  note "WARN python3.14 unavailable; skipping venv and Python deps"
+else
+  if [ ! -x "$VENV_ABS/bin/python" ]; then
+    note "creating venv at $VENV"
+    "$PY" -m venv "$VENV_ABS" || note "WARN venv creation failed"
+  fi
+  if [ -x "$VENV_ABS/bin/python" ]; then
+    POETRY="$(command -v poetry || true)"
+    if [ -z "$POETRY" ]; then
+      note "poetry missing; installing it into the venv from PyPI"
+      "$VENV_ABS/bin/pip" install --quiet poetry \
+        || note "WARN pip install poetry failed"
+      [ -x "$VENV_ABS/bin/poetry" ] && POETRY="$VENV_ABS/bin/poetry"
+    fi
+    if [ -n "$POETRY" ]; then
+      # VIRTUAL_ENV makes poetry install into this exact venv instead of
+      # creating one in its cache; works for any venv path.
+      if VIRTUAL_ENV="$VENV_ABS" PATH="$VENV_ABS/bin:$PATH" \
+        "$POETRY" install --no-root --quiet; then
+        note "OK Python deps installed into $VENV"
+      else
+        note "WARN poetry install failed"
+      fi
+    else
+      note "WARN poetry unavailable; skipping Python deps"
+    fi
+  fi
+fi
+
+# --- client deps + frontend build -------------------------------------------
+# aube (the repo's JS package manager, lockfile aube-lock.yaml) is the normal
+# path; only reach for plain npm when it is genuinely unavailable.
+if command -v aube > /dev/null 2>&1 \
+  || mise which aube > /dev/null 2>&1; then
+  note "SKIP npm fallback (aube available; use 'mise run bootstrap')"
+elif ! command -v npm > /dev/null 2>&1; then
+  note "SKIP frontend (npm not found)"
+else
+  note "installing client deps with npm (aube unavailable)"
+  if (cd "$CLIENT" && npm install --no-fund --no-audit --silent); then
+    note "OK npm install"
+  else
+    note "WARN npm install failed"
+  fi
+  # npm writes a package-lock.json; aube-lock.yaml is the real lockfile, so
+  # drop the stray file to keep the tree clean.
+  rm -f "$CLIENT/package-lock.json"
+  if [ -x "$CLIENT/node_modules/.bin/vite" ]; then
+    if (cd "$CLIENT" && ./node_modules/.bin/vite build > /dev/null); then
+      note "OK vite build"
+    else
+      note "WARN vite build failed"
+    fi
+  else
+    note "SKIP vite build (vite not installed)"
+  fi
+fi
+
+note "done"
+exit 0

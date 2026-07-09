@@ -77,6 +77,13 @@ if [ -n "$missing" ]; then
       ;;
   esac
 fi
+# The same blocked GitHub downloads also take out python (python-build-
+# standalone release assets 403) and aube, which `mise run bootstrap` below
+# depends on. scripts/sandbox-bootstrap fills those gaps via apt (deadsnakes),
+# PyPI and npm; it is idempotent, per-step best-effort, and a no-op where the
+# normal tools already work. See docs/agents/sandbox.md.
+bash scripts/sandbox-bootstrap || echo "WARN: sandbox-bootstrap failed"
+
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"
 
