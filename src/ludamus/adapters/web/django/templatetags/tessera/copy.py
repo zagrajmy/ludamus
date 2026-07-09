@@ -19,12 +19,17 @@ from .icon import icon as render_icon
 # writes its label and toggles `data-show` on a successful copy; the CSS fades /
 # scales it in. It's an aria-live region so screen readers hear the confirmation.
 # Styled after the graphql-hive docs heading copy-link popover.
+# Entrance (300ms spring, rises 2px) is slower than the exit (150ms ease-out):
+# the confirmation should land with some presence, the cleanup should get out
+# of the way. The un-prefixed duration/ease govern the exit — they are what's
+# in effect once `data-show` is gone.
 _POPOVER_CLASS = (
     "pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 "
     "whitespace-nowrap rounded-md bg-bg-secondary px-2 py-1 text-xs font-medium "
     "tracking-[0.01em] text-foreground shadow-(--shadow-card) ring-1 ring-border "
-    "opacity-0 scale-90 transition duration-150 ease-out "
-    "data-[show]:opacity-100 data-[show]:scale-100"
+    "origin-bottom opacity-0 scale-90 translate-y-0.5 transition duration-150 ease-out "
+    "data-[show]:opacity-100 data-[show]:scale-100 data-[show]:translate-y-0 "
+    "data-[show]:duration-300 data-[show]:ease-spring-a-bit"
 )
 
 

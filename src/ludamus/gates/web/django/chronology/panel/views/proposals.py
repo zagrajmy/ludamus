@@ -4,12 +4,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -18,8 +20,9 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import SessionEditForm, create_proposal_form
+from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
+    HostPersonalDataEntry,
     NotFoundError,
     SessionContentEditData,
     SessionData,
@@ -27,13 +30,40 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.chronology import (
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
+    ProposalScheduledError,
+)
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse, QueryDict
+    from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionFieldDTO
+    from ludamus.pacts import (
+        EventDTO,
+        FacilitatorDTO,
+        FacilitatorListItemDTO,
+        PersonalDataFieldDTO,
+        SessionDTO,
+        SessionFieldDTO,
+        TimeSlotDTO,
+        TrackDTO,
+    )
+
+    PersonalFieldItems = list[
+        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
+    ]
+    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
+
+
+_PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
+
+# Filter-only pseudo-status: scheduling lives on the agenda item, not on
+# SessionStatus, but organizers still need "show me what's placed".
+SCHEDULED_FILTER = "scheduled"
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -62,12 +92,55 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
 
-        context["proposals"] = self.request.di.uow.sessions.list_sessions_by_event(
-            current_event.pk,
-            field_filters=field_filters or None,
-            search=search,
-            track_pk=filter_track_pk,
+        categories = self.request.di.uow.proposal_categories.list_by_event(
+            current_event.pk
         )
+        category_raw = self.request.GET.get("category", "").strip()
+        filter_category_pk = int(category_raw) if category_raw.isdigit() else None
+        if filter_category_pk not in {c.pk for c in categories}:
+            filter_category_pk = None
+
+        # Default (no status param) shows every proposal: an event whose
+        # sessions weren't created via proposals should not look empty on first
+        # load. Explicit picks (a real status or the "scheduled" pseudo-filter)
+        # still narrow the list.
+        status_raw = self.request.GET.get("status")
+        filter_status: str | None = (
+            status_raw
+            if status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus)
+            else None
+        )
+
+        # Scheduled is a placement fact, not a status: the "scheduled" option
+        # filters on agenda-item existence, and picking a real status excludes
+        # scheduled sessions so the backlog views stay clean.
+        if filter_status == SCHEDULED_FILTER:
+            status_filter, scheduled_filter = None, True
+        elif filter_status is not None:
+            status_filter, scheduled_filter = SessionStatus(filter_status), False
+        else:
+            status_filter, scheduled_filter = None, None
+
+        all_proposals = self.request.di.uow.sessions.list_sessions_by_event(
+            current_event.pk,
+            {
+                "field_filters": field_filters or None,
+                "search": search,
+                "track_pk": filter_track_pk,
+                "category_pk": filter_category_pk,
+                "status": status_filter,
+                "scheduled": scheduled_filter,
+            },
+        )
+        # ponytail: paginate the already-loaded list in the view. The repo
+        # loads all matching rows today anyway; DB-level slicing is a future
+        # concern if an event's proposal count grows past a few thousand.
+        page_obj = Paginator(all_proposals, _PROPOSALS_PAGE_SIZE).get_page(
+            self.request.GET.get("page")
+        )
+
+        context["proposals"] = list(page_obj.object_list)
+        context["page_obj"] = page_obj
         context["deleted_proposals"] = (
             self.request.di.uow.sessions.list_deleted_by_event(current_event.pk)
         )
@@ -80,6 +153,19 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["all_tracks"] = sorted_tracks
         context["managed_track_pks"] = managed_pks
         context["filter_track_pk"] = filter_track_pk
+        context["categories"] = categories
+        context["filter_category_pk"] = filter_category_pk
+        status_labels = {
+            SessionStatus.PENDING: _("Pending"),
+            SessionStatus.ACCEPTED: _("Accepted"),
+            SessionStatus.ON_HOLD: _("On hold"),
+            SessionStatus.REJECTED: _("Rejected"),
+        }
+        context["statuses"] = [
+            *((str(s), status_labels[s]) for s in SessionStatus),
+            (SCHEDULED_FILTER, _("Scheduled")),
+        ]
+        context["filter_status"] = filter_status
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 
@@ -130,8 +216,33 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
                 # event (deleted, or stale link). Hide the back-link cleanly.
                 import_log_entry = None
 
+        category_name = None
+        if session.category_id is not None:
+            categories = self.request.di.uow.proposal_categories.list_by_event(
+                current_event.pk
+            )
+            category_name = next(
+                (c.name for c in categories if c.pk == session.category_id), None
+            )
+
+        track_ids = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
+        proposal_tracks = [
+            t
+            for t in self.request.di.uow.tracks.list_by_event(current_event.pk)
+            if t.pk in track_ids
+        ]
+
+        agenda_item = self.request.di.uow.agenda_items.read_by_session(proposal_id)
+        schedule_logs = self.request.di.uow.schedule_change_logs.list_by_session(
+            proposal_id
+        )
+
         context["active_nav"] = "proposals"
         context["proposal"] = session
+        context["category_name"] = category_name
+        context["proposal_tracks"] = proposal_tracks
+        context["agenda_item"] = agenda_item
+        context["schedule_logs"] = schedule_logs
         context["field_values"] = field_values
         context["facilitators"] = assigned_facilitators
         context["presenter"] = presenter
@@ -153,6 +264,117 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
         assigned_pks = {f.pk for f in assigned}
         return all_facilitators, assigned_pks
+
+    def _category_choices(self, event_pk: int) -> list[tuple[int, str]]:
+        categories = self.request.di.uow.proposal_categories.list_by_event(event_pk)
+        return [(c.pk, c.name) for c in categories]
+
+    def _get_track_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[TrackDTO], set[int]]:
+        all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
+        assigned_pks = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
+        return all_tracks, assigned_pks
+
+    def _collect_track_ids(self, event_pk: int) -> list[int] | None:
+        if self.request.POST.get("tracks_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist("track_ids")
+        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
+        valid_pks = {t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)}
+        return list(submitted_ids & valid_pks)
+
+    def _get_time_slot_context(
+        self, event_pk: int, proposal_id: int
+    ) -> tuple[list[TimeSlotDTO], set[int]]:
+        all_time_slots = self.request.di.uow.time_slots.list_by_event(event_pk)
+        assigned_pks = set(
+            self.request.di.uow.sessions.read_preferred_time_slot_ids(proposal_id)
+        )
+        return all_time_slots, assigned_pks
+
+    def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
+        if self.request.POST.get("time_slots_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist("time_slot_ids")
+        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
+        valid_pks = {
+            ts.pk for ts in self.request.di.uow.time_slots.list_by_event(event_pk)
+        }
+        return list(submitted_ids & valid_pks)
+
+    def _get_facilitator_personal_data(
+        self, event_pk: int, proposal_id: int
+    ) -> FacilitatorPersonalData:
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        if not fields:
+            return []
+        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        result: FacilitatorPersonalData = []
+        for facilitator in assigned:
+            values = self.request.di.uow.host_personal_data.read_for_facilitator_event(
+                facilitator.pk, event_pk
+            )
+            items = [(field, values.get(field.slug)) for field in fields]
+            result.append(
+                (facilitator, f"facilitator_{facilitator.pk}_personal", items)
+            )
+        return result
+
+    def _read_post_field_value(
+        self, prefix: str, field: PersonalDataFieldDTO
+    ) -> str | list[str] | bool:
+        key = f"{prefix}_{field.slug}"
+        if field.field_type == "checkbox":
+            return self.request.POST.get(key) == "true"
+        if field.is_multiple:
+            return self.request.POST.getlist(key)
+        value = self.request.POST.get(key, "")
+        if field.allow_custom and not value:
+            value = self.request.POST.get(f"{key}_custom", "")
+        return value
+
+    def _get_facilitator_personal_data_post(
+        self, event_pk: int, proposal_id: int
+    ) -> FacilitatorPersonalData:
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        if not fields:
+            return []
+        assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        result: FacilitatorPersonalData = []
+        for facilitator in assigned:
+            prefix = f"facilitator_{facilitator.pk}_personal"
+            items: PersonalFieldItems = [
+                (field, self._read_post_field_value(prefix, field)) for field in fields
+            ]
+            result.append((facilitator, prefix, items))
+        return result
+
+    def _collect_personal_data(
+        self, event_pk: int
+    ) -> dict[int, list[HostPersonalDataEntry]] | None:
+        if self.request.POST.get("personal_data_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
+        submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
+        valid_pks = {
+            f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
+        }
+        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
+        result: dict[int, list[HostPersonalDataEntry]] = {}
+        for facilitator_id in submitted_ids & valid_pks:
+            prefix = f"facilitator_{facilitator_id}_personal"
+            entries = [
+                HostPersonalDataEntry(
+                    facilitator_id=facilitator_id,
+                    event_id=event_pk,
+                    field_id=field.pk,
+                    value=self._read_post_field_value(prefix, field),
+                )
+                for field in fields
+            ]
+            result[facilitator_id] = entries
+        return result
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
         if self.request.POST.get("facilitators_submitted") != "1":
@@ -214,26 +436,78 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_facilitators, assigned_pks = self._get_facilitator_context(
             current_event.pk, proposal_id
         )
+        form_class = create_proposal_form(self._category_choices(current_event.pk))
         context["active_nav"] = "proposals"
         context["proposal"] = session
-        context["form"] = SessionEditForm(
+        context["form"] = form_class(
             initial={
                 "title": session.title,
                 "display_name": session.display_name,
                 "description": session.description,
-                "requirements": session.requirements,
-                "needs": session.needs,
                 "contact_email": session.contact_email,
                 "participants_limit": session.participants_limit,
                 "min_age": session.min_age,
                 "duration": session.duration,
+                "category_id": session.category_id,
                 "cover_image": session.cover_image_url or None,
             }
         )
         session_fields = self._get_session_fields(current_event.pk, proposal_id)
+        all_tracks, assigned_track_pks = self._get_track_context(
+            current_event.pk, proposal_id
+        )
+        all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
+            current_event.pk, proposal_id
+        )
         context["all_facilitators"] = all_facilitators
         context["assigned_facilitator_pks"] = assigned_pks
         context["session_fields"] = session_fields
+        context["all_tracks"] = all_tracks
+        context["assigned_track_pks"] = assigned_track_pks
+        context["all_time_slots"] = all_time_slots
+        context["assigned_time_slot_pks"] = assigned_time_slot_pks
+        context["facilitator_personal_data"] = self._get_facilitator_personal_data(
+            current_event.pk, proposal_id
+        )
+        return TemplateResponse(self.request, "panel/proposal-edit.html", context)
+
+    def _render_invalid(
+        self,
+        context: dict[str, Any],
+        *,
+        form: forms.Form,
+        session: SessionDTO,
+        event_pk: int,
+    ) -> HttpResponse:
+        all_facilitators, assigned_pks = self._get_facilitator_context(
+            event_pk, session.pk
+        )
+        all_tracks, assigned_track_pks = self._get_track_context(event_pk, session.pk)
+        all_time_slots, assigned_time_slot_pks = self._get_time_slot_context(
+            event_pk, session.pk
+        )
+        # Prefer the invalid submission over persisted values so in-progress
+        # selections survive the re-render.
+        if (submitted_tracks := self._collect_track_ids(event_pk)) is not None:
+            assigned_track_pks = set(submitted_tracks)
+        if (submitted_slots := self._collect_time_slot_ids(event_pk)) is not None:
+            assigned_time_slot_pks = set(submitted_slots)
+        personal_data = (
+            self._get_facilitator_personal_data_post(event_pk, session.pk)
+            if (self.request.POST.get("personal_data_submitted") == "1")
+            else self._get_facilitator_personal_data(event_pk, session.pk)
+        )
+        context["active_nav"] = "proposals"
+        context["proposal"] = session
+        context["form"] = form
+        context["all_facilitators"] = all_facilitators
+        context["assigned_facilitator_pks"] = assigned_pks
+        context["session_fields"] = self._get_session_fields(event_pk, session.pk)
+        context["all_tracks"] = all_tracks
+        context["assigned_track_pks"] = assigned_track_pks
+        context["all_time_slots"] = all_time_slots
+        context["assigned_time_slot_pks"] = assigned_time_slot_pks
+        context["facilitator_personal_data"] = personal_data
         return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
@@ -252,26 +526,18 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        form = SessionEditForm(self.request.POST, self.request.FILES)
+        form_class = create_proposal_form(self._category_choices(current_event.pk))
+        form = form_class(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            all_facilitators, assigned_pks = self._get_facilitator_context(
-                current_event.pk, proposal_id
+            return self._render_invalid(
+                context, form=form, session=session, event_pk=current_event.pk
             )
-            session_fields = self._get_session_fields(current_event.pk, proposal_id)
-            context["active_nav"] = "proposals"
-            context["proposal"] = session
-            context["form"] = form
-            context["all_facilitators"] = all_facilitators
-            context["assigned_facilitator_pks"] = assigned_pks
-            context["session_fields"] = session_fields
-            return TemplateResponse(self.request, "panel/proposal-edit.html", context)
 
         update_data: SessionUpdateData = {
+            "category_id": int(form.cleaned_data["category_id"]),
             "title": form.cleaned_data["title"],
             "display_name": form.cleaned_data["display_name"],
             "description": form.cleaned_data.get("description") or "",
-            "requirements": form.cleaned_data.get("requirements") or "",
-            "needs": form.cleaned_data.get("needs") or "",
             "contact_email": form.cleaned_data.get("contact_email") or "",
             "participants_limit": form.cleaned_data.get("participants_limit") or 0,
             "min_age": form.cleaned_data.get("min_age") or 0,
@@ -290,8 +556,19 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 update=update_data,
                 field_values=field_values,
                 facilitator_ids=self._collect_facilitator_ids(current_event.pk),
+                track_ids=self._collect_track_ids(current_event.pk),
+                time_slot_ids=self._collect_time_slot_ids(current_event.pk),
             ),
         )
+
+        if (personal_data := self._collect_personal_data(current_event.pk)) is not None:
+            for facilitator_id, entries in personal_data.items():
+                self.request.services.host_personal_data.update_personal_data(
+                    event_id=current_event.pk,
+                    facilitator_id=facilitator_id,
+                    entries=entries,
+                    user_id=self.request.context.current_user_id,
+                )
 
         # T2: raising (or unlimiting) capacity frees seats — promote waiters.
         new_limit = form.cleaned_data.get("participants_limit") or 0
@@ -316,7 +593,9 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         choices = [(c.pk, c.name) for c in categories]
-        form_class = create_proposal_form(choices)
+        facilitators = self.request.di.uow.facilitators.list_by_event(current_event.pk)
+        facilitator_choices = [(f.pk, f.display_name) for f in facilitators]
+        form_class = create_proposal_form(choices, facilitator_choices)
         return form_class(data) if data is not None else form_class()
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -346,7 +625,10 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
         )
 
-        self.request.di.uow.sessions.create(
+        # The form's MultipleChoiceField already validated each id against the
+        # event's facilitators, so the cleaned list is event-scoped.
+        facilitator_ids = [int(fid) for fid in form.cleaned_data["facilitator_ids"]]
+        proposal_id = self.request.di.uow.sessions.create(
             SessionData(
                 category_id=int(form.cleaned_data["category_id"]),
                 event_id=current_event.pk,
@@ -355,25 +637,30 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 display_name=form.cleaned_data["display_name"],
                 duration=form.cleaned_data.get("duration") or "",
                 min_age=form.cleaned_data.get("min_age") or 0,
-                needs=form.cleaned_data.get("needs") or "",
+                needs="",  # legacy field — not surfaced in the panel
                 participants_limit=form.cleaned_data.get("participants_limit") or 0,
                 presenter_id=None,
-                requirements=form.cleaned_data.get("requirements") or "",
+                requirements="",  # legacy field — not surfaced in the panel
                 slug=session_slug,
                 status=SessionStatus.PENDING,
                 title=title,
             ),
             tag_ids=[],
+            facilitator_ids=facilitator_ids,
         )
         messages.success(self.request, _("Proposal created successfully."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
 
-class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
-    """Reject a proposal (POST only)."""
+class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
+    """Shared POST handler for proposal status transitions."""
 
     request: PanelRequest
     http_method_names = ("post",)
+    success_message: str | _StrPromise = ""
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        raise NotImplementedError
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
@@ -381,21 +668,66 @@ class ProposalRejectActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            session = self.request.di.uow.sessions.read(proposal_id)
+            self._apply_status(event_pk=current_event.pk, session_pk=proposal_id)
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
+        except ProposalScheduledError:
+            messages.error(
+                self.request,
+                _(
+                    "This session is scheduled and can only be accepted. "
+                    "Remove it from the timetable to change its status."
+                ),
+            )
+            return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
-        session_event = self.request.di.uow.sessions.read_event(proposal_id)
-        if session_event.pk != current_event.pk:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+        messages.success(self.request, self.success_message)
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
-        self.request.di.uow.sessions.update(
-            session.pk, {"status": SessionStatus.REJECTED}
+
+class ProposalPendingActionView(ProposalStatusActionView):
+    """Move a proposal back to pending (POST only)."""
+
+    success_message = gettext_lazy("Proposal moved back to pending.")
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_pending(
+            event_pk=event_pk, session_pk=session_pk
         )
-        messages.success(self.request, _("Proposal rejected."))
-        return redirect("panel:proposals", slug=slug)
+
+
+class ProposalAcceptActionView(ProposalStatusActionView):
+    """Mark a proposal accepted (POST only)."""
+
+    success_message = gettext_lazy("Proposal accepted.")
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_accepted(
+            event_pk=event_pk, session_pk=session_pk
+        )
+
+
+class ProposalHoldActionView(ProposalStatusActionView):
+    """Put a proposal on hold / reserve list (POST only)."""
+
+    success_message = gettext_lazy("Proposal put on hold.")
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_on_hold(
+            event_pk=event_pk, session_pk=session_pk
+        )
+
+
+class ProposalRejectActionView(ProposalStatusActionView):
+    """Reject a proposal (POST only)."""
+
+    success_message = gettext_lazy("Proposal rejected.")
+
+    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
+        self.request.services.proposal_status.mark_rejected(
+            event_pk=event_pk, session_pk=session_pk
+        )
 
 
 class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
@@ -491,4 +823,45 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         service = self.request.services.session_content_edit
         context["logs"] = service.list_log(current_event.pk)
         context["field_names"] = service.list_field_names(current_event.pk)
+        context["revertible_pks"] = service.revertible_log_pks(current_event.pk)
+        facilitator_service = self.request.services.host_personal_data
+        context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
+        context["facilitator_field_names"] = facilitator_service.list_field_names(
+            current_event.pk
+        )
         return TemplateResponse(self.request, "panel/content-log.html", context)
+
+
+class ContentLogRevertActionView(PanelAccessMixin, EventContextMixin, View):
+    """Revert a logged session content change (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        service = self.request.services.session_content_edit
+        try:
+            service.revert(
+                event_pk=current_event.pk, log_pk=pk, user_pk=self.request.user.pk
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Change not found."))
+        except ContentChangeNotLatestError:
+            messages.error(
+                self.request, _("Only the latest change for a session can be reverted.")
+            )
+        except ContentChangeNotRevertibleError:
+            messages.error(
+                self.request,
+                _(
+                    "This change cannot be reverted: cover image and assignment "
+                    "changes are not restorable."
+                ),
+            )
+        else:
+            messages.success(self.request, _("Change reverted."))
+        return redirect("panel:content-log", slug=slug)

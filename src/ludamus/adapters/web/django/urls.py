@@ -2,6 +2,7 @@ from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
+from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -15,51 +16,7 @@ from .print_views import PublicEventPrintView
 app_name = "web"  # pylint: disable=invalid-name
 
 
-auth0_urls = [
-    path("do/login", views.Auth0LoginActionView.as_view(), name="login"),
-    path(
-        "do/login/callback",
-        views.Auth0LoginCallbackActionView.as_view(),
-        name="login-callback",
-    ),
-    path("do/logout", views.Auth0LogoutActionView.as_view(), name="logout"),
-    path(
-        "do/logout/redirect",
-        views.Auth0LogoutRedirectActionView.as_view(),
-        name="logout-redirect",
-    ),
-]
-
-crowd_urls: list[URLPattern | URLResolver] = [
-    path("auth0/", include((auth0_urls, "auth0"), namespace="auth0")),
-    path(
-        "login-required/", views.LoginRequiredPageView.as_view(), name="login-required"
-    ),
-    path("profile/", views.ProfilePageView.as_view(), name="profile"),
-    path(
-        "profile/avatar/", views.ProfileAvatarPageView.as_view(), name="profile-avatar"
-    ),
-    path(
-        "profile/shadowbans/",
-        views.ProfileShadowbanPageView.as_view(),
-        name="profile-shadowbans",
-    ),
-    path(
-        "profile/connected-users/",
-        views.ProfileConnectedUsersPageView.as_view(),
-        name="profile-connected-users",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/update",
-        views.ProfileConnectedUserUpdateActionView.as_view(),
-        name="profile-connected-users-update",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/delete",
-        views.ProfileConnectedUserDeleteActionView.as_view(),
-        name="profile-connected-users-delete",
-    ),
-]
+crowd_urls: list[URLPattern | URLResolver] = [*crowd_gate_urls]
 
 chronology_urls = [
     *chronology_gate_urls,
@@ -89,6 +46,11 @@ chronology_urls = [
         "offer/<str:token>/claim/",
         views.SessionOfferClaimView.as_view(),
         name="offer-claim",
+    ),
+    path(
+        "offer/<str:token>/decline/",
+        views.SessionOfferDeclineView.as_view(),
+        name="offer-decline",
     ),
     path(
         "anonymous/do/load",

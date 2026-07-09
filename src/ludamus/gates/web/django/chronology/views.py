@@ -10,7 +10,13 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBase,
+    JsonResponse,
+)
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -44,6 +50,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
+        EventProposalSettingsDTO,
         PersonalDataFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
@@ -250,6 +257,12 @@ def _login_nudge_context(request: HttpRequest) -> dict[str, object]:
     }
 
 
+def _proposal_settings(
+    request: RootRequest, event: EventDTO
+) -> EventProposalSettingsDTO:
+    return request.di.uow.event_proposal_settings.read_by_event(event.pk)
+
+
 def _render_category(
     request: RootRequest,
     service: ProposeSessionService,
@@ -271,6 +284,7 @@ def _render_category(
 
     context: dict[str, object] = {
         "event": event,
+        "proposal_settings": _proposal_settings(request, event),
         "categories": categories,
         "selected_category_id": selected_id,
         "current_step": "category",
@@ -308,6 +322,7 @@ def _personal_context(
 
     context: dict[str, object] = {
         "event": event,
+        "proposal_settings": _proposal_settings(request, event),
         "category": category,
         "form": form,
         "field_descriptors": _field_descriptors("personal", requirements, form),
@@ -352,6 +367,7 @@ def _render_timeslots(
         "chronology/propose/parts/timeslots.html",
         {
             "event": event,
+            "proposal_settings": _proposal_settings(request, event),
             "category": category,
             "slot_descriptors": _timeslot_descriptors(requirements, selected_ids),
             "current_step": "timeslots",
@@ -393,6 +409,7 @@ def _render_details(
         "chronology/propose/parts/details.html",
         {
             "event": event,
+            "proposal_settings": _proposal_settings(request, event),
             "category": category,
             "form": form,
             "image_form": _wizard_image_form(wizard),
@@ -477,6 +494,7 @@ def _render_review(
         "chronology/propose/parts/review.html",
         {
             "event": event,
+            "proposal_settings": _proposal_settings(request, event),
             "category": category,
             "review": review,
             "current_step": "review",
@@ -584,6 +602,7 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         else:
             context = {
                 "event": event,
+                "proposal_settings": _proposal_settings(request, event),
                 "categories": categories,
                 "step": "category",
                 "current_step": "category",
@@ -609,6 +628,7 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
             categories = service.get_categories(event.pk)
             ctx: dict[str, object] = {
                 "event": event,
+                "proposal_settings": _proposal_settings(request, event),
                 "categories": categories,
                 "error": _("Please select a category."),
                 "current_step": "category",
@@ -658,6 +678,7 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
             has_category = _event_has_category_step(service, event)
             context: dict[str, object] = {
                 "event": event,
+                "proposal_settings": _proposal_settings(request, event),
                 "category": category,
                 "form": form,
                 "field_descriptors": _field_descriptors("personal", requirements, form),
@@ -711,6 +732,7 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
                 "chronology/propose/parts/timeslots.html",
                 {
                     "event": event,
+                    "proposal_settings": _proposal_settings(request, event),
                     "category": category,
                     "slot_descriptors": _timeslot_descriptors(requirements, []),
                     "error": _("Please select at least one time slot."),
@@ -774,6 +796,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                 "chronology/propose/parts/details.html",
                 {
                     "event": event,
+                    "proposal_settings": _proposal_settings(request, event),
                     "category": category,
                     "form": form,
                     "image_form": display_image_form,
@@ -987,3 +1010,20 @@ class SessionEditView(LoginRequiredMixin, View):
                 "saved": saved,
             },
         )
+
+
+class SessionBookmarkToggleView(View):
+    @staticmethod
+    def post(request: RootRequest, session_id: int) -> JsonResponse:
+        if (user_id := request.context.current_user_id) is None:
+            # fetch() call, not a browser navigation — a redirect would be
+            # useless, so surface the auth failure as JSON for the client.
+            return JsonResponse({"error": "auth"}, status=401)
+        state = request.services.bookmarks.toggle(
+            user_id=user_id,
+            session_id=session_id,
+            sphere_id=request.context.current_sphere_id,
+        )
+        if state is None:
+            return JsonResponse({"error": "not-found"}, status=404)
+        return JsonResponse({"bookmarked": state})

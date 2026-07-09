@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 from django.contrib import messages
 from django.core.files.storage import default_storage
@@ -22,7 +22,7 @@ from ludamus.adapters.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import EventDTO, ProposalCategoryDTO
+from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
 from tests.integration.conftest import ProposalCategoryFactory, TimeSlotFactory
 from tests.integration.utils import assert_response
 
@@ -129,6 +129,9 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
                 "categories": [
                     ProposalCategoryDTO.model_validate(cat1),
                     ProposalCategoryDTO.model_validate(cat2),
@@ -162,6 +165,9 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": form,
                 "field_descriptors": [],
@@ -1548,7 +1554,26 @@ class TestProposeSessionPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "current_step": "details",
+                "durations": [],
+                "event": EventDTO.model_validate(event),
+                "field_descriptors": [],
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "wizard_steps": [
+                    {"key": "personal"},
+                    {"key": "details"},
+                    {"key": "review"},
+                ],
+            },
             template_name="chronology/propose/parts/details.html",
         )
         assert "cover_image" in response.context["image_form"].errors
@@ -1576,7 +1601,26 @@ class TestProposeSessionPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "current_step": "details",
+                "durations": [],
+                "event": EventDTO.model_validate(event),
+                "field_descriptors": [],
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "wizard_steps": [
+                    {"key": "personal"},
+                    {"key": "details"},
+                    {"key": "review"},
+                ],
+            },
             template_name="chronology/propose/parts/details.html",
         )
         assert "cover_image" in response.context["image_form"].errors
@@ -2346,6 +2390,9 @@ class TestAnonymousProposalSubmission:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": form,
                 "field_descriptors": [],

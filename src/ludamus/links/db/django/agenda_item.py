@@ -60,13 +60,6 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         return [_to_dto(item) for item in items]
 
     @staticmethod
-    def list_by_space(space_pk: int) -> list[AgendaItemDTO]:
-        items = AgendaItem.objects.filter(space_id=space_pk).select_related(
-            *_SELECT_RELATED
-        )
-        return [_to_dto(item) for item in items]
-
-    @staticmethod
     def list_by_track(track_pk: int) -> list[AgendaItemDTO]:
         items = AgendaItem.objects.filter(session__tracks__pk=track_pk).select_related(
             *_SELECT_RELATED

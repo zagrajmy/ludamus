@@ -18,22 +18,50 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     User,
     UserEnrollmentConfig,
-    get_used_slots,
 )
-from ludamus.pacts import EventDTO
+from ludamus.links.db.django.companions import active_companions, sponsors_by_member
+from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    EnrollmentParticipationRepositoryProtocol,
     OfferDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
 if TYPE_CHECKING:
+
     from ludamus.adapters.db.django.models import Event
+    from ludamus.pacts.enrollment import GuestSeatData, HeldSeatData
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
+
+
+class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtocol):
+    @staticmethod
+    def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]:
+        return set(
+            SessionParticipation.objects.filter(
+                status__in=OCCUPYING_PARTICIPATION_STATUSES,
+                user_id__in=user_ids,
+                session__event_id=event_id,
+            )
+            .values_list("user_id", flat=True)
+            .distinct()
+        )
+
+    @staticmethod
+    def create_confirmed(seat: GuestSeatData) -> None:
+        SessionParticipation.objects.create(
+            session_id=seat.session_id,
+            user_id=seat.user_id,
+            status=SessionParticipationStatus.CONFIRMED,
+            party_id=seat.party_id,
+            enrolled_by_id=seat.enrolled_by_id,
+        )
 
 
 class ParticipationPromotionRepository:
@@ -71,33 +99,36 @@ class ParticipationPromotionRepository:
         event_dto = EventDTO.model_validate(event)
 
         waiting: list[WaitingParticipantDTO] = []
-        slots_by_manager: dict[int, int] = {}
-        participations = (
+        slots_by_owner: dict[int, int] = {}
+        participations = list(
             session.session_participations.filter(
                 status=SessionParticipationStatus.WAITING
             )
-            .select_related("user", "user__manager")
+            .select_related("user")
             .order_by("creation_time")
         )
+        sponsors = sponsors_by_member(p.user for p in participations)
         for participation in participations:
             user = participation.user
-            recipient = user.manager or user
-            if recipient.pk not in slots_by_manager:
-                slots_by_manager[recipient.pk] = self._slots_remaining(
+            sponsor = sponsors.get(user.pk)
+            recipient = sponsor if sponsor is not None else user
+            if recipient.pk not in slots_by_owner:
+                slots_by_owner[recipient.pk] = self._slots_remaining(
                     recipient, event, event_dto
                 )
             waiting.append(
                 WaitingParticipantDTO(
                     participation_id=participation.pk,
                     user_id=user.pk,
-                    manager_id=user.manager_id,
+                    party_id=participation.party_id,
+                    sponsor_id=sponsor.pk if sponsor is not None else None,
                     full_name=user.get_full_name(),
                     email=user.email or "",
                     creation_time=participation.creation_time,
                     has_conflict=Session.objects.has_conflicts(
                         session, UserDTO.model_validate(user)
                     ),
-                    manager_slots_remaining=slots_by_manager[recipient.pk],
+                    owner_slots_remaining=slots_by_owner[recipient.pk],
                     recipient_user_id=recipient.pk,
                     recipient_email=recipient.email or "",
                 )
@@ -115,15 +146,15 @@ class ParticipationPromotionRepository:
         )
 
     @staticmethod
-    def _slots_remaining(manager: User, event: Event, event_dto: EventDTO) -> int:
-        if not manager.email:
+    def _slots_remaining(owner: User, event: Event, event_dto: EventDTO) -> int:
+        if not owner.email:
             return UNLIMITED_SLOTS
         allowed = 0
         has_config = False
-        domain = manager.email.split("@")[1] if "@" in manager.email else ""
+        domain = owner.email.split("@")[1] if "@" in owner.email else ""
         for config in event.get_active_enrollment_configs():
             user_config = UserEnrollmentConfig.objects.filter(
-                enrollment_config=config, user_email=manager.email
+                enrollment_config=config, user_email=owner.email
             ).first()
             if user_config:
                 allowed += user_config.allowed_slots
@@ -137,11 +168,21 @@ class ParticipationPromotionRepository:
                     has_config = True
         if not has_config:
             return UNLIMITED_SLOTS
+        # The owner's seat allowance covers themselves plus every login-less
+        # companion they sponsor (members of parties they lead).
+        companions = active_companions(owner.slug)
         members = [
-            UserDTO.model_validate(manager),
-            *(UserDTO.model_validate(c) for c in manager.connected.all()),
+            UserDTO.model_validate(owner),
+            *(UserDTO.model_validate(c) for c in companions),
         ]
-        return max(0, allowed - get_used_slots(members, event_dto))
+        # Used slots = distinct owner/companion users holding a seat; the same
+        # accounting `mills.enrollment.get_used_slots` applies at the gates.
+        used = len(
+            EnrollmentParticipationRepository.occupying_user_ids(
+                user_ids=[member.pk for member in members], event_id=event_dto.pk
+            )
+        )
+        return max(0, allowed - used)
 
     @staticmethod
     def confirm(participation_ids: list[int]) -> None:
@@ -164,6 +205,30 @@ class ParticipationPromotionRepository:
             offer_expires_at=offer_expires_at,
             claim_token=claim_token,
             modification_time=datetime.now(UTC),
+        )
+
+    @staticmethod
+    def create_offered(seat: HeldSeatData) -> int:
+        participation = SessionParticipation.objects.create(
+            session_id=seat.session_id,
+            user_id=seat.user_id,
+            party_id=seat.party_id,
+            status=SessionParticipationStatus.OFFERED,
+            offered_at=seat.offered_at,
+            offer_expires_at=seat.offer_expires_at,
+            claim_token=seat.claim_token,
+        )
+        return participation.pk
+
+    @staticmethod
+    def read_offer_claim_window(session_id: int) -> timedelta:
+        category = (
+            Session.objects.select_related("category").get(id=session_id).category
+        )
+        return (
+            category.offer_claim_window
+            if category is not None
+            else _DEFAULT_OFFER_WINDOW
         )
 
     def read_offer_by_token(self, token: str) -> OfferDTO | None:
@@ -202,7 +267,7 @@ class ParticipationPromotionRepository:
                 claim_token=token,
                 status=SessionParticipationStatus.OFFERED,
             )
-            .select_related("user", "user__manager")
+            .select_related("user")
             .order_by("creation_time")
         )
         if not party:
@@ -214,14 +279,17 @@ class ParticipationPromotionRepository:
         lead = party[0]
         session = Session.objects.select_related("event").get(id=lead.session_id)
         event_slug = session.event.slug
-        recipient = lead.user.manager or lead.user
+        sponsors = sponsors_by_member(p.user for p in party)
+        recipients = distinct_recipients(
+            (recipient.pk, recipient.email or "")
+            for recipient in (sponsors.get(p.user.pk, p.user) for p in party)
+        )
         return OfferDTO(
             session_id=lead.session_id,
             session_title=session.title,
             event_slug=event_slug,
             participant_ids=[p.pk for p in party],
-            recipient_user_id=recipient.pk,
-            recipient_email=recipient.email or "",
+            recipients=recipients,
             offer_expires_at=lead.offer_expires_at or datetime.now(UTC),
         )
 

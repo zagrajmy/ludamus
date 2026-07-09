@@ -33,6 +33,34 @@
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Details" %}</h3>
                     <div class="space-y-6">
                         <div>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1">
+                                {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
+                            </label>
+                            {% if form.facilitator_ids.field.choices %}
+                                <div class="space-y-2 {% if form.facilitator_ids.errors %}border border-danger rounded-lg p-2{% endif %}">
+                                    {% for value, label in form.facilitator_ids.field.choices %}
+                                        <label class="flex items-center text-sm">
+                                            <input type="checkbox"
+                                                   name="facilitator_ids"
+                                                   value="{{ value }}"
+                                                   {% if value|stringformat:"s" in form.facilitator_ids.value %}checked{% endif %}
+                                                   class="mr-2">
+                                            {{ label }}
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                                {% if form.facilitator_ids.errors %}
+                                    <p class="mt-1 text-sm text-danger">{{ form.facilitator_ids.errors.0 }}</p>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-sm text-foreground-muted">
+                                    {% translate "This event has no facilitators yet." %}
+                                    <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
+                                       class="text-primary hover:underline ml-1">{% translate "Create one first" %}</a>
+                                </p>
+                            {% endif %}
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_category_id">
                                 {% translate "Category" %}<span class="text-danger ml-0.5">*</span>
@@ -83,24 +111,6 @@
                             {% if form.description.errors %}
                                 <p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>
                             {% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_requirements">{% translate "Requirements" %}</label>
-                            <textarea name="requirements"
-                                      id="id_requirements"
-                                      rows="3"
-                                      class="w-full border {% if form.requirements.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.requirements.value|default:'' }}</textarea>
-                            {% if form.requirements.errors %}<p class="mt-1 text-sm text-danger">{{ form.requirements.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_needs">{% translate "Needs" %}</label>
-                            <textarea name="needs"
-                                      id="id_needs"
-                                      rows="3"
-                                      class="w-full border {% if form.needs.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.needs.value|default:'' }}</textarea>
-                            {% if form.needs.errors %}<p class="mt-1 text-sm text-danger">{{ form.needs.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"

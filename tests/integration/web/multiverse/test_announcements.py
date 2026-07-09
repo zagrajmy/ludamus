@@ -14,6 +14,7 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
     "announcements": "/multiverse/panel/announcements/",
+    "mcp": "/multiverse/panel/mcp/",
 }
 ANNOUNCEMENTS_PANEL_CONTEXT = {
     "events": [],
@@ -23,6 +24,7 @@ ANNOUNCEMENTS_PANEL_CONTEXT = {
     "is_general_tab": False,
     "is_connections_tab": False,
     "is_announcements_tab": True,
+    "is_mcp_tab": False,
     "tab_urls": TAB_URLS,
 }
 

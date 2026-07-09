@@ -144,6 +144,38 @@ class TestSpaceCreate:
         created = Space.objects.get(event=event, name="Hall")
         assert created.parent_id is None
 
+    def test_create_top_level_room_with_capacity(self, manager_client, event):
+        # A usable room (a leaf with seats) can be created at the top level with
+        # no Venue/Area wrappers, and shows up in the tree as a room.
+        capacity = 30
+
+        response = manager_client.post(
+            self._root_url(event), data={"name": "Main Hall", "capacity": str(capacity)}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space created successfully.")],
+            url=_venues_url(event),
+        )
+        room = Space.objects.get(event=event, name="Main Hall")
+        assert room.parent_id is None
+        assert room.capacity == capacity
+
+        tree_response = manager_client.get(_venues_url(event))
+
+        assert_response(
+            tree_response,
+            HTTPStatus.OK,
+            template_name="panel/spaces.html",
+            messages=[(messages.SUCCESS, "Space created successfully.")],
+            context_data={
+                **_base_context(event, rooms=1),
+                "tree": [_node(room, depth=1, is_leaf=True)],
+            },
+        )
+
     def test_create_child(self, manager_client, event):
         root = _root(event)
         capacity = 20
@@ -613,6 +645,25 @@ class TestSpaceReorder:
             data=json.dumps(payload),
             content_type="application/json",
         )
+
+    def test_reorder_ignores_foreign_event_spaces(self, manager_client, event):
+        local = _root(event, "Local", order=0)
+        other_event = EventFactory(sphere=event.sphere)
+        foreign = Space.objects.create(
+            event=other_event, name="Foreign", slug="foreign", order=1
+        )
+
+        response = self._reorder(
+            manager_client,
+            event,
+            {"parent_pk": None, "space_ids": [foreign.pk, local.pk]},
+        )
+
+        assert_response(response, HTTPStatus.OK)
+        foreign.refresh_from_db()
+        local.refresh_from_db()
+        assert foreign.order == 1
+        assert local.order == 1
 
     def test_reorder_non_object_body_returns_400(self, manager_client, event):
         response = self._reorder(manager_client, event, [1, 2, 3])

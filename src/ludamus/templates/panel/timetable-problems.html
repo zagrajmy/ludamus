@@ -12,10 +12,10 @@
     <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
         {% tabs %}
         {% tab "timetable" href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-        {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-        {% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-        {% tab "problems" active=True href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-    {% end_tabs %}
+    {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
+{% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
+{% tab "problems" active=True href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
+{% end_tabs %}
 </div>
 <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
     <!-- Conflicts section -->
@@ -40,7 +40,7 @@
                     <div class="space-y-2 pl-6">
                         {% for conflict in conflicts %}
                             <div class="text-sm text-foreground-secondary">
-                                {{ conflict.session_title }} —
+                                {{ conflict.subject_session_title }} —
                                 {% if conflict.type == "space_overlap" %}
                                     {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}
                                 {% elif conflict.type == "capacity_exceeded" %}

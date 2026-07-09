@@ -138,7 +138,7 @@ class TestTimetableOverviewPageView:
         track.spaces.add(space)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )

@@ -21,12 +21,17 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserData, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     ClaimResult,
+    EnrollmentServiceProtocol,
+    GuestSeatData,
+    HeldSeatData,
     NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
+    distinct_recipients,
 )
 from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import select_promotable_parties
 
 if TYPE_CHECKING:
@@ -39,11 +44,15 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import (
+        EnrollmentParticipationRepositoryProtocol,
+        EnrollmentRepos,
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
+        OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
+        SeatHoldRequest,
         UserNotifierProtocol,
         WaitingParticipantDTO,
     )
@@ -58,6 +67,10 @@ def _now() -> datetime:
 
 def _token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
+    return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
 
 
 class WaitlistPromotionService:
@@ -115,15 +128,15 @@ class WaitlistPromotionService:
             ids = [p.participation_id for p in party]
             self._participations.confirm(ids)
             result.promoted.extend(ids)
-            lead = party[0]
-            promotions.append(
+            promotions.extend(
                 PromotionNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                 )
+                for recipient in _party_recipients(party)
             )
 
     def _offer(
@@ -143,19 +156,56 @@ class WaitlistPromotionService:
                 ids, offered_at=now, offer_expires_at=expires_at, claim_token=token
             )
             result.offered.extend(ids)
-            lead = party[0]
-            offers.append(
+            offers.extend(
                 OfferNotification(
-                    recipient_user_id=lead.recipient_user_id,
-                    recipient_email=lead.recipient_email,
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
                     session_id=state.session_id,
                     session_title=state.session_title,
                     event_slug=state.event_slug,
                     claim_token=token,
                     offer_expires_at=expires_at,
                 )
+                for recipient in _party_recipients(party)
             )
             expiries.append((ids[0], expires_at))
+
+    def hold_seat(self, *, hold: SeatHoldRequest) -> None:
+        # A held seat is an OFFERED row with a personal claim token — the same
+        # shape a waitlist offer uses — so claiming, declining, and expiry all
+        # ride the existing offer machinery and release only this seat. The
+        # notification is written with the row (it must roll back together);
+        # the expiry timer is armed after, like fill_freed_seats does.
+        now = _now()
+        with self._transaction.atomic():
+            expires_at = now + self._participations.read_offer_claim_window(
+                hold.session_id
+            )
+            token = _token()
+            participation_id = self._participations.create_offered(
+                HeldSeatData(
+                    session_id=hold.session_id,
+                    user_id=hold.user_id,
+                    party_id=hold.party_id,
+                    offered_at=now,
+                    offer_expires_at=expires_at,
+                    claim_token=token,
+                )
+            )
+            self._notifier.notify_seat_held(
+                HeldSeatNotification(
+                    recipient_user_id=hold.user_id,
+                    recipient_email=hold.user_email,
+                    actor_name=hold.actor_name,
+                    session_id=hold.session_id,
+                    session_title=hold.session_title,
+                    claim_token=token,
+                    offer_expires_at=expires_at,
+                )
+            )
+        self._scheduler.schedule_expiry(
+            participation_id=participation_id, run_at=expires_at
+        )
 
     def peek_offer(self, *, token: str) -> OfferDTO | None:
         return self._participations.read_offer_by_token(token)
@@ -179,6 +229,21 @@ class WaitlistPromotionService:
                 success=True, session_id=offer.session_id, event_slug=offer.event_slug
             )
 
+    def decline_offer(self, *, token: str) -> ClaimResult:
+        # Token-authorised way out: a member turning down a held seat or a
+        # waiter passing on an offer. Drops the whole offered party (the offer
+        # is party-wide, like claiming) and rolls the freed seats on. The
+        # status guard in drop() makes a racing claim/expiry a no-op here.
+        with self._transaction.atomic():
+            if (offer := self._participations.read_offer_by_token(token)) is None:
+                return ClaimResult(success=False, reason="not_found")
+            self._participations.drop(offer.participant_ids)
+            session_id = offer.session_id
+            event_slug = offer.event_slug
+
+        self.fill_freed_seats(session_id=session_id)
+        return ClaimResult(success=True, session_id=session_id, event_slug=event_slug)
+
     def expire_offer(self, *, participation_id: int) -> PromotionResult:
         # Drop a lapsed offered party (terminal), notify them, then re-enter
         # fill_freed_seats so the released seats roll on to the next party.
@@ -189,16 +254,20 @@ class WaitlistPromotionService:
             if _now() <= offer.offer_expires_at:
                 return PromotionResult()
             self._participations.drop(offer.participant_ids)
-            notification = PromotionNotification(
-                recipient_user_id=offer.recipient_user_id,
-                recipient_email=offer.recipient_email,
-                session_id=offer.session_id,
-                session_title=offer.session_title,
-                event_slug=offer.event_slug,
-            )
+            notifications = [
+                PromotionNotification(
+                    recipient_user_id=recipient.user_id,
+                    recipient_email=recipient.email,
+                    session_id=offer.session_id,
+                    session_title=offer.session_title,
+                    event_slug=offer.event_slug,
+                )
+                for recipient in offer.recipients
+            ]
             session_id = offer.session_id
 
-        self._notifier.notify_offer_expired(notification)
+        for notification in notifications:
+            self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
 
 
@@ -224,6 +293,18 @@ class NotificationsService:
             self._notifications.mark_all_read(user_id)
 
 
+def build_anonymous_user(slug: str, name: str = "") -> UserData:
+    # The single recipe for throwaway ANONYMOUS accounts (code-based
+    # self-enrollment, +N headcount guests); only the slug/name vary.
+    return UserData(
+        username=f"anon_{token_urlsafe(8).lower()}",
+        slug=slug,
+        name=name,
+        user_type=UserType.ANONYMOUS,
+        is_active=False,
+    )
+
+
 class AnonymousEnrollmentService:
     SLUG_TEMPLATE = "code_{code}"
 
@@ -236,12 +317,7 @@ class AnonymousEnrollmentService:
         return UserDTO.model_validate(user)
 
     def build_user(self, code: str) -> UserData:
-        return UserData(
-            username=f"anon_{token_urlsafe(8).lower()}",
-            slug=self.SLUG_TEMPLATE.format(code=code),
-            user_type=UserType.ANONYMOUS,
-            is_active=False,
-        )
+        return build_anonymous_user(self.SLUG_TEMPLATE.format(code=code))
 
 
 def _refresh_user_config_from_api(
@@ -378,3 +454,155 @@ def get_user_enrollment_config(
         if (virtual_config.has_user_config or virtual_config.has_domain_config)
         else None
     )
+
+
+def get_used_slots(
+    *,
+    users: list[UserDTO],
+    event: EventDTO,
+    participations: EnrollmentParticipationRepositoryProtocol,
+) -> int:
+    # Count unique users who hold at least one seat (confirmed or offered)
+    return len(
+        participations.occupying_user_ids(
+            user_ids=[u.pk for u in users], event_id=event.pk
+        )
+    )
+
+
+def can_enroll_users(
+    *,
+    users: list[UserDTO],
+    event: EventDTO,
+    virtual_config: VirtualEnrollmentConfig,
+    users_to_enroll: list[UserDTO],
+    participations: EnrollmentParticipationRepositoryProtocol,
+) -> bool:
+    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
+    currently_enrolled = participations.occupying_user_ids(
+        user_ids=[u.pk for u in users], event_id=event.pk
+    )
+
+    # Add new users to enroll
+    users_to_enroll_ids = {u.pk for u in users_to_enroll}
+    total_enrolled = currently_enrolled | users_to_enroll_ids
+
+    return len(total_enrolled) <= virtual_config.allowed_slots
+
+
+def get_vc_available_slots(
+    *,
+    users: list[UserDTO],
+    event: EventDTO,
+    virtual_config: VirtualEnrollmentConfig,
+    participations: EnrollmentParticipationRepositoryProtocol,
+) -> int:
+    return max(
+        0,
+        virtual_config.allowed_slots
+        - get_used_slots(users=users, event=event, participations=participations),
+    )
+
+
+class EnrollmentService(EnrollmentServiceProtocol):
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: EnrollmentRepos,
+        membership_check_interval: int,
+    ) -> None:
+        self._transaction = transaction
+        self._users = repos.users
+        self._anonymous_users = repos.anonymous_users
+        self._enrollment_configs = repos.enrollment_configs
+        self._participations = repos.participations
+        self._ticket_api = repos.ticket_api
+        self._membership_check_interval = membership_check_interval
+
+    def read_viewer(self, slug: str) -> UserDTO:
+        return self._users.read(slug)
+
+    def read_users(self, pks: list[int]) -> list[UserDTO]:
+        return self._users.read_by_ids(pks)
+
+    def virtual_config(
+        self, *, event: EventDTO, user_email: str
+    ) -> VirtualEnrollmentConfig | None:
+        return get_user_enrollment_config(
+            event=event,
+            user_email=user_email,
+            enrollment_config_repo=self._enrollment_configs,
+            ticket_api=self._ticket_api,
+            check_interval_minutes=self._membership_check_interval,
+        )
+
+    def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool:
+        # On a restricted event a member's seat spends that member's own
+        # allowance, so a member without slots cannot be seated by the leader.
+        if not user_email:
+            return False
+        config = self.virtual_config(event=event, user_email=user_email)
+        return bool(config and config.allowed_slots)
+
+    def can_enroll_users(
+        self,
+        *,
+        users: list[UserDTO],
+        event: EventDTO,
+        virtual_config: VirtualEnrollmentConfig,
+        users_to_enroll: list[UserDTO],
+    ) -> bool:
+        return can_enroll_users(
+            users=users,
+            event=event,
+            virtual_config=virtual_config,
+            users_to_enroll=users_to_enroll,
+            participations=self._participations,
+        )
+
+    def get_used_slots(self, *, users: list[UserDTO], event: EventDTO) -> int:
+        return get_used_slots(
+            users=users, event=event, participations=self._participations
+        )
+
+    def get_vc_available_slots(
+        self,
+        *,
+        users: list[UserDTO],
+        event: EventDTO,
+        virtual_config: VirtualEnrollmentConfig,
+    ) -> int:
+        return get_vc_available_slots(
+            users=users,
+            event=event,
+            virtual_config=virtual_config,
+            participations=self._participations,
+        )
+
+    def create_guests(
+        self,
+        *,
+        session_id: int,
+        count: int,
+        party_id: int | None,
+        enrolled_by_id: int,
+        viewer_name: str,
+    ) -> None:
+        # Runs as a savepoint inside the enrollment batch transaction, after
+        # the per-user requests, with the session row locked by the caller.
+        with self._transaction.atomic():
+            for _ in range(count):
+                user_data = build_anonymous_user(
+                    f"guest-{token_urlsafe(8).lower()}", name=f"{viewer_name} +1"
+                )
+                self._anonymous_users.create(user_data)
+                guest = self._anonymous_users.read(user_data["slug"])
+                self._participations.create_confirmed(
+                    GuestSeatData(
+                        session_id=session_id,
+                        user_id=guest.pk,
+                        party_id=party_id,
+                        enrolled_by_id=enrolled_by_id,
+                    )
+                )

@@ -44,7 +44,7 @@ def _make_session(event, **kwargs):
 def _schedule(session, event):
     space = SpaceFactory(event=event)
     start = datetime.now(UTC) + timedelta(days=7)
-    session.status = "scheduled"
+    session.status = "accepted"
     session.save(update_fields=["status"])
     return AgendaItem.objects.create(
         session=session,

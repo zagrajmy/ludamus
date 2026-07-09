@@ -10,15 +10,27 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
+        ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
-    from ludamus.pacts.discounts import DiscountsServiceProtocol
+    from ludamus.pacts.crowd import (
+        ClaimServiceProtocol,
+        CompanionsServiceProtocol,
+        CrowdAuthServiceProtocol,
+        ProfileServiceProtocol,
+    )
+    from ludamus.pacts.discounts import (
+        DiscountsExportServiceProtocol,
+        DiscountsServiceProtocol,
+    )
     from ludamus.pacts.enrollment import (
+        EnrollmentServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
@@ -29,10 +41,12 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import PrintMaterialsServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        HostPersonalDataServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         ProposalImportServiceProtocol,
@@ -60,7 +74,19 @@ class ServicesProtocol(Protocol):
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
+    def host_personal_data(self) -> HostPersonalDataServiceProtocol: ...
+    @property
     def connections(self) -> ConnectionsServiceProtocol: ...
+    @property
+    def claims(self) -> ClaimServiceProtocol: ...
+    @property
+    def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
+    @property
+    def profile(self) -> ProfileServiceProtocol: ...
+    @property
+    def companions(self) -> CompanionsServiceProtocol: ...
+    @property
+    def parties(self) -> PartyServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
@@ -80,9 +106,13 @@ class ServicesProtocol(Protocol):
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
     @property
+    def proposal_status(self) -> ProposalStatusServiceProtocol: ...
+    @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
+    @property
+    def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
@@ -94,6 +124,8 @@ class ServicesProtocol(Protocol):
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
     @property
+    def bookmarks(self) -> BookmarkServiceProtocol: ...
+    @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
     @property
     def import_log(self) -> ImportLogServiceProtocol: ...
@@ -101,3 +133,5 @@ class ServicesProtocol(Protocol):
     def import_field_layout(self) -> ImportFieldLayoutServiceProtocol: ...
     @property
     def discounts(self) -> DiscountsServiceProtocol: ...
+    @property
+    def discounts_export(self) -> DiscountsExportServiceProtocol: ...

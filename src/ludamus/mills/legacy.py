@@ -255,17 +255,6 @@ def is_proposal_active(event: EventDTO) -> bool:
     return event.proposal_start_time <= now <= event.proposal_end_time
 
 
-def get_days_to_event(event: EventDTO) -> int:
-    """Calculate days remaining until the event starts.
-
-    Returns:
-        Number of days until event start, minimum 0.
-    """
-    now = datetime.now(tz=UTC)
-    delta = event.start_time - now
-    return max(0, delta.days)
-
-
 class ProposeSessionService:
     def __init__(self, uow: UnitOfWorkProtocol, context: RequestContext) -> None:
         self._uow = uow
@@ -500,7 +489,7 @@ class AcceptProposalService:
             self._uow.sessions.update(
                 session.pk,
                 SessionUpdateData(
-                    status=SessionStatus.SCHEDULED, display_name=session.display_name
+                    status=SessionStatus.ACCEPTED, display_name=session.display_name
                 ),
             )
 

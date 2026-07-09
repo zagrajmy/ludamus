@@ -1,7 +1,7 @@
 {% load avatar_tags i18n %}
 {# Reusable avatar: expects "user" (UserDTO/User) and optional "size", "danger_ring". #}
 {# For interactive use (link/button), pass size="size-11" (44px) or wrap with padding to meet the touch-target minimum. #}
-{% with size_class=size|default:"size-8" border_class="border border-white/80 dark:border-neutral-900" %}
+{% with size_class=size|default:"size-8" text_class=text_size|default:"text-xs" border_class="border border-white/80 dark:border-neutral-900" %}
     {% if user %}
         {% with name_value=user.full_name|default:user.name|default:user.username|default:"" %}
             {% if danger_ring|default:False %}
@@ -12,7 +12,7 @@
                  aria-label="{{ avatar_label|default:name_value }}">
                 <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
                      aria-hidden="true">
-                    <span class="text-xs font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
+                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
                 </div>
                 {% if user.avatar_url %}
                     <img src="{{ user.avatar_url }}"

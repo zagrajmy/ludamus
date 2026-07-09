@@ -22,10 +22,7 @@ from pathlib import Path
 # Pinned to main HEAD; bump to `impeccable@3.x.x` once published.
 IMPECCABLE_SPEC = "github:pbakaus/impeccable#346ce25952a6d4150433e8fb1369cb59571ebc30"
 
-IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = (
-    "e2e/playwright-report/",
-    "tailwind.min.js",
-)
+IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = ("e2e/playwright-report/", "tailwind.min.js")
 # tiny-text: design opinion we don't share.
 # single-font: the project deliberately uses one brand font (Outfit)
 # everywhere; this whole-project heuristic flags that by design and isn't
@@ -73,9 +70,7 @@ def run_detect(paths: list[str]) -> list[dict]:
     # skipped for impeccable only; the global ~/.npmrc still gates everything
     # else.
     env = {**os.environ, "NPM_CONFIG_USERCONFIG": os.devnull}
-    result = subprocess.run(
-        cmd, check=False, capture_output=True, text=True, env=env
-    )
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True, env=env)
     # impeccable emits JSON on stdout when empty and on stderr when findings exist.
     # Sources may prefix the payload with npm warnings (e.g. git-sourced installs).
     for stream in (result.stdout, result.stderr):
@@ -105,7 +100,7 @@ def filter_findings(findings: list[dict]) -> list[dict]:
 def _relative_path(file_path: str, repo_root: Path) -> str:
     try:
         return str(Path(file_path).resolve().relative_to(repo_root))
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return file_path
 
 
@@ -149,9 +144,7 @@ def format_workflow_command(finding: dict, repo_root: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "paths",
-        nargs="*",
-        help="Paths to scan (default: tracked HTML/CSS/JS files).",
+        "paths", nargs="*", help="Paths to scan (default: tracked HTML/CSS/JS files)."
     )
     args = parser.parse_args()
 

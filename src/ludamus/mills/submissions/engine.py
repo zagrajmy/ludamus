@@ -13,6 +13,7 @@ from ludamus.mills.submissions.mapping import (
     RowSkippedError,
     cell,
     chosen_entities,
+    dedup_slug,
     extract_identity,
     field_name,
     field_setup,
@@ -388,7 +389,7 @@ class ImportEngine:
         identity = "-".join(
             row.get_value(col, "") for col in settings.unique_key_columns
         )
-        slug = slugify(f"e{event_id}-{identity}") or f"e{event_id}-row"
+        slug = dedup_slug(event_id=event_id, identity=identity)
         if (
             existing_id := self._repos.sessions.find_id_by_slug(event_id, slug)
         ) is not None:

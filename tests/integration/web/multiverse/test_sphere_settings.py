@@ -20,6 +20,7 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
     "announcements": "/multiverse/panel/announcements/",
+    "mcp": "/multiverse/panel/mcp/",
 }
 GENERAL_PANEL_CONTEXT = {
     "events": [],
@@ -29,6 +30,7 @@ GENERAL_PANEL_CONTEXT = {
     "is_general_tab": True,
     "is_connections_tab": False,
     "is_announcements_tab": False,
+    "is_mcp_tab": False,
     "tab_urls": TAB_URLS,
     "form": ANY,
 }
@@ -115,7 +117,7 @@ class TestSphereSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="multiverse/panel/sphere-settings.html",
-            context_data=ANY,
+            context_data=GENERAL_PANEL_CONTEXT,
         )
         assert "spheres/brand.png" in response.content.decode()
 

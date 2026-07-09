@@ -25,53 +25,53 @@
         <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
             {% tab "general" href=tab_urls.general %}{% translate "General" %}{% end_tab %}
-            {% tab "proposals" href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
-            {% tab "display" active=True href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
-            {% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        <form id="display-settings-form"
-              method="post"
-              action="{% url 'panel:event-display-settings' slug=current_event.slug %}"
-              class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Filterable Session Fields" %}</h3>
-                    <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Select which session fields appear as filters on the public session list." %}
+        {% tab "proposals" href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
+    {% tab "display" active=True href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
+{% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    <form id="display-settings-form"
+          method="post"
+          action="{% url 'panel:event-display-settings' slug=current_event.slug %}"
+          class="max-w-2xl">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-body">
+                <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Filterable Session Fields" %}</h3>
+                <p class="text-sm text-foreground-muted mb-6">
+                    {% translate "Select which session fields appear as filters on the public session list." %}
+                </p>
+                {% if fields %}
+                    <div class="space-y-3">
+                        {% for field in fields %}
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="displayed_session_fields"
+                                       value="{{ field.pk }}"
+                                       {% if field.pk in filterable_field_ids %}checked{% endif %}
+                                       class="rounded border-border text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-foreground-secondary">
+                                    {% if field.icon %}
+                                        {% icon field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+                                    {% endif %}
+                                    {{ field.name }}
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-sm text-foreground-muted italic">
+                        {% translate "No session fields defined. Create session fields in the CFP section first." %}
                     </p>
-                    {% if fields %}
-                        <div class="space-y-3">
-                            {% for field in fields %}
-                                <label class="flex items-center">
-                                    <input type="checkbox"
-                                           name="displayed_session_fields"
-                                           value="{{ field.pk }}"
-                                           {% if field.pk in filterable_field_ids %}checked{% endif %}
-                                           class="rounded border-border text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm text-foreground-secondary">
-                                        {% if field.icon %}
-                                            {% icon field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
-                                        {% endif %}
-                                        {{ field.name }}
-                                    </span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="text-sm text-foreground-muted italic">
-                            {% translate "No session fields defined. Create session fields in the CFP section first." %}
-                        </p>
-                    {% endif %}
-                </div>
+                {% endif %}
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
+</div>
 {% else %}
-    <div class="card p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-    </div>
+<div class="card p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
 {% endif %}
 {% endblock content %}

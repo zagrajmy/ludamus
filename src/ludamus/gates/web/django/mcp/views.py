@@ -1,9 +1,8 @@
-"""HTTP gate for the maintainer MCP server.
+"""HTTP gates for the MCP endpoints.
 
-`/mcp/` is a stateless MCP Streamable HTTP endpoint. Access is maintainer-only:
-a signed Bearer token minted at `/mcp/token/` by a logged-in superuser. The
-token embeds the user id; every request re-checks that the user is still an
-active superuser, so revoking access is flipping the flag in Django admin.
+`/mcp/` (maintainer) and `/mcp/organizer/` are stateless MCP Streamable HTTP
+endpoints. Token minting and verification live in `tokens.py`; each endpoint
+loads only its tier's tool registry.
 """
 
 from __future__ import annotations
@@ -11,9 +10,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core import signing
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -23,40 +20,55 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR, error_response, handle_message
 from ludamus.gates.mcp.tools import build_registry
+from ludamus.gates.web.django.mcp.tokens import (
+    TOKEN_MAX_AGE_DAYS,
+    authenticate_maintainer,
+    authenticate_organizer,
+    mint_token,
+)
+from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
+    from ludamus.gates.mcp.registry import ToolRegistry
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
+    from ludamus.pacts.mcp import ActorContext
 
-SIGNING_SALT = "ludamus.mcp"
-TOKEN_MAX_AGE_DAYS = 30
-
-_REGISTRY = build_registry()
-
-
-def mint_token(user_id: int) -> str:
-    return signing.dumps({"user_id": user_id}, salt=SIGNING_SALT)
+_MAINTAINER_REGISTRY = build_registry(ToolScope.MAINTAINER)
+_ORGANIZER_REGISTRY = build_registry(ToolScope.ORGANIZER)
 
 
-def _authenticated_superuser_id(request: RootRequest) -> int | None:
-    header = request.headers.get("Authorization", "")
-    if not header.startswith("Bearer "):
-        return None
+def _unauthorized(missing: str) -> JsonResponse:
+    response = JsonResponse(
+        {"error": f"A valid {missing} Bearer token is required."}, status=401
+    )
+    response["WWW-Authenticate"] = "Bearer"
+    return response
+
+
+def _dispatch(
+    *, request: RootRequest, registry: ToolRegistry, actor: ActorContext
+) -> HttpResponse:
     try:
-        payload = signing.loads(
-            header.removeprefix("Bearer "),
-            salt=SIGNING_SALT,
-            max_age=TOKEN_MAX_AGE_DAYS * 24 * 60 * 60,
+        message = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            error_response(message_id=None, code=PARSE_ERROR, message="Parse error"),
+            status=400,
         )
-    except signing.BadSignature:
-        return None
-    user_id = payload.get("user_id") if isinstance(payload, dict) else None
-    if not isinstance(user_id, int):
-        return None
-    user_model = get_user_model()
-    is_superuser = user_model.objects.filter(
-        pk=user_id, is_active=True, is_superuser=True
-    ).exists()
-    return user_id if is_superuser else None
+    if not isinstance(message, dict):
+        return JsonResponse(
+            error_response(
+                message_id=None, code=PARSE_ERROR, message="Expected a JSON-RPC object"
+            ),
+            status=400,
+        )
+
+    result = handle_message(
+        registry=registry, services=request.services, actor=actor, message=message
+    )
+    if result is None:
+        return HttpResponse(status=202)
+    return JsonResponse(result)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -67,38 +79,22 @@ class McpEndpointView(View):
 
     @staticmethod
     def post(request: RootRequest) -> HttpResponse:
-        if _authenticated_superuser_id(request) is None:
-            response = JsonResponse(
-                {"error": "A valid maintainer Bearer token is required."}, status=401
-            )
-            response["WWW-Authenticate"] = "Bearer"
-            return response
+        if (actor := authenticate_maintainer(request)) is None:
+            return _unauthorized("maintainer")
+        return _dispatch(request=request, registry=_MAINTAINER_REGISTRY, actor=actor)
 
-        try:
-            message = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse(
-                error_response(
-                    message_id=None, code=PARSE_ERROR, message="Parse error"
-                ),
-                status=400,
-            )
-        if not isinstance(message, dict):
-            return JsonResponse(
-                error_response(
-                    message_id=None,
-                    code=PARSE_ERROR,
-                    message="Expected a JSON-RPC object",
-                ),
-                status=400,
-            )
 
-        result = handle_message(
-            registry=_REGISTRY, services=request.services, message=message
-        )
-        if result is None:
-            return HttpResponse(status=202)
-        return JsonResponse(result)
+@method_decorator(csrf_exempt, name="dispatch")
+class McpOrganizerEndpointView(View):
+    """Sphere-scoped organizer endpoint; tools read the sphere from the token."""
+
+    request: RootRequest
+
+    @staticmethod
+    def post(request: RootRequest) -> HttpResponse:
+        if (actor := authenticate_organizer(request)) is None:
+            return _unauthorized("organizer")
+        return _dispatch(request=request, registry=_ORGANIZER_REGISTRY, actor=actor)
 
 
 class McpTokenPageView(LoginRequiredMixin, View):

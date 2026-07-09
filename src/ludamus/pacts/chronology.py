@@ -180,7 +180,6 @@ class EventIntegrationsServiceProtocol(Protocol):
 
 
 class SessionSelfEditServiceProtocol(Protocol):
-    def can_edit(self, session_id: int, user_id: int | None) -> bool: ...
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext: ...
@@ -193,6 +192,14 @@ class SessionSelfEditServiceProtocol(Protocol):
     ) -> None: ...
 
 
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
+
+
 class SessionContentEditServiceProtocol(Protocol):
     def apply(
         self,
@@ -202,8 +209,10 @@ class SessionContentEditServiceProtocol(Protocol):
         user_id: int | None,
         data: SessionContentEditData,
     ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(self, event_id: int) -> set[int]: ...
 
 
 class SessionConfirmationServiceProtocol(Protocol):
@@ -221,8 +230,20 @@ class SessionDeletionServiceProtocol(Protocol):
     def restore(self, event_pk: int, session_pk: int) -> None: ...
 
 
+class ProposalScheduledError(Exception):
+    """Scheduled proposals may only be accepted, never demoted."""
+
+
+class ProposalStatusServiceProtocol(Protocol):
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
+TIMETABLE_SNAP_MINUTES = 5
 
 
 class SessionPositionDTO(BaseModel):
@@ -259,6 +280,7 @@ class TimetableGridDTO(BaseModel):
     total_minutes: int
     event_start_iso: str
     slot_minutes: int
+    snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
@@ -289,6 +311,10 @@ class SessionPlacement:
 class ConflictDTO(BaseModel):
     type: ConflictType
     severity: ConflictSeverity
+    # The session that has the problem (the one being placed / examined).
+    subject_session_title: str
+    subject_session_pk: int
+    # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
     facilitator_name: str | None = None

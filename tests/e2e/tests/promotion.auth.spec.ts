@@ -1,12 +1,11 @@
+import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-
-import { expect, test } from "@playwright/test";
 
 // Multi-user waiting-list promotion (issue scenario 1): the superuser (A) holds
 // the only confirmed seat and a dedicated waiter (B) is waitlisted. When A
 // cancels, B is promoted, emailed, and sees the in-app notification. Email is
-// captured to files via EMAIL_URL=filemail:// (mise [tasks._e2e]). B is its own
+// captured to files via EMAIL_URL=filemail:// (.env.e2e). B is its own
 // seeded user so its notification state stays isolated from other specs.
 
 const e2eDir = path.resolve(__dirname, "..");

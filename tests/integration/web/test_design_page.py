@@ -141,7 +141,7 @@ def _expected_session_data() -> SessionData:
             category_id=17,
             needs="Lots of space",
             presenter_id=18,
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         ),
         is_full=False,
         full_participant_info="4/6",
@@ -215,7 +215,7 @@ def _expected_session_data_ended() -> SessionData:
             category_id=17,
             needs="Lots of space",
             presenter_id=18,
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         ),
         is_full=True,
         full_participant_info="6/6",
@@ -225,6 +225,8 @@ def _expected_session_data_ended() -> SessionData:
         loc=_make_loc(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+        is_ongoing=True,
+        is_ended=True,
     )
 
 

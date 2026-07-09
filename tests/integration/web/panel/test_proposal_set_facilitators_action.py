@@ -111,6 +111,32 @@ class TestProposalSetFacilitatorsActionView:
         )
         assert session.facilitators.filter(pk=facilitator.pk).exists()
 
+    def test_post_ignores_facilitator_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        other_event = EventFactory(sphere=sphere)
+        foreign_facilitator = Facilitator.objects.create(
+            event=other_event, display_name="Mallory", slug="mallory", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={"facilitator_ids": [foreign_facilitator.pk]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators updated.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        assert not session.facilitators.exists()
+
     def test_post_clears_facilitators_when_empty(
         self, authenticated_client, active_user, sphere, event
     ):

@@ -7,36 +7,36 @@
     <div class="max-w-3xl mx-auto">
         <div class="card">
             {% url 'web:crowd:profile' as profile_url %}
-            {% url 'web:crowd:profile-connected-users' as connected_url %}
+            {% url 'web:crowd:profile-parties' as parties_url %}
             {% url 'web:crowd:profile-avatar' as avatar_url %}
             {% url 'web:crowd:profile-shadowbans' as shadowbans_url %}
             <div class="bg-warm-200 rounded-t-2xl px-6 pt-4 border-b dark:bg-bg-tertiary border-border [&>nav>[aria-selected=true]]:border-border [&>nav>[aria-selected=true]]:border-b-0 [&>nav>[aria-selected=true]]:border">
                 {% tabs %}
                 {% tab "profile" icon="user" href=profile_url active=True %}{% translate "Personal Information" %}{% end_tab %}
-                {% tab "connected" icon="users" href=connected_url %}{% translate "Connected users" %}{% end_tab %}
-                {% tab "avatar" icon="photo" href=avatar_url %}{% translate "Avatar" %}{% end_tab %}
-                {% tab "shadowbans" icon="shield-exclamation" href=shadowbans_url %}{% translate "Safety" %}{% end_tab %}
-            {% end_tabs %}
-        </div>
-        <div class="card-body">
-            {% if user.confirmed_participations_count > 0 %}
-                <div class="alert alert-info flex items-center gap-3 mb-4">
-                    {% icon "calendar-days" class="w-5 h-5 shrink-0" %}
-                    <span>
-                        {% blocktranslate count counter=user.confirmed_participations_count %}
+            {% tab "parties" icon="users" href=parties_url %}{% translate "Parties" %}{% end_tab %}
+        {% tab "avatar" icon="photo" href=avatar_url %}{% translate "Avatar" %}{% end_tab %}
+    {% tab "shadowbans" icon="shield-exclamation" href=shadowbans_url %}{% translate "Safety" %}{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="card-body">
+    {% if user.confirmed_participations_count > 0 %}
+        <div class="alert alert-info flex items-center gap-3 mb-4">
+            {% icon "calendar-days" class="w-5 h-5 shrink-0" %}
+            <span>
+                {% blocktranslate count counter=user.confirmed_participations_count %}
                                 You have {{ counter }} confirmed session participation.
                             {% plural %}
                                 You have {{ counter }} confirmed session participations.
                             {% endblocktranslate %}
-                    </span>
-                </div>
-            {% endif %}
-            <form action="{% url 'web:crowd:profile' %}" method="post">
-                {% csrf_token %}
-                {% tessera_form form %}
-                {% tessera_button "OK" %}
-            </form>
+            </span>
         </div>
-    </div>
+    {% endif %}
+    <form action="{% url 'web:crowd:profile' %}" method="post">
+        {% csrf_token %}
+        {% tessera_form form %}
+        {% tessera_button "OK" %}
+    </form>
+</div>
+</div>
 </div>
 {% endblock body %}

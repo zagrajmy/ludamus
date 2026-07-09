@@ -1,7 +1,6 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-
-import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /** Accept the in-page confirm modal that guards destructive forms. */
 const acceptConfirmModal = (page: Page) =>

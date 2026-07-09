@@ -15,6 +15,11 @@
 {% block content %}
     <div class="p-4">
         {% if rows %}
+            <div class="mb-4 flex justify-end">
+                {% url 'panel:discount-export' slug=current_event.slug as export_url %}
+                {% translate "Export accreditation sheet" as t_export %}
+                {% tessera_button t_export href=export_url variant="secondary" size="sm" icon="arrow-up-tray" full_width_mobile=False %}
+            </div>
             {% tessera_table %}
             <thead class="bg-bg-tertiary">
                 <tr>

@@ -40,12 +40,18 @@ def render_input(field: BoundField) -> str:
             "name": field.html_name,
             "id": field.id_for_label,
             "input_type": input_type,
-            "value": value if value is not None else "",
+            # Stringified so falsy values render too: 0 must come out as
+            # value="0", not as an empty box.
+            "value": "" if value is None else str(value),
             "required": field.field.required,
             "disabled": attrs.get("disabled", False),
             "readonly": attrs.get("readonly", False),
             "placeholder": attrs.get("placeholder", ""),
             "maxlength": attrs.get("maxlength", ""),
+            # Widget attrs (e.g. Django's NumberInput derives them from
+            # min_value/max_value); stringified so a 0 bound still renders.
+            "min": str(attrs.get("min", "")),
+            "max": str(attrs.get("max", "")),
             "inputmode": (
                 attrs.get("inputmode") or _INPUTMODE_BY_TYPE.get(input_type, "")
             ),

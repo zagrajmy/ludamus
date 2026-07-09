@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import sys
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self
+
+from django.utils import timezone
 
 from ludamus.pacts import EventListItemDTO
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from ludamus.gates.web.django.entities import UserInfo
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -61,7 +63,8 @@ class ParticipationInfo:
 
 @dataclass
 class SessionData:  # pylint: disable=too-many-instance-attributes
-    agenda_item: AgendaItemDTO
+    # None for a pending proposal card: the session isn't scheduled yet.
+    agenda_item: AgendaItemDTO | None
     is_enrollment_available: bool
     presenter: UserInfo
     session: SessionDTO
@@ -71,17 +74,24 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     enrolled_count: int
     session_participations: list[ParticipationInfo]
     loc: LocationData
-    has_any_enrollments: bool = False
     can_edit: bool = False
     user_enrolled: bool = False
     user_waiting: bool = False
+    user_bookmarked: bool = False
     displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
     waiting_count: int = 0
     is_ongoing: bool = False  # True if session has already started
+    is_ended: bool = False  # True if the session's end time has passed
     should_show_as_inactive: bool = (
         False  # True if should be displayed as inactive due to limit_to_end_time
     )
+
+    @property
+    def is_pending_proposal(self) -> bool:
+        # A card without an agenda item is an unscheduled proposal; scheduled
+        # sessions keep their status-agnostic rendering.
+        return self.agenda_item is None
 
     @property
     def is_unlimited(self) -> bool:
@@ -108,6 +118,26 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return ratio < self._SCARCE_THRESHOLD
 
     @property
+    def public_tags(self) -> str:
+        # Flat and per-category tag strings for the card data-* filter contract;
+        # joined here so separators only ever sit between emitted values.
+        return ",".join(
+            str(value)
+            for fv in self.field_values
+            if fv.field_type == "select" and fv.is_public and isinstance(fv.value, list)
+            for value in fv.value
+        )
+
+    @property
+    def public_tag_categories(self) -> str:
+        return ";".join(
+            f"{fv.field_slug}:{value}"
+            for fv in self.field_values
+            if fv.field_type == "select" and fv.is_public and isinstance(fv.value, list)
+            for value in fv.value
+        )
+
+    @property
     def location_label(self) -> str:
         # Full "Root > ... > Leaf" tree path of the scheduled space.
         return self.loc.get("path", "")
@@ -122,8 +152,157 @@ class EventInfo(EventListItemDTO):
 
 
 @dataclass
+class ScheduleHour:
+    """One local-clock hour of the compact schedule, with its sessions."""
+
+    start: datetime
+    sessions: list[SessionData]
+
+
+@dataclass
+class ScheduleDay:
+    """A day's worth of compact-schedule hours, grouped for the hour scrubber."""
+
+    first_start: datetime
+    hours: list[ScheduleHour]
+
+
+@dataclass
+class RoomLaneRow:
+    """One hour row of the rooms view: a cell of sessions per room."""
+
+    start: datetime
+    cells: list[list[SessionData]]
+
+
+@dataclass
+class RoomLaneDay:
+    """A day of the rooms view: room columns and per-hour rows."""
+
+    first_start: datetime
+    rooms: list[str]
+    rows: list[RoomLaneRow]
+
+
+def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
+    # sessions_data preserves the queryset's chronological order, so a single
+    # pass groups sessions into whole local-clock hours and hours into
+    # local-calendar days. Hour buckets (not exact start times) keep the rail,
+    # the section ids, and the hour headings one-to-one, so filtering can never
+    # strand a heading or a rail marker on a hidden sub-slot.
+    days: list[ScheduleDay] = []
+    for data in sessions_data.values():
+        if data.agenda_item is None:
+            continue
+        start = data.agenda_item.start_time
+        local_start = timezone.localtime(start)
+        if not days or timezone.localtime(days[-1].first_start).date() != (
+            local_start.date()
+        ):
+            days.append(ScheduleDay(first_start=start, hours=[]))
+        hours = days[-1].hours
+        hour_start = local_start.replace(minute=0, second=0, microsecond=0)
+        if not hours or hours[-1].start != hour_start:
+            hours.append(ScheduleHour(start=hour_start, sessions=[]))
+        hours[-1].sessions.append(data)
+    return days
+
+
+def group_sessions_by_state(
+    sessions_data: dict[int, SessionData],
+) -> tuple[
+    dict[datetime, list[SessionData]],
+    dict[datetime, list[SessionData]],
+    dict[datetime, list[SessionData]],
+]:
+    current_time = datetime.now(tz=UTC)
+    ended: dict[datetime, list[SessionData]] = defaultdict(list)
+    current: dict[datetime, list[SessionData]] = defaultdict(list)
+    future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
+    for session_data in sessions_data.values():
+        if session_data.agenda_item is None:
+            continue
+        session_start_time = session_data.agenda_item.start_time
+        hour_key = session_start_time
+        if session_data.agenda_item.end_time <= current_time:
+            ended[hour_key].append(session_data)
+        elif (
+            not session_data.is_enrollment_available
+            and session_start_time > current_time
+        ):
+            future_unavailable[hour_key].append(session_data)
+        else:
+            # Current sessions (available for enrollment or in progress)
+            current[hour_key].append(session_data)
+    return dict(ended), dict(current), dict(future_unavailable)
+
+
+def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
+    # Pivot each day's hours into a rooms grid: one column per scheduled leaf
+    # space, one row per hour. Rooms are keyed by (name, parent slug) — leaf
+    # names repeat across venues — and the label carries the parent name only
+    # when the bare name would be ambiguous.
+    lane_days: list[RoomLaneDay] = []
+    for day in schedule_days:
+        keys = sorted(
+            {
+                (
+                    data.loc["space_name"],
+                    data.loc["parent_slug"],
+                    data.loc["parent_name"],
+                )
+                for hour in day.hours
+                for data in hour.sessions
+            }
+        )
+        name_counts = Counter(name for name, _, _ in keys)
+        rooms = [
+            f"{name} ({parent})" if name_counts[name] > 1 and parent else name
+            for name, _, parent in keys
+        ]
+        column = {key: index for index, key in enumerate(keys)}
+        rows = []
+        for hour in day.hours:
+            cells: list[list[SessionData]] = [[] for _ in keys]
+            for data in hour.sessions:
+                cells[
+                    column[
+                        data.loc["space_name"],
+                        data.loc["parent_slug"],
+                        data.loc["parent_name"],
+                    ]
+                ].append(data)
+            rows.append(RoomLaneRow(start=hour.start, cells=cells))
+        lane_days.append(
+            RoomLaneDay(first_start=day.first_start, rooms=rooms, rows=rows)
+        )
+    return lane_days
+
+
+@dataclass(frozen=True)
+class PartyMemberFlags:
+    # A real co-member of the selected party (all-False for the viewer and
+    # their login-less companions). The viewer never cancels the member's own
+    # seats; an ACCEPT_INVITES member (needs_accept) can only have a seat held
+    # for them — no direct seating on their behalf.
+    is_member: bool = False
+    needs_accept: bool = False
+    # Restricted event and the member has no enrollment slots of their own —
+    # their seat would spend their allowance, so no enroll/hold choice.
+    blocked: bool = False
+
+
+@dataclass
 class SessionUserParticipationData:
     user: UserDTO
     user_enrolled: bool = False
     user_waiting: bool = False
+    # The OFFERED split, viewer-side: an OFFERED row on a needs-accept member
+    # of the selected party is a seat this viewer held for them (seat_held);
+    # any other OFFERED row is an ordinary pending offer (offer_pending). Who
+    # created the row is not recorded yet, so beyond the viewer's own member
+    # rows the generic offer copy applies.
+    seat_held: bool = False
+    offer_pending: bool = False
     has_time_conflict: bool = False
+    membership: PartyMemberFlags = PartyMemberFlags()

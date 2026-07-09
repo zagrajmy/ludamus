@@ -104,7 +104,7 @@ class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "user_type", "manager", "email", "discord_username")
+    list_display = ("name", "user_type", "email", "discord_username")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
@@ -120,12 +120,6 @@ class FacilitatorAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 @admin.register(ProposalCategory)
 class ProposalCategoryAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
-
-
-class DomainEnrollmentConfigInline(admin.TabularInline):  # type: ignore [type-arg]
-    model = DomainEnrollmentConfig
-    extra = 0
-    fields = ("domain", "allowed_slots_per_user")
 
 
 @admin.register(EnrollmentConfig)
