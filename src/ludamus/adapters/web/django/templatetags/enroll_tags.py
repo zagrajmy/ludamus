@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django import template
+from django.forms import ChoiceField
 from django.utils.translation import gettext as _
 
 if TYPE_CHECKING:
@@ -55,7 +56,15 @@ def enroll_row_state(
     form: forms.Form, data: SessionUserParticipationData
 ) -> EnrollRowState:
     field = form.fields.get(f"user_{data.user.pk}")
-    choices = {choice[0] for choice in field.choices} if field is not None else set()  # type: ignore[attr-defined]
+    choices = (
+        {
+            value
+            for value in ("enroll", "waitlist", "cancel")
+            if field.valid_value(value)
+        }
+        if isinstance(field, ChoiceField)
+        else set()
+    )
     membership = data.membership
     in_or_holding = (
         data.user_enrolled or data.user_waiting or data.seat_held or data.offer_pending

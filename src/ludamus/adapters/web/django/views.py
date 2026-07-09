@@ -9,6 +9,7 @@ from pathlib import Path
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -95,8 +96,6 @@ from .forms import create_enrollment_form, create_proposal_acceptance_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-    from django import forms
 
     from ludamus.pacts.party import EnrollmentPartiesDTO, SelectedEnrollmentPartyDTO
 
@@ -1460,9 +1459,14 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def _choice_values(form: forms.Form, user_pk: int) -> set[str]:
-        if (form_field := form.fields.get(f"user_{user_pk}")) is None:
+        form_field = form.fields.get(f"user_{user_pk}")
+        if not isinstance(form_field, forms.ChoiceField):
             return set()
-        return {choice[0] for choice in form_field.choices}  # type: ignore[attr-defined]
+        return {
+            value
+            for value in ("enroll", "waitlist", "cancel")
+            if form_field.valid_value(value)
+        }
 
     def _process_enrollments(
         self,
@@ -1808,10 +1812,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     kwargs={"event_slug": session.event.slug, "session_id": session.id},
                 ),
                 warning=(
-                    # A submit whose only touched control is the (unchanged)
-                    # guests field is not a selection mistake.
+                    # On the desired-state page every submit is a valid statement
+                    # of who should be in — an unchanged one is simply a no-op,
+                    # not a selection mistake. Same for a submit whose only
+                    # touched control is the (unchanged) guests field.
                     _("No changes.")
                     if guests_target is not None
+                    or self.request.POST.get("enroll_mode") == "desired"
                     else _("Please select at least one user to enroll.")
                 ),
             )
