@@ -50,11 +50,20 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 "target_id", flat=True
             )
         )
-        # Players the proposer has met (participated in a session they run) plus
-        # anyone already shadowbanned, so a ban can always be lifted.
+        # Players the owner has met: anyone who played a session the owner ran
+        # (a participant of their presented session) OR whom the owner played
+        # alongside (a co-participant of a session the owner also joined), plus
+        # anyone already shadowbanned so a ban can always be lifted.
+        played_alongside = Q(
+            **{
+                "session_participations__session"
+                "__session_participations__user_id": owner_id
+            }
+        )
         players = (
             User.objects.filter(
                 Q(session_participations__session__presenter_id=owner_id)
+                | played_alongside
                 | Q(shadowbanned_by__id=owner_id)
             )
             .exclude(pk=owner_id)

@@ -154,6 +154,40 @@ class TestProfileShadowbanPageView:
             template_name="crowd/user/shadowbans.html",
         )
 
+    def test_get_lists_players_met_at_a_shared_session(
+        self, authenticated_client, active_user
+    ):
+        # The owner is a plain player here (someone else runs the session);
+        # a co-participant they played alongside must still be listed.
+        table_mate = UserFactory(
+            username="mate", email="mate@example.com", name="Table Mate"
+        )
+        session = SessionFactory()
+        for player in (active_user, table_mate):
+            SessionParticipation.objects.create(
+                session=session,
+                user=player,
+                status=SessionParticipationStatus.CONFIRMED.value,
+            )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "candidates": [
+                    ShadowbanCandidateDTO(
+                        pk=table_mate.pk,
+                        name="Table Mate",
+                        slug=table_mate.slug,
+                        is_shadowbanned=False,
+                    )
+                ]
+            },
+            template_name="crowd/user/shadowbans.html",
+        )
+
     def test_get_lists_shadowbanned_players_first(
         self, authenticated_client, active_user
     ):
