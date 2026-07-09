@@ -34,7 +34,8 @@
     <form action="{% url 'web:crowd:profile' %}" method="post">
         {% csrf_token %}
         {% tessera_form form %}
-        {% tessera_button "OK" %}
+        {% translate "Save" as t_save %}
+        {% tessera_button t_save %}
     </form>
 </div>
 </div>
