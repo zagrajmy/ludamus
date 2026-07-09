@@ -1,6 +1,7 @@
 # Durable execution & in-system cron: Absurd vs DBOS
 
-**Status:** evaluation / recommendation (not yet decided)
+**Status:** evaluation + ran a real bake-off ([§8](#8-bake-off-results-empirical--this-spike));
+recommendation stands, decision not yet made
 
 **Question:** We want scheduled jobs ("crons") handled *inside the system*
 rather than relying on hand-wired host cron. Should we build on **DBOS**
@@ -167,7 +168,60 @@ workflows are tagged with an app version; changing workflow code can strand
 them → blue-green drain). For daily/short-lived jobs this is negligible;
 worth knowing for the offer timer.
 
-## 8. Appendix — sources
+## 8. Bake-off results (empirical — this spike)
+
+I built and ran the *same* job — "fire `send_due_reminders` on a schedule" —
+in both, against a real local Postgres 16 and (for DBOS) sqlite, on this
+repo's Python 3.14. Standalone scripts, the work function stubbed to a log so
+firings can be counted. Findings:
+
+- **DBOS `@DBOS.scheduled` works out of the box on sqlite** (the repo's current
+  dev/test DB): a 1-second schedule fired **7 times in 7 seconds, exactly once
+  per tick**. Wiring cost: a decorator + `DBOS.launch()` — ~5 lines. No queue
+  to create, no schema to vendor, no worker process.
+- **Absurd's spawn + idempotency-key dedup works exactly as advertised.** Two
+  concurrent "cron-loop" processes (simulating replicas) spawning every second
+  with `idempotency_key=f"...|{tick}"` produced **7 tasks for 7 ticks — no
+  double-spawn.** That's the coordination primitive you'd rely on, and it held.
+- **Both were blocked on the *same* driver bug on Python 3.14**, which is the
+  headline finding. `psycopg3` (3.2.13 and 3.3.4) on Python 3.14.6 returns
+  **`bytes` for `text` columns** (`select 'hello'::text` → `b'hello'`). It
+  surfaced differently in each: **DBOS crashed at launch** (SQLAlchemy's
+  psycopg dialect runs a regex on the bytes `version()` string) — loud and
+  obvious. **Absurd silently skipped every task** (the claimed `task_name`
+  came back as `b't1'`, missing the str key in its handler registry) — a
+  silent no-op that took DB spelunking to diagnose. Bridging the bytes key
+  (`app._registry[b"t1"] = app._registry["t1"]`) made Absurd's handler run, so
+  Absurd itself is fine — it's the driver.
+
+Two consequences that matter for the decision:
+
+- **DBOS has a dev escape hatch; Absurd does not.** DBOS runs on sqlite, so it
+  works in our existing dev/test setup today (and dodged the psycopg bug).
+  Absurd is **Postgres-only**, so on Python 3.14 it can't run *anywhere* until
+  the psycopg3 text regression is resolved. For prod, DBOS also needs Postgres
+  (sqlite won't coordinate 4 workers), so **the psycopg3/3.14 issue is a live
+  prerequisite for either tool's prod path** — verify it against the actual
+  deploy image's Python/psycopg build before committing. This is the "validate
+  in a spike" caveat made concrete.
+- **Absurd's minimalism shifts work onto you, empirically.** For *scheduling*
+  specifically it was more scaffolding, not less: vendor a **3,083-line**
+  `absurd.sql` as a migration, `create_queue`, register the task, **hand-write
+  the cron loop** (it has no scheduler), and run a **separate worker process**.
+  DBOS needed a decorator and a launch call. Absurd's design is genuinely
+  cleaner to *read* (just tables + SQL), but the wiring surface for this use
+  case is larger.
+
+Net: the bake-off **reinforces DBOS** for our scheduling need, while giving
+Absurd real credit — its dedup worked first try and the model is transparent.
+The one hoped-for Absurd win ("simpler, less to wire") did not materialise for
+cron, because cron is exactly the batteries it deliberately omits.
+
+Spike artifacts (throwaway, on branch `spike/absurd-vs-dbos-cron`): DBOS
+`@DBOS.scheduled` script, Absurd task+worker+cron-loop scripts, and the raw
+firing logs.
+
+## 9. Appendix — sources
 
 - Absurd: <https://earendil-works.github.io/absurd/> (concepts, patterns/cron,
   database, comparison, python SDK), <https://github.com/earendil-works/absurd>,
