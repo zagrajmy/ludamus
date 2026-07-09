@@ -188,6 +188,33 @@ class TestProfileShadowbanPageView:
             template_name="crowd/user/shadowbans.html",
         )
 
+    def test_waitlisted_co_participant_is_not_met(
+        self, authenticated_client, active_user
+    ):
+        # Sharing a waiting list is not playing together: only CONFIRMED
+        # seats on both sides count as having met at a shared session.
+        waiter = UserFactory(username="wait", email="wait@example.com", name="Waiter")
+        session = SessionFactory()
+        SessionParticipation.objects.create(
+            session=session,
+            user=active_user,
+            status=SessionParticipationStatus.CONFIRMED.value,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=waiter,
+            status=SessionParticipationStatus.WAITING.value,
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"candidates": []},
+            template_name="crowd/user/shadowbans.html",
+        )
+
     def test_get_lists_shadowbanned_players_first(
         self, authenticated_client, active_user
     ):

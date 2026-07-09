@@ -52,10 +52,14 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         )
         # Players the owner has met: anyone who played a session the owner ran
         # (a participant of their presented session) OR whom the owner played
-        # alongside (a co-participant of a session the owner also joined), plus
-        # anyone already shadowbanned so a ban can always be lifted.
+        # alongside, plus anyone already shadowbanned so a ban can always be
+        # lifted. "Played alongside" means both seats were CONFIRMED — being
+        # waitlisted next to someone is not meeting them.
+        confirmed = SessionParticipationStatus.CONFIRMED
         played_alongside = Q(
-            session_participations__session__session_participations__user_id=owner_id
+            session_participations__status=confirmed,
+            session_participations__session__session_participations__user_id=owner_id,
+            session_participations__session__session_participations__status=confirmed,
         )
         players = (
             User.objects.filter(
