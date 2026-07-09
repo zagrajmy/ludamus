@@ -1,14 +1,26 @@
 # Egress-restricted sandboxes
 
 Claude Code on the web (and similar CI-ish sandboxes) sits behind an egress
-proxy that 403-blocks GitHub release downloads. That breaks two mise tools:
+proxy that 403-blocks GitHub release downloads (github.com and
+api.github.com are scoped to the repos attached to the session). pypi.org,
+files.pythonhosted.org, registry.npmjs.org, nodejs.org and cdn.jsdelivr.net
+stay reachable, and the base image already has the deadsnakes PPA configured.
 
-- `python` — python-build-standalone assets come from github.com releases
-- `github:endevco/aube` — the repo itself is outside the sandbox's GitHub
-  access scope, and its failed install used to wedge every other `mise run`
+aube installs normally: mise.toml pulls it from npm (`npm:@endevco/aube`,
+with `npm_args = "--ignore-scripts=false"` because the package's preinstall
+fetches the platform binary sub-package — also from the npm registry). The
+production image is intentionally unchanged: `docker/mise.toml` keeps
+`github:endevco/aube`. Never use the unscoped `aube` npm package — that name
+is squatted by an unrelated project.
 
-pypi.org, files.pythonhosted.org, registry.npmjs.org and cdn.jsdelivr.net stay
-reachable, and the base image already has the deadsnakes PPA configured.
+Still GitHub-blocked, with their fallbacks:
+
+| Tool | Status in sandbox | Alternative |
+| --- | --- | --- |
+| `python` | blocked (python-build-standalone) | apt deadsnakes (this hook) |
+| `ast-grep` | blocked (GitHub release) | `pip install ast-grep-cli` (PyPI) |
+| `shellcheck`, `pipx` | blocked | `apt-get install shellcheck pipx` |
+| `hk`, `actionlint`, `hadolint`, `github:reteps/dockerfmt` | blocked | skip — lint-only; CI covers them |
 
 ## What the SessionStart hook does
 
@@ -22,7 +34,8 @@ normal path is missing:
 2. `.venv` absent → create it with `python3.14 -m venv`, then
    `poetry install --no-root` into it (poetry itself comes from PyPI if
    missing)
-3. `aube` unavailable → `npm install` in `src/ludamus/client` (the stray
+3. `aube` unavailable (it normally installs from npm; this is the
+   belt-and-braces path) → `npm install` in `src/ludamus/client` (the stray
    `package-lock.json` npm writes is deleted — `aube-lock.yaml` is the real
    lockfile) and `vite build` for the frontend assets
 

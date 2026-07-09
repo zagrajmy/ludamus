@@ -1,10 +1,11 @@
 #!/bin/bash
 # Fallback bootstrap for egress-restricted sandboxes (Claude Code on the web
 # and similar). mise's GitHub-backed downloads are blocked there: the
-# python-build-standalone release assets 403 and `github:endevco/aube` is out
-# of scope, so `mise install` cannot provide python or aube. This script fills
-# exactly those gaps through hosts that stay reachable — apt (deadsnakes PPA),
-# pypi.org / files.pythonhosted.org, and registry.npmjs.org.
+# python-build-standalone release assets 403, so `mise install` cannot provide
+# python (aube installs fine — mise.toml pulls it from npm as
+# `npm:@endevco/aube`, and registry.npmjs.org bypasses the proxy). This script
+# fills the remaining gaps through hosts that stay reachable — apt (deadsnakes
+# PPA), pypi.org / files.pythonhosted.org, and registry.npmjs.org.
 #
 # Idempotent and additive: every step checks whether the normal path already
 # works and skips itself if so; failures print a WARN line and never abort the

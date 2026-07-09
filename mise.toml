@@ -14,7 +14,7 @@ node = "v25.6.1"
 "pipx:poetry" = "2.3.2"
 "ast-grep" = "0.42.1"
 markdownlint-cli2 = "0.22.1"
-"github:endevco/aube" = "latest"
+"npm:@endevco/aube" = { version = "latest", npm_args = "--ignore-scripts=false" }
 hk = "1.48.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
