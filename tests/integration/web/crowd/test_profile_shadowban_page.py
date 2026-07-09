@@ -215,6 +215,33 @@ class TestProfileShadowbanPageView:
             template_name="crowd/user/shadowbans.html",
         )
 
+    def test_waitlisted_owner_has_not_met_confirmed_player(
+        self, authenticated_client, active_user
+    ):
+        # The mirror case: the owner was only waitlisted, so a CONFIRMED
+        # player at that session was never actually played with.
+        seated = UserFactory(username="seat", email="seat@example.com", name="Seated")
+        session = SessionFactory()
+        SessionParticipation.objects.create(
+            session=session,
+            user=active_user,
+            status=SessionParticipationStatus.WAITING.value,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=seated,
+            status=SessionParticipationStatus.CONFIRMED.value,
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"candidates": []},
+            template_name="crowd/user/shadowbans.html",
+        )
+
     def test_get_lists_shadowbanned_players_first(
         self, authenticated_client, active_user
     ):
