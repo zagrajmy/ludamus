@@ -16,68 +16,76 @@
     {% endif %}
     {% if is_enrollment_available and can_act %}
         {% url 'web:chronology:session-enrollment' event_slug=event_slug session_id=session_pk as enroll_url %}
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
             {% if user_enrolled %}
                 <span class="inline-flex items-center gap-1 text-sm font-medium text-success-text">
                     {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You're enrolled" %}
                 </span>
-                <form method="post"
-                      action="{{ enroll_url }}"
-                      hx-post="{{ enroll_url }}"
-                      hx-target="#enroll-actions-{{ session_pk }}"
-                      hx-swap="outerHTML"
-                      {% if is_full %}hx-confirm="{% translate "This session is full — cancelling hands your seat to the next person waiting. Cancel anyway?" %}"{% endif %}>
-                    {% csrf_token %}
-                    <input type="hidden" name="user_{{ viewer_pk }}" value="cancel">
-                    <button type="submit" class="btn btn-secondary text-sm">
-                        {% icon "x-mark" class="w-4 h-4" variant="mini" %} {% translate "Cancel" %}
-                    </button>
-                </form>
             {% elif user_waiting %}
                 <span class="inline-flex items-center gap-1 text-sm font-medium text-warning-text">
                     {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "On the waiting list" %}
                 </span>
-                <form method="post"
-                      action="{{ enroll_url }}"
-                      hx-post="{{ enroll_url }}"
-                      hx-target="#enroll-actions-{{ session_pk }}"
-                      hx-swap="outerHTML">
-                    {% csrf_token %}
-                    <input type="hidden" name="user_{{ viewer_pk }}" value="cancel">
-                    <button type="submit" class="btn btn-secondary text-sm">
-                        {% icon "x-mark" class="w-4 h-4" variant="mini" %} {% translate "Leave" %}
-                    </button>
-                </form>
-            {% elif is_full and not is_unlimited %}
-                <form method="post"
-                      action="{{ enroll_url }}"
-                      hx-post="{{ enroll_url }}"
-                      hx-target="#enroll-actions-{{ session_pk }}"
-                      hx-swap="outerHTML">
-                    {% csrf_token %}
-                    <input type="hidden" name="user_{{ viewer_pk }}" value="waitlist">
-                    <button type="submit" class="btn text-sm bg-warning text-white">
-                        {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "Join waiting list" %}
-                    </button>
-                </form>
-            {% else %}
-                <form method="post"
-                      action="{{ enroll_url }}"
-                      hx-post="{{ enroll_url }}"
-                      hx-target="#enroll-actions-{{ session_pk }}"
-                      hx-swap="outerHTML">
-                    {% csrf_token %}
-                    <input type="hidden" name="user_{{ viewer_pk }}" value="enroll">
-                    <button type="submit" class="btn btn-primary text-sm">
-                        {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
-                    </button>
-                </form>
             {% endif %}
-            {# Party, companions and guests live on the full page. #}
-            <a href="{{ enroll_url }}"
-               class="text-xs text-foreground-muted hover:text-primary hover:underline whitespace-nowrap">
-                {% translate "More options" %}
-            </a>
+            {# Compound control: the one-click state action plus an attached #}
+            {# segment for the group flow (party, companions, guests). #}
+            <div class="flex items-center gap-1">
+                {% if user_enrolled %}
+                    <form method="post"
+                          action="{{ enroll_url }}"
+                          hx-post="{{ enroll_url }}"
+                          hx-target="#enroll-actions-{{ session_pk }}"
+                          hx-swap="outerHTML"
+                          {% if is_full %}hx-confirm="{% translate "This session is full — cancelling hands your seat to the next person waiting. Cancel anyway?" %}"{% endif %}>
+                        {% csrf_token %}
+                        <input type="hidden" name="user_{{ viewer_pk }}" value="cancel">
+                        <button type="submit" class="btn btn-secondary text-sm">
+                            {% icon "x-mark" class="w-4 h-4" variant="mini" %} {% translate "Cancel" %}
+                        </button>
+                    </form>
+                {% elif user_waiting %}
+                    <form method="post"
+                          action="{{ enroll_url }}"
+                          hx-post="{{ enroll_url }}"
+                          hx-target="#enroll-actions-{{ session_pk }}"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_{{ viewer_pk }}" value="cancel">
+                        <button type="submit" class="btn btn-secondary text-sm">
+                            {% icon "x-mark" class="w-4 h-4" variant="mini" %} {% translate "Leave" %}
+                        </button>
+                    </form>
+                {% elif is_full and not is_unlimited %}
+                    <form method="post"
+                          action="{{ enroll_url }}"
+                          hx-post="{{ enroll_url }}"
+                          hx-target="#enroll-actions-{{ session_pk }}"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_{{ viewer_pk }}" value="waitlist">
+                        <button type="submit" class="btn text-sm bg-warning text-white">
+                            {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "Join waiting list" %}
+                        </button>
+                    </form>
+                {% else %}
+                    <form method="post"
+                          action="{{ enroll_url }}"
+                          hx-post="{{ enroll_url }}"
+                          hx-target="#enroll-actions-{{ session_pk }}"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_{{ viewer_pk }}" value="enroll">
+                        <button type="submit" class="btn btn-primary text-sm">
+                            {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
+                        </button>
+                    </form>
+                {% endif %}
+                <a href="{{ enroll_url }}"
+                   class="btn btn-secondary text-sm px-2.5"
+                   title="{% translate "Enroll with others…" %}">
+                    {% icon "user-group" class="w-4 h-4" variant="mini" %}
+                    <span class="sr-only">{% translate "Enroll with others…" %}</span>
+                </a>
+            </div>
         </div>
     {% endif %}
 </div>
