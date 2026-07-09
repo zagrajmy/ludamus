@@ -4,7 +4,7 @@
     {% translate "Edit profile" %}
 {% endblock title %}
 {% block body %}
-    <div class="max-w-3xl mx-auto">
+    <div class="max-w-3xl mx-auto w-full min-w-0">
         <div class="card">
             {% url 'web:crowd:profile' as profile_url %}
             {% url 'web:crowd:profile-parties' as parties_url %}
@@ -34,7 +34,8 @@
     <form action="{% url 'web:crowd:profile' %}" method="post">
         {% csrf_token %}
         {% tessera_form form %}
-        {% tessera_button "OK" %}
+        {% translate "Save" as t_save %}
+        {% tessera_button t_save %}
     </form>
 </div>
 </div>
