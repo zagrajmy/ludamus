@@ -592,3 +592,68 @@ class TestWayOutOfHeldSeat:
         waiting.refresh_from_db()
         assert waiting.status == SessionParticipationStatus.CONFIRMED
         assert not SessionParticipation.objects.filter(user=member).exists()
+
+
+class TestHeldSeatViaDesiredState:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_desired_include_of_inviting_member_is_skipped_when_full(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        # A held seat must occupy a confirmed spot — there is no waitlisted form
+        # of it — so on a full session the member's include is skipped rather
+        # than turned into an error or a phantom offer.
+        _led_party_with_member(active_user, consent=PartyConsentMode.ACCEPT_INVITES)
+        _reassign_presenter(agenda_item)
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        member = PartyMembership.objects.exclude(member=active_user).get().member
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"enroll_mode": "desired", f"user_{member.pk}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_desired_include_holds_a_seat_when_there_is_room(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        # The checkbox flow reaches the same held-seat outcome as the explicit
+        # legacy post: an included ACCEPT_INVITES member gets an OFFERED spot.
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"enroll_mode": "desired", f"user_{member.pk}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                )
+            ],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.OFFERED
+        assert participation.party_id == party.pk

@@ -2403,3 +2403,112 @@ class TestSeatProjection:
         content = " ".join(response.content.decode().split())
         assert 'data-current-in="1"' in content
         assert 'data-occupies-seat="0"' in content
+
+
+@pytest.mark.django_db
+class TestDesiredStateEdgeCases:
+    URL_NAME = "web:chronology:session-enrollment"
+
+    def _url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_min_age_shows_in_the_meta_strip(self, agenda_item, staff_client):
+        session = agenda_item.session
+        session.min_age = 16
+        session.save(update_fields=["min_age"])
+
+        response = staff_client.get(self._url(session.pk, session.event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/enroll_select.html",
+            context_data=ANY,
+            contains=["16+"],
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_htmx_invalid_value_surfaces_error_in_fragment(
+        self, staff_user, agenda_item, staff_client
+    ):
+        response = staff_client.post(
+            self._url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{staff_user.id}": "bogus"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/parts/session-enroll-actions.html",
+            context_data=ANY,
+            messages=[
+                (messages.ERROR, f"Invalid choice for {staff_user.name}: bogus"),
+                (messages.WARNING, "Please review the enrollment options below."),
+            ],
+            contains=["Invalid choice"],
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_checked_box_for_already_enrolled_person_is_a_no_op(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # Desired state matches reality -> nothing to do, and the warning says
+        # so instead of scolding about "selecting a user".
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._url(agenda_item.session.pk, agenda_item.session.event.slug),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+        assert SessionParticipation.objects.filter(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+
+    def test_full_session_include_without_waitlist_allowance_is_skipped(
+        self, staff_user, agenda_item, staff_client, enrollment_config
+    ):
+        # The config allows enrolling but no waiting list at all; on a full
+        # session the desired-state routing has nowhere to put the person, so
+        # the include is skipped rather than erroring.
+        enrollment_config.max_waitlist_sessions = 0
+        enrollment_config.save()
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._url(session.pk, session.event.slug),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=session
+        ).exists()
