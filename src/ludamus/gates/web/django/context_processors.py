@@ -34,19 +34,26 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
             is_sphere_manager=False,
         )
 
-    sphere_repository = request.di.uow.spheres
-    root_sphere = sphere_repository.read(request.context.root_sphere_id)
-    current_sphere = sphere_repository.read(request.context.current_sphere_id)
+    sites_service = request.services.sites
+    root_sphere, root_site = sites_service.read_with_site(
+        request.context.root_sphere_id
+    )
+    if request.context.current_sphere_id == request.context.root_sphere_id:
+        current_sphere, current_site = root_sphere, root_site
+    else:
+        current_sphere, current_site = sites_service.read_with_site(
+            request.context.current_sphere_id
+        )
 
     is_sphere_manager = False
     if request.user.is_authenticated and request.context.current_user_slug:
-        is_sphere_manager = sphere_repository.is_manager(
+        is_sphere_manager = sites_service.is_manager(
             current_sphere.pk, request.context.current_user_slug
         )
 
     return SitesContextData(
-        root_site=sphere_repository.read_site(root_sphere.pk),
-        current_site=sphere_repository.read_site(current_sphere.pk),
+        root_site=root_site,
+        current_site=current_site,
         current_sphere=current_sphere,
         is_sphere_manager=is_sphere_manager,
     )

@@ -180,5 +180,11 @@ class SitesService:
     def read_site(self, sphere_id: int) -> SiteDTO:
         return self._spheres.read_site(sphere_id)
 
+    def read_with_site(self, sphere_id: int) -> tuple[SphereDTO, SiteDTO]:
+        return self._spheres.read_with_site(sphere_id)
+
+    def is_manager(self, sphere_id: int, user_slug: str) -> bool:
+        return self._spheres.is_manager(sphere_id, user_slug)
+
     def list_spheres(self) -> list[SphereListItemDTO]:
         return self._directory.list_all()
