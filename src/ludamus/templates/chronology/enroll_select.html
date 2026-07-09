@@ -8,7 +8,7 @@
 {% endblock title %}
 {% block header %}
     <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
-    <h1 class="text-2xl sm:text-3xl font-bold text-foreground text-balance">{{ session.title }}</h1>
+    <h1 class="text-3xl sm:text-4xl font-bold text-foreground text-balance">{{ session.title }}</h1>
 {% endblock header %}
 {% block description %}
     {# The details card is gone: everything needed to decide lives in one quiet #}
@@ -51,7 +51,13 @@
     </div>
 {% endblock description %}
 {% block body %}
+    {% include "chronology/decorative_background_blobs.html" %}
     <div class="max-w-2xl mx-auto">
+        {% if session.cover_image_url or event.cover_image_url %}
+            <div class="rounded-3xl shadow-xl overflow-hidden mb-8 h-44 sm:h-56 bg-cover bg-center"
+                 style="box-shadow: var(--shadow-elevated);
+                        background-image: url('{{ session.cover_image_url|default:event.cover_image_url }}')"></div>
+        {% endif %}
         {# Shadowban warning: players the viewer shadowbanned are already here. #}
         {% if shadowban_warnings %}
             <div class="alert alert-warning flex flex-col gap-3 mb-6">
@@ -134,7 +140,8 @@
                 {# The data attributes feed enroll-preview.ts, which projects each #}
                 {# ticked row to "gets a seat" / "joins the waiting list" using the #}
                 {# same order and seat accounting as the server's routing. #}
-                <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden mb-6"
+                <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden mb-6 shadow-xl"
+                     style="box-shadow: var(--shadow-elevated)"
                      data-enroll-preview
                      {% if seats_left is not None %}data-seats-left="{{ seats_left }}"{% endif %}
                      data-msg-seat="{% translate "Gets a seat" %}"
@@ -142,7 +149,7 @@
                      data-msg-leave="{% translate "Will leave the session" %}">
                     <ul class="divide-y divide-border">
                         {% for row in user_data %}
-                            {% enroll_row_state form row as state %}
+                            {% enroll_row_state form row viewer_pk=request.user.pk as state %}
                             <li data-enroll-row
                                 data-current-in="{% if state.checked %}1{% else %}0{% endif %}"
                                 data-occupies-seat="{% if state.occupies_seat %}1{% else %}0{% endif %}">
@@ -158,28 +165,20 @@
                                         </span>
                                         <span class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-foreground-secondary">
                                             <span class="inline-flex items-center gap-1.5">
-                                                <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ state.badge_variant|badge_classes }}"></span>
-                                                {{ state.badge_label }}
+                                                <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ state.badge.variant|badge_classes }}"></span>
+                                                {{ state.badge.label }}
                                             </span>
                                             {% if row.membership.needs_accept and not state.checked and not state.disabled %}
                                                 <span class="text-foreground-muted">{% translate "needs their approval" %}</span>
                                             {% endif %}
-                                            {% if state.disabled and state.reason and state.reason != state.badge_label %}
+                                            {% if state.disabled and state.reason and state.reason != state.badge.label %}
                                                 <span class="text-foreground-muted">{{ state.reason }}</span>
                                             {% endif %}
                                             <span data-seat-hint hidden class="font-medium" aria-live="polite"></span>
                                         </span>
                                     </span>
-                                    {# The viewer's own box starts ticked when they can join — the #}
-                                    {# common case is "I want in", so the primary action is one click #}
-                                    {# (the strong default; untick only to deviate). #}
-                                    <input type="checkbox"
-                                           class="w-5 h-5 rounded border border-border accent-primary shrink-0 focus:ring-1 focus:ring-offset-0"
-                                           name="user_{{ row.user.pk }}"
-                                           value="include"
-                                           aria-label="{% blocktranslate with name=row.user.full_name %}Include {{ name }}{% endblocktranslate %}"
-                                           {% if state.checked or row.user.pk == request.user.pk and not state.disabled %}checked{% endif %}
-                                           {% if state.disabled %}disabled{% endif %}>
+                                    {% blocktranslate asvar include_label with name=row.user.full_name %}Include {{ name }}{% endblocktranslate %}
+                                    {% include "components/checkbox-field.html" with name=state.field_name value="include" size="w-5 h-5" aria_label=include_label checked=state.box_checked disabled=state.disabled label="" %}
                                 </label>
                             </li>
                         {% endfor %}

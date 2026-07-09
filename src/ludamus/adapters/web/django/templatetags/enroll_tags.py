@@ -17,15 +17,27 @@ register = template.Library()
 
 
 @dataclass(frozen=True)
+class Badge:
+    variant: str
+    label: str
+
+
+@dataclass(frozen=True)
 class EnrollRowState:
-    # Whether the "Include" checkbox starts checked (person is in or holding).
+    # Whether the person is currently in or holding a seat (drives the
+    # projection's data-current-in and the "no change" diffing).
     checked: bool
     # Whether the person cannot be toggled (conflict, no access, or a seat that
     # is theirs to manage) — the box renders disabled with an inline reason.
     disabled: bool
     reason: str
-    badge_variant: str
-    badge_label: str
+    badge: Badge
+    # The form field this row posts as (user_<pk>).
+    field_name: str = ""
+    # How the Include box actually renders: current reality, plus the strong
+    # default — the viewer's own box starts ticked whenever they can join, so
+    # the common solo case is one click.
+    box_checked: bool = False
     # Unticking this person frees a confirmed seat (CONFIRMED, or an OFFERED
     # held seat / pending offer) — a waiting-list place frees nothing. Feeds
     # the client-side projection so it counts exactly like the server routing.
@@ -42,25 +54,25 @@ _BADGE_CLASSES = {
 }
 
 
-def _badge(data: SessionUserParticipationData) -> tuple[str, str]:
+def _badge(data: SessionUserParticipationData) -> Badge:
     if data.user_enrolled:
-        return "success", _("Already enrolled")
+        return Badge("success", _("Already enrolled"))
     if data.seat_held:
-        return "warning", _("Seat held — awaiting their approval")
+        return Badge("warning", _("Seat held — awaiting their approval"))
     if data.offer_pending:
-        return "warning", _("Spot offered")
+        return Badge("warning", _("Spot offered"))
     if data.user_waiting:
-        return "warning", _("On the waiting list")
+        return Badge("warning", _("On the waiting list"))
     if data.has_time_conflict:
-        return "danger", _("Time conflict")
+        return Badge("danger", _("Time conflict"))
     if data.membership.blocked:
-        return "muted", _("Access required")
-    return "muted", _("Available")
+        return Badge("muted", _("Access required"))
+    return Badge("muted", _("Available"))
 
 
 @register.simple_tag
 def enroll_row_state(
-    form: forms.Form, data: SessionUserParticipationData
+    form: forms.Form, data: SessionUserParticipationData, viewer_pk: int | None = None
 ) -> EnrollRowState:
     field = form.fields.get(f"user_{data.user.pk}")
     choices = (
@@ -78,7 +90,8 @@ def enroll_row_state(
     )
     can_cancel = "cancel" in choices
     includable = "enroll" in choices or "waitlist" in choices
-    variant, label = _badge(data)
+    badge = _badge(data)
+    field_name = f"user_{data.user.pk}"
 
     if in_or_holding:
         # A seat that belongs to the person (a member's own confirmed/waiting
@@ -89,8 +102,9 @@ def enroll_row_state(
             checked=True,
             disabled=disabled,
             reason=reason,
-            badge_variant=variant,
-            badge_label=label,
+            badge=badge,
+            field_name=field_name,
+            box_checked=True,
             occupies_seat=(data.user_enrolled or data.seat_held or data.offer_pending),
         )
 
@@ -102,12 +116,14 @@ def enroll_row_state(
         reason = _("Enrollment not available")
     else:
         reason = ""
+    disabled = bool(reason)
     return EnrollRowState(
         checked=False,
-        disabled=bool(reason),
+        disabled=disabled,
         reason=reason,
-        badge_variant=variant,
-        badge_label=label,
+        badge=badge,
+        field_name=field_name,
+        box_checked=data.user.pk == viewer_pk and not disabled,
     )
 
 
