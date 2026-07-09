@@ -3847,7 +3847,7 @@ class TestImportDistinctSessionsSameName:
             }
         )
 
-    def _run(self, client, event, integration):
+    def _run(self, client, event, integration, url=None):
         with (
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
@@ -3855,7 +3855,7 @@ class TestImportDistinctSessionsSameName:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [_LOCALIZED_HEADER, *_LOCALIZED_ROWS]
             )
-            return client.post(_run_url(event, integration))
+            return client.post(url or _run_url(event, integration))
 
     def test_run_aborts_when_unique_key_column_missing_from_sheet(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -3872,6 +3872,39 @@ class TestImportDistinctSessionsSameName:
         integration.save(update_fields=["settings_json"])
 
         response = self._run(authenticated_client, event, integration)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Import aborted: unique-key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "selection on the run tab, then try again."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(event=event).exists()
+
+    def test_test_row_aborts_when_unique_key_column_missing_from_sheet(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = self._settings(
+            ["Timestamp", "Email Address", "Tytuł punktu programu"]
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = self._run(
+            authenticated_client, event, integration, _test_url(event, integration)
+        )
 
         assert_response(
             response,
