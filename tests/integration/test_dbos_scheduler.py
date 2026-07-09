@@ -52,7 +52,7 @@ def test_dbos_scheduler_runs_expiry_workflow(settings, tmp_path, monkeypatch):
 @pytest.mark.django_db(transaction=True)
 def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     settings.DBOS_SYSTEM_DATABASE_URL = f"sqlite:///{tmp_path / 'dbos_sys.sqlite'}"
-    settings.OFFER_EXPIRY_SCHEDULER = "dbos"
+    settings.SCHEDULER_MODE = "dbos"
     launched = threading.Event()
     monkeypatch.setattr(scheduler_module, "_launched", launched)
 
@@ -75,7 +75,7 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
 def test_launch_scheduler_skips_when_cron(settings, monkeypatch):
     calls = []
     monkeypatch.setattr(scheduler_module, "_ensure_launched", lambda: calls.append(1))
-    settings.OFFER_EXPIRY_SCHEDULER = "cron"
+    settings.SCHEDULER_MODE = "cron"
 
     scheduler_module.launch_scheduler()
 
@@ -85,7 +85,7 @@ def test_launch_scheduler_skips_when_cron(settings, monkeypatch):
 def test_launch_race_loser_rechecks_under_the_lock(settings, monkeypatch):
     # The loser of a concurrent launch must take the double-checked return
     # instead of constructing DBOS a second time.
-    settings.OFFER_EXPIRY_SCHEDULER = "dbos"
+    settings.SCHEDULER_MODE = "dbos"
     constructed = []
     monkeypatch.setattr(
         scheduler_module, "DBOS", lambda *_args, **_kwargs: constructed.append(1)

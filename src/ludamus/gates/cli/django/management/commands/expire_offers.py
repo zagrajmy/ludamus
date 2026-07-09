@@ -2,7 +2,7 @@
 
 Manual entry point for the sweep in ``WaitlistPromotionService
 .expire_lapsed_offers``. The primary path is the in-system DBOS schedule
-(``inits.dbos_scheduler``); with ``OFFER_EXPIRY_SCHEDULER=cron`` this command
+(``inits.dbos_scheduler``); with ``SCHEDULER_MODE=cron`` this command
 is the zero-dependency floor instead, run periodically by external cron. Safe
 to run repeatedly; already resolved offers are no-ops.
 """

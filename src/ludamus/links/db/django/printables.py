@@ -2,16 +2,14 @@
 
 Finds events starting within the reminder lead time whose organizers have not
 printed yet and have not already been reminded, and stamps the two tracking
-timestamps on `Event`. Assembles a ready-to-email absolute link to the panel's
-print-materials hub from the sphere's site domain.
+timestamps on `Event`. URL composition stays in the notifier; this repo only
+reports the slug and sphere domain it needs.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-
-from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Event
 from ludamus.pacts.printing import (
@@ -48,12 +46,12 @@ class PrintablesReminderRepository(PrintablesReminderRepositoryProtocol):
             ]
             if not recipients:
                 continue
-            path = reverse("panel:print-materials", kwargs={"slug": event.slug})
             reminders.append(
                 PrintablesReminderDTO(
                     event_pk=event.pk,
                     event_name=event.name,
-                    materials_url=f"https://{event.sphere.site.domain}{path}",
+                    event_slug=event.slug,
+                    sphere_domain=event.sphere.site.domain,
                     recipients=recipients,
                 )
             )

@@ -406,10 +406,10 @@ class PrintablesReminderService(PrintablesReminderServiceProtocol):
     def mark_printed(self, event_pk: int) -> None:
         self._reminders.mark_printed(event_pk)
 
-    def send_due_reminders(
-        self, *, now: datetime, lead_time: timedelta = PRINTABLES_REMINDER_LEAD_TIME
-    ) -> int:
-        due = self._reminders.list_pending_reminders(now=now, lead_time=lead_time)
+    def send_due_reminders(self, *, now: datetime) -> int:
+        due = self._reminders.list_pending_reminders(
+            now=now, lead_time=PRINTABLES_REMINDER_LEAD_TIME
+        )
         for reminder in due:
             # Mark sent inside the same transaction as the notifications so a
             # crash mid-batch never leaves an event marked-but-unnotified; the
@@ -422,7 +422,8 @@ class PrintablesReminderService(PrintablesReminderServiceProtocol):
                             recipient_user_id=recipient.user_id,
                             recipient_email=recipient.email,
                             event_name=reminder.event_name,
-                            materials_url=reminder.materials_url,
+                            event_slug=reminder.event_slug,
+                            sphere_domain=reminder.sphere_domain,
                         )
                     )
         return len(due)

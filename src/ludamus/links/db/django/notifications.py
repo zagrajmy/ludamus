@@ -201,6 +201,9 @@ class DjangoUserNotifier:
     def notify_printables_ready(
         self, notification: PrintablesReadyNotification
     ) -> None:
+        path = reverse(
+            "panel:print-materials", kwargs={"slug": notification.event_slug}
+        )
         title = _("Print your materials for %(event)s") % {
             "event": notification.event_name
         }
@@ -214,8 +217,10 @@ class DjangoUserNotifier:
                 kind=NotificationKind.PRINTABLES_READY.value,
                 title=title,
                 body=body,
-                url=notification.materials_url,
-                payload={"event_name": notification.event_name},
+                # Absolute, unlike sibling notifications: reminders go out by
+                # email and each sphere's site lives on its own domain.
+                url=f"https://{notification.sphere_domain}{path}",
+                payload={"event_slug": notification.event_slug},
             ),
             notification.recipient_email,
         )

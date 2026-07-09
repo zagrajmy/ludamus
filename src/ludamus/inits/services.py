@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
+from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
@@ -150,11 +151,7 @@ class Services:
 
     @cached_property
     def printables_reminder(self) -> PrintablesReminderService:
-        return PrintablesReminderService(
-            transaction=self._transaction,
-            reminders=self._repos.printables_reminders,
-            notifier=DjangoUserNotifier(),
-        )
+        return build_printables_reminder()
 
     @cached_property
     def venues(self) -> VenuesService:
@@ -220,19 +217,14 @@ class Services:
 
     @cached_property
     def waitlist_promotion(self) -> WaitlistPromotionService:
-        return WaitlistPromotionService(
-            self._transaction,
-            self._repos.participation_promotion,
-            DjangoUserNotifier(),
-            self._offer_expiry_scheduler(),
-        )
+        return build_waitlist_promotion(self._offer_expiry_scheduler())
 
     @staticmethod
     def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
-        scheduler_kind: str = settings.OFFER_EXPIRY_SCHEDULER
+        scheduler_mode: str = settings.SCHEDULER_MODE
         return (
             DBOSOfferExpiryScheduler()
-            if scheduler_kind == "dbos"
+            if scheduler_mode == "dbos"
             else CronSweepOfferScheduler()
         )
 

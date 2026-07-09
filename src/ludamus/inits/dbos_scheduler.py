@@ -6,11 +6,20 @@ of work live here:
 
 - a durable per-offer timer for offer-and-claim: a checkpointed workflow sleeps
   until the offer deadline and then runs ``WaitlistPromotionService
-  .expire_offer``, surviving restarts (behind ``OfferExpirySchedulerProtocol``
-  so it is swappable with the cron sweep);
+  .expire_offer`` (behind ``OfferExpirySchedulerProtocol`` so it is swappable
+  with the cron sweep);
 - ``@DBOS.scheduled`` cron workflows for the periodic sweeps, so they run
   in-process without external cron. Each tick fires once across all gunicorn
   workers (DBOS dedups on schedule name + tick in the system database).
+
+The per-offer timers and the offers sweep intentionally coexist. The timer
+hands a freed seat to the next waiting party at the exact deadline — during a
+live event a popular session's seat should not idle for minutes — while the
+sweep is the recovery floor for timers that were never armed (the timer is
+started after commit, so a crash in between loses it) or that belonged to a
+process that never came back (open-source DBOS recovers a process's own
+pending workflows, not a dead peer's). Claim *correctness* depends on neither:
+``claim_offer`` re-checks ``offer_expires_at`` itself.
 
 ``ServiceInjectionMiddleware`` calls ``launch_scheduler`` when a serving
 process builds its handler; construction and launch stay lazy so importing
@@ -26,47 +35,26 @@ from datetime import UTC, datetime
 from dbos import DBOS
 from django.conf import settings
 
-from ludamus.inits.repositories import Repositories
-from ludamus.inits.transaction import DjangoTransaction
-from ludamus.links.db.django.notifications import DjangoUserNotifier
-from ludamus.mills.enrollment import WaitlistPromotionService
-from ludamus.mills.printing import PrintablesReminderService
+from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
 
 logger = logging.getLogger(__name__)
 
 _launched = threading.Event()
 _launch_lock = threading.Lock()
 
-# Cron cadences (croniter syntax). The offers sweep is the belt-and-suspenders
-# floor under the per-offer timers (it catches timers lost to a crash);
-# printables reminders go out each morning, Polish time being UTC+1/+2.
+# Cron cadences (croniter syntax). The offers sweep is the recovery floor
+# under the per-offer timers (see the module docstring); printables reminders
+# go out each morning, Polish time being UTC+1/+2.
 EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
 PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
 
 
-def _build_service() -> WaitlistPromotionService:
-    # Built locally (not via inits.services) to keep this module free of the
-    # composition root and avoid an import cycle. Re-offers stay durable by
-    # reusing the DBOS scheduler.
-    return WaitlistPromotionService(
-        DjangoTransaction(),
-        Repositories().participation_promotion,
-        DjangoUserNotifier(),
-        DBOSOfferExpiryScheduler(),
-    )
-
-
-def _build_printables_service() -> PrintablesReminderService:
-    return PrintablesReminderService(
-        transaction=DjangoTransaction(),
-        reminders=Repositories().printables_reminders,
-        notifier=DjangoUserNotifier(),
-    )
-
-
 @DBOS.step()
 def _expire_offer_step(participation_id: int) -> None:
-    _build_service().expire_offer(participation_id=participation_id)
+    # Re-offers produced by the expiry stay durable by reusing this scheduler.
+    build_waitlist_promotion(DBOSOfferExpiryScheduler()).expire_offer(
+        participation_id=participation_id
+    )
 
 
 @DBOS.workflow()
@@ -77,7 +65,8 @@ def _expire_offer_workflow(participation_id: int, delay_seconds: float) -> None:
 
 @DBOS.step()
 def _expire_lapsed_offers_step(now: datetime) -> None:
-    expired = _build_service().expire_lapsed_offers(now=now)
+    service = build_waitlist_promotion(DBOSOfferExpiryScheduler())
+    expired = service.expire_lapsed_offers(now=now)
     logger.info("expire_offers sweep: processed %s lapsed offer(s)", expired)
 
 
@@ -89,7 +78,7 @@ def expire_offers_sweep(scheduled: datetime, _actual: datetime) -> None:
 
 @DBOS.step()
 def _send_printables_reminders_step(now: datetime) -> None:
-    reminded = _build_printables_service().send_due_reminders(now=now)
+    reminded = build_printables_reminder().send_due_reminders(now=now)
     logger.info("printables reminders: reminded %s event(s)", reminded)
 
 
@@ -127,7 +116,7 @@ def launch_scheduler() -> None:
     # failure there must not take request serving down — the thread dies loudly
     # via threading.excepthook while the management commands remain the manual
     # floor. The next schedule_expiry call retries the launch.
-    if settings.OFFER_EXPIRY_SCHEDULER != "dbos":
+    if settings.SCHEDULER_MODE != "dbos":
         return
     threading.Thread(target=_ensure_launched, name="dbos-launch", daemon=True).start()
 

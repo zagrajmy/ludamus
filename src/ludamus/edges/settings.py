@@ -55,11 +55,10 @@ env = environ.Env(
     # smtp://user:pass@host:587/?tls=True in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
-    # In-system scheduler: "dbos" (default; durable offer timers plus the
+    # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
-    # (external cron invokes the management commands instead). The name
-    # predates the cron workflows and governs both.
-    OFFER_EXPIRY_SCHEDULER=(str, "dbos"),
+    # (external cron invokes the management commands instead).
+    SCHEDULER_MODE=(str, "dbos"),
     # DBOS system database. Empty (default) derives it from the app database:
     # the app Postgres (system tables live under the "dbos" schema) or a local
     # SQLite file when the app DB is SQLite.
@@ -418,7 +417,7 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
-OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
+SCHEDULER_MODE = env("SCHEDULER_MODE")
 if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
     if env("USE_POSTGRES"):
         _dbos_host = env.str("DB_HOST")

@@ -157,8 +157,10 @@ class PrintablesReminderRecipientDTO(BaseModel):
 class PrintablesReminderDTO(BaseModel):
     event_pk: int
     event_name: str
-    # Absolute URL to the panel's print-materials hub, ready to drop into email.
-    materials_url: str
+    event_slug: str
+    # Site domain of the owning sphere — the notifier composes the absolute
+    # print-materials link from it (sphere sites live on different domains).
+    sphere_domain: str
     recipients: list[PrintablesReminderRecipientDTO]
 
 
@@ -166,7 +168,8 @@ class PrintablesReadyNotification(BaseModel):
     recipient_user_id: int
     recipient_email: str
     event_name: str
-    materials_url: str
+    event_slug: str
+    sphere_domain: str
 
 
 class PrintablesReminderRepositoryProtocol(Protocol):
@@ -188,9 +191,7 @@ class PrintablesNotifierProtocol(Protocol):
 
 class PrintablesReminderServiceProtocol(Protocol):
     def mark_printed(self, event_pk: int) -> None: ...
-    def send_due_reminders(
-        self, *, now: datetime, lead_time: timedelta = ...
-    ) -> int: ...
+    def send_due_reminders(self, *, now: datetime) -> int: ...
 
 
 class PrintMaterialsServiceProtocol(Protocol):
