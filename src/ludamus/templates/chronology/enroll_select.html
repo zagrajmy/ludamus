@@ -190,7 +190,7 @@
                 {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                 {% if user_data|length == 1 %}
                     {% if not party_choices or selected_party.is_own_led %}
-                        <p class="text-sm text-foreground-muted -mt-3 mb-6">
+                        <p class="text-sm text-foreground-muted mb-6">
                             {% translate "No companions available. You can add companions to your party in your" %}
                             <a href="{% url 'web:crowd:profile-parties' %}"
                                class="text-primary hover:underline">{% translate "profile settings" %}</a>.
