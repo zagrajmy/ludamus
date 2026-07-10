@@ -38,14 +38,18 @@ export MISE_ENV=sandbox
 # Persisted for the session via CLAUDE_ENV_FILE, together with MISE_ENV so
 # every later `mise` invocation keeps loading mise.sandbox.toml.
 #
-# PREPEND, don't append: mise inserts its managed paths (incl. the .venv
-# activation from `_.python.venv`) at the shims' position in PATH. Appended
-# shims put the venv after the container's bare /usr/local/bin/python, and
-# every `mise run` task fails with "No module named 'django'".
+# PREPEND, don't append — and shims must precede ~/.local/bin: mise inserts
+# its managed paths (incl. the .venv activation from `_.python.venv`) at the
+# shims' position in PATH, while the container image ships uv-tool builds of
+# pytest/mypy/black/poetry in ~/.local/bin. If ~/.local/bin wins, those
+# plugin-less binaries shadow the .venv ones inside every `mise run`/`mise x`
+# (pytest has no django, mypy has no mypy_django_plugin); if the shims are
+# appended, the venv lands after the container's bare /usr/local/bin/python
+# and every `mise run` task fails with "No module named 'django'".
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo "export PATH=\"$HOME/.local/share/mise/shims:\$PATH\"" >> "$CLAUDE_ENV_FILE"
   # ~/.local/bin carries the container image's user-level binaries.
-  echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+  echo "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:\$PATH\"" \
+    >> "$CLAUDE_ENV_FILE"
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi
 
