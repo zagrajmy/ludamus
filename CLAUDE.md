@@ -28,18 +28,16 @@ description — run it rather than trusting a hardcoded list here. Most used:
 
 ## Papercuts
 
-When you hit small friction while working — a tool call that missed and had to
-be retried, a confusing/undocumented setup step, a flaky command, a stale cache,
-a misleading error, a non-obvious gotcha — log it to `PAPERCUTS.md` via
-`pnpm papercut -m <model> "message"`. One or two sentences: what you were doing →
-what got in the way (a guess at cause/fix is a bonus). Do it proactively, in the
-moment; none of these block, but together they show where the repo needs sanding
-down. Distinct from `LOG.md` (what you accomplished) and Linear issues (real
-bugs / tracked work).
+When you hit small friction while working — a retried tool call, a
+confusing/undocumented setup step, a flaky command, a stale cache, a misleading
+error, a non-obvious gotcha — append a bullet to `PAPERCUTS.md`: one or two
+sentences, what you were doing → what got in the way (a guess at the cause/fix
+is a bonus). Do it proactively, in the moment; none of it blocks, but together
+the notes show where the repo needs sanding down. Distinct from Linear issues
+(real bugs / tracked work).
 
-`pnpm papercut:review` mines a whole session transcript at once via a cheap model
-(Gemini Flash, needs `GOOGLE_API_KEY` in `.env`) and appends what it finds. It's
-user-triggered via `/papercut` — don't run the review yourself unprompted.
+For a full end-to-end friction log of a single task, use the `friction-log`
+skill instead.
 
 ## Architecture
 
