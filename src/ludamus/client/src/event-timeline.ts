@@ -15,12 +15,6 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const hourLinks = [...rail.querySelectorAll<HTMLAnchorElement>(".schedule-rail-hour")];
   if (hourLinks.length === 0) return;
 
-  const linkByHour = new Map<string, HTMLAnchorElement>();
-  for (const link of hourLinks) {
-    const hour = link.dataset.railHour;
-    if (hour && !linkByHour.has(hour)) linkByHour.set(hour, link);
-  }
-
   let active: HTMLAnchorElement | null = null;
   const setActive = (link: HTMLAnchorElement | null): void => {
     if (link === active) return;
@@ -28,6 +22,51 @@ const initScheduleRail = (rail: HTMLElement): void => {
     active = link;
     if (active) active.dataset.active = "";
   };
+
+  // The rail doubles as the phone's scrollbar, so it must never outgrow the
+  // screen: when the schedule spans more hours than the viewport fits, keep
+  // only every 2nd/3rd/… marker per day (day labels and each day's first
+  // hour always stay). Hidden hours keep working for the scroll-spy by
+  // mapping to the nearest visible marker above them.
+  let visibleLinks = hourLinks;
+  const linkByHour = new Map<string, HTMLAnchorElement>();
+
+  const showEveryNth = (step: number): void => {
+    let indexInDay = -1;
+    for (const child of rail.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (child.classList.contains("schedule-rail-hour")) {
+        indexInDay += 1;
+        child.style.display = indexInDay % step === 0 ? "" : "none";
+      } else {
+        indexInDay = -1;
+      }
+    }
+  };
+
+  const fitRail = (): void => {
+    let step = 1;
+    showEveryNth(step);
+    while (rail.scrollHeight > rail.clientHeight && step < hourLinks.length) {
+      step += 1;
+      showEveryNth(step);
+    }
+    const visible = new Set(hourLinks.filter((link) => link.style.display !== "none"));
+    visibleLinks = [...visible];
+    linkByHour.clear();
+    let nearest: HTMLAnchorElement | undefined = visibleLinks[0];
+    for (const link of hourLinks) {
+      if (visible.has(link)) nearest = link;
+      const hour = link.dataset.railHour;
+      if (hour && nearest) linkByHour.set(hour, nearest);
+    }
+    if (active && !visible.has(active)) {
+      const hour = active.dataset.railHour;
+      setActive((hour ? linkByHour.get(hour) : undefined) ?? null);
+    }
+  };
+  fitRail();
+  globalThis.addEventListener("resize", fitRail);
 
   const scrollToLink = (link: HTMLAnchorElement): void => {
     const id = link.getAttribute("href")?.slice(1);
@@ -80,7 +119,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const linkAtY = (clientY: number): HTMLAnchorElement | null => {
     let nearest: HTMLAnchorElement | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const link of hourLinks) {
+    for (const link of visibleLinks) {
       const rect = link.getBoundingClientRect();
       const center = rect.top + rect.height / 2;
       const distance = Math.abs(center - clientY);
@@ -139,16 +178,8 @@ const initScheduleRail = (rail: HTMLElement): void => {
     "wheel",
     (event) => {
       if (!scrollRoot) return;
-      // When the rail itself overflows, let it consume the wheel natively
-      // until it hits the edge in the scroll direction — only then hand the
-      // scroll over to the page.
-      if (rail.scrollHeight > rail.clientHeight) {
-        const atEdge =
-          event.deltaY > 0
-            ? rail.scrollTop + rail.clientHeight >= rail.scrollHeight - 1
-            : rail.scrollTop <= 0;
-        if (!atEdge) return;
-      }
+      // The rail is a scrubber, never a scroll container (fitRail keeps it
+      // within the screen), so the wheel always drives the page.
       event.preventDefault();
       scrollRoot.scrollBy({ top: event.deltaY });
     },
