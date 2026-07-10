@@ -33,16 +33,6 @@ chronology_urls = [
         name="session-accept",
     ),
     path(
-        "event/<str:event_slug>/anonymous/do/activate",
-        views.EventAnonymousActivateActionView.as_view(),
-        name="event-anonymous-activate",
-    ),
-    path(
-        "event/<str:event_slug>/session/<int:session_id>/enrollment/anonymous",
-        views.SessionEnrollmentAnonymousPageView.as_view(),
-        name="session-enrollment-anonymous",
-    ),
-    path(
         "offer/<str:token>/claim/",
         views.SessionOfferClaimView.as_view(),
         name="offer-claim",
@@ -51,16 +41,6 @@ chronology_urls = [
         "offer/<str:token>/decline/",
         views.SessionOfferDeclineView.as_view(),
         name="offer-decline",
-    ),
-    path(
-        "anonymous/do/load",
-        views.AnonymousLoadActionView.as_view(),
-        name="anonymous-load",
-    ),
-    path(
-        "anonymous/do/reset/",
-        views.AnonymousResetActionView.as_view(),
-        name="anonymous-reset",
     ),
 ]
 

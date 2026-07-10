@@ -11,6 +11,7 @@ from ludamus.links.db.django.crowd import (
     UserRepository,
 )
 from ludamus.links.db.django.enrollment import (
+    AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
     ParticipationPromotionRepository,
 )
@@ -85,6 +86,10 @@ class Repositories:
     @cached_property
     def participation_promotion(self) -> ParticipationPromotionRepository:
         return ParticipationPromotionRepository()
+
+    @cached_property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentRepository:
+        return AnonymousEnrollmentRepository()
 
     @cached_property
     def enrollment_participations(self) -> EnrollmentParticipationRepository:
