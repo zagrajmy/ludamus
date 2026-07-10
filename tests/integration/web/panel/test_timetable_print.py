@@ -106,6 +106,17 @@ class TestTimetablePrintView:
         assert empty_space.name in content
         assert "Free slot" in content
 
+    def test_opening_print_page_marks_event_printed(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        assert event.printables_last_printed_at is None
+
+        authenticated_client.get(self.timetable_url(event))
+
+        event.refresh_from_db()
+        assert event.printables_last_printed_at is not None
+
     def test_timetable_scoped_to_node(
         self, authenticated_client, active_user, sphere, event, session, time_slot
     ):

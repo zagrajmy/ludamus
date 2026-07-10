@@ -91,8 +91,9 @@ target-version = ['py314']
 
 [tool.codespell]
 skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
-# 'fallow' is the frontend analysis tool, not a misspelling of 'follow'
-ignore-words-list = 'fallow'
+# 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
+# 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
+ignore-words-list = 'fallow,adres'
 
 # COVERAGE
 
@@ -210,7 +211,7 @@ disallow_any_explicit = false
 # relaxed only for the thin scheduler adapter that wraps them, the same way
 # links.db.django.* is relaxed for the ORM.
 [[tool.mypy.overrides]]
-module = ["ludamus.inits.dbos_offer_scheduler"]
+module = ["ludamus.inits.dbos_scheduler"]
 disallow_any_expr = false
 
 # pydantic's model_json_schema() returns dict[str, Any]; relaxed only for the
@@ -313,9 +314,10 @@ type = "forbidden"
 source_modules = ["ludamus.gates"]
 forbidden_modules = ["ludamus.links", "ludamus.inits", "ludamus.edges"]
 # Management commands are composition entrypoints (like manage.py/wsgi): the
-# expire_offers cron job must build the service via the inits root.
+# cron jobs must build their service via the inits root.
 ignore_imports = [
     "ludamus.gates.cli.django.management.commands.expire_offers -> ludamus.inits.services",
+    "ludamus.gates.cli.django.management.commands.send_printables_reminders -> ludamus.inits.services",
 ]
 
 

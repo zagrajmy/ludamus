@@ -10,7 +10,9 @@ if TYPE_CHECKING:
 
 def get_client_ip(request: HttpRequest) -> str:
     if forwarded := request.META.get("HTTP_X_FORWARDED_FOR", ""):
-        return str(forwarded).split(",", maxsplit=1)[0].strip()
+        # The rightmost entry is appended by our own reverse proxy;
+        # everything left of it is client-supplied and spoofable.
+        return str(forwarded).rsplit(",", maxsplit=1)[-1].strip()
     return str(request.META.get("REMOTE_ADDR", ""))
 
 

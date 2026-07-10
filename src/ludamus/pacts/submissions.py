@@ -170,15 +170,16 @@ class ImportSettings(BaseModel):
     # `unique_key_columns` names the column headers whose values together
     # identify a row across re-fetches; retry uses them to locate the row
     # again even after the operator deletes or rearranges rows in the source.
-    # `email_column` is the 1-indexed sheet column where Google Forms drops
-    # the auto-collected responder email (only present when the form has
-    # email collection on). With it set, the importer synthesizes a question
-    # the recipe can map to session.contact_email.
+    # `sheet_headers` caches the source sheet's header row, refreshed whenever
+    # the questions snapshot is. Both the recipe and `unique_key_columns` are
+    # chosen from it: the form schema alone can't offer the metadata columns
+    # (timestamp, auto-collected email), whose wording follows the form's
+    # locale, so those are mapped like any other column.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
-    email_column: int | None = None
+    sheet_headers: list[str] = []
 
 
 class ImportLogStatus(StrEnum):
