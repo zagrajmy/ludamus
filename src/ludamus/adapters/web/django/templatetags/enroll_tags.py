@@ -72,7 +72,10 @@ def _badge(data: SessionUserParticipationData) -> Badge:
 
 @register.simple_tag
 def enroll_row_state(
-    form: forms.Form, data: SessionUserParticipationData, viewer_pk: int | None = None
+    *,
+    form: forms.Form,
+    data: SessionUserParticipationData,
+    viewer_pk: int | None = None,
 ) -> EnrollRowState:
     field = form.fields.get(f"user_{data.user.pk}")
     choices = (

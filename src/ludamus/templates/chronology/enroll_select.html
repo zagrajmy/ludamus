@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load enroll_tags %}
+{% load cfp_tags %}
 {% load django_vite %}
 {% block title %}
     {% translate "Enrollment" %} - {{ session.title }}
@@ -53,13 +54,6 @@
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="max-w-2xl mx-auto">
-        {# Only the session's own cover earns a banner — repeating the event #}
-        {# cover on every enroll page is noise, and no picture means no box. #}
-        {% if session.cover_image_url %}
-            <div class="rounded-3xl shadow-xl overflow-hidden mb-8 h-44 sm:h-56 bg-cover bg-center"
-                 style="box-shadow: var(--shadow-elevated);
-                        background-image: url('{{ session.cover_image_url }}')"></div>
-        {% endif %}
         {# Shadowban warning: players the viewer shadowbanned are already here. #}
         {% if shadowban_warnings %}
             <div class="alert alert-warning flex flex-col gap-3 mb-6">
@@ -149,9 +143,19 @@
                      data-msg-seat="{% translate "Gets a seat" %}"
                      data-msg-wait="{% translate "Joins the waiting list" %}"
                      data-msg-leave="{% translate "Will leave the session" %}">
+                    {# House cover pattern (see _session_card.html): the picture #}
+                    {# mounts inset inside the card; no picture, no box. #}
+                    {% session_cover_image session as cover_image_url %}
+                    {% if cover_image_url %}
+                        <img src="{{ cover_image_url }}"
+                             alt=""
+                             width="640"
+                             height="360"
+                             class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover">
+                    {% endif %}
                     <ul class="divide-y divide-border">
                         {% for row in user_data %}
-                            {% enroll_row_state form row viewer_pk=request.user.pk as state %}
+                            {% enroll_row_state form=form data=row viewer_pk=request.user.pk as state %}
                             <li data-enroll-row
                                 data-current-in="{% if state.checked %}1{% else %}0{% endif %}"
                                 data-occupies-seat="{% if state.occupies_seat %}1{% else %}0{% endif %}">
@@ -199,7 +203,7 @@
                             {% icon "arrow-left" class="w-4 h-4" variant="mini" %}
                             {% translate "Back to event" %}
                         </a>
-                        {% enroll_row_state form user_data.0 as viewer_state %}
+                        {% enroll_row_state form=form data=user_data.0 as viewer_state %}
                         {% if user_data|length == 1 and not viewer_state.checked and not viewer_state.disabled %}
                             {% if seats_left is None or seats_left > 0 %}
                                 <button type="submit" class="btn btn-primary">

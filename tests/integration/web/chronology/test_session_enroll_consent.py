@@ -246,11 +246,13 @@ class TestHeldSeatForConsentingMember:
             template_name="chronology/enroll_select.html",
             context_data=ANY,
         )
-        content = response.content.decode()
-        # No action radios for a member who handles their own enrollment.
-        assert f'id="user_{member.pk}_enroll"' not in content
-        assert f'id="user_{member.pk}_cancel"' not in content
-        assert response.status_code == HTTPStatus.OK
+        content = " ".join(response.content.decode().split())
+        # A member who handles their own enrollment renders as a checked but
+        # untoggleable row, with the reason spelled out beside it.
+        tag = input_tag(content, member.pk)
+        assert "checked" in tag
+        assert "disabled" in tag
+        assert "They manage their own enrollment" in content
 
 
 class TestHeldSeatUnavailable:
