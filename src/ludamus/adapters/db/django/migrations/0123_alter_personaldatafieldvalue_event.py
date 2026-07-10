@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("db_main", "0118_remove_tag_unique_tag_name_per_category_and_more")
+        ("db_main", "0122_remove_tag_unique_tag_name_per_category_and_more")
     ]
 
     operations = [

@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0117_migrate_needs_requirements_to_fields")]
+    dependencies = [("db_main", "0121_migrate_needs_requirements_to_fields")]
 
     operations = [
         migrations.RemoveConstraint(

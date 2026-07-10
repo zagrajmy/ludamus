@@ -76,7 +76,7 @@ def migrate(apps, _schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("db_main", "0116_rename_hostpersonaldata_personaldatafieldvalue_and_more")
+        ("db_main", "0120_rename_hostpersonaldata_personaldatafieldvalue_and_more")
     ]
 
     operations = [migrations.RunPython(migrate, reverse_code=migrations.RunPython.noop)]
