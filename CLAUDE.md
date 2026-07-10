@@ -30,11 +30,12 @@ description — run it rather than trusting a hardcoded list here. Most used:
 
 When you hit small friction while working — a retried tool call, a
 confusing/undocumented setup step, a flaky command, a stale cache, a misleading
-error, a non-obvious gotcha — append a bullet to `PAPERCUTS.md`: one or two
-sentences, what you were doing → what got in the way (a guess at the cause/fix
-is a bonus). Do it proactively, in the moment; none of it blocks, but together
-the notes show where the repo needs sanding down. Distinct from Linear issues
-(real bugs / tracked work).
+error, a non-obvious gotcha — log it with `mise run papercut -- <note>` (one or
+two sentences, what you were doing → what got in the way; a guess at the
+cause/fix is a bonus). It appends to `PAPERCUTS.md` in one call — no need to open
+the file. Do it proactively, in the moment; none of it blocks, but together the
+notes show where the repo needs sanding down. Distinct from Linear issues (real
+bugs / tracked work).
 
 For a full end-to-end friction log of a single task, use the `friction-log`
 skill instead.
