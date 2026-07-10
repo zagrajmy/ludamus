@@ -22,7 +22,7 @@ const baseUrl = env.BASE_URL ?? "http://localhost:8000";
 const session = env.SESSION ?? "zagrajmy-ios-modal-local";
 const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
-const eventPath = env.EVENT_PATH ?? "/chronology/event/autumn-open/";
+const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
 const runtime = env.IOS_RUNTIME;

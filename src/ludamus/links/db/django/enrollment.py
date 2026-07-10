@@ -304,6 +304,26 @@ class ParticipationPromotionRepository:
         )
 
     @staticmethod
+    def list_lapsed_offers(now: datetime) -> list[int]:
+        # One representative per lapsed party (the service expands to the whole
+        # party from the shared claim token).
+        lapsed = (
+            SessionParticipation.objects.filter(
+                status=SessionParticipationStatus.OFFERED, offer_expires_at__lt=now
+            )
+            .values_list("claim_token", "id")
+            .order_by("claim_token", "id")
+        )
+        seen: set[str] = set()
+        representatives: list[int] = []
+        for claim_token, participation_id in lapsed:
+            if claim_token in seen:
+                continue
+            seen.add(claim_token)
+            representatives.append(participation_id)
+        return representatives
+
+    @staticmethod
     def mark_claimed(participation_ids: list[int], *, claimed_at: datetime) -> None:
         # Status-scoped so a racing expiry that already dropped the party cannot
         # be clobbered (and vice-versa) — only still-OFFERED rows are claimed.

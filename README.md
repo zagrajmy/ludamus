@@ -16,7 +16,7 @@ project tasks.
 
 ```bash
 mise install            # Python, Node, Poetry, ast-grep
-mise bootstrap      # .env, deps, migrations, demo data — idempotent
+mise run bootstrap      # .env, deps, migrations, demo data — idempotent
 mise dev                # Django :8000 + Vite :5173
 ```
 
