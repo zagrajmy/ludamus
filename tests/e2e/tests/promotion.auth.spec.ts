@@ -44,9 +44,10 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
   });
   const adminPage = await adminContext.newPage();
   await adminPage.goto(`/event/${scenario.event_slug}/session/${scenario.session_id}/enrollment/`);
-  // The superuser is the only user on this page, so its cancel radio is unique.
-  await adminPage.getByRole("radio", { name: /Cancel enrollment/i }).check();
-  await adminPage.getByRole("button", { name: /Enroll Selected Users/ }).click();
+  // The superuser is the only user on this page, so its Include box is unique;
+  // unticking it means "I should be out" and saving cancels the seat.
+  await adminPage.getByRole("checkbox", { name: /Include/i }).uncheck();
+  await adminPage.getByRole("button", { name: /Confirm/ }).click();
   await adminPage.waitForURL(/\/event\//);
   await adminContext.close();
 

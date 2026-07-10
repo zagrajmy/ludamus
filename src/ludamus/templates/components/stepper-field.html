@@ -1,0 +1,34 @@
+{% load i18n %}
+{% load tessera %}
+{# Number input rendered as a − / + stepper. Always pass `name`. #}
+{# Optional: id, value, min, max, required, disabled, has_errors, aria_describedby #}
+{# The input stays a real number field so the control degrades to typing #}
+{# without JS; src/stepper.ts drives the buttons via [data-stepper-*]. #}
+<span data-stepper
+      class="inline-flex self-start items-stretch rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} overflow-hidden">
+    <button type="button"
+            data-stepper-down
+            aria-label="{% translate "Decrease" %}"
+            class="w-8 grid place-items-center bg-bg-tertiary text-foreground-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
+        {% icon "minus" class="w-4 h-4" variant="mini" %}
+    </button>
+    {# text-base keeps 16px on mobile so iOS Safari doesn't auto-zoom on focus. #}
+    <input type="number"
+           inputmode="numeric"
+           class="w-10 py-1.5 text-center text-base sm:text-sm border-0 bg-bg-secondary text-foreground tabular-nums focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+           name="{{ name }}"
+           {% if id|default:"" %}id="{{ id }}"{% endif %}
+           {% if value|default:"" %}value="{{ value }}"{% endif %}
+           {% if min|default:"" %}min="{{ min }}"{% endif %}
+           {% if max|default:"" %}max="{{ max }}"{% endif %}
+           {% if required|default:False %}required{% endif %}
+           {% if disabled|default:False %}disabled{% endif %}
+           {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+           {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
+    <button type="button"
+            data-stepper-up
+            aria-label="{% translate "Increase" %}"
+            class="w-8 grid place-items-center bg-bg-tertiary text-foreground-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
+        {% icon "plus" class="w-4 h-4" variant="mini" %}
+    </button>
+</span>
