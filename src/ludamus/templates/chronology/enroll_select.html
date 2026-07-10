@@ -237,17 +237,12 @@
                         </div>
                     </div>
                 </form>
-                {# Quiet footnote on the page background, only when the viewer's #}
-                {# own companions could appear above: their own led party, or no #}
-                {# parties yet. #}
-                {% if user_data|length == 1 %}
-                    {% if not party_choices or selected_party.is_own_led %}
-                        <p class="mt-3 text-center text-xs text-foreground-muted">
-                            <a href="{% url 'web:crowd:profile-parties' %}"
-                               class="underline underline-offset-2 hover:text-foreground">{% translate "Add companions in your profile settings" %}</a>
-                        </p>
-                    {% endif %}
-                {% endif %}
+                {# Quiet footnote on the page background: the roster above is #}
+                {# managed in the profile's party settings. #}
+                <p class="mt-3 text-center text-xs text-foreground-muted">
+                    <a href="{% url 'web:crowd:profile-parties' %}"
+                       class="underline underline-offset-2 hover:text-foreground">{% translate "Manage companions in your profile settings" %}</a>
+                </p>
             </div>
         </div>
     </div>

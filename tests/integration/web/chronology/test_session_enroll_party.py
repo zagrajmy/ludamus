@@ -179,7 +179,6 @@ class TestPartySelector:
 
         content = response.content.decode()
         assert connected_user.name not in content
-        assert "Add companions in your profile settings" not in content
         assert 'name="party" value="none"' in content
 
     def test_get_alien_party_is_rejected(self, authenticated_client, agenda_item):
@@ -197,36 +196,12 @@ class TestPartySelector:
             ],
         )
 
-    def test_foreign_party_hides_add_companions_hint(
-        self, authenticated_client, active_user, agenda_item
-    ):
-        friend = UserFactory(username="friend", name="Frida Friend")
-        crew = Party.objects.create(leader=friend, name="Ekipa")
-        _join(crew, friend)
-        _join(crew, active_user)
-
-        response = authenticated_client.get(_url(agenda_item), {"party": crew.pk})
-
-        assert (
-            "Add companions in your profile settings" not in response.content.decode()
-        )
-
-    def test_solo_user_still_sees_add_companions_hint(
+    def test_manage_companions_footnote_is_always_there(
         self, authenticated_client, agenda_item
     ):
         response = authenticated_client.get(_url(agenda_item))
 
-        assert "Add companions in your profile settings" in response.content.decode()
-
-    def test_own_led_party_without_companions_shows_hint(
-        self, authenticated_client, active_user, agenda_item
-    ):
-        party = Party.objects.create(leader=active_user, name="Ekipa")
-        _join(party, active_user)
-
-        response = authenticated_client.get(_url(agenda_item))
-
-        assert "Add companions in your profile settings" in response.content.decode()
+        assert "Manage companions in your profile settings" in response.content.decode()
 
     def test_own_led_party_wins_the_default_with_multiple_parties(
         self, authenticated_client, active_user, connected_user, agenda_item
