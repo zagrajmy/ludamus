@@ -408,8 +408,23 @@ arg "<note>" var=#true help="One or two sentences: what you were doing -> what g
 '''
 run = '''
 set -eu
-note="${usage_note:-}"
-[ -n "$note" ] || { echo "usage: mise run papercut -- <note>" >&2; exit 2; }
-printf -- '- %s: %s\n' "$(date +%F)" "$note" >> PAPERCUTS.md
+[ -n "${usage_note:-}" ] || { echo "usage: mise run papercut -- <note>" >&2; exit 2; }
+# usage passes the variadic note as a shell-quoted join, so apostrophes arrive
+# as '\'' sequences — shlex.split undoes that. textwrap keeps markdownlint
+# MD013 (80 columns) happy with the same hanging indent as hand-written
+# entries.
+python - <<'EOF'
+import datetime
+import os
+import shlex
+import textwrap
+
+note = " ".join(shlex.split(os.environ["usage_note"])).strip()
+entry = textwrap.fill(
+    f"- {datetime.date.today():%Y-%m-%d}: {note}", width=80, subsequent_indent="  "
+)
+with open("PAPERCUTS.md", "a", encoding="utf-8") as file:
+    file.write(entry + "\n")
+EOF
 echo "logged to PAPERCUTS.md"
 '''
