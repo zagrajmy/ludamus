@@ -53,10 +53,12 @@
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="max-w-2xl mx-auto">
-        {% if session.cover_image_url or event.cover_image_url %}
+        {# Only the session's own cover earns a banner — repeating the event #}
+        {# cover on every enroll page is noise, and no picture means no box. #}
+        {% if session.cover_image_url %}
             <div class="rounded-3xl shadow-xl overflow-hidden mb-8 h-44 sm:h-56 bg-cover bg-center"
                  style="box-shadow: var(--shadow-elevated);
-                        background-image: url('{{ session.cover_image_url|default:event.cover_image_url }}')"></div>
+                        background-image: url('{{ session.cover_image_url }}')"></div>
         {% endif %}
         {# Shadowban warning: players the viewer shadowbanned are already here. #}
         {% if shadowban_warnings %}
