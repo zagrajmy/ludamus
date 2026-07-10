@@ -21,6 +21,17 @@ deferred finding later.
 | 004 | Stop logging e-mails in the membership client | P2 | S | — | DONE |
 | 005 | Fix onboarding and refactor-index doc drift | P3 | S | — | DONE |
 | 006 | Embed site in SphereDTO, delete read_with_site | P3 | S | 003 | DONE |
+| 007 | Ship a report-only Content-Security-Policy | P2 | M | — | TODO |
+| 008 | Batch waitlist promotion queries | P2 | M | — | TODO |
+| 009 | Fix prefetch defeated by order_by | P3 | S | — | TODO |
+| 010 | Dependency pin hygiene (dbos, django-vite) | P3 | S | — | TODO |
+| 011 | Cache dependencies in CI | P3 | M | — | TODO |
+| 012 | Parallelize Python tests (pytest-xdist) | P3 | S | — | TODO |
+| 013 | Remove dead OAuth csrf_token state field | P3 | S | — | TODO |
+| 014 | Docs: toolchain glossary, stale README commands | P3 | S | — | TODO |
+| 015 | Migrate current_user() context off di.uow | P3 | S | — | TODO |
+| 016 | Delete read_site and SphereDTO.site_id | P3 | S | 006 | TODO |
+| 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | TODO |
 
 ## Execution log (2026-07-09)
 
@@ -66,6 +77,22 @@ markdown sanitization, image-upload validation, and overall test
 posture (96% patch gate, mutation testing, Django-free unit layer).
 
 ## Deferred findings (real, no plan written yet)
+
+Update 2026-07-10: most items below graduated to plans 007-017 (see
+the table). Still unplanned, deliberately:
+
+- **The enrollment strangler migration itself** — plan 017 pins
+  behavior first; the migration stays with `docs/refactors/` #1 and
+  needs maintainer scoping. Note: anonymous enrollment already moved
+  to `gates/.../chronology/anonymous.py`; the strangler doc's "next
+  step" list is partially stale (plan 017's maintenance notes cover
+  the doc fix).
+- **Model relocation + fat-file splits** — owned by
+  `docs/refactors/README.md` #3/#4/#6.
+- **RELEASE_NOTES.md keep-or-automate decision** — editorial, human
+  call (TODO ticket 23).
+
+Original list, kept for the record:
 
 - **CSP header missing** (`edges/settings.py:302-341` sets HSTS etc.
   but no Content-Security-Policy; nh3 + autoescaping are the only XSS
