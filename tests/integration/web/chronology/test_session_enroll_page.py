@@ -2312,9 +2312,7 @@ class TestSeatProjection:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_seats_left_line_and_projection_scaffolding(
-        self, agenda_item, staff_client
-    ):
+    def test_projection_scaffolding(self, agenda_item, staff_client):
         session = agenda_item.session
         session.participants_limit = 2
         session.save(update_fields=["participants_limit"])
@@ -2333,7 +2331,6 @@ class TestSeatProjection:
             context_data=ANY,
         )
         content = " ".join(response.content.decode().split())
-        assert "There is 1 seat left" in content
         assert 'data-seats-left="1"' in content
         assert "data-enroll-preview" in content
         assert 'data-msg-seat="Gets a seat"' in content
@@ -2344,9 +2341,7 @@ class TestSeatProjection:
         assert "data-seat-hint" in content
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_full_session_says_everyone_joins_the_waiting_list(
-        self, agenda_item, staff_client
-    ):
+    def test_full_session_projects_zero_seats(self, agenda_item, staff_client):
         session = agenda_item.session
         session.participants_limit = 1
         session.save(update_fields=["participants_limit"])
@@ -2365,9 +2360,8 @@ class TestSeatProjection:
             context_data=ANY,
         )
         content = " ".join(response.content.decode().split())
-        assert (
-            "The session is full — everyone you add joins the waiting list." in content
-        )
+        # The header capacity pill carries the count; the panel projects it.
+        assert "1/1" in content
         assert 'data-seats-left="0"' in content
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -2385,7 +2379,6 @@ class TestSeatProjection:
             context_data=ANY,
         )
         content = " ".join(response.content.decode().split())
-        assert "Tick everyone who should take part." in content
         assert "data-seats-left" not in content
 
     @pytest.mark.usefixtures("enrollment_config")

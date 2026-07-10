@@ -55,36 +55,53 @@
                         </button>
                     </form>
                 {% elif is_full and not is_unlimited %}
-                    <form method="post"
-                          action="{{ enroll_url }}"
-                          hx-post="{{ enroll_url }}"
-                          hx-target="#enroll-actions-{{ session_pk }}"
-                          hx-swap="outerHTML">
-                        {% csrf_token %}
-                        <input type="hidden" name="user_{{ viewer_pk }}" value="waitlist">
-                        <button type="submit" class="btn text-sm bg-warning text-white">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "Join waiting list" %}
-                        </button>
-                    </form>
+                    {# Compound button: the one-click action, with an attached #}
+                    {# segment for the group flow (companions, guests). #}
+                    <span class="inline-flex items-stretch">
+                        <form method="post"
+                              class="contents"
+                              action="{{ enroll_url }}"
+                              hx-post="{{ enroll_url }}"
+                              hx-target="#enroll-actions-{{ session_pk }}"
+                              hx-swap="outerHTML">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_{{ viewer_pk }}" value="waitlist">
+                            <button type="submit"
+                                    class="btn text-sm bg-warning text-white rounded-r-none">
+                                {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "Join waiting list" %}
+                            </button>
+                        </form>
+                        <a href="{{ enroll_url }}"
+                           class="btn text-sm bg-warning text-white rounded-l-none border-l border-white/30"
+                           title="{% translate "Enroll with others…" %}">{% translate "with others" %}</a>
+                    </span>
                 {% else %}
-                    <form method="post"
-                          action="{{ enroll_url }}"
-                          hx-post="{{ enroll_url }}"
-                          hx-target="#enroll-actions-{{ session_pk }}"
-                          hx-swap="outerHTML">
-                        {% csrf_token %}
-                        <input type="hidden" name="user_{{ viewer_pk }}" value="enroll">
-                        <button type="submit" class="btn btn-primary text-sm">
-                            {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
-                        </button>
-                    </form>
+                    <span class="inline-flex items-stretch">
+                        <form method="post"
+                              class="contents"
+                              action="{{ enroll_url }}"
+                              hx-post="{{ enroll_url }}"
+                              hx-target="#enroll-actions-{{ session_pk }}"
+                              hx-swap="outerHTML">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_{{ viewer_pk }}" value="enroll">
+                            <button type="submit" class="btn btn-primary text-sm rounded-r-none">
+                                {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
+                            </button>
+                        </form>
+                        <a href="{{ enroll_url }}"
+                           class="btn btn-primary text-sm rounded-l-none border-l border-white/30"
+                           title="{% translate "Enroll with others…" %}">{% translate "with others" %}</a>
+                    </span>
                 {% endif %}
-                <a href="{{ enroll_url }}"
-                   class="btn btn-secondary text-sm px-2.5"
-                   title="{% translate "Enroll with others…" %}">
-                    {% icon "user-group" class="w-4 h-4" variant="mini" %}
-                    <span class="sr-only">{% translate "Enroll with others…" %}</span>
-                </a>
+                {% if user_enrolled or user_waiting %}
+                    <a href="{{ enroll_url }}"
+                       class="btn btn-secondary text-sm px-2.5"
+                       title="{% translate "Enroll with others…" %}">
+                        {% icon "user-group" class="w-4 h-4" variant="mini" %}
+                        <span class="sr-only">{% translate "Enroll with others…" %}</span>
+                    </a>
+                {% endif %}
             </div>
         </div>
     {% endif %}

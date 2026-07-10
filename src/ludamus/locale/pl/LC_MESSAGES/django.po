@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 22:39+0200\n"
+"POT-Creation-Date: 2026-07-10 22:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3143,60 +3143,12 @@ msgid "Will leave the session"
 msgstr "Opuści ten punkt programu"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-msgid "Enrolling as"
-msgstr "Zapisujesz się jako"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "Just myself"
-msgstr "Tylko ja"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "Your party"
-msgstr "Twoja drużyna"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Party of %(leader_name)s"
-msgstr "Drużyna %(leader_name)s"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "The party moves up the waiting list together."
-msgstr "Drużyna awansuje na liście oczekujących razem."
-
-#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-msgid "Tick everyone who should take part."
-msgstr "Zaznacz wszystkich, którzy mają wziąć udział."
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "The session is full — everyone you add joins the waiting list."
-msgstr ""
-"Punkt programu jest pełny — każda dodana osoba trafia na listę oczekujących."
-
-#: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid ""
-"There is %(counter)s seat left — people you tick get seats in order, and "
-"once seats run out the rest join the waiting list."
-msgid_plural ""
-"There are %(counter)s seats left — people you tick get seats in order, and "
-"once seats run out the rest join the waiting list."
-msgstr[0] ""
-"Zostało %(counter)s miejsce — zaznaczone osoby dostają miejsca po kolei, a "
-"gdy miejsc zabraknie, reszta trafia na listę oczekujących."
-msgstr[1] ""
-"Zostały %(counter)s miejsca — zaznaczone osoby dostają miejsca po kolei, a "
-"gdy miejsc zabraknie, reszta trafia na listę oczekujących."
-msgstr[2] ""
-"Zostało %(counter)s miejsc — zaznaczone osoby dostają miejsca po kolei, a "
-"gdy miejsc zabraknie, reszta trafia na listę oczekujących."
-msgstr[3] ""
-"Zostało %(counter)s miejsca — zaznaczone osoby dostają miejsca po kolei, a "
-"gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+msgid "The party moves up the waiting list together."
+msgstr "Drużyna awansuje na liście oczekujących razem."
 
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
@@ -3864,6 +3816,10 @@ msgstr "Opuść"
 msgid "Enroll with others…"
 msgstr "Zapisz się z innymi…"
 
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid "with others"
+msgstr "z innymi"
+
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/print/base.html
 #: src/ludamus/templates/panel/timetable.html
@@ -4444,6 +4400,10 @@ msgstr "Dołącz do drużyny"
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Decline"
 msgstr "Odrzuć"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Your party"
+msgstr "Twoja drużyna"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #, python-format
@@ -7535,6 +7495,44 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Enrolling as"
+#~ msgstr "Zapisujesz się jako"
+
+#~ msgid "Just myself"
+#~ msgstr "Tylko ja"
+
+#, python-format
+#~ msgid "Party of %(leader_name)s"
+#~ msgstr "Drużyna %(leader_name)s"
+
+#~ msgid "Tick everyone who should take part."
+#~ msgstr "Zaznacz wszystkich, którzy mają wziąć udział."
+
+#~ msgid "The session is full — everyone you add joins the waiting list."
+#~ msgstr ""
+#~ "Punkt programu jest pełny — każda dodana osoba trafia na listę "
+#~ "oczekujących."
+
+#, python-format
+#~ msgid ""
+#~ "There is %(counter)s seat left — people you tick get seats in order, and "
+#~ "once seats run out the rest join the waiting list."
+#~ msgid_plural ""
+#~ "There are %(counter)s seats left — people you tick get seats in order, "
+#~ "and once seats run out the rest join the waiting list."
+#~ msgstr[0] ""
+#~ "Zostało %(counter)s miejsce — zaznaczone osoby dostają miejsca po kolei, "
+#~ "a gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+#~ msgstr[1] ""
+#~ "Zostały %(counter)s miejsca — zaznaczone osoby dostają miejsca po kolei, "
+#~ "a gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+#~ msgstr[2] ""
+#~ "Zostało %(counter)s miejsc — zaznaczone osoby dostają miejsca po kolei, a "
+#~ "gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+#~ msgstr[3] ""
+#~ "Zostało %(counter)s miejsca — zaznaczone osoby dostają miejsca po kolei, "
+#~ "a gdy miejsc zabraknie, reszta trafia na listę oczekujących."
 
 #, python-format
 #~ msgid "Hosted by %(name)s"

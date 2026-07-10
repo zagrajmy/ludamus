@@ -132,48 +132,13 @@
                          data-msg-seat="{% translate "Gets a seat" %}"
                          data-msg-wait="{% translate "Joins the waiting list" %}"
                          data-msg-leave="{% translate "Will leave the session" %}">
+                        {# No seats-left lecture: the header pill carries the count and #}
+                        {# the live row hints show who gets a seat vs the waiting list. #}
                         <div class="px-4 pt-4 pb-3">
-                            {% if party_choices %}
-                                <div class="mb-4">
-                                    <p class="flex items-center gap-1.5 text-sm font-medium mb-2">
-                                        {% icon "user-group" class="w-4 h-4" %}
-                                        {% translate "Enrolling as" %}
-                                    </p>
-                                    <div class="flex flex-wrap gap-2">
-                                        <a href="?party=none#enrollment"
-                                           {% if not selected_party %}aria-current="true"{% endif %}
-                                           class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if not selected_party %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
-                                            {% translate "Just myself" %}
-                                        </a>
-                                        {% for party in party_choices %}
-                                            <a href="?party={{ party.pk }}#enrollment"
-                                               {% if selected_party.pk == party.pk %}aria-current="true"{% endif %}
-                                               class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if selected_party.pk == party.pk %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
-                                                {% if party.name %}
-                                                    {{ party.name }}
-                                                {% elif party.is_own_led %}
-                                                    {% translate "Your party" %}
-                                                {% else %}
-                                                    {% blocktranslate with leader_name=party.leader_name %}Party of {{ leader_name }}{% endblocktranslate %}
-                                                {% endif %}
-                                            </a>
-                                        {% endfor %}
-                                    </div>
-                                    {% if selected_party %}
-                                        <p class="text-xs text-foreground-muted mt-2">{% translate "The party moves up the waiting list together." %}</p>
-                                    {% endif %}
-                                </div>
+                            <h2 class="text-lg font-semibold">{% translate "Who should be in this session?" %}</h2>
+                            {% if selected_party %}
+                                <p class="text-xs text-foreground-muted mt-1">{% translate "The party moves up the waiting list together." %}</p>
                             {% endif %}
-                            <h2 class="text-lg font-semibold mb-1">{% translate "Who should be in this session?" %}</h2>
-                            <p class="text-sm text-foreground-muted">
-                                {% if seats_left is None %}
-                                    {% translate "Tick everyone who should take part." %}
-                                {% elif seats_left == 0 %}
-                                    {% translate "The session is full — everyone you add joins the waiting list." %}
-                                {% else %}
-                                    {% blocktranslate count counter=seats_left %}There is {{ counter }} seat left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% plural %}There are {{ counter }} seats left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% endblocktranslate %}
-                                {% endif %}
-                            </p>
                         </div>
                         <ul class="divide-y divide-border border-t border-border">
                             {% for row in user_data %}
@@ -212,7 +177,19 @@
                             {% endfor %}
                         </ul>
                         {% if form.has_guests %}
-                            <div class="border-t border-border px-4 py-3">{% tessera_field form.guests stepper=True %}</div>
+                            {# Laid out like the people rows: identity left, control right. #}
+                            <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-3">
+                                <label for="{{ form.guests.id_for_label }}" class="min-w-0">
+                                    <span class="block text-sm font-medium">{{ form.guests.label }}</span>
+                                    <span class="block text-xs text-foreground-muted mt-0.5">{{ form.guests.help_text }}</span>
+                                    {% for error in form.guests.errors %}
+                                        <span class="block text-xs text-danger-text mt-0.5">{{ error }}</span>
+                                    {% endfor %}
+                                </label>
+                                <span class="shrink-0">
+                                    {% include "components/stepper-field.html" with name=form.guests.html_name id=form.guests.id_for_label value=form.guests.value|stringformat:"s" min=form.guests.field.min_value|stringformat:"s" max=form.guests.field.max_value|stringformat:"s" has_errors=form.guests.errors %}
+                                </span>
+                            </div>
                         {% endif %}
                         {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                         {% if user_data|length == 1 %}
