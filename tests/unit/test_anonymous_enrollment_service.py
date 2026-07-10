@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.enrollment import AnonymousEnrollmentService
-from ludamus.pacts.crowd import UserData, UserDTO, UserType
+from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import (
     AnonymousEnrollmentError,
     AnonymousEnrollmentErrorCode,
@@ -418,7 +418,7 @@ class TestCancel:
 
         service.cancel(_request(), "")
 
-        assert users.updated == [(_user().slug, UserData(name="Ala"))]
+        assert not users.updated
 
     def test_cancel_allowed_when_enrollment_closed(self):
         repo = FakeRepo(
