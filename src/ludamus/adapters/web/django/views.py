@@ -959,11 +959,7 @@ def _field_value_dtos_from_models(
     )
 
 
-# Above this many scheduled sessions, the card grid becomes unwieldy and the
-# event page switches to the compact schedule (a dense chronological list with
-# an hour scrubber). Tunable; not a business invariant, so it lives here rather
-# than in specs.
-COMPACT_SCHEDULE_MIN_SESSIONS = 60
+COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
 class EventPageView(DetailView):  # type: ignore [type-arg]
