@@ -24,8 +24,8 @@ test.describe("Event filter panel", () => {
   test("filters sessions by day and hour on a multi-day event", async ({ page }) => {
     await page.goto("/chronology/event/autumn-open/");
 
-    const card = (title: string) => page.locator(".session-card", { hasText: title });
-    await expect(page.locator(".session-card")).toHaveCount(3);
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await expect(page.locator(".session")).toHaveCount(3);
 
     await page.locator("#filter-toggle").click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
@@ -54,7 +54,7 @@ test.describe("Event filter panel", () => {
   test("filters by host name case-insensitively", async ({ page }) => {
     await page.goto("/chronology/event/autumn-open/");
 
-    const card = (title: string) => page.locator(".session-card", { hasText: title });
+    const card = (title: string) => page.locator(".session", { hasText: title });
 
     // "Alex Morgan" hosts Mega Strategy Lab; a lowercase query must still match.
     await page.locator("#session-filter").fill("alex");

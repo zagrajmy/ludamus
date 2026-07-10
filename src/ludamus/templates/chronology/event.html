@@ -855,14 +855,14 @@
             width: 100%;
         }
 
-        .session-card :is(button, input, select, textarea, [role="button"]),
-        .session-card a:not(.session-card-link) {
+        .session :is(button, input, select, textarea, [role="button"]),
+        .session a:not(.session-link) {
             position: relative;
             z-index: 20;
         }
 
         /* Style ended sessions with reduced opacity */
-        .time-slot-section[data-time-slot*="ended"] .session-card:not(:hover) {
+        .time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
             filter: grayscale(50%) brightness(0.95);
         }
 

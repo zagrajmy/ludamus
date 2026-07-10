@@ -47,7 +47,7 @@ const initSessionFilters = (): void => {
 
   const filterNoResults = document.getElementById("filter-no-results");
   const clearFiltersFromNoResults = document.getElementById("clear-filters-from-no-results");
-  const sessionCards = document.querySelectorAll<HTMLElement>(".session-card");
+  const sessionCards = document.querySelectorAll<HTMLElement>(".session");
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
 
@@ -234,7 +234,7 @@ const initSessionFilters = (): void => {
         show &&= matchesAllFilters;
       }
 
-      const cardContainer = card.closest<HTMLElement>(".session-card-wrapper");
+      const cardContainer = card.closest<HTMLElement>(".session-wrapper");
       if (cardContainer) cardContainer.style.display = show ? "" : "none";
     }
 
@@ -244,7 +244,7 @@ const initSessionFilters = (): void => {
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid") ?? section;
       const visibleCards = cardGrid.querySelectorAll(
-        '.session-card-wrapper:not([style*="display: none"])',
+        '.session-wrapper:not([style*="display: none"])',
       );
       section.style.display = visibleCards.length > 0 ? "" : "none";
     }
@@ -289,7 +289,7 @@ const initSessionFilters = (): void => {
     for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
       day.style.display = "";
     }
-    for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-card-wrapper")) {
+    for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-wrapper")) {
       cardContainer.style.display = "";
     }
     for (const marker of document.querySelectorAll<HTMLElement>(".schedule-rail-hour")) {
@@ -367,7 +367,7 @@ const initSessionFilters = (): void => {
     }
 
     const visibleCards = document.querySelectorAll(
-      '.session-card-wrapper:not([style*="display: none"])',
+      '.session-wrapper:not([style*="display: none"])',
     );
     const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {

@@ -97,7 +97,7 @@ const ignoreSkippedTransition = (error: unknown): void => {
 };
 
 const MORPH_NAME = "session-morph";
-const CARD_SUPPRESSED = "session-card-suppressed";
+const CARD_SUPPRESSED = "session-suppressed";
 // <html> classes that scope the page-blur keyframes to a morph's lifetime (see
 // modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
 const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
@@ -106,7 +106,7 @@ const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
   const card = document.querySelector(
-    `.session-card[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
+    `.session[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
   );
   return card instanceof HTMLElement ? card : null;
 };
@@ -121,6 +121,7 @@ const releaseSessionCard = (id: string): void => {
 
 const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
+  card.dataset.noMorph === undefined &&
   !prefersReducedMotion() &&
   typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
 
