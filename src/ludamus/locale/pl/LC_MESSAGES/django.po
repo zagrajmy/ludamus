@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-07 23:23+0200\n"
+"POT-Creation-Date: 2026-07-10 00:35+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -49,7 +49,6 @@ msgid "Designates whether the user can log into this admin site."
 msgstr "Określa czy użytkownik może zalogować się do panelu administracyjnego."
 
 #: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/gates/web/django/crowd/forms.py
 msgid "User name"
 msgstr "Nazwa użytkownika"
 
@@ -767,10 +766,12 @@ msgid "yourself"
 msgstr "siebie"
 
 #: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Session not found."
 msgstr "Punkt programu nie został znaleziony."
 
 #: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "No enrollment configuration is available for this session."
 msgstr "Brak dostępnej konfiguracji zapisów dla tego punktu programu."
 
@@ -918,47 +919,55 @@ msgstr ""
 "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
 "utwórz przedziały czasowe."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "Event not found."
 msgstr "Festiwal nie został znaleziony."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not available for this event."
 msgstr "Anonimowy zapis nie jest dostępny dla tego wydarzenia."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not available for this session."
 msgstr "Anonimowy zapis nie jest dostępny dla tego punktu programu."
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "Anonymous enrollment is not active."
-msgstr "Anonimowy zapis nie jest aktywny."
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Anonymous enrollment for this session is closed."
+msgstr "Anonimowy zapis na ten punkt programu jest zamknięty."
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "Anonymous enrollment session is not valid for this site."
-msgstr "Anonimowa sesja zapisu nie jest ważna dla tej strony."
-
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous session expired."
 msgstr "Anonimowa sesja wygasła."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous user not found."
 msgstr "Anonimowy użytkownik nie znaleziony."
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "No enrollment found to cancel."
-msgstr "Nie znaleziono zapisu do anulowania."
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Name is required."
+msgstr "Imię jest wymagane."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Anonymous enrollment is not active."
+msgstr "Anonimowy zapis nie jest aktywny."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "Anonymous enrollment session is not valid for this site."
+msgstr "Anonimowa sesja zapisu nie jest ważna dla tej strony."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Successfully cancelled enrollment in session: %(title)s"
 msgstr "Pomyślnie anulowano zapis na sesję: %(title)s"
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "No enrollment found to cancel."
+msgstr "Nie znaleziono zapisu do anulowania."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid ""
 "Cannot enroll: You are already enrolled in another session that conflicts "
 "with this time slot."
@@ -966,35 +975,31 @@ msgstr ""
 "Nie można się zapisać: Jesteś już zapisany na inną sesję, która koliduje z "
 "tym terminem."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
 msgstr ""
 "Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: "
 "%(title)s"
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Successfully enrolled in session: %(title)s"
 msgstr "Pomyślnie zapisano na sesję: %(title)s"
 
-#: src/ludamus/adapters/web/django/views.py
-msgid "Name is required."
-msgstr "Imię jest wymagane."
-
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Please enter a code."
 msgstr "Proszę wprowadzić kod."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Invalid code. Please check and try again."
 msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "No enrollments found for this code."
 msgstr "Nie znaleziono zapisów dla tego kodu."
 
-#: src/ludamus/adapters/web/django/views.py
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 
@@ -1073,6 +1078,7 @@ msgid "Duration"
 msgstr "Czas trwania"
 
 #: src/ludamus/gates/web/django/chronology/panel/forms.py
+#: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/multiverse/panel/connections/list.html
@@ -1145,24 +1151,24 @@ msgid "You don't have permission to access the backoffice panel."
 msgstr "Nie masz uprawnień do panelu organizatora."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
-msgid "Session type created successfully."
-msgstr "Typ punktu programu został utworzony."
+msgid "Category created successfully."
+msgstr "Kategoria została utworzona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
-msgid "Session type not found."
-msgstr "Typ punktu programu nie został znaleziony."
+msgid "Category not found."
+msgstr "Nie znaleziono kategorii."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
-msgid "Session type updated successfully."
-msgstr "Typ punktu programu został zaktualizowany."
+msgid "Category updated successfully."
+msgstr "Kategoria została zaktualizowana."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
-msgid "Cannot delete session type with existing proposals."
-msgstr "Nie można usunąć typu punktu programu z istniejącymi zgłoszeniami."
+msgid "Cannot delete category with existing proposals."
+msgstr "Nie można usunąć kategorii z istniejącymi zgłoszeniami."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
-msgid "Session type deleted successfully."
-msgstr "Typ punktu programu został usunięty."
+msgid "Category deleted successfully."
+msgstr "Kategoria została usunięta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
@@ -1186,7 +1192,6 @@ msgid "Discount removed successfully."
 msgstr "Zniżka została usunięta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-#: src/ludamus/templates/panel/discounts/list.html
 msgid "Creator"
 msgstr "Twórca programu"
 
@@ -1424,12 +1429,18 @@ msgid "Header row must be 1 or greater."
 msgstr "Wiersz nagłówka musi mieć wartość co najmniej 1."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
-msgid "Email column must be 1 or greater."
-msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Sheet settings saved."
 msgstr "Zapisano ustawienia arkusza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid ""
+"Import aborted: unique-key columns not found in the sheet: %(columns)s. Fix "
+"the unique-key selection on the run tab, then try again."
+msgstr ""
+"Przerwano import: nie znaleziono w arkuszu kolumn klucza unikalnego: "
+"%(columns)s. Popraw wybór klucza unikalnego na karcie uruchamiania i spróbuj "
+"ponownie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
@@ -1560,8 +1571,8 @@ msgstr "Pole danych osobowych zostało zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 #: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
-msgid "Cannot delete field that is used in session types."
-msgstr "Nie można usunąć pola używanego w typach punktów programu."
+msgid "Cannot delete field that is used in categories."
+msgstr "Nie można usunąć pola używanego w kategoriach."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field deleted successfully."
@@ -2593,6 +2604,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -2700,6 +2712,20 @@ msgid ""
 msgstr ""
 "Miejsce będzie Twoje po potwierdzeniu — zrób to przed %(deadline)s, inaczej "
 "zostanie zwolnione."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Print your materials for %(event)s"
+msgstr "Wydrukuj materiały na %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"%(event)s starts in two days. Print the timetable and door cards for your "
+"event using the link below before it begins."
+msgstr ""
+"%(event)s zaczyna się za dwa dni. Wydrukuj harmonogram i tabliczki na drzwi "
+"dla swojego wydarzenia, korzystając z poniższego linku, zanim się rozpocznie."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -3745,6 +3771,7 @@ msgstr "Edytuj integrację"
 
 #: src/ludamus/templates/chronology/panel/integrations/edit.html
 #: src/ludamus/templates/crowd/user/avatar.html
+#: src/ludamus/templates/crowd/user/edit.html
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
 #: src/ludamus/templates/panel/cfp-edit.html
@@ -4584,10 +4611,6 @@ msgstr ""
 "prowadzisz punkt programu."
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
-msgid "Shadowban a player"
-msgstr "Cicho zbanuj gracza"
-
-#: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "Players you have met"
 msgstr "Gracze, których spotkałeś"
 
@@ -4600,16 +4623,29 @@ msgid "Remove shadowban"
 msgstr "Usuń cichy ban"
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
+#, python-format
+msgid ""
+"Shadowban %(name)s? They will not see your sessions, and they are never told."
+msgstr ""
+"Cicho zbanować %(name)s? Nie zobaczy twoich punktów programu i nigdy się o "
+"tym nie dowie."
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "No players yet"
 msgstr "Brak graczy"
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
 msgid ""
-"Players you have run sessions for will appear here, and anyone you shadowban "
-"by username or email."
+"Players you have run sessions for or played alongside will appear here, and "
+"anyone you shadowban by username or email."
 msgstr ""
-"Gracze, dla których prowadziłeś punkty programu, pojawią się tutaj, a także "
-"każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
+"Gracze, dla których prowadziłeś punkty programu lub z którymi grałeś, "
+"pojawią się tutaj, a także każdy, kogo cicho zbanujesz po nazwie użytkownika "
+"lub adresie e-mail."
+
+#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Shadowban by username or email"
+msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_tabs.html
@@ -5273,8 +5309,8 @@ msgstr "Zgłoszenia zamknięte"
 
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp.html
-msgid "New Session Type"
-msgstr "Nowy typ punktu programu"
+msgid "New Category"
+msgstr "Nowa kategoria"
 
 #: src/ludamus/templates/panel/cfp-create.html
 msgid "Add and configure"
@@ -5282,8 +5318,8 @@ msgstr "Utwórz i skonfiguruj"
 
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Session Type Details"
-msgstr "Szczegóły typu punktu programu"
+msgid "Category Details"
+msgstr "Szczegóły kategorii"
 
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
@@ -5307,12 +5343,12 @@ msgid "e.g., RPG Sessions, Workshops, Lectures"
 msgstr "np. Sesje RPG, Warsztaty, Wykłady"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Configure Session Type"
-msgstr "Konfiguruj typ punktu programu"
+msgid "Configure Category"
+msgstr "Skonfiguruj kategorię"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Describe this session type for proposers."
-msgstr "Opisz ten typ punktu programu dla zgłaszających."
+msgid "Describe this category for proposers."
+msgstr "Opisz tę kategorię dla zgłaszających."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Submissions open"
@@ -5327,8 +5363,8 @@ msgid "Participant Limits"
 msgstr "Limity uczestników"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Set minimum and maximum participant limits for sessions of this type."
-msgstr "Ustaw minimalny i maksymalny limit uczestników dla sesji tego typu."
+msgid "Set minimum and maximum participant limits for this category."
+msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Minimum participants"
@@ -5347,8 +5383,8 @@ msgid "Allowed Durations"
 msgstr "Dozwolone czasy trwania"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Define how long sessions of this type can be."
-msgstr "Określ jak długo mogą trwać punkty programu tego typu."
+msgid "Define how long sessions of this category can be."
+msgstr "Określ jak długo mogą trwać punkty programu w tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "h"
@@ -5370,12 +5406,12 @@ msgstr "Nie skonfigurowano jeszcze czasów trwania."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 #, python-format
-msgid "There is %(count)s existing proposal for this session type."
-msgid_plural "There are %(count)s existing proposals for this session type."
-msgstr[0] "Istnieje %(count)s zgłoszenie dla tego typu punktu programu."
-msgstr[1] "Istnieją %(count)s zgłoszenia dla tego typu punktu programu."
-msgstr[2] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
-msgstr[3] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
+msgid "There is %(count)s existing proposal for this category."
+msgid_plural "There are %(count)s existing proposals for this category."
+msgstr[0] "Istnieje %(count)s zgłoszenie dla tej kategorii."
+msgstr[1] "Istnieją %(count)s zgłoszenia dla tej kategorii."
+msgstr[2] "Istnieje %(count)s zgłoszeń dla tej kategorii."
+msgstr[3] "Istnieje %(count)s zgłoszeń dla tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid ""
@@ -5461,9 +5497,8 @@ msgid "Time Slots"
 msgstr "Przedziały czasowe"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which time slots are available for this session type."
-msgstr ""
-"Wybierz, które przedziały czasowe są dostępne dla tego typu punktu programu."
+msgid "Select which time slots are available for this category."
+msgstr "Wybierz, które przedziały czasowe są dostępne dla tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Included"
@@ -5493,8 +5528,8 @@ msgstr "Nie wybrano żadnych pól."
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/session-fields.html
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Session Types"
-msgstr "Typy punktów programu"
+msgid "Categories"
+msgstr "Kategorie"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Statistics"
@@ -5509,14 +5544,15 @@ msgid "Configure"
 msgstr "Konfiguruj"
 
 #: src/ludamus/templates/panel/cfp.html
-msgid "Are you sure you want to delete this session type?"
-msgstr "Czy na pewno chcesz usunąć ten typ punktu programu?"
+msgid "Are you sure you want to delete this category?"
+msgstr "Czy na pewno chcesz usunąć tę kategorię?"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid ""
-"No session types yet. Add a session type to allow hosts to submit proposals."
+"No categories yet. Add a category to allow facilitators to submit proposals."
 msgstr ""
-"Brak typów punktów programu. Dodaj typ, aby twórcy mogli składać zgłoszenia."
+"Brak kategorii. Dodaj kategorię, aby twórcy programu mogli składać "
+"zgłoszenia."
 
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -5572,6 +5608,7 @@ msgid "Facilitator changes"
 msgstr "Zmiany twórców programu"
 
 #: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/discounts/list.html
 msgid "Facilitator"
 msgstr "Prowadzący"
 
@@ -5596,12 +5633,12 @@ msgstr "Eksport arkusza akredytacji"
 
 #: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/discounts/list.html
-msgid "Creator discounts"
+msgid "Facilitator discounts"
 msgstr "Zniżki twórców programu"
 
 #: src/ludamus/templates/panel/discounts/export.html
 msgid ""
-"Writes every creator with their accreditation type and discount into the "
+"Writes every facilitator with their accreditation type and discount into the "
 "first tab of the selected spreadsheet, replacing its current content."
 msgstr ""
 "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką do "
@@ -5640,7 +5677,8 @@ msgid "Are you sure you want to remove this discount?"
 msgstr "Czy na pewno chcesz usunąć tę zniżkę?"
 
 #: src/ludamus/templates/panel/discounts/list.html
-msgid "No creators yet."
+#: src/ludamus/templates/panel/facilitators.html
+msgid "No facilitators yet."
 msgstr "Brak twórców programu."
 
 #: src/ludamus/templates/panel/display-settings.html
@@ -5785,10 +5823,6 @@ msgid "No facilitators available to merge."
 msgstr "Brak twórców programu do scalenia."
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Session Hosts"
-msgstr "Twórcy programu"
-
-#: src/ludamus/templates/panel/facilitators.html
 msgid "Merge facilitators"
 msgstr "Scal twórców programu"
 
@@ -5823,10 +5857,6 @@ msgstr "Poprzednia"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "No facilitators yet."
-msgstr "Brak twórców programu."
 
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-run.html
@@ -6004,21 +6034,6 @@ msgstr ""
 "Wiersz 1 to pierwszy wiersz arkusza; wszystko powyżej jest pomijane."
 
 #: src/ludamus/templates/panel/import-run.html
-msgid "Email column"
-msgstr "Kolumna e-maila"
-
-#: src/ludamus/templates/panel/import-run.html
-msgid ""
-"The 1-indexed sheet column that holds the auto-collected respondent email. "
-"Leave blank if the form does not collect email; otherwise set it so the "
-"importer can synthesize a question that maps to the proposal's contact email."
-msgstr ""
-"Kolumna arkusza (liczona od 1), w której zapisywany jest adres e-mail "
-"odpowiadającego pobrany automatycznie. Pozostaw puste, jeśli formularz nie "
-"zbiera adresów e-mail; w przeciwnym razie ustaw ją, aby importer mógł "
-"wygenerować pytanie powiązane z e-mailem kontaktowym propozycji."
-
-#: src/ludamus/templates/panel/import-run.html
 msgid "Unique key columns"
 msgstr "Kolumny klucza unikalnego"
 
@@ -6137,20 +6152,6 @@ msgstr ""
 "Wartości pól, które nie są już zmapowane, zostaną usunięte."
 
 #: src/ludamus/templates/panel/import.html
-msgid "Email column not set."
-msgstr "Kolumna e-maila nie jest ustawiona."
-
-#: src/ludamus/templates/panel/import.html
-msgid ""
-"When the form collects respondent email, set the 1-indexed sheet column "
-"number on the Run tab so the importer can map it to the proposal's contact "
-"email."
-msgstr ""
-"Jeśli formularz zbiera adresy e-mail odpowiadających, ustaw numer kolumny "
-"arkusza (liczony od 1) na zakładce „Uruchom import”, aby importer mógł "
-"powiązać go z e-mailem kontaktowym propozycji."
-
-#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
@@ -6211,10 +6212,6 @@ msgstr "zaplanowanych"
 #: src/ludamus/templates/panel/index.html
 msgid "pending"
 msgstr "oczekujących"
-
-#: src/ludamus/templates/panel/index.html
-msgid "Program Hosts"
-msgstr "Twórcy programu"
 
 #: src/ludamus/templates/panel/integration-settings.html
 msgid ""
@@ -6638,15 +6635,15 @@ msgstr "Pokaż na publicznej karcie punktu programu"
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
-msgid "Select which session types should include this field."
-msgstr "Wybierz, które typy punktów programu mają zawierać to pole."
+msgid "Select which categories should include this field."
+msgstr "Wybierz, które kategorie mają zawierać to pole."
 
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
-msgid "No session types have been created yet."
-msgstr "Nie utworzono jeszcze żadnych typów punktów programu."
+msgid "No categories have been created yet."
+msgstr "Nie utworzono jeszcze żadnych kategorii."
 
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 msgid "Edit Personal Data Field"
@@ -6680,22 +6677,22 @@ msgstr "Czym są pola danych twórcy?"
 msgid ""
 "Host data fields collect contact and personal information from session hosts "
 "when they submit proposals. Examples: email address, phone number, Discord "
-"username. This data is shared across all session types for the event - each "
+"username. This data is shared across all categories for the event - each "
 "host fills it once."
 msgstr ""
 "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych od "
 "prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres e-"
 "mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-"wszystkich typów punktów programu - każdy twórca wypełnia je tylko raz."
+"wszystkich kategorii - każdy twórca wypełnia je tylko raz."
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
 msgid ""
 "After creating fields here, configure which ones are required or optional in "
-"each session type's settings."
+"each category's settings."
 msgstr ""
 "Po utworzeniu pól tutaj, skonfiguruj które z nich są wymagane lub opcjonalne "
-"w ustawieniach każdego typu punktu programu."
+"w ustawieniach każdej kategorii."
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -7510,9 +7507,3 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Harmonogram"
-#~ msgstr "Harmonogram"
-
-#~ msgid "Something broke on our end. Try again in a moment."
-#~ msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."

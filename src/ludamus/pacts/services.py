@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         DiscountsServiceProtocol,
     )
     from ludamus.pacts.enrollment import (
+        AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
@@ -42,7 +43,10 @@ if TYPE_CHECKING:
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.party import PartyServiceProtocol
-    from ludamus.pacts.printing import PrintMaterialsServiceProtocol
+    from ludamus.pacts.printing import (
+        PrintablesReminderServiceProtocol,
+        PrintMaterialsServiceProtocol,
+    )
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -110,11 +114,15 @@ class ServicesProtocol(Protocol):
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentServiceProtocol: ...
+    @property
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
+    @property
+    def printables_reminder(self) -> PrintablesReminderServiceProtocol: ...
     @property
     def venues(self) -> VenuesServiceProtocol: ...
     @property

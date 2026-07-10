@@ -119,10 +119,12 @@ test.describe("Backoffice Panel", () => {
     // Page header
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
-    // Stats cards
-    await expect(page.getByText("All Sessions")).toBeVisible();
-    await expect(page.getByText("Program Hosts")).toBeVisible();
-    await expect(page.getByText("Rooms")).toBeVisible();
+    // Stats cards (scoped to main so "Facilitators" doesn't also match the
+    // sidebar nav link of the same name).
+    const stats = page.getByRole("main");
+    await expect(stats.getByText("All Sessions")).toBeVisible();
+    await expect(stats.getByText("Facilitators")).toBeVisible();
+    await expect(stats.getByText("Rooms")).toBeVisible();
 
     // Event selector in sidebar
     await expect(page.locator("#eventSelector")).toBeVisible();
@@ -264,29 +266,29 @@ test.describe("Backoffice Panel", () => {
     await page.goto("/panel/event/frostfire-con/cfp/");
 
     await expect(page.getByRole("heading", { name: "Call for Proposals" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "New Session Type" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New Category" })).toBeVisible();
 
     // Create a session type
-    await page.getByRole("link", { name: "New Session Type" }).click();
+    await page.getByRole("link", { name: "New Category" }).click();
     await page.locator("#id_name").fill("Board Games");
     await page.getByRole("button", { name: "Create" }).click();
 
-    await expect(page.getByText("Session type created successfully.")).toBeVisible();
+    await expect(page.getByText("Category created successfully.")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Board Games" }).first()).toBeVisible();
   });
 
   test("creates session type and navigates to configure", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/cfp/");
-    await page.getByRole("link", { name: "New Session Type" }).click();
+    await page.getByRole("link", { name: "New Category" }).click();
 
     await page.locator("#id_name").fill("RPG Sessions");
     await page.getByRole("button", { name: "Add and configure" }).click();
 
-    await expect(page.getByText("Session type created successfully.")).toBeVisible();
+    await expect(page.getByText("Category created successfully.")).toBeVisible();
     await expect(page).toHaveURL(/\/cfp\/rpg-sessions/);
     await expect(
       page.getByRole("heading", {
-        name: "Configure Session Type",
+        name: "Configure Category",
       }),
     ).toBeVisible();
   });
@@ -294,25 +296,25 @@ test.describe("Backoffice Panel", () => {
   test("edits a session type", async ({ page }) => {
     // First create one to edit
     await page.goto("/panel/event/frostfire-con/cfp/");
-    await page.getByRole("link", { name: "New Session Type" }).click();
+    await page.getByRole("link", { name: "New Category" }).click();
     await page.locator("#id_name").fill("Workshops");
     await page.getByRole("button", { name: "Add and configure" }).click();
-    await expect(page.getByText("Session type created successfully.")).toBeVisible();
+    await expect(page.getByText("Category created successfully.")).toBeVisible();
 
     // Now edit it
     await page.locator("#id_name").fill("Advanced Workshops");
     await page.getByRole("button", { name: "Save" }).click();
 
-    await expect(page.getByText("Session type updated successfully.")).toBeVisible();
+    await expect(page.getByText("Category updated successfully.")).toBeVisible();
   });
 
   test("deletes a session type", async ({ page }) => {
     // Create one to delete
     await page.goto("/panel/event/frostfire-con/cfp/");
-    await page.getByRole("link", { name: "New Session Type" }).click();
+    await page.getByRole("link", { name: "New Category" }).click();
     await page.locator("#id_name").fill("Temp Type To Delete");
     await page.getByRole("button", { name: "Create" }).click();
-    await expect(page.getByText("Session type created successfully.")).toBeVisible();
+    await expect(page.getByText("Category created successfully.")).toBeVisible();
 
     const row = page.locator("tr", {
       hasText: "Temp Type To Delete",
@@ -329,7 +331,7 @@ test.describe("Backoffice Panel", () => {
     await listRow.getByRole("button", { name: /Delete/i }).click();
     await acceptConfirmModal(page);
 
-    await expect(page.getByText("Session type deleted successfully.")).toBeVisible();
+    await expect(page.getByText("Category deleted successfully.")).toBeVisible();
   });
 
   // --- Step 7: Fields — Personal Data & Session ---
@@ -628,10 +630,10 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_name").fill(proposalCategoryName);
       await page.getByRole("button", { name: "Add and configure" }).click();
 
-      await expect(page.getByText("Session type created successfully.")).toBeVisible();
+      await expect(page.getByText("Category created successfully.")).toBeVisible();
       await expect(
         page.getByRole("heading", {
-          name: "Configure Session Type",
+          name: "Configure Category",
         }),
       ).toBeVisible();
       proposalCategoryPath = new URL(page.url()).pathname;
@@ -837,7 +839,7 @@ test.describe("Backoffice Panel", () => {
       // Save
       await page.getByRole("button", { name: "Save" }).click();
 
-      await expect(page.getByText("Session type updated successfully.")).toBeVisible();
+      await expect(page.getByText("Category updated successfully.")).toBeVisible();
     });
 
     test("submits a proposal through the public wizard", async ({ browser }) => {

@@ -126,7 +126,7 @@ class TestPersonalDataFieldDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete field that is used in session types.")
+                (messages.ERROR, "Cannot delete field that is used in categories.")
             ],
             url=f"/panel/event/{event.slug}/cfp/personal-data/",
         )
@@ -156,7 +156,7 @@ class TestPersonalDataFieldDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete field that is used in session types.")
+                (messages.ERROR, "Cannot delete field that is used in categories.")
             ],
             url=f"/panel/event/{event.slug}/cfp/personal-data/",
         )

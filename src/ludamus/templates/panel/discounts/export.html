@@ -9,7 +9,7 @@
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
-        {{ current_event.name }} · {% translate "Creator discounts" %}
+        {{ current_event.name }} · {% translate "Facilitator discounts" %}
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
@@ -18,7 +18,7 @@
             {% if has_connections %}
                 <div class="card p-6 max-w-xl">
                     <p class="text-sm text-foreground-muted mb-1">
-                        {% translate "Writes every creator with their accreditation type and discount into the first tab of the selected spreadsheet, replacing its current content." %}
+                        {% translate "Writes every facilitator with their accreditation type and discount into the first tab of the selected spreadsheet, replacing its current content." %}
                     </p>
                     <p class="text-sm text-foreground-muted mb-4">
                         {% translate "Share the spreadsheet with the connection's service account e-mail as an editor first." %}

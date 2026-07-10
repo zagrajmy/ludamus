@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.dbos_offer_scheduler import DBOSOfferExpiryScheduler
+from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
+from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
@@ -32,6 +33,7 @@ from ludamus.mills.crowd import (
 )
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import (
+    AnonymousEnrollmentService,
     EnrollmentService,
     NotificationsService,
     WaitlistPromotionService,
@@ -44,7 +46,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.party import PartyService
-from ludamus.mills.printing import PrintMaterialsService
+from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
@@ -149,6 +151,10 @@ class Services:
         )
 
     @cached_property
+    def printables_reminder(self) -> PrintablesReminderService:
+        return build_printables_reminder()
+
+    @cached_property
     def venues(self) -> VenuesService:
         return VenuesService(self._repos.space_tree)
 
@@ -212,19 +218,23 @@ class Services:
 
     @cached_property
     def waitlist_promotion(self) -> WaitlistPromotionService:
-        return WaitlistPromotionService(
-            self._transaction,
-            self._repos.participation_promotion,
-            DjangoUserNotifier(),
-            self._offer_expiry_scheduler(),
+        return build_waitlist_promotion(self._offer_expiry_scheduler())
+
+    @cached_property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentService:
+        return AnonymousEnrollmentService(
+            transaction=self._transaction,
+            user_repository=self._repos.anonymous_users,
+            enrollment_repository=self._repos.anonymous_enrollment,
+            waitlist_promotion=self.waitlist_promotion,
         )
 
     @staticmethod
     def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
-        scheduler_kind: str = settings.OFFER_EXPIRY_SCHEDULER
+        scheduler_mode: str = settings.SCHEDULER_MODE
         return (
             DBOSOfferExpiryScheduler()
-            if scheduler_kind == "dbos"
+            if scheduler_mode == "dbos"
             else CronSweepOfferScheduler()
         )
 
