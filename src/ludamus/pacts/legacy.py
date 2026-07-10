@@ -368,6 +368,7 @@ class SessionData(TypedDict, total=False):
     description: str
     duration: str
     event_id: int
+    ident: str
     min_age: int
     needs: str
     participants_limit: int
@@ -882,7 +883,13 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
-    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
+    def find_id_by_ident(event_id: int, ident: str) -> int | None: ...
+    @staticmethod
+    def find_ids_by_title_and_email(
+        *, event_id: int, title: str, contact_email: str
+    ) -> list[int]: ...
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]

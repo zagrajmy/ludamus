@@ -147,9 +147,14 @@ class DuplicateRowError(Exception):
     # Raised when settings.unique_key_columns matches a row already imported
     # into this event. Carries the existing session id so retry/run can link
     # the log entry back to it instead of leaving a stale skip reason.
-    def __init__(self, existing_session_id: int) -> None:
+    # `adopt_ident` is set when the match came from the pre-ident title+email
+    # fallback: the handler writes it onto the session *after* the row
+    # savepoint unwinds (a write made before the raise would be rolled back
+    # with it).
+    def __init__(self, existing_session_id: int, adopt_ident: str = "") -> None:
         super().__init__()
         self.existing_session_id = existing_session_id
+        self.adopt_ident = adopt_ident
 
 
 class MissingUniqueKeyColumnsError(Exception):
@@ -335,21 +340,12 @@ def slugify(value: str, *, max_length: int = 50) -> str:
     return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
 
 
-def dedup_slug(*, event_id: int, identity: str, max_length: int = 50) -> str:
-    # Idempotency key for unique-key imports. Must fit the SlugField column, but
-    # `slugify`'s bare truncation drops the tail — so two rows sharing a long
-    # leading column (e.g. an identical session name) but differing in a later
-    # column (email/facilitator) collapsed to one slug and got merged. Keep the
-    # readable slug when the whole identity fits; otherwise reserve the tail for
-    # a deterministic digest of the *full* identity so distinct rows never
-    # collide. Short (already-correct) imports keep their existing slug.
-    if not (full := slugify(f"e{event_id}-{identity}", max_length=len(identity) + 32)):
-        return f"e{event_id}-row"
-    if len(full) <= max_length:
-        return full
-    digest = blake2b(identity.encode(), digest_size=6).hexdigest()
-    head = full[: max_length - len(digest) - 1].rstrip("-")
-    return f"{head}-{digest}"
+def dedup_ident(*, event_id: int, identity: str) -> str:
+    # Idempotency key for unique-key imports, stored in Session.ident — never
+    # in the slug, which stays a human-readable URL the operator may edit. A
+    # plain digest: it only ever needs to be equal-comparable and collision-free
+    # across the full identity, not readable.
+    return blake2b(f"e{event_id}:{identity}".encode(), digest_size=16).hexdigest()
 
 
 class SlugCollisionError(Exception):
