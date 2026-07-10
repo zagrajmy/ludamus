@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 22:52+0200\n"
+"POT-Creation-Date: 2026-07-10 23:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -672,14 +672,6 @@ msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 #: src/ludamus/adapters/web/django/forms.py
 msgid "Guests without an account"
 msgstr "Goście bez konta"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid ""
-"One-off company — they need no accounts, and their seats come from this "
-"session's pool."
-msgstr ""
-"Jednorazowe towarzystwo — nie potrzebują kont, a ich miejsca pochodzą z puli "
-"tego punktu programu."
 
 #: src/ludamus/adapters/web/django/forms.py
 msgid "Ungrouped"
@@ -3147,10 +3139,6 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-msgid "The party moves up the waiting list together."
-msgstr "Drużyna awansuje na liście oczekujących razem."
-
-#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 msgid "You"
 msgstr "Ty"
@@ -3165,12 +3153,8 @@ msgid "Include %(name)s"
 msgstr "Uwzględnij: %(name)s"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-msgid "No companions available. You can add companions to your party in your"
-msgstr "Brak towarzyszy. Towarzyszy do swojej drużyny możesz dodać w sekcji"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "profile settings"
-msgstr "ustawieniach profilu"
+msgid "Add companions in your profile settings"
+msgstr "Dodaj osoby towarzyszące w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
@@ -7495,6 +7479,23 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "One-off company — they need no accounts, and their seats come from this "
+#~ "session's pool."
+#~ msgstr ""
+#~ "Jednorazowe towarzystwo — nie potrzebują kont, a ich miejsca pochodzą z "
+#~ "puli tego punktu programu."
+
+#~ msgid "The party moves up the waiting list together."
+#~ msgstr "Drużyna awansuje na liście oczekujących razem."
+
+#~ msgid ""
+#~ "No companions available. You can add companions to your party in your"
+#~ msgstr "Brak towarzyszy. Towarzyszy do swojej drużyny możesz dodać w sekcji"
+
+#~ msgid "profile settings"
+#~ msgstr "ustawieniach profilu"
 
 #~ msgid "Enrolling as"
 #~ msgstr "Zapisujesz się jako"

@@ -132,13 +132,11 @@
                          data-msg-seat="{% translate "Gets a seat" %}"
                          data-msg-wait="{% translate "Joins the waiting list" %}"
                          data-msg-leave="{% translate "Will leave the session" %}">
-                        {# No seats-left lecture: the header pill carries the count and #}
-                        {# the live row hints show who gets a seat vs the waiting list. #}
+                        {# No seats-left lecture and no party footnote: the header pill #}
+                        {# carries the count and the live row hints show who gets a seat #}
+                        {# vs the waiting list. #}
                         <div class="px-4 pt-4 pb-3">
                             <h2 class="text-lg font-semibold">{% translate "Who should be in this session?" %}</h2>
-                            {% if selected_party %}
-                                <p class="text-xs text-foreground-muted mt-1">{% translate "The party moves up the waiting list together." %}</p>
-                            {% endif %}
                         </div>
                         <ul class="divide-y divide-border border-t border-border">
                             {% for row in user_data %}
@@ -181,7 +179,6 @@
                             <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-3">
                                 <label for="{{ form.guests.id_for_label }}" class="min-w-0">
                                     <span class="block text-sm font-medium">{{ form.guests.label }}</span>
-                                    <span class="block text-xs text-foreground-muted mt-0.5">{{ form.guests.help_text }}</span>
                                     {% for error in form.guests.errors %}
                                         <span class="block text-xs text-danger-text mt-0.5">{{ error }}</span>
                                     {% endfor %}
@@ -191,13 +188,12 @@
                                 </span>
                             </div>
                         {% endif %}
-                        {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
+                        {# The add-companions link only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                         {% if user_data|length == 1 %}
                             {% if not party_choices or selected_party.is_own_led %}
                                 <p class="border-t border-border px-4 py-3 text-sm text-foreground-muted">
-                                    {% translate "No companions available. You can add companions to your party in your" %}
                                     <a href="{% url 'web:crowd:profile-parties' %}"
-                                       class="text-primary hover:underline">{% translate "profile settings" %}</a>.
+                                       class="text-primary hover:underline">{% translate "Add companions in your profile settings" %}</a>
                                 </p>
                             {% endif %}
                         {% endif %}

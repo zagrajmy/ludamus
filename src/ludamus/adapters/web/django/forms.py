@@ -484,10 +484,6 @@ def create_enrollment_form(
             max_value=MAX_GUESTS,
             initial=roster.guest_count,
             label=_("Guests without an account"),
-            help_text=_(
-                "One-off company — they need no accounts, and their seats "
-                "come from this session's pool."
-            ),
         )
 
     form = type("EnrollmentForm", (forms.Form,), form_fields)

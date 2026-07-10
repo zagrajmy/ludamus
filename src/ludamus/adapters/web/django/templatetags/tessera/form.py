@@ -45,7 +45,7 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
     return mark_safe("\n".join(output))  # noqa: S308
 
 
-def _render_field_input(field: BoundField, *, stepper: bool = False) -> str:
+def _render_field_input(field: BoundField) -> str:
     widget = field.field.widget
     if isinstance(widget, (Select, SelectMultiple)):
         return render_select(field)
@@ -53,13 +53,11 @@ def _render_field_input(field: BoundField, *, stepper: bool = False) -> str:
         return render_textarea(field)
     if isinstance(widget, FileInput):
         return render_file_input(field)
-    return render_input(field, stepper=stepper)
+    return render_input(field)
 
 
 @register.simple_tag
-def tessera_field(
-    field: BoundField, *, layout: str = "vertical", stepper: bool = False
-) -> str:
+def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
     """Render a single form field.
 
     Returns:
@@ -68,7 +66,6 @@ def tessera_field(
     Usage:
         {% tessera_field form.email %}
         {% tessera_field form.name layout="horizontal" %}
-        {% tessera_field form.guests stepper=True %}
     """
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
@@ -100,13 +97,7 @@ def tessera_field(
 
         # File inputs surface their errors inside the dropzone itself.
         errors_html = "" if isinstance(widget, FileInput) else render_errors(field)
-        parts.extend(
-            (
-                _render_field_input(field, stepper=stepper),
-                render_help_text(field),
-                errors_html,
-            )
-        )
+        parts.extend((_render_field_input(field), render_help_text(field), errors_html))
 
         if layout == "horizontal":
             parts.append("</div>")
