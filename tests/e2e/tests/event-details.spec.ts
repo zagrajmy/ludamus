@@ -18,7 +18,7 @@ const settleViewTransitions = (page: Page): Promise<void> =>
 
 test.describe("Event detail page", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
   });
 
   test("shows event information and enrollment status pill", async ({ page }) => {
@@ -94,7 +94,7 @@ test.describe("Event detail page", () => {
     const context = await createIosModalContext(browser, browserName);
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
 
     const detailDialog = page.getByRole("dialog", {
@@ -138,7 +138,7 @@ test.describe("Event detail page", () => {
     const context = await createIosModalContext(browser, browserName);
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
     const scrolledTop = await page.evaluate(() => {
       const root = document.getElementById("app-scroll");
@@ -224,7 +224,7 @@ test.describe("Event detail page", () => {
     });
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     const controls = await page
       .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
       .getAttribute("aria-controls");
@@ -303,7 +303,7 @@ test.describe("Event detail page", () => {
 
 test.describe("Anonymous code modal", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/anonymous/do/activate");
+    await page.goto("/event/autumn-open/anonymous/do/activate");
     await expect(page.getByRole("heading", { name: "Anonymous Mode Active" })).toBeVisible();
   });
 
@@ -342,7 +342,7 @@ test.describe("Anonymous code modal", () => {
     await dialog.getByLabel("Anonymous Code").fill("zzzz99");
     await dialog.getByRole("button", { name: "Switch to This Code" }).click();
 
-    await expect(page).toHaveURL(/\/chronology\/event\/autumn-open/);
+    await expect(page).toHaveURL(/\/event\/autumn-open/);
     await expect(page.getByText(/Invalid code/i)).toBeVisible();
   });
 });

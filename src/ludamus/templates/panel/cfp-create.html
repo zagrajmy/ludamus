@@ -2,10 +2,10 @@
 {% load i18n %}
 {% load tessera %}
 {% block title_prefix %}
-    {% translate "New Session Type" %} -
+    {% translate "New Category" %} -
 {% endblock title_prefix %}
 {% block page_title %}
-    {% translate "New Session Type" %}
+    {% translate "New Category" %}
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
@@ -42,7 +42,7 @@
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Type Details" %}</h3>
+                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Category Details" %}</h3>
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"

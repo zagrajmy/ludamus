@@ -306,7 +306,7 @@ class TestProposalAcceptPageView:
                     "You don't have permission to accept proposals for this event.",
                 )
             ],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
 
     def test_post_error_proposal_not_found(self, staff_client, event):

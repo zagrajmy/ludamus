@@ -63,6 +63,15 @@ class SphereRepository(
         return SiteDTO.model_validate(sphere.site)
 
     @staticmethod
+    def read_with_site(pk: int) -> tuple[SphereDTO, SiteDTO]:
+        try:
+            sphere = Sphere.objects.select_related("site").get(id=pk)
+        except Sphere.DoesNotExist as exception:
+            raise NotFoundError from exception
+
+        return (SphereDTO.model_validate(sphere), SiteDTO.model_validate(sphere.site))
+
+    @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool:
         return Sphere.objects.filter(id=sphere_id, managers__slug=user_slug).exists()
 

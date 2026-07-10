@@ -43,13 +43,11 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
     storageState: superuserState,
   });
   const adminPage = await adminContext.newPage();
-  await adminPage.goto(
-    `/chronology/event/${scenario.event_slug}/session/${scenario.session_id}/enrollment/`,
-  );
+  await adminPage.goto(`/event/${scenario.event_slug}/session/${scenario.session_id}/enrollment/`);
   // The superuser is the only user on this page, so its cancel radio is unique.
   await adminPage.getByRole("radio", { name: /Cancel enrollment/i }).check();
   await adminPage.getByRole("button", { name: /Enroll Selected Users/ }).click();
-  await adminPage.waitForURL(/\/chronology\/event\//);
+  await adminPage.waitForURL(/\/event\//);
   await adminContext.close();
 
   // B is emailed about the promotion (filemail capture).

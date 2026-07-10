@@ -225,6 +225,10 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...
 
+    # One representative participation id per lapsed offered party (the caller
+    # expands to the whole party from the shared claim token).
+    def list_lapsed_offers(self, now: datetime) -> list[int]: ...
+
     def mark_claimed(
         self, participation_ids: list[int], *, claimed_at: datetime
     ) -> None: ...
