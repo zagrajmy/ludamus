@@ -25,6 +25,7 @@ from ludamus.mills.submissions.mapping import (
     cell,
     chosen_entities,
     decode_response,
+    dedup_slug,
     extract_identity,
     field_setup,
     generate_unique_slug,
@@ -2681,3 +2682,37 @@ class TestSlugify:
     def test_truncation_drops_trailing_dash(self):
         # 49 chars then a space+word so the cut lands on a separator
         assert not slugify(f"{'a' * 49} bb").endswith("-")
+
+
+class TestDedupSlug:
+    MAX_SLUG_LENGTH = 50
+
+    def test_short_identity_keeps_readable_slug(self):
+        slug = dedup_slug(event_id=7, identity="my-talk-a@x.z")
+
+        assert slug == "e7-my-talk-axz"
+
+    def test_blank_identity_falls_back(self):
+        assert dedup_slug(event_id=7, identity="") == "e7"
+
+    def test_long_identity_stays_within_column_width(self):
+        slug = dedup_slug(event_id=7, identity=f"{'name ' * 20}a@x.z")
+
+        assert len(slug) <= self.MAX_SLUG_LENGTH
+
+    def test_same_long_name_different_tail_do_not_collide(self):
+        # Regression: a long shared session name used to fill the 50-char slug,
+        # truncating the distinguishing email away so two distinct rows merged.
+        name = "A Very Long Session Title That Fills The Whole Slug Column"
+
+        first = dedup_slug(event_id=7, identity=f"{name}-alice@example.com")
+        second = dedup_slug(event_id=7, identity=f"{name}-bob@example.com")
+
+        assert first != second
+
+    def test_identity_is_deterministic(self):
+        identity = f"{'name ' * 20}a@x.z"
+
+        assert dedup_slug(event_id=7, identity=identity) == dedup_slug(
+            event_id=7, identity=identity
+        )

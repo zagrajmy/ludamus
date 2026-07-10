@@ -51,6 +51,13 @@ class FakeRepo:
         self.claimed: list[list[int]] = []
         self.dropped: list[list[int]] = []
 
+    def list_lapsed_offers(self, now):
+        # Mirrors the real repo: one representative per offered party whose
+        # deadline has passed.
+        if self._offer is not None and self._offer.offer_expires_at < now:
+            return [self._offer.participant_ids[0]]
+        return []
+
     def create_offered(self, seat):
         self.created.append(seat)
         return 101
@@ -296,6 +303,34 @@ class TestExpireOffer:
 
         service.expire_offer(participation_id=1)
 
+        assert not repo.dropped
+        assert not notifier.expired
+
+
+class TestExpireLapsedOffers:
+    def test_expires_each_lapsed_party_once(self):
+        offer = OfferDTO(
+            session_id=_SESSION_ID,
+            session_title="Dragons",
+            event_slug="con",
+            participant_ids=[1, 2],
+            recipients=[OfferRecipientDTO(user_id=_MANAGER_ID, email="r@e.com")],
+            offer_expires_at=_NOW - timedelta(minutes=1),
+        )
+        service, repo, notifier, _ = _build(states=[None], offer=offer)
+
+        expired = service.expire_lapsed_offers(now=_NOW)
+
+        assert expired == 1
+        assert repo.dropped == [[1, 2]]
+        assert len(notifier.expired) == 1
+
+    def test_no_lapsed_offers_is_noop(self):
+        service, repo, notifier, _ = _build()
+
+        expired = service.expire_lapsed_offers(now=_NOW)
+
+        assert expired == 0
         assert not repo.dropped
         assert not notifier.expired
 

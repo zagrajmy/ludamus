@@ -28,7 +28,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     import_tab_urls,
 )
-from ludamus.mills.submissions.mapping import slugify
+from ludamus.mills.submissions.mapping import MissingUniqueKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
     DurationSpec,
@@ -648,7 +648,6 @@ class EventImportProposalView(_ImportTabView):
                 )
                 for index, q in enumerate(questions)
             ]
-            context["email_column_missing"] = settings.email_column is None
         return TemplateResponse(self.request, "panel/import.html", context)
 
 
@@ -799,13 +798,10 @@ class EventImportJsonView(_ImportTabView):
         self.request.services.event_integrations.save_settings(
             event_id=current_event.pk, pk=active.pk, settings_json=raw
         )
-        # The cached snapshot's synthesized email question depends on header_row
-        # and email_column; mirror EventImportSettingsSaveView and refresh it when
-        # a raw JSON edit changes either, so Proposal / Review render the new set.
-        if (
-            new_settings.header_row != previous.header_row
-            or new_settings.email_column != previous.email_column
-        ):
+        # The cached snapshot reads the sheet's header row; mirror
+        # EventImportSettingsSaveView and refresh it when a raw JSON edit moves
+        # that row, so Proposal / Review render the new set.
+        if new_settings.header_row != previous.header_row:
             self.request.services.event_integrations.populate_questions_snapshot(
                 sphere_id=self.request.context.current_sphere_id,
                 event_id=current_event.pk,
@@ -832,23 +828,15 @@ class EventImportRunPageView(_ImportTabView):
             cached = self.request.services.event_integrations.get_cached_questions(
                 current_event.pk, active.pk
             )
-            # Form-linked sheets always carry these two metadata columns ahead of
-            # the form's own question columns; surface them as unique-key
-            # candidates without a live sheet fetch. Operators uncheck them if
-            # the form doesn't collect email.
-            forms_metadata = ("Timestamp", "Email Address")
             # Unique-key columns name real sheet headers used to identify rows
-            # across refetches, so offer every snapshot question title — not
-            # just the headers the operator has already mapped.
-            snapshot_columns = [question.title for question in cached]
-            seen: set[str] = set()
-            available: list[str] = []
-            for col in (*forms_metadata, *snapshot_columns):
-                if col and col not in seen:
-                    seen.add(col)
-                    available.append(col)
+            # across refetches, so offer the cached header row. Fall back to the
+            # snapshot's question titles until the first refetch fills the cache.
+            available = list(
+                dict.fromkeys(
+                    settings.sheet_headers or [q.title for q in cached if q.title]
+                )
+            )
             context["header_row"] = settings.header_row
-            context["email_column"] = settings.email_column
             context["unique_key_columns"] = settings.unique_key_columns
             context["available_columns"] = available
             context["fields_imported"] = bool(cached)
@@ -947,24 +935,14 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Import integration not found."))
             return redirect("panel:import", slug=slug)
         settings = ImportSettings.model_validate_json(active.settings_json or "{}")
-        previous_email_column = settings.email_column
         previous_header_row = settings.header_row
         raw_row = (self.request.POST.get("header_row") or "").strip()
         if not raw_row.isdigit() or int(raw_row) < 1:
             messages.error(self.request, _("Header row must be 1 or greater."))
             return redirect("panel:import-run", slug=slug, pk=active.pk)
         settings.header_row = int(raw_row)
-        raw_email_column = (self.request.POST.get("email_column") or "").strip()
-        if not raw_email_column:
-            settings.email_column = None
-        elif raw_email_column.isdigit() and int(raw_email_column) >= 1:
-            settings.email_column = int(raw_email_column)
-        else:
-            messages.error(self.request, _("Email column must be 1 or greater."))
-            return redirect("panel:import-run", slug=slug, pk=active.pk)
         # Trust the operator: any non-empty column name is a valid unique-key
-        # candidate. Sheet metadata columns (Timestamp, Email Address) aren't
-        # in settings.questions, so we can't filter against the recipe.
+        # candidate.
         settings.unique_key_columns = [
             stripped
             for col in self.request.POST.getlist("unique_key_columns")
@@ -975,20 +953,23 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
             pk=active.pk,
             settings_json=settings.model_dump_json(),
         )
-        # The cached snapshot's synthesized email question depends on header_row
-        # and email_column; refresh it when either changed so the operator sees
-        # the question immediately on the Proposal / Review tabs without
-        # clicking "Reimport fields" or "Import missing fields" separately.
-        if (
-            settings.email_column != previous_email_column
-            or settings.header_row != previous_header_row
-        ):
+        # The cached snapshot reads the sheet's header row; refresh it when that
+        # row moves so the operator sees the new columns immediately on the
+        # Proposal / Review tabs without clicking "Reimport fields" separately.
+        if settings.header_row != previous_header_row:
             sphere_id = self.request.context.current_sphere_id
             self.request.services.event_integrations.populate_questions_snapshot(
                 sphere_id=sphere_id, event_id=current_event.pk, pk=active.pk
             )
         messages.success(self.request, _("Sheet settings saved."))
         return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+
+def _missing_columns_message(columns: list[str]) -> str:
+    return _(
+        "Import aborted: unique-key columns not found in the sheet: %(columns)s. "
+        "Fix the unique-key selection on the run tab, then try again."
+    ) % {"columns": ", ".join(columns)}
 
 
 class _ImportActionView(PanelAccessMixin, EventContextMixin, View):
@@ -1018,9 +999,13 @@ class EventImportRunActionView(_ImportActionView):
     """Run the saved import recipe: create a proposal per source response."""
 
     def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
-        result = self.request.services.proposals_import.run(
-            sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
-        )
+        try:
+            result = self.request.services.proposals_import.run(
+                sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
+            )
+        except MissingUniqueKeyColumnsError as exc:
+            messages.error(self.request, _missing_columns_message(exc.columns))
+            return
         messages.success(
             self.request, _("Created %(count)d proposals.") % {"count": result.created}
         )
@@ -1042,9 +1027,13 @@ class EventImportTestRowActionView(_ImportActionView):
     """Import one random response so the recipe can be eyeballed before a run."""
 
     def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
-        result = self.request.services.proposals_import.run_sample(
-            sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
-        )
+        try:
+            result = self.request.services.proposals_import.run_sample(
+                sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
+            )
+        except MissingUniqueKeyColumnsError as exc:
+            messages.error(self.request, _missing_columns_message(exc.columns))
+            return
         if result.created:
             messages.success(
                 self.request,

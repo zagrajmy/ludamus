@@ -36,7 +36,9 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
     SessionPlacement,
+    SourceQuestion,
 )
+from ludamus.pacts.submissions import ImportSettings
 
 
 def _make_item(**overrides):
@@ -895,6 +897,23 @@ class _ImportStubImpl:
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 
+class _HeaderStubImpl:
+    kind = IntegrationKind.IMPORT
+    config_model = _StrictConfig
+
+    def __init__(self, headers):
+        self._headers = headers
+
+    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+        return CheckResult(outcome=CheckOutcome.OK, hint="")
+
+    def fetch_questions(self, **_kwargs):
+        return [SourceQuestion(title="Tytuł")]
+
+    def fetch_headers(self, **_kwargs):
+        return self._headers
+
+
 class _TicketingStubImpl:
     kind = IntegrationKind.TICKETING
     config_model = BaseModel
@@ -1037,6 +1056,52 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         assert result == []
         env.connections.read_secret.assert_not_called()
         env.decryptor.decrypt.assert_not_called()
+
+    def test_fetch_headers_returns_empty_when_implementation_missing(self):
+        env = _make_service(registry={})
+        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
+
+        result = env.svc.fetch_headers(sphere_id=1, event_id=2, pk=3)
+
+        assert result == []
+        env.connections.read_secret.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
+
+    def test_populate_snapshot_caches_the_sheet_header_row(self):
+        # The header row is what the run tab offers as unique-key columns, so it
+        # must include the metadata columns the form schema never carries.
+        headers = ["Sygnatura czasowa", "Adres e-mail", "Tytuł"]
+        event_id, pk = 2, 3
+        impl = _HeaderStubImpl(headers=headers)
+        env = _make_service(registry={_IMPL: impl})
+        env.integrations.get.return_value = MagicMock(
+            implementation=_IMPL, config_json='{"endpoint": "x"}', settings_json="{}"
+        )
+
+        env.svc.populate_questions_snapshot(sphere_id=1, event_id=event_id, pk=pk)
+
+        saved = env.integrations.update_settings.call_args.kwargs
+        assert saved["event_id"] == event_id
+        assert saved["pk"] == pk
+        assert (
+            ImportSettings.model_validate_json(saved["settings_json"]).sheet_headers
+            == headers
+        )
+
+    def test_populate_snapshot_keeps_cached_headers_when_the_fetch_fails(self):
+        # A transient Sheets failure yields []; wiping the cache would empty the
+        # unique-key select the operator already configured against.
+        env = _make_service(registry={_IMPL: _HeaderStubImpl(headers=[])})
+        env.integrations.get.return_value = MagicMock(
+            implementation=_IMPL,
+            config_json='{"endpoint": "x"}',
+            settings_json='{"sheet_headers": ["Sygnatura czasowa"]}',
+        )
+
+        env.svc.populate_questions_snapshot(sphere_id=1, event_id=2, pk=3)
+
+        env.integrations.update_settings.assert_not_called()
+        env.integrations.update_questions_snapshot.assert_called_once()
 
     def test_get_cached_questions_returns_empty_on_invalid_snapshot_json(self):
         env = _make_service(registry={})

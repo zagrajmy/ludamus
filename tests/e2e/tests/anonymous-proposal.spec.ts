@@ -2,13 +2,13 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Anonymous proposals", () => {
   test("redirects to login when anonymous proposals are disabled", async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/session/propose/");
+    await page.goto("/event/autumn-open/session/propose/");
 
     await expect(page).toHaveURL(/\/crowd\/login-required\/\?next=/);
   });
 
   test("lets an anonymous visitor submit a proposal when enabled", async ({ page }) => {
-    await page.goto("/chronology/event/open-mic/session/propose/");
+    await page.goto("/event/open-mic/session/propose/");
 
     const wizard = page.locator('[id="wizard-content"]');
     await expect(wizard.getByRole("heading", { name: "Your Information" })).toBeVisible();
