@@ -15,7 +15,7 @@ document.addEventListener("click", (e) => {
     ?.querySelector<HTMLInputElement>('input[type="number"]');
   if (!input || input.disabled) return;
   if (input.value === "") input.value = input.min || "0";
-  else if (button.dataset.stepperDown !== undefined) input.stepDown();
-  else input.stepUp();
+  else if ("stepperUp" in button.dataset) input.stepUp();
+  else input.stepDown();
   input.dispatchEvent(new Event("change", { bubbles: true }));
 });
