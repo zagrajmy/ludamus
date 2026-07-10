@@ -188,8 +188,13 @@ body {
   cursor: grabbing;
 }
 
+/* Give every room lane a usable minimum width; the table then overflows into
+   its scroll container instead of crushing columns. --room-count is always set
+   inline by _room_lanes.html (no fallback on purpose — a missing value should
+   fail visibly, not silently clamp to a guess). 3.5rem covers the w-12 sticky
+   time column plus the border-spacing around it. */
 .room-lanes-table {
-  min-width: calc(3.5rem + var(--room-count, 4) * 10rem);
+  min-width: calc(3.5rem + var(--room-count) * 10rem);
 }
 
 /* Lock the page scroll while any modal is open. Freezing the container keeps its

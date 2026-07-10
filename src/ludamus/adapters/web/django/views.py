@@ -959,6 +959,10 @@ def _field_value_dtos_from_models(
     )
 
 
+# Above this many scheduled sessions, the card grid becomes unwieldy and the
+# event page switches to the compact schedule (a dense chronological list with
+# an hour scrubber). Tunable; not a business invariant, so it lives here rather
+# than in specs.
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
@@ -1049,9 +1053,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 sid: fake_full_card(data) for sid, data in sessions_data.items()
             }
 
-        compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
-
-        if compact_schedule:
+        if compact_schedule := len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS:
             self._set_bookmark_counts(sessions_data)
             if current_user_id:
                 self._set_user_bookmarks(sessions_data, current_user_id)
