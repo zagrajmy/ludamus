@@ -144,6 +144,38 @@ class TestSpaceCreate:
         created = Space.objects.get(event=event, name="Hall")
         assert created.parent_id is None
 
+    def test_create_top_level_room_with_capacity(self, manager_client, event):
+        # A usable room (a leaf with seats) can be created at the top level with
+        # no Venue/Area wrappers, and shows up in the tree as a room.
+        capacity = 30
+
+        response = manager_client.post(
+            self._root_url(event), data={"name": "Main Hall", "capacity": str(capacity)}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space created successfully.")],
+            url=_venues_url(event),
+        )
+        room = Space.objects.get(event=event, name="Main Hall")
+        assert room.parent_id is None
+        assert room.capacity == capacity
+
+        tree_response = manager_client.get(_venues_url(event))
+
+        assert_response(
+            tree_response,
+            HTTPStatus.OK,
+            template_name="panel/spaces.html",
+            messages=[(messages.SUCCESS, "Space created successfully.")],
+            context_data={
+                **_base_context(event, rooms=1),
+                "tree": [_node(room, depth=1, is_leaf=True)],
+            },
+        )
+
     def test_create_child(self, manager_client, event):
         root = _root(event)
         capacity = 20

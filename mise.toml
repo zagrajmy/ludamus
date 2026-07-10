@@ -8,13 +8,19 @@ jobs = 8
 [hooks]
 enter = "poetry install"
 
+# Claude Code web's sandbox proxy 403s every GitHub download (api.github.com
+# included), so tools prefer npm/PyPI backends; mise.sandbox.toml substitutes
+# the rest there (activated via MISE_ENV=sandbox — see docs/agents/sandbox.md).
+# The npm_args below re-enable install scripts: both packages need them
+# (@ast-grep/cli postinstall, @endevco/aube preinstall fetch the platform
+# binary).
 [tools]
 python = "3.14"
 node = "v25.6.1"
 "pipx:poetry" = "2.3.2"
-"ast-grep" = "0.42.1"
+"npm:@ast-grep/cli" = { version = "0.42.1", npm_args = "--ignore-scripts=false" }
 markdownlint-cli2 = "0.22.1"
-"github:endevco/aube" = "latest"
+"npm:@endevco/aube" = { version = "latest", npm_args = "--ignore-scripts=false" }
 hk = "1.48.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
@@ -68,7 +74,7 @@ run = [
 
 [tasks."lint:ast-grep"]
 description = "Run structural code pattern checks via ast-grep"
-run = "ast-grep scan --error src"
+run = "ast-grep scan --error src tests"
 
 [tasks."lint:codespell"]
 description = "Find typos in source and test files"
@@ -139,6 +145,10 @@ run = [
     "pip-audit .",
     "poetry show -o",
 ]
+
+[tasks.audit]
+description = "Audit dependencies: known CVEs (pip-audit), drift (deptry)"
+run = ["pip-audit .", "deptry src tests"]
 
 ## Tests
 
@@ -262,6 +272,8 @@ env.SECRET_KEY = "dev-secret-key"
 env.SESSION_COOKIE_DOMAIN = ".testserver"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
 env.IN_TESTS = 'True'
+# Tests drive DBOS explicitly (test_dbos_scheduler.py); never launch implicitly.
+env.SCHEDULER_MODE = "cron"
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
@@ -387,3 +399,17 @@ run = "aubr -C src/ludamus/client lint"
 description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
+
+[tasks.papercut]
+description = "Append a friction note to PAPERCUTS.md (e.g. mise run papercut -- ran shots, server wasn't up, no clear error)"
+dir = "{{ config_root }}"
+usage = '''
+arg "<note>" var=#true help="One or two sentences: what you were doing -> what got in the way"
+'''
+run = '''
+set -eu
+note="${usage_note:-}"
+[ -n "$note" ] || { echo "usage: mise run papercut -- <note>" >&2; exit 2; }
+printf -- '- %s: %s\n' "$(date +%F)" "$note" >> PAPERCUTS.md
+echo "logged to PAPERCUTS.md"
+'''

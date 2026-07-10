@@ -22,7 +22,6 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
     SpherePage,
-    VirtualEnrollmentConfig,
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
@@ -32,7 +31,6 @@ from ludamus.pacts.submissions import ImportLogStatus
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
 
-    from ludamus.pacts import EventDTO
     from ludamus.pacts.crowd import UserDTO
 
 
@@ -321,6 +319,11 @@ class Event(models.Model):
     # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
+    # Printables reminder: when an organizer first opened a print-ready page, and
+    # when the "print your materials" reminder email went out. Both drive the
+    # pre-event reminder sweep — organizers who already printed are skipped.
+    printables_last_printed_at = models.DateTimeField(blank=True, null=True)
+    printables_reminder_sent_at = models.DateTimeField(blank=True, null=True)
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
@@ -1634,52 +1637,6 @@ class FacilitatorChangeLog(models.Model):
 
     def __str__(self) -> str:
         return f"edit {self.facilitator} by {self.user}"
-
-
-def can_enroll_users(
-    *,
-    users: list[UserDTO],
-    event: EventDTO,
-    virtual_config: VirtualEnrollmentConfig,
-    users_to_enroll: list[UserDTO],
-) -> bool:
-    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
-    currently_enrolled = set(
-        SessionParticipation.objects.filter(
-            status__in=OCCUPYING_PARTICIPATION_STATUSES,
-            user_id__in=[u.pk for u in users],
-            session__event_id=event.pk,
-        )
-        .values_list("user_id", flat=True)
-        .distinct()
-    )
-
-    # Add new users to enroll
-    users_to_enroll_ids = {u.pk for u in users_to_enroll}
-    total_enrolled = currently_enrolled | users_to_enroll_ids
-
-    return len(total_enrolled) <= virtual_config.allowed_slots
-
-
-def get_used_slots(users: list[UserDTO], event: EventDTO) -> int:
-    # Count unique users who hold at least one seat (confirmed or offered)
-    return len(
-        SessionParticipation.objects.filter(
-            status__in=OCCUPYING_PARTICIPATION_STATUSES,
-            user_id__in=[u.pk for u in users],
-            session__event_id=event.pk,
-        )
-        .values_list("user", flat=True)
-        .distinct()
-    )
-
-
-def get_vc_available_slots(
-    *, users: list[UserDTO], event: EventDTO, virtual_config: VirtualEnrollmentConfig
-) -> int:
-    return max(
-        0, virtual_config.allowed_slots - get_used_slots(users=users, event=event)
-    )
 
 
 class Connection(models.Model):

@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
-    Any,
     Literal,
     NotRequired,
     Protocol,
@@ -151,6 +150,14 @@ class UnscheduledSessionDTO(BaseModel):
     participants_limit: int
 
 
+class UnscheduledSessionFilter(BaseModel):
+    track_pk: int | None = None
+    search: str | None = None
+    max_duration_minutes: int | None = None
+    category_pk: int | None = None
+    available_on: date | None = None
+
+
 class SessionListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -294,6 +301,7 @@ class NotificationKind(StrEnum):
     PARTY_INVITE = auto()
     PARTY_ENROLLED = auto()
     PARTY_SEAT_HELD = auto()
+    PRINTABLES_READY = auto()
 
 
 class SpherePage(StrEnum):
@@ -420,6 +428,7 @@ class SphereDTO(BaseModel):
     logo_url: str = ""
     name: str
     pk: int
+    site: SiteDTO
     site_id: int
 
     @field_validator("logo", mode="before")
@@ -455,7 +464,6 @@ class EventDTO(BaseModel):
     logo_url: str = ""
     name: str
     pk: int
-    proposal_description: str = ""
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
@@ -908,12 +916,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> None: ...
     @staticmethod
     def list_unscheduled_by_event(
-        event_pk: int,
-        *,
-        track_pk: int | None = None,
-        search: str | None = None,
-        max_duration_minutes: int | None = None,
-        category_pk: int | None = None,
+        event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]: ...
 
 
@@ -996,8 +999,6 @@ class EventRepositoryProtocol(Protocol):
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None: ...
 
 
 class SpaceRepositoryProtocol(Protocol):
@@ -1194,7 +1195,13 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
 
     @staticmethod
+    def read_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
     def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
+
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None: ...
 
 
 class EventSettingsRepositoryProtocol(Protocol):
@@ -1413,7 +1420,16 @@ class ContentChangeLogRepositoryProtocol(Protocol):
     def create(data: ContentChangeLogData) -> None: ...
 
     @staticmethod
+    def read(pk: int) -> ContentChangeLogDTO: ...
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
 
 
 class FacilitatorChangeLogData(TypedDict):
@@ -1447,10 +1463,6 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
-    @staticmethod
-    def login_user(  # type: ignore [explicit-any]
-        request: Any, user_slug: str  # noqa: ANN401
-    ) -> None: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property

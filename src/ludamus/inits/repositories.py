@@ -4,14 +4,25 @@ from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
-from ludamus.links.db.django.crowd import ClaimRepository
-from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.links.db.django.crowd import (
+    ClaimRepository,
+    ConnectedUserRepository,
+    ProfileStatsRepository,
+    UserRepository,
+)
+from ludamus.links.db.django.enrollment import (
+    AnonymousEnrollmentRepository,
+    EnrollmentParticipationRepository,
+    ParticipationPromotionRepository,
+)
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.party import PartyRepository
+from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
+from ludamus.pacts.crowd import UserType
 
 
 class Repositories:
@@ -75,8 +86,40 @@ class Repositories:
         return ParticipationPromotionRepository()
 
     @cached_property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentRepository:
+        return AnonymousEnrollmentRepository()
+
+    @cached_property
+    def enrollment_participations(self) -> EnrollmentParticipationRepository:
+        return EnrollmentParticipationRepository()
+
+    @cached_property
+    def enrollment_configs(self) -> repositories.EnrollmentConfigRepository:
+        return repositories.EnrollmentConfigRepository()
+
+    @cached_property
+    def active_users(self) -> UserRepository:
+        return UserRepository(user_type=UserType.ACTIVE)
+
+    @cached_property
+    def anonymous_users(self) -> UserRepository:
+        return UserRepository(user_type=UserType.ANONYMOUS)
+
+    @cached_property
+    def connected_users(self) -> ConnectedUserRepository:
+        return ConnectedUserRepository()
+
+    @cached_property
+    def profile_stats(self) -> ProfileStatsRepository:
+        return ProfileStatsRepository()
+
+    @cached_property
     def notifications(self) -> NotificationReadRepository:
         return NotificationReadRepository()
+
+    @cached_property
+    def printables_reminders(self) -> PrintablesReminderRepository:
+        return PrintablesReminderRepository()
 
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:

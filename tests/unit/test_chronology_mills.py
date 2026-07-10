@@ -10,6 +10,7 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
     SessionConfirmationService,
+    SessionContentEditService,
     TimetableOverviewService,
     TimetableService,
 )
@@ -17,6 +18,8 @@ from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
     ScheduleChangeAction,
+    SessionContentEditData,
+    SessionFieldValueData,
     SessionStatus,
     SpaceDTO,
     TimeSlotDTO,
@@ -26,12 +29,16 @@ from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
     ConflictType,
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
     EventIntegrationCreateData,
     IntegrationCheckRequest,
     IntegrationImplementationId,
     IntegrationKind,
     SessionPlacement,
+    SourceQuestion,
 )
+from ludamus.pacts.submissions import ImportSettings
 
 
 def _make_item(**overrides):
@@ -205,6 +212,219 @@ class TestRevertChange:
             service.revert_change(log_pk=1, event_pk=1)
 
 
+class TestContentEditRevert:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+        )
+        # By default the log under test (pk 1, session 5) is the latest change.
+        repos.content_change_logs.latest_pk_for_session.return_value = 1
+        return repos
+
+    @pytest.fixture
+    def service(self, repos):
+        service = SessionContentEditService(
+            repos.transaction,
+            repos.sessions,
+            repos.session_fields,
+            repos.content_change_logs,
+        )
+        service.apply = MagicMock()
+        return service
+
+    @staticmethod
+    def _log(*, changes, pk=1, event_id=1, session_id=5):
+        log = MagicMock()
+        log.pk = pk
+        log.event_id = event_id
+        log.session_id = session_id
+        log.changes = changes
+        return log
+
+    def test_revert_builds_inverse_from_core_and_field_changes(self, service, repos):
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+            {"field": "display_name", "field_id": None, "old": "Old host", "new": "H"},
+            {"field": "description", "field_id": None, "old": "Old desc", "new": "D"},
+            {"field": "requirements", "field_id": None, "old": "Old req", "new": "R"},
+            {"field": "needs", "field_id": None, "old": "Old needs", "new": "N"},
+            {"field": "contact_email", "field_id": None, "old": "a@b.co", "new": "x@y"},
+            {"field": "duration", "field_id": None, "old": "01:00", "new": "02:00"},
+            {"field": "category", "field_id": None, "old": 3, "new": 4},
+            {"field": "participants_limit", "field_id": None, "old": 6, "new": 10},
+            {"field": "min_age", "field_id": None, "old": 12, "new": 16},
+            {"field": "", "field_id": 7, "old": "Pathfinder", "new": "DnD"},
+            {"field": "", "field_id": 8, "old": None, "new": "Vegan"},
+            {"field": "", "field_id": 9, "old": ["a", "b"], "new": ["a"]},
+            {"field": "", "field_id": 10, "old": True, "new": False},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        repos.sessions.lock.assert_called_once_with(5)
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={
+                    "title": "Old title",
+                    "display_name": "Old host",
+                    "description": "Old desc",
+                    "requirements": "Old req",
+                    "needs": "Old needs",
+                    "contact_email": "a@b.co",
+                    "duration": "01:00",
+                    "category_id": 3,
+                    "participants_limit": 6,
+                    "min_age": 12,
+                },
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="Pathfinder"),
+                    SessionFieldValueData(session_id=5, field_id=8, value=""),
+                    SessionFieldValueData(session_id=5, field_id=9, value=["a", "b"]),
+                    SessionFieldValueData(session_id=5, field_id=10, value=True),
+                ],
+            ),
+        )
+
+    def test_revert_drops_a_non_string_scalar_field_answer(self, service, repos):
+        # ContentFieldValue admits int, but dynamic answers are str/list/bool;
+        # a stray int answer is dropped rather than written back as one.
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+            {"field": "", "field_id": 7, "old": 42, "new": "x"},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Old title"}, field_values=None
+            ),
+        )
+
+    def test_revert_skips_cover_image_and_assignment_changes(self, service, repos):
+        changes = [
+            {"field": "cover_image", "field_id": None, "old": "", "new": "(updated)"},
+            {"field": "facilitators", "field_id": None, "old": "Alice", "new": "Bob"},
+            {"field": "tracks", "field_id": None, "old": "A", "new": "B"},
+            {"field": "time_slots", "field_id": None, "old": "10 - 11", "new": ""},
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"},
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={"title": "Old title"}, field_values=None
+            ),
+        )
+
+    def test_revert_raises_when_nothing_is_revertible(self, service, repos):
+        changes = [
+            {"field": "cover_image", "field_id": None, "old": "old.png", "new": ""}
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+
+        with pytest.raises(ContentChangeNotRevertibleError):
+            service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_not_called()
+
+    def test_revert_rejects_non_latest_change(self, service, repos):
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"}
+        ]
+        repos.content_change_logs.read.return_value = self._log(changes=changes)
+        # A newer change (pk 2) exists for the same session.
+        repos.content_change_logs.latest_pk_for_session.return_value = 2
+
+        with pytest.raises(ContentChangeNotLatestError):
+            service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_not_called()
+
+    def test_revert_raises_not_found_for_log_from_another_event(self, service, repos):
+        changes = [
+            {"field": "title", "field_id": None, "old": "Old title", "new": "New"}
+        ]
+        repos.content_change_logs.read.return_value = self._log(
+            changes=changes, event_id=2
+        )
+
+        with pytest.raises(NotFoundError):
+            service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        repos.sessions.lock.assert_not_called()
+        service.apply.assert_not_called()
+
+    def test_revert_of_revert_restores_the_edit(self, service, repos):
+        # First revert: undo "Old title" -> "New title".
+        edit_log = self._log(
+            changes=[{"field": "title", "field_id": None, "old": "Old", "new": "New"}]
+        )
+        repos.content_change_logs.read.return_value = edit_log
+
+        service.revert(event_pk=1, log_pk=1, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"title": "Old"}, field_values=None),
+        )
+
+        # The revert's own audit row (mirrored old/new) is now the latest
+        # change; reverting it restores the original edit.
+        revert_log = self._log(
+            changes=[{"field": "title", "field_id": None, "old": "New", "new": "Old"}],
+            pk=2,
+        )
+        repos.content_change_logs.read.return_value = revert_log
+        repos.content_change_logs.latest_pk_for_session.return_value = 2
+        service.apply.reset_mock()
+
+        service.revert(event_pk=1, log_pk=2, user_pk=9)
+
+        service.apply.assert_called_once_with(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"title": "New"}, field_values=None),
+        )
+
+    def test_revertible_log_pks_marks_latest_invertible_rows(self, service, repos):
+        title_change = {"field": "title", "field_id": None, "old": "Old", "new": "New"}
+        cover_change = {
+            "field": "cover_image",
+            "field_id": None,
+            "old": "",
+            "new": "(updated)",
+        }
+        repos.content_change_logs.latest_pks_by_session.return_value = {5: 3, 6: 4}
+        repos.content_change_logs.list_by_event.return_value = [
+            self._log(changes=[title_change], pk=3, session_id=5),
+            self._log(changes=[title_change], pk=2, session_id=5),
+            self._log(changes=[cover_change], pk=4, session_id=6),
+        ]
+
+        assert service.revertible_log_pks(1) == {3}
+
+
 class TestAssignUnassignScope:
     """The service rejects sessions/spaces that belong to another event."""
 
@@ -287,6 +507,16 @@ class TestAssignUnassignScope:
         self, service, mock_uow
     ):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=False)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is False
+
+    def test_move_unconfirms_even_when_event_auto_confirms(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        # An existing agenda item means this assignment is a move.
+        mock_uow.agenda_items.read_by_session.return_value = MagicMock()
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 
@@ -398,6 +628,7 @@ class TestListAllForTrackAttribution:
 
         session = MagicMock()
         session.participants_limit = 5
+        session.title = "Subject"
         uow.sessions.read.return_value = session
 
         space = MagicMock()
@@ -670,6 +901,23 @@ class _ImportStubImpl:
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 
+class _HeaderStubImpl:
+    kind = IntegrationKind.IMPORT
+    config_model = _StrictConfig
+
+    def __init__(self, headers):
+        self._headers = headers
+
+    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+        return CheckResult(outcome=CheckOutcome.OK, hint="")
+
+    def fetch_questions(self, **_kwargs):
+        return [SourceQuestion(title="Tytuł")]
+
+    def fetch_headers(self, **_kwargs):
+        return self._headers
+
+
 class _TicketingStubImpl:
     kind = IntegrationKind.TICKETING
     config_model = BaseModel
@@ -812,6 +1060,52 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         assert result == []
         env.connections.read_secret.assert_not_called()
         env.decryptor.decrypt.assert_not_called()
+
+    def test_fetch_headers_returns_empty_when_implementation_missing(self):
+        env = _make_service(registry={})
+        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
+
+        result = env.svc.fetch_headers(sphere_id=1, event_id=2, pk=3)
+
+        assert result == []
+        env.connections.read_secret.assert_not_called()
+        env.decryptor.decrypt.assert_not_called()
+
+    def test_populate_snapshot_caches_the_sheet_header_row(self):
+        # The header row is what the run tab offers as unique-key columns, so it
+        # must include the metadata columns the form schema never carries.
+        headers = ["Sygnatura czasowa", "Adres e-mail", "Tytuł"]
+        event_id, pk = 2, 3
+        impl = _HeaderStubImpl(headers=headers)
+        env = _make_service(registry={_IMPL: impl})
+        env.integrations.get.return_value = MagicMock(
+            implementation=_IMPL, config_json='{"endpoint": "x"}', settings_json="{}"
+        )
+
+        env.svc.populate_questions_snapshot(sphere_id=1, event_id=event_id, pk=pk)
+
+        saved = env.integrations.update_settings.call_args.kwargs
+        assert saved["event_id"] == event_id
+        assert saved["pk"] == pk
+        assert (
+            ImportSettings.model_validate_json(saved["settings_json"]).sheet_headers
+            == headers
+        )
+
+    def test_populate_snapshot_keeps_cached_headers_when_the_fetch_fails(self):
+        # A transient Sheets failure yields []; wiping the cache would empty the
+        # unique-key select the operator already configured against.
+        env = _make_service(registry={_IMPL: _HeaderStubImpl(headers=[])})
+        env.integrations.get.return_value = MagicMock(
+            implementation=_IMPL,
+            config_json='{"endpoint": "x"}',
+            settings_json='{"sheet_headers": ["Sygnatura czasowa"]}',
+        )
+
+        env.svc.populate_questions_snapshot(sphere_id=1, event_id=2, pk=3)
+
+        env.integrations.update_settings.assert_not_called()
+        env.integrations.update_questions_snapshot.assert_called_once()
 
     def test_get_cached_questions_returns_empty_on_invalid_snapshot_json(self):
         env = _make_service(registry={})

@@ -26,7 +26,7 @@ class TestLoginRequiredPageView:
         )
 
     def test_ok_with_next_url(self, client):
-        next_url = "/chronology/event/test-event"
+        next_url = "/event/test-event"
         response = client.get(self.URL + f"?next={next_url}")
 
         assert_response(
@@ -35,7 +35,7 @@ class TestLoginRequiredPageView:
             template_name=["crowd/login_required.html"],
             context_data={
                 "view": ANY,
-                "next": "/chronology/event/test-event",
+                "next": "/event/test-event",
                 "show_icon": True,
                 "text": "",
                 "extra_class": "",

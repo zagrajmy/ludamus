@@ -45,13 +45,13 @@
                     <div>
                         <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Time" %}</h6>
                         <p class="mb-3">
-                            {{ session.agenda_item.start_time|date:"l, F j, Y" }}
+                            {{ session.start_time|date:"l, F j, Y" }}
                             <br>
-                            <small class="text-foreground-muted">{{ session.agenda_item.start_time|date:"G:i" }} - {{ session.agenda_item.end_time|date:"G:i" }}</small>
+                            <small class="text-foreground-muted">{{ session.start_time|date:"G:i" }} - {{ session.end_time|date:"G:i" }}</small>
                         </p>
-                        {% if session.agenda_item.space %}
+                        {% if session.space_name %}
                             <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Space" %}</h6>
-                            <p class="mb-3">{{ session.agenda_item.space.name }}</p>
+                            <p class="mb-3">{{ session.space_name }}</p>
                         {% endif %}
                         {% if session.min_age > 0 %}
                             <h6 class="font-semibold text-foreground-secondary text-sm">{% translate "Minimum Age" %}</h6>
@@ -87,8 +87,8 @@
                         <div class="alert alert-success flex items-center gap-3">
                             {% icon "check-circle" class="w-5 h-5 shrink-0" %}
                             <div>
-                                <strong>{{ anonymous_user.full_name }}</strong> {% translate "is already enrolled in this session." %}
-                                {% if existing_enrollment.status == "waiting" %}
+                                <strong>{{ user_name }}</strong> {% translate "is already enrolled in this session." %}
+                                {% if enrollment_status == "waiting" %}
                                     <br>
                                     <small class="text-foreground-muted">{% translate "Status: On waiting list" %}</small>
                                 {% endif %}
@@ -103,14 +103,14 @@
                             <label for="name" class="block text-sm font-medium mb-1">
                                 {% translate "Name" %} <span class="text-danger">*</span>
                             </label>
-                            {% include "components/text-field.html" with id="name" name="name" value=anonymous_user.full_name required=True only %}
+                            {% include "components/text-field.html" with id="name" name="name" value=user_name required=True only %}
                             <p class="mt-1 text-xs text-foreground-muted">
                                 {% translate "Your public display name that others will see. This can be a nickname and does not need to be your legal name." %}
                             </p>
                         </div>
                     {% endif %}
                     <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
-                        <a href="{% url 'web:chronology:event' slug=event.slug %}"
+                        <a href="{% url 'web:chronology:event' slug=event_slug %}"
                            class="btn btn-secondary">
                             {% icon "arrow-left" class="w-4 h-4" %}
                             {% translate "Back to Event" %}

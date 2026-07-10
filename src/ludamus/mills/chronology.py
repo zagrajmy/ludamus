@@ -27,12 +27,15 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
     EventIntegrationCreateData,
     EventIntegrationDTO,
     EventIntegrationsRepositoryProtocol,
@@ -193,6 +196,7 @@ class TimetableService:
                 total_minutes=0,
                 event_start_iso="",
                 slot_minutes=TIMETABLE_SLOT_MINUTES,
+                snap_minutes=TIMETABLE_SNAP_MINUTES,
                 page=space_page,
                 total_pages=total_pages,
                 total_spaces=total_spaces,
@@ -257,6 +261,7 @@ class TimetableService:
             total_minutes=num_slots * TIMETABLE_SLOT_MINUTES,
             event_start_iso=grid_start.isoformat(),
             slot_minutes=TIMETABLE_SLOT_MINUTES,
+            snap_minutes=TIMETABLE_SNAP_MINUTES,
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,
@@ -320,14 +325,6 @@ class TimetableService:
         if space_pk not in leaf_pks:
             raise NotFoundError
 
-    def _clear_existing_assignment(
-        self, session_pk: int, event_pk: int, user_pk: int | None
-    ) -> None:
-        # Re-assigning an already-scheduled session: drop the old placement
-        # first so the new one becomes its only agenda item.
-        if self._uow.agenda_items.read_by_session(session_pk) is not None:
-            self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
-
     def assign_session(
         self,
         session_pk: int,
@@ -343,7 +340,14 @@ class TimetableService:
             # no-sessions check) can't cascade this AgendaItem away in the gap
             # between that check and the delete.
             self._uow.spaces.lock(placement.space_pk)
-            self._clear_existing_assignment(session_pk, event_pk, user_pk)
+            # Moving an already-scheduled session invalidates any prior
+            # confirmation, so a re-assignment always lands unconfirmed --
+            # even in an auto-confirm event -- and must be re-verified.
+            is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
+            # Re-assigning an already-scheduled session: drop the old placement
+            # first so the new one becomes its only agenda item.
+            if is_move:
+                self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
             session = self._uow.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
                 msg = f"Session {session_pk} is not in ACCEPTED status"
@@ -355,7 +359,7 @@ class TimetableService:
                     "space_id": placement.space_pk,
                     "start_time": placement.start_time,
                     "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions,
+                    "session_confirmed": event.auto_confirm_sessions and not is_move,
                 }
             )
             log_data: ScheduleChangeLogData = {
@@ -612,6 +616,8 @@ class ConflictDetectionService:
                 ConflictDTO(
                     type=ConflictType.SPACE_OVERLAP,
                     severity=ConflictSeverity.ERROR,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
                     session_title=item.session_title,
                     session_pk=item.session_id,
                 )
@@ -626,6 +632,8 @@ class ConflictDetectionService:
                 ConflictDTO(
                     type=ConflictType.CAPACITY_EXCEEDED,
                     severity=ConflictSeverity.WARNING,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
                     session_title=session.title,
                     session_pk=session_pk,
                     space_capacity=space.capacity,
@@ -646,6 +654,8 @@ class ConflictDetectionService:
                     ConflictDTO(
                         type=ConflictType.FACILITATOR_OVERLAP,
                         severity=ConflictSeverity.ERROR,
+                        subject_session_title=session.title,
+                        subject_session_pk=session_pk,
                         session_title=item.session_title,
                         session_pk=item.session_id,
                         facilitator_name=facilitator.display_name,
@@ -701,6 +711,8 @@ class ConflictDetectionService:
         return ConflictDTO(
             type=conflict.type,
             severity=conflict.severity,
+            subject_session_title=conflict.subject_session_title,
+            subject_session_pk=conflict.subject_session_pk,
             session_title=conflict.session_title,
             session_pk=conflict.session_pk,
             facilitator_name=conflict.facilitator_name,
@@ -1015,6 +1027,87 @@ def _append_m2m_change(
         changes.append({"field": field, "field_id": None, "old": old, "new": new})
 
 
+def _inverse_text_update(
+    *, update: SessionUpdateData, field: str, old: ContentFieldValue
+) -> bool:
+    if not isinstance(old, str):
+        return False
+    if field == "title":
+        update["title"] = old
+    elif field == "display_name":
+        update["display_name"] = old
+    elif field == "description":
+        update["description"] = old
+    elif field == "requirements":
+        update["requirements"] = old
+    elif field == "needs":
+        update["needs"] = old
+    elif field == "contact_email":
+        update["contact_email"] = old
+    elif field == "duration":
+        update["duration"] = old
+    else:
+        return False
+    return True
+
+
+def _inverse_core_update(
+    *, update: SessionUpdateData, field: str, old: ContentFieldValue
+) -> bool:
+    # Restores `field` to `old` in the update payload. Returns False for
+    # irreversible entries: the old cover-image binary is gone, and m2m
+    # assignments (facilitators/tracks/time_slots) are logged as display
+    # names, not ids.
+    if _inverse_text_update(update=update, field=field, old=old):
+        return True
+    if field == "category" and (old is None or isinstance(old, int)):
+        update["category_id"] = old
+        return True
+    if field == "participants_limit" and isinstance(old, int):
+        update["participants_limit"] = old
+        return True
+    if field == "min_age" and isinstance(old, int):
+        update["min_age"] = old
+        return True
+    return False
+
+
+def _inverse_field_value(
+    *, field_id: int, old: ContentFieldValue, session_id: int
+) -> SessionFieldValueData | None:
+    # A previously unanswered field was logged as None; restore it to "".
+    value = "" if old is None else old
+    # Dynamic answers are str | list[str] | bool; a plain int never appears.
+    if isinstance(value, bool) or not isinstance(value, int):
+        return SessionFieldValueData(
+            session_id=session_id, field_id=field_id, value=value
+        )
+    return None
+
+
+def build_inverse_content_edit(
+    changes: list[ContentFieldChange], session_id: int
+) -> SessionContentEditData | None:
+    # The inverse of a logged content change: every revertible entry set back
+    # to its `old` value. None when nothing in the change can be restored.
+    update: SessionUpdateData = {}
+    field_values: list[SessionFieldValueData] = []
+    for change in changes:
+        if (field_id := change["field_id"]) is None:
+            _inverse_core_update(
+                update=update, field=change["field"], old=change["old"]
+            )
+        elif (
+            field_value := _inverse_field_value(
+                field_id=field_id, old=change["old"], session_id=session_id
+            )
+        ) is not None:
+            field_values.append(field_value)
+    if not update and not field_values:
+        return None
+    return SessionContentEditData(update=update, field_values=field_values or None)
+
+
 def diff_session_content(
     old_session: SessionDTO,
     update: SessionUpdateData,
@@ -1119,6 +1212,33 @@ class SessionContentEditService:
                 }
                 self._content_change_logs.create(log_data)
 
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None:
+        with self._transaction.atomic():
+            log = self._content_change_logs.read(log_pk)
+            if log.event_id != event_pk:
+                # The log belongs to another event — reject before reverting.
+                raise NotFoundError
+            # Lock the session row so concurrent reverts serialize: the
+            # latest-pk check and the inverse edit run under one transaction,
+            # so a second revert re-reads a now-stale latest_pk and is
+            # rejected instead of racing past the check (TOCTOU).
+            self._sessions.lock(log.session_id)
+            latest_pk = self._content_change_logs.latest_pk_for_session(
+                event_pk, log.session_id
+            )
+            if latest_pk != log_pk:
+                # Only the most recent change for a session may be undone, so
+                # reverts always unwind history in order.
+                raise ContentChangeNotLatestError
+            data = build_inverse_content_edit(log.changes, log.session_id)
+            if data is None:
+                raise ContentChangeNotRevertibleError
+            # Route through apply() so the revert is itself audited as a
+            # content edit — its log row becomes the newest change.
+            self.apply(
+                session_id=log.session_id, event_id=event_pk, user_id=user_pk, data=data
+            )
+
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
         return self._content_change_logs.list_by_event(event_id)
 
@@ -1126,6 +1246,17 @@ class SessionContentEditService:
         # Render-time resolution of dynamic session-field labels (user content,
         # not UI text) so the log shows the field's current name.
         return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
+
+    def revertible_log_pks(self, event_id: int) -> set[int]:
+        # Rows offered a Revert button: the newest change per session, and only
+        # if at least one of its entries can actually be restored.
+        latest = set(self._content_change_logs.latest_pks_by_session(event_id).values())
+        return {
+            log.pk
+            for log in self._content_change_logs.list_by_event(event_id)
+            if log.pk in latest
+            and build_inverse_content_edit(log.changes, log.session_id) is not None
+        }
 
 
 class SessionSelfEditService:
@@ -1299,10 +1430,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.fetch_questions(
-            secret=plaintext,
-            config=config,
-            header_row=settings.header_row,
-            email_column=settings.email_column,
+            secret=plaintext, config=config, header_row=settings.header_row
         )
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
@@ -1322,11 +1450,33 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         # action that also resets confirmations.
         questions = self.fetch_questions(sphere_id=sphere_id, event_id=event_id, pk=pk)
         snapshot = _SOURCE_QUESTIONS_ADAPTER.dump_json(questions).decode()
+        headers = self.fetch_headers(sphere_id=sphere_id, event_id=event_id, pk=pk)
+        integration = self._integrations.get(event_id, pk)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
         with self._transaction.atomic():
             self._integrations.update_questions_snapshot(
                 event_id=event_id, pk=pk, questions_snapshot_json=snapshot
             )
+            # Only overwrite on a successful read: a transient Sheets failure
+            # returns [] and must not wipe the columns the run tab offers.
+            if headers and headers != settings.sheet_headers:
+                settings.sheet_headers = headers
+                self._integrations.update_settings(
+                    event_id=event_id, pk=pk, settings_json=settings.model_dump_json()
+                )
         return questions
+
+    def fetch_headers(self, *, sphere_id: int, event_id: int, pk: int) -> list[str]:
+        integration = self._integrations.get(event_id, pk)
+        if (impl := self._registry.get(integration.implementation)) is None:
+            return []
+        config = impl.config_model.model_validate_json(integration.config_json)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        plaintext = self._decryptor.decrypt(blob) if blob else b""
+        return impl.fetch_headers(
+            secret=plaintext, config=config, header_row=settings.header_row
+        )
 
     def refetch_questions(
         self, *, sphere_id: int, event_id: int, pk: int

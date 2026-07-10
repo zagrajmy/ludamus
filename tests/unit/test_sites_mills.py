@@ -4,11 +4,19 @@ from ludamus.mills.multiverse import SitesService
 
 
 class _Spheres:
-    def __init__(self, sites):
+    def __init__(self, *, sites, spheres=None, managers=()):
         self._sites = dict(sites)
+        self._spheres = dict(spheres or {})
+        self._managers = set(managers)
+
+    def read(self, sphere_id):
+        return self._spheres[sphere_id]
 
     def read_site(self, sphere_id):
         return self._sites[sphere_id]
+
+    def is_manager(self, sphere_id, user_slug):
+        return (sphere_id, user_slug) in self._managers
 
 
 class _Directory:
@@ -21,16 +29,32 @@ class _Directory:
 
 def test_read_site_returns_repo_site():
     site = SimpleNamespace(domain="ludamus.example.com", name="Root", pk=7)
-    service = SitesService(_Spheres({1: site}), _Directory([]))
+    service = SitesService(_Spheres(sites={1: site}), _Directory([]))
 
     result = service.read_site(1)
 
     assert result is site
 
 
+def test_read_returns_repo_sphere():
+    sphere = SimpleNamespace(pk=1, name="Root")
+    service = SitesService(_Spheres(sites={}, spheres={1: sphere}), _Directory([]))
+
+    result = service.read(1)
+
+    assert result is sphere
+
+
+def test_is_manager_delegates_to_repo():
+    service = SitesService(_Spheres(sites={}, managers={(1, "amy")}), _Directory([]))
+
+    assert service.is_manager(1, "amy") is True
+    assert service.is_manager(1, "bob") is False
+
+
 def test_list_spheres_returns_directory_items():
     sphere = SimpleNamespace(pk=1, name="Root", domain="ludamus.example.com")
-    service = SitesService(_Spheres({}), _Directory([sphere]))
+    service = SitesService(_Spheres(sites={}), _Directory([sphere]))
 
     result = service.list_spheres()
 

@@ -1,20 +1,30 @@
-"""Protocols and DTOs for waiting-list promotion (offer-and-claim).
+"""Protocols and DTOs for enrollment: waitlist promotion and anonymous flows.
 
-Bottom-layer contracts consumed by the `WaitlistPromotionService` mill. The
-service depends on these ports (repository, notifier, scheduler) so the
-promotion / offer-lifecycle decisions stay unit-testable with fakes.
+Bottom-layer contracts consumed by the enrollment mills
+(`WaitlistPromotionService`, `AnonymousEnrollmentService`,
+`NotificationsService`). The services depend on these ports (repositories,
+notifier, scheduler) so their decisions stay unit-testable with fakes.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.legacy import (
+        EnrollmentConfigRepositoryProtocol,
+        EventDTO,
+        TicketAPIProtocol,
+        VirtualEnrollmentConfig,
+    )
     from ludamus.pacts.party import HeldSeatNotification
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
@@ -217,6 +227,10 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...
 
+    # One representative participation id per lapsed offered party (the caller
+    # expands to the whole party from the shared claim token).
+    def list_lapsed_offers(self, now: datetime) -> list[int]: ...
+
     def mark_claimed(
         self, participation_ids: list[int], *, claimed_at: datetime
     ) -> None: ...
@@ -235,6 +249,77 @@ class OfferExpirySchedulerProtocol(Protocol):
     def schedule_expiry(self, *, participation_id: int, run_at: datetime) -> None: ...
 
 
+class GuestSeatData(BaseModel):
+    # The CONFIRMED row a +N headcount guest materialises as.
+    session_id: int
+    user_id: int
+    party_id: int | None
+    enrolled_by_id: int
+
+
+class EnrollmentParticipationRepositoryProtocol(Protocol):
+    @staticmethod
+    def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]: ...
+
+    @staticmethod
+    def create_confirmed(seat: GuestSeatData) -> None: ...
+
+
+@dataclass(frozen=True)
+class EnrollmentRepos:
+    # The repos the enrollment service reads rosters and writes guest seats
+    # through; `ticket_api` rides along because membership lookups always
+    # accompany the config reads. Mirrors the `ImportRepos` bundle the
+    # submissions services use to keep a many-repo constructor within the
+    # argument-count limit.
+    users: UserRepositoryProtocol
+    anonymous_users: UserRepositoryProtocol
+    enrollment_configs: EnrollmentConfigRepositoryProtocol
+    participations: EnrollmentParticipationRepositoryProtocol
+    ticket_api: TicketAPIProtocol
+
+
+class EnrollmentServiceProtocol(Protocol):
+    def read_viewer(self, slug: str) -> UserDTO: ...
+
+    def read_users(self, pks: list[int]) -> list[UserDTO]: ...
+
+    def virtual_config(
+        self, *, event: EventDTO, user_email: str
+    ) -> VirtualEnrollmentConfig | None: ...
+
+    def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool: ...
+
+    def can_enroll_users(
+        self,
+        *,
+        users: list[UserDTO],
+        event: EventDTO,
+        virtual_config: VirtualEnrollmentConfig,
+        users_to_enroll: list[UserDTO],
+    ) -> bool: ...
+
+    def get_used_slots(self, *, users: list[UserDTO], event: EventDTO) -> int: ...
+
+    def get_vc_available_slots(
+        self,
+        *,
+        users: list[UserDTO],
+        event: EventDTO,
+        virtual_config: VirtualEnrollmentConfig,
+    ) -> int: ...
+
+    def create_guests(
+        self,
+        *,
+        session_id: int,
+        count: int,
+        party_id: int | None,
+        enrolled_by_id: int,
+        viewer_name: str,
+    ) -> None: ...
+
+
 class WaitlistPromotionServiceProtocol(Protocol):
     def fill_freed_seats(self, *, session_id: int) -> PromotionResult: ...
     def hold_seat(self, *, hold: SeatHoldRequest) -> None: ...
@@ -242,3 +327,180 @@ class WaitlistPromotionServiceProtocol(Protocol):
     def claim_offer(self, *, token: str) -> ClaimResult: ...
     def decline_offer(self, *, token: str) -> ClaimResult: ...
     def expire_offer(self, *, participation_id: int) -> PromotionResult: ...
+
+
+class AnonymousEnrollmentErrorCode(StrEnum):
+    EVENT_NOT_FOUND = "event_not_found"
+    NOT_AVAILABLE_FOR_EVENT = "not_available_for_event"
+    SESSION_NOT_FOUND = "session_not_found"
+    # The session belongs to a different event than the visitor's anonymous
+    # session was activated for.
+    NOT_FOR_THIS_SESSION = "not_for_this_session"
+    # The session has no agenda item, so there is nothing to enroll into.
+    NO_ENROLLMENT_CONFIG = "no_enrollment_config"
+    # Anonymous enrollment for this session is no longer (or not yet) open.
+    ENROLLMENT_CLOSED = "enrollment_closed"
+    # No code in the visitor's anonymous session state.
+    SESSION_EXPIRED = "session_expired"
+    USER_NOT_FOUND = "user_not_found"
+    NAME_REQUIRED = "name_required"
+    NO_ENROLLMENTS = "no_enrollments"
+
+
+class AnonymousEnrollmentError(Exception):
+    def __init__(
+        self, code: AnonymousEnrollmentErrorCode, *, event_slug: str | None = None
+    ) -> None:
+        super().__init__(code.value)
+        self.code = code
+        # Where the visitor should be sent back to, when an event page is a
+        # better landing spot than the index.
+        self.event_slug = event_slug
+
+
+class AnonymousEventDTO(BaseModel):
+    event_id: int
+    slug: str
+    allows_anonymous_enrollment: bool
+
+
+class AnonymousSessionContextDTO(BaseModel):
+    session_id: int
+    event_id: int
+    event_slug: str
+    has_agenda_item: bool
+    # An active enrollment config allows anonymous enrollment and covers this
+    # session right now.
+    allows_anonymous_enrollment: bool
+    title: str
+    display_name: str
+    description: str
+    min_age: int
+    enrolled_count: int
+    waiting_count: int
+    effective_participants_limit: int
+    # None when the session has no agenda item (nowhere assigned yet).
+    space_name: str | None
+    start_time: datetime | None
+    end_time: datetime | None
+
+
+class AnonymousSeatingDTO(BaseModel):
+    is_full: bool
+    title: str
+
+
+class AnonymousActivationDTO(BaseModel):
+    code: str
+    event_id: int
+    event_slug: str
+
+
+class AnonymousEnrollPageDTO(BaseModel):
+    session: AnonymousSessionContextDTO
+    user_name: str
+    anonymous_code: str
+    needs_user_data: bool
+    enrollment_status: SessionParticipationStatus | None
+
+    @property
+    def is_enrolled(self) -> bool:
+        return self.enrollment_status is not None
+
+
+class AnonymousEnrollOutcome(StrEnum):
+    ENROLLED = "enrolled"
+    WAITLISTED = "waitlisted"
+    CONFLICT = "conflict"
+
+
+class AnonymousEnrollResultDTO(BaseModel):
+    outcome: AnonymousEnrollOutcome
+    session_title: str
+    event_slug: str
+
+
+class AnonymousCancelResultDTO(BaseModel):
+    cancelled: bool
+    session_title: str
+    event_slug: str
+
+
+class AnonymousLoadDTO(BaseModel):
+    event_id: int
+    event_slug: str
+    site_id: int
+
+
+class AnonymousEnrollmentRequestDTO(BaseModel):
+    # Everything identifying "this visitor acting on this session": URL parts
+    # plus the anonymous state the view read from the Django session.
+    event_slug: str
+    session_id: int
+    site_id: int
+    anonymous_event_id: int | None
+    code: str | None
+
+
+class AnonymousEnrollmentRepositoryProtocol(Protocol):
+    # Raises NotFoundError when no event matches the slug.
+    @staticmethod
+    def read_event(event_slug: str) -> AnonymousEventDTO: ...
+
+    @staticmethod
+    def event_slug_by_id(event_id: int) -> str | None: ...
+
+    # Raises NotFoundError when no session matches within the site.
+    @staticmethod
+    def read_session(
+        *, session_id: int, event_slug: str, site_id: int
+    ) -> AnonymousSessionContextDTO: ...
+
+    @staticmethod
+    def read_participation_status(
+        *, session_id: int, user_id: int
+    ) -> SessionParticipationStatus | None: ...
+
+    @staticmethod
+    def has_conflicts(*, session_id: int, user: UserDTO) -> bool: ...
+
+    # Locks the session row for the enrollment mutation that follows.
+    @staticmethod
+    def lock_seating(session_id: int) -> AnonymousSeatingDTO: ...
+
+    @staticmethod
+    def create_or_confirm(*, session_id: int, user_id: int) -> None: ...
+
+    @staticmethod
+    def create_waiting(*, session_id: int, user_id: int) -> None: ...
+
+    # Deletes the user's participation, returning its status (None if absent).
+    @staticmethod
+    def delete_participation(
+        *, session_id: int, user_id: int
+    ) -> SessionParticipationStatus | None: ...
+
+    @staticmethod
+    def first_enrollment_event(user_id: int) -> AnonymousLoadDTO | None: ...
+
+
+class AnonymousEnrollmentServiceProtocol(Protocol):
+    def get_user_by_code(self, code: str) -> UserDTO: ...
+
+    def activate(self, *, event_slug: str) -> AnonymousActivationDTO: ...
+
+    def get_enroll_page(
+        self, enrollment_request: AnonymousEnrollmentRequestDTO
+    ) -> AnonymousEnrollPageDTO: ...
+
+    def enroll(
+        self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
+    ) -> AnonymousEnrollResultDTO: ...
+
+    def cancel(
+        self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
+    ) -> AnonymousCancelResultDTO: ...
+
+    def load_by_code(self, *, code: str) -> AnonymousLoadDTO: ...
+
+    def event_slug_by_id(self, event_id: int) -> str | None: ...

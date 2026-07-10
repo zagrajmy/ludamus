@@ -67,7 +67,7 @@ class TestEnrollRecordsParty:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{agenda_item.session.event.slug}/",
+            url=f"/event/{agenda_item.session.event.slug}/",
             messages=[(messages.SUCCESS, expected)],
         )
         participations = SessionParticipation.objects.filter(

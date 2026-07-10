@@ -65,13 +65,11 @@ class IntegrationImplementation(Protocol):
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
     def fetch_questions(
-        self,
-        *,
-        secret: bytes,
-        config: BaseModel,
-        header_row: int = 1,
-        email_column: int | None = None,
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
+    def fetch_headers(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[str]: ...
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
@@ -192,6 +190,14 @@ class SessionSelfEditServiceProtocol(Protocol):
     ) -> None: ...
 
 
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
+
+
 class SessionContentEditServiceProtocol(Protocol):
     def apply(
         self,
@@ -201,8 +207,10 @@ class SessionContentEditServiceProtocol(Protocol):
         user_id: int | None,
         data: SessionContentEditData,
     ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(self, event_id: int) -> set[int]: ...
 
 
 class SessionConfirmationServiceProtocol(Protocol):
@@ -233,6 +241,7 @@ class ProposalStatusServiceProtocol(Protocol):
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
+TIMETABLE_SNAP_MINUTES = 5
 
 
 class SessionPositionDTO(BaseModel):
@@ -269,6 +278,7 @@ class TimetableGridDTO(BaseModel):
     total_minutes: int
     event_start_iso: str
     slot_minutes: int
+    snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
@@ -299,6 +309,10 @@ class SessionPlacement:
 class ConflictDTO(BaseModel):
     type: ConflictType
     severity: ConflictSeverity
+    # The session that has the problem (the one being placed / examined).
+    subject_session_title: str
+    subject_session_pk: int
+    # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
     facilitator_name: str | None = None

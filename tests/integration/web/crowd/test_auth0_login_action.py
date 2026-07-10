@@ -12,7 +12,7 @@ from tests.integration.utils import assert_response
 class TestAuth0LoginActionView:
     URL = reverse("web:crowd:auth0:login")
 
-    @patch("ludamus.adapters.web.django.views.oauth")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth")
     def test_ok_redirect(self, oauth_mock, client):
         oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
 
@@ -32,7 +32,7 @@ class TestAuth0LoginActionView:
             "csrf_token": "",
         }
 
-    @patch("ludamus.adapters.web.django.views.oauth")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth")
     def test_ok_redirect_drops_external_next(self, oauth_mock, client):
         oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
 

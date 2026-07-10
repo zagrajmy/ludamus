@@ -9,7 +9,7 @@ from ludamus.pacts import (
     SphereRepositoryProtocol,
     SphereUpdateData,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import SphereDomainRepositoryProtocol, UserDTO
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,
@@ -23,7 +23,15 @@ from ludamus.pacts.multiverse import (
 )
 
 
-class SphereRepository(SphereRepositoryProtocol, SphereDirectoryRepositoryProtocol):
+class SphereRepository(
+    SphereRepositoryProtocol,
+    SphereDirectoryRepositoryProtocol,
+    SphereDomainRepositoryProtocol,
+):
+    @staticmethod
+    def domain_exists(domain: str) -> bool:
+        return Sphere.objects.filter(site__domain=domain).exists()
+
     @staticmethod
     def list_all() -> list[SphereListItemDTO]:
         return [
@@ -34,7 +42,7 @@ class SphereRepository(SphereRepositoryProtocol, SphereDirectoryRepositoryProtoc
     @staticmethod
     def read_by_domain(domain: str) -> SphereDTO:
         try:
-            sphere = Sphere.objects.get(site__domain=domain)
+            sphere = Sphere.objects.select_related("site").get(site__domain=domain)
         except Sphere.DoesNotExist as exception:
             raise NotFoundError from exception
 
@@ -51,8 +59,7 @@ class SphereRepository(SphereRepositoryProtocol, SphereDirectoryRepositoryProtoc
 
     @staticmethod
     def read_site(sphere_id: int) -> SiteDTO:
-        sphere = Sphere.objects.select_related("site").get(id=sphere_id)
-        return SiteDTO.model_validate(sphere.site)
+        return SphereRepository.read(sphere_id).site
 
     @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool:
