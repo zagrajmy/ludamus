@@ -13,3 +13,12 @@ sentences each: what you were doing → what got in the way. See CLAUDE.md.
   (writes literal `'\''` sequences into PAPERCUTS.md) and doesn't wrap at 80
   columns, so the very next commit trips markdownlint MD013 on the file it
   just wrote.
+- 2026-07-10: fresh sandbox: `mise run check` failed with actionlint/hadolint
+  not found. The image pre-bakes GitHub-layout installs of aliased tools; mise
+  then skips installing them but cannot list their bin paths, so no shims and
+  no task PATH entries. Fixed by purging installs without shims and rerunning
+  `mise install` in the session-start hook.
+- 2026-07-10: the pre-baked /opt/pw-browsers chromium build (1194) does not
+  match @playwright/test 1.58.2 (needs 1208), so e2e cannot launch a browser
+  and the preinstalled-browsers fallback is not real. Plain
+  `playwright install` without `--with-deps` works through the proxy.
