@@ -12,17 +12,23 @@ class TestSphereRepositoryDomainExists:
         assert SphereRepository.domain_exists("no-such-domain.example") is False
 
 
-class TestSphereRepositoryReadWithSite:
-    def test_returns_sphere_and_site(self, sphere):
-        result_sphere, result_site = SphereRepository.read_with_site(sphere.pk)
+class TestSphereRepositoryRead:
+    def test_returns_sphere_with_embedded_site(self, sphere):
+        result = SphereRepository.read(sphere.pk)
 
-        assert result_sphere == SphereDTO.model_validate(sphere)
-        assert result_site == SiteDTO.model_validate(sphere.site)
+        assert result == SphereDTO.model_validate(sphere)
+        assert result.site == SiteDTO.model_validate(sphere.site)
 
     def test_raises_not_found_for_unknown_pk(self):
         with pytest.raises(NotFoundError):
-            SphereRepository.read_with_site(999_999)
+            SphereRepository.read(999_999)
 
     def test_single_query(self, sphere, django_assert_num_queries):
         with django_assert_num_queries(1):
-            SphereRepository.read_with_site(sphere.pk)
+            SphereRepository.read(sphere.pk)
+
+
+class TestSphereRepositoryReadSite:
+    def test_raises_not_found_for_unknown_pk(self):
+        with pytest.raises(NotFoundError):
+            SphereRepository.read_site(999_999)

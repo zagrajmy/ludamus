@@ -428,6 +428,7 @@ class SphereDTO(BaseModel):
     logo_url: str = ""
     name: str
     pk: int
+    site: SiteDTO
     site_id: int
 
     @field_validator("logo", mode="before")
@@ -823,8 +824,6 @@ class SphereRepositoryProtocol(Protocol):
     def read(pk: int) -> SphereDTO: ...
     @staticmethod
     def read_site(sphere_id: int) -> SiteDTO: ...
-    @staticmethod
-    def read_with_site(pk: int) -> tuple[SphereDTO, SiteDTO]: ...
     @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod

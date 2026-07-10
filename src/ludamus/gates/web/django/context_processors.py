@@ -35,15 +35,12 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         )
 
     sites_service = request.services.sites
-    root_sphere, root_site = sites_service.read_with_site(
-        request.context.root_sphere_id
+    root_sphere = sites_service.read(request.context.root_sphere_id)
+    current_sphere = (
+        root_sphere
+        if request.context.current_sphere_id == request.context.root_sphere_id
+        else sites_service.read(request.context.current_sphere_id)
     )
-    if request.context.current_sphere_id == request.context.root_sphere_id:
-        current_sphere, current_site = root_sphere, root_site
-    else:
-        current_sphere, current_site = sites_service.read_with_site(
-            request.context.current_sphere_id
-        )
 
     is_sphere_manager = False
     if request.user.is_authenticated and request.context.current_user_slug:
@@ -52,8 +49,8 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         )
 
     return SitesContextData(
-        root_site=root_site,
-        current_site=current_site,
+        root_site=root_sphere.site,
+        current_site=current_sphere.site,
         current_sphere=current_sphere,
         is_sphere_manager=is_sphere_manager,
     )
