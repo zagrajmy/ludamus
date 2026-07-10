@@ -30,8 +30,7 @@ description — run it rather than trusting a hardcoded list here. Most used:
 
 Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
 it now: `mise run papercut -- <note>`. One or two sentences, what you did → what
-got in the way. Appends to `PAPERCUTS.md`, one call, no file open. Not Linear
-(that's real bugs).
+got in the way. Appends to `PAPERCUTS.md`, one call, no file open.
 
 ## Architecture
 
