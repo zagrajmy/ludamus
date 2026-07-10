@@ -3,6 +3,7 @@
 {% load tessera %}
 {% load enroll_tags %}
 {% load cfp_tags %}
+{% load markdown_tags %}
 {% load django_vite %}
 {% block title %}
     {% translate "Enrollment" %} - {{ session.title }}
@@ -33,84 +34,69 @@
                 </ul>
             </div>
         {% endif %}
-        {# Split stage: the session is an editorial column on the left, the #}
-        {# enrollment panel sits on the right; on mobile they stack back into #}
-        {# the single column. Facts render as the same tiles the encounter #}
-        {# detail page uses, with the host tile carrying the avatar. #}
+        {# Split stage: the session lives in a card on the left — the same #}
+        {# design as the event modal's Information tab — and the enrollment #}
+        {# panel sits on the right; on mobile they stack into one column. #}
         <div class="grid grid-cols-1 lg:grid-cols-[5fr_6fr] gap-8 lg:gap-10 items-start">
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
                 <h1 class="text-3xl sm:text-4xl font-bold text-foreground text-balance">{{ session.title }}</h1>
-                {# Facts as quiet single-line rows with hairline dividers; the #}
-                {# host row anchors on the avatar, the rest on small tinted #}
-                {# icon chips, and the capacity chip carries the live fraction. #}
-                <div class="mt-6 divide-y divide-border text-sm text-foreground-secondary">
-                    <div class="flex items-center gap-3 py-2.5">
+                {# The session's own card, mirroring the modal's Information tab: #}
+                {# host & location row, description, and the details grid. Same #}
+                {# data, same design — the page and the modal stay one family. #}
+                <div class="card card-body mt-6">
+                    <div class="flex items-center gap-3 mb-6">
                         {% if session.presenter %}
-                            {% include "components/avatar.html" with user=session.presenter size="size-8" %}
-                        {% else %}
-                            <span class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
-                                {% icon "user" class="w-4 h-4" variant="mini" %}
-                            </span>
+                            <span class="shrink-0">{% include "components/avatar.html" with user=session.presenter size="size-10" %}</span>
                         {% endif %}
-                        <span class="min-w-0 truncate">
-                            {% blocktranslate with name=session.display_name %}Hosted by {{ name }}{% endblocktranslate %}
-                        </span>
+                        <div class="flex items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
+                            <div class="font-medium text-foreground">{{ session.display_name }}</div>
+                            {% if session.agenda_item.space %}
+                                <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
+                                    {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
+                                    <span class="truncate" title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
+                                </span>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="flex items-center gap-3 py-2.5">
-                        <span class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %}
-                        </span>
-                        <span>
-                            {{ session.agenda_item.start_time|date:"l, j E" }} ·
-                            <span class="tabular-nums">{{ session.agenda_item.start_time|date:"G:i" }}–{{ session.agenda_item.end_time|date:"G:i" }}</span>
-                        </span>
-                    </div>
-                    {% if session.agenda_item.space %}
-                        <div class="flex items-center gap-3 py-2.5">
-                            <span class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
-                                {% icon "map-pin" class="w-4 h-4" variant="mini" %}
-                            </span>
-                            <span class="min-w-0 truncate">{{ session.agenda_item.space.name }}</span>
+                    {% if session.description %}
+                        <div class="mb-6">
+                            <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
+                            <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground">{{ session.description|render_markdown }}</div>
                         </div>
                     {% endif %}
-                    <div class="flex items-center gap-3 py-2.5">
-                        {# An unlimited session has effective limit 0 — show the #}
-                        {# users icon rather than a nonsense "3/0" fraction. #}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                            <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
+                            <div class="font-medium text-foreground">
+                                {{ session.agenda_item.start_time|date:"l, F j" }}
+                                <br>
+                                {{ session.agenda_item.start_time|time:"G:i" }} - {{ session.agenda_item.end_time|time:"G:i" }}
+                            </div>
+                        </div>
+                        {# An unlimited session has effective limit 0 — no capacity box #}
+                        {# rather than a nonsense "3/0" fraction, same as the modal. #}
                         {% if session.effective_participants_limit > 0 %}
-                            <span class="w-8 h-8 rounded-full grid place-items-center shrink-0 text-xs font-semibold tabular-nums {% if seats_left == 0 %}bg-danger-bg text-danger{% elif seats_left == 1 %}bg-warning-bg text-warning-text{% else %}bg-primary/10 text-primary{% endif %}">
-                                {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
-                            </span>
-                            <span class="tabular-nums">
-                                {% blocktranslate count counter=seats_left %}{{ counter }} seat left{% plural %}{{ counter }} seats left{% endblocktranslate %}
-                                {% if session.waiting_count > 0 %}
-                                    (+{{ session.waiting_count }} {% translate "waiting" %})
-                                {% endif %}
-                            </span>
-                        {% else %}
-                            <span class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
-                                {% icon "users" class="w-4 h-4" variant="mini" %}
-                            </span>
-                            <span class="tabular-nums">
-                                {% translate "No seat limit" %}
-                                {% if session.waiting_count > 0 %}
-                                    (+{{ session.waiting_count }} {% translate "waiting" %})
-                                {% endif %}
-                            </span>
+                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
+                                <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if seats_left == 0 %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
+                                        {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
+                                    </span>
+                                    {% if session.waiting_count > 0 %}
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ session.waiting_count }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if session.min_age > 0 %}
+                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
+                                <div class="font-medium text-foreground">{{ session.min_age }}+ {% translate "years" %}</div>
+                            </div>
                         {% endif %}
                     </div>
-                    {% if session.min_age > 0 %}
-                        <div class="flex items-center gap-3 py-2.5">
-                            <span class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
-                                {% icon "cake" class="w-4 h-4" variant="mini" %}
-                            </span>
-                            <span class="tabular-nums">{{ session.min_age }}+</span>
-                        </div>
-                    {% endif %}
                 </div>
-                {% if session.description %}
-                    <p class="text-foreground-secondary leading-relaxed text-pretty mt-6">{{ session.description }}</p>
-                {% endif %}
             </div>
             <div id="enrollment">
                 {% if party_choices %}

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 19:25+0200\n"
+"POT-Creation-Date: 2026-07-10 19:35+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2237,6 +2237,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/print/door-cards.html
 msgid "Capacity"
@@ -2940,7 +2941,6 @@ msgstr "Pełne"
 #: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
 msgid "waiting"
 msgstr "oczekuje"
 
@@ -3045,6 +3045,7 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
@@ -3053,6 +3054,7 @@ msgid "Time"
 msgstr "Czas"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/panel/proposal-create.html
@@ -3062,6 +3064,7 @@ msgid "Minimum Age"
 msgstr "Minimalny Wiek"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/session_tags.html
 msgid "years"
@@ -3125,22 +3128,9 @@ msgid "shadowbanned on %(date)s"
 msgstr "cicho zbanowany %(date)s"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Hosted by %(name)s"
-msgstr "Prowadzi %(name)s"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "%(counter)s seat left"
-msgid_plural "%(counter)s seats left"
-msgstr[0] "Zostało %(counter)s miejsce"
-msgstr[1] "Zostały %(counter)s miejsca"
-msgstr[2] "Zostało %(counter)s miejsc"
-msgstr[3] "Zostało %(counter)s miejsca"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "No seat limit"
-msgstr "Bez limitu miejsc"
+#: src/ludamus/templates/chronology/event.html
+msgid "About this session"
+msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Enrolling as"
@@ -3629,10 +3619,6 @@ msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
 #: src/ludamus/templates/chronology/event.html
 msgid "Information"
 msgstr "Informacje"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "About this session"
-msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "You are enrolled in this session"
@@ -7543,6 +7529,21 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#, python-format
+#~ msgid "Hosted by %(name)s"
+#~ msgstr "Prowadzi %(name)s"
+
+#, python-format
+#~ msgid "%(counter)s seat left"
+#~ msgid_plural "%(counter)s seats left"
+#~ msgstr[0] "Zostało %(counter)s miejsce"
+#~ msgstr[1] "Zostały %(counter)s miejsca"
+#~ msgstr[2] "Zostało %(counter)s miejsc"
+#~ msgstr[3] "Zostało %(counter)s miejsca"
+
+#~ msgid "No seat limit"
+#~ msgstr "Bez limitu miejsc"
 
 #~ msgid "Email column must be 1 or greater."
 #~ msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
