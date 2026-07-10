@@ -18,10 +18,10 @@
         </a>
         {# Absolute on mobile so the stacked time centers against the whole #}
         {# two-line row instead of only the title line it shares a flex line with. #}
-        <span class="w-8 shrink-0 whitespace-nowrap text-xs tabular-nums text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:w-28 max-sm:row-span-full">{{ data.agenda_item.start_time|time:"H:i" }}<span class="hidden sm:inline">–</span><span class="block sm:inline">{{ data.agenda_item.end_time|time:"H:i" }}</span></span>
+        <span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] pt-1.5 tabular-nums text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:w-28 max-sm:row-span-full">{{ data.agenda_item.start_time|time:"H:i" }}<span class="hidden sm:inline">–</span><span class="block sm:inline">{{ data.agenda_item.end_time|time:"H:i" }}</span></span>
         <span class="min-w-0 flex-1 truncate">
-            <span class="text-sm font-semibold text-foreground">{{ data.session.title }}</span>
-            <span class="ml-1.5 text-xs text-foreground-muted">{{ data.session.display_name }}</span>
+            <span class="text-sm font-semibold text-foreground [text-box:trim-start_cap_alphabetic]">{{ data.session.title }}</span>
+            <span class="ml-1.5 text-xs text-foreground-muted [text-box:trim-start_cap_alphabetic]">{{ data.session.display_name }}</span>
         </span>
         <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
               title="{{ data.location_label }}">
