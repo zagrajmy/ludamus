@@ -42,7 +42,7 @@ class SphereRepository(
     @staticmethod
     def read_by_domain(domain: str) -> SphereDTO:
         try:
-            sphere = Sphere.objects.get(site__domain=domain)
+            sphere = Sphere.objects.select_related("site").get(site__domain=domain)
         except Sphere.DoesNotExist as exception:
             raise NotFoundError from exception
 
@@ -59,17 +59,7 @@ class SphereRepository(
 
     @staticmethod
     def read_site(sphere_id: int) -> SiteDTO:
-        sphere = Sphere.objects.select_related("site").get(id=sphere_id)
-        return SiteDTO.model_validate(sphere.site)
-
-    @staticmethod
-    def read_with_site(pk: int) -> tuple[SphereDTO, SiteDTO]:
-        try:
-            sphere = Sphere.objects.select_related("site").get(id=pk)
-        except Sphere.DoesNotExist as exception:
-            raise NotFoundError from exception
-
-        return (SphereDTO.model_validate(sphere), SiteDTO.model_validate(sphere.site))
+        return SphereRepository.read(sphere_id).site
 
     @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool:
