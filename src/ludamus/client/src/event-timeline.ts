@@ -73,9 +73,10 @@ const initScheduleRail = (rail: HTMLElement): void => {
   );
   for (const section of sections) observer.observe(section);
 
-  // Drag-to-scrub: treat the rail like a slider. Pointer capture keeps events
-  // flowing to the rail even when the finger strays off it, and we resolve the
-  // marker by vertical position so dragging glides smoothly between hours.
+  // Drag-to-scrub: treat the rail like a slider. Move/end listeners live on the
+  // window so the scrub keeps tracking when the pointer strays off the narrow
+  // rail, and the marker resolves by vertical position so dragging glides
+  // smoothly between hours.
   let dragging = false;
   const linkAtY = (clientY: number): HTMLAnchorElement | null => {
     let nearest: HTMLAnchorElement | null = null;
@@ -101,6 +102,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
   };
 
   // A press only becomes a scrub after real movement; below the threshold the
+  // press stays an ordinary tap and the marker's click handler does the jump.
   const DRAG_THRESHOLD_PX = 6;
   let moved = false;
   let startY = 0;
@@ -133,14 +135,16 @@ const initScheduleRail = (rail: HTMLElement): void => {
   };
   globalThis.addEventListener("pointerup", endDrag);
   globalThis.addEventListener("pointercancel", endDrag);
-  globalThis.addEventListener("mouseup", endDrag);
 
   rail.addEventListener(
     "wheel",
     (event) => {
       if (!scrollRoot) return;
       event.preventDefault();
-      scrollRoot.scrollBy({ top: event.deltaY });
+      // Firefox reports line-based deltas for a mouse wheel; scale them to
+      // pixels or each notch would nudge the page by a few pixels only.
+      const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
+      scrollRoot.scrollBy({ top: event.deltaY * scale });
     },
     { passive: false },
   );
