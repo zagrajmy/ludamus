@@ -104,7 +104,6 @@ class Auth0LoginActionView(View):
         state_data = {
             "redirect_to": next_path,
             "created_at": datetime.now(UTC).isoformat(),
-            "csrf_token": request.META.get("CSRF_COOKIE", ""),
         }
         cache_key = f"oauth_state:{state_token}"
         cache.set(cache_key, json.dumps(state_data), timeout=CACHE_TIMEOUT)

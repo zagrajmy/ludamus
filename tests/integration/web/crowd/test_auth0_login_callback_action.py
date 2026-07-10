@@ -22,7 +22,6 @@ class TestAuth0LoginCallbackActionView:
         state_data = {
             "redirect_to": redirect_to,
             "created_at": datetime.now(UTC).isoformat(),
-            "csrf_token": "test_csrf_token",
         }
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
         return state_token
@@ -201,7 +200,6 @@ class TestAuth0LoginCallbackActionView:
         state_data = {
             "redirect_to": None,
             "created_at": (datetime.now(UTC) - timedelta(minutes=15)).isoformat(),
-            "csrf_token": "test_csrf_token",
         }
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
 
