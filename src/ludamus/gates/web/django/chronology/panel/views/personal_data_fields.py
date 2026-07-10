@@ -250,7 +250,7 @@ class PersonalDataFieldDeleteActionView(PanelAccessMixin, EventContextMixin, Vie
 
         if not deleted:
             messages.error(
-                self.request, _("Cannot delete field that is used in session types.")
+                self.request, _("Cannot delete field that is used in categories.")
             )
             return redirect("panel:personal-data-fields", slug=slug)
 

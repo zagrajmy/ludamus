@@ -253,7 +253,7 @@ class TestSessionEditViewPost:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{event.slug}/?session={owned_session.pk}",
+            url=f"/event/{event.slug}/?session={owned_session.pk}",
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"

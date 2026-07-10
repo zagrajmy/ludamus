@@ -17,7 +17,7 @@ test.describe("Modal surfaces using page scroll lock", () => {
     });
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
     await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
 

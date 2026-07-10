@@ -8,7 +8,7 @@ from ludamus.pacts.crowd import UserData, UserType
 
 class BaseUserForm(forms.Form):
     name = forms.CharField(
-        label=_("User name"),
+        label=_("Display name"),
         help_text=_(
             "Your public display name that others will see. This can be a nickname "
             "and does not need to be your legal name."

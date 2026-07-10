@@ -270,6 +270,15 @@ class WaitlistPromotionService:
             self._notifier.notify_offer_expired(notification)
         return self.fill_freed_seats(session_id=session_id)
 
+    def expire_lapsed_offers(self, *, now: datetime) -> int:
+        # The sweep floor under the per-offer timers: find every offer past its
+        # deadline and expire it. Safe to run repeatedly; expire_offer re-guards
+        # the deadline and no-ops on already resolved parties.
+        lapsed = self._participations.list_lapsed_offers(now)
+        for participation_id in lapsed:
+            self.expire_offer(participation_id=participation_id)
+        return len(lapsed)
+
 
 class NotificationsService:
     """Read path for the navbar notifications dropdown + mark-as-read."""

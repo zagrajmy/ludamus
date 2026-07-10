@@ -10,9 +10,11 @@ from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
+    MissingUniqueKeyColumnsError,
     RowSkippedError,
     cell,
     chosen_entities,
+    dedup_slug,
     extract_identity,
     field_name,
     field_setup,
@@ -80,6 +82,7 @@ class ImportEngine:
         settings: ImportSettings,
         indexed_rows: list[tuple[int, ImportRow]],
     ) -> ProposalImportResult:
+        self._guard_unique_key_columns(settings, indexed_rows)
         created = 0
         skipped = 0
         duplicates = 0
@@ -370,6 +373,23 @@ class ImportEngine:
             personal_field_ids=field_ids.personal,
         )
 
+    @staticmethod
+    def _guard_unique_key_columns(
+        settings: ImportSettings, indexed_rows: list[tuple[int, ImportRow]]
+    ) -> None:
+        # Headers are the same across a fetch, so one row settles it. Bail before
+        # any writes (field provisioning included) when a configured unique-key
+        # column isn't in the sheet — otherwise the identity silently collapses
+        # and distinct rows merge onto one slug.
+        if not (settings.unique_key_columns and indexed_rows):
+            return
+        _, sample = indexed_rows[0]
+        missing = [
+            col for col in settings.unique_key_columns if not sample.has_column(col)
+        ]
+        if missing:
+            raise MissingUniqueKeyColumnsError(missing)
+
     def _resolve_slug(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow, title: str
     ) -> str:
@@ -388,7 +408,7 @@ class ImportEngine:
         identity = "-".join(
             row.get_value(col, "") for col in settings.unique_key_columns
         )
-        slug = slugify(f"e{event_id}-{identity}") or f"e{event_id}-row"
+        slug = dedup_slug(event_id=event_id, identity=identity)
         if (
             existing_id := self._repos.sessions.find_id_by_slug(event_id, slug)
         ) is not None:

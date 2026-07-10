@@ -9,7 +9,7 @@ test.describe("Event filter panel", () => {
     });
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     await page.locator("#filter-toggle").click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
@@ -22,7 +22,7 @@ test.describe("Event filter panel", () => {
   });
 
   test("filters sessions by day and hour on a multi-day event", async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
     const card = (title: string) => page.locator(".session-card", { hasText: title });
     await expect(page.locator(".session-card")).toHaveCount(3);
@@ -52,7 +52,7 @@ test.describe("Event filter panel", () => {
   });
 
   test("filters by host name case-insensitively", async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
     const card = (title: string) => page.locator(".session-card", { hasText: title });
 
@@ -76,7 +76,7 @@ test.describe("Event fuzzy search", () => {
   const NEON = "Przygoda w Mieście Neonów";
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     await expect(card(page, NEON)).toBeVisible();
     await expect(card(page, MEGA)).toBeVisible();
   });

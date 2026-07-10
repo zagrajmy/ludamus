@@ -95,7 +95,7 @@ class CFPCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, name
         )
 
-        messages.success(self.request, _("Session type created successfully."))
+        messages.success(self.request, _("Category created successfully."))
 
         if self.request.POST.get("action") == "create_and_configure":
             return redirect(
@@ -126,7 +126,7 @@ class CFPEditPageView(PanelAccessMixin, EventContextMixin, View):
                 current_event.pk, category_slug
             )
         except NotFoundError:
-            messages.error(self.request, _("Session type not found."))
+            messages.error(self.request, _("Category not found."))
             return redirect("panel:cfp", slug=event_slug)
 
         context["active_nav"] = "cfp"
@@ -217,7 +217,7 @@ class CFPEditPageView(PanelAccessMixin, EventContextMixin, View):
                 current_event.pk, category_slug
             )
         except NotFoundError:
-            messages.error(self.request, _("Session type not found."))
+            messages.error(self.request, _("Category not found."))
             return redirect("panel:cfp", slug=event_slug)
 
         form = ProposalCategoryForm(self.request.POST)
@@ -338,7 +338,7 @@ class CFPEditPageView(PanelAccessMixin, EventContextMixin, View):
             category.pk, time_slot_requirements, time_slot_order
         )
 
-        messages.success(self.request, _("Session type updated successfully."))
+        messages.success(self.request, _("Category updated successfully."))
         return redirect("panel:cfp", slug=event_slug)
 
 
@@ -365,15 +365,15 @@ class CFPDeleteActionView(PanelAccessMixin, EventContextMixin, View):
                 current_event.pk, category_slug
             )
         except NotFoundError:
-            messages.error(self.request, _("Session type not found."))
+            messages.error(self.request, _("Category not found."))
             return redirect("panel:cfp", slug=event_slug)
 
         service = PanelService(self.request.di.uow)
         if not service.delete_category(category.pk):
             messages.error(
-                self.request, _("Cannot delete session type with existing proposals.")
+                self.request, _("Cannot delete category with existing proposals.")
             )
             return redirect("panel:cfp", slug=event_slug)
 
-        messages.success(self.request, _("Session type deleted successfully."))
+        messages.success(self.request, _("Category deleted successfully."))
         return redirect("panel:cfp", slug=event_slug)

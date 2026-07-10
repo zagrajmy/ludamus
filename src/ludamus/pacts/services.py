@@ -42,7 +42,10 @@ if TYPE_CHECKING:
         SpherePanelServiceProtocol,
     )
     from ludamus.pacts.party import PartyServiceProtocol
-    from ludamus.pacts.printing import PrintMaterialsServiceProtocol
+    from ludamus.pacts.printing import (
+        PrintablesReminderServiceProtocol,
+        PrintMaterialsServiceProtocol,
+    )
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -115,6 +118,8 @@ class ServicesProtocol(Protocol):
     def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
+    @property
+    def printables_reminder(self) -> PrintablesReminderServiceProtocol: ...
     @property
     def venues(self) -> VenuesServiceProtocol: ...
     @property

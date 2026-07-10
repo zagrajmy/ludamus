@@ -15,10 +15,18 @@ from .icon import icon
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
 
-TAB_NAV_CLASS = "inline-flex gap-1 items-end"
+# On a narrow viewport four tabs are wider than the card, so the strip scrolls
+# horizontally instead of forcing the whole page to overflow (tab-scroll.ts
+# nudges the selected tab into view). `overflow-y-hidden` keeps the active
+# tab's -mb-px pull from raising a stray 1px vertical scrollbar. From `sm` up
+# the tabs fit, so overflow returns to visible and the active tab keeps its
+# shadow/1px overlap seam.
+TAB_NAV_CLASS = (
+    "flex gap-1 items-end overflow-x-auto overflow-y-hidden sm:overflow-visible"
+)
 _TAB_BASE = (
-    "inline-flex items-center gap-1.5 px-4 text-sm font-medium"
-    " rounded-t-lg transition-colors"
+    "inline-flex items-center gap-1.5 px-4 text-sm font-medium whitespace-nowrap"
+    " shrink-0 rounded-t-lg transition-colors"
 )
 TAB_ACTIVE_CLASS = (
     f"{_TAB_BASE} py-2.5 bg-bg-secondary text-primary"

@@ -202,7 +202,7 @@ class TestSemantic404Recovery:
     def test_non_get_request_falls_through_to_themed_404(rf):
         # Only safe, idempotent navigations are recovered; a 404'd POST keeps
         # the themed page rather than being redirected.
-        response = custom_404(rf.post("/chronology/event/ghost./"), None)
+        response = custom_404(rf.post("/event/ghost./"), None)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert response.template_name == "404_dynamic.html"

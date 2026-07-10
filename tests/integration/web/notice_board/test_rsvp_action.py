@@ -112,6 +112,32 @@ class TestEncounterRSVPActionView:
             ),
         )
 
+    def test_ip_throttle_uses_rightmost_x_forwarded_for(
+        self, authenticated_client, encounter
+    ):
+        authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.50",
+            follow=True,
+        )
+
+        response = authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_X_FORWARDED_FOR="5.6.7.8, 203.0.113.50",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=(
+                (constants.ERROR, "Please wait a moment before signing up again."),
+            ),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+
     def test_not_found(self, authenticated_client):
         response = authenticated_client.post(
             reverse("web:notice-board:encounter-rsvp", kwargs={"share_code": "XXXXXX"})
