@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 11:27+0200\n"
+"POT-Creation-Date: 2026-07-10 19:25+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3123,6 +3123,24 @@ msgstr "Gracze, których cicho zbanowałeś, są już tutaj zapisani"
 #, python-format
 msgid "shadowbanned on %(date)s"
 msgstr "cicho zbanowany %(date)s"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#, python-format
+msgid "Hosted by %(name)s"
+msgstr "Prowadzi %(name)s"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#, python-format
+msgid "%(counter)s seat left"
+msgid_plural "%(counter)s seats left"
+msgstr[0] "Zostało %(counter)s miejsce"
+msgstr[1] "Zostały %(counter)s miejsca"
+msgstr[2] "Zostało %(counter)s miejsc"
+msgstr[3] "Zostało %(counter)s miejsca"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "No seat limit"
+msgstr "Bez limitu miejsc"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Enrolling as"

@@ -34,9 +34,17 @@ if (root) {
   const unlimited = root.dataset.seatsLeft === undefined;
   const seatsLeft = Number(root.dataset.seatsLeft ?? 0);
   const rows = [...root.querySelectorAll<HTMLElement>("[data-enroll-row]")];
+  // The footer tally aggregates the row hints into one glanceable instrument:
+  // how many of this submit's newcomers take seats, how many join the waiting
+  // list. Icon + number only — the words live on the rows.
+  const tally = root.querySelector<HTMLElement>("[data-enroll-tally]");
+  const tallySeats = root.querySelector<HTMLElement>("[data-enroll-tally-seats]");
+  const tallyWait = root.querySelector<HTMLElement>("[data-enroll-tally-wait]");
 
   const update = (): void => {
     let free = seatsLeft;
+    let seated = 0;
+    let waiting = 0;
     // Cancels first, exactly like the server: a freed seat is available to a
     // newcomer in the same submit.
     for (const row of rows) {
@@ -52,14 +60,21 @@ if (root) {
         if (unlimited || free > 0) {
           paint(hint, "seat", root.dataset.msgSeat ?? "");
           if (!unlimited) free -= 1;
+          seated += 1;
         } else {
           paint(hint, "wait", root.dataset.msgWait ?? "");
+          waiting += 1;
         }
       } else if (!box.checked && currentIn) {
         paint(hint, "leave", root.dataset.msgLeave ?? "");
       } else {
         paint(hint, null);
       }
+    }
+    if (tally && tallySeats && tallyWait) {
+      tallySeats.textContent = String(seated);
+      tallyWait.textContent = String(waiting);
+      tally.hidden = seated + waiting === 0;
     }
   };
 
