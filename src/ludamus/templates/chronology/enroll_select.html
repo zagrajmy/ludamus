@@ -189,17 +189,8 @@
                             </div>
                         {% endif %}
                         {# The add-companions link only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
-                        {% if user_data|length == 1 %}
-                            {% if not party_choices or selected_party.is_own_led %}
-                                <p class="border-t border-border px-4 py-3 text-sm text-foreground-muted">
-                                    <a href="{% url 'web:crowd:profile-parties' %}"
-                                       class="text-primary hover:underline">{% translate "Add companions in your profile settings" %}</a>
-                                </p>
-                            {% endif %}
-                        {% endif %}
                         {# The action is anchored to the panel it acts on, and its label #}
-                        {# states the outcome for the common solo case instead of a #}
-                        {# generic "save". #}
+                        {# states the outcome instead of a generic "save". #}
                         <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-3">
                             <a href="{% url 'web:chronology:event' slug=event.slug %}"
                                class="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground">
@@ -223,28 +214,40 @@
                                     <span data-enroll-tally-wait class="font-medium">0</span>
                                 </span>
                             </span>
-                            {% enroll_row_state form=form data=user_data.0 as viewer_state %}
-                            {% if user_data|length == 1 and not viewer_state.checked and not viewer_state.disabled %}
+                            {# The label states the submit's outcome: the pre-checked #}
+                            {# viewer joining (seat or waiting list), else a plain #}
+                            {# confirm for roster management. enroll-preview.ts keeps #}
+                            {# it truthful as boxes toggle. #}
+                            {% enroll_row_state form=form data=user_data.0 viewer_pk=request.user.pk as viewer_state %}
+                            {% if viewer_state.box_checked and not viewer_state.checked and not viewer_state.disabled %}
                                 {% if seats_left is None or seats_left > 0 %}
-                                    <button type="submit" class="btn btn-primary">
-                                        {% icon "user-plus" class="w-4 h-4" %}
-                                        {% translate "Join this session" %}
-                                    </button>
+                                    {% translate "Join this session" as cta_label %}
                                 {% else %}
-                                    <button type="submit" class="btn btn-primary">
-                                        {% icon "clock" class="w-4 h-4" %}
-                                        {% translate "Join the waiting list" %}
-                                    </button>
+                                    {% translate "Join the waiting list" as cta_label %}
                                 {% endif %}
                             {% else %}
-                                <button type="submit" class="btn btn-primary">
-                                    {% icon "check" class="w-4 h-4" %}
-                                    {% translate "Save changes" %}
-                                </button>
+                                {% translate "Confirm" as cta_label %}
                             {% endif %}
+                            <button type="submit"
+                                    class="btn btn-primary"
+                                    data-enroll-cta
+                                    data-msg-join="{% translate "Join this session" %}"
+                                    data-msg-wait-join="{% translate "Join the waiting list" %}"
+                                    data-msg-confirm="{% translate "Confirm" %}">{{ cta_label }}</button>
                         </div>
                     </div>
                 </form>
+                {# Quiet footnote on the page background, only when the viewer's #}
+                {# own companions could appear above: their own led party, or no #}
+                {# parties yet. #}
+                {% if user_data|length == 1 %}
+                    {% if not party_choices or selected_party.is_own_led %}
+                        <p class="mt-3 text-center text-xs text-foreground-muted">
+                            <a href="{% url 'web:crowd:profile-parties' %}"
+                               class="underline underline-offset-2 hover:text-foreground">{% translate "Add companions in your profile settings" %}</a>
+                        </p>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
     </div>

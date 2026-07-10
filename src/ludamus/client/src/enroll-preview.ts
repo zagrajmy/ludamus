@@ -46,11 +46,18 @@ if (root) {
   // next submit — the server routes people before touching guests — so a
   // negative delta deliberately does not enter the projection.
   const guests = root.querySelector<HTMLInputElement>('input[name="guests"]');
+  // The submit button states the outcome. The server renders the initial
+  // label; this keeps it truthful as boxes toggle: the viewer joining reads
+  // "Join this session" / "Join the waiting list", anything else "Confirm".
+  const cta = root.querySelector<HTMLElement>("[data-enroll-cta]");
 
   const update = (): void => {
     let free = seatsLeft;
     let seated = 0;
     let waiting = 0;
+    // The viewer is the first row (household order); track whether this
+    // submit takes them from out to seated or to the waiting list.
+    let viewerJoins: HintTone | null = null;
     // Cancels first, exactly like the server: a freed seat is available to a
     // newcomer in the same submit.
     for (const row of rows) {
@@ -67,9 +74,11 @@ if (root) {
           paint(hint, "seat", root.dataset.msgSeat ?? "");
           if (!unlimited) free -= 1;
           seated += 1;
+          if (row === rows[0] && !box.disabled) viewerJoins = "seat";
         } else {
           paint(hint, "wait", root.dataset.msgWait ?? "");
           waiting += 1;
+          if (row === rows[0] && !box.disabled) viewerJoins = "wait";
         }
       } else if (!box.checked && currentIn) {
         paint(hint, "leave", root.dataset.msgLeave ?? "");
@@ -85,6 +94,11 @@ if (root) {
       tallySeats.textContent = String(seated);
       tallyWait.textContent = String(waiting);
       tally.hidden = seated + waiting === 0;
+    }
+    if (cta) {
+      if (viewerJoins === "seat") cta.textContent = cta.dataset.msgJoin ?? "";
+      else if (viewerJoins === "wait") cta.textContent = cta.dataset.msgWaitJoin ?? "";
+      else cta.textContent = cta.dataset.msgConfirm ?? "";
     }
   };
 

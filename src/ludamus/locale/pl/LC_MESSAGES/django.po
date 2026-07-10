@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 23:09+0200\n"
+"POT-Creation-Date: 2026-07-10 23:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3153,10 +3153,6 @@ msgid "Include %(name)s"
 msgstr "Uwzględnij: %(name)s"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-msgid "Add companions in your profile settings"
-msgstr "Dodaj osoby towarzyszące w ustawieniach profilu"
-
-#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
 msgstr "Dołącz do tego punktu programu"
 
@@ -3165,10 +3161,13 @@ msgid "Join the waiting list"
 msgstr "Dołącz do listy oczekujących"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "Save changes"
-msgstr "Zapisz zmiany"
+#: src/ludamus/templates/components/confirm-dialog.html
+msgid "Confirm"
+msgstr "Potwierdź"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Add companions in your profile settings"
+msgstr "Dodaj osoby towarzyszące w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Happening now!"
@@ -3776,6 +3775,11 @@ msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Save changes"
+msgstr "Zapisz zmiany"
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Saved"
 msgstr "Zapisano"
@@ -4027,10 +4031,6 @@ msgstr "%(name_value)s (oznaczony)"
 
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
-msgstr "Potwierdź"
-
-#: src/ludamus/templates/components/confirm-dialog.html
-msgid "Confirm"
 msgstr "Potwierdź"
 
 #: src/ludamus/templates/components/encounter_card.html

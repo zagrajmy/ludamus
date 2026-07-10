@@ -2561,10 +2561,9 @@ class TestOutcomeStatedCta:
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
             context_data=ANY,
-            contains=["Join this session"],
-            not_contains=["Save changes"],
         )
         content = " ".join(response.content.decode().split())
+        assert ">Join this session</button>" in content
         assert "checked" in input_tag(content, staff_user.pk)
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -2587,14 +2586,12 @@ class TestOutcomeStatedCta:
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
             context_data=ANY,
-            contains=["Join the waiting list"],
-            not_contains=["Join this session"],
         )
+        content = " ".join(response.content.decode().split())
+        assert ">Join the waiting list</button>" in content
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_enrolled_viewer_gets_save_changes(
-        self, staff_user, agenda_item, staff_client
-    ):
+    def test_enrolled_viewer_gets_confirm(self, staff_user, agenda_item, staff_client):
         SessionParticipation.objects.create(
             user=staff_user,
             session=agenda_item.session,
@@ -2610,6 +2607,6 @@ class TestOutcomeStatedCta:
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
             context_data=ANY,
-            contains=["Save changes"],
-            not_contains=["Join this session"],
         )
+        content = " ".join(response.content.decode().split())
+        assert ">Confirm</button>" in content
