@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0118_backfill_scheduled_sessions_to_accepted")]
+    dependencies = [("db_main", "0119_event_printables_last_printed_at_and_more")]
 
     operations = [
         migrations.AddField(
