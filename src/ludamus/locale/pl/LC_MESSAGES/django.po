@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 19:58+0200\n"
+"POT-Creation-Date: 2026-07-10 22:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3131,6 +3131,18 @@ msgid "About this session"
 msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/enroll_select.html
+msgid "Gets a seat"
+msgstr "Dostaje miejsce"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Joins the waiting list"
+msgstr "Trafia na listę oczekujących"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "Will leave the session"
+msgstr "Opuści ten punkt programu"
+
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Enrolling as"
 msgstr "Zapisujesz się jako"
 
@@ -3187,18 +3199,6 @@ msgstr[3] ""
 "gdy miejsc zabraknie, reszta trafia na listę oczekujących."
 
 #: src/ludamus/templates/chronology/enroll_select.html
-msgid "Gets a seat"
-msgstr "Dostaje miejsce"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "Joins the waiting list"
-msgstr "Trafia na listę oczekujących"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "Will leave the session"
-msgstr "Opuści ten punkt programu"
-
-#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 msgid "You"
 msgstr "Ty"
@@ -3213,6 +3213,14 @@ msgid "Include %(name)s"
 msgstr "Uwzględnij: %(name)s"
 
 #: src/ludamus/templates/chronology/enroll_select.html
+msgid "No companions available. You can add companions to your party in your"
+msgstr "Brak towarzyszy. Towarzyszy do swojej drużyny możesz dodać w sekcji"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+msgid "profile settings"
+msgstr "ustawieniach profilu"
+
+#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
 msgstr "Dołącz do tego punktu programu"
 
@@ -3225,14 +3233,6 @@ msgstr "Dołącz do listy oczekujących"
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "No companions available. You can add companions to your party in your"
-msgstr "Brak towarzyszy. Towarzyszy do swojej drużyny możesz dodać w sekcji"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-msgid "profile settings"
-msgstr "ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Happening now!"
@@ -4218,6 +4218,14 @@ msgstr "Przełącz dźwięki interfejsu"
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Interface sound (Velvet)"
 msgstr "Dźwięki interfejsu (Velvet)"
+
+#: src/ludamus/templates/components/stepper-field.html
+msgid "Decrease"
+msgstr "Zmniejsz"
+
+#: src/ludamus/templates/components/stepper-field.html
+msgid "Increase"
+msgstr "Zwiększ"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "Select a display theme:"

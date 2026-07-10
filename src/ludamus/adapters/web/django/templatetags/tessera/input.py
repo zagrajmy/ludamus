@@ -21,7 +21,7 @@ _INPUTMODE_BY_TYPE = {
 _NO_SPELLCHECK_TYPES = frozenset({"email", "url", "tel", "password"})
 
 
-def render_input(field: BoundField) -> str:
+def render_input(field: BoundField, *, stepper: bool = False) -> str:
     """Render a styled ``<input>``.
 
     Returns:
@@ -31,6 +31,20 @@ def render_input(field: BoundField) -> str:
     attrs = widget.attrs
     value = field.value()
     input_type = getattr(widget, "input_type", "text")
+    if stepper and input_type == "number":
+        return render_to_string(
+            "components/stepper-field.html",
+            {
+                "name": field.html_name,
+                "id": field.id_for_label,
+                "value": "" if value is None else str(value),
+                "required": field.field.required,
+                "disabled": attrs.get("disabled", False),
+                "min": str(attrs.get("min", "")),
+                "max": str(attrs.get("max", "")),
+                "has_errors": bool(field.errors),
+            },
+        )
     spellcheck = attrs.get("spellcheck")
     if spellcheck is None and input_type in _NO_SPELLCHECK_TYPES:
         spellcheck = "false"

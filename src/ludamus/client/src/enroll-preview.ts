@@ -40,6 +40,12 @@ if (root) {
   const tally = root.querySelector<HTMLElement>("[data-enroll-tally]");
   const tallySeats = root.querySelector<HTMLElement>("[data-enroll-tally-seats]");
   const tallyWait = root.querySelector<HTMLElement>("[data-enroll-tally-wait]");
+  // Guests count as seats too. Added guests always take confirmed seats after
+  // the people rows (the server rejects an over-capacity guest count outright,
+  // it never waitlists guests), and removed guests free seats only for the
+  // next submit — the server routes people before touching guests — so a
+  // negative delta deliberately does not enter the projection.
+  const guests = root.querySelector<HTMLInputElement>('input[name="guests"]');
 
   const update = (): void => {
     let free = seatsLeft;
@@ -70,6 +76,10 @@ if (root) {
       } else {
         paint(hint, null);
       }
+    }
+    if (guests) {
+      const added = Number(guests.value || 0) - Number(guests.defaultValue || 0);
+      if (added > 0) seated += added;
     }
     if (tally && tallySeats && tallyWait) {
       tallySeats.textContent = String(seated);

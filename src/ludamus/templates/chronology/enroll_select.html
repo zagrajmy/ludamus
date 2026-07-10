@@ -38,108 +38,75 @@
         {# design as the event modal's Information tab — and the enrollment #}
         {# panel sits on the right; on mobile they stack into one column. #}
         <div class="grid grid-cols-1 lg:grid-cols-[5fr_6fr] gap-8 lg:gap-10 items-start">
-            <div>
-                <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
-                <h1 class="text-3xl sm:text-4xl font-bold text-foreground text-balance">{{ session.title }}</h1>
-                {# The when-and-how-full facts a joiner decides on, promoted #}
-                {# right under the title; the capacity pill matches the modal. #}
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-sm text-foreground-secondary">
-                    <span class="inline-flex items-center gap-1.5">
-                        {% icon "clock" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                        {{ session.agenda_item.start_time|date:"l, j E" }} ·
-                        <span class="tabular-nums">{{ session.agenda_item.start_time|time:"G:i" }}–{{ session.agenda_item.end_time|time:"G:i" }}</span>
-                    </span>
-                    {# An unlimited session has effective limit 0 — no capacity #}
-                    {# pill rather than a nonsense "3/0" fraction, same as the modal. #}
-                    {% if session.effective_participants_limit > 0 %}
+            {# The session's own card, mirroring the modal's Information tab #}
+            {# and carrying the whole header: cover (session's own, else the #}
+            {# event's, else a placeholder), title with the when-and-how-full #}
+            {# facts a joiner decides on, host & location row, description, #}
+            {# remaining details. Same data, same design — the page and the #}
+            {# modal stay one family. #}
+            {% session_cover_image session as session_cover_url %}
+            {% firstof session_cover_url event.cover_image_url as page_cover_url %}
+            <div class="card overflow-hidden">
+                {% if page_cover_url %}
+                    <img src="{{ page_cover_url }}"
+                         alt=""
+                         width="640"
+                         height="360"
+                         class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover">
+                {% endif %}
+                <div class="card-body">
+                    <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-foreground text-balance">{{ session.title }}</h1>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 mb-6 text-sm text-foreground-secondary">
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums {% if seats_left == 0 %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
-                                {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
-                            </span>
-                            {% if session.waiting_count > 0 %}
-                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums bg-warning-light text-warning-text">+{{ session.waiting_count }}</span>
-                            {% endif %}
+                            {% icon "clock" class="size-4 shrink-0 opacity-80" variant="mini" %}
+                            {{ session.agenda_item.start_time|date:"l, j E" }} ·
+                            <span class="tabular-nums">{{ session.agenda_item.start_time|time:"G:i" }}–{{ session.agenda_item.end_time|time:"G:i" }}</span>
                         </span>
-                    {% endif %}
-                </div>
-                {# The session's own card, mirroring the modal's Information tab: #}
-                {# cover (session's own, else the event's, else a placeholder), #}
-                {# host & location row, description, remaining details. Same #}
-                {# data, same design — the page and the modal stay one family. #}
-                {% session_cover_image session as session_cover_url %}
-                {% firstof session_cover_url event.cover_image_url as page_cover_url %}
-                <div class="card mt-6 overflow-hidden">
-                    {% if page_cover_url %}
-                        <img src="{{ page_cover_url }}"
-                             alt=""
-                             width="640"
-                             height="360"
-                             class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover">
-                    {% endif %}
-                    <div class="card-body">
-                        <div class="flex items-center gap-3 mb-6">
-                            {% if session.presenter %}
-                                <span class="shrink-0">{% include "components/avatar.html" with user=session.presenter size="size-10" %}</span>
-                            {% endif %}
-                            <div class="flex items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                                <div class="font-medium text-foreground">{{ session.display_name }}</div>
-                                {% if session.agenda_item.space %}
-                                    <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
-                                        {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                                        <span class="truncate" title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
-                                    </span>
+                        {# An unlimited session has effective limit 0 — no capacity #}
+                        {# pill rather than a nonsense "3/0" fraction, same as the modal. #}
+                        {% if session.effective_participants_limit > 0 %}
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums {% if seats_left == 0 %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
+                                    {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
+                                </span>
+                                {% if session.waiting_count > 0 %}
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums bg-warning-light text-warning-text">+{{ session.waiting_count }}</span>
                                 {% endif %}
-                            </div>
-                        </div>
-                        {% if session.description %}
-                            <div {% if session.min_age > 0 %}class="mb-6"{% endif %}>
-                                <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground">{{ session.description|render_markdown }}</div>
-                            </div>
-                        {% endif %}
-                        {% if session.min_age > 0 %}
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                                    <div class="font-medium text-foreground">{{ session.min_age }}+ {% translate "years" %}</div>
-                                </div>
-                            </div>
+                            </span>
                         {% endif %}
                     </div>
+                    <div class="flex items-center gap-3 mb-6">
+                        {% if session.presenter %}
+                            <span class="shrink-0">{% include "components/avatar.html" with user=session.presenter size="size-10" %}</span>
+                        {% endif %}
+                        <div class="flex items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
+                            <div class="font-medium text-foreground">{{ session.display_name }}</div>
+                            {% if session.agenda_item.space %}
+                                <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
+                                    {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
+                                    <span class="truncate" title="{{ session.agenda_item.space }}">{{ session.agenda_item.space }}</span>
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if session.description %}
+                        <div {% if session.min_age > 0 %}class="mb-6"{% endif %}>
+                            <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
+                            <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground">{{ session.description|render_markdown }}</div>
+                        </div>
+                    {% endif %}
+                    {% if session.min_age > 0 %}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
+                                <div class="font-medium text-foreground">{{ session.min_age }}+ {% translate "years" %}</div>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
             <div id="enrollment">
-                {% if party_choices %}
-                    <div class="mb-6">
-                        <p class="flex items-center gap-1.5 text-sm font-medium mb-2">
-                            {% icon "user-group" class="w-4 h-4" %}
-                            {% translate "Enrolling as" %}
-                        </p>
-                        <div class="flex flex-wrap gap-2">
-                            <a href="?party=none#enrollment"
-                               {% if not selected_party %}aria-current="true"{% endif %}
-                               class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if not selected_party %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
-                                {% translate "Just myself" %}
-                            </a>
-                            {% for party in party_choices %}
-                                <a href="?party={{ party.pk }}#enrollment"
-                                   {% if selected_party.pk == party.pk %}aria-current="true"{% endif %}
-                                   class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if selected_party.pk == party.pk %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
-                                    {% if party.name %}
-                                        {{ party.name }}
-                                    {% elif party.is_own_led %}
-                                        {% translate "Your party" %}
-                                    {% else %}
-                                        {% blocktranslate with leader_name=party.leader_name %}Party of {{ leader_name }}{% endblocktranslate %}
-                                    {% endif %}
-                                </a>
-                            {% endfor %}
-                        </div>
-                        {% if selected_party %}
-                            <p class="text-xs text-foreground-muted mt-2">{% translate "The party moves up the waiting list together." %}</p>
-                        {% endif %}
-                    </div>
-                {% endif %}
                 <form method="post">
                     {% csrf_token %}
                     {# Marks a desired-state submit: the system routes each included #}
@@ -151,29 +118,64 @@
                     {% elif party_choices %}
                         <input type="hidden" name="party" value="none">
                     {% endif %}
-                    <h2 class="text-lg font-semibold mb-1">{% translate "Who should be in this session?" %}</h2>
-                    <p class="text-sm text-foreground-muted mb-4">
-                        {% if seats_left is None %}
-                            {% translate "Tick everyone who should take part." %}
-                        {% elif seats_left == 0 %}
-                            {% translate "The session is full — everyone you add joins the waiting list." %}
-                        {% else %}
-                            {% blocktranslate count counter=seats_left %}There is {{ counter }} seat left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% plural %}There are {{ counter }} seats left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% endblocktranslate %}
-                        {% endif %}
-                    </p>
-                    {# One quiet surface holds every seat-consumer: people rows first, #}
-                    {# then the guests stepper. The whole row is the toggle's hit area. #}
-                    {# The data attributes feed enroll-preview.ts, which projects each #}
-                    {# ticked row to "gets a seat" / "joins the waiting list" using the #}
-                    {# same order and seat accounting as the server's routing. #}
-                    <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden mb-6 shadow-xl"
+                    {# One card holds the whole decision: who enrolls (party pills), #}
+                    {# the question with the seats-left answer, then every #}
+                    {# seat-consumer — people rows first, the guests stepper after. #}
+                    {# The whole row is the toggle's hit area. The data attributes #}
+                    {# feed enroll-preview.ts, which projects each ticked row to #}
+                    {# "gets a seat" / "joins the waiting list" using the same order #}
+                    {# and seat accounting as the server's routing. #}
+                    <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden shadow-xl"
                          style="box-shadow: var(--shadow-elevated)"
                          data-enroll-preview
                          {% if seats_left is not None %}data-seats-left="{{ seats_left }}"{% endif %}
                          data-msg-seat="{% translate "Gets a seat" %}"
                          data-msg-wait="{% translate "Joins the waiting list" %}"
                          data-msg-leave="{% translate "Will leave the session" %}">
-                        <ul class="divide-y divide-border">
+                        <div class="px-4 pt-4 pb-3">
+                            {% if party_choices %}
+                                <div class="mb-4">
+                                    <p class="flex items-center gap-1.5 text-sm font-medium mb-2">
+                                        {% icon "user-group" class="w-4 h-4" %}
+                                        {% translate "Enrolling as" %}
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <a href="?party=none#enrollment"
+                                           {% if not selected_party %}aria-current="true"{% endif %}
+                                           class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if not selected_party %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
+                                            {% translate "Just myself" %}
+                                        </a>
+                                        {% for party in party_choices %}
+                                            <a href="?party={{ party.pk }}#enrollment"
+                                               {% if selected_party.pk == party.pk %}aria-current="true"{% endif %}
+                                               class="inline-block border-2 rounded-full px-4 py-1.5 text-sm transition-colors {% if selected_party.pk == party.pk %}border-primary bg-primary/5 font-medium text-foreground{% else %}border-border text-foreground-secondary hover:border-primary/50{% endif %}">
+                                                {% if party.name %}
+                                                    {{ party.name }}
+                                                {% elif party.is_own_led %}
+                                                    {% translate "Your party" %}
+                                                {% else %}
+                                                    {% blocktranslate with leader_name=party.leader_name %}Party of {{ leader_name }}{% endblocktranslate %}
+                                                {% endif %}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                    {% if selected_party %}
+                                        <p class="text-xs text-foreground-muted mt-2">{% translate "The party moves up the waiting list together." %}</p>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            <h2 class="text-lg font-semibold mb-1">{% translate "Who should be in this session?" %}</h2>
+                            <p class="text-sm text-foreground-muted">
+                                {% if seats_left is None %}
+                                    {% translate "Tick everyone who should take part." %}
+                                {% elif seats_left == 0 %}
+                                    {% translate "The session is full — everyone you add joins the waiting list." %}
+                                {% else %}
+                                    {% blocktranslate count counter=seats_left %}There is {{ counter }} seat left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% plural %}There are {{ counter }} seats left — people you tick get seats in order, and once seats run out the rest join the waiting list.{% endblocktranslate %}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <ul class="divide-y divide-border border-t border-border">
                             {% for row in user_data %}
                                 {% enroll_row_state form=form data=row viewer_pk=request.user.pk as state %}
                                 <li data-enroll-row
@@ -210,9 +212,17 @@
                             {% endfor %}
                         </ul>
                         {% if form.has_guests %}
-                            <div class="border-t border-border px-4 py-3">
-                                <div class="max-w-xs">{% tessera_field form.guests %}</div>
-                            </div>
+                            <div class="border-t border-border px-4 py-3">{% tessera_field form.guests stepper=True %}</div>
+                        {% endif %}
+                        {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
+                        {% if user_data|length == 1 %}
+                            {% if not party_choices or selected_party.is_own_led %}
+                                <p class="border-t border-border px-4 py-3 text-sm text-foreground-muted">
+                                    {% translate "No companions available. You can add companions to your party in your" %}
+                                    <a href="{% url 'web:crowd:profile-parties' %}"
+                                       class="text-primary hover:underline">{% translate "profile settings" %}</a>.
+                                </p>
+                            {% endif %}
                         {% endif %}
                         {# The action is anchored to the panel it acts on, and its label #}
                         {# states the outcome for the common solo case instead of a #}
@@ -261,16 +271,6 @@
                             {% endif %}
                         </div>
                     </div>
-                    {# The add-companions hint only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
-                    {% if user_data|length == 1 %}
-                        {% if not party_choices or selected_party.is_own_led %}
-                            <p class="text-sm text-foreground-muted">
-                                {% translate "No companions available. You can add companions to your party in your" %}
-                                <a href="{% url 'web:crowd:profile-parties' %}"
-                                   class="text-primary hover:underline">{% translate "profile settings" %}</a>.
-                            </p>
-                        {% endif %}
-                    {% endif %}
                 </form>
             </div>
         </div>
