@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
+from ._choices import render_forced_choice, single_required_choice
 from .errors import render_errors, render_help_text
 from .label import render_label
 
@@ -37,6 +38,16 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
     Returns:
         HTML string of the multi-choice field.
     """
+    if (forced := single_required_choice(field)) is not None:
+        return "\n".join(
+            [
+                render_label(field),
+                render_forced_choice(field, forced),
+                render_help_text(field),
+                render_errors(field),
+            ]
+        )
+
     options = []
     for i, (value, choice_label) in enumerate(field.field.choices):  # type: ignore[attr-defined]
         input_id = f"{field.id_for_label}_{i}"

@@ -156,14 +156,14 @@ class TestFacilitatorEditPageView:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
 
-    def test_post_updates_facilitator_and_redirects(
+    def test_post_redirects_and_keeps_cached_display_name(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
 
         response = authenticated_client.post(
-            self.get_url(event), data={"display_name": "Updated Name"}
+            self.get_url(event), data={"accreditation_type": "none"}
         )
 
         assert_response(
@@ -176,17 +176,53 @@ class TestFacilitatorEditPageView:
             ),
         )
         facilitator.refresh_from_db()
-        assert facilitator.display_name == "Updated Name"
+        # display_name is a read-only cache: a posted value must not change it.
+        assert facilitator.display_name == "Alice"
 
-    def test_post_shows_errors_on_invalid_data(
+    def test_post_ignores_submitted_display_name(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
-            self.get_url(event), data={"display_name": ""}
+        authenticated_client.post(
+            self.get_url(event), data={"display_name": "Hacked Name"}
         )
+
+        facilitator.refresh_from_db()
+        assert facilitator.display_name == "Alice"
+
+    def test_post_updates_accreditation_type(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event, accreditation_type="none")
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={"display_name": "Alice", "accreditation_type": "honorary"},
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == "honorary"
+
+    def test_get_preselects_current_accreditation_type(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, accreditation_type="guest")
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.context["form"].initial["accreditation_type"] == "guest"
+
+    def test_get_does_not_render_display_name_input(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -198,8 +234,8 @@ class TestFacilitatorEditPageView:
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "personal_fields": [],
             },
+            not_contains='name="display_name"',
         )
-        assert response.context["form"].errors
 
     def test_post_saves_checkbox_personal_data_field(
         self, authenticated_client, active_user, sphere, event

@@ -36,16 +36,15 @@ def _expected_session(session):
 
 
 @pytest.fixture(name="owned_session")
-def owned_session_fixture(event, active_user, sphere):
+def owned_session_fixture(event, active_user):
     category = ProposalCategoryFactory(event=event)
     return SessionFactory(
         category=category,
         presenter=active_user,
         display_name=active_user.name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
-        status="scheduled",
+        status="accepted",
     )
 
 
@@ -84,12 +83,10 @@ class TestSessionEditViewGet:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
-    def test_non_owner_404(self, authenticated_client, event, sphere):
+    def test_non_owner_404(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
-        session = SessionFactory(
-            category=category, presenter=other, sphere=sphere, status="scheduled"
-        )
+        session = SessionFactory(category=category, presenter=other, status="accepted")
 
         response = authenticated_client.get(_url(event, session))
 
@@ -256,7 +253,7 @@ class TestSessionEditViewPost:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{event.slug}/?session={owned_session.pk}",
+            url=f"/event/{event.slug}/?session={owned_session.pk}",
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
@@ -333,15 +330,11 @@ class TestSessionEditViewPost:
         assert response.context["form"].fields["cover_image"].initial == cover_url
         assert cover_url.encode() in response.content
 
-    def test_non_owner_404_no_write(self, authenticated_client, event, sphere):
+    def test_non_owner_404_no_write(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
         session = SessionFactory(
-            category=category,
-            presenter=other,
-            sphere=sphere,
-            title="Original",
-            status="scheduled",
+            category=category, presenter=other, title="Original", status="accepted"
         )
 
         response = authenticated_client.post(
@@ -383,7 +376,9 @@ class TestSessionEditViewPost:
 
         authenticated_client.post(
             _url(event, owned_session),
-            data=self._data(session_field_system="Pathfinder"),
+            data=self._data(
+                session_fields_submitted="1", session_field_system="Pathfinder"
+            ),
             headers={"hx-request": "true"},
         )
 
@@ -470,6 +465,7 @@ class TestSessionEditViewPost:
         authenticated_client.post(
             _url(event, owned_session),
             data=self._data(
+                session_fields_submitted="1",
                 session_field_genres=["horror", "comedy"],
                 session_field_system="",
                 session_field_system_custom="Pathfinder",
@@ -484,3 +480,29 @@ class TestSessionEditViewPost:
         assert get(session=owned_session, field=system).value == "Pathfinder"
         assert get(session=owned_session, field=adult).value is True
         assert get(session=owned_session, field=notes).value == "Some notes"
+
+    def test_partial_post_without_session_fields_marker_preserves_field_values(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(),
+            headers={"hx-request": "true"},
+        )
+
+        sfv = SessionFieldValue.objects.get(session=owned_session, field=field)
+        assert sfv.value == "Pathfinder"
+        owned_session.refresh_from_db()
+        assert owned_session.title == "Updated title"

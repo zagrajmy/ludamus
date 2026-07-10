@@ -1,11 +1,28 @@
+from __future__ import annotations
+
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django import template
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.helpers import placeholder_cover_url
+
+if TYPE_CHECKING:
+    from ludamus.pacts import SessionDTO
+
 register = template.Library()
+
+
+@register.simple_tag(takes_context=True)
+def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
+    if session.cover_image_url:
+        return session.cover_image_url
+    event = context.get("event")
+    if getattr(event, "use_session_cover_placeholders", False):
+        return placeholder_cover_url(session.pk)
+    return ""
 
 
 @register.filter
@@ -55,6 +72,11 @@ def content_field_label(field_key: str) -> str:
         "min_age": _("Minimum age"),
         "duration": _("Duration"),
         "cover_image": _("Cover image"),
+        "category": _("Category"),
+        "facilitators": _("Facilitators"),
+        "tracks": _("Tracks"),
+        "time_slots": _("Time slots"),
+        "accreditation_type": _("Accreditation type"),
     }
     return labels.get(field_key, field_key)
 

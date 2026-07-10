@@ -138,6 +138,30 @@ class CFPPersonalDataFieldService:
 Services own transactions (`transaction.atomic()`); views never start them.
 Services return DTOs; views render them.
 
+### Mills layout
+
+`mills/{subdomain}.py` is promoted to a package when it crosses ~1000
+lines. Modules slice **by service** — one view-facing service per module,
+named after its area (`mills/submissions/importing.py`, `import_log.py`,
+`field_layout.py`, `personal_data_fields.py`). A service holds the methods
+used together in the same views; a method that landed somewhere only
+because it matched the service name, or had no other service to go to,
+gets its own service.
+
+Shared code splits by kind:
+
+- **Pure functions** go to a plain-function module
+  (`mills/submissions/mapping.py` — row-cell parsing, slug generation).
+- **Repo-bearing machinery** becomes a collaborator class
+  (`mills/submissions/engine.py` — `ImportEngine`) that services compose
+  internally. It is not a service: no protocol in `ServicesProtocol`,
+  never exposed on `request.services`, and it owns no transactions —
+  services open `atomic()` and call engine methods inside it.
+
+`pacts/{subdomain}.py` stays a single module; each service gets its own
+protocol there (`ProposalImportServiceProtocol`, `ImportLogServiceProtocol`,
+`ImportFieldLayoutServiceProtocol`).
+
 ## Services Tree
 
 Services are exposed to gates through a flat namespace at
@@ -374,8 +398,7 @@ organizers.
   (transitions session → ACCEPTED, creates
   `AgendaItem`), `AnonymousEnrollmentService`
   (code-based anonymous user lookup)
-- **DTOs:** `SessionParticipationDTO`,
-  `EnrollmentConfigDTO`,
+- **DTOs:** `EnrollmentConfigDTO`,
   `UserEnrollmentConfigDTO`,
   `VirtualEnrollmentConfig`, `AgendaItemDTO`
 
@@ -404,7 +427,7 @@ Internal areas (Chronology-owned):
 | Event settings | `EventSettingsPageView` | `settings.html` |
 | Time slots | `TimeSlotsPageView` | `time-slot*.html` |
 | Tracks | `TracksPageView` | `track-*.html` |
-| Venues / Areas / Spaces | `VenuesPageView` | `venue-*.html` |
+| Venues (Space tree) | `SpacesPageView` + `Space*` CRUD | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -465,7 +488,7 @@ and JWT validation; user upsert on callback.
 
 - **URLs:** `/crowd/auth0/`
   (namespace `auth0`)
-- **Views:** `adapters/web/django/views.py` —
+- **Views:** `gates/web/django/crowd/auth.py` —
   `Auth0LoginActionView`,
   `Auth0LoginCallbackActionView`,
   `Auth0LogoutActionView`,
@@ -473,6 +496,10 @@ and JWT validation; user upsert on callback.
   `LoginRequiredPageView`
 - **Templates:**
   `templates/crowd/login_required.html`
+- **Service:** `CrowdAuthService`
+  (`request.services.crowd_auth`) — user
+  provisioning on callback, identity sync,
+  sphere-domain checks
 - **External integration:** Auth0 PKCE/state
   OAuth flow
 
@@ -481,21 +508,33 @@ and JWT validation; user upsert on callback.
 User profile management and delegate (connected)
 accounts.
 
-- **URLs:** `/crowd/profile/` and
-  `/crowd/profile/connected-users/`
-- **Views:** `adapters/web/django/views.py` —
+- **URLs:** `/crowd/profile/`,
+  `/crowd/profile/connected-users/` and
+  `/crowd/claim/<token>/`
+- **Views:** `gates/web/django/crowd/profile.py` —
   `ProfilePageView`,
   `ProfileAvatarPageView`,
+  `ProfileShadowbanPageView`,
   `ProfileConnectedUsersPageView`,
   `ProfileConnectedUserUpdateActionView`,
-  `ProfileConnectedUserDeleteActionView`
+  `ProfileConnectedUserDeleteActionView`,
+  `ProfileConnectedUserClaimLinkActionView`,
+  `ClaimPageView`
 - **Templates:**
   `templates/crowd/user/edit.html`,
-  `avatar.html`, `connected.html`
-- **DTOs:** `UserDTO`, `UserData`, `UserType`
+  `avatar.html`, `parties.html`,
+  `shadowbans.html`, `crowd/claim.html`
+- **Services:** `ProfileService` (self-profile
+  reads/updates, avatar, confirmed-participation
+  count), `CompanionsService` (connected-user CRUD),
+  `ClaimService` (issue/redeem claim links),
+  `ShadowbanService`
+- **DTOs:** `UserDTO`, `ConnectedUserDTO`,
+  `AvatarPageDTO`, `UserData`, `UserType`
   (`ACTIVE` / `CONNECTED` / `ANONYMOUS`)
 - **Repositories:** `UserRepository`,
-  `ConnectedUserRepository`
+  `ConnectedUserRepository`,
+  `ProfileStatsRepository`
 - **External integration:**
   `MembershipApiClient` (`links/ticket_api.py`)
   — fetches enrollment quotas; Gravatar

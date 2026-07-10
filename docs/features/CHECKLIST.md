@@ -1,6 +1,6 @@
 # Refinement checklist
 
-Items `/tbd-refine` walks against each landed bullet. Trim or grow as the
+Items to walk against each landed bullet. Trim or grow as the
 project teaches you what you keep forgetting.
 
 ## Default items

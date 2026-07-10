@@ -6,13 +6,13 @@ from django.core.exceptions import ValidationError
 from ludamus.adapters.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
-    Area,
     Connection,
     DomainEnrollmentConfig,
     Encounter,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    EventBan,
     EventIntegration,
     EventProposalSettings,
     EventSettings,
@@ -29,6 +29,7 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Shadowban,
     Space,
     Sphere,
     Tag,
@@ -38,7 +39,6 @@ from ludamus.adapters.db.django.models import (
     Track,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 
 
@@ -138,34 +138,22 @@ class TestFacilitator:
         assert str(Facilitator(display_name=display_name)) == display_name
 
 
-class TestVenue:
-    def test_str(self, faker):
+class TestSpace:
+    def test_str_root(self, faker):
         name = faker.word()
 
-        assert str(Venue(name=name)) == name
+        assert str(Space(name=name)) == name
 
+    def test_str_nested(self, faker):
+        root_name = faker.word()
+        mid_name = faker.word()
+        leaf_name = faker.word()
 
-class TestArea:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
+        root = Space(name=root_name)
+        mid = Space(name=mid_name, parent=root)
+        leaf = Space(name=leaf_name, parent=mid)
 
-        area = Area(name=area_name, venue=Venue(name=venue_name))
-
-        assert str(area) == f"{venue_name} > {area_name}"
-
-
-class TestSpace:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
-        space_name = faker.word()
-
-        venue = Venue(name=venue_name)
-        area = Area(name=area_name, venue=venue)
-        space = Space(name=space_name, area=area)
-
-        assert str(space) == f"{venue_name} > {area_name} > {space_name}"
+        assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
 class TestTimeSlot:
@@ -270,31 +258,6 @@ class TestUser:
         user = User(name=faker.name())
 
         assert user.get_full_name() == user.name
-
-    def test_initials_from_name(self):
-        user = User(name="John Doe")
-
-        assert user.initials == "JD"
-
-    def test_initials_from_single_name(self):
-        user = User(name="John")
-
-        assert user.initials == "J"
-
-    def test_initials_from_three_names(self):
-        user = User(name="John Michael Doe")
-
-        assert user.initials == "JM"  # Only first two
-
-    def test_initials_fallback_to_username(self):
-        user = User(name="", username="johndoe")
-
-        assert user.initials == "J"
-
-    def test_initials_empty_returns_question_mark(self):
-        user = User(name="", username="")
-
-        assert user.initials == "?"
 
     def test_str(self):
         user = User(name="John Smith", email="johnny@example.com")
@@ -449,3 +412,13 @@ class TestTrack:
         name = faker.word()
 
         assert str(Track(name=name)) == name
+
+
+class TestShadowban:
+    def test_str(self):
+        assert str(Shadowban(owner_id=1, target_id=2)) == "1 shadowbanned 2"
+
+
+class TestEventBan:
+    def test_str(self):
+        assert str(EventBan(user_id=3, event_id=4)) == "3 banned from event 4"

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 import environ
 from google.oauth2 import service_account
@@ -24,6 +25,7 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, ["localhost"]),
     ROOT_DOMAIN=(str, ""),
     SESSION_COOKIE_DOMAIN=(str, None),
+    SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
     # Auth0
     AUTH0_CLIENT_ID=(str, ""),
@@ -33,7 +35,7 @@ env = environ.Env(
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
     # Static files
-    GIT_COMMIT_SHA=(str, "1"),
+    GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     # Google Cloud Storage (media) — set all three to enable GCS
@@ -48,6 +50,19 @@ env = environ.Env(
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
+    # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
+    # local Mailpit inbox, filemail:///path for file capture, or
+    # smtp://user:pass@host:587/?tls=True in production.
+    EMAIL_URL=(str, "consolemail://"),
+    DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
+    # Scheduler mode: "dbos" (default; durable offer timers plus the
+    # DBOS-scheduled cron workflows, all in the web process) or "cron"
+    # (external cron invokes the management commands instead).
+    SCHEDULER_MODE=(str, "dbos"),
+    # DBOS system database. Empty (default) derives it from the app database:
+    # the app Postgres (system tables live under the "dbos" schema) or a local
+    # SQLite file when the app DB is SQLite.
+    DBOS_SYSTEM_DATABASE_URL=(str, ""),
     ENV=str,
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
@@ -58,6 +73,7 @@ env = environ.Env(
 # Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
+IN_TESTS = env("IN_TESTS")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -250,8 +266,10 @@ MIDDLEWARE_SKIP_PREFIXES = (
     "/media/",
 )
 
+
 # Cache busting version for static files (set via GIT_COMMIT_SHA env var during build)
-STATIC_VERSION = env("GIT_COMMIT_SHA")[:8]
+COMMIT_SHA = env("GIT_COMMIT_SHA").strip()[:8] or "unknown"
+STATIC_VERSION = COMMIT_SHA
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -266,6 +284,7 @@ LOGIN_URL = "/crowd/login-required/"
 # Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+SITE_ID = env("SITE_ID")
 
 # Auth0
 
@@ -368,18 +387,49 @@ if IS_PRODUCTION:
     STORAGES = {
         "default": default_storage_backend,
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            "BACKEND": (
+                "ludamus.edges.staticfiles."
+                "ViteAwareCompressedManifestStaticFilesStorage"
+            )
         },
     }
 else:
-    # Development email backend
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     STORAGES = {
         "default": default_storage_backend,
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
         },
     }
+
+# Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
+# for the local inbox UI, smtp://… in production). Wired the same way in every
+# environment so prod only needs the env var set.
+_EMAIL_CONFIG = env.email_url("EMAIL_URL")
+EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
+EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")
+EMAIL_PORT = _EMAIL_CONFIG.get("EMAIL_PORT", 25)
+EMAIL_HOST_USER = _EMAIL_CONFIG.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _EMAIL_CONFIG.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
+# Set only by the filemail:// (file-based) dev transport; ignored otherwise.
+EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
+SCHEDULER_MODE = env("SCHEDULER_MODE")
+if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
+    if env("USE_POSTGRES"):
+        _dbos_host = env.str("DB_HOST")
+        if _dbos_port := env.str("DB_PORT"):
+            _dbos_host = f"{_dbos_host}:{_dbos_port}"
+        DBOS_SYSTEM_DATABASE_URL = (
+            f"postgresql://{quote(env.str('DB_USER'), safe='')}"
+            f":{quote(env.str('DB_PASSWORD'), safe='')}"
+            f"@{_dbos_host}/{env('DB_NAME')}"
+        )
+    else:
+        DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
 # Cache configuration
 CACHES = (

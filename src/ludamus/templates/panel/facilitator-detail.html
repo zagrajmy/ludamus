@@ -42,18 +42,53 @@
                         <dd class="text-foreground">
                             {{ facilitator.display_name }}
                         </dd>
+                        <p class="mt-1 text-xs text-foreground-muted">
+                            {% translate "Cached name from the submission wizard. The canonical byline is the proposal's display name." %}
+                        </p>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Accreditation type" %}</dt>
+                        <dd class="text-foreground">
+                            {{ accreditation_type_display }}
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-xs text-foreground-muted">{% translate "Linked User" %}</dt>
                         <dd class="text-foreground">
-                            {% if facilitator.user_id %}
-                                {% translate "Linked" %}
+                            {% if linked_user %}
+                                {{ linked_user.name }}
+                                {% if linked_user.email %}· {{ linked_user.email }}{% endif %}
                             {% else %}
-                                <span class="text-foreground-muted">{% translate "None" %}</span>
+                                <span class="text-foreground-muted">—</span>
                             {% endif %}
                         </dd>
                     </div>
+                    <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Slug" %}</dt>
+                        <dd class="font-mono text-sm text-foreground-muted select-all">
+                            {{ facilitator.slug }}
+                        </dd>
+                    </div>
                 </dl>
+            </div>
+        </div>
+        <div class="card mb-6">
+            <div class="card-body">
+                <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Sessions" %}</h3>
+                {% if sessions %}
+                    <ul class="space-y-2">
+                        {% for session in sessions %}
+                            <li class="flex items-center justify-between gap-3 text-sm">
+                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=session.pk %}"
+                                   class="text-primary hover:underline truncate"
+                                   title="{{ session.title }}">{{ session.title }}</a>
+                                {% include "panel/_proposal_status_badge.html" with status=session.status %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm text-foreground-muted">{% translate "No sessions attached." %}</p>
+                {% endif %}
             </div>
         </div>
         {% if personal_data_items %}

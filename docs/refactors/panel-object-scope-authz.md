@@ -1,7 +1,29 @@
 # 5. Panel object-scope authorization (cross-event / cross-sphere IDOR)
 
-**Status:** 🟢 active — current branch `fix/panel-cross-event-idor`
+**Status:** ✅ complete — full re-audit 2026-07-05 (branch
+`claude/panel-idor-scoping`) found **no unscoped ids** anywhere in the panel
+surface; remaining gaps were regression tests only, now added.
 **Tracked in:** `docs/features/CHECKLIST.md` (project-specific item)
+
+## Re-audit 2026-07-05 — result
+
+Audited every request-supplied id (URL pk/slug + body ids) in:
+`venues` (post-flatten Space tree), `proposals` (incl. the new CRUD),
+`facilitators` (incl. merge), `event_settings`, `bans`, `time_slots`, `fields`,
+`integrations`, `google_docs_import`, `print`, sphere `announcements`,
+party/group-enrollment views, the MCP organizer tier (`ActorContext`-derived
+sphere), and `discounts` (`_scoped_discount`). Every one is scoped — at the
+repo (`filter(event_id=…, pk=…)`), the service (`NotFoundError` on foreign
+pks), the form (event-scoped choices), or the view (read-then-compare /
+intersect-against-event-set).
+
+Regression tests added for the six scoped-but-untested paths: proposal-edit
+facilitator assignment, proposal set-facilitators action, facilitator merge
+selection, space reorder, ban delete, and integration edit/delete — each
+proving a foreign id is rejected or ignored without side effects.
+
+New panel views must keep following the rule below; prefer enforcing scope in
+the service (the `TimetableService` shape).
 
 ## Goal
 
@@ -77,5 +99,4 @@ nothing.
 - Every panel view that consumes a request-supplied id is audited and scoped.
 - Each has a regression test proving a foreign id is rejected without side
   effects.
-- The CHECKLIST item can be walked clean by `/tbd-refine` against new panel
-  stories.
+- The CHECKLIST item can be walked clean by against new panel stories.

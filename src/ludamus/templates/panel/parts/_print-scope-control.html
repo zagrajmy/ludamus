@@ -3,23 +3,16 @@
     <a href="{% url url_name slug=current_event.slug %}"
        target="_blank"
        rel="noopener"
-       class="text-sm px-3 py-1.5 border border-border rounded-lg bg-bg-secondary text-foreground hover:bg-bg-tertiary transition">
+       class="filter-toggle inline-flex min-w-36 items-center justify-center whitespace-nowrap rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-semibold text-foreground transition-[color,background-color,border-color,box-shadow] duration-150">
         {{ label }}
     </a>
-    {% if print_venues %}
+    {% if print_scopes %}
         <select onchange="if(this.value){window.open(this.value,'_blank','noopener');this.selectedIndex=0;}"
                 aria-label="{{ aria }}"
-                class="text-sm border border-border rounded-lg px-2 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-            <option value="">{% translate "Venue / area…" %}</option>
-            {% for v in print_venues %}
-                <optgroup label="{{ v.name }}">
-                    <option value="{% url url_name slug=current_event.slug %}?venue={{ v.slug }}">{{ v.name }}</option>
-                    {% for a in v.areas %}
-                        <option value="{% url url_name slug=current_event.slug %}?venue={{ v.slug }}&amp;area={{ a.slug }}">
-                            — {{ a.name }}
-                        </option>
-                    {% endfor %}
-                </optgroup>
+                class="filter-input w-full min-w-40 rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-medium text-foreground transition-[border-color,box-shadow] duration-150">
+            <option value="">{% translate "Whole event…" %}</option>
+            {% for scope in print_scopes %}
+                <option value="{% url url_name slug=current_event.slug %}?scope={{ scope.pk }}">{{ scope.name }}</option>
             {% endfor %}
         </select>
     {% endif %}

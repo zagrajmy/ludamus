@@ -1,0 +1,32 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% block title_prefix %}
+    {% translate "Delete announcement" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Delete announcement" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ announcement.title }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="card p-6 max-w-xl">
+        <p class="text-foreground-secondary mb-4">
+            {% blocktranslate with title=announcement.title %}
+                Are you sure you want to delete announcement "{{ title }}"?
+            {% endblocktranslate %}
+        </p>
+        <form method="post"
+              action="{% url 'multiverse:panel:announcement-delete' pk=announcement.pk %}"
+              onsubmit="this.querySelector('button[type=submit]').disabled = true">
+            {% csrf_token %}
+            <div class="flex justify-end gap-2">
+                <a href="{% url 'multiverse:panel:announcements' %}"
+                   class="btn btn-secondary">{% translate "Cancel" %}</a>
+                <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
+            </div>
+        </form>
+    </div>
+{% endblock content %}

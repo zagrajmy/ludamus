@@ -5,23 +5,24 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import FacilitatorForm
+from ludamus.gates.web.django.forms import FacilitatorEditForm, FacilitatorForm
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
     FacilitatorMergeError,
-    FacilitatorUpdateData,
     HostPersonalDataEntry,
     NotFoundError,
 )
@@ -30,6 +31,9 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.pacts import PersonalDataFieldDTO
+
+
+_FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -42,10 +46,16 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        context["active_nav"] = "facilitators"
-        context["facilitators"] = self.request.di.uow.facilitators.list_by_event(
+        all_facilitators = self.request.di.uow.facilitators.list_by_event(
             current_event.pk
         )
+        page_obj = Paginator(all_facilitators, _FACILITATORS_PAGE_SIZE).get_page(
+            self.request.GET.get("page")
+        )
+
+        context["active_nav"] = "facilitators"
+        context["facilitators"] = list(page_obj.object_list)
+        context["page_obj"] = page_obj
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 
@@ -84,10 +94,26 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
         has_personal_data = any(v for _, v in personal_data_items)
 
+        linked_user = None
+        if facilitator.user_id is not None:
+            try:
+                linked_user = self.request.di.uow.active_users.read_by_id(
+                    facilitator.user_id
+                )
+            except NotFoundError:
+                linked_user = None
+
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
+        context["linked_user"] = linked_user
+        context["accreditation_type_display"] = AccreditationType(
+            facilitator.accreditation_type
+        ).label
         context["personal_data_items"] = personal_data_items
         context["has_personal_data"] = has_personal_data
+        context["sessions"] = self.request.di.uow.sessions.list_by_facilitator(
+            facilitator.pk
+        )
         return TemplateResponse(self.request, "panel/facilitator-detail.html", context)
 
 
@@ -126,6 +152,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         self.request.di.uow.facilitators.create(
             FacilitatorData(
+                accreditation_type=form.cleaned_data["accreditation_type"],
                 display_name=display_name,
                 event_id=current_event.pk,
                 slug=facilitator_slug,
@@ -168,8 +195,8 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         personal_fields = self._get_personal_fields(current_event.pk, facilitator.pk)
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
-        context["form"] = FacilitatorForm(
-            initial={"display_name": facilitator.display_name}
+        context["form"] = FacilitatorEditForm(
+            initial={"accreditation_type": facilitator.accreditation_type}
         )
         context["personal_fields"] = personal_fields
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
@@ -189,7 +216,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
-        form = FacilitatorForm(self.request.POST)
+        form = FacilitatorEditForm(self.request.POST)
         if not form.is_valid():
             personal_fields = self._get_personal_fields(
                 current_event.pk, facilitator.pk
@@ -201,11 +228,6 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(
                 self.request, "panel/facilitator-edit.html", context
             )
-
-        self.request.di.uow.facilitators.update(
-            facilitator.pk,
-            FacilitatorUpdateData(display_name=form.cleaned_data["display_name"]),
-        )
 
         all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
             current_event.pk
@@ -229,8 +251,13 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                     value=value,
                 )
             )
-        if entries:
-            self.request.di.uow.host_personal_data.save(entries)
+        self.request.services.host_personal_data.update_facilitator(
+            event_id=current_event.pk,
+            facilitator_id=facilitator.pk,
+            accreditation_type=form.cleaned_data["accreditation_type"],
+            entries=entries,
+            user_id=self.request.context.current_user_id,
+        )
 
         messages.success(self.request, _("Facilitator updated successfully."))
         return redirect(

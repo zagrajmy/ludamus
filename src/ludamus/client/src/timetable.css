@@ -13,6 +13,18 @@
     height: calc(var(--grid-extent) * var(--minute-px) + 20px);
   }
 
+  .timetable-column {
+    /* Faint half-hour anchor line, independent of the hour-line divs above it. */
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(30 * var(--minute-px) - 1px),
+      color-mix(in oklch, var(--color-border) 50%, transparent) calc(30 * var(--minute-px) - 1px),
+      color-mix(in oklch, var(--color-border) 50%, transparent) calc(30 * var(--minute-px))
+    );
+    background-position: 0 20px;
+  }
+
   .timetable-time-label,
   .timetable-slot-line {
     top: calc(var(--offset) * var(--minute-px) + 20px);
@@ -31,12 +43,44 @@
   }
 
   .timetable-column.assign-mode-active::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background: color-mix(in oklch, var(--color-primary) 8%, transparent);
     pointer-events: none;
     z-index: 5;
+  }
+
+  .timetable-hover-preview {
+    position: fixed;
+    z-index: 20;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--color-neutral-900);
+    color: white;
+    font-size: 0.75rem;
+    pointer-events: none;
+  }
+
+  .timetable-hover-preview.hidden {
+    display: none;
+  }
+
+  /* Google-Calendar-style ghost block showing where a dragged session lands. */
+  .timetable-drop-guide {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    z-index: 6;
+    border: 2px dashed var(--color-primary);
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--color-primary) 15%, transparent);
+    color: var(--color-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .timetable-preferred-slot {

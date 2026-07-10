@@ -19,6 +19,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -94,6 +95,7 @@ def _dto(integration: EventIntegration) -> EventIntegrationDTO:
         connection_display_name=integration.connection.display_name,
         display_name=integration.display_name,
         config_json=integration.config_json,
+        settings_json=integration.settings_json,
     )
 
 
@@ -562,12 +564,30 @@ class TestIntegrationEditPageView:
         response = authenticated_client.post(
             _missing_url("panel:integration-edit", pk=1), data={}
         )
-
         assert_response(
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Event not found.")],
             url="/panel/",
+        )
+
+    def test_get_redirects_on_integration_from_other_event(
+        self, authenticated_client, active_user, sphere, event, connection
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        foreign = _make_integration(other_event, connection, display_name="Foreign")
+        url = reverse(
+            "panel:integration-edit", kwargs={"slug": event.slug, "pk": foreign.pk}
+        )
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Integration not found.")],
+            url=_settings_url(event),
         )
 
     def test_post_invalid_form_renders_with_errors(
@@ -679,6 +699,26 @@ class TestIntegrationDeletePageView:
             messages=[(messages.ERROR, "Event not found.")],
             url="/panel/",
         )
+
+    def test_post_ignores_integration_from_other_event(
+        self, authenticated_client, active_user, sphere, event, connection
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        foreign = _make_integration(other_event, connection, display_name="Foreign")
+        url = reverse(
+            "panel:integration-delete", kwargs={"slug": event.slug, "pk": foreign.pk}
+        )
+
+        response = authenticated_client.post(url, data={})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Integration not found.")],
+            url=_settings_url(event),
+        )
+        assert EventIntegration.objects.filter(pk=foreign.pk).exists()
 
 
 @pytest.mark.django_db

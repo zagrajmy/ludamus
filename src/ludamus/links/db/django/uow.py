@@ -1,19 +1,16 @@
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from django.contrib.auth import login as django_login
 from django.db import transaction
 
-from ludamus.adapters.db.django.models import User
-from ludamus.links.db.django import repositories
+from ludamus.links.db.django import crowd, repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
-from ludamus.pacts import UnitOfWorkProtocol, UserType
+from ludamus.pacts import UnitOfWorkProtocol
+from ludamus.pacts.crowd import UserType
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
-
-    from django.http import HttpRequest
 
 
 class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
@@ -21,30 +18,21 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
     def atomic() -> AbstractContextManager[None]:
         return transaction.atomic()
 
-    @staticmethod
-    def login_user(request: HttpRequest, user_slug: str) -> None:
-        user = User.objects.get(slug=user_slug)
-        django_login(request, user)
-
     @cached_property
-    def active_users(self) -> repositories.UserRepository:
-        return repositories.UserRepository(user_type=UserType.ACTIVE)
+    def active_users(self) -> crowd.UserRepository:
+        return crowd.UserRepository(user_type=UserType.ACTIVE)
 
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:
         return AgendaItemRepository()
 
     @cached_property
-    def anonymous_users(self) -> repositories.UserRepository:
-        return repositories.UserRepository(user_type=UserType.ANONYMOUS)
+    def anonymous_users(self) -> crowd.UserRepository:
+        return crowd.UserRepository(user_type=UserType.ANONYMOUS)
 
     @cached_property
-    def areas(self) -> repositories.AreaRepository:
-        return repositories.AreaRepository()
-
-    @cached_property
-    def connected_users(self) -> repositories.ConnectedUserRepository:
-        return repositories.ConnectedUserRepository()
+    def connected_users(self) -> crowd.ConnectedUserRepository:
+        return crowd.ConnectedUserRepository()
 
     @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
@@ -85,10 +73,6 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
     @cached_property
     def spheres(self) -> repositories.SphereRepository:
         return repositories.SphereRepository()
-
-    @cached_property
-    def venues(self) -> repositories.VenueRepository:
-        return repositories.VenueRepository()
 
     @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:

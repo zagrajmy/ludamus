@@ -7,7 +7,9 @@ use_portless="1"
 use_lan="0"
 do_trust="0"
 
-printf '\033[34m[dev] auth0=%s root=%s\033[0m\n' "${AUTH0_DOMAIN:-?}" "${ROOT_DOMAIN:-?}" >&2
+if [ "${NO_COLOR:-}" != "" ]; then
+  unset FORCE_COLOR
+fi
 
 ensure_simulacrum_certs() {
   local dest="$HOME/.simulacrum/certs"
@@ -103,6 +105,8 @@ fi
 if [ "$use_portless" = "1" ]; then
   PORTLESS=(npx --prefix src/ludamus/client portless)
 
+  printf '[dev] auth0=%s root=portless\n' "${AUTH0_DOMAIN:-?}" >&2
+
   if [ "$use_lan" = "1" ]; then
     export PORTLESS_LAN=1
     if [ "$do_trust" = "1" ]; then
@@ -121,4 +125,5 @@ if [ "$use_portless" = "1" ]; then
 fi
 
 export PORT="${PORT:-8000}"
+printf '[dev] auth0=%s root=%s\n' "${AUTH0_DOMAIN:-?}" "${ROOT_DOMAIN:-?}" >&2
 exec honcho start -e /dev/null -f Procfile.dev

@@ -25,12 +25,12 @@ The e2e harness already wires an authenticated session, a seeded database, and
 the server — reuse it instead of hand-rolling cookies:
 
 ```bash
-mise run e2e:prep    # migrate + seed + build client; writes tests/e2e/.auth-state.json
+mise run test:e2e:prep    # migrate + seed + build client; writes tests/e2e/.auth-state.json
 ```
 
 `tests/e2e/playwright.config.ts` starts the server itself (`webServer`, with
 `reuseExistingServer` off CI) and loads `tests/e2e/.auth-state.json`
-(`storageState`) — the `e2e-tester` session. Any Playwright script run under that
-config (or pointed at the same `storageState`) is logged in with no Auth0 round
-trip. Seeded logins: `e2e-tester` (member), `e2e-manager` (sphere manager),
-`e2e-superuser`.
+(`storageState`) — the `e2e-tester` session. Any Playwright script run under
+that config (or pointed at the same `storageState`) is logged in with no Auth0
+round trip. Seeded logins: `e2e-tester` (member), `e2e-manager` (sphere
+manager), `admin`.

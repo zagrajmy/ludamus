@@ -3,17 +3,22 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ContentChangeLog, SessionField
+from ludamus.adapters.db.django.models import (
+    ContentChangeLog,
+    Facilitator,
+    FacilitatorChangeLog,
+    PersonalDataField,
+    SessionField,
+)
 from tests.integration.conftest import SessionFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _make_session(sphere, proposal_category):
+def _make_session(proposal_category):
     return SessionFactory(
         category=proposal_category,
-        sphere=sphere,
         status="pending",
         title="Original title",
         display_name="Original host",
@@ -88,7 +93,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
 
         authenticated_client.post(
             reverse(
@@ -96,6 +101,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Updated title",
                 "display_name": "Original host",
                 "participants_limit": 5,
@@ -113,11 +119,178 @@ class TestContentLogRecordsEdits:
             "new": "Updated title",
         } in log.changes
 
+    def test_editing_facilitators_records_m2m_change(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(proposal_category)
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:proposal-edit",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+            data={
+                "category_id": session.category_id,
+                "title": "Original title",
+                "display_name": "Original host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitators_submitted": "1",
+                "facilitator_ids": [alice.pk],
+            },
+        )
+
+        log = ContentChangeLog.objects.get(session=session)
+        assert {
+            "field": "facilitators",
+            "field_id": None,
+            "old": "",
+            "new": "Alice",
+        } in log.changes
+
+    def test_resubmitting_same_facilitators_logs_no_m2m_change(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(proposal_category)
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(alice)
+
+        authenticated_client.post(
+            reverse(
+                "panel:proposal-edit",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated title",
+                "display_name": "Original host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "facilitators_submitted": "1",
+                "facilitator_ids": [alice.pk],
+            },
+        )
+
+        log = ContentChangeLog.objects.get(session=session)
+        assert not any(c["field"] == "facilitators" for c in log.changes)
+
+    def test_facilitator_edit_logs_accreditation_and_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            accreditation_type="none",
+        )
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-edit",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+            data={"accreditation_type": "honorary", "personal_vegan": "true"},
+        )
+
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert {
+            "field": "accreditation_type",
+            "field_id": None,
+            "old": "none",
+            "new": "honorary",
+        } in log.changes
+        assert {
+            "field": "",
+            "field_id": field.pk,
+            "old": None,
+            "new": True,
+        } in log.changes
+
+    def test_facilitator_changes_render_on_content_log_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            accreditation_type="none",
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-edit",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+            data={"accreditation_type": "honorary"},
+        )
+        response = authenticated_client.get(
+            reverse("panel:content-log", kwargs={"slug": event.slug})
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert len(response.context["facilitator_logs"]) == 1
+        assert response.context["facilitator_logs"][0].facilitator_id == facilitator.pk
+        assert "Facilitator changes" in response.content.decode()
+
+    def test_facilitator_personal_data_field_name_renders_on_log_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            accreditation_type="none",
+        )
+        PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-edit",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+            data={"accreditation_type": "none", "personal_vegan": "true"},
+        )
+        response = authenticated_client.get(
+            reverse("panel:content-log", kwargs={"slug": event.slug})
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Vegan" in response.content.decode()
+
     def test_editing_a_session_field_records_field_change(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
         field = SessionField.objects.create(
             event=event,
             name="System",
@@ -133,10 +306,12 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Original title",
                 "display_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
+                "session_fields_submitted": "1",
                 "session_field_system": "Pathfinder",
             },
         )
@@ -153,7 +328,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
 
         authenticated_client.post(
             reverse(
@@ -161,6 +336,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Original title",
                 "display_name": "Original host",
                 "description": "",
@@ -179,7 +355,7 @@ class TestContentLogRecordsEdits:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = _make_session(sphere, proposal_category)
+        session = _make_session(proposal_category)
 
         authenticated_client.post(
             reverse(
@@ -187,6 +363,7 @@ class TestContentLogRecordsEdits:
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
             ),
             data={
+                "category_id": session.category_id,
                 "title": "Updated title",
                 "display_name": "Original host",
                 "participants_limit": 5,

@@ -12,11 +12,9 @@ from ludamus.pacts import (
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 
 
@@ -91,10 +89,8 @@ class TestAgendaItemRepositoryListByEvent:
 
     def test_list_by_event_excludes_other_events(self, agenda_item, sphere):
         other_event = EventFactory(sphere=sphere)
-        other_venue = VenueFactory(event=other_event)
-        other_area = AreaFactory(venue=other_venue)
-        other_space = SpaceFactory(area=other_area)
-        other_session = SessionFactory(sphere=sphere)
+        other_space = SpaceFactory(event=other_event)
+        other_session = SessionFactory(event=other_event)
         AgendaItemFactory(session=other_session, space=other_space)
 
         result = AgendaItemRepository.list_by_event(other_event.pk)
@@ -105,31 +101,6 @@ class TestAgendaItemRepositoryListByEvent:
 
     def test_list_by_event_empty_when_no_items(self, event):
         result = AgendaItemRepository.list_by_event(event.pk)
-
-        assert result == []
-
-
-class TestAgendaItemRepositoryListBySpace:
-    def test_list_by_space_returns_items_for_space(self, agenda_item, space):
-        result = AgendaItemRepository.list_by_space(space.pk)
-
-        assert len(result) == 1
-        assert result[0].pk == agenda_item.pk
-        assert result[0].space_id == space.pk
-
-    def test_list_by_space_excludes_other_spaces(self, agenda_item, area, sphere):
-        other_space = SpaceFactory(area=area)
-        other_session = SessionFactory(sphere=sphere)
-        other_item = AgendaItemFactory(session=other_session, space=other_space)
-
-        result = AgendaItemRepository.list_by_space(agenda_item.space_id)
-
-        result_pks = [dto.pk for dto in result]
-        assert agenda_item.pk in result_pks
-        assert other_item.pk not in result_pks
-
-    def test_list_by_space_empty_when_no_items(self, space):
-        result = AgendaItemRepository.list_by_space(space.pk)
 
         assert result == []
 
@@ -158,8 +129,8 @@ class TestAgendaItemRepositoryListByTrack:
 
 
 class TestAgendaItemRepositoryUpdate:
-    def test_update_changes_space(self, agenda_item, area):
-        new_space = SpaceFactory(area=area)
+    def test_update_changes_space(self, agenda_item):
+        new_space = SpaceFactory(event=agenda_item.space.event)
         data = AgendaItemUpdateData(space_id=new_space.pk)
 
         AgendaItemRepository.update(agenda_item.pk, data)
@@ -178,6 +149,47 @@ class TestAgendaItemRepositoryUpdate:
         agenda_item.refresh_from_db()
         assert agenda_item.start_time == new_start
         assert agenda_item.end_time == new_end
+
+
+class TestAgendaItemRepositoryConfirmAllByEvent:
+    def test_confirms_items_in_event(self, agenda_item, event):
+        AgendaItemRepository.confirm_all_by_event(event.pk)
+
+        agenda_item.refresh_from_db()
+        assert agenda_item.session_confirmed is True
+
+    def test_does_not_touch_other_events(self, agenda_item, sphere):
+        other_event = EventFactory(sphere=sphere)
+        other_space = SpaceFactory(event=other_event)
+        other_item = AgendaItemFactory(
+            session=SessionFactory(event=other_event), space=other_space
+        )
+
+        AgendaItemRepository.confirm_all_by_event(other_event.pk)
+
+        agenda_item.refresh_from_db()
+        other_item.refresh_from_db()
+        assert agenda_item.session_confirmed is False
+        assert other_item.session_confirmed is True
+
+
+class TestAgendaItemRepositoryConfirmAllByTrack:
+    def test_confirms_only_items_in_track(self, agenda_item, event, session):
+        track = Track.objects.create(
+            event=event, name="Track", slug="track", is_public=True
+        )
+        session.tracks.add(track)
+        out_space = SpaceFactory(event=event)
+        out_item = AgendaItemFactory(
+            session=SessionFactory(event=event), space=out_space
+        )
+
+        AgendaItemRepository.confirm_all_by_track(track.pk)
+
+        agenda_item.refresh_from_db()
+        out_item.refresh_from_db()
+        assert agenda_item.session_confirmed is True
+        assert out_item.session_confirmed is False
 
 
 class TestAgendaItemRepositoryDelete:

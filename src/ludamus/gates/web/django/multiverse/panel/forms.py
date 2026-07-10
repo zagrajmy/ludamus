@@ -6,6 +6,19 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 
+class AnnouncementForm(forms.Form):
+    title = forms.CharField(label=_("Title"), max_length=255, strip=True)
+    content = forms.CharField(
+        label=_("Content"), max_length=50000, widget=forms.Textarea(attrs={"rows": 8})
+    )
+    is_published = forms.BooleanField(
+        label=_("Published"),
+        required=False,
+        initial=True,
+        help_text=_("Visible on the public page. Uncheck to keep it as a draft."),
+    )
+
+
 class ConnectionForm(forms.Form):
     """Form for creating/editing import connections."""
 

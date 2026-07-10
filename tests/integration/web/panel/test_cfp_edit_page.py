@@ -141,7 +141,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Session type not found.")],
+            messages=[(messages.ERROR, "Category not found.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
 
@@ -190,7 +190,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -307,7 +307,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Session type not found.")],
+            messages=[(messages.ERROR, "Category not found.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
 
@@ -382,7 +382,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -411,7 +411,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -652,7 +652,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert not PersonalDataFieldRequirement.objects.filter(
@@ -684,7 +684,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         requirement = PersonalDataFieldRequirement.objects.get(
@@ -711,7 +711,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         requirement = PersonalDataFieldRequirement.objects.get(
@@ -741,7 +741,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert not PersonalDataFieldRequirement.objects.filter(
@@ -770,7 +770,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         requirement = PersonalDataFieldRequirement.objects.get(
@@ -808,7 +808,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert (
@@ -934,7 +934,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -959,7 +959,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -983,7 +983,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -1008,7 +1008,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -1245,7 +1245,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         requirement = SessionFieldRequirement.objects.get(
@@ -1275,7 +1275,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         requirement = SessionFieldRequirement.objects.get(
@@ -1305,7 +1305,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert not SessionFieldRequirement.objects.filter(
@@ -1348,7 +1348,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert (
@@ -1591,7 +1591,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         email_req = PersonalDataFieldRequirement.objects.get(
@@ -1835,7 +1835,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         genre_req = SessionFieldRequirement.objects.get(
@@ -1899,9 +1899,9 @@ class TestCFPEditPageView:
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
 
         response = authenticated_client.get(self.get_url(event, category))
 
@@ -1948,9 +1948,9 @@ class TestCFPEditPageView:
         other_category = ProposalCategory.objects.create(
             event=event, name="Workshops", slug="workshops"
         )
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=category, sphere=sphere, status="pending")
-        SessionFactory.create(category=other_category, sphere=sphere, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=category, status="pending")
+        SessionFactory.create(category=other_category, status="pending")
 
         response = authenticated_client.get(self.get_url(event, category))
 
@@ -2008,7 +2008,7 @@ class TestCFPEditPageView:
         HostPersonalData.objects.create(
             user=host, event=event, field=email_field, value="host@example.com"
         )
-        SessionFactory.create(category=category, presenter=host, sphere=event.sphere)
+        SessionFactory.create(category=category, presenter=host)
 
         # Action: remove the field requirement (don't include it in POST)
         authenticated_client.post(
@@ -2037,7 +2037,7 @@ class TestCFPEditPageView:
         )
         # Setup: existing proposal without the field requirement
         host = UserFactory.create()
-        SessionFactory.create(category=category, presenter=host, sphere=event.sphere)
+        SessionFactory.create(category=category, presenter=host)
         assert not HostPersonalData.objects.filter(
             user=host, event=event, field=email_field
         ).exists()
@@ -2245,7 +2245,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         requirement = TimeSlotRequirement.objects.get(category=category, time_slot=slot)
@@ -2274,7 +2274,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert not TimeSlotRequirement.objects.filter(
@@ -2316,7 +2316,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert (
@@ -2361,7 +2361,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         slot1_req = TimeSlotRequirement.objects.get(category=category, time_slot=slot1)
@@ -2454,7 +2454,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -2485,7 +2485,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()
@@ -2507,7 +2507,7 @@ class TestCFPEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type updated successfully.")],
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         category.refresh_from_db()

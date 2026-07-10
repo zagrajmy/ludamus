@@ -1,0 +1,96 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Discounts" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Discounts" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Facilitator discounts" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-4">
+        {% if rows %}
+            <div class="mb-4 flex justify-end">
+                {% url 'panel:discount-export' slug=current_event.slug as export_url %}
+                {% translate "Export accreditation sheet" as t_export %}
+                {% tessera_button t_export href=export_url variant="secondary" size="sm" icon="arrow-up-tray" full_width_mobile=False %}
+            </div>
+            {% tessera_table %}
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Facilitator" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Accreditation type" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Discount" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Note" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Actions" %}
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+                {% for row in rows %}
+                    <tr class="hover:bg-bg-tertiary">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                            {{ row.facilitator.display_name|truncatechars:50 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ row.accreditation_type_display }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                            {% if row.discount %}
+                                {% if row.discount.kind == "percent" %}
+                                    {{ row.discount.value }}%
+                                {% else %}
+                                    {{ row.discount.value }}
+                                {% endif %}
+                            {% else %}
+                                <span class="text-foreground-muted">{% translate "None" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-foreground-muted">{% if row.discount %}{{ row.discount.note }}{% endif %}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {% if row.discount %}
+                                {% url 'panel:discount-edit' slug=current_event.slug pk=row.discount.pk as edit_url %}
+                                {% translate "Edit" as t_edit %}
+                                {% tessera_button t_edit href=edit_url variant="secondary" size="sm" icon="pencil-square" full_width_mobile=False %}
+                                <form method="post"
+                                      action="{% url 'panel:discount-delete' slug=current_event.slug pk=row.discount.pk %}"
+                                      class="inline"
+                                      data-confirm="{% translate "Are you sure you want to remove this discount?" %}">
+                                    {% csrf_token %}
+                                    {% translate "Remove" as t_remove %}
+                                    {% tessera_button t_remove variant="danger" size="sm" icon="trash" full_width_mobile=False %}
+                                </form>
+                            {% else %}
+                                {% url 'panel:discount-assign' slug=current_event.slug facilitator_id=row.facilitator.pk as assign_url %}
+                                {% translate "Assign" as t_assign %}
+                                {% tessera_button t_assign href=assign_url variant="secondary" size="sm" icon="plus" full_width_mobile=False %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% end_tessera_table %}
+    {% else %}
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted">{% translate "No facilitators yet." %}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}

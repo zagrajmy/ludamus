@@ -81,7 +81,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -115,9 +114,7 @@ class TestTimetableSessionDetailPartView:
         other_event = EventFactory()
         other_category = ProposalCategoryFactory(event=other_event)
         other_session = SessionFactory(
-            category=other_category,
-            sphere=other_event.sphere,
-            title="Secret session from another sphere",
+            category=other_category, title="Secret session from another sphere"
         )
 
         response = authenticated_client.get(self.get_url(event, other_session.pk))
@@ -132,7 +129,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -140,7 +136,12 @@ class TestTimetableSessionDetailPartView:
 
         response = authenticated_client.get(
             self.get_url(event, session.pk),
-            {"category": "5", "max_duration": "60", "search": "magic"},
+            {
+                "category": "5",
+                "max_duration": "60",
+                "search": "magic",
+                "date": "2026-09-04",
+            },
         )
 
         assert response.status_code == HTTPStatus.OK
@@ -148,6 +149,7 @@ class TestTimetableSessionDetailPartView:
         assert "category=5" in back_url
         assert "max_duration=60" in back_url
         assert "search=magic" in back_url
+        assert "date=2026-09-04" in back_url
 
     def test_shows_session_title(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -155,7 +157,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             title="My Awesome Session",
             participants_limit=10,
@@ -167,14 +168,34 @@ class TestTimetableSessionDetailPartView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["session"].title == "My Awesome Session"
 
-    def test_shows_agenda_item_when_scheduled(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+    def test_links_to_proposal_detail_page(
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
+            status="pending",
+            title="Linked Session",
+            participants_limit=10,
+            min_age=0,
+        )
+        proposal_url = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert f'href="{proposal_url}"' in response.content.decode()
+
+    def test_shows_agenda_item_when_scheduled(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(
+            category=proposal_category,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -198,7 +219,6 @@ class TestTimetableSessionDetailPartView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=10,
             min_age=0,
@@ -208,3 +228,92 @@ class TestTimetableSessionDetailPartView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["agenda_item"] is None
+
+    def test_scheduled_unconfirmed_offers_confirm_button(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Confirm program item" in content
+        assert "Undo confirmation" not in content
+
+    def test_scheduled_confirmed_offers_undo_button(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        agenda_item = AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+        agenda_item.session_confirmed = True
+        agenda_item.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Undo confirmation" in content
+        assert "Confirm program item" not in content
+
+    def test_reassign_button_carries_confirmed_flag(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+            session_confirmed=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'data-assign-confirmed="true"' in response.content.decode()
+
+    def test_assign_button_of_unscheduled_session_is_unconfirmed(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert response.status_code == HTTPStatus.OK
+        assert 'data-assign-confirmed="false"' in response.content.decode()

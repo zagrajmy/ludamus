@@ -40,6 +40,7 @@
             </dl>
         </div>
         <form method="post"
+              enctype="multipart/form-data"
               action="{% url 'multiverse:panel:sphere-settings' %}"
               class="card overflow-hidden max-w-2xl mt-6">
             {% csrf_token %}
@@ -55,6 +56,7 @@
                         <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
                     </span>
                 </label>
+                <div class="mt-6">{% tessera_field form.logo %}</div>
                 <div class="mt-6">
                     <button type="submit" class="btn btn-primary">
                         {% icon "check" class="w-4 h-4 mr-2" %}

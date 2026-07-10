@@ -100,20 +100,18 @@ class TestTimetableProblemsPageView:
         )
 
     def test_lists_space_overlap_conflict(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session_a = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
         )
         session_b = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -132,16 +130,25 @@ class TestTimetableProblemsPageView:
         assert response.status_code == HTTPStatus.OK
         grouped = response.context["conflicts_grouped"]
         assert "space_overlap" in grouped
-        assert grouped["space_overlap"]
+        overlaps = grouped["space_overlap"]
+        # Dedup keeps a single row for the A/B clash; it must name the subject
+        # session AND the distinct occupier, never the same session twice.
+        assert len(overlaps) == 1
+        conflict = overlaps[0]
+        assert conflict.subject_session_pk != conflict.session_pk
+        assert conflict.subject_session_title != conflict.session_title
+        assert {conflict.subject_session_pk, conflict.session_pk} == {
+            session_a.pk,
+            session_b.pk,
+        }
 
     def test_lists_session_outside_preferred_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -168,13 +175,12 @@ class TestTimetableProblemsPageView:
         assert violations[0].preferred_slots[0].start_time == preferred_slot.start_time
 
     def test_skips_session_inside_preferred_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,
@@ -195,13 +201,12 @@ class TestTimetableProblemsPageView:
         assert response.context["slot_violations"] == []
 
     def test_skips_session_with_no_preferred_slots(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
             status="pending",
             participants_limit=5,
             min_age=0,

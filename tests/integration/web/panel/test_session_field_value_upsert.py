@@ -12,7 +12,7 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
             name="18+",
@@ -22,10 +22,12 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
             order=0,
         )
         data = {
+            "category_id": session.category_id,
             "title": "Updated",
             "display_name": "Host",
             "participants_limit": 5,
             "min_age": 0,
+            "session_fields_submitted": "1",
             "session_field_adult": "true",
         }
         url = self.get_url(event, session.pk)

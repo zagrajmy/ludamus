@@ -1,28 +1,38 @@
 """Django forms for panel views."""
 
-from typing import ClassVar
+import re
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.adapters.db.django.models import AccreditationType
+from ludamus.pacts.discounts import DiscountKind
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from ludamus.pacts.multiverse import ConnectionDTO
+
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # Image-upload invariants (business rules, not gate trivia): every cover/header
 # upload across the app is held to these same limits via validate_uploaded_image.
-MAX_IMAGE_SIZE = 2 * 1024 * 1024
-# A small (≤2 MB) file can still decode to a huge bitmap; cap pixel count to
+MAX_IMAGE_SIZE = 8 * 1024 * 1024
+# A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
 # bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
 MAX_IMAGE_PIXELS = 24_000_000
 ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
 COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
-COVER_IMAGE_HELP_TEXT = _("Max 2 MB. JPG, PNG, WebP, or AVIF.")
+COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
 
 
 def validate_uploaded_image_size(image: object) -> None:
     size = getattr(image, "size", 0)
     if isinstance(size, int) and size > MAX_IMAGE_SIZE:
-        raise ValidationError(_gettext("Image too large. Maximum size is 2 MB."))
+        raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
 
 
 def validate_uploaded_image_format(image: object) -> None:
@@ -59,6 +69,19 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
+def _logo_field() -> forms.ImageField:
+    # Reuses the shared image validators (format + decompression-bomb guard);
+    # the printable-schedule logo only differs in label and accepted types.
+    return forms.ImageField(
+        required=False,
+        label=_("Logo"),
+        help_text=_(
+            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
+        ),
+        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+    )
+
+
 def _datetime_local_widget() -> forms.DateTimeInput:
     return forms.DateTimeInput(
         attrs={
@@ -90,6 +113,7 @@ class EventSettingsForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     cover_image = cover_image_field()
+    logo = _logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -114,9 +138,37 @@ class EventSettingsForm(forms.Form):
         ],
         label=_("Facilitators editing their own sessions"),
     )
+    auto_confirm_sessions = forms.BooleanField(
+        required=False,
+        label=_("Automatically confirm program items once scheduled"),
+        help_text=_(
+            "When on, a program item is confirmed the moment it is placed on "
+            "the schedule. Turn off to confirm items manually."
+        ),
+    )
+    use_session_cover_placeholders = forms.BooleanField(
+        required=False,
+        label=_("Use placeholder images for sessions without a cover image"),
+        help_text=_(
+            "When off, sessions without uploaded images are shown as text-only cards."
+        ),
+    )
+    use_participants_label = forms.BooleanField(
+        required=False,
+        label=_('Label the attendee count "Participants" instead of "Players"'),
+        help_text=_(
+            "Turn on for non-gaming events so the public page counts participants "
+            "rather than players."
+        ),
+    )
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
+        return image
+
+    def clean_logo(self) -> object:
+        image = self.cleaned_data.get("logo")
         validate_uploaded_image(image)
         return image
 
@@ -129,6 +181,12 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    logo = _logo_field()
+
+    def clean_logo(self) -> object:
+        image = self.cleaned_data.get("logo")
+        validate_uploaded_image(image)
+        return image
 
 
 class ProposalSettingsForm(forms.Form):
@@ -148,6 +206,7 @@ class ProposalSettingsForm(forms.Form):
         input_formats=_DATETIME_LOCAL_FORMATS,
     )
     apply_dates_to_categories = forms.BooleanField(required=False, initial=False)
+    allow_anonymous_proposals = forms.BooleanField(required=False, initial=False)
 
 
 class ProposalCategoryForm(forms.Form):
@@ -305,71 +364,6 @@ class SessionFieldForm(forms.Form):
     is_public = forms.BooleanField(required=False, initial=False)
 
 
-class VenueForm(forms.Form):
-    """Form for creating/editing venues."""
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Venue name is too long (max 255 characters)."),
-            "required": _("Venue name is required."),
-        },
-    )
-    address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
-
-
-class VenueDuplicateForm(forms.Form):
-    """Form for duplicating a venue within the same event."""
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        label=_("New Venue Name"),
-        error_messages={
-            "max_length": _("Venue name is too long (max 255 characters)."),
-            "required": _("Venue name is required."),
-        },
-    )
-
-
-def create_venue_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
-    """Create a form for copying a venue to another event.
-
-    Args:
-        events: List of (event_id, event_name) tuples for target event choices.
-
-    Returns:
-        A form class with the target_event field configured.
-    """
-    target_event_field = forms.ChoiceField(
-        label=_("Target Event"),
-        choices=events,
-        error_messages={
-            "required": _("Please select a target event."),
-            "invalid_choice": _("Invalid event selection."),
-        },
-    )
-
-    return type("VenueCopyForm", (forms.Form,), {"target_event": target_event_field})
-
-
-class AreaForm(forms.Form):
-    """Form for creating/editing areas within a venue."""
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Area name is too long (max 255 characters)."),
-            "required": _("Area name is required."),
-        },
-    )
-    description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
-    )
-
-
 class TimeSlotForm(forms.Form):
     """Form for creating/editing time slots."""
 
@@ -400,8 +394,6 @@ class TimeSlotForm(forms.Form):
 
 
 class SpaceForm(forms.Form):
-    """Form for creating/editing spaces within an area."""
-
     name = forms.CharField(
         max_length=255,
         strip=True,
@@ -413,8 +405,46 @@ class SpaceForm(forms.Form):
     capacity = forms.IntegerField(
         required=False,
         min_value=1,
+        label=_("Capacity"),
+        help_text=_(
+            "Set the number of seats for a room that holds sessions, at any level."
+            " Leave empty for a space that only groups other spaces."
+        ),
         error_messages={"min_value": _("Capacity must be at least 1.")},
     )
+    description = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+
+
+class SpaceEditForm(SpaceForm):
+    # Editing additionally allows reparenting; the view supplies the eligible
+    # targets (no self, descendants, or session-holding spaces). The empty
+    # choice ("Top level") moves the space to the root.
+    def __init__(
+        self, *args: Any, parent_choices: list[tuple[str, str]], **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["parent"] = forms.ChoiceField(
+            required=False,
+            label=_("Parent"),
+            help_text=_(
+                "Move this space elsewhere, or choose Top level to flatten it."
+            ),
+            choices=parent_choices,
+        )
+
+
+def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
+    target_event_field = forms.ChoiceField(
+        label=_("Target Event"),
+        choices=events,
+        error_messages={
+            "required": _("Please select a target event."),
+            "invalid_choice": _("Invalid event selection."),
+        },
+    )
+    return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
 class TrackForm(forms.Form):
@@ -465,21 +495,34 @@ class SessionEditForm(forms.Form):
         return image
 
 
-def create_proposal_form(categories: list[tuple[int, str]]) -> type[SessionEditForm]:
-    category_field = forms.ChoiceField(
-        choices=[("", _("— Select category —")), *categories],
-        error_messages={
-            "required": _("Please select a category."),
-            "invalid_choice": _("Invalid category selection."),
-        },
-    )
-    return type(
-        "ProposalCreateForm", (SessionEditForm,), {"category_id": category_field}
-    )
+def create_proposal_form(
+    categories: list[tuple[int, str]], facilitators: list[tuple[int, str]] | None = None
+) -> type[SessionEditForm]:
+    attrs: dict[str, forms.Field] = {
+        "category_id": forms.ChoiceField(
+            choices=[("", _("— Select category —")), *categories],
+            error_messages={
+                "required": _("Please select a category."),
+                "invalid_choice": _("Invalid category selection."),
+            },
+        )
+    }
+    # Create variant only: a required facilitator binding so a hand-added
+    # proposal can never exist with zero facilitators. The edit view omits
+    # this — it manages facilitators through its own inline list.
+    if facilitators is not None:
+        attrs["facilitator_ids"] = forms.MultipleChoiceField(
+            choices=facilitators,
+            error_messages={
+                "required": _("Please select at least one facilitator."),
+                "invalid_choice": _("Invalid facilitator selection."),
+            },
+        )
+    return type("ProposalCreateForm", (SessionEditForm,), attrs)
 
 
 class FacilitatorForm(forms.Form):
-    """Form for creating/editing a facilitator."""
+    """Form for creating a facilitator (display_name is required at creation)."""
 
     display_name = forms.CharField(
         max_length=255,
@@ -489,3 +532,91 @@ class FacilitatorForm(forms.Form):
             "required": _("Display name is required."),
         },
     )
+    accreditation_type = forms.ChoiceField(
+        choices=AccreditationType.choices,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+class FacilitatorEditForm(forms.Form):
+    # No display_name: it is a read-only cache (the canonical byline lives on
+    # the session), so the panel edit form only touches accreditation_type.
+    accreditation_type = forms.ChoiceField(
+        choices=AccreditationType.choices,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+DISCOUNT_KIND_LABELS = {
+    DiscountKind.PERCENT: _("Percent"),
+    DiscountKind.AMOUNT: _("Amount"),
+}
+
+
+class DiscountForm(forms.Form):
+    kind = forms.ChoiceField(
+        choices=[(k.value, DISCOUNT_KIND_LABELS[k]) for k in DiscountKind],
+        initial=DiscountKind.PERCENT,
+        label=_("Kind"),
+    )
+    value = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label=_("Value"),
+        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        error_messages={
+            "required": _("Value is required."),
+            "min_value": _("Value must be greater than zero."),
+        },
+    )
+    note = forms.CharField(
+        max_length=255,
+        strip=True,
+        required=False,
+        label=_("Note"),
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+
+_SPREADSHEET_URL_ID_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
+_SPREADSHEET_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+class DiscountExportForm(forms.Form):
+    connection = forms.ChoiceField(label=_("Connection"))
+    spreadsheet = forms.CharField(
+        label=_("Google Sheets link"),
+        max_length=500,
+        strip=True,
+        help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
+    )
+
+    def __init__(
+        self, *args: Any, connections: Iterable[ConnectionDTO], **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        connection_field = cast("forms.ChoiceField", self.fields["connection"])
+        connection_field.choices = [
+            (str(connection.pk), connection.display_name) for connection in connections
+        ]
+
+    def clean_spreadsheet(self) -> str:
+        raw = str(self.cleaned_data["spreadsheet"])
+        if match := _SPREADSHEET_URL_ID_RE.search(raw):
+            return match.group(1)
+        if _SPREADSHEET_ID_RE.fullmatch(raw):
+            return raw
+        raise forms.ValidationError(
+            _("Enter a Google Sheets link or a spreadsheet ID.")
+        )

@@ -1,0 +1,100 @@
+amends "pkl/Config.pkl"
+import "pkl/Builtins.pkl"
+
+// The vendored hk pkl package (see pkl/Builtins.pkl header) lints itself
+// otherwise — its builtins carry test fixtures like fake private keys.
+exclude = List("pkl")
+
+local linters = new Mapping<String, Step> {
+  // File hygiene
+  ["check-added-large-files"] = Builtins.check_added_large_files
+  ["check-merge-conflict"] = Builtins.check_merge_conflict
+  ["detect-private-key"] = Builtins.detect_private_key
+  ["end-of-file-fixer"] = Builtins.newlines
+  ["trailing-whitespace"] = Builtins.trailing_whitespace
+
+  // Python
+  ["black"] = Builtins.black
+  ["ruff"] = Builtins.ruff
+  ["codespell"] {
+    glob = List("**/*")
+    // exclude mirrors [tool.codespell].skip in pyproject.toml
+    exclude = List(
+      "**/node_modules/**",
+      "tests/e2e/**",
+      "**/*.po",
+      "**/*.lock",
+      "**/package-lock.json",
+      "**/vendor/**",
+      "CLAUDE.md",
+      ".claude/**",
+      "aube-lock.yaml",
+      "src/ludamus/static/vite/**",
+    )
+    check = "codespell --toml=pyproject.toml {{files}}"
+  }
+
+  // Django templates — lint + format check in one djlint run (mirrors the djlint mise task)
+  ["djlint"] {
+    glob = List("src/**/*.html")
+    check = "djlint {{files}} --lint --check --format-css --format-js --profile=django"
+    fix = "djlint {{files}} --lint --reformat --format-css --format-js --profile=django"
+  }
+
+  // Frontend — oxfmt (Tailwind sorting via .oxfmtrc.json), run as an aube devDep
+  ["oxfmt"] = (Builtins.oxfmt) {
+    prefix = "aube exec"
+    glob = List(
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.mts",
+      "**/*.cts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/*.css",
+    )
+  }
+
+  // Config / infra
+  ["yamllint"] = Builtins.yamllint
+  ["actionlint"] = Builtins.actionlint
+  ["hadolint"] = Builtins.hadolint
+  ["dockerfmt"] {
+    glob = List("**/Dockerfile*")
+    // -n keeps the trailing newline so dockerfmt and end-of-file-fixer agree
+    check = "dockerfmt -c -n {{files}}"
+    fix = "dockerfmt -w -n {{files}}"
+  }
+  ["dclint"] = (Builtins.dclint) {
+    prefix = "aube exec"
+    glob = List("docker/compose/*.yml", "docker/compose/*.yaml")
+  }
+  ["markdownlint"] {
+    glob = List("**/*.md")
+    exclude = List(".agents/**", ".claude/**", "**/node_modules/**")
+    check = "markdownlint-cli2 {{files}}"
+    fix = "markdownlint-cli2 --fix {{files}}"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps {
+      ...linters
+      ["varlock"] {
+        check = "aube exec varlock scan --staged"
+      }
+    }
+  }
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+}

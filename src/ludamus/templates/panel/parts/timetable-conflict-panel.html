@@ -22,7 +22,7 @@
                     </span>
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-medium {% if conflict.severity == 'error' %}text-danger-text{% else %}text-warning-text{% endif %} truncate">
-                            {{ conflict.session_title }}
+                            {{ conflict.subject_session_title }}
                         </div>
                         <div class="text-xs {% if conflict.severity == 'error' %}text-danger{% else %}text-warning{% endif %} mt-0.5">
                             {% if conflict.type == "space_overlap" %}
@@ -43,7 +43,7 @@
                         {% endif %}
                         <button type="button"
                                 class="mt-1 text-xs underline {% if conflict.severity == 'error' %}text-danger hover:text-danger-text{% else %}text-warning hover:text-warning-text{% endif %}"
-                                hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=conflict.session_pk %}?track={{ filter_track_pk|default:'' }}"
+                                hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=conflict.subject_session_pk %}?track={{ filter_track_pk|default:'' }}"
                                 hx-target="#left-pane"
                                 hx-swap="outerHTML">{% translate "Show session" %}</button>
                     </div>

@@ -26,162 +26,165 @@
     {% if current_event %}
         <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
             {% tabs %}
-            {% tab "types" href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
-            {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
-            {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
-            {% tab "time_slots" active=True href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        <div class="alert alert-info mb-6">
-            <div class="flex items-start gap-3">
-                <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
-                <div>
-                    <p class="text-sm font-medium">{% translate "What are Time Slots?" %}</p>
-                    <p class="text-sm mt-1">
-                        {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        {% if event_days %}
-            {% if total_pages > 1 %}
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                        {% if has_prev %}
-                            <a href="?page={{ page|add:"-1" }}"
-                               class="px-3 py-1.5 text-sm border border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center">
-                                {% icon "chevron-left" class="w-4 h-4 mr-1" %}
-                                {% translate "Previous" %}
-                            </a>
-                        {% endif %}
-                    </div>
-                    <span class="text-sm text-foreground-muted">
-                        {% blocktranslate with current=page|add:"1" total=total_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}
-                    </span>
-                    <div class="flex items-center gap-2">
-                        {% if has_next %}
-                            <a href="?page={{ page|add:"1" }}"
-                               class="px-3 py-1.5 text-sm border border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center">
-                                {% translate "Next" %}
-                                {% icon "chevron-right" class="w-4 h-4 ml-1" %}
-                            </a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-            <div class="grid grid-cols-1 md:{% if event_days|length == 1 %}grid-cols-1{% elif event_days|length == 2 %}grid-cols-2{% else %}grid-cols-3{% endif %} gap-4">
-                {% for day in event_days %}
-                    <div class="card overflow-hidden flex flex-col">
-                        <div class="px-4 py-3 bg-bg-tertiary border-b border-border">
-                            <h3 class="text-sm font-semibold text-foreground-secondary">{{ day|date:"D, M d" }}</h3>
-                        </div>
-                        <div class="p-4 space-y-2 flex-1">
-                            {% if day|date:"Y-m-d" == current_event.start_time|date:"Y-m-d" %}
-                                <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
-                                    <span class="text-sm text-neutral-400">{% translate "Event starts at" %} {{ current_event.start_time|time:"H:i" }}</span>
-                                </div>
-                            {% endif %}
-                            {% for slot in days|get_item:day.isoformat %}
-                                {% with slot_key=slot.pk|stringformat:"d"|add:","|add:day.isoformat %}
-                                    {% if continuation_slots|is_continuation:slot_key %}
-                                        <div class="flex items-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-1 h-8 bg-neutral-300 rounded-full"></div>
-                                                <span class="text-sm text-foreground-muted">
-                                                    → {{ slot.end_time|time:"H:i" }}
-                                                    <span class="text-neutral-400 ml-1">({% translate "continues from" %} {{ slot.start_time|date:"D, M d" }})</span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    {% else %}
-                                        <div class="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:border-neutral-200 transition">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-1 h-8 bg-primary rounded-full"></div>
-                                                <span class="text-sm font-medium text-foreground">
-                                                    {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
-                                                </span>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
-                                                   class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
-                                                <form method="post"
-                                                      action="{% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk %}"
-                                                      class="inline"
-                                                      onsubmit="return confirm('{% translate "Are you sure you want to delete this time slot?" %}');">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="text-sm text-red-600 hover:text-red-800">{% translate "Delete" %}</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    {% endif %}
-                                {% endwith %}
-                            {% empty %}
-                                <p class="text-sm text-neutral-400 text-center py-4">{% translate "No slots" %}</p>
-                            {% endfor %}
-                            {% if day|date:"Y-m-d" == current_event.end_time|date:"Y-m-d" %}
-                                <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
-                                    <span class="text-sm text-neutral-400">{% translate "Event ends at" %} {{ current_event.end_time|time:"H:i" }}</span>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="px-4 pb-4">
-                            <a href="{% url 'panel:time-slot-create' slug=current_event.slug %}?date={{ day|date:'Y-m-d' }}"
-                               class="w-full px-3 py-2 text-sm border border-dashed border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center justify-center">
-                                {% icon "plus" class="w-4 h-4 mr-1" %}
-                                {% translate "Add" %}
-                            </a>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-            {% if orphaned_slots %}
-                <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <div class="flex items-start gap-3 mb-4">
-                        <span class="text-amber-600 flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
-                        <div>
-                            <p class="text-sm font-medium text-amber-800">{% translate "Orphaned Time Slots" %}</p>
-                            <p class="text-sm text-amber-700 mt-1">
-                                {% translate "These time slots fall outside the current event dates. Edit them to move within event dates, or delete them." %}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        {% for slot in orphaned_slots %}
-                            <div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-bg-secondary">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-1 h-8 bg-amber-400 rounded-full"></div>
-                                    <span class="text-sm font-medium text-foreground">
-                                        {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
-                                       class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
-                                    <form method="post"
-                                          action="{% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk %}"
-                                          class="inline"
-                                          onsubmit="return confirm('{% translate "Are you sure you want to delete this time slot?" %}');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="text-sm text-red-600 hover:text-red-800">{% translate "Delete" %}</button>
-                                    </form>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endif %}
-        {% else %}
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted">
-                    {% translate "No time slots defined. Add time slots to configure the event schedule." %}
+            {% tab "types" href=tab_urls.types %}{% translate "Categories" %}{% end_tab %}
+        {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
+    {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
+{% tab "time_slots" active=True href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    <div class="alert alert-info mb-6">
+        <div class="flex items-start gap-3">
+            <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
+            <div>
+                <p class="text-sm font-medium">{% translate "What are Time Slots?" %}</p>
+                <p class="text-sm mt-1">
+                    {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
                 </p>
             </div>
+        </div>
+    </div>
+    {% if event_days %}
+        {% if total_pages > 1 %}
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    {% if has_prev %}
+                        <a href="?page={{ page|add:"-1" }}"
+                           class="px-3 py-1.5 text-sm border border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center">
+                            {% icon "chevron-left" class="w-4 h-4 mr-1" %}
+                            {% translate "Previous" %}
+                        </a>
+                    {% endif %}
+                </div>
+                <span class="text-sm text-foreground-muted">
+                    {% blocktranslate with current=page|add:"1" total=total_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}
+                </span>
+                <div class="flex items-center gap-2">
+                    {% if has_next %}
+                        <a href="?page={{ page|add:"1" }}"
+                           class="px-3 py-1.5 text-sm border border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center">
+                            {% translate "Next" %}
+                            {% icon "chevron-right" class="w-4 h-4 ml-1" %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
         {% endif %}
-    </div>
+        <div class="grid grid-cols-1 md:{% if event_days|length == 1 %}grid-cols-1{% elif event_days|length == 2 %}grid-cols-2{% else %}grid-cols-3{% endif %} gap-4">
+            {% for day in event_days %}
+                <div class="card overflow-hidden flex flex-col">
+                    <div class="px-4 py-3 bg-bg-tertiary border-b border-border">
+                        <h3 class="text-sm font-semibold text-foreground-secondary">{{ day|date:"D, M d" }}</h3>
+                    </div>
+                    <div class="p-4 space-y-2 flex-1">
+                        {% if day|date:"Y-m-d" == current_event.start_time|date:"Y-m-d" %}
+                            <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
+                                <span class="text-sm text-neutral-400">{% translate "Event starts at" %} {{ current_event.start_time|time:"H:i" }}</span>
+                            </div>
+                        {% endif %}
+                        {% for slot in days|get_item:day.isoformat %}
+                            {% with slot_key=slot.pk|stringformat:"d"|add:","|add:day.isoformat %}
+                                {% if continuation_slots|is_continuation:slot_key %}
+                                    <div class="flex items-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-1 h-8 bg-neutral-300 rounded-full"></div>
+                                            <span class="text-sm text-foreground-muted">
+                                                → {{ slot.end_time|time:"H:i" }}
+                                                <span class="text-neutral-400 ml-1">({% translate "continues from" %} {{ slot.start_time|date:"D, M d" }})</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:border-neutral-200 transition">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-1 h-8 bg-primary rounded-full"></div>
+                                            <span class="text-sm font-medium text-foreground">
+                                                {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
+                                               class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
+                                            <form method="post"
+                                                  action="{% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk %}"
+                                                  class="inline"
+                                                  data-confirm="{% translate "Are you sure you want to delete this time slot?" %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="text-sm text-red-600 hover:text-red-800">{% translate "Delete" %}</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        {% empty %}
+                            <p class="text-sm text-neutral-400 text-center py-4">{% translate "No slots" %}</p>
+                        {% endfor %}
+                        {% if day|date:"Y-m-d" == current_event.end_time|date:"Y-m-d" %}
+                            <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
+                                <span class="text-sm text-neutral-400">{% translate "Event ends at" %} {{ current_event.end_time|time:"H:i" }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="px-4 pb-4">
+                        <a href="{% url 'panel:time-slot-create' slug=current_event.slug %}?date={{ day|date:'Y-m-d' }}"
+                           class="w-full px-3 py-2 text-sm border border-dashed border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center justify-center">
+                            {% icon "plus" class="w-4 h-4 mr-1" %}
+                            {% translate "Add" %}
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        {% if orphaned_slots %}
+            <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div class="flex items-start gap-3 mb-4">
+                    <span class="text-amber-600 flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
+                    <div>
+                        <p class="text-sm font-medium text-amber-800">{% translate "Orphaned Time Slots" %}</p>
+                        <p class="text-sm text-amber-700 mt-1">
+                            {% translate "These time slots fall outside the current event dates. Edit them to move within event dates, or delete them." %}
+                        </p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    {% for slot in orphaned_slots %}
+                        <div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-bg-secondary">
+                            <div class="flex items-center gap-3">
+                                <div class="w-1 h-8 bg-amber-400 rounded-full"></div>
+                                <span class="text-sm font-medium text-foreground">
+                                    {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
+                                   class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
+                                <form method="post"
+                                      action="{% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk %}"
+                                      class="inline"
+                                      data-confirm="{% translate "Are you sure you want to delete this time slot?" %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-sm text-red-600 hover:text-red-800">{% translate "Delete" %}</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted mb-4">
+                {% translate "No time slots defined. Add time slots to configure the event schedule." %}
+            </p>
+            {% url 'panel:time-slot-create' slug=current_event.slug as create_url %}
+            {% translate "Add Time Slot" as t_create %}
+            {% tessera_button t_create href=create_url icon="plus" %}
+        </div>
+    {% endif %}
+</div>
 {% else %}
-    <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-    </div>
+<div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
 {% endif %}
 {% endblock content %}

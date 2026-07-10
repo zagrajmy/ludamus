@@ -6,8 +6,9 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Area, Space, Track, Venue
-from ludamus.pacts import EventDTO, UserDTO
+from ludamus.adapters.db.django.models import Space, Track
+from ludamus.pacts import EventDTO
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
 
@@ -155,9 +156,7 @@ class TestTrackCreatePageView:
     ):
         """Spaces and managers are set in the same transaction as track creation."""
         sphere.managers.add(active_user)
-        venue = Venue.objects.create(event=event, name="Hall", slug="hall")
-        area = Area.objects.create(venue=venue, name="Wing A", slug="wing-a")
-        space = Space.objects.create(area=area, name="Room 1", slug="room-1")
+        space = Space.objects.create(event=event, name="Room 1", slug="room-1")
 
         response = authenticated_client.post(
             self.get_url(event),

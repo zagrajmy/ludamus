@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -50,13 +51,18 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
+        "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
+        "use_session_cover_placeholders": bool(
+            cd.get("use_session_cover_placeholders")
+        ),
+        "use_participants_label": bool(cd.get("use_participants_label")),
     }
-    # ClearableFileInput yields a file on upload, False when cleared, or None
-    # when left untouched (keep the current cover).
-    if cover_image := cd.get("cover_image"):
-        data["cover_image"] = cover_image
-    elif cover_image is False:
-        data["cover_image"] = ""
+    if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
+        data["cover_image"] = cover
+    # Only overwrite the logo when a new file was uploaded, so saving the
+    # settings form without re-picking a file keeps the existing logo.
+    if cd.get("logo"):
+        data["logo"] = cd["logo"]
     return data
 
 
@@ -95,6 +101,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "slug": current_event.slug,
                 "description": current_event.description,
                 "cover_image": current_event.cover_image_url or None,
+                "logo": current_event.logo_url or None,
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (
@@ -103,6 +110,11 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     else None
                 ),
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "auto_confirm_sessions": current_event.auto_confirm_sessions,
+                "use_session_cover_placeholders": (
+                    current_event.use_session_cover_placeholders
+                ),
+                "use_participants_label": current_event.use_participants_label,
             }
         )
         self._apply_facilitator_choices(form)
@@ -220,9 +232,14 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "proposals"
         context["tab_urls"] = settings_tab_urls(slug)
+        proposal_settings = (
+            self.request.di.uow.event_proposal_settings.read_or_create_by_event(
+                current_event.pk
+            )
+        )
         context["form"] = ProposalSettingsForm(
             initial={
-                "proposal_description": current_event.proposal_description,
+                "proposal_description": proposal_settings.description,
                 "proposal_start_time": (
                     localtime(current_event.proposal_start_time)
                     if current_event.proposal_start_time
@@ -232,6 +249,9 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                     localtime(current_event.proposal_end_time)
                     if current_event.proposal_end_time
                     else None
+                ),
+                "allow_anonymous_proposals": (
+                    proposal_settings.allow_anonymous_proposals
                 ),
             }
         )
@@ -256,7 +276,7 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         with self.request.di.uow.atomic():
             # Save proposal description
-            self.request.di.uow.events.update_proposal_description(
+            self.request.di.uow.event_proposal_settings.update_description(
                 current_event.pk, cd.get("proposal_description") or ""
             )
 
@@ -266,6 +286,10 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "proposal_end_time": cd.get("proposal_end_time"),
             }
             self.request.di.uow.events.update(current_event.pk, data)
+
+            self.request.di.uow.event_proposal_settings.update_allow_anonymous_proposals(
+                current_event.pk, allow=bool(cd.get("allow_anonymous_proposals"))
+            )
 
             # Optionally apply dates to all categories
             if cd.get("apply_dates_to_categories"):

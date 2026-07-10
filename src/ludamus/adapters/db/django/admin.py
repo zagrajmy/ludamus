@@ -5,7 +5,6 @@ from django.contrib import admin
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     DomainEnrollmentConfig,
     Encounter,
     EncounterRSVP,
@@ -23,26 +22,11 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-
-@admin.register(Venue)
-class VenueAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "event", "address", "order")
-    list_filter = ("event",)
-    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
-
-
-@admin.register(Area)
-class AreaAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "venue", "order")
-    list_filter = ("venue__event",)
-    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
 @admin.register(AgendaItem)
@@ -74,8 +58,8 @@ class SessionFieldValueInline(admin.TabularInline):  # type: ignore [type-arg]
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "status", "display_name", "category", "sphere")
-    list_filter = ("status", "sphere")
+    list_display = ("title", "status", "display_name", "category", "event")
+    list_filter = ("status", "event")
     search_fields = ("title", "display_name")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("title",)}
     inlines = (SessionFieldValueInline,)
@@ -120,14 +104,14 @@ class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("name", "user_type", "manager", "email", "discord_username")
+    list_display = ("name", "user_type", "email", "discord_username")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 
 @admin.register(Facilitator)
 class FacilitatorAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("display_name", "event", "user")
-    list_filter = ("event",)
+    list_display = ("display_name", "event", "user", "accreditation_type")
+    list_filter = ("event", "accreditation_type")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {
         "slug": ("display_name",)
     }
@@ -136,12 +120,6 @@ class FacilitatorAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 @admin.register(ProposalCategory)
 class ProposalCategoryAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
-
-
-class DomainEnrollmentConfigInline(admin.TabularInline):  # type: ignore [type-arg]
-    model = DomainEnrollmentConfig
-    extra = 0
-    fields = ("domain", "allowed_slots_per_user")
 
 
 @admin.register(EnrollmentConfig)

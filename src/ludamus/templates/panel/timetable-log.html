@@ -12,10 +12,10 @@
     <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
         {% tabs %}
         {% tab "timetable" href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-        {% tab "log" active=True href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-        {% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-        {% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-    {% end_tabs %}
+    {% tab "log" active=True href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
+{% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
+{% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
+{% end_tabs %}
 </div>
 <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
     <!-- Filters -->
@@ -81,17 +81,18 @@
                                 {% endif %}
                             </td>
                             <td class="py-2">
-                                {% if log.action == "assign" or log.action == "unassign" %}
-                                    <form method="post"
-                                          action="{% url 'panel:timetable-revert' slug=slug %}"
-                                          onsubmit="return confirm('{% translate "Are you sure you want to revert this change?" %}')">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="log_pk" value="{{ log.pk }}">
-                                        <button type="submit"
-                                                class="text-xs text-foreground-muted hover:text-danger-text underline">
-                                            {% translate "Revert" %}
-                                        </button>
-                                    </form>
+                                {% if log.pk in revertible_pks %}
+                                    {% if log.action == "assign" or log.action == "unassign" %}
+                                        <form method="post"
+                                              action="{% url 'panel:timetable-revert' slug=slug %}"
+                                              data-confirm="{% translate "Are you sure you want to revert this change?" %}"
+                                              data-confirm-action="{% translate "Revert" %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="log_pk" value="{{ log.pk }}">
+                                            {% translate "Revert" as t_revert %}
+                                            {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
+                                        </form>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>

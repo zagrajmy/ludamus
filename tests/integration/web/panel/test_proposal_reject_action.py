@@ -1,26 +1,31 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/reject."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import ProposalCategory, Session
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+SCHEDULED_ERROR = (
+    "This session is scheduled and can only be accepted. "
+    "Remove it from the timetable to change its status."
+)
 
 
-def _make_session(event, sphere, **kwargs):
+def _make_session(event, **kwargs):
     category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
     defaults = {
+        "event": event,
         "category": category,
         "presenter": None,
         "display_name": "Test Host",
         "title": "Test Session",
         "slug": "test-session",
-        "sphere": sphere,
         "participants_limit": 5,
         "status": "pending",
     }
@@ -38,8 +43,8 @@ class TestProposalRejectActionView:
             kwargs={"slug": event.slug, "proposal_id": proposal_id},
         )
 
-    def test_post_redirects_anonymous_user_to_login(self, client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_anonymous_user_to_login(self, client, event):
+        session = _make_session(event)
         url = self.get_url(event, session.pk)
 
         response = client.post(url)
@@ -48,8 +53,8 @@ class TestProposalRejectActionView:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
-    def test_post_redirects_non_manager_user(self, authenticated_client, event, sphere):
-        session = _make_session(event, sphere)
+    def test_post_redirects_non_manager_user(self, authenticated_client, event):
+        session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -81,7 +86,7 @@ class TestProposalRejectActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, sphere)
+        session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -89,7 +94,10 @@ class TestProposalRejectActionView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Proposal rejected.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
         )
         session.refresh_from_db()
         assert session.status == "rejected"
@@ -114,7 +122,7 @@ class TestProposalRejectActionView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event, sphere)
+        session = _make_session(other_event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
@@ -126,3 +134,29 @@ class TestProposalRejectActionView:
         )
         session.refresh_from_db()
         assert session.status == "pending"
+
+    def test_post_rejects_scheduled_session(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, status="accepted")
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.post(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, SCHEDULED_ERROR)],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.status == "accepted"

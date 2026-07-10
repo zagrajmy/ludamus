@@ -1,0 +1,36 @@
+{% load i18n %}
+{% load cfp_tags %}
+{% load tessera %}
+{# Session tile inside a room-lane cell. Same .session-card / data-* contract #}
+{# as the ledger row, so filters, bookmarks, and the detail modal apply. #}
+<article class="session-card-wrapper min-w-0">
+    <div class="session-card relative flex flex-col gap-1.5 rounded-xl border border-border bg-bg-secondary p-2.5 transition-colors hover:border-neutral-300 dark:hover:border-neutral-600 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
+         {% include "chronology/_session_data_attrs.html" %}>
+        <a href="?session={{ data.session.pk }}"
+           class="session-card-link absolute inset-0 z-10 rounded-xl"
+           aria-haspopup="dialog"
+           aria-controls="session-{{ data.session.pk }}">
+            <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
+        </a>
+        <h4 class="{% if current_user %}pr-7{% endif %} text-sm font-semibold leading-snug text-foreground"
+            data-morph="title">
+            {{ data.session.title }}
+            <span class="text-xs font-normal text-foreground-muted" data-morph="host">{{ data.session.display_name }}</span>
+        </h4>
+        <div class="flex items-baseline justify-between gap-2 text-xs text-foreground-muted">
+            <span class="truncate tabular-nums" data-morph="time">
+                {{ data.agenda_item.start_time|time:"H:i" }}–{{ data.agenda_item.end_time|time:"H:i" }}
+                {% if data.session.duration %}· {{ data.session.duration|format_duration }}{% endif %}
+                {% if data.session.min_age > 0 %}
+                    · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
+                {% endif %}
+            </span>
+            <span class="shrink-0 whitespace-nowrap text-right">{% include "chronology/_session_availability.html" %}</span>
+        </div>
+        {% if current_user %}
+            {# .icon-btn pins position:relative, so a wrapper owns the corner. #}
+            <span class="absolute top-1 right-1 z-20 pointer-events-auto">{% include "chronology/_bookmark_toggle.html" %}</span>
+        {% endif %}
+        <span class="sr-only" data-session-description>{{ data.session.description }}</span>
+    </div>
+</article>

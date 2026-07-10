@@ -23,7 +23,8 @@ from ludamus.pacts import NotFoundError, TrackCreateData, TrackUpdateData
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import SpaceDTO, UserDTO
+    from ludamus.pacts import SpaceDTO
+    from ludamus.pacts.crowd import UserDTO
 
 
 def _track_get_choices(

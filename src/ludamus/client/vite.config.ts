@@ -1,7 +1,9 @@
-import { resolve } from "node:path";
-
 import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
+
+const rootDir = fileURLToPath(new URL(".", import.meta.url));
 
 // Vite's default HTML hot-update sends {type:"full-reload", path:"<file>"}.
 // The Vite client (client.mjs case "full-reload") only reloads when that
@@ -10,51 +12,61 @@ import { defineConfig, type Plugin } from "vite";
 // signal. Send a custom event handled by src/django-hmr.ts so Django-rendered
 // pages reload even when Vite's built-in HTML path matching does not apply.
 const djangoTemplateReload = (): Plugin => ({
-  name: "django-template-reload",
   handleHotUpdate: {
-    order: "pre",
     handler({ file, server }) {
       if (file.endsWith(".html")) {
         server.environments.client.hot.send({
-          type: "custom",
           event: "django-template-reload",
+          type: "custom",
         });
         return [];
       }
     },
+    order: "pre",
   },
+  name: "django-template-reload",
 });
 
 export default defineConfig({
   base: "/static/vite/",
+  build: {
+    emptyOutDir: true,
+    manifest: "manifest.json",
+    outDir: resolve(rootDir, "../static/vite"),
+    rollupOptions: {
+      input: {
+        "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
+        confirm: resolve(rootDir, "src/confirm.ts"),
+        copy: resolve(rootDir, "src/copy.ts"),
+        djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
+        "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
+        "event-print": resolve(rootDir, "src/event-print.ts"),
+        "event-timeline": resolve(rootDir, "src/event-timeline.ts"),
+        flash: resolve(rootDir, "src/flash.ts"),
+        "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
+        index: resolve(rootDir, "src/index.css"),
+        "info-popover": resolve(rootDir, "src/info-popover.ts"),
+        menu: resolve(rootDir, "src/menu.ts"),
+        modal: resolve(rootDir, "src/modal.ts"),
+        "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
+        "session-card": resolve(rootDir, "src/session-card.ts"),
+        "session-edit": resolve(rootDir, "src/session-edit.ts"),
+        "session-filters": resolve(rootDir, "src/session-filters.ts"),
+        "space-tree": resolve(rootDir, "src/space-tree.ts"),
+        "tab-scroll": resolve(rootDir, "src/tab-scroll.ts"),
+        tabs: resolve(rootDir, "src/tabs.ts"),
+        timetable: resolve(rootDir, "src/timetable.ts"),
+        "velvet-sound": resolve(rootDir, "src/velvet-sound.ts"),
+      },
+    },
+  },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {
+    cors: {
+      origin: /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
+    },
     host: "0.0.0.0",
     port: Number(process.env.VITE_PORT ?? 5173),
     strictPort: true,
-    cors: {
-      origin:
-        /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
-    },
-  },
-  build: {
-    outDir: resolve(__dirname, "../static/vite"),
-    emptyOutDir: true,
-    manifest: "manifest.json",
-    rollupOptions: {
-      input: {
-        djangoHmr: resolve(__dirname, "src/django-hmr.ts"),
-        index: resolve(__dirname, "src/index.css"),
-        "encounter-form": resolve(__dirname, "src/encounter-form.ts"),
-        confirm: resolve(__dirname, "src/confirm.ts"),
-        "info-popover": resolve(__dirname, "src/info-popover.ts"),
-        modal: resolve(__dirname, "src/modal.ts"),
-        tabs: resolve(__dirname, "src/tabs.ts"),
-        timetable: resolve(__dirname, "src/timetable.ts"),
-        "session-filters": resolve(__dirname, "src/session-filters.ts"),
-        "session-edit": resolve(__dirname, "src/session-edit.ts"),
-        "session-card": resolve(__dirname, "src/session-card.ts"),
-      },
-    },
   },
 });

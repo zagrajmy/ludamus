@@ -13,40 +13,59 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
+    Notification,
+    PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
 from ludamus.adapters.web.django.entities import SessionUserParticipationData
-from ludamus.pacts import UserDTO
+from ludamus.inits.services import Services
+from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO
+from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
     UserFactory,
+    sponsor_user,
 )
 from tests.integration.utils import assert_response
+
+
+def _party_context(viewer):
+    # The enroll page's party plumbing, derived from the same service call the
+    # view makes (default selection: no explicit party requested).
+    selection = Services().parties.enrollment_selection(
+        viewer_pk=viewer.pk, requested_party=None
+    )
+    return {"party_choices": selection.choices, "selected_party": selection.selected}
 
 
 class TestSessionEnrollPageView:
     URL_NAME = "web:chronology:session-enrollment"
 
-    def _get_url(self, session_id: int) -> str:
-        return reverse(self.URL_NAME, kwargs={"session_id": session_id})
+    def _get_url(self, session_id: int, event_slug: str) -> str:
+        return reverse(
+            self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
+        )
 
     def test_get_get_ok(self, active_user, authenticated_client, agenda_item):
-        response = authenticated_client.get(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.get(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -59,8 +78,158 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    def test_get_error_404(self, authenticated_client):
-        response = authenticated_client.get(self._get_url(17))
+    def test_get_renders_default_checked_no_change_radio_per_row(
+        self, active_user, connected_user, authenticated_client, agenda_item
+    ):
+        connected_user.name = "Connected Person"
+        connected_user.save()
+        SessionParticipation.objects.create(
+            user=connected_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.get(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **_party_context(active_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
+                "event": agenda_item.space.event,
+                "form": ANY,
+                "session": agenda_item.session,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    ),
+                    SessionUserParticipationData(
+                        user=ConnectedUserDTO.model_validate(connected_user),
+                        user_enrolled=True,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    ),
+                ],
+            },
+            template_name="chronology/enroll_select.html",
+        )
+        content = " ".join(response.content.decode().split())
+        for user in (active_user, connected_user):
+            assert (
+                f'name="user_{user.pk}" id="user_{user.pk}_no_change" '
+                f'aria-label="No change: {user.full_name}" value="" checked' in content
+            )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_no_change_value_leaves_user_unenrolled(
+        self, connected_user, agenda_item, authenticated_client
+    ):
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{connected_user.id}": ""},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.WARNING, "Please select at least one user to enroll.")],
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=connected_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_get_offered_participation_only_offers_decline(
+        self, active_user, authenticated_client, agenda_item
+    ):
+        # A held offer lets the user only decline it; the page surfaces the
+        # "Decline offer" choice instead of enroll/waitlist actions.
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = authenticated_client.get(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **_party_context(active_user),
+                "connected_users": [],
+                "event": agenda_item.space.event,
+                "form": ANY,
+                "session": agenda_item.session,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        offer_pending=True,
+                        has_time_conflict=False,
+                    )
+                ],
+            },
+            template_name="chronology/enroll_select.html",
+            contains=[
+                "Spot offered",
+                f'id="user_{active_user.pk}_cancel"',
+                'value="cancel"',
+            ],
+            not_contains=[
+                f'id="user_{active_user.pk}_enroll"',
+                f'id="user_{active_user.pk}_waitlist"',
+            ],
+        )
+        field = response.context_data["form"].fields[f"user_{active_user.pk}"]
+        assert ("cancel", "Decline offer") in list(field.choices)
+        content = response.content.decode()
+        # The generic pending-offer chip (not the leader-held-seat one), and a
+        # rendered decline radio so the way out is on the page, not only in
+        # the form definition.
+        assert "Spot offered" in content
+        assert "Seat held" not in content
+        assert f'id="user_{active_user.pk}_cancel"' in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_decline_offered(
+        self, active_user, agenda_item, authenticated_client, event
+    ):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    def test_get_error_404(self, authenticated_client, event):
+        response = authenticated_client.get(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -72,7 +241,9 @@ class TestSessionEnrollPageView:
     def test_get_unscheduled_session_rejected(
         self, authenticated_client, pending_session
     ):
-        response = authenticated_client.get(self._get_url(pending_session.pk))
+        response = authenticated_client.get(
+            self._get_url(pending_session.pk, pending_session.event.slug)
+        )
 
         assert_response(
             response,
@@ -94,7 +265,64 @@ class TestSessionEnrollPageView:
             start_time=faker.date_time_between("-10d", "-5d", tzinfo=time_zone),
             end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
         )
-        response = authenticated_client.post(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+
+    def test_post_cancel_when_enrollment_inactive(
+        self, agenda_item, authenticated_client, event, faker, time_zone, active_user
+    ):
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=faker.date_time_between("-10d", "-5d", tzinfo=time_zone),
+            end_time=faker.date_time_between("-4d", "-1d", tzinfo=time_zone),
+        )
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    def test_post_cancel_when_no_enrollment_config(
+        self, agenda_item, authenticated_client, event, active_user
+    ):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{active_user.id}": "cancel"},
+        )
 
         assert_response(
             response,
@@ -110,7 +338,7 @@ class TestSessionEnrollPageView:
 
     def test_post_invalid_form(self, active_user, agenda_item, authenticated_client):
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "wrong data"},
         )
 
@@ -122,10 +350,12 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -142,19 +372,21 @@ class TestSessionEnrollPageView:
     def test_post_error_please_select_at_least_one(
         self, agenda_item, authenticated_client
     ):
-        response = authenticated_client.post(self._get_url(agenda_item.session.pk))
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             messages=[(messages.WARNING, "Please select at least one user to enroll.")],
-            url=self._get_url(agenda_item.session.pk),
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
         )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_ok(self, staff_user, agenda_item, staff_client, event):
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -178,7 +410,7 @@ class TestSessionEnrollPageView:
         session.save()
 
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -203,7 +435,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -228,7 +460,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -238,6 +470,82 @@ class TestSessionEnrollPageView:
             messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_without_enrollment_skips(
+        self, active_user, agenda_item, authenticated_client, event
+    ):
+        # A cancel choice for a user with no participation is only reachable
+        # when a concurrent request deleted the row first; the form would
+        # otherwise reject "cancel". Mock the form to simulate that race and
+        # assert we skip gracefully instead of raising StopIteration.
+        with patch(
+            "ludamus.adapters.web.django.views.create_enrollment_form"
+        ) as mock_form_factory:
+            mock_form_class = Mock()
+            mock_form_instance = Mock()
+            mock_form_instance.is_valid.return_value = True
+            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "cancel"}
+            mock_form_class.return_value = mock_form_instance
+            mock_form_factory.return_value = mock_form_class
+
+            response = authenticated_client.post(
+                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+                data={f"user_{active_user.id}": "cancel"},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{active_user.name} (no enrollment to cancel)"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_concurrent_cancel_does_not_500(self, active_user, agenda_item):
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        url = self._get_url(agenda_item.session.pk, agenda_item.session.event.slug)
+        post_data = {f"user_{active_user.id}": "cancel"}
+
+        clients = []
+        for _ in range(2):
+            client = Client()
+            client.force_login(active_user)
+            clients.append(client)
+
+        barrier = threading.Barrier(len(clients))
+
+        def cancel(client):
+            barrier.wait()
+            try:
+                return client.post(url, data=post_data)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(clients)) as pool:
+            responses = [
+                future.result()
+                for future in [pool.submit(cancel, client) for client in clients]
+            ]
+
+        assert all(response.status_code == HTTPStatus.FOUND for response in responses)
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
         ).exists()
@@ -258,20 +566,16 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
+        # The promotee is notified directly now; the canceller only sees their
+        # own cancellation (no "stolen" promotion message).
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {connected_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -282,13 +586,17 @@ class TestSessionEnrollPageView:
             session=agenda_item.session,
             status=SessionParticipationStatus.CONFIRMED,
         ).exists()
+        # The manager of the promoted minor is notified directly.
+        assert Notification.objects.filter(
+            recipient=active_user, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post__error_conflict(
-        self, active_user, agenda_item, authenticated_client, event
-    ):
+    def test_post__error_conflict(self, active_user, agenda_item, authenticated_client):
         other_session = SessionFactory(
-            display_name=active_user.name, sphere=event.sphere, participants_limit=10
+            display_name=active_user.name,
+            event=agenda_item.session.event,
+            participants_limit=10,
         )
         AgendaItem.objects.create(
             session=other_session,
@@ -303,7 +611,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -321,10 +629,12 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -349,7 +659,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -366,8 +676,53 @@ class TestSessionEnrollPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:session-enrollment", kwargs={"session_id": session.id}
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": session.event.slug, "session_id": session.id},
             ),
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancel_and_enroll_on_full_session(
+        self,
+        active_user,
+        agenda_item,
+        authenticated_client,
+        session,
+        connected_user,
+        event,
+    ):
+        session.participants_limit = 1
+        session.save()
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={
+                f"user_{active_user.id}": "cancel",
+                f"user_{connected_user.id}": "enroll",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, f"Enrolled: {connected_user.name}"),
+                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
+        ).exists()
+        SessionParticipation.objects.get(
+            user=connected_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -377,7 +732,7 @@ class TestSessionEnrollPageView:
         connected_user.is_active = False
         connected_user.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -386,7 +741,8 @@ class TestSessionEnrollPageView:
             HTTPStatus.FOUND,
             messages=[(messages.WARNING, "Please select at least one user to enroll.")],
             url=reverse(
-                "web:chronology:session-enrollment", kwargs={"session_id": session.id}
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": session.event.slug, "session_id": session.id},
             ),
         )
 
@@ -400,7 +756,7 @@ class TestSessionEnrollPageView:
         session.save()
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -413,7 +769,7 @@ class TestSessionEnrollPageView:
                     "Skipped (already enrolled or conflicts): Test User (session host)",
                 )
             ],
-            url=f"/chronology/event/{proposal_category.event.slug}/",
+            url=f"/event/{proposal_category.event.slug}/",
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
@@ -422,12 +778,11 @@ class TestSessionEnrollPageView:
     @pytest.mark.usefixtures("enrollment_config")
     @staticmethod
     def test_post_time_conflict_skipped(authenticated_client, active_user, event):
-        area = AreaFactory(venue__event=event)
-        space1 = SpaceFactory(area=area)
-        space2 = SpaceFactory(area=area)
+        space1 = SpaceFactory(event=event)
+        space2 = SpaceFactory(event=event)
         time_slot = TimeSlotFactory(event=event)
 
-        session1 = SessionFactory(sphere=event.sphere)
+        session1 = SessionFactory(event=event)
         AgendaItemFactory(
             session=session1,
             space=space1,
@@ -440,7 +795,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
 
-        session2 = SessionFactory(sphere=event.sphere)
+        session2 = SessionFactory(event=event)
         AgendaItemFactory(
             session=session2,
             space=space2,
@@ -461,7 +816,10 @@ class TestSessionEnrollPageView:
             response = authenticated_client.post(
                 reverse(
                     "web:chronology:session-enrollment",
-                    kwargs={"session_id": session2.id},
+                    kwargs={
+                        "event_slug": session2.event.slug,
+                        "session_id": session2.id,
+                    },
                 ),
                 data={f"user_{active_user.id}": "enroll"},
             )
@@ -478,7 +836,7 @@ class TestSessionEnrollPageView:
                     ),
                 )
             ],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session2
@@ -487,7 +845,8 @@ class TestSessionEnrollPageView:
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_no_user_selected(self, authenticated_client, agenda_item):
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk), data={}  # No user selections
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={},  # No user selections
         )
 
         assert_response(
@@ -496,7 +855,10 @@ class TestSessionEnrollPageView:
             messages=[(messages.WARNING, "Please select at least one user to enroll.")],
             url=reverse(
                 "web:chronology:session-enrollment",
-                kwargs={"session_id": agenda_item.session.id},
+                kwargs={
+                    "event_slug": agenda_item.session.event.slug,
+                    "session_id": agenda_item.session.id,
+                },
             ),
         )
 
@@ -506,7 +868,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -530,9 +892,11 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -554,7 +918,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -572,9 +936,11 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -599,7 +965,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "wrong"},
         )
 
@@ -611,9 +977,11 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -636,8 +1004,8 @@ class TestSessionEnrollPageView:
         enrollment_config,
         connected_user,
     ):
-        connected_user.manager = staff_user
-        connected_user.save()
+        PartyMembership.objects.filter(member=connected_user).delete()
+        sponsor_user(leader=staff_user, member=connected_user)
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -646,7 +1014,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={
                 f"user_{staff_user.id}": "enroll",
                 f"user_{connected_user.id}": "enroll",
@@ -669,9 +1037,11 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                **_party_context(staff_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -680,7 +1050,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -702,7 +1072,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -710,7 +1080,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
 
     def test_post_restrict_to_configured_users_config_exists_too_many_enrollment2(
@@ -722,8 +1092,8 @@ class TestSessionEnrollPageView:
         enrollment_config,
         connected_user,
     ):
-        connected_user.manager = staff_user
-        connected_user.save()
+        PartyMembership.objects.filter(member=connected_user).delete()
+        sponsor_user(leader=staff_user, member=connected_user)
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -737,7 +1107,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = staff_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{staff_user.id}": "enroll"},
         )
 
@@ -757,9 +1127,11 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                **_party_context(staff_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(staff_user),
@@ -768,7 +1140,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=True,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -797,20 +1169,14 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {connected_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -838,20 +1204,14 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    f"Enrolled: {staff_user.name} (promoted from waiting list)",
-                ),
-                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
-            ],
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
         assert not SessionParticipation.objects.filter(
@@ -896,7 +1256,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "cancel"},
         )
 
@@ -927,7 +1287,7 @@ class TestSessionEnrollPageView:
             allowed_slots=1,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -935,7 +1295,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, f"Enrolled: {connected_user.name}")],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
 
     def test_post_cant_join_waitlist(
@@ -944,7 +1304,7 @@ class TestSessionEnrollPageView:
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -962,10 +1322,12 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -989,7 +1351,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "waitlist"},
         )
 
@@ -1013,10 +1375,12 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
-                "event": agenda_item.space.area.venue.event,
+                **_party_context(active_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1025,7 +1389,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1048,7 +1412,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1066,10 +1430,12 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
-                "event": agenda_item.space.area.venue.event,
+                **_party_context(active_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1078,7 +1444,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1100,7 +1466,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1127,7 +1493,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1145,10 +1511,12 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1172,7 +1540,7 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.WAITING,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1196,9 +1564,11 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1222,7 +1592,7 @@ class TestSessionEnrollPageView:
             user=active_user, session=agenda_item.session, status="purchased"
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "waitlist"},
         )
 
@@ -1247,7 +1617,7 @@ class TestSessionEnrollPageView:
             user=active_user, session=agenda_item.session, status="purchased"
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1271,9 +1641,11 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
+                **_party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1288,12 +1660,14 @@ class TestSessionEnrollPageView:
         )
 
     def test_post__error_conflict_no_waitlist(
-        self, active_user, agenda_item, authenticated_client, enrollment_config, event
+        self, active_user, agenda_item, authenticated_client, enrollment_config
     ):
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         other_session = SessionFactory(
-            display_name=active_user.name, sphere=event.sphere, participants_limit=10
+            display_name=active_user.name,
+            event=agenda_item.session.event,
+            participants_limit=10,
         )
         AgendaItem.objects.create(
             session=other_session,
@@ -1308,7 +1682,7 @@ class TestSessionEnrollPageView:
         )
 
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1326,10 +1700,12 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
-                "event": agenda_item.space.area.venue.event,
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1354,7 +1730,7 @@ class TestSessionEnrollPageView:
             allowed_slots=0,
         )
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1372,9 +1748,11 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "connected_users": [],
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1399,7 +1777,7 @@ class TestSessionEnrollPageView:
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1423,10 +1801,12 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
-                "event": agenda_item.space.area.venue.event,
+                **_party_context(active_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
+                "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1435,7 +1815,7 @@ class TestSessionEnrollPageView:
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1452,16 +1832,17 @@ class TestSessionEnrollPageView:
         authenticated_client,
         event,
         enrollment_config,
+        active_user,
     ):
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
-            user_email=connected_user.manager.email,
+            user_email=active_user.email,
             allowed_slots=0,
         )
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{connected_user.id}": "enroll"},
         )
 
@@ -1479,18 +1860,20 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                "connected_users": [UserDTO.model_validate(connected_user)],
+                **_party_context(active_user),
+                "connected_users": [ConnectedUserDTO.model_validate(connected_user)],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user.manager),
+                        user=UserDTO.model_validate(active_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
                     ),
                     SessionUserParticipationData(
-                        user=UserDTO.model_validate(connected_user),
+                        user=ConnectedUserDTO.model_validate(connected_user),
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1505,7 +1888,7 @@ class TestSessionEnrollPageView:
         self, active_user, agenda_item, authenticated_client, event
     ):
         response = authenticated_client.post(
-            self._get_url(agenda_item.session.pk),
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
         )
 
@@ -1520,9 +1903,11 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
+                **_party_context(active_user),
                 "connected_users": [],
                 "session": agenda_item.session,
                 "event": event,
+                "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
@@ -1557,7 +1942,7 @@ class TestSessionEnrollPageView:
             client.force_login(user)
             contenders.append((client, user.pk))
 
-        url = self._get_url(session.pk)
+        url = self._get_url(session.pk, session.event.slug)
         barrier = threading.Barrier(len(contenders))
 
         def enroll(client, user_pk):

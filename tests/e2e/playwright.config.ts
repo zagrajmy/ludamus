@@ -1,41 +1,41 @@
-import { defineConfig, devices } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
+import { defineConfig, devices } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
-const repoRoot = path.resolve(__dirname, '..', '..');
+const repoRoot = path.resolve(__dirname, "..", "..");
 
 const loadEnv = (filePath: string) => {
   if (!fs.existsSync(filePath)) return;
 
-  const content = fs.readFileSync(filePath, 'utf8');
-  for (const rawLine of content.split('\n')) {
+  const content = fs.readFileSync(filePath, "utf8");
+  for (const rawLine of content.split("\n")) {
     const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
+    if (!line || line.startsWith("#")) continue;
 
-    const [key, ...valueParts] = line.split('=');
+    const [key, ...valueParts] = line.split("=");
     if (!key || process.env[key] !== undefined) continue;
-    process.env[key] = valueParts.join('=');
+    process.env[key] = valueParts.join("=");
   }
 };
 
-loadEnv(path.join(repoRoot, '.env.e2e'));
+loadEnv(path.join(repoRoot, ".env.e2e"));
 
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 
-const WEB_COMMAND = 'mise run e2e:prep && exec mise run e2e:serve';
+const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
 const skipIos = !!process.env.E2E_SKIP_IOS;
 
 const webServerEnv: Record<string, string> = Object.fromEntries(
   Object.entries(process.env).filter(
-    (entry): entry is [string, string] => typeof entry[1] === 'string',
+    (entry): entry is [string, string] => typeof entry[1] === "string",
   ),
 );
 
 export default defineConfig({
-  testDir: './tests',
-  outputDir: 'test-results',
+  testDir: "./tests",
+  outputDir: "test-results",
   /* Timeout per test */
   timeout: 120 * 1000,
   expect: {
@@ -51,44 +51,54 @@ export default defineConfig({
   workers: isCI ? 2 : undefined,
   /* Reporter to use */
   reporter: isCI
-    ? [['github'], ['html', { open: 'never' }]]
-    : [['line'], ['html', { open: 'never' }]],
+    ? [["github"], ["html", { open: "never" }]]
+    : [["line"], ["html", { open: "never" }]],
   /* Shared settings for all the projects below. */
   use: {
     baseURL: BASE_URL,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: isCI ? 'retain-on-failure' : 'on-first-retry',
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: isCI ? "retain-on-failure" : "on-first-retry",
   },
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'chromium',
+      name: "chromium",
       testIgnore: /.*\.auth\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices["Desktop Chrome"] },
     },
     {
-      name: 'firefox',
-      testIgnore: /.*\.auth\.spec\.ts/,
-      use: { ...devices['Desktop Firefox'] },
+      name: "firefox",
+      // Specs that mutate shared seed data are pinned to chromium only, so a
+      // second project's copy can't run concurrently against the same event
+      // (the suite shares one seeded DB across projects).
+      testIgnore: [
+        /.*\.auth\.spec\.ts/,
+        /panel\.spec\.ts/,
+        /panel-crud\.spec\.ts/,
+        /timetable\.spec\.ts/,
+        /cover-images\.spec\.ts/,
+        /anonymous-proposal\.spec\.ts/,
+      ],
+      use: { ...devices["Desktop Firefox"] },
     },
     ...(skipIos
       ? []
       : [
           {
-            name: 'webkit',
+            name: "webkit",
             testMatch: /event-details\.spec\.ts/,
-            grep: /iOS touch scrolling|mobile session modal closes on iOS tap/,
-            use: { ...devices['iPhone 14 Pro'] },
+            grep: /iOS touch scrolling|mobile session modal closes on iOS tap|opened over a scrolled page/,
+            use: { ...devices["iPhone 14 Pro"] },
           },
         ]),
     /* Authenticated browser for profile/user tests */
     {
-      name: 'chromium-auth',
+      name: "chromium-auth",
       testMatch: /.*\.auth\.spec\.ts/,
       use: {
-        ...devices['Desktop Chrome'],
-        storageState: path.join(__dirname, '.auth-state.json'),
+        ...devices["Desktop Chrome"],
+        storageState: path.join(__dirname, ".auth-state.json"),
       },
     },
   ],
@@ -98,9 +108,9 @@ export default defineConfig({
     env: webServerEnv,
     reuseExistingServer: !isCI,
     timeout: 180 * 1000,
-    stdout: 'pipe',
-    stderr: 'pipe',
+    stdout: "pipe",
+    stderr: "pipe",
     cwd: repoRoot,
-    gracefulShutdown: { signal: 'SIGINT', timeout: 5000 },
+    gracefulShutdown: { signal: "SIGINT", timeout: 5000 },
   },
 });

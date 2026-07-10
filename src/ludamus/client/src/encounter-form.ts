@@ -1,9 +1,5 @@
-const start = document.getElementById(
-  "id_start_time",
-) as HTMLInputElement | null;
-const end = document.getElementById(
-  "id_end_time",
-) as HTMLInputElement | null;
+const start = document.getElementById("id_start_time") as HTMLInputElement | null;
+const end = document.getElementById("id_end_time") as HTMLInputElement | null;
 
 const DEFAULT_DURATION_HOURS = 3;
 
@@ -36,14 +32,9 @@ const initDropzone = (label: HTMLLabelElement): void => {
   const input = label.querySelector<HTMLInputElement>("[data-dropzone-input]");
   const nameEls = label.querySelectorAll<HTMLElement>("[data-dropzone-name]");
   const sizeEls = label.querySelectorAll<HTMLElement>("[data-dropzone-size]");
-  const preview = label.querySelector<HTMLImageElement>(
-    "[data-dropzone-preview]",
-  );
-  const clearBtns =
-    label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
-  const clearFlag = label.querySelector<HTMLInputElement>(
-    "[data-dropzone-clear-flag]",
-  );
+  const preview = label.querySelector<HTMLImageElement>("[data-dropzone-preview]");
+  const clearBtns = label.querySelectorAll<HTMLButtonElement>("[data-dropzone-clear]");
+  const clearFlag = label.querySelector<HTMLInputElement>("[data-dropzone-clear-flag]");
   if (!input || nameEls.length === 0 || sizeEls.length === 0) return;
 
   let previewUrl: string | null = null;
@@ -64,20 +55,28 @@ const initDropzone = (label: HTMLLabelElement): void => {
     }
     // A fresh selection cancels any pending removal of the stored file.
     if (clearFlag) clearFlag.checked = false;
-    nameEls.forEach((el) => {
+    for (const el of nameEls) {
       el.textContent = file.name;
-    });
-    sizeEls.forEach((el) => {
+    }
+    for (const el of sizeEls) {
       el.textContent = formatBytes(file.size);
-    });
+    }
     // Mirror the accepted upload formats (COVER_IMAGE_ACCEPT) so an
     // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.
-    const useImageLayout =
-      Boolean(preview) && /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
-    if (useImageLayout) {
+    const isImage = /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
+    if (preview && isImage) {
       revokePreview();
-      previewUrl = URL.createObjectURL(file);
-      preview!.src = previewUrl;
+      const objectUrl = URL.createObjectURL(file);
+      // `createObjectURL` only ever returns a `blob:` URL, so this guard is
+      // not reachable at runtime — it exists as an explicit taint barrier so
+      // static analysis (CodeQL) can see the value reaching `img.src` is a
+      // same-origin blob and not a user-controlled URL.
+      if (!objectUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      previewUrl = objectUrl;
+      preview.src = previewUrl;
       label.dataset.state = "image";
     } else {
       revokePreview();
@@ -86,7 +85,7 @@ const initDropzone = (label: HTMLLabelElement): void => {
     }
   });
 
-  clearBtns.forEach((clearBtn) => {
+  for (const clearBtn of clearBtns) {
     clearBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -95,11 +94,13 @@ const initDropzone = (label: HTMLLabelElement): void => {
       if (clearFlag) clearFlag.checked = true;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-  });
+  }
 };
 
 const initDropzones = (root: ParentNode = document): void => {
-  root.querySelectorAll<HTMLLabelElement>("[data-dropzone]").forEach(initDropzone);
+  for (const label of root.querySelectorAll<HTMLLabelElement>("[data-dropzone]")) {
+    initDropzone(label);
+  }
 };
 
 initDropzones();
@@ -107,6 +108,6 @@ initDropzones();
 // The propose wizard swaps its review step (with the dropzone) in via HTMX;
 // this module only evaluates once, so re-scan swapped-in content.
 document.body.addEventListener("htmx:afterSwap", (event) => {
-  const target = (event as CustomEvent).target;
+  const { target } = event as CustomEvent;
   initDropzones(target instanceof Element ? target : document);
 });

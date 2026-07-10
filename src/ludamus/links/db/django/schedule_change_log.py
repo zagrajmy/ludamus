@@ -3,7 +3,11 @@ from __future__ import annotations
 from django.db.models import Q
 
 from ludamus.adapters.db.django.models import ScheduleChangeLog
-from ludamus.links.db.django.change_log_base import base_log_fields
+from ludamus.links.db.django.change_log_base import (
+    base_log_fields,
+    latest_log_pk,
+    latest_log_pks_by_session,
+)
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
@@ -51,9 +55,32 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
     def list_by_event(
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]:
-        qs = ScheduleChangeLog.objects.filter(event_id=event_pk).select_related(
-            *_SELECT_RELATED
+        qs = (
+            ScheduleChangeLog.objects.filter(event_id=event_pk)
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
         )
         if space_pk is not None:
             qs = qs.filter(Q(old_space_id=space_pk) | Q(new_space_id=space_pk))
         return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]:
+        qs = (
+            ScheduleChangeLog.objects.filter(session_id=session_id)
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
+        )
+        return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]:
+        return latest_log_pks_by_session(
+            ScheduleChangeLog.objects.filter(event_id=event_pk)
+        )
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None:
+        return latest_log_pk(
+            ScheduleChangeLog.objects.filter(event_id=event_pk, session_id=session_id)
+        )

@@ -7,7 +7,8 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Track
-from ludamus.pacts import EventDTO, TrackDTO, UserDTO
+from ludamus.pacts import EventDTO, TrackDTO
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
 

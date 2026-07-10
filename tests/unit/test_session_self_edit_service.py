@@ -8,7 +8,13 @@ from ludamus.mills.chronology import (
     SessionEditNotAllowedError,
     SessionSelfEditService,
 )
-from ludamus.pacts import NotFoundError
+
+
+class _FakeUpload:
+    name = "cover.png"
+
+    def read(self) -> bytes:
+        return b""
 
 
 @contextmanager
@@ -35,64 +41,6 @@ def _build(*, presenter_id, event_override, sphere_default):
     )
     service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
     return service, sessions, transaction
-
-
-class TestCanEdit:
-    def test_owner_with_effective_true(self):
-        service, _, _ = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        assert service.can_edit(5, 10) is True
-
-    def test_anonymous_user_id_none(self):
-        service, _, _ = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        assert service.can_edit(5, None) is False
-
-    def test_non_owner(self):
-        service, _, _ = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        assert service.can_edit(5, 99) is False
-
-    def test_event_override_false_blocks_owner(self):
-        service, _, _ = _build(
-            presenter_id=10, event_override=False, sphere_default=True
-        )
-        assert service.can_edit(5, 10) is False
-
-    def test_sphere_default_false_blocks_owner(self):
-        service, _, _ = _build(
-            presenter_id=10, event_override=None, sphere_default=False
-        )
-        assert service.can_edit(5, 10) is False
-
-    def test_event_override_true_beats_sphere_false(self):
-        service, _, _ = _build(
-            presenter_id=10, event_override=True, sphere_default=False
-        )
-        assert service.can_edit(5, 10) is True
-
-    def test_placeholder_presenter_none_never_editable(self):
-        service, _, _ = _build(
-            presenter_id=None, event_override=None, sphere_default=True
-        )
-        assert service.can_edit(5, 10) is False
-
-    def test_missing_session_returns_false(self):
-        service, sessions, _ = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        sessions.read.side_effect = NotFoundError
-        assert service.can_edit(5, 10) is False
-
-    def test_unresolvable_event_returns_false(self):
-        service, sessions, _ = _build(
-            presenter_id=10, event_override=None, sphere_default=True
-        )
-        sessions.read_event.side_effect = NotFoundError
-        assert service.can_edit(5, 10) is False
 
 
 class TestUpdate:
@@ -130,7 +78,7 @@ class TestUpdate:
         service, sessions, _ = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
-        cover = object()
+        cover = _FakeUpload()
 
         service.update(
             5, 10, {"title": "T", "display_name": "D", "cover_image": cover}, []

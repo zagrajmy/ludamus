@@ -4,7 +4,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Connection
+from ludamus.adapters.db.django.models import Connection, EventIntegration
 from ludamus.pacts.multiverse import ConnectionDTO
 from tests.integration.utils import assert_response
 
@@ -13,6 +13,8 @@ PERMISSION_ERROR = "You don't have permission to access the sphere panel."
 TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
+    "announcements": "/multiverse/panel/announcements/",
+    "mcp": "/multiverse/panel/mcp/",
 }
 CONNECTIONS_PANEL_CONTEXT = {
     "events": [],
@@ -21,6 +23,8 @@ CONNECTIONS_PANEL_CONTEXT = {
     "active_nav": "sphere-settings",
     "is_general_tab": False,
     "is_connections_tab": True,
+    "is_announcements_tab": False,
+    "is_mcp_tab": False,
     "tab_urls": TAB_URLS,
 }
 
@@ -547,6 +551,37 @@ class TestConnectionDeletePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Connection not found.")],
+            url="/multiverse/panel/connections/",
+        )
+        assert Connection.objects.filter(pk=connection.pk).exists()
+
+    def test_post_shows_error_when_connection_in_use(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        connection = Connection.objects.create(sphere=sphere, display_name="In use")
+        EventIntegration.objects.create(
+            event=event,
+            kind="import",
+            implementation="kapitularz",
+            connection=connection,
+            display_name="Import",
+        )
+
+        response = authenticated_client.post(self.get_url(connection))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "This connection is used by an event integration and "
+                        "cannot be deleted."
+                    ),
+                )
+            ],
             url="/multiverse/panel/connections/",
         )
         assert Connection.objects.filter(pk=connection.pk).exists()

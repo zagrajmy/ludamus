@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
@@ -12,25 +13,47 @@ from ludamus.adapters.db.django.models import (
 )
 from ludamus.pacts import (
     EventDTO,
+    ProposalCategoryDTO,
     SessionDTO,
     SessionFieldDTO,
     SessionFieldValueDTO,
     SessionListItemDTO,
     SessionStatus,
     TrackDTO,
-    UserDTO,
 )
-from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_response
+from ludamus.pacts.crowd import UserDTO
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    SpaceFactory,
+    UserFactory,
+)
+from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
+_STATUSES = [
+    ("pending", "Pending"),
+    ("accepted", "Accepted"),
+    ("on_hold", "On hold"),
+    ("rejected", "Rejected"),
+    ("scheduled", "Scheduled"),
+]
 
 _TRACK_FILTER_CONTEXT = {
     "all_tracks": [],
     "managed_track_pks": set(),
     "filter_track_pk": None,
+    "page_obj": PageMatcher(number=1, num_pages=1),
+    "filter_category_pk": None,
+    "filter_status": None,
+    "statuses": _STATUSES,
 }
+
+_PAGE_SIZE = 50
+_SEED_COUNT = 60
+_LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
+_TOTAL_PAGES = 2
 
 
 def _base_context(event):
@@ -105,7 +128,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [],
                 "proposals": [],
                 "session_fields": [],
                 "filter_fields": {},
@@ -119,45 +144,79 @@ class TestProposalsPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Rejected One",
             slug="rejected-one",
-            sphere=sphere,
             participants_limit=5,
             status="rejected",
         )
-        Session.objects.create(
+        scheduled_session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Scheduled One",
             slug="scheduled-one",
-            sphere=sphere,
             participants_limit=5,
-            status="scheduled",
+            status="accepted",
         )
+        AgendaItemFactory(session=scheduled_session, space=SpaceFactory(event=event))
 
-        response = authenticated_client.get(self.get_url(event))
+        response = authenticated_client.get(self.get_url(event), {"status": ""})
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
         assert "Rejected" in content
         assert "Scheduled" in content
 
-    def test_returns_proposals_in_context(
+    def test_shows_accepted_and_on_hold_status_badges(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        session = Session.objects.create(
+        Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
-            title="My Session",
-            slug="my-session",
-            sphere=sphere,
+            title="Accepted One",
+            slug="accepted-one",
+            participants_limit=5,
+            status="accepted",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="On Hold One",
+            slug="on-hold-one",
+            participants_limit=5,
+            status="on_hold",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": ""})
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Accepted" in content
+        assert "On hold" in content
+
+    def test_list_trims_byline_column_and_relabels_header(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        long_name = "A Very Long Submission Byline That Would Blow Up The Row Width"
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name=long_name,
+            title="Wide Byline",
+            slug="wide-byline",
             participants_limit=5,
             status="pending",
         )
@@ -170,7 +229,158 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposals": [
+                    SessionListItemDTO(
+                        pk=session.pk,
+                        title="Wide Byline",
+                        display_name=long_name,
+                        category_name="RPG",
+                        status=SessionStatus.PENDING,
+                        creation_time=session.creation_time,
+                        is_scheduled=False,
+                    )
+                ],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+            contains=["Display Name", f'title="{long_name}"', "max-w-xs truncate"],
+        )
+
+    def test_filters_by_category(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        cat_a = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        cat_b = ProposalCategory.objects.create(event=event, name="Board", slug="board")
+        Session.objects.create(
+            event=event,
+            category=cat_a,
+            display_name="Host A",
+            title="In A",
+            slug="in-a",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=cat_b,
+            display_name="Host B",
+            title="In B",
+            slug="in-b",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"category": str(cat_a.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["In A"]
+        assert response.context["filter_category_pk"] == cat_a.pk
+
+    def test_ignores_foreign_category_filter(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        foreign_category = ProposalCategory.objects.create(
+            event=other_event, name="Foreign", slug="foreign"
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"category": str(foreign_category.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["filter_category_pk"] is None
+
+    def test_paginates_proposals(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        for i in range(_SEED_COUNT):
+            Session.objects.create(
+                event=event,
+                category=category,
+                display_name=f"Host {i}",
+                title=f"Session {i}",
+                slug=f"session-{i}",
+                participants_limit=5,
+                status="pending",
+            )
+
+        page1 = authenticated_client.get(self.get_url(event))
+        page2 = authenticated_client.get(self.get_url(event), {"page": "2"})
+
+        assert len(page1.context["proposals"]) == _PAGE_SIZE
+        assert page1.context["page_obj"].number == 1
+        assert page1.context["page_obj"].paginator.num_pages == _TOTAL_PAGES
+        assert len(page2.context["proposals"]) == _LAST_PAGE_COUNT
+        assert page2.context["page_obj"].number == _TOTAL_PAGES
+
+    def test_pagination_clamps_out_of_range_pages(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        for i in range(_SEED_COUNT):
+            Session.objects.create(
+                event=event,
+                category=category,
+                display_name=f"Host {i}",
+                title=f"Session {i}",
+                slug=f"session-{i}",
+                participants_limit=5,
+                status="pending",
+            )
+
+        non_integer = authenticated_client.get(self.get_url(event), {"page": "abc"})
+        too_high = authenticated_client.get(self.get_url(event), {"page": "999"})
+
+        assert non_integer.context["page_obj"].number == 1
+        assert too_high.context["page_obj"].number == _TOTAL_PAGES
+
+    def test_returns_proposals_in_context(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name=active_user.name,
+            title="My Session",
+            slug="my-session",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 1,
@@ -187,6 +397,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -201,22 +412,22 @@ class TestProposalsPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Session A",
             slug="session-a",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         session_pseudonym = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name="Mysterious Stranger",
             title="Session B",
             slug="session-b",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -231,7 +442,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 2,
@@ -248,6 +461,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session_pseudonym.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -263,22 +477,22 @@ class TestProposalsPageView:
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         other_user = UserFactory(username="other", name="Other Person")
         Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Session A",
             slug="session-a",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         session_b = Session.objects.create(
+            event=event,
             category=category,
             presenter=other_user,
             display_name="Other Person",
             title="Session B",
             slug="session-b",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -291,7 +505,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 2,
                     "pending_proposals": 2,
@@ -308,6 +524,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session_b.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -329,23 +546,23 @@ class TestProposalsPageView:
             field_type="select",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="D&D Adventure",
             slug="dnd-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         SessionFieldValue.objects.create(session=session1, field=field, value="D&D 5e")
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Fate Adventure",
             slug="fate-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -363,7 +580,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 2,
@@ -380,6 +599,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [
@@ -410,12 +630,12 @@ class TestProposalsPageView:
             field_type="select",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Mroczna sesja",
             slug="mroczna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -423,12 +643,12 @@ class TestProposalsPageView:
             session=session1, field=field, value="przekleństwa"
         )
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Inna sesja",
             slug="inna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -444,7 +664,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 2,
@@ -461,6 +683,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [
@@ -491,23 +714,23 @@ class TestProposalsPageView:
             field_type="text",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="D&D Adventure",
             slug="dnd-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
         SessionFieldValue.objects.create(session=session1, field=field, value="D&D 5e")
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Fate Adventure",
             slug="fate-adventure",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -523,7 +746,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 2,
@@ -540,6 +765,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -561,12 +787,12 @@ class TestProposalsPageView:
             field_type="text",
         )
         session1 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Mroczna sesja",
             slug="mroczna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -574,12 +800,12 @@ class TestProposalsPageView:
             session=session1, field=field, value="Zawiera przekleństwa"
         )
         session2 = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="Inna sesja",
             slug="inna-sesja",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -597,7 +823,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 2,
@@ -614,6 +842,7 @@ class TestProposalsPageView:
                         category_name="RPG",
                         status=SessionStatus.PENDING,
                         creation_time=session1.creation_time,
+                        is_scheduled=False,
                     )
                 ],
                 "session_fields": [],
@@ -640,6 +869,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
                 "filter_fields": {},
@@ -647,6 +877,11 @@ class TestProposalsPageView:
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "managed_track_pks": {track.pk},
                 "filter_track_pk": track.pk,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "categories": [],
+                "filter_category_pk": None,
+                "filter_status": None,
+                "statuses": _STATUSES,
             },
         )
 
@@ -669,6 +904,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
                 "filter_fields": {},
@@ -676,6 +912,11 @@ class TestProposalsPageView:
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "managed_track_pks": set(),
                 "filter_track_pk": track.pk,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "categories": [],
+                "filter_category_pk": None,
+                "filter_status": None,
+                "statuses": _STATUSES,
             },
         )
 
@@ -706,7 +947,9 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                "categories": [],
                 "proposals": [],
                 "session_fields": [
                     SessionFieldDTO(
@@ -722,6 +965,183 @@ class TestProposalsPageView:
                 "filter_search": "",
             },
         )
+
+    def test_default_status_filter_shows_all_statuses(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Rejected Host",
+            title="Rejected Session",
+            slug="rejected-session",
+            participants_limit=5,
+            status="rejected",
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        titles = {p.title for p in response.context["proposals"]}
+        assert titles == {"Pending Session", "Accepted Session", "Rejected Session"}
+        assert response.context["filter_status"] is None
+
+    def test_filters_by_status_param(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": "accepted"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Accepted Session"]
+        assert response.context["filter_status"] == SessionStatus.ACCEPTED
+
+    def test_empty_status_param_shows_all_statuses(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": ""})
+
+        assert response.status_code == HTTPStatus.OK
+        titles = {p.title for p in response.context["proposals"]}
+        assert titles == {"Pending Session", "Accepted Session"}
+        assert response.context["filter_status"] is None
+
+    def test_scheduled_filter_shows_only_scheduled_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Unscheduled Session",
+            slug="unscheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        scheduled = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Scheduled Host",
+            title="Scheduled Session",
+            slug="scheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        AgendaItemFactory(
+            session=scheduled,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"status": "scheduled"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Scheduled Session"]
+        assert response.context["filter_status"] == "scheduled"
+
+    def test_status_filter_excludes_scheduled_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Unscheduled Session",
+            slug="unscheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        scheduled = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Scheduled Host",
+            title="Scheduled Session",
+            slug="scheduled-session",
+            participants_limit=5,
+            status="accepted",
+        )
+        AgendaItemFactory(
+            session=scheduled,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": "accepted"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == [
+            "Unscheduled Session"
+        ]
+        assert response.context["filter_status"] == SessionStatus.ACCEPTED
 
 
 class TestProposalDetailPageView:
@@ -792,13 +1212,13 @@ class TestProposalDetailPageView:
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="My Great Session",
             description="A wonderful adventure",
             slug="my-great-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -821,9 +1241,16 @@ class TestProposalDetailPageView:
                 },
                 "active_nav": "proposals",
                 "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
             },
         )
 
@@ -834,12 +1261,12 @@ class TestProposalDetailPageView:
             event=event, name="System", question="What RPG system?", slug="system"
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="My Session",
             slug="my-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )
@@ -863,6 +1290,10 @@ class TestProposalDetailPageView:
                 },
                 "active_nav": "proposals",
                 "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
                 "field_values": [
                     SessionFieldValueDTO(
                         field_id=field.pk,
@@ -874,6 +1305,9 @@ class TestProposalDetailPageView:
                 ],
                 "facilitators": [],
                 "presenter": UserDTO.model_validate(active_user),
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
             },
         )
 
@@ -890,12 +1324,12 @@ class TestProposalDetailPageView:
             field_type="select",
         )
         session = Session.objects.create(
+            event=event,
             category=category,
             presenter=active_user,
             display_name=active_user.name,
             title="My Session",
             slug="my-session",
-            sphere=sphere,
             participants_limit=5,
             status="pending",
         )

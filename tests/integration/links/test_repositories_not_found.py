@@ -12,13 +12,12 @@ from ludamus.adapters.db.django.models import (
     Session,
     SessionField,
 )
+from ludamus.links.db.django.crowd import ConnectedUserRepository
 from ludamus.links.db.django.repositories import (
-    ConnectedUserRepository,
     EventRepository,
     ProposalCategoryRepository,
     SessionRepository,
     SphereRepository,
-    VenueRepository,
 )
 from ludamus.pacts import EventUpdateData, NotFoundError
 
@@ -40,6 +39,29 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_event(MISSING_ID)
 
+    def test_read_presenter_raises_when_session_missing(self):
+        with pytest.raises(NotFoundError):
+            SessionRepository.read_presenter(MISSING_ID)
+
+    def test_read_presenter_returns_none_when_no_presenter(self, event):
+        session = Session.objects.create(
+            event=event,
+            category=None,
+            presenter=None,
+            display_name="Host",
+            title="Presenterless Session",
+            slug="presenterless",
+            status="pending",
+            participants_limit=0,
+            min_age=0,
+        )
+
+        assert SessionRepository.read_presenter(session.pk) is None
+
+    def test_lock_raises_when_session_missing(self):
+        with pytest.raises(NotFoundError):
+            SessionRepository.lock(MISSING_ID)
+
     def test_update_raises_when_session_missing(self):
         # A cover_image in the payload takes the instance-load path, which must
         # raise NotFoundError when the session is gone.
@@ -49,25 +71,6 @@ class TestSessionRepositoryNotFound:
     def test_read_time_slot_raises_when_missing(self):
         with pytest.raises(NotFoundError):
             SessionRepository.read_time_slot(MISSING_ID, MISSING_ID)
-
-    def test_read_tag_categories_raises_when_session_missing(self):
-        with pytest.raises(NotFoundError):
-            SessionRepository.read_tag_categories(MISSING_ID)
-
-    def test_read_tag_categories_returns_empty_when_no_category(self, sphere):
-        session = Session.objects.create(
-            category=None,
-            presenter=None,
-            display_name="Host",
-            title="No Category Session",
-            slug="no-cat",
-            sphere=sphere,
-            status="pending",
-            participants_limit=0,
-            min_age=0,
-        )
-
-        assert SessionRepository.read_tag_categories(session.pk) == []
 
     def test_set_session_tracks_raises_when_session_missing(self):
         with pytest.raises(NotFoundError):
@@ -104,16 +107,6 @@ class TestEventRepositoryNotFound:
     def test_update_raises_when_event_missing(self):
         with pytest.raises(NotFoundError):
             EventRepository.update(MISSING_ID, EventUpdateData())
-
-
-class TestVenueRepositoryNotFound:
-    def test_update_raises_when_venue_missing(self):
-        with pytest.raises(NotFoundError):
-            VenueRepository().update(MISSING_ID, name="X", address="Y")
-
-    def test_duplicate_raises_when_venue_missing(self):
-        with pytest.raises(NotFoundError):
-            VenueRepository().duplicate(MISSING_ID, new_name="Copy")
 
 
 class TestProposalCategoryRepositoryWriteSideEffects:

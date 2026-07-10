@@ -15,11 +15,13 @@ from ludamus.pacts import (
 
 if TYPE_CHECKING:
     from ludamus.pacts import DependencyInjectorProtocol
+    from ludamus.pacts.services import ServicesProtocol
 
 
 class RootRepositoryRequest(HttpRequest):
     context: RequestContext
     di: DependencyInjectorProtocol
+    services: ServicesProtocol
 
 
 class _GetResponseCallable(Protocol):

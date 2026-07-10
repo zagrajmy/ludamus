@@ -8,23 +8,21 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
-    FieldUsageSummary,
-    PersonalDataFieldCreateData,
-    PersonalDataFieldDTO,
-    PersonalDataFieldUpdateData,
-    ProposalCategoryDTO,
     SessionContentEditData,
     SessionFieldValueData,
     SessionSelfEditContext,
     SpaceDTO,
 )
+
+if TYPE_CHECKING:
+    from ludamus.pacts.submissions import ImportRow
 
 
 class IntegrationKind(StrEnum):
@@ -49,11 +47,32 @@ class CheckResult:
     hint: str = ""
 
 
+class SourceQuestion(BaseModel):
+    # A source-form question described in the importer's own vocabulary: the
+    # prompt plus the field setup a new target field would inherit. Multi-choice
+    # maps to `select` + `is_multiple` (the domain has no multi `checkbox`); an
+    # "other"/free-text option sets `allow_custom` and is dropped from `options`.
+    title: str
+    field_type: Literal["text", "select", "checkbox"] = "text"
+    is_multiple: bool = False
+    allow_custom: bool = False
+    options: list[str] = []
+
+
 class IntegrationImplementation(Protocol):
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+    def fetch_questions(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[SourceQuestion]: ...
+    def fetch_headers(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[str]: ...
+    def fetch_responses(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[ImportRow]: ...
 
 
 class EventIntegrationDTO(BaseModel):
@@ -67,6 +86,8 @@ class EventIntegrationDTO(BaseModel):
     connection_display_name: str
     display_name: str
     config_json: str
+    settings_json: str
+    questions_snapshot_json: str = "[]"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -107,6 +128,14 @@ class EventIntegrationsRepositoryProtocol(Protocol):
         event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     @staticmethod
+    def update_settings(
+        *, event_id: int, pk: int, settings_json: str
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def update_questions_snapshot(
+        *, event_id: int, pk: int, questions_snapshot_json: str
+    ) -> EventIntegrationDTO: ...
+    @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
 
@@ -122,6 +151,23 @@ class EventIntegrationsServiceProtocol(Protocol):
         self, sphere_id: int, event_id: int, pk: int, data: EventIntegrationUpdateData
     ) -> EventIntegrationDTO: ...
     def delete(self, event_id: int, pk: int) -> None: ...
+    def fetch_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]: ...
+    def populate_questions_snapshot(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def refetch_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[SourceQuestion]: ...
+    def import_missing_questions(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> tuple[list[SourceQuestion], int]: ...
+    def fetch_responses(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> list[ImportRow]: ...
+    def save_settings(self, *, event_id: int, pk: int, settings_json: str) -> None: ...
     def check(self, request: IntegrationCheckRequest) -> CheckResult: ...
     def list_implementations(
         self, kind: IntegrationKind
@@ -132,7 +178,6 @@ class EventIntegrationsServiceProtocol(Protocol):
 
 
 class SessionSelfEditServiceProtocol(Protocol):
-    def can_edit(self, session_id: int, user_id: int | None) -> bool: ...
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext: ...
@@ -141,8 +186,16 @@ class SessionSelfEditServiceProtocol(Protocol):
         session_id: int,
         user_id: int | None,
         cleaned_data: dict[str, object],
-        field_values: list[SessionFieldValueData],
+        field_values: list[SessionFieldValueData] | None,
     ) -> None: ...
+
+
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
 
 
 class SessionContentEditServiceProtocol(Protocol):
@@ -154,12 +207,41 @@ class SessionContentEditServiceProtocol(Protocol):
         user_id: int | None,
         data: SessionContentEditData,
     ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(self, event_id: int) -> set[int]: ...
+
+
+class SessionConfirmationServiceProtocol(Protocol):
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None: ...
+    def confirm_all(self, event_pk: int) -> None: ...
+    def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
+
+
+class SessionDeletionServiceProtocol(Protocol):
+    def soft_delete(
+        self, event_pk: int, session_pk: int, user_pk: int | None = None
+    ) -> None: ...
+    def restore(self, event_pk: int, session_pk: int) -> None: ...
+
+
+class ProposalScheduledError(Exception):
+    """Scheduled proposals may only be accepted, never demoted."""
+
+
+class ProposalStatusServiceProtocol(Protocol):
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
+TIMETABLE_SNAP_MINUTES = 5
 
 
 class SessionPositionDTO(BaseModel):
@@ -180,27 +262,23 @@ class SpaceColumnDTO(BaseModel):
     sessions: list[SessionPositionDTO] = []
 
 
-class AreaGroupDTO(BaseModel):
-    area_pk: int
-    area_name: str
+class SpaceGroupDTO(BaseModel):
+    # One header cell spanning the leaf columns that share an immediate parent.
+    # parent_pk None / empty name means the leaves are top-level (no parent).
+    parent_pk: int | None
+    parent_name: str
     span: int
-
-
-class VenueGroupDTO(BaseModel):
-    venue_pk: int
-    venue_name: str
-    span: int
-    areas: list[AreaGroupDTO]
 
 
 class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
     columns: list[SpaceColumnDTO]
-    venue_groups: list[VenueGroupDTO]
+    groups: list[SpaceGroupDTO]
     time_labels: list[TimeLabelDTO]
     total_minutes: int
     event_start_iso: str
     slot_minutes: int
+    snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
@@ -231,6 +309,10 @@ class SessionPlacement:
 class ConflictDTO(BaseModel):
     type: ConflictType
     severity: ConflictSeverity
+    # The session that has the problem (the one being placed / examined).
+    subject_session_title: str
+    subject_session_pk: int
+    # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
     facilitator_name: str | None = None
@@ -290,46 +372,15 @@ class TrackProgressDTO(BaseModel):
     scheduled_count: int
     progress_pct: int
 
-
-# --- CFP (personal-data field management) ---
-
-
-@dataclass
-class PersonalDataFieldFormContextDTO:
-    """Read aggregate for the personal-data-field create form."""
-
-    categories: list[ProposalCategoryDTO]
+    @property
+    def unassigned_count(self) -> int:
+        return self.accepted_count - self.scheduled_count
 
 
-@dataclass
-class PersonalDataFieldEditContextDTO:
-    """Read aggregate for the personal-data-field edit form."""
-
-    field: PersonalDataFieldDTO
-    categories: list[ProposalCategoryDTO]
-    required_category_pks: set[int]
-    optional_category_pks: set[int]
-
-
-class CFPPersonalDataFieldServiceProtocol(Protocol):
-    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
-    def get_create_form_context(
-        self, event_pk: int
-    ) -> PersonalDataFieldFormContextDTO: ...
-    def get_edit_form_context(
-        self, event_pk: int, field_slug: str
-    ) -> PersonalDataFieldEditContextDTO: ...
-    def create(
-        self,
-        event_pk: int,
-        data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
-    ) -> PersonalDataFieldDTO: ...
-    def update(
-        self,
-        event_pk: int,
-        field_slug: str,
-        data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
-    ) -> None: ...
-    def delete(self, event_pk: int, field_slug: str) -> bool: ...
+class CapacityHoursDTO(BaseModel):
+    room_count: int
+    slot_hours: float
+    capacity_hours: float
+    scheduled_hours: float
+    hours_to_fill: float
+    filled_pct: int

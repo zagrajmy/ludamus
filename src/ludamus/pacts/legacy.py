@@ -1,7 +1,14 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Literal,
+    NotRequired,
+    Protocol,
+    TypedDict,
+    runtime_checkable,
+)
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -9,6 +16,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.crowd import (
+        ConnectedUserRepositoryProtocol,
+        UserDTO,
+        UserRepositoryProtocol,
+    )
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -36,15 +48,33 @@ class DateTimeRangeProtocol(Protocol):
     end_time: datetime
 
 
+@runtime_checkable
 class UploadedFileProtocol(Protocol):
     name: str | None
 
     def read(self, size: int = -1) -> bytes: ...
 
 
+def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
+    # Boundary parser: recover a typed upload from the untyped form-data value
+    # (a file on upload, "" / False / None otherwise), so callers narrow once
+    # here instead of casting.
+    return value if isinstance(value, UploadedFileProtocol) else None
+
+
+def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+    # ClearableFileInput's tri-state in one place: a file on upload becomes the
+    # new cover, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored cover untouched.
+    if uploaded := parse_uploaded_file(raw):
+        return uploaded
+    return "" if raw is False else None
+
+
 class FacilitatorDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     event_id: int
     pk: int
@@ -53,6 +83,7 @@ class FacilitatorDTO(BaseModel):
 
 
 class FacilitatorData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
     event_id: int
     slug: str
@@ -60,12 +91,14 @@ class FacilitatorData(TypedDict, total=False):
 
 
 class FacilitatorUpdateData(TypedDict, total=False):
+    accreditation_type: str
     display_name: str
 
 
 class FacilitatorListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    accreditation_type: str
     display_name: str
     pk: int
     session_count: int
@@ -117,12 +150,21 @@ class UnscheduledSessionDTO(BaseModel):
     participants_limit: int
 
 
+class UnscheduledSessionFilter(BaseModel):
+    track_pk: int | None = None
+    search: str | None = None
+    max_duration_minutes: int | None = None
+    category_pk: int | None = None
+    available_on: date | None = None
+
+
 class SessionListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     category_name: str
     creation_time: datetime
     display_name: str
+    is_scheduled: bool
     pk: int
     status: "SessionStatus"
     title: str
@@ -139,6 +181,7 @@ class AgendaItemDTO(BaseModel):
     space_name: str = ""
     session_id: int = 0
     session_title: str = ""
+    session_description: str = ""
     presenter_name: str = ""
     session_duration_minutes: int = 0
     session_status: "SessionStatus | None" = None
@@ -199,20 +242,66 @@ class PendingSessionDTO(BaseModel):
 
 
 class LocationData(TypedDict):
-    space: SpaceDTO
-    area: AreaDTO | None  # TODO(fancysnake): Fix after merging venues
-    venue: VenueDTO | None  # TODO(fancysnake): Fix after merging venues
+    # Tree location of a scheduled leaf: its name, its immediate parent (the
+    # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
+    # path used as a display label.
+    space_name: str
+    parent_slug: str
+    parent_name: str
+    path: str
 
 
 class SessionStatus(StrEnum):
     PENDING = auto()
+    ACCEPTED = auto()
+    ON_HOLD = auto()
     REJECTED = auto()
-    SCHEDULED = auto()
+
+
+class SessionListFilters(TypedDict, total=False):
+    field_filters: dict[int, str] | None
+    search: str | None
+    track_pk: int | None
+    category_pk: int | None
+    status: SessionStatus | None
+    scheduled: bool | None
 
 
 class SessionParticipationStatus(StrEnum):
     CONFIRMED = auto()
     WAITING = auto()
+    OFFERED = auto()
+
+
+# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
+# seat is held so the same seat is never offered to two waiters at once.
+OCCUPYING_PARTICIPATION_STATUSES = (
+    SessionParticipationStatus.CONFIRMED,
+    SessionParticipationStatus.OFFERED,
+)
+
+
+class PromotionMode(StrEnum):
+    """How a freed seat is filled from the waiting list, per ProposalCategory.
+
+    AUTO: the next eligible waiter is moved straight to CONFIRMED.
+    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
+    bounded window; they must actively claim it or it rolls to the next party.
+    """
+
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
+class NotificationKind(StrEnum):
+    WAITLIST_PROMOTED = auto()
+    WAITLIST_OFFER = auto()
+    OFFER_EXPIRED = auto()
+    SHADOWBANNED_SIGNUP = auto()
+    PARTY_INVITE = auto()
+    PARTY_ENROLLED = auto()
+    PARTY_SEAT_HELD = auto()
+    PRINTABLES_READY = auto()
 
 
 class SpherePage(StrEnum):
@@ -224,29 +313,10 @@ class SpherePage(StrEnum):
         return [p.value for p in cls]
 
 
-class SessionParticipationDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    session_id: int
-    user_id: int
-    creation_time: datetime
-    modification_time: datetime
-    status: SessionParticipationStatus
-
-
-class UserParticipation(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    user: UserDTO
-    creation_time: datetime
-    modification_time: datetime
-    status: SessionParticipationStatus
-
-
 class SpaceDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    area_id: int | None
+    parent_id: int | None = None
     capacity: int | None
     creation_time: datetime
     modification_time: datetime
@@ -283,33 +353,6 @@ class TrackUpdateData(TypedDict):
     manager_pks: list[int]
 
 
-class VenueDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    address: str
-    areas_count: int = 0
-    creation_time: datetime
-    modification_time: datetime
-    name: str
-    order: int
-    pk: int
-    slug: str
-
-
-class AreaDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    creation_time: datetime
-    description: str
-    modification_time: datetime
-    name: str
-    order: int
-    pk: int
-    slug: str
-    spaces_count: int = 0
-    venue_id: int
-
-
 class TimeSlotDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -318,30 +361,13 @@ class TimeSlotDTO(BaseModel):
     start_time: datetime
 
 
-class TagCategoryDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    icon: str
-    input_type: str
-    name: str
-    pk: int
-
-
-class TagDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    category_id: int
-    confirmed: bool
-    name: str
-    pk: int
-
-
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol
     description: str
     duration: str
+    event_id: int
     min_age: int
     needs: str
     participants_limit: int
@@ -349,7 +375,6 @@ class SessionData(TypedDict, total=False):
     display_name: str
     requirements: str
     slug: str
-    sphere_id: int
     status: SessionStatus
     title: str
 
@@ -357,7 +382,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
-    cover_image: object
+    cover_image: UploadedFileProtocol | str
     description: str
     display_name: str
     duration: str
@@ -380,35 +405,9 @@ class AgendaItemData(TypedDict):
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
+    session_confirmed: bool
     space_id: int
     start_time: datetime
-
-
-class UserType(StrEnum):
-    ACTIVE = "active"
-    CONNECTED = "connected"
-    ANONYMOUS = "anonymous"
-
-
-class UserDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    avatar_url: str
-    date_joined: datetime
-    discord_username: str
-    email: str
-    full_name: str
-    is_active: bool
-    is_authenticated: bool
-    is_staff: bool
-    is_superuser: bool
-    manager_id: int | None = None
-    name: str
-    pk: int
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
 
 
 class SiteDTO(BaseModel):
@@ -425,13 +424,23 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    logo: str = ""
+    logo_url: str = ""
     name: str
     pk: int
     site_id: int
 
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
+
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
+    logo: str
 
 
 @dataclass
@@ -446,18 +455,27 @@ class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
+    auto_confirm_sessions: bool = True
     cover_image_url: str = ""
     description: str
     end_time: datetime
+    logo: str = ""
+    logo_url: str = ""
     name: str
     pk: int
-    proposal_description: str = ""
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
     slug: str
     sphere_id: int
     start_time: datetime
+    use_session_cover_placeholders: bool = False
+    use_participants_label: bool = False
+
+    @field_validator("logo", mode="before")
+    @classmethod
+    def _coerce_logo(cls, v: object) -> str:
+        return str(v) if v else ""
 
 
 class EventListItemDTO(BaseModel):
@@ -565,19 +583,6 @@ class EnrollmentConfigDTO(BaseModel):
     start_time: datetime
 
 
-class UserData(TypedDict, total=False):
-    avatar_url: str
-    discord_username: str
-    email: str
-    is_active: bool
-    name: str
-    password: str
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
-
-
 class ProposalCategoryData(TypedDict, total=False):
     description: str
     durations: list[str]
@@ -679,13 +684,19 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    cover_image: object
+    # Typed str to keep Django out of pacts; carries the uploaded image at
+    # runtime, matching the EncounterData.header_image convention.
+    logo: str
+    cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
     publication_time: datetime | None
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    auto_confirm_sessions: bool
+    use_session_cover_placeholders: bool
+    use_participants_label: bool
 
 
 @dataclass
@@ -813,23 +824,13 @@ class SphereRepositoryProtocol(Protocol):
     @staticmethod
     def read_site(sphere_id: int) -> SiteDTO: ...
     @staticmethod
+    def read_with_site(pk: int) -> tuple[SphereDTO, SiteDTO]: ...
+    @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
     @staticmethod
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
-
-
-class UserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(user_data: UserData) -> None: ...
-    def read(self, slug: str) -> UserDTO: ...
-    def read_by_id(self, pk: int) -> UserDTO: ...
-    def read_by_username(self, username: str) -> UserDTO: ...
-    @staticmethod
-    def update(user_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
 
 
 class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
@@ -839,11 +840,24 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         tag_ids: Iterable[int],
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
+        track_ids: Iterable[int] = (),
     ) -> int: ...
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
     @staticmethod
+    def read_presenter(session_id: int) -> UserDTO | None: ...
+    @staticmethod
+    def lock(pk: int) -> None: ...
+    @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
+    @staticmethod
+    def soft_delete(pk: int) -> None: ...
+    @staticmethod
+    def restore(pk: int, event_pk: int) -> None: ...
+    @staticmethod
+    def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
+    @staticmethod
+    def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod
@@ -852,20 +866,11 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
-    def read_tag_ids(session_id: int) -> list[int]: ...
-    @staticmethod
-    def read_tags(session_id: int) -> list[TagDTO]: ...
-    @staticmethod
-    def read_tag_categories(session_id: int) -> list[TagCategoryDTO]: ...
+
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod
     def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]: ...
-    @staticmethod
-    def read_pending_by_event_for_user(
-        event_id: int, presenter_id: int
-    ) -> list[PendingSessionDTO]: ...
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
     @staticmethod
@@ -875,7 +880,9 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
         session_ids: Iterable[int],
     ) -> dict[int, list[TimeSlotDTO]]: ...
     @staticmethod
-    def slug_exists(sphere_id: int, slug: str) -> bool: ...
+    def slug_exists(event_id: int, slug: str) -> bool: ...
+    @staticmethod
+    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]
@@ -883,15 +890,23 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def read_field_values(session_id: int) -> list[SessionFieldValueDTO]: ...
     @staticmethod
+    def delete_field_values_for_fields(
+        session_id: int, field_ids: list[int]
+    ) -> int: ...
+    @staticmethod
     def list_sessions_by_event(
-        event_id: int,
-        *,
-        field_filters: dict[int, str] | None = None,
-        search: str | None = None,
-        track_pk: int | None = None,
+        event_id: int, filters: SessionListFilters | None = None
     ) -> list[SessionListItemDTO]: ...
     @staticmethod
+    def read_track_ids(session_id: int) -> list[int]: ...
+    @staticmethod
+    def read_tracks(session_id: int) -> list[TrackDTO]: ...
+    @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
+    @staticmethod
+    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None: ...
+    @staticmethod
+    def clear_field_values(session_id: int) -> None: ...
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
@@ -902,17 +917,14 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> None: ...
     @staticmethod
     def list_unscheduled_by_event(
-        event_pk: int,
-        *,
-        track_pk: int | None = None,
-        search: str | None = None,
-        max_duration_minutes: int | None = None,
-        category_pk: int | None = None,
+        event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]: ...
 
 
 class TrackRepositoryProtocol(Protocol):
     def create(self, data: TrackCreateData) -> TrackDTO: ...
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
     @staticmethod
     def read(pk: int) -> TrackDTO: ...
     @staticmethod
@@ -946,8 +958,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_event(event_pk: int) -> list[AgendaItemDTO]: ...
     @staticmethod
-    def list_by_space(space_pk: int) -> list[AgendaItemDTO]: ...
-    @staticmethod
     def list_by_track(track_pk: int) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
@@ -968,20 +978,11 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
     @staticmethod
+    def confirm_all_by_event(event_pk: int) -> None: ...
+    @staticmethod
+    def confirm_all_by_track(track_pk: int) -> None: ...
+    @staticmethod
     def delete(pk: int) -> None: ...
-
-
-class ConnectedUserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(manager_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]: ...
-    @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO: ...
-    @staticmethod
-    def delete(manager_slug: str, user_slug: str) -> None: ...
-    @staticmethod
-    def update(manager_slug: str, user_slug: str, user_data: UserData) -> None: ...
 
 
 class EventRepositoryProtocol(Protocol):
@@ -999,67 +1000,23 @@ class EventRepositoryProtocol(Protocol):
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None: ...
-
-
-class VenueRepositoryProtocol(Protocol):
-    def copy_to_event(self, pk: int, target_event_id: int) -> VenueDTO: ...
-    def create(self, event_id: int, name: str, address: str = "") -> VenueDTO: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    def duplicate(self, pk: int, new_name: str) -> VenueDTO: ...
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[VenueDTO]: ...
-    @staticmethod
-    def read_by_slug(event_pk: int, slug: str) -> VenueDTO: ...
-    @staticmethod
-    def reorder(event_id: int, venue_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, address: str = "") -> VenueDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
-
-
-class AreaRepositoryProtocol(Protocol):
-    def create(self, venue_id: int, name: str, description: str = "") -> AreaDTO: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    @staticmethod
-    def list_by_venue(venue_pk: int) -> list[AreaDTO]: ...
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[AreaDTO]: ...
-    @staticmethod
-    def read_by_slug(venue_pk: int, slug: str) -> AreaDTO: ...
-    @staticmethod
-    def reorder(venue_id: int, area_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, description: str = "") -> AreaDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
 
 
 class SpaceRepositoryProtocol(Protocol):
-    def create(
-        self, area_id: int, name: str, capacity: int | None = None
-    ) -> SpaceDTO: ...
     @staticmethod
     def read(pk: int) -> SpaceDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
-    def list_by_area(area_pk: int) -> list[SpaceDTO]: ...
-    @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]: ...
     @staticmethod
-    def read_by_slug(area_pk: int, slug: str) -> SpaceDTO: ...
-    @staticmethod
-    def reorder(area_id: int, space_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, capacity: int | None = None) -> SpaceDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
+    def lock(pk: int) -> None: ...
 
 
 class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split planned
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
+    @staticmethod
+    def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1131,6 +1088,7 @@ class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split p
 
 class PersonalDataFieldCreateData(TypedDict):
     name: str
+    slug: NotRequired[str]
     question: str
     field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
@@ -1152,6 +1110,7 @@ class PersonalDataFieldUpdateData(TypedDict):
 
 class SessionFieldCreateData(TypedDict):
     name: str
+    slug: NotRequired[str]
     question: str
     field_type: Literal["text", "select", "checkbox"]
     options: list[str] | None
@@ -1180,6 +1139,8 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int: ...
+    @staticmethod
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
@@ -1197,6 +1158,8 @@ class SessionFieldRepositoryProtocol(Protocol):
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int: ...
+    @staticmethod
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
@@ -1210,6 +1173,10 @@ class TimeSlotRepositoryProtocol(Protocol):
     def create(
         event_id: int, start_time: datetime, end_time: datetime
     ) -> TimeSlotDTO: ...
+    @staticmethod
+    def get_or_create(
+        event_id: int, start_time: datetime, end_time: datetime
+    ) -> int: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1227,6 +1194,15 @@ class TimeSlotRepositoryProtocol(Protocol):
 class EventProposalSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
+    def read_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
+    def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
+
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None: ...
 
 
 class EventSettingsRepositoryProtocol(Protocol):
@@ -1264,8 +1240,6 @@ class EncounterRepositoryProtocol(Protocol):
     def read(pk: int) -> EncounterDTO: ...
     @staticmethod
     def read_by_share_code(share_code: str) -> EncounterDTO: ...
-    @staticmethod
-    def list_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]: ...
     @staticmethod
     def list_upcoming_by_creator(
         sphere_id: int, creator_id: int
@@ -1324,7 +1298,15 @@ class HostPersonalDataRepositoryProtocol(Protocol):
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
     @staticmethod
+    def list_field_ids_for_facilitator_event(
+        facilitator_id: int, event_id: int
+    ) -> list[int]: ...
+    @staticmethod
     def delete_by_facilitators(facilitator_ids: list[int]) -> None: ...
+    @staticmethod
+    def delete_for_facilitator_fields(
+        facilitator_id: int, field_ids: list[int]
+    ) -> int: ...
 
 
 class ScheduleChangeAction(StrEnum):
@@ -1379,6 +1361,15 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
 
+    @staticmethod
+    def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
 
 ContentFieldValue = str | int | bool | list[str] | None
 
@@ -1404,9 +1395,12 @@ class ContentChangeLogData(TypedDict):
 class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
+    # `field_values` None leaves dynamic answers untouched (partial POST guard).
     update: SessionUpdateData
-    field_values: list[SessionFieldValueData]
+    field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
+    track_ids: list[int] | None = None
+    time_slot_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):
@@ -1427,16 +1421,49 @@ class ContentChangeLogRepositoryProtocol(Protocol):
     def create(data: ContentChangeLogData) -> None: ...
 
     @staticmethod
+    def read(pk: int) -> ContentChangeLogDTO: ...
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
+
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
+
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
+
+class FacilitatorChangeLogData(TypedDict):
+    event_id: int
+    facilitator_id: int
+    user_id: int | None
+    changes: list[ContentFieldChange]
+
+
+class FacilitatorChangeLogDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    facilitator_id: int
+    facilitator_name: str
+    user_id: int | None
+    user_name: str
+    changes: list[ContentFieldChange]
+    creation_time: datetime
+
+
+class FacilitatorChangeLogRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: FacilitatorChangeLogData) -> None: ...
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
 class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
-    @staticmethod
-    def login_user(  # type: ignore [explicit-any]
-        request: Any, user_slug: str  # noqa: ANN401
-    ) -> None: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property
@@ -1464,11 +1491,7 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def spheres(self) -> SphereRepositoryProtocol: ...
     @property
-    def areas(self) -> AreaRepositoryProtocol: ...
-    @property
     def spaces(self) -> SpaceRepositoryProtocol: ...
-    @property
-    def venues(self) -> VenueRepositoryProtocol: ...
     @property
     def time_slots(self) -> TimeSlotRepositoryProtocol: ...
     @property

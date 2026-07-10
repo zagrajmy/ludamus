@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Facilitator, ProposalCategory, Session
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
-from tests.integration.conftest import UserFactory
+from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -115,6 +115,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=f1.pk,
                         slug="alice",
@@ -122,6 +123,7 @@ class TestFacilitatorMergePageView:
                         session_count=0,
                     ),
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Bob",
                         pk=f2.pk,
                         slug="bob",
@@ -157,11 +159,11 @@ class TestFacilitatorMergePageView:
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
+            event=event,
             category=category,
             display_name="Alice Duplicate",
             title="A Session",
             slug="a-session",
-            sphere=sphere,
             participants_limit=0,
             status="pending",
         )
@@ -206,6 +208,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=f1.pk,
                         slug="alice",
@@ -213,6 +216,7 @@ class TestFacilitatorMergePageView:
                         session_count=0,
                     ),
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Bob",
                         pk=f2.pk,
                         slug="bob",
@@ -228,6 +232,51 @@ class TestFacilitatorMergePageView:
         )
         assert Facilitator.objects.filter(pk=f1.pk).exists()
         assert Facilitator.objects.filter(pk=f2.pk).exists()
+
+    def test_post_ignores_foreign_facilitators_in_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        local = _make_facilitator(event, "Alice", "alice")
+        other_event = EventFactory(sphere=sphere)
+        foreign_source = _make_facilitator(other_event, "Mallory", "mallory")
+        foreign_target = _make_facilitator(other_event, "Trudy", "trudy")
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [local.pk, foreign_source.pk, foreign_target.pk],
+                "target_id": foreign_target.pk,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data={
+                **_base_context(event),
+                "events": [
+                    EventDTO.model_validate(other_event),
+                    EventDTO.model_validate(event),
+                ],
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=local.pk,
+                        slug="alice",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "preselected_ids": {local.pk},
+                "error": "Select at least two facilitators and choose a merge target.",
+            },
+        )
+        assert Facilitator.objects.filter(pk=local.pk).exists()
+        assert Facilitator.objects.filter(pk=foreign_source.pk).exists()
+        assert Facilitator.objects.filter(pk=foreign_target.pk).exists()
 
     def test_post_rejects_insufficient_selection(
         self, authenticated_client, active_user, sphere, event
@@ -248,6 +297,7 @@ class TestFacilitatorMergePageView:
                 **_base_context(event),
                 "facilitators": [
                     FacilitatorListItemDTO(
+                        accreditation_type="none",
                         display_name="Alice",
                         pk=facilitator.pk,
                         slug="alice",

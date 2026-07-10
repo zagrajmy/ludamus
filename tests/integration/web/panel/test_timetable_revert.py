@@ -6,12 +6,10 @@ from django.urls import reverse
 
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -96,13 +94,10 @@ class TestTimetableRevertView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        other_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=other_event))
-        )
+        other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            sphere=sphere,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -129,17 +124,16 @@ class TestTimetableRevertView:
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         other_session.refresh_from_db()
-        assert other_session.status == "scheduled"
+        assert other_session.status == "accepted"
 
     def test_revert_assign_unschedules_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -176,22 +170,19 @@ class TestTimetableRevertView:
         assert logs[0].action == "revert"
 
     def test_revert_unassign_reschedules_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            sphere=sphere,
-            status="pending",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
-        session.status = "scheduled"
-        session.save()
 
         # Unassign the session (creates log)
         authenticated_client.post(
@@ -214,3 +205,75 @@ class TestTimetableRevertView:
         log_response = authenticated_client.get(self.get_log_url(event))
         logs = log_response.context["logs"]
         assert logs[0].action == "revert"
+
+    def test_revert_non_latest_change_returns_422(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        authenticated_client.post(
+            self.get_assign_url(event),
+            data={
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": start.isoformat(),
+                "end_time": end.isoformat(),
+            },
+        )
+        # The assign log is now superseded by an unassign on the same session.
+        authenticated_client.post(
+            self.get_unassign_url(event), data={"session_pk": session.pk}
+        )
+        logs = authenticated_client.get(self.get_log_url(event)).context["logs"]
+        assign_log = next(log for log in logs if log.action == "assign")
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"log_pk": assign_log.pk}
+        )
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        session.refresh_from_db()
+        assert session.status == "accepted"
+
+    def test_log_page_marks_only_latest_change_revertible(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            participants_limit=5,
+            min_age=0,
+        )
+        start = event.start_time
+        end = start + timedelta(hours=1)
+        authenticated_client.post(
+            self.get_assign_url(event),
+            data={
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": start.isoformat(),
+                "end_time": end.isoformat(),
+            },
+        )
+        authenticated_client.post(
+            self.get_unassign_url(event), data={"session_pk": session.pk}
+        )
+
+        log_response = authenticated_client.get(self.get_log_url(event))
+        logs = log_response.context["logs"]
+        revertible_pks = log_response.context["revertible_pks"]
+        assign_log = next(log for log in logs if log.action == "assign")
+        unassign_log = next(log for log in logs if log.action == "unassign")
+
+        assert unassign_log.pk in revertible_pks
+        assert assign_log.pk not in revertible_pks

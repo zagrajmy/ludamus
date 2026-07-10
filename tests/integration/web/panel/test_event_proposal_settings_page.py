@@ -166,6 +166,44 @@ class TestEventProposalSettingsPageViewPost:
         settings = EventProposalSettings.objects.get(event=event)
         assert settings.description == "Welcome to our CFP!"
 
+    def test_saves_allow_anonymous_proposals(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, allow_anonymous_proposals="on"),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/proposals/",
+        )
+        settings = EventProposalSettings.objects.get(event=event)
+        assert settings.allow_anonymous_proposals is True
+
+    def test_unchecking_allow_anonymous_proposals_disables_it(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        EventProposalSettings.objects.create(
+            event=event, allow_anonymous_proposals=True
+        )
+
+        response = authenticated_client.post(self.get_url(event), data={})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/proposals/",
+        )
+        settings = EventProposalSettings.objects.get(event=event)
+        assert settings.allow_anonymous_proposals is False
+
     def test_saves_proposal_dates(
         self, authenticated_client, active_user, sphere, event
     ):

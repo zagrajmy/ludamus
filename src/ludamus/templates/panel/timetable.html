@@ -9,36 +9,36 @@
 {% block page_title %}
     {% translate "Schedule" %}
 {% endblock page_title %}
-{% block content %}
-    {% csrf_token %}
-    <!-- Assignment mode banner -->
-    {# ludamus-disable:no-negative-margin -- sticky banner bleeds edge-to-edge of panel base padding so bg-primary fills the viewport width #}
+{% block header_assist %}
+    {# Assignment-mode instruction lives in the panel header (toggled by timetable.ts) instead of a separate sticky banner. #}
     <div id="assign-mode-banner"
-         class="hidden sticky top-28 z-30 -mx-3 sm:-mx-4 lg:-mx-8 -mt-3 sm:-mt-4 lg:-mt-8 bg-primary text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-4">
-        <span>{% translate "Click a position on the grid to place the session" %}</span>
+         class="hidden flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-1.5 text-primary">
+        <span class="text-sm font-medium">{% translate "Click a position on the grid to place the session" %}</span>
         <button id="assign-mode-cancel"
                 type="button"
-                class="px-3 py-1 border border-white/40 rounded text-xs hover:bg-white/20 transition">
+                class="whitespace-nowrap rounded border border-primary/40 px-2 py-1 text-xs font-medium hover:bg-primary/20 transition">
             {% translate "Cancel" %} (Esc)
         </button>
     </div>
+{% endblock header_assist %}
+{% block content %}
+    {% csrf_token %}
     <!-- Timetable sub-page tabs -->
     <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
         {% tabs %}
         {% tab "timetable" active=True href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-        {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-        {% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-        {% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-    {% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 pt-3 flex justify-end gap-3 flex-wrap items-center">
-    {% include "panel/parts/print-controls.html" %}
+    {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
+{% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
+{% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
+{% end_tabs %}
 </div>
 <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
     <!-- Filter bar: track + date + category chips + duration chips -->
     <div id="filter-bar" class="mb-4 flex items-center gap-4 flex-wrap">
         {% if all_tracks or grid.available_dates %}
-            <form method="get" class="flex items-center gap-2 flex-wrap">
+            <form method="get"
+                  action="{% url 'panel:timetable' slug=current_event.slug %}"
+                  class="flex items-center gap-2 flex-wrap">
                 {% if room_page > 1 %}<input type="hidden" name="room_page" value="{{ room_page }}">{% endif %}
                 {% if all_tracks %}
                     <span class="text-sm text-foreground-muted">{% translate "Track:" %}</span>
@@ -58,11 +58,7 @@
                 {% if grid.available_dates %}
                     <span class="text-sm text-foreground-muted ml-2">{% translate "Day:" %}</span>
                     <select name="date"
-                            hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}"
-                            hx-target="#timetable-grid"
-                            hx-swap="innerHTML"
-                            hx-trigger="change"
-                            hx-push-url="true"
+                            onchange="this.form.submit()"
                             class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                         {% for d in grid.available_dates %}
                             <option value="{{ d|date:"Y-m-d" }}"
@@ -74,6 +70,39 @@
         {% endif %}
         <div id="filter-chips" class="flex items-center gap-4 flex-wrap">
             {% include "panel/parts/timetable-filter-chips.html" %}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap ml-auto">
+            {% translate "Print" as t_print %}
+            <div class="relative" data-menu>
+                <button type="button"
+                        data-menu-button
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        class="filter-toggle inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150">
+                    {% icon "printer" class="size-4" %}
+                    <span class="hidden sm:inline">{{ t_print }}</span>
+                </button>
+                <div data-menu-panel
+                     hidden
+                     class="absolute right-0 mt-1 z-40 flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3 shadow-xl">
+                    {% include "panel/parts/print-controls.html" %}
+                </div>
+            </div>
+            {% if filter_track_pk %}
+                <form hx-post="{% url 'panel:timetable-confirm-block' slug=current_event.slug %}"
+                      hx-swap="none">
+                    {% csrf_token %}
+                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                    {% translate "Confirm block" as t_confirm_block %}
+                    {% tessera_button t_confirm_block variant="secondary" button_type="submit" size="sm" icon="check-circle" %}
+                </form>
+            {% endif %}
+            <form hx-post="{% url 'panel:timetable-confirm-all' slug=current_event.slug %}"
+                  hx-swap="none">
+                {% csrf_token %}
+                {% translate "Confirm all" as t_confirm_all %}
+                {% tessera_button t_confirm_all variant="primary" button_type="submit" size="sm" icon="check-circle" %}
+            </form>
         </div>
     </div>
     <!-- Two-column responsive layout: left pane (browse/detail + conflicts) | grid -->
@@ -106,6 +135,8 @@
         <div class="flex-1 min-w-0 w-full">
             <div id="timetable-grid"
                  data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
+                 data-confirm-move="{% translate "This program item is confirmed. Moving it will clear the confirmation." %}"
+                 data-confirm-move-action="{% translate "Move" %}"
                  hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page }}"
                  hx-swap="innerHTML"
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>

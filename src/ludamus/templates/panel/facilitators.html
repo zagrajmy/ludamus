@@ -9,32 +9,18 @@
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
-        {{ current_event.name }} · {% translate "Session Hosts" %}
+        {{ current_event.name }} · {% translate "Facilitators" %}
     {% endif %}
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:facilitator-merge' slug=current_event.slug %}"
-               class="btn btn-secondary">
-                {% icon "funnel" class="w-4 h-4 mr-2" %}
-                {% translate "Merge view" %}
-            </a>
-            <button type="submit"
-                    form="facilitators-list-form"
-                    id="merge-selected-btn"
-                    formaction="{% url 'panel:facilitator-merge' slug=current_event.slug %}"
-                    formmethod="get"
-                    class="btn btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-                    disabled>
-                {% icon "funnel" class="w-4 h-4 mr-2" %}
-                {% translate "Merge selected" %}
-            </button>
-            <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
-               class="btn btn-primary">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "New Facilitator" %}
-            </a>
+            {% url 'panel:facilitator-merge' slug=current_event.slug as merge_url %}
+            {% translate "Merge facilitators" as t_merge %}
+            {% tessera_button t_merge href=merge_url variant="secondary" icon="funnel" %}
+            {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+            {% translate "New Facilitator" as t_new_facilitator %}
+            {% tessera_button t_new_facilitator href=create_url icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -42,92 +28,79 @@
     <div class="p-4">
         {% if current_event %}
             {% if facilitators %}
-                <form id="facilitators-list-form">
-                    {% tessera_table %}
-                    <thead class="bg-bg-tertiary">
-                        <tr>
-                            <th scope="col" class="w-10 px-4 py-3">
-                                <input type="checkbox"
-                                       id="select-all"
-                                       class="w-4 h-4"
-                                       title="{% translate "Select all" %}">
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Display Name" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Linked User" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Sessions" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Actions" %}
-                            </th>
+                {% tessera_table %}
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Display Name" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Linked User" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Sessions" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Actions" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                    {% for facilitator in facilitators %}
+                        <tr class="hover:bg-bg-tertiary">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                   class="text-primary hover:text-primary/80"
+                                   title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                {% if facilitator.user_id %}
+                                    {% translate "Linked" %}
+                                {% else %}
+                                    <span class="text-foreground-muted">{% translate "None" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                   class="text-primary hover:text-primary/80 inline-flex items-center">
+                                    {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                    {% translate "Edit" %}
+                                </a>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        {% for facilitator in facilitators %}
-                            <tr class="hover:bg-bg-tertiary">
-                                <td class="px-4 py-4">
-                                    <input type="checkbox"
-                                           name="ids"
-                                           value="{{ facilitator.pk }}"
-                                           class="facilitator-checkbox w-4 h-4">
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                    <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                       class="text-primary hover:text-primary/80"
-                                       title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                    {% if facilitator.user_id %}
-                                        {% translate "Linked" %}
-                                    {% else %}
-                                        <span class="text-foreground-muted">{% translate "None" %}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                       class="text-primary hover:text-primary/80 inline-flex items-center">
-                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                        {% translate "Edit" %}
-                                    </a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                {% end_tessera_table %}
-            </form>
-            <script>
-                (function() {
-                    const checkboxes = document.querySelectorAll('.facilitator-checkbox');
-                    const mergeBtn = document.getElementById('merge-selected-btn');
-                    const selectAll = document.getElementById('select-all');
-
-                    function updateMergeBtn() {
-                        const checked = document.querySelectorAll('.facilitator-checkbox:checked').length;
-                        mergeBtn.disabled = checked < 2;
-                    }
-
-                    checkboxes.forEach(cb => cb.addEventListener('change', updateMergeBtn));
-
-                    selectAll.addEventListener('change', function() {
-                        checkboxes.forEach(cb => {
-                            cb.checked = this.checked;
-                        });
-                        updateMergeBtn();
-                    });
-                })();
-            </script>
+                    {% endfor %}
+                </tbody>
+            {% end_tessera_table %}
+            {% if page_obj.paginator.num_pages > 1 %}
+                <div class="flex items-center justify-between mt-4 text-sm">
+                    <span class="text-foreground-muted">
+                        {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
+                            Page {{ page }} of {{ total }}
+                        {% endblocktranslate %}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        {% if page_obj.has_previous %}
+                            <a href="{% querystring page=page_obj.previous_page_number %}"
+                               class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
+                        {% endif %}
+                        {% if page_obj.has_next %}
+                            <a href="{% querystring page=page_obj.next_page_number %}"
+                               class="btn btn-secondary text-sm">{% translate "Next" %}</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
         {% else %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">{% translate "No facilitators yet." %}</p>
+                <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>
+                {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+                {% translate "New Facilitator" as t_new_facilitator %}
+                {% tessera_button t_new_facilitator href=create_url icon="plus" %}
             </div>
         {% endif %}
     {% else %}

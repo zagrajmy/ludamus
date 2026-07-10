@@ -1,0 +1,97 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Bans" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Bans" %}
+{% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are event bans?" as t_info_title %}
+    {% translate "Event bans are for serious cases — people who are unsafe to have at the event. A banned person cannot enrol in any session: the event simply looks full to them, and they are not told they are banned. For milder discomfort, players can shadowban each other from their own settings instead." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Banned people" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-4 flex flex-col gap-6">
+        {% if current_event %}
+            {# Add a ban #}
+            <div class="rounded-lg bg-bg-secondary p-4">
+                <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
+                    {% icon "no-symbol" class="w-4 h-4" %}
+                    {% translate "Ban a person from this event" %}
+                </h6>
+                {% translate "Username or email" as identifier_label %}
+                {% translate "Reason (optional, only you see it)" as reason_label %}
+                {% translate "Ban" as t_ban %}
+                <form method="post" action="{% url 'panel:bans' slug=current_event.slug %}">
+                    {% csrf_token %}
+                    <div class="flex flex-col sm:flex-row sm:items-start gap-2">
+                        <div class="grow w-full">
+                            <label for="identifier" class="sr-only">{{ identifier_label }}</label>
+                            {% include "components/text-field.html" with name="identifier" id="identifier" placeholder=identifier_label required=True only %}
+                        </div>
+                        <div class="grow w-full">
+                            <label for="reason" class="sr-only">{{ reason_label }}</label>
+                            {% include "components/text-field.html" with name="reason" id="reason" placeholder=reason_label only %}
+                        </div>
+                        {% tessera_button t_ban variant="danger" %}
+                    </div>
+                </form>
+            </div>
+            {# List of bans #}
+            {% if bans %}
+                {% tessera_table %}
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Person" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Reason" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Banned on" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Actions" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-bg-secondary divide-y divide-border">
+                    {% for ban in bans %}
+                        <tr>
+                            <td class="px-6 py-3 text-sm font-medium text-foreground">{{ ban.user_name }}</td>
+                            <td class="px-6 py-3 text-sm text-foreground-muted">{{ ban.reason|default:"—" }}</td>
+                            <td class="px-6 py-3 text-sm text-foreground-muted">{{ ban.created_at|date:"SHORT_DATE_FORMAT" }}</td>
+                            <td class="px-6 py-3 text-right">
+                                <form method="post"
+                                      action="{% url 'panel:ban-delete' slug=current_event.slug pk=ban.pk %}"
+                                      data-confirm="{% translate "Remove this ban?" %}">
+                                    {% csrf_token %}
+                                    {% translate "Remove" as t_remove %}
+                                    {% tessera_button t_remove variant="secondary" size="sm" full_width_mobile=False %}
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            {% end_tessera_table %}
+        {% else %}
+            <div class="text-center py-8">
+                {% icon "no-symbol" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                <h5 class="text-foreground-muted font-medium">{% translate "Nobody is banned from this event" %}</h5>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock content %}

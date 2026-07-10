@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, time, timedelta
+from importlib import import_module
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -31,19 +32,24 @@ from django.utils.timezone import get_current_timezone  # noqa: E402
 
 from ludamus.adapters.db.django.models import (  # noqa: E402
     AgendaItem,
-    Area,
     Encounter,
     EnrollmentConfig,
     Event,
+    EventProposalSettings,
+    Notification,
     ProposalCategory,
     Session,
+    SessionParticipation,
     Space,
     Sphere,
     TimeSlot,
     User,
-    Venue,
 )
 from ludamus.pacts import SessionStatus  # noqa: E402
+from ludamus.pacts.legacy import (  # noqa: E402
+    NotificationKind,
+    SessionParticipationStatus,
+)
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -53,6 +59,30 @@ def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
         site=site, defaults={"name": f"{name} Sphere"}
     )
     return site, sphere
+
+
+def _create_root_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
+    site, _ = Site.objects.update_or_create(
+        id=settings.SITE_ID, defaults={"domain": domain, "name": name}
+    )
+    sphere, _ = Sphere.objects.get_or_create(
+        site=site, defaults={"name": f"{name} Sphere"}
+    )
+    return site, sphere
+
+
+def _root_domain_for_seed() -> str:
+    if settings.IN_TESTS:
+        return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
+
+    existing_domain = (
+        Site.objects.filter(id=settings.SITE_ID)
+        .values_list("domain", flat=True)
+        .first()
+    )
+    if existing_domain and existing_domain != "example.com":
+        return existing_domain
+    return os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
 
 
 def _ensure_spheres_for_all_sites() -> None:
@@ -76,6 +106,7 @@ def _create_event(
     publication_offset: timedelta,
     enrollment_banner: str | None = None,
     allow_anonymous: bool = False,
+    allow_anonymous_proposals: bool = False,
     proposals_open: bool = False,
 ) -> Event:
     now = timezone.now()
@@ -113,6 +144,11 @@ def _create_event(
             allow_anonymous_enrollment=allow_anonymous,
         )
 
+    if allow_anonymous_proposals:
+        EventProposalSettings.objects.create(
+            event=event, allow_anonymous_proposals=True
+        )
+
     return event
 
 
@@ -124,24 +160,27 @@ def _create_flatpage(site: Site, *, url: str, title: str, content: str) -> FlatP
     return page
 
 
-def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Venue:
-    return Venue.objects.create(event=event, name=name, slug=slug, address=address)
+def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Space:
+    return Space.objects.create(
+        event=event, parent=None, name=name, slug=slug, description=address
+    )
 
 
-def _create_area(venue: Venue, *, name: str, slug: str, description: str = "") -> Area:
-    return Area.objects.create(
-        venue=venue, name=name, slug=slug, description=description
+def _create_area(venue: Space, *, name: str, slug: str, description: str = "") -> Space:
+    return Space.objects.create(
+        event=venue.event, parent=venue, name=name, slug=slug, description=description
     )
 
 
 def _create_space(
-    area: Area, *, name: str, slug: str, capacity: int | None = None
+    area: Space, *, name: str, slug: str, capacity: int | None = None
 ) -> Space:
-    return Space.objects.create(area=area, name=name, slug=slug, capacity=capacity)
+    return Space.objects.create(
+        event=area.event, parent=area, name=name, slug=slug, capacity=capacity
+    )
 
 
 def _create_session(
-    sphere: Sphere,
     event: Event,
     space: Space,
     *,
@@ -153,7 +192,7 @@ def _create_session(
     duration_hours: int,
 ) -> Session:
     session = Session.objects.create(
-        sphere=sphere,
+        event=event,
         display_name=presenter,
         title=title,
         slug=slug,
@@ -216,19 +255,193 @@ def _create_test_user() -> User:
     state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state.json"
     _write_storage_state(user, domain=domain, path=state_path)
 
+    # An unread notification so the navbar dropdown has content to show in e2e.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="You're in: a spot opened in Dragons & Dungeons",
+        body="A confirmed spot opened up and you have been enrolled automatically.",
+        url="/events/",
+    )
+
     return user
 
 
+def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
+    """Seed a full session with a dedicated waiter behind the superuser.
+
+    Cancelling the superuser's confirmed seat (T1) frees a seat and promotes the
+    waiter, exercising the waiting-list promotion + notification path end to end.
+    The waiter is its own user (not the shared e2e-tester) so the notification
+    state stays isolated from other specs.
+    """
+    event = _create_event(
+        sphere,
+        name="Waitlist Demo Convention",
+        slug="waitlist-demo",
+        description="Promotion end-to-end scenario.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    venue = _create_venue(event, name="Demo Venue", slug="demo-venue")
+    area = _create_area(venue, name="Demo Area", slug="demo-area")
+    space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
+    session = Session.objects.create(
+        event=event,
+        display_name="Demo GM",
+        title="Waitlist Promotion Demo",
+        slug="waitlist-promotion-demo",
+        description="A full session used by the promotion e2e.",
+        participants_limit=1,
+        min_age=0,
+    )
+    AgendaItem.objects.create(
+        space=space,
+        session=session,
+        session_confirmed=True,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=2),
+    )
+    waiter = User.objects.create_user(
+        username="e2e-waiter",
+        email="e2e-waiter@test.local",
+        password="e2e-waiter-123",
+        name="E2E Waiter",
+        slug="e2e-waiter",
+    )
+    SessionParticipation.objects.create(
+        session=session,
+        user=superuser,
+        status=SessionParticipationStatus.CONFIRMED.value,
+    )
+    SessionParticipation.objects.create(
+        session=session, user=waiter, status=SessionParticipationStatus.WAITING.value
+    )
+
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    parsed = urlparse(base_url)
+    _write_storage_state(
+        waiter,
+        domain=parsed.hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-waiter.json",
+    )
+
+    scenario_path = REPO_ROOT / "tests" / "e2e" / ".promotion-scenario.json"
+    scenario_path.write_text(
+        json.dumps(
+            {
+                "session_id": session.pk,
+                "event_slug": event.slug,
+                "superuser_id": superuser.pk,
+                "waiter_email": waiter.email,
+                "session_title": session.title,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+# Dedicated event for the backoffice panel e2e tests. panel.spec mutates
+# venues, CFP config and facilitators, so it gets its own event — keeping
+# autumn-open read-only for the public-page specs makes the suite safe to run
+# with parallel workers.
+def _create_panel_lab_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Frostfire Game Convention",
+        slug="frostfire-con",
+        description=(
+            "A mid-winter gathering for roleplayers and board gamers, "
+            "with open tables from dawn till midnight."
+        ),
+        start_offset=timedelta(days=20),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(
+        event,
+        name="Aurora Convention Hall",
+        slug="aurora-hall",
+        address="5 Glacier Parade, Northport",
+    )
+    north_wing = _create_area(
+        venue,
+        name="North Wing",
+        slug="north-wing",
+        description="The central gaming area with multiple tables.",
+    )
+    hearth_lounge = _create_area(
+        venue,
+        name="Hearth Lounge",
+        slug="hearth-lounge",
+        description="A cozy space for smaller gatherings.",
+    )
+    _create_space(north_wing, name="Frost Gallery", slug="frost-gallery", capacity=30)
+    _create_space(hearth_lounge, name="Ember Corner", slug="ember-corner", capacity=12)
+
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
+# Dedicated event for the cover-image upload e2e tests. cover-images.spec
+# writes the event's cover image and asserts the initial "no cover yet" state,
+# so it needs an event nothing else mutates.
+def _create_cover_lab_event(sphere: Sphere) -> Event:
+    return _create_event(
+        sphere,
+        name="Lakeside Tabletop Weekend",
+        slug="lakeside-weekend",
+        description=("A laid-back weekend of board games and one-shots by the lake."),
+        start_offset=timedelta(days=21),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+
+
+def _create_anon_proposals_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Open Mic Proposals",
+        slug="open-mic",
+        description="Drop-in showcase — pitch a one-shot, no account required.",
+        start_offset=timedelta(days=15),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+        allow_anonymous_proposals=True,
+    )
+    ProposalCategory.objects.create(
+        event=event,
+        name="Open Mic",
+        slug="open-mic",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
 def main() -> None:
+    root_domain = _root_domain_for_seed()
     call_command("flush", verbosity=0, interactive=False)
 
     # Root site used for fallbacks / redirects
-    root_domain = os.environ.get("ROOT_DOMAIN", settings.ROOT_DOMAIN)
-    _create_site(root_domain, name="Root Domain")
+    _create_root_site(root_domain, name="Root Domain")
 
-    sphere_domain = os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST")
-    if not sphere_domain:
-        sphere_domain = "localhost:8000"
+    sphere_domain = (
+        os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
+    )
     site, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
@@ -237,11 +450,11 @@ def main() -> None:
     _create_test_user()
 
     superuser = User.objects.create_superuser(
-        username="e2e-superuser",
-        email="e2e-superuser@test.local",
-        password="e2e-superuser-123",
-        name="E2E Superuser",
-        slug="e2e-superuser",
+        username="admin",
+        email="admin@test.local",
+        password="admin",
+        name="Admin",
+        slug="admin",
     )
     base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
     parsed = urlparse(base_url)
@@ -249,6 +462,9 @@ def main() -> None:
     _write_storage_state(
         superuser, domain=parsed.hostname or "localhost", path=superuser_state_path
     )
+
+    # Full session with a dedicated waiter, for the promotion e2e.
+    _create_promotion_scenario(sphere, superuser=superuser)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
@@ -370,7 +586,6 @@ def main() -> None:
     tester = User.objects.get(username="e2e-tester")
 
     _create_session(
-        sphere,
         upcoming_event,
         east_wing_space,
         title="Mega Strategy Lab",
@@ -382,7 +597,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Cozy Storytellers Circle",
@@ -394,7 +608,6 @@ def main() -> None:
     )
 
     _create_session(
-        sphere,
         upcoming_event,
         fireside_space,
         title="Przygoda w Mieście Neonów",
@@ -426,7 +639,7 @@ def main() -> None:
         end_time=upcoming_event.start_time + timedelta(hours=2),
     )
     pending_session = Session.objects.create(
-        sphere=sphere,
+        event=upcoming_event,
         presenter=tester,
         display_name="E2E Tester",
         contact_email="e2e@test.local",
@@ -442,6 +655,15 @@ def main() -> None:
         status=SessionStatus.PENDING,
     )
     pending_session.time_slots.add(proposal_slot)
+
+    # Dedicated events for the mutating panel / cover-image specs, so they
+    # never write to autumn-open (kept read-only for the public-page specs).
+    _create_panel_lab_event(sphere)
+    _create_cover_lab_event(sphere)
+    _create_anon_proposals_event(sphere)
+
+    seed_module = import_module("kapitularz_print_seed")
+    seed_module.seed_kapitularz_print_event(sphere)
 
     past_event = _create_event(
         sphere,

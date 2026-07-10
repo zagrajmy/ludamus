@@ -4,13 +4,9 @@ Django event management. Python 3.14, Poetry, mise.
 
 ## Commands
 
-```bash
-mise run start      # dev server :8000
-mise run test       # all tests
-mise run check      # format + lint
-mise run dj <cmd>   # django-admin
-mise tasks          # list all tasks with descriptions
-```
+`mise tasks` is the source of truth for every runnable task and its
+description — run it rather than trusting a hardcoded list here. Most used:
+`mise run start`, `mise run test:py`, `mise run check`, `mise run dj <cmd>`.
 
 ## Workflow
 
@@ -19,10 +15,16 @@ mise tasks          # list all tasks with descriptions
   - is the info we're showing redundant?
   - are we asking for needless clicks? like showing a form with one selectable
     option?
-- Use agent-browser to take screenshots of affected pages and include
-  before/after images in the PR description. Run tools/binaries via `aubx`
-  (e.g. `aubx agent-browser`).
+- Include screenshots of affected pages in the PR description. With a server
+  running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
+  resolve against `localhost:8000`; wraps `aubx agent-browser`).
 - Don't ignore lint rules globally.
+- Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
+  for UI; don't hand-roll components.
+- For any user-facing UI work (pages, forms, tables, modals, empty/error states,
+  copy), use the `product-design` skill (`.claude/skills/product-design/`)
+  *before* building — it routes to the component catalog, reachable-states
+  checklist, Polish copy rules, and a verification checklist.
 
 ## Architecture
 
@@ -70,6 +72,19 @@ Strict rules:
 ## Rules
 
 - Views return DTOs to templates, never models
+- A class that implements a `Protocol` must declare it as a base class, so the
+  intent is explicit and the type checker verifies conformance. Exception: very
+  generic protocols (e.g. `TransactionProtocol`, structural callbacks) where
+  multiple unrelated implementations exist by duck-typing.
+- Functions/methods with 3+ parameters (excluding `self`) must take them as
+  keyword-only with `*,`:
+
+  ```python
+  def fun(a: int, b: str) -> int: ...
+  def method(self, a: int, b: str) -> int: ...
+  def fun(*, a: int, b: str, precision: int) -> int: ...
+  ```
+
 - Avoid docstrings unless absolutely unavoidable. Code should be
   self-explanatory; the Arrange-Act-Assert structure in tests should be obvious
   from the code itself. Docstrings are stale the day they're committed. Keep
@@ -115,5 +130,7 @@ Strict rules:
   moving views from `request.di.uow` to `request.services`
 - [Testing assertions](docs/agents/testing-assertions.md) — patterns for
   integration tests
+- [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
+  adding tools
 - [URL conventions](docs/CODE_LAYOUT.md)
 - [Testing strategy](docs/TESTING_STRATEGY.md)

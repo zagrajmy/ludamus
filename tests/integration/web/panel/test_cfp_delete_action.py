@@ -59,7 +59,7 @@ class TestCFPDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type deleted successfully.")],
+            messages=[(messages.SUCCESS, "Category deleted successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert not ProposalCategory.objects.filter(pk=category_pk).exists()
@@ -72,8 +72,8 @@ class TestCFPDeleteActionView:
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
         Session.objects.create(
+            event=event,
             category=category,
-            sphere=sphere,
             presenter=active_user,
             display_name=active_user.username,
             title="Test Proposal",
@@ -88,7 +88,7 @@ class TestCFPDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete session type with existing proposals.")
+                (messages.ERROR, "Cannot delete category with existing proposals.")
             ],
             url=f"/panel/event/{event.slug}/cfp/",
         )
@@ -126,7 +126,7 @@ class TestCFPDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Session type not found.")],
+            messages=[(messages.ERROR, "Category not found.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
 

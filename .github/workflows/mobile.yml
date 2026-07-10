@@ -22,11 +22,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: jdx/mise-action@v2
+        with:
+          # ponytail: macOS poetry venv links to Homebrew's python framework;
+          # caching it breaks when the runner image bumps python@3.14's patch
+          # (dyld "Library not loaded" / Abort trap 6). Reinstall fresh instead.
+          cache: false
 
       - uses: oven-sh/setup-bun@v2
 
       - run: mise install
-      - run: mise run p install
+      - run: mise exec -- poetry install
 
       - name: Install agent-device
         run: bun install -g agent-device@0.14.7
@@ -61,17 +66,17 @@ jobs:
           echo "UDID=$UDID" >> "$GITHUB_ENV"
 
       - name: Bootstrap e2e fixtures
-        run: mise run e2e:prep
+        run: mise run test:e2e:prep
 
       - name: Start local e2e server
         run: |
-          mise run e2e:serve > ios-modal-server.log 2>&1 &
+          mise run test:e2e:serve > ios-modal-server.log 2>&1 &
           echo $! > ios-modal-server.pid
 
       - name: Wait for local e2e server
         run: |
-          for attempt in {1..60}; do
-            if curl --fail --silent --show-error http://localhost:8000/chronology/event/autumn-open/ > /dev/null; then
+          for _ in {1..60}; do
+            if curl --fail --silent --show-error http://localhost:8000/event/autumn-open/ > /dev/null; then
               exit 0
             fi
             sleep 2

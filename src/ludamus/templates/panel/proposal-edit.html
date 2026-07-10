@@ -46,6 +46,23 @@
                                    class="w-full border {% if form.title.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                             {% if form.title.errors %}<p class="mt-1 text-sm text-danger">{{ form.title.errors.0 }}</p>{% endif %}
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                   for="id_category_id">
+                                {% translate "Category" %}<span class="text-danger ml-0.5">*</span>
+                            </label>
+                            <select name="category_id"
+                                    id="id_category_id"
+                                    class="w-full border {% if form.category_id.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% for value, label in form.category_id.field.choices %}
+                                    <option value="{{ value }}"
+                                            {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.category_id.errors %}<p class="mt-1 text-sm text-danger">{{ form.category_id.errors.0 }}</p>{% endif %}
+                        </div>
                         <div>{% tessera_field form.cover_image %}</div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -65,24 +82,6 @@
                                       rows="5"
                                       class="w-full border {% if form.description.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
                             {% if form.description.errors %}<p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_requirements">{% translate "Requirements" %}</label>
-                            <textarea name="requirements"
-                                      id="id_requirements"
-                                      rows="3"
-                                      class="w-full border {% if form.requirements.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.requirements.value|default:'' }}</textarea>
-                            {% if form.requirements.errors %}<p class="mt-1 text-sm text-danger">{{ form.requirements.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_needs">{% translate "Needs" %}</label>
-                            <textarea name="needs"
-                                      id="id_needs"
-                                      rows="3"
-                                      class="w-full border {% if form.needs.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.needs.value|default:'' }}</textarea>
-                            {% if form.needs.errors %}<p class="mt-1 text-sm text-danger">{{ form.needs.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -135,6 +134,7 @@
                 <div class="card mt-6">
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Fields" %}</h3>
+                        <input type="hidden" name="session_fields_submitted" value="1">
                         <div class="space-y-6">
                             {% for field, current_value in session_fields %}
                                 <div>
@@ -206,6 +206,7 @@
             {% if all_facilitators %}
                 <div class="card mt-6">
                     <div class="card-body">
+                        <input type="hidden" name="facilitators_submitted" value="1">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitators" %}</h3>
                         <input type="text"
                                id="facilitator-search"
@@ -229,6 +230,76 @@
                            class="hidden text-sm text-foreground-muted mt-2">
                             {% translate "No facilitators match your search." %}
                         </p>
+                    </div>
+                </div>
+            {% endif %}
+            {% if all_tracks %}
+                <div class="card mt-6">
+                    <div class="card-body">
+                        <input type="hidden" name="tracks_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Tracks" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Assign this proposal to one or more programme tracks." %}
+                        </p>
+                        <div class="space-y-2">
+                            {% for t in all_tracks %}
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox"
+                                           name="track_ids"
+                                           value="{{ t.pk }}"
+                                           {% if t.pk in assigned_track_pks %}checked{% endif %}
+                                           class="mr-2">
+                                    {{ t.name }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if all_time_slots %}
+                <div class="card mt-6">
+                    <div class="card-body">
+                        <input type="hidden" name="time_slots_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Preferred time slots" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Time slots the facilitator prefers for this session. These are preferences, not a final schedule." %}
+                        </p>
+                        <div class="space-y-2">
+                            {% for ts in all_time_slots %}
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox"
+                                           name="time_slot_ids"
+                                           value="{{ ts.pk }}"
+                                           {% if ts.pk in assigned_time_slot_pks %}checked{% endif %}
+                                           class="mr-2">
+                                    {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if facilitator_personal_data %}
+                <div class="card mt-6">
+                    <div class="card-body">
+                        <input type="hidden" name="personal_data_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitator personal data" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Personal-data answers for each assigned facilitator." %}
+                        </p>
+                        <div class="space-y-3">
+                            {% for facilitator, name_prefix, items in facilitator_personal_data %}
+                                <details class="border border-border rounded-lg">
+                                    <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ facilitator.display_name }}</summary>
+                                    <div class="px-4 pb-4 pt-2">
+                                        <input type="hidden"
+                                               name="personal_data_facilitator_ids"
+                                               value="{{ facilitator.pk }}">
+                                        {% include "panel/_personal_data_fields.html" with fields=items name_prefix=name_prefix %}
+                                    </div>
+                                </details>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             {% endif %}

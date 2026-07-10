@@ -5,17 +5,18 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
-from factory import Faker, LazyAttribute, SubFactory
+from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
 from ludamus.adapters.db.django.models import (
     AgendaItem,
-    Area,
     Encounter,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    Party,
+    PartyMembership,
     ProposalCategory,
     Session,
     SessionParticipation,
@@ -25,8 +26,8 @@ from ludamus.adapters.db.django.models import (
     Tag,
     TagCategory,
     TimeSlot,
-    Venue,
 )
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
 User = get_user_model()
@@ -43,10 +44,34 @@ def _django_db(transactional_db):
     pass
 
 
+def sponsor_user(*, leader, member):
+    # Mirror the 0110 backfill shape: the leader's own party (created with
+    # their own ACCEPT_BY_DEFAULT membership) sponsors the companion.
+    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
+        party = Party.objects.create(leader=leader, name="")
+        PartyMembership.objects.create(
+            party=party,
+            member=leader,
+            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+    PartyMembership.objects.get_or_create(
+        party=party,
+        member=member,
+        defaults={
+            "consent_mode": PartyConsentMode.ACCEPT_BY_DEFAULT,
+            "status": PartyMembershipStatus.ACTIVE,
+        },
+    )
+    return party
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
         django_get_or_create = ("username",)
+        # The manager hook only creates rows; the user needs no second save.
+        skip_postgeneration_save = True
 
     username = Faker("user_name")
     email = Faker("email")
@@ -56,6 +81,11 @@ class UserFactory(DjangoModelFactory):
     is_active = True
     is_staff = False
     is_superuser = False
+
+    @post_generation
+    def manager(self, create, extracted):
+        if create and extracted is not None:
+            sponsor_user(leader=extracted, member=self)
 
 
 class SiteFactory(DjangoModelFactory):
@@ -80,7 +110,7 @@ class EventFactory(DjangoModelFactory):
         model = Event
 
     name = Faker("sentence", nb_words=4)
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"event-{n}")
     description = Faker("text")
     sphere = SubFactory(SphereFactory)
     start_time = LazyAttribute(lambda __: datetime.now(UTC) + timedelta(days=7))
@@ -100,33 +130,13 @@ class EnrollmentConfigFactory(DjangoModelFactory):
     percentage_slots = 100
 
 
-class VenueFactory(DjangoModelFactory):
-    class Meta:
-        model = Venue
-
-    name = Faker("company")
-    slug = Faker("slug")
-    event = SubFactory(EventFactory)
-    order = 0
-
-
-class AreaFactory(DjangoModelFactory):
-    class Meta:
-        model = Area
-
-    name = Faker("word")
-    slug = Faker("slug")
-    venue = SubFactory(VenueFactory)
-    order = 0
-
-
 class SpaceFactory(DjangoModelFactory):
     class Meta:
         model = Space
 
     name = Faker("word")
-    slug = Faker("slug")
-    area = SubFactory(AreaFactory)
+    slug = Sequence(lambda n: f"space-{n}")
+    event = SubFactory(EventFactory)
 
 
 class TimeSlotFactory(DjangoModelFactory):
@@ -143,9 +153,6 @@ class TagCategoryFactory(DjangoModelFactory):
         model = TagCategory
 
     name = Faker("word")
-    slug = Faker("slug")
-    event = SubFactory(EventFactory)
-    category_type = "SELECT"
     icon = "dice"
 
 
@@ -154,7 +161,6 @@ class TagFactory(DjangoModelFactory):
         model = Tag
 
     name = Faker("word")
-    slug = Faker("slug")
     category = SubFactory(TagCategoryFactory)
 
 
@@ -163,14 +169,14 @@ class SessionFactory(DjangoModelFactory):
         model = Session
 
     title = Faker("sentence", nb_words=5)
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"session-{n}")
     description = Faker("text")
     presenter = SubFactory(UserFactory)
     display_name = Faker("name")
     contact_email = Faker("email")
     category = SubFactory("tests.integration.conftest.ProposalCategoryFactory")
+    event = LazyAttribute(lambda o: o.category.event if o.category else EventFactory())
     participants_limit = Faker("random_int", min=2, max=20)
-    sphere = SubFactory(SphereFactory)
     status = "pending"
 
 
@@ -189,7 +195,7 @@ class ProposalCategoryFactory(DjangoModelFactory):
         model = ProposalCategory
 
     name = Faker("word")
-    slug = Faker("slug")
+    slug = Sequence(lambda n: f"proposal-category-{n}")
     event = SubFactory(EventFactory)
     max_participants_limit = 20
     min_participants_limit = 2
@@ -269,6 +275,16 @@ def staff_user_fixture():
 
 
 @pytest.fixture
+def waiter():
+    return UserFactory(
+        username="waiter",
+        email="waiter@example.com",
+        name="Wendy Waiter",
+        password=make_password(None),
+    )
+
+
+@pytest.fixture
 def non_root_sphere(settings, faker):
     name = faker.word()
     site = Site.objects.create(
@@ -303,19 +319,9 @@ def enrollment_config_fixture(event):
     )
 
 
-@pytest.fixture(name="venue")
-def venue_fixture(event):
-    return VenueFactory(event=event, name="Main Venue")
-
-
-@pytest.fixture(name="area")
-def area_fixture(venue):
-    return AreaFactory(venue=venue, name="Main Area")
-
-
 @pytest.fixture(name="space")
-def space_fixture(area):
-    return SpaceFactory(area=area)
+def space_fixture(event):
+    return SpaceFactory(event=event)
 
 
 @pytest.fixture
@@ -328,11 +334,12 @@ def time_slot(event):
 
 
 @pytest.fixture(name="session")
-def session_fixture(active_user, sphere):
+def session_fixture(active_user, event):
     return SessionFactory(
+        event=event,
+        category=None,
         presenter=active_user,
         display_name=active_user.full_name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
     )
@@ -344,12 +351,11 @@ def proposal_category_fixture(event):
 
 
 @pytest.fixture(name="pending_session")
-def pending_session_fixture(proposal_category, active_user, sphere):
+def pending_session_fixture(proposal_category, active_user):
     return SessionFactory(
         category=proposal_category,
         presenter=active_user,
         display_name=active_user.name,
-        sphere=sphere,
         participants_limit=10,
         min_age=0,
         status="pending",
@@ -366,7 +372,14 @@ def sphere_fixture(settings, transactional_db):  # noqa: ARG001
     site, __ = Site.objects.update_or_create(
         domain=settings.ROOT_DOMAIN, defaults={"name": settings.ROOT_DOMAIN}
     )
-    return SphereFactory(site=site, name=site.name)
+    # Idempotent: `Sphere.site` is OneToOne, so re-running this autouse fixture
+    # against a root site that already carries a sphere (e.g. a row that
+    # survived a prior transactional test's flush) must reuse it rather than
+    # insert a duplicate and trip `UNIQUE constraint failed: sphere.site_id`.
+    sphere, __ = Sphere.objects.update_or_create(
+        site=site, defaults={"name": site.name}
+    )
+    return sphere
 
 
 @pytest.fixture(name="faker")

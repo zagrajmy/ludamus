@@ -2,8 +2,8 @@
 
 Served as standalone print pages; the organizer prints via the browser
 (Save-as-PDF or Ctrl/Cmd+P). Rendered in the request's active locale;
-session titles stay as authored. An optional ``?venue=<slug>`` (and
-``&area=<slug>``) scopes the document to one venue or area.
+session titles stay as authored. An optional ``?scope=<pk>`` scopes the
+document to one space-tree node at any level (a room, a floor, a building).
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.printing import PrintTimetableQueryDTO
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -37,18 +38,20 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        raw_scope = self.request.GET.get("scope")
         try:
             scope = self.request.services.venues.resolve_scope(
-                current_event.pk,
-                self.request.GET.get("venue") or None,
-                self.request.GET.get("area") or None,
+                current_event.pk, int(raw_scope) if raw_scope else None
             )
-        except NotFoundError:
-            messages.error(request, _("Venue or area not found."))
+        except NotFoundError, ValueError:
+            messages.error(request, _("Space not found."))
             return redirect("panel:timetable", slug=slug)
 
         tz = get_current_timezone()
         service = self.request.services.print_materials
+        # Opening a print-ready page is our signal that this event's organizers
+        # have printed, which suppresses the pre-event reminder email.
+        self.request.services.printables_reminder.mark_printed(current_event.pk)
 
         if self.material == "door-cards":
             return TemplateResponse(
@@ -58,7 +61,7 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
                     "document": service.build_door_cards(
                         current_event.pk,
                         tz,
-                        area_pks=scope.area_pks,
+                        scope_space_pks=scope.space_pks,
                         scope_name=scope.scope_name,
                     )
                 },
@@ -68,10 +71,12 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
             "panel/print/timetable.html",
             {
                 "document": service.build_timetable(
-                    current_event.pk,
-                    tz,
-                    area_pks=scope.area_pks,
-                    scope_name=scope.scope_name,
+                    PrintTimetableQueryDTO(
+                        event_pk=current_event.pk,
+                        tz=tz,
+                        scope_space_pks=scope.space_pks,
+                        scope_name=scope.scope_name,
+                    )
                 )
             },
         )
@@ -88,5 +93,5 @@ class PrintMaterialsPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         context["active_nav"] = "print"
-        context["print_venues"] = self.get_print_venues(current_event.pk)
+        context["print_scopes"] = self.get_print_scopes(current_event.pk)
         return TemplateResponse(request, "panel/print-materials.html", context)
