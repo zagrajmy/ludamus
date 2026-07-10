@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
@@ -11,6 +12,7 @@ from tests.integration.conftest import (
     SphereFactory,
     UserFactory,
 )
+from tests.integration.utils import assert_response
 
 
 class TestSessionBookmarkToggleView:
@@ -27,18 +29,20 @@ class TestSessionBookmarkToggleView:
         assert not SessionBookmark.objects.exists()
 
     def test_toggle_on_then_off(self, authenticated_client, active_user, session):
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
         response_on = authenticated_client.post(self._url(session.pk))
 
         assert response_on.status_code == HTTPStatus.OK
-        assert response_on.json() == {"bookmarked": True}
+        assert response_on.json() == {"bookmarked": True, "count": 2}
         bookmark = SessionBookmark.objects.get(user=active_user, session=session)
         assert str(bookmark) == f"{active_user.pk} bookmarked session {session.pk}"
 
         response_off = authenticated_client.post(self._url(session.pk))
 
         assert response_off.status_code == HTTPStatus.OK
-        assert response_off.json() == {"bookmarked": False}
-        assert not SessionBookmark.objects.exists()
+        assert response_off.json() == {"bookmarked": False, "count": 1}
+        assert not SessionBookmark.objects.filter(user=active_user).exists()
 
     def test_not_found_for_other_sphere_session(self, authenticated_client):
         other_event = EventFactory(sphere=SphereFactory())
@@ -81,19 +85,27 @@ class TestEventPageBookmarkCounts:
 
         response = client.get(self._url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert "Bookmarked by 2 people" in content
-        assert content.count("Bookmarked by") == 1
-        assert "bookmark-toggle" not in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=ANY,
+            contains="Bookmarked by 2 people",
+            not_contains=["bookmark-toggle", "Bookmarked by 0"],
+        )
 
     def test_anonymous_rooms_view_shows_count_badge(self, agenda_item, client, event):
         SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
 
         response = client.get(self._url(event.slug), {"view": "rooms"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert "Bookmarked by 1 person" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=ANY,
+            contains="Bookmarked by 1 person",
+        )
 
     def test_authenticated_toggle_shows_count_and_hides_zero(
         self, agenda_item, authenticated_client, event, space
@@ -105,12 +117,15 @@ class TestEventPageBookmarkCounts:
             session=SessionFactory(event=event, category=None), space=space
         )
 
-        scheduled_sessions = 2
-
         response = authenticated_client.get(self._url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert content.count("bookmark-toggle") == scheduled_sessions
-        assert ">3</span>" in content
-        assert "tabular-nums hidden" in content
+        # The class strings are the .bookmark-count contract with
+        # session-bookmarks.ts: a visible "3" on the bookmarked session and a
+        # hidden "0" inside the other session's toggle button.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=ANY,
+            contains=['tabular-nums ">3</span>', 'tabular-nums hidden">0</span>'],
+        )

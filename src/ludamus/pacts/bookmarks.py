@@ -1,9 +1,18 @@
 from typing import Protocol
 
+from pydantic import BaseModel
+
+
+class BookmarkToggleDTO(BaseModel):
+    bookmarked: bool
+    count: int
+
 
 class BookmarkRepositoryProtocol(Protocol):
     @staticmethod
-    def toggle(*, user_id: int, session_id: int, sphere_id: int) -> bool | None: ...
+    def toggle(
+        *, user_id: int, session_id: int, sphere_id: int
+    ) -> BookmarkToggleDTO | None: ...
     @staticmethod
     def bookmarked_session_ids(*, user_id: int, event_id: int) -> set[int]: ...
     @staticmethod
@@ -13,6 +22,6 @@ class BookmarkRepositoryProtocol(Protocol):
 class BookmarkServiceProtocol(Protocol):
     def toggle(
         self, *, user_id: int, session_id: int, sphere_id: int
-    ) -> bool | None: ...
+    ) -> BookmarkToggleDTO | None: ...
     def bookmarked_session_ids(self, *, user_id: int, event_id: int) -> set[int]: ...
     def bookmark_counts(self, *, event_id: int) -> dict[int, int]: ...

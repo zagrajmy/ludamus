@@ -14,13 +14,22 @@ const BOOKMARKED_COLOR = ["text-coral-600", "dark:text-coral-400"];
 const bookmarkUrl = (template: string, sessionId: string): string =>
   template.replace(/0\/bookmark\/?$/, `${sessionId}/bookmark/`);
 
-const paint = (button: HTMLElement, bookmarked: boolean): void => {
+// The server's response carries the fresh count; the optimistic pre-response
+// flip (and its revert) has no count yet, so it nudges the displayed number
+// by ±1 until the real one arrives.
+const paint = (button: HTMLElement, bookmarked: boolean, serverCount?: number): void => {
   const wasBookmarked = button.getAttribute("aria-pressed") === "true";
   const count = button.querySelector<HTMLElement>(".bookmark-count");
-  if (count && wasBookmarked !== bookmarked) {
-    const next = Math.max(0, Number(count.textContent) + (bookmarked ? 1 : -1));
-    count.textContent = String(next);
-    count.classList.toggle("hidden", next === 0);
+  if (count) {
+    const next =
+      serverCount ??
+      (wasBookmarked === bookmarked
+        ? undefined
+        : Math.max(0, Number(count.textContent) + (bookmarked ? 1 : -1)));
+    if (next !== undefined) {
+      count.textContent = String(next);
+      count.classList.toggle("hidden", next === 0);
+    }
   }
   button.setAttribute("aria-pressed", String(bookmarked));
   button.classList.toggle(BOOKMARKED_COLOR[0], bookmarked);
@@ -56,11 +65,13 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
     if (
       typeof data !== "object" ||
       data === null ||
-      typeof (data as Record<string, unknown>).bookmarked !== "boolean"
+      typeof (data as Record<string, unknown>).bookmarked !== "boolean" ||
+      typeof (data as Record<string, unknown>).count !== "number"
     ) {
       throw new TypeError("Bookmark toggle: unexpected response");
     }
-    paint(button, (data as { bookmarked: boolean }).bookmarked);
+    const { bookmarked, count } = data as { bookmarked: boolean; count: number };
+    paint(button, bookmarked, count);
   } catch (error) {
     paint(button, previous); // Revert the optimistic flip.
     console.error(error);
