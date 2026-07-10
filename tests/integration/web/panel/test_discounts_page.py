@@ -668,31 +668,19 @@ class TestDiscountDeleteActionView:
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/target-sheet/edit#gid=0"
 
 
-def _google_write_session(
-    *,
-    clear_ok=True,
-    clear_status=200,
-    clear_text="",
-    old_row_count=0,
-    write_ok=True,
-    write_status=200,
-    write_text="",
-):
+def _google_write_session(*, write_ok=True, write_status=200, write_text=""):
     meta = MagicMock(
         ok=True, json=lambda: {"sheets": [{"properties": {"title": "Sheet1"}}]}
     )
-    row_values = MagicMock(ok=True, json=lambda: {"values": [["x"]] * old_row_count})
+    old_values = MagicMock(ok=True, json=lambda: {"values": []})
 
     def get(url: str, **_kwargs: object) -> MagicMock:
-        if "A%3AA" in url:
-            return row_values
+        if "/values/" in url:
+            return old_values
         return meta
 
     session = MagicMock()
     session.get.side_effect = get
-    session.post.return_value = MagicMock(
-        ok=clear_ok, status_code=clear_status, text=clear_text
-    )
     session.put.return_value = MagicMock(
         ok=write_ok, status_code=write_status, text=write_text
     )
