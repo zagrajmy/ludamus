@@ -348,6 +348,9 @@ class TestEventPageView:
             assert re.search(rf">\s*{label}\s*<", content), label
         assert "1 waiting" in content
         assert "2h" in content
+        # The ledger row no longer carries the enrolled-count title; the count
+        # lives in the session modal's capacity chip instead.
+        assert re.search(r">\s*4/5\s*<", content)
         assert 'title="4 participants enrolled"' not in content
         assert content.count("data-schedule-day") == len(expected_dates)
 

@@ -139,6 +139,16 @@ const initScheduleRail = (rail: HTMLElement): void => {
     "wheel",
     (event) => {
       if (!scrollRoot) return;
+      // When the rail itself overflows, let it consume the wheel natively
+      // until it hits the edge in the scroll direction — only then hand the
+      // scroll over to the page.
+      if (rail.scrollHeight > rail.clientHeight) {
+        const atEdge =
+          event.deltaY > 0
+            ? rail.scrollTop + rail.clientHeight >= rail.scrollHeight - 1
+            : rail.scrollTop <= 0;
+        if (!atEdge) return;
+      }
       event.preventDefault();
       scrollRoot.scrollBy({ top: event.deltaY });
     },
