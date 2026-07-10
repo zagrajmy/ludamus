@@ -1,0 +1,30 @@
+# Loaded only when MISE_ENV=sandbox — set by .claude/hooks/session-start.sh in
+# Claude Code web sandboxes, where the egress proxy 403s every GitHub download
+# (api.github.com included). Laptops never load this file.
+#
+# Each GitHub-release tool from mise.toml is disabled here and re-provided at
+# the same version from a reachable registry, so shims keep the usual binary
+# names and `mise run` tasks work unchanged. python comes from apt instead
+# (the sandbox image preconfigures the deadsnakes PPA); pipx from apt serves
+# the pipx: backends.
+
+[settings]
+disable_tools = [
+  "python",
+  "hk",
+  "shellcheck",
+  "actionlint",
+  "hadolint",
+  "github:reteps/dockerfmt",
+  "pipx",
+]
+# Mid-bootstrap the aube shim can't resolve yet, so pin mise's npm backend to
+# plain npm instead of letting it auto-detect aube.
+npm.package_manager = "npm"
+
+[tools]
+"cargo:hk" = "1.48.0"
+"pipx:shellcheck-py" = "0.11.0"
+"go:github.com/rhysd/actionlint/cmd/actionlint" = "v1.7.12"
+"pipx:hadolint-py" = "2.14.0"
+"go:github.com/reteps/dockerfmt" = "v0.5.2"

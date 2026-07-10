@@ -27,10 +27,16 @@ if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
   fi
 fi
 
+# The sandbox egress proxy 403s every GitHub download, so activate the
+# `sandbox` mise config environment: mise.sandbox.toml swaps each
+# GitHub-release tool for the same version from a reachable registry.
+export MISE_ENV=sandbox
+
 # Put mise-managed tool shims (aubx -> agent-browser, ast-grep, poetry, node,
-# python, markdownlint-cli2, ...) on PATH for every shell in the session, so
-# tools resolve directly instead of needing `mise exec`/activation per command.
-# Persisted for the session via CLAUDE_ENV_FILE.
+# markdownlint-cli2, ...) on PATH for every shell in the session, so tools
+# resolve directly instead of needing `mise exec`/activation per command.
+# Persisted for the session via CLAUDE_ENV_FILE, together with MISE_ENV so
+# every later `mise` invocation keeps loading mise.sandbox.toml.
 #
 # PREPEND, don't append: mise inserts its managed paths (incl. the .venv
 # activation from `_.python.venv`) at the shims' position in PATH. Appended
@@ -38,8 +44,21 @@ fi
 # every `mise run` task fails with "No module named 'django'".
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export PATH=\"$HOME/.local/share/mise/shims:\$PATH\"" >> "$CLAUDE_ENV_FILE"
-  # ~/.local/bin carries fallback binaries vendored below (e.g. shellcheck).
+  # ~/.local/bin carries the container image's user-level binaries.
   echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+  echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
+fi
+
+# python3.14 and pipx come from apt: mise.sandbox.toml disables the (blocked)
+# mise-managed python, the sandbox image preconfigures the deadsnakes PPA, and
+# `_.python.venv` then creates .venv from this interpreter. pipx serves the
+# pipx: backends (poetry, shellcheck, hadolint).
+if ! command -v python3.14 > /dev/null 2>&1 \
+  || ! command -v pipx > /dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q > /dev/null || echo "WARN: apt-get update failed"
+  apt-get install -y -q python3.14 python3.14-venv pipx > /dev/null \
+    || echo "WARN: apt-get install python3.14/pipx failed; Python tooling may be unavailable"
 fi
 
 # Installs are best-effort: a blocked dependency (e.g. a registry trust gate)
@@ -47,29 +66,6 @@ fi
 # setup still runs.
 mise trust || echo "WARN: 'mise trust' failed"
 mise install || echo "WARN: 'mise install' failed; some tools may be unavailable"
-
-# GitHub-release-backed tools cannot download through the sandbox egress
-# proxy, and one failed [tools] install wedges every subsequent `mise run`.
-# Disable exactly the tools whose install failed; scripts/sandbox-bootstrap
-# below re-provides each of them from a reachable registry via the
-# gitignored .mise.local.toml.
-missing="$(MISE_DISABLE_TOOLS='' mise ls --current --json 2>/dev/null | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-print(",".join(
-    name for name, versions in data.items()
-    if not any(v.get("installed") for v in versions)
-))' || true)"
-if [ -n "$missing" ]; then
-  echo "WARN: disabling uninstallable mise tools: $missing"
-  mise settings set disable_tools "$missing" \
-    || echo "WARN: could not persist disable_tools"
-fi
-# scripts/sandbox-bootstrap substitutes every blocked tool from a reachable
-# host (apt python, cargo hk, PyPI wheels, Go module proxy — see the script
-# header); idempotent, per-step best-effort, no-op where the normal tools
-# already work. See docs/agents/sandbox.md.
-bash scripts/sandbox-bootstrap || echo "WARN: sandbox-bootstrap failed"
 
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"

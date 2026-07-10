@@ -9,8 +9,11 @@ jobs = 8
 enter = "poetry install"
 
 # Claude Code web's sandbox proxy 403s every GitHub download (api.github.com
-# included), so tools prefer npm/PyPI backends; scripts/sandbox-bootstrap
-# substitutes the rest there.
+# included), so tools prefer npm/PyPI backends; mise.sandbox.toml substitutes
+# the rest there (activated via MISE_ENV=sandbox — see docs/agents/sandbox.md).
+# The npm_args below re-enable install scripts: both packages need them
+# (@ast-grep/cli postinstall, @endevco/aube preinstall fetch the platform
+# binary).
 [tools]
 python = "3.14"
 node = "v25.6.1"
