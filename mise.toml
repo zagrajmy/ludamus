@@ -8,13 +8,19 @@ jobs = 8
 [hooks]
 enter = "poetry install"
 
+# Claude Code web's sandbox proxy 403s every GitHub download (api.github.com
+# included), so tools prefer npm/PyPI backends; mise.sandbox.toml substitutes
+# the rest there (activated via MISE_ENV=sandbox — see docs/agents/sandbox.md).
+# The npm_args below re-enable install scripts: both packages need them
+# (@ast-grep/cli postinstall, @endevco/aube preinstall fetch the platform
+# binary).
 [tools]
 python = "3.14"
 node = "v25.6.1"
 "pipx:poetry" = "2.3.2"
-"ast-grep" = "0.42.1"
+"npm:@ast-grep/cli" = { version = "0.42.1", npm_args = "--ignore-scripts=false" }
 markdownlint-cli2 = "0.22.1"
-"github:endevco/aube" = "latest"
+"npm:@endevco/aube" = { version = "latest", npm_args = "--ignore-scripts=false" }
 hk = "1.48.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
