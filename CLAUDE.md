@@ -26,6 +26,12 @@ description — run it rather than trusting a hardcoded list here. Most used:
   *before* building — it routes to the component catalog, reachable-states
   checklist, Polish copy rules, and a verification checklist.
 
+## Papercuts
+
+Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
+it now: `mise run papercut -- <note>`. One or two sentences, what you did → what
+got in the way.
+
 ## Architecture
 
 GLIMPSE system:

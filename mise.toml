@@ -393,3 +393,17 @@ run = "aubr -C src/ludamus/client lint"
 description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
+
+[tasks.papercut]
+description = "Append a friction note to PAPERCUTS.md (e.g. mise run papercut -- ran shots, server wasn't up, no clear error)"
+dir = "{{ config_root }}"
+usage = '''
+arg "<note>" var=#true help="One or two sentences: what you were doing -> what got in the way"
+'''
+run = '''
+set -eu
+note="${usage_note:-}"
+[ -n "$note" ] || { echo "usage: mise run papercut -- <note>" >&2; exit 2; }
+printf -- '- %s: %s\n' "$(date +%F)" "$note" >> PAPERCUTS.md
+echo "logged to PAPERCUTS.md"
+'''
