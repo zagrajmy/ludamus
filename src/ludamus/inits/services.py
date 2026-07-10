@@ -33,6 +33,7 @@ from ludamus.mills.crowd import (
 )
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import (
+    AnonymousEnrollmentService,
     EnrollmentService,
     NotificationsService,
     WaitlistPromotionService,
@@ -218,6 +219,15 @@ class Services:
     @cached_property
     def waitlist_promotion(self) -> WaitlistPromotionService:
         return build_waitlist_promotion(self._offer_expiry_scheduler())
+
+    @cached_property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentService:
+        return AnonymousEnrollmentService(
+            transaction=self._transaction,
+            user_repository=self._repos.anonymous_users,
+            enrollment_repository=self._repos.anonymous_enrollment,
+            waitlist_promotion=self.waitlist_promotion,
+        )
 
     @staticmethod
     def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
