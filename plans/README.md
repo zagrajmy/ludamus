@@ -44,8 +44,10 @@ reason) | REJECTED (with one-line rationale).
 
 ## Dependency notes
 
-- None — all five plans are independent and safe to execute in any
-  order or in parallel (disjoint file sets).
+- Plans 001–005 are independent and safe to execute in any order or
+  in parallel (disjoint file sets).
+- Plan 006 builds on plan 003's `read_with_site` (merged in #557) and
+  replaces it with the embedded-site shape.
 
 ## Audit summary
 
