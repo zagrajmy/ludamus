@@ -399,6 +399,7 @@ exclude = [
 ]
 ignore_names = [
     # Used in templates
+    "bookmark_count",
     "has_guests",
     "has_secret",
     "is_live",
