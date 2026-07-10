@@ -5,7 +5,7 @@
 // session-filters.ts / the Django template already render, so this module owns
 // no server coupling.
 
-const ACTIVE_CLASSES = ["text-foreground", "font-bold", "bg-bg-tertiary"];
+import { playSound } from "./sound";
 
 const initScheduleRail = (rail: HTMLElement): void => {
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
@@ -24,22 +24,22 @@ const initScheduleRail = (rail: HTMLElement): void => {
   let active: HTMLAnchorElement | null = null;
   const setActive = (link: HTMLAnchorElement | null): void => {
     if (link === active) return;
-    active?.classList.remove(...ACTIVE_CLASSES);
+    if (active) delete active.dataset.active;
     active = link;
-    active?.classList.add(...ACTIVE_CLASSES);
+    if (active) active.dataset.active = "";
   };
 
-  const scrollToLink = (link: HTMLAnchorElement, behavior: ScrollBehavior): void => {
+  const scrollToLink = (link: HTMLAnchorElement): void => {
     const id = link.getAttribute("href")?.slice(1);
     const target = id ? document.getElementById(id) : null;
-    target?.scrollIntoView({ behavior, block: "start" });
+    target?.scrollIntoView({ behavior: "auto", block: "start" });
     setActive(link);
   };
 
   for (const link of hourLinks) {
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      scrollToLink(link, "smooth");
+      scrollToLink(link);
     });
   }
 
@@ -94,13 +94,13 @@ const initScheduleRail = (rail: HTMLElement): void => {
 
   const scrubTo = (clientY: number): void => {
     const link = linkAtY(clientY);
-    if (link && link !== active) scrollToLink(link, "auto");
+    if (link && link !== active) {
+      playSound("ui.progress");
+      scrollToLink(link);
+    }
   };
 
   // A press only becomes a scrub after real movement; below the threshold the
-  // gesture stays a tap and falls through to the marker's click handler
-  // (smooth jump). Without it, sub-pixel jitter on a tap fired an instant
-  // "auto" scrub that raced the click's "smooth" scroll.
   const DRAG_THRESHOLD_PX = 6;
   let moved = false;
   let startY = 0;
@@ -111,21 +111,19 @@ const initScheduleRail = (rail: HTMLElement): void => {
     moved = false;
     startY = event.clientY;
   });
-  rail.addEventListener("pointermove", (event) => {
+  globalThis.addEventListener("pointermove", (event) => {
     if (!dragging) return;
     if (!moved && Math.abs(event.clientY - startY) < DRAG_THRESHOLD_PX) return;
     if (!moved) {
       moved = true;
-      rail.setPointerCapture(event.pointerId);
       rail.classList.add("is-scrubbing");
     }
-    event.preventDefault();
     scrubTo(event.clientY);
   });
-  const endDrag = (event: PointerEvent): void => {
+  const endDrag = (): void => {
+    if (!dragging) return;
     dragging = false;
     rail.classList.remove("is-scrubbing");
-    if (rail.hasPointerCapture(event.pointerId)) rail.releasePointerCapture(event.pointerId);
     // The synthesized click (when any) fires before this timeout, so a real
     // drag still gets its trailing click swallowed — but a cancelled scrub
     // can't leave the flag hot and eat the next genuine tap.
@@ -133,8 +131,9 @@ const initScheduleRail = (rail: HTMLElement): void => {
       moved = false;
     }, 0);
   };
-  rail.addEventListener("pointerup", endDrag);
-  rail.addEventListener("pointercancel", endDrag);
+  globalThis.addEventListener("pointerup", endDrag);
+  globalThis.addEventListener("pointercancel", endDrag);
+  globalThis.addEventListener("mouseup", endDrag);
 
   rail.addEventListener(
     "wheel",
