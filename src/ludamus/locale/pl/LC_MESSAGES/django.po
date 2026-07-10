@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 19:35+0200\n"
+"POT-Creation-Date: 2026-07-10 19:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2237,7 +2237,6 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/print/door-cards.html
 msgid "Capacity"
@@ -3045,7 +3044,6 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
