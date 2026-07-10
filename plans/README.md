@@ -20,7 +20,7 @@ deferred finding later.
 | 003 | Halve sphere/site queries in context processor | P2 | S | — | DONE |
 | 004 | Stop logging e-mails in the membership client | P2 | S | — | DONE |
 | 005 | Fix onboarding and refactor-index doc drift | P3 | S | — | DONE |
-| 006 | Embed site in SphereDTO, delete read_with_site | P3 | S | 003 | IN PROGRESS |
+| 006 | Embed site in SphereDTO, delete read_with_site | P3 | S | 003 | DONE |
 
 ## Execution log (2026-07-09)
 
