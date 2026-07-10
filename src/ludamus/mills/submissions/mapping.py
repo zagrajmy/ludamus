@@ -152,6 +152,21 @@ class DuplicateRowError(Exception):
         self.existing_session_id = existing_session_id
 
 
+class MissingUniqueKeyColumnsError(Exception):
+    # Raised when settings.unique_key_columns names headers the source sheet
+    # doesn't carry (e.g. the English "Timestamp"/"Email Address" defaults saved
+    # against a Polish-localized form whose real headers are "Sygnatura
+    # czasowa"/"Adres e-mail"). Left silent, every row's identity collapses to
+    # the columns that *do* match, so genuinely distinct rows share a slug and
+    # get merged. Abort loudly instead of quietly losing proposals.
+    def __init__(self, columns: list[str]) -> None:
+        super().__init__(
+            "Unique-key columns missing from the sheet: "
+            + ", ".join(repr(c) for c in columns)
+        )
+        self.columns = columns
+
+
 def field_name(definition: FieldDefinition | None, slug: str) -> str:
     # The display name comes from the definition; fall back to the slug when a
     # hand-written target carries no definition.

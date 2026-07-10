@@ -1423,12 +1423,18 @@ msgid "Header row must be 1 or greater."
 msgstr "Wiersz nagłówka musi mieć wartość co najmniej 1."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
-msgid "Email column must be 1 or greater."
-msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Sheet settings saved."
 msgstr "Zapisano ustawienia arkusza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#, python-format
+msgid ""
+"Import aborted: unique-key columns not found in the sheet: %(columns)s. Fix "
+"the unique-key selection on the run tab, then try again."
+msgstr ""
+"Przerwano import: nie znaleziono w arkuszu kolumn klucza unikalnego: "
+"%(columns)s. Popraw wybór klucza unikalnego na karcie uruchamiania i spróbuj "
+"ponownie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
@@ -6022,21 +6028,6 @@ msgstr ""
 "Wiersz 1 to pierwszy wiersz arkusza; wszystko powyżej jest pomijane."
 
 #: src/ludamus/templates/panel/import-run.html
-msgid "Email column"
-msgstr "Kolumna e-maila"
-
-#: src/ludamus/templates/panel/import-run.html
-msgid ""
-"The 1-indexed sheet column that holds the auto-collected respondent email. "
-"Leave blank if the form does not collect email; otherwise set it so the "
-"importer can synthesize a question that maps to the proposal's contact email."
-msgstr ""
-"Kolumna arkusza (liczona od 1), w której zapisywany jest adres e-mail "
-"odpowiadającego pobrany automatycznie. Pozostaw puste, jeśli formularz nie "
-"zbiera adresów e-mail; w przeciwnym razie ustaw ją, aby importer mógł "
-"wygenerować pytanie powiązane z e-mailem kontaktowym propozycji."
-
-#: src/ludamus/templates/panel/import-run.html
 msgid "Unique key columns"
 msgstr "Kolumny klucza unikalnego"
 
@@ -6153,20 +6144,6 @@ msgid ""
 msgstr ""
 "Zastosować bieżący układ pól do wszystkich zaimportowanych zgłoszeń? "
 "Wartości pól, które nie są już zmapowane, zostaną usunięte."
-
-#: src/ludamus/templates/panel/import.html
-msgid "Email column not set."
-msgstr "Kolumna e-maila nie jest ustawiona."
-
-#: src/ludamus/templates/panel/import.html
-msgid ""
-"When the form collects respondent email, set the 1-indexed sheet column "
-"number on the Run tab so the importer can map it to the proposal's contact "
-"email."
-msgstr ""
-"Jeśli formularz zbiera adresy e-mail odpowiadających, ustaw numer kolumny "
-"arkusza (liczony od 1) na zakładce „Uruchom import”, aby importer mógł "
-"powiązać go z e-mailem kontaktowym propozycji."
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -7524,149 +7501,3 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Shadowban a player"
-#~ msgstr "Cicho zbanuj gracza"
-
-#~ msgid ""
-#~ "Players you have run sessions for will appear here, and anyone you "
-#~ "shadowban by username or email."
-#~ msgstr ""
-#~ "Gracze, dla których prowadziłeś punkty programu, pojawią się tutaj, a "
-#~ "także każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-"
-#~ "mail."
-
-#~ msgid "Only meaningful for the innermost spaces that hold sessions."
-#~ msgstr ""
-#~ "Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które "
-#~ "zawierają punkty programu."
-
-#~ msgid "Harmonogram"
-#~ msgstr "Harmonogram"
-
-#~ msgid ""
-#~ "Organise the physical layout of your event as a tree: buildings contain "
-#~ "floors or wings, which contain the individual rooms that hold sessions. "
-#~ "Nest spaces as deeply as you need; only the innermost rooms take a "
-#~ "capacity."
-#~ msgstr ""
-#~ "Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki "
-#~ "zawierają piętra lub skrzydła, które zawierają poszczególne sale, gdzie "
-#~ "odbywają się punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak "
-#~ "potrzebujesz; tylko najbardziej wewnętrzne sale mają pojemność."
-
-#~ msgid ""
-#~ "No spaces yet. Add a top-level space to start building your event's "
-#~ "layout."
-#~ msgstr ""
-#~ "Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
-#~ "budowanie układu swojego wydarzenia."
-
-#~ msgid "Cannot delete session type with existing proposals."
-#~ msgstr "Nie można usunąć typu punktu programu z istniejącymi zgłoszeniami."
-
-#~ msgid "Cannot delete field that is used in session types."
-#~ msgstr "Nie można usunąć pola używanego w typach punktów programu."
-
-#~ msgid "Describe this session type for proposers."
-#~ msgstr "Opisz ten typ punktu programu dla zgłaszających."
-
-#~ msgid ""
-#~ "Set minimum and maximum participant limits for sessions of this type."
-#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla sesji tego typu."
-
-#~ msgid "Define how long sessions of this type can be."
-#~ msgstr "Określ jak długo mogą trwać punkty programu tego typu."
-
-#, python-format
-#~ msgid "There is %(count)s existing proposal for this session type."
-#~ msgid_plural "There are %(count)s existing proposals for this session type."
-#~ msgstr[0] "Istnieje %(count)s zgłoszenie dla tego typu punktu programu."
-#~ msgstr[1] "Istnieją %(count)s zgłoszenia dla tego typu punktu programu."
-#~ msgstr[2] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
-#~ msgstr[3] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
-
-#~ msgid "Select which time slots are available for this session type."
-#~ msgstr ""
-#~ "Wybierz, które przedziały czasowe są dostępne dla tego typu punktu "
-#~ "programu."
-
-#~ msgid ""
-#~ "No session types yet. Add a session type to allow hosts to submit "
-#~ "proposals."
-#~ msgstr ""
-#~ "Brak typów punktów programu. Dodaj typ, aby twórcy mogli składać "
-#~ "zgłoszenia."
-
-#~ msgid ""
-#~ "Writes every creator with their accreditation type and discount into the "
-#~ "first tab of the selected spreadsheet, replacing its current content."
-#~ msgstr ""
-#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
-#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
-
-#~ msgid "Select which session types should include this field."
-#~ msgstr "Wybierz, które typy punktów programu mają zawierać to pole."
-
-#~ msgid "No session types have been created yet."
-#~ msgstr "Nie utworzono jeszcze żadnych typów punktów programu."
-
-#~ msgid ""
-#~ "Host data fields collect contact and personal information from session "
-#~ "hosts when they submit proposals. Examples: email address, phone number, "
-#~ "Discord username. This data is shared across all session types for the "
-#~ "event - each host fills it once."
-#~ msgstr ""
-#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
-#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
-#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-#~ "wszystkich typów punktów programu - każdy twórca wypełnia je tylko raz."
-
-#~ msgid ""
-#~ "After creating fields here, configure which ones are required or optional "
-#~ "in each session type's settings."
-#~ msgstr ""
-#~ "Po utworzeniu pól tutaj, skonfiguruj które z nich są wymagane lub "
-#~ "opcjonalne w ustawieniach każdego typu punktu programu."
-
-#~ msgid "Session type created successfully."
-#~ msgstr "Typ punktu programu został utworzony."
-
-#~ msgid "Session type not found."
-#~ msgstr "Typ punktu programu nie został znaleziony."
-
-#~ msgid "Session type updated successfully."
-#~ msgstr "Typ punktu programu został zaktualizowany."
-
-#~ msgid "Session type deleted successfully."
-#~ msgstr "Typ punktu programu został usunięty."
-
-#~ msgid "New Session Type"
-#~ msgstr "Nowy typ punktu programu"
-
-#~ msgid "Session Type Details"
-#~ msgstr "Szczegóły typu punktu programu"
-
-#~ msgid "Configure Session Type"
-#~ msgstr "Konfiguruj typ punktu programu"
-
-#~ msgid "Session Types"
-#~ msgstr "Typy punktów programu"
-
-#~ msgid "Are you sure you want to delete this session type?"
-#~ msgstr "Czy na pewno chcesz usunąć ten typ punktu programu?"
-
-#~ msgid "Creator discounts"
-#~ msgstr "Zniżki twórców programu"
-
-#~ msgid "No creators yet."
-#~ msgstr "Brak twórców programu."
-
-#~ msgid "Session Hosts"
-#~ msgstr "Twórcy programu"
-
-#~ msgid "Program Hosts"
-#~ msgstr "Twórcy programu"
-
-#~ msgid "Something broke on our end. Try again in a moment."
-#~ msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."
