@@ -37,9 +37,6 @@ the file. Do it proactively, in the moment; none of it blocks, but together the
 notes show where the repo needs sanding down. Distinct from Linear issues (real
 bugs / tracked work).
 
-For a full end-to-end friction log of a single task, use the `friction-log`
-skill instead.
-
 ## Architecture
 
 GLIMPSE system:
