@@ -42,10 +42,16 @@ export MISE_ENV=sandbox
 # activation from `_.python.venv`) at the shims' position in PATH. Appended
 # shims put the venv after the container's bare /usr/local/bin/python, and
 # every `mise run` task fails with "No module named 'django'".
+#
+# The shims line must come LAST so it lands FIRST in the final PATH: the
+# container image ships uv-tool builds of pytest/mypy/black/poetry in
+# ~/.local/bin, and if that dir precedes the shims, those plugin-less
+# binaries shadow the .venv ones inside every `mise run`/`mise x` (pytest
+# has no django, mypy has no mypy_django_plugin).
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo "export PATH=\"$HOME/.local/share/mise/shims:\$PATH\"" >> "$CLAUDE_ENV_FILE"
   # ~/.local/bin carries the container image's user-level binaries.
   echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> "$CLAUDE_ENV_FILE"
+  echo "export PATH=\"$HOME/.local/share/mise/shims:\$PATH\"" >> "$CLAUDE_ENV_FILE"
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi
 
