@@ -15,12 +15,19 @@ const bookmarkUrl = (template: string, sessionId: string): string =>
   template.replace(/0\/bookmark\/?$/, `${sessionId}/bookmark/`);
 
 const paint = (button: HTMLElement, bookmarked: boolean): void => {
+  const wasBookmarked = button.getAttribute("aria-pressed") === "true";
+  const count = button.querySelector<HTMLElement>(".bookmark-count");
+  if (count && wasBookmarked !== bookmarked) {
+    const next = Math.max(0, Number(count.textContent) + (bookmarked ? 1 : -1));
+    count.textContent = String(next);
+    count.classList.toggle("hidden", next === 0);
+  }
   button.setAttribute("aria-pressed", String(bookmarked));
   button.classList.toggle(BOOKMARKED_COLOR[0], bookmarked);
   button.classList.toggle(BOOKMARKED_COLOR[1], bookmarked);
   button.querySelector(".bookmark-icon-outline")?.classList.toggle("hidden", bookmarked);
   button.querySelector(".bookmark-icon-solid")?.classList.toggle("hidden", !bookmarked);
-  const card = button.closest<HTMLElement>(".session-card");
+  const card = button.closest<HTMLElement>(".session");
   if (card) card.dataset.bookmarked = String(bookmarked);
 };
 

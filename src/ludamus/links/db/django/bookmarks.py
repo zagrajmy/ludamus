@@ -1,3 +1,5 @@
+from django.db.models import Count
+
 from ludamus.adapters.db.django.models import Session, SessionBookmark
 from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol
 
@@ -27,4 +29,13 @@ class BookmarkRepository(BookmarkRepositoryProtocol):
             SessionBookmark.objects.filter(
                 user_id=user_id, session__event_id=event_id
             ).values_list("session_id", flat=True)
+        )
+
+    @staticmethod
+    def bookmark_counts(*, event_id: int) -> dict[int, int]:
+        return dict(
+            SessionBookmark.objects.filter(session__event_id=event_id)
+            .values("session_id")
+            .annotate(count=Count("id"))
+            .values_list("session_id", "count")
         )

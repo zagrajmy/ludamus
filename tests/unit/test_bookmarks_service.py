@@ -18,11 +18,13 @@ class FakeTransaction:
 
 
 class FakeRepo:
-    def __init__(self, *, toggle_result=True, bookmarked_ids=None):
+    def __init__(self, *, toggle_result=True, bookmarked_ids=None, counts=None):
         self._toggle_result = toggle_result
         self._bookmarked_ids = set(bookmarked_ids or set())
+        self._counts = dict(counts or {})
         self.toggle_calls = []
         self.bookmarked_calls = []
+        self.counts_calls = []
 
     def toggle(self, *, user_id, session_id, sphere_id):
         self.toggle_calls.append((user_id, session_id, sphere_id))
@@ -31,6 +33,10 @@ class FakeRepo:
     def bookmarked_session_ids(self, *, user_id, event_id):
         self.bookmarked_calls.append((user_id, event_id))
         return self._bookmarked_ids
+
+    def bookmark_counts(self, *, event_id):
+        self.counts_calls.append(event_id)
+        return self._counts
 
 
 def test_toggle_runs_in_transaction_and_returns_repo_state():
@@ -64,3 +70,15 @@ def test_bookmarked_session_ids_delegates_without_transaction():
     assert result == {1, 3}
     assert transaction.entered == 0
     assert repo.bookmarked_calls == [(7, 11)]
+
+
+def test_bookmark_counts_delegates_without_transaction():
+    repo = FakeRepo(counts={1: 2, 3: 5})
+    transaction = FakeTransaction()
+    service = BookmarkService(transaction, repo)
+
+    result = service.bookmark_counts(event_id=11)
+
+    assert result == {1: 2, 3: 5}
+    assert transaction.entered == 0
+    assert repo.counts_calls == [11]

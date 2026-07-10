@@ -4,7 +4,13 @@ import pytest
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import SessionBookmark
-from tests.integration.conftest import EventFactory, SessionFactory, SphereFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    SessionFactory,
+    SphereFactory,
+    UserFactory,
+)
 
 
 class TestSessionBookmarkToggleView:
@@ -50,3 +56,61 @@ class TestSessionBookmarkToggleView:
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert response.json() == {"error": "not-found"}
+
+
+class TestEventPageBookmarkCounts:
+    URL_NAME = "web:chronology:event"
+
+    def _url(self, slug: str) -> str:
+        return reverse(self.URL_NAME, kwargs={"slug": slug})
+
+    @pytest.fixture(autouse=True)
+    def _compact_schedule(self, monkeypatch):
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+    def test_anonymous_sees_count_badge_and_zero_count_renders_nothing(
+        self, agenda_item, client, event, space
+    ):
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        AgendaItemFactory(
+            session=SessionFactory(event=event, category=None), space=space
+        )
+
+        response = client.get(self._url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert "Bookmarked by 2 people" in content
+        assert content.count("Bookmarked by") == 1
+        assert "bookmark-toggle" not in content
+
+    def test_anonymous_rooms_view_shows_count_badge(self, agenda_item, client, event):
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+
+        response = client.get(self._url(event.slug), {"view": "rooms"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert "Bookmarked by 1 person" in response.content.decode()
+
+    def test_authenticated_toggle_shows_count_and_hides_zero(
+        self, agenda_item, authenticated_client, event, space
+    ):
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        AgendaItemFactory(
+            session=SessionFactory(event=event, category=None), space=space
+        )
+
+        scheduled_sessions = 2
+
+        response = authenticated_client.get(self._url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert content.count("bookmark-toggle") == scheduled_sessions
+        assert ">3</span>" in content
+        assert "tabular-nums hidden" in content

@@ -24,3 +24,6 @@ class BookmarkService(BookmarkServiceProtocol):
 
     def bookmarked_session_ids(self, *, user_id: int, event_id: int) -> set[int]:
         return self._repo.bookmarked_session_ids(user_id=user_id, event_id=event_id)
+
+    def bookmark_counts(self, *, event_id: int) -> dict[int, int]:
+        return self._repo.bookmark_counts(event_id=event_id)

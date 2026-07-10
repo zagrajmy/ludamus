@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 22:31+0200\n"
+"POT-Creation-Date: 2026-07-10 12:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2721,6 +2721,15 @@ msgstr "Pozostałe godziny"
 msgid "Bookmark session"
 msgstr "Dodaj zakładkę do punktu programu"
 
+#: src/ludamus/templates/chronology/_bookmark_toggle.html
+#, python-format
+msgid "Bookmarked by %(counter)s person"
+msgid_plural "Bookmarked by %(counter)s people"
+msgstr[0] "Dodane do zakładek przez %(counter)s osobę"
+msgstr[1] "Dodane do zakładek przez %(counter)s osoby"
+msgstr[2] "Dodane do zakładek przez %(counter)s osób"
+msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
+
 #: src/ludamus/templates/chronology/_card_schedule.html
 #: src/ludamus/templates/chronology/event.html
 msgid "Completed"
@@ -2764,16 +2773,6 @@ msgstr "Przejdź do %(day)s %(time)s"
 #, python-format
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
-
-#: src/ludamus/templates/chronology/_compact_session_row.html
-#: src/ludamus/templates/chronology/_session_card.html
-#, python-format
-msgid "%(counter)s participant enrolled"
-msgid_plural "%(counter)s participants enrolled"
-msgstr[0] "%(counter)s zapisany uczestnik"
-msgstr[1] "%(counter)s zapisani uczestnicy"
-msgstr[2] "%(counter)s zapisanych uczestników"
-msgstr[3] "%(counter)s zapisanych uczestników"
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
 msgid "Pending Proposals"
@@ -2874,6 +2873,15 @@ msgstr[0] "%(counter)s miejsce"
 msgstr[1] "%(counter)s miejsca"
 msgstr[2] "%(counter)s miejsc"
 msgstr[3] "%(counter)s miejsca"
+
+#: src/ludamus/templates/chronology/_session_card.html
+#, python-format
+msgid "%(counter)s participant enrolled"
+msgid_plural "%(counter)s participants enrolled"
+msgstr[0] "%(counter)s zapisany uczestnik"
+msgstr[1] "%(counter)s zapisani uczestnicy"
+msgstr[2] "%(counter)s zapisanych uczestników"
+msgstr[3] "%(counter)s zapisanych uczestników"
 
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Awaiting review"
