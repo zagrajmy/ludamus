@@ -12,10 +12,6 @@ const initScheduleRail = (rail: HTMLElement): void => {
   // both the scroll-spy viewport and programmatic scrolling target it.
   const scrollRoot = document.getElementById("app-scroll");
 
-  // Snap the content to whole hours so a tap or drag on the rail lands on a
-  // section rather than mid-row (see .schedule-snap in index.css). Added here,
-  // not in base.html, so only the compact schedule opts the shared scroller in.
-  scrollRoot?.classList.add("schedule-snap");
   const hourLinks = [...rail.querySelectorAll<HTMLAnchorElement>(".schedule-rail-hour")];
   if (hourLinks.length === 0) return;
 
@@ -114,17 +110,21 @@ const initScheduleRail = (rail: HTMLElement): void => {
     dragging = true;
     moved = false;
     startY = event.clientY;
-    rail.setPointerCapture(event.pointerId);
   });
   rail.addEventListener("pointermove", (event) => {
     if (!dragging) return;
     if (!moved && Math.abs(event.clientY - startY) < DRAG_THRESHOLD_PX) return;
-    moved = true;
+    if (!moved) {
+      moved = true;
+      rail.setPointerCapture(event.pointerId);
+      rail.classList.add("is-scrubbing");
+    }
     event.preventDefault();
     scrubTo(event.clientY);
   });
   const endDrag = (event: PointerEvent): void => {
     dragging = false;
+    rail.classList.remove("is-scrubbing");
     if (rail.hasPointerCapture(event.pointerId)) rail.releasePointerCapture(event.pointerId);
     // The synthesized click (when any) fires before this timeout, so a real
     // drag still gets its trailing click swallowed — but a cancelled scrub
@@ -135,6 +135,16 @@ const initScheduleRail = (rail: HTMLElement): void => {
   };
   rail.addEventListener("pointerup", endDrag);
   rail.addEventListener("pointercancel", endDrag);
+
+  rail.addEventListener(
+    "wheel",
+    (event) => {
+      if (!scrollRoot) return;
+      event.preventDefault();
+      scrollRoot.scrollBy({ top: event.deltaY });
+    },
+    { passive: false },
+  );
   // A real drag still synthesizes a trailing click on the marker under the
   // pointer; swallow that one click so it can't jump away from where the
   // scrub landed.

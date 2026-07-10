@@ -3,16 +3,20 @@
 {# same column. Each <tr> keeps the .time-slot-section contract so the hour #}
 {# scrubber and the filter section-hiding logic work unchanged. Under #}
 {# table-fixed, columns without an explicit width share the remaining space #}
-{# equally — no interpolated width needed (a Tailwind class built from a #}
-{# template variable would never reach the compiled CSS anyway). #}
+{# equally — no per-column width needed (a Tailwind class built from a #}
+{# template variable would never reach the compiled CSS anyway). The inline #}
+{# min-width guarantees every room column at least ~10rem, so a convention #}
+{# with 20+ rooms scrolls horizontally instead of crushing the columns. #}
 {% for day in room_lane_days %}
     <section data-schedule-day class="mb-8 last:mb-0">
         {% include "chronology/_schedule_day_header.html" %}
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[40rem] table-fixed border-separate border-spacing-1">
+        <div class="overflow-x-auto overscroll-x-contain">
+            <table class="room-lanes-table w-full table-fixed border-separate border-spacing-1"
+                   style="--room-count: {{ day.rooms|length }}">
                 <thead>
                     <tr>
-                        <th class="w-12" aria-label="{% translate "Start time" %}"></th>
+                        <th class="sticky left-0 z-30 w-12 bg-background"
+                            aria-label="{% translate "Start time" %}"></th>
                         {% for room in day.rooms %}
                             <th class="px-2 pb-1 text-left text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</th>
                         {% endfor %}
@@ -20,10 +24,12 @@
                 </thead>
                 <tbody>
                     {% for row in day.rows %}
-                        <tr class="time-slot-section snap-start scroll-mt-24"
+                        <tr class="time-slot-section scroll-mt-24"
                             id="slot-{{ row.start|date:'Ymd-H' }}"
                             data-slot-hour="{{ row.start|date:'Ymd-H' }}">
-                            <td class="pr-1 align-top text-sm font-bold tabular-nums text-foreground-secondary">{{ row.start|time:"H:i" }}</td>
+                            {# Sticky + z-30 keeps the hour label readable while the room #}
+                            {# columns scroll under it (tile links/bookmarks sit at z-10/z-20). #}
+                            <td class="sticky left-0 z-30 bg-background pr-1 align-top text-sm font-bold tabular-nums text-foreground-secondary">{{ row.start|time:"H:i" }}</td>
                             {% for cell in row.cells %}
                                 <td class="space-y-1 align-top">
                                     {% for data in cell %}
