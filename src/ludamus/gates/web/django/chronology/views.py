@@ -1019,11 +1019,11 @@ class SessionBookmarkToggleView(View):
             # fetch() call, not a browser navigation — a redirect would be
             # useless, so surface the auth failure as JSON for the client.
             return JsonResponse({"error": "auth"}, status=401)
-        state = request.services.bookmarks.toggle(
+        result = request.services.bookmarks.toggle(
             user_id=user_id,
             session_id=session_id,
             sphere_id=request.context.current_sphere_id,
         )
-        if state is None:
+        if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
-        return JsonResponse({"bookmarked": state})
+        return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})

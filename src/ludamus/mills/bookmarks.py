@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.bookmarks import BookmarkServiceProtocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol
+    from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol, BookmarkToggleDTO
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -16,7 +16,9 @@ class BookmarkService(BookmarkServiceProtocol):
         self._transaction = transaction
         self._repo = repo
 
-    def toggle(self, *, user_id: int, session_id: int, sphere_id: int) -> bool | None:
+    def toggle(
+        self, *, user_id: int, session_id: int, sphere_id: int
+    ) -> BookmarkToggleDTO | None:
         with self._transaction.atomic():
             return self._repo.toggle(
                 user_id=user_id, session_id=session_id, sphere_id=sphere_id
