@@ -9,11 +9,11 @@ class _Spheres:
         self._spheres = dict(spheres or {})
         self._managers = set(managers)
 
+    def read(self, sphere_id):
+        return self._spheres[sphere_id]
+
     def read_site(self, sphere_id):
         return self._sites[sphere_id]
-
-    def read_with_site(self, sphere_id):
-        return self._spheres[sphere_id], self._sites[sphere_id]
 
     def is_manager(self, sphere_id, user_slug):
         return (sphere_id, user_slug) in self._managers
@@ -36,16 +36,13 @@ def test_read_site_returns_repo_site():
     assert result is site
 
 
-def test_read_with_site_returns_sphere_and_site():
+def test_read_returns_repo_sphere():
     sphere = SimpleNamespace(pk=1, name="Root")
-    site = SimpleNamespace(domain="ludamus.example.com", name="Root", pk=1)
-    service = SitesService(
-        _Spheres(sites={1: site}, spheres={1: sphere}), _Directory([])
-    )
+    service = SitesService(_Spheres(sites={}, spheres={1: sphere}), _Directory([]))
 
-    result = service.read_with_site(1)
+    result = service.read(1)
 
-    assert result == (sphere, site)
+    assert result is sphere
 
 
 def test_is_manager_delegates_to_repo():

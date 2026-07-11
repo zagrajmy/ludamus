@@ -1,14 +1,21 @@
-{# Single checkbox with inline label. #}
-{# Variables: name, id, label, checked, has_errors, aria_controls, aria_expanded, hx_on_change #}
+{# Single checkbox, with or without its inline label. #}
+{# Variables: name, id, label, value, checked, disabled, size, aria_label, #}
+{# has_errors, aria_controls, aria_expanded, hx_on_change. #}
 {# aria_controls and aria_expanded are independent — pass either or both. #}
-<label class="inline-flex items-center cursor-pointer">
+{# With a label the checkbox wraps itself in a <label>; without one it renders #}
+{# the bare input, for callers that already provide their own label context #}
+{# (e.g. a whole clickable row) — pass aria_label so it keeps an accessible #}
+{# name. size overrides the default box size classes. #}
+{% if label|default:"" %}<label class="inline-flex items-center cursor-pointer">{% endif %}
     <input type="checkbox"
-           class="w-4 h-4 rounded border border-border accent-primary focus:ring-1 focus:ring-offset-0"
+           class="{{ size|default:'w-4 h-4' }} rounded border border-border accent-primary shrink-0 focus:ring-1 focus:ring-offset-0"
            {% if id|default:"" %}id="{{ id }}"{% endif %}
            name="{{ name }}"
+           {% if value|default:"" %}value="{{ value }}"{% endif %}
+           {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}
            {% if checked|default:False %}checked{% endif %}
+           {% if disabled|default:False %}disabled{% endif %}
            {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}
            {% if aria_expanded|default:"" %}aria-expanded="{{ aria_expanded }}"{% endif %}
            {% if hx_on_change|default:"" %}hx-on:change="{{ hx_on_change }}"{% endif %}>
-    <span class="ml-2 text-sm text-foreground">{{ label }}</span>
-</label>
+    {% if label|default:"" %}<span class="ml-2 text-sm text-foreground">{{ label }}</span></label>{% endif %}
