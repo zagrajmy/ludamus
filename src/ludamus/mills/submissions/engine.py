@@ -4,6 +4,7 @@ Not a service: never exposed on `request.services`, owns no transactions —
 callers open the atomic block and invoke engine methods inside it.
 """
 
+import contextlib
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -15,7 +16,7 @@ from ludamus.mills.submissions.mapping import (
     build_personal_data_field_values,
     cell,
     chosen_entities,
-    dedup_slug,
+    dedup_ident,
     extract_identity,
     field_name,
     field_setup,
@@ -101,6 +102,18 @@ class ImportEngine:
                 # The row's unique key matches an existing session — link
                 # the log entry to it so the operator can navigate and so
                 # a stale skip reason from a prior attempt is cleared.
+                if exc.adopt_ident:
+                    # Pre-ident session matched by title+email: backfill the
+                    # ident so future runs match it directly. A concurrent
+                    # import may have claimed the ident since the lookup —
+                    # skip the backfill then; the next run re-adopts.
+                    with (
+                        contextlib.suppress(DatabaseConstraintError),
+                        self._transaction.savepoint(),
+                    ):
+                        self._repos.sessions.set_ident(
+                            exc.existing_session_id, exc.adopt_ident
+                        )
                 self._repos.log_entries.upsert(
                     ImportLogEntryCreateData(
                         integration_id=integration_pk,
@@ -268,8 +281,12 @@ class ImportEngine:
         field_ids: FieldIdsByHeader,
     ) -> int:
         builtins = resolve_builtins(settings, row)
-        slug = self._resolve_slug(
-            event_id=event_id, settings=settings, row=row, title=builtins.title
+        ident = self._resolve_ident(
+            event_id=event_id,
+            settings=settings,
+            row=row,
+            title=builtins.title,
+            contact_email=builtins.contact_email,
         )
         session_data: SessionData = {
             "event_id": event_id,
@@ -278,8 +295,14 @@ class ImportEngine:
             "description": builtins.description,
             "display_name": builtins.display_name,
             "participants_limit": builtins.participants_limit,
-            "slug": slug,
+            "slug": generate_unique_slug(
+                builtins.title,
+                lambda s: self._repos.sessions.slug_exists(event_id, s),
+                fallback="proposal",
+            ),
         }
+        if ident:
+            session_data["ident"] = ident
         if builtins.duration:
             session_data["duration"] = builtins.duration
         if builtins.contact_email:
@@ -389,30 +412,41 @@ class ImportEngine:
         if missing:
             raise MissingUniqueKeyColumnsError(missing)
 
-    def _resolve_slug(
-        self, *, event_id: int, settings: ImportSettings, row: ImportRow, title: str
+    def _resolve_ident(
+        self,
+        *,
+        event_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
+        title: str,
+        contact_email: str,
     ) -> str:
         # Idempotent re-runs: when the operator has named unique-key columns
-        # (e.g. Timestamp + Email Address), build the slug from those values
-        # plus an event prefix. An existing slug means this row is already in;
-        # raise DuplicateRowError so the row counts as a duplicate, not a
-        # skip-with-failure. With no unique-key columns the importer falls
-        # back to the original title-derived slug with a random suffix.
+        # (e.g. Timestamp + Email Address), hash those values into an ident.
+        # An existing ident means this row is already in; raise
+        # DuplicateRowError so the row counts as a duplicate, not a
+        # skip-with-failure. Sessions imported before the ident field existed
+        # carry ident="" (no backfill was possible), so on an ident miss fall
+        # back to matching by title + contact email — a single alive match
+        # adopts the ident and counts as the duplicate; zero or several
+        # matches mean "create". With no unique-key columns every row creates.
         if not settings.unique_key_columns:
-            return generate_unique_slug(
-                title,
-                lambda s: self._repos.sessions.slug_exists(event_id, s),
-                fallback="proposal",
-            )
+            return ""
         identity = "-".join(
             row.get_value(col, "") for col in settings.unique_key_columns
         )
-        slug = dedup_slug(event_id=event_id, identity=identity)
+        ident = dedup_ident(event_id=event_id, identity=identity)
         if (
-            existing_id := self._repos.sessions.find_id_by_slug(event_id, slug)
+            existing_id := self._repos.sessions.find_id_by_ident(event_id, ident)
         ) is not None:
             raise DuplicateRowError(existing_id)
-        return slug
+        if title and contact_email:
+            legacy_ids = self._repos.sessions.find_ids_by_title_and_email(
+                event_id=event_id, title=title, contact_email=contact_email
+            )
+            if len(legacy_ids) == 1:
+                raise DuplicateRowError(legacy_ids[0], adopt_ident=ident)
+        return ident
 
     def facilitator_id(self, event_id: int, display_name: str) -> int | None:
         # Per-row provisioning: a non-empty `facilitator.display_name` answer

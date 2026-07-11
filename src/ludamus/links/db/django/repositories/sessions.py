@@ -296,12 +296,26 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return Session.objects.filter(event_id=event_id, slug=slug).exists()
 
     @staticmethod
-    def find_id_by_slug(event_id: int, slug: str) -> int | None:
+    def find_id_by_ident(event_id: int, ident: str) -> int | None:
         return (
-            Session.objects.filter(event_id=event_id, slug=slug)
+            Session.objects.filter(event_id=event_id, ident=ident)
             .values_list("id", flat=True)
             .first()
         )
+
+    @staticmethod
+    def find_ids_by_title_and_email(
+        *, event_id: int, title: str, contact_email: str
+    ) -> list[int]:
+        return list(
+            Session.objects.filter(
+                event_id=event_id, title=title, contact_email=contact_email, ident=""
+            ).values_list("id", flat=True)
+        )
+
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None:
+        Session.objects.filter(id=pk).update(ident=ident)
 
     @staticmethod
     def save_field_values(session_id: int, values: list[SessionFieldValueData]) -> None:

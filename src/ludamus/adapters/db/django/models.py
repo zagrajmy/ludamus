@@ -816,6 +816,9 @@ class Session(SoftDeleteModel):
     # ID
     title = models.CharField(max_length=255)
     slug = models.SlugField()
+    # Import idempotency key (hash of the source row's unique-key values).
+    # Empty for sessions that weren't imported; never shown to users.
+    ident = models.CharField(max_length=64, default="", blank=True)
     description = models.TextField(default="", blank=True)
     # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
     # purge the stored file during hard garbage-collection of dead sessions.
@@ -857,6 +860,11 @@ class Session(SoftDeleteModel):
         constraints = (
             models.UniqueConstraint(
                 fields=["slug", "event"], name="session_unique_slug_in_event"
+            ),
+            models.UniqueConstraint(
+                fields=["event", "ident"],
+                condition=~Q(ident=""),
+                name="session_unique_ident_in_event",
             ),
             models.CheckConstraint(
                 condition=Q(min_age__gte=0, min_age__lte=80),
