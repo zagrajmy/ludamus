@@ -314,7 +314,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     ) -> list[int]:
         return list(
             Session.objects.filter(
-                event_id=event_id, title=title, contact_email=contact_email
+                event_id=event_id, title=title, contact_email=contact_email, ident=""
             ).values_list("id", flat=True)
         )
 

@@ -1374,6 +1374,34 @@ class TestProposalImportService(_ImportServiceMocks):
         assert entry.status == ImportLogStatus.SUCCESS
         assert entry.session_id == legacy_session_pk
 
+    def test_run_survives_ident_backfill_constraint_conflict(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # A concurrent import claimed the adopted ident between the lookup
+        # and the backfill — the savepointed set_ident fails, but the row
+        # still counts as a duplicate and the run continues.
+        legacy_session_pk = 77
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "session.contact_email"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Email": "a@x.z"}]
+        )
+        sessions.find_ids_by_title_and_email.return_value = [legacy_session_pk]
+        sessions.set_ident.side_effect = DatabaseConstraintError("duplicate ident")
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.duplicates == 1
+        entry: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert entry.status == ImportLogStatus.SUCCESS
+        assert entry.session_id == legacy_session_pk
+
     def test_run_creates_when_title_and_email_match_is_ambiguous(
         self, service, event_integrations, sessions
     ):

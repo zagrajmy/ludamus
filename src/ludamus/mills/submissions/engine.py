@@ -4,6 +4,7 @@ Not a service: never exposed on `request.services`, owns no transactions —
 callers open the atomic block and invoke engine methods inside it.
 """
 
+import contextlib
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -103,10 +104,16 @@ class ImportEngine:
                 # a stale skip reason from a prior attempt is cleared.
                 if exc.adopt_ident:
                     # Pre-ident session matched by title+email: backfill the
-                    # ident so future runs match it directly.
-                    self._repos.sessions.set_ident(
-                        exc.existing_session_id, exc.adopt_ident
-                    )
+                    # ident so future runs match it directly. A concurrent
+                    # import may have claimed the ident since the lookup —
+                    # skip the backfill then; the next run re-adopts.
+                    with (
+                        contextlib.suppress(DatabaseConstraintError),
+                        self._transaction.savepoint(),
+                    ):
+                        self._repos.sessions.set_ident(
+                            exc.existing_session_id, exc.adopt_ident
+                        )
                 self._repos.log_entries.upsert(
                     ImportLogEntryCreateData(
                         integration_id=integration_pk,
