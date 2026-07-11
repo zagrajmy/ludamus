@@ -1,5 +1,5 @@
 from django.urls import URLPattern, URLResolver, include, path
-from django.views.generic.base import TemplateView
+from django.views.generic.base import RedirectView, TemplateView
 
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
@@ -33,16 +33,6 @@ chronology_urls = [
         name="session-accept",
     ),
     path(
-        "event/<str:event_slug>/anonymous/do/activate",
-        views.EventAnonymousActivateActionView.as_view(),
-        name="event-anonymous-activate",
-    ),
-    path(
-        "event/<str:event_slug>/session/<int:session_id>/enrollment/anonymous",
-        views.SessionEnrollmentAnonymousPageView.as_view(),
-        name="session-enrollment-anonymous",
-    ),
-    path(
         "offer/<str:token>/claim/",
         views.SessionOfferClaimView.as_view(),
         name="offer-claim",
@@ -51,16 +41,6 @@ chronology_urls = [
         "offer/<str:token>/decline/",
         views.SessionOfferDeclineView.as_view(),
         name="offer-decline",
-    ),
-    path(
-        "anonymous/do/load",
-        views.AnonymousLoadActionView.as_view(),
-        name="anonymous-load",
-    ),
-    path(
-        "anonymous/do/reset/",
-        views.AnonymousResetActionView.as_view(),
-        name="anonymous-reset",
     ),
 ]
 
@@ -79,8 +59,14 @@ urlpatterns = [
         TemplateView.as_view(template_name="design_tailwind.html"),
         name="design-tailwind",
     ),
+    path("", include((chronology_urls, "chronology"), namespace="chronology")),
+    # Permanent redirects for links shared before the `chronology/` path segment
+    # was dropped from public event URLs (issue #543, A4). View names are
+    # unchanged, so only externally shared literal URLs need this shim.
     path(
-        "chronology/", include((chronology_urls, "chronology"), namespace="chronology")
+        "chronology/<path:subpath>",
+        RedirectView.as_view(url="/%(subpath)s", permanent=True, query_string=True),
+        name="chronology-legacy-redirect",
     ),
     path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
     path(

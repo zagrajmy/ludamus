@@ -1,0 +1,30 @@
+---
+name: Dependency audit
+
+on:
+  pull_request:
+    paths:
+      - poetry.lock
+      - pyproject.toml
+      - .github/workflows/audit.yml
+  push:
+    branches: ["master", "main"]
+    paths:
+      - poetry.lock
+      - pyproject.toml
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - run: mise exec -- poetry install
+      - run: mise run audit

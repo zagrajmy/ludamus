@@ -11,6 +11,7 @@ from ludamus.links.db.django.crowd import (
     UserRepository,
 )
 from ludamus.links.db.django.enrollment import (
+    AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
     ParticipationPromotionRepository,
 )
@@ -19,6 +20,7 @@ from ludamus.links.db.django.facilitator_change_log import (
 )
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.party import PartyRepository
+from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.pacts.crowd import UserType
 
@@ -36,8 +38,10 @@ class Repositories:
         return repositories.PersonalDataFieldRepository()
 
     @cached_property
-    def host_personal_data(self) -> repositories.HostPersonalDataRepository:
-        return repositories.HostPersonalDataRepository()
+    def personal_data_field_values(
+        self,
+    ) -> repositories.PersonalDataFieldValueRepository:
+        return repositories.PersonalDataFieldValueRepository()
 
     @cached_property
     def proposal_categories(self) -> repositories.ProposalCategoryRepository:
@@ -84,6 +88,10 @@ class Repositories:
         return ParticipationPromotionRepository()
 
     @cached_property
+    def anonymous_enrollment(self) -> AnonymousEnrollmentRepository:
+        return AnonymousEnrollmentRepository()
+
+    @cached_property
     def enrollment_participations(self) -> EnrollmentParticipationRepository:
         return EnrollmentParticipationRepository()
 
@@ -110,6 +118,10 @@ class Repositories:
     @cached_property
     def notifications(self) -> NotificationReadRepository:
         return NotificationReadRepository()
+
+    @cached_property
+    def printables_reminders(self) -> PrintablesReminderRepository:
+        return PrintablesReminderRepository()
 
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:

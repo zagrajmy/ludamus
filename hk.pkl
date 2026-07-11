@@ -28,6 +28,7 @@ local linters = new Mapping<String, Step> {
       "**/vendor/**",
       "CLAUDE.md",
       ".claude/**",
+      ".agents/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
     )
@@ -73,7 +74,7 @@ local linters = new Mapping<String, Step> {
   }
   ["markdownlint"] {
     glob = List("**/*.md")
-    exclude = List(".claude/**", "**/node_modules/**")
+    exclude = List(".agents/**", ".claude/**", "**/node_modules/**")
     check = "markdownlint-cli2 {{files}}"
     fix = "markdownlint-cli2 --fix {{files}}"
   }

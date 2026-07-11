@@ -186,8 +186,6 @@ class TestProposalAcceptPageView:
     @pytest.mark.usefixtures("space", "time_slot")
     def test_get_renders_proposal_detail_rows(self, pending_session, staff_client):
         pending_session.description = "A haunted manor one-shot."
-        pending_session.requirements = "Bring a pencil."
-        pending_session.needs = "A quiet room."
         pending_session.save()
 
         response = staff_client.get(
@@ -196,8 +194,7 @@ class TestProposalAcceptPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        for text in ("A haunted manor one-shot.", "Bring a pencil.", "A quiet room."):
-            assert text in content
+        assert "A haunted manor one-shot." in content
 
     @pytest.mark.usefixtures("space", "time_slot")
     def test_get_without_presenter_still_renders(self, pending_session, staff_client):
@@ -306,7 +303,7 @@ class TestProposalAcceptPageView:
                     "You don't have permission to accept proposals for this event.",
                 )
             ],
-            url=f"/chronology/event/{event.slug}/",
+            url=f"/event/{event.slug}/",
         )
 
     def test_post_error_proposal_not_found(self, staff_client, event):

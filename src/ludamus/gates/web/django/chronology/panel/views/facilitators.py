@@ -23,8 +23,8 @@ from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
     FacilitatorMergeError,
-    HostPersonalDataEntry,
     NotFoundError,
+    PersonalDataFieldValueData,
 )
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         personal_data_values = (
-            self.request.di.uow.host_personal_data.read_for_facilitator_event(
+            self.request.di.uow.personal_data_field_values.read_for_facilitator_event(
                 facilitator.pk, current_event.pk
             )
         )
@@ -172,8 +172,10 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         self, event_pk: int, facilitator_pk: int
     ) -> list[tuple[PersonalDataFieldDTO, str | list[str] | bool | None]]:
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
-        values = self.request.di.uow.host_personal_data.read_for_facilitator_event(
-            facilitator_pk, event_pk
+        values = (
+            self.request.di.uow.personal_data_field_values.read_for_facilitator_event(
+                facilitator_pk, event_pk
+            )
         )
         return [(field, values.get(field.slug)) for field in fields]
 
@@ -232,7 +234,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
             current_event.pk
         )
-        entries: list[HostPersonalDataEntry] = []
+        entries: list[PersonalDataFieldValueData] = []
         for field in all_personal_fields:
             key = f"personal_{field.slug}"
             if field.field_type == "checkbox":
@@ -244,14 +246,14 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                 if field.allow_custom and not value:
                     value = self.request.POST.get(f"{key}_custom", "")
             entries.append(
-                HostPersonalDataEntry(
+                PersonalDataFieldValueData(
                     facilitator_id=facilitator.pk,
                     event_id=current_event.pk,
                     field_id=field.pk,
                     value=value,
                 )
             )
-        self.request.services.host_personal_data.update_facilitator(
+        self.request.services.personal_data_field_values.update_facilitator(
             event_id=current_event.pk,
             facilitator_id=facilitator.pk,
             accreditation_type=form.cleaned_data["accreditation_type"],

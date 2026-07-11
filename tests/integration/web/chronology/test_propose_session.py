@@ -10,10 +10,10 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     EventProposalSettings,
     Facilitator,
-    HostPersonalData,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     Session,
     SessionField,
     SessionFieldOption,
@@ -513,7 +513,7 @@ class TestProposeSessionPageView:
         facilitator = Facilitator.objects.create(
             event=event, user=active_user, display_name=active_user.name, slug="active"
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=field, value="+48 999"
         )
         self._set_wizard_category(authenticated_client, event, proposal_category)
@@ -1171,7 +1171,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        hpd = HostPersonalData.objects.get(event=event, field=field)
+        hpd = PersonalDataFieldValue.objects.get(event=event, field=field)
         assert hpd.value == "+48 555"
 
     def test_submit_sets_time_slots(
@@ -1679,7 +1679,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert HostPersonalData.objects.count() == 0
+        assert PersonalDataFieldValue.objects.count() == 0
 
     def test_submit_with_nonexistent_personal_field_skipped(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1694,7 +1694,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert HostPersonalData.objects.count() == 0
+        assert PersonalDataFieldValue.objects.count() == 0
 
     def test_post_personal_multiple_select_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1771,7 +1771,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert HostPersonalData.objects.count() == 0
+        assert PersonalDataFieldValue.objects.count() == 0
 
     def test_post_personal_data_checkbox_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2370,11 +2370,10 @@ class TestAnonymousProposalSubmission:
             facilitator.pk
         ]
 
-        hpd = HostPersonalData.objects.get(
+        hpd = PersonalDataFieldValue.objects.get(
             facilitator=facilitator, event=event, field=phone_field
         )
         assert hpd.value == "+48 555"
-        assert hpd.user_id is None
 
     def test_anonymous_single_category_shows_login_nudge(
         self, client, event, faker, time_zone, proposal_category
@@ -2426,6 +2425,32 @@ class TestAnonymousProposalSubmission:
 
         assert response.status_code == HTTPStatus.FOUND
         assert Session.objects.count() == 0
+
+    def test_rate_limit_uses_rightmost_x_forwarded_for(
+        self, client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._enable_anonymous(event)
+
+        self._set_wizard_full(client, event, proposal_category)
+        first = client.post(
+            self._url(event.slug, "submit"),
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.50",
+            follow=True,
+        )
+        assert first.status_code == HTTPStatus.OK
+
+        self._set_wizard_full(client, event, proposal_category)
+        second = client.post(
+            self._url(event.slug, "submit"),
+            HTTP_X_FORWARDED_FOR="5.6.7.8, 203.0.113.50",
+        )
+
+        assert second.status_code == HTTPStatus.FOUND
+        assert Session.objects.count() == 1
+        msgs = list(messages.get_messages(second.wsgi_request))
+        assert len(msgs) == 1
+        assert "Please wait before submitting another proposal." in str(msgs[0])
 
     def test_two_anonymous_submissions_same_display_name_get_distinct_slugs(
         self, client, event, faker, time_zone, proposal_category

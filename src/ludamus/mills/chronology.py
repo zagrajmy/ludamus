@@ -976,12 +976,6 @@ def _text_comparisons(
         comparisons.append(
             ("description", old_session.description, update["description"])
         )
-    if "requirements" in update:
-        comparisons.append(
-            ("requirements", old_session.requirements, update["requirements"])
-        )
-    if "needs" in update:
-        comparisons.append(("needs", old_session.needs, update["needs"]))
     if "contact_email" in update:
         comparisons.append(
             ("contact_email", old_session.contact_email, update["contact_email"])
@@ -1038,10 +1032,6 @@ def _inverse_text_update(
         update["display_name"] = old
     elif field == "description":
         update["description"] = old
-    elif field == "requirements":
-        update["requirements"] = old
-    elif field == "needs":
-        update["needs"] = old
     elif field == "contact_email":
         update["contact_email"] = old
     elif field == "duration":
@@ -1335,8 +1325,6 @@ class SessionSelfEditService:
             "title": _str("title"),
             "display_name": _str("display_name"),
             "description": _str("description"),
-            "requirements": _str("requirements"),
-            "needs": _str("needs"),
             "contact_email": _str("contact_email"),
             "participants_limit": _int("participants_limit"),
             "min_age": _int("min_age"),
@@ -1430,10 +1418,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         blob = self._connections.read_secret(sphere_id, integration.connection_id)
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.fetch_questions(
-            secret=plaintext,
-            config=config,
-            header_row=settings.header_row,
-            email_column=settings.email_column,
+            secret=plaintext, config=config, header_row=settings.header_row
         )
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
@@ -1453,11 +1438,33 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         # action that also resets confirmations.
         questions = self.fetch_questions(sphere_id=sphere_id, event_id=event_id, pk=pk)
         snapshot = _SOURCE_QUESTIONS_ADAPTER.dump_json(questions).decode()
+        headers = self.fetch_headers(sphere_id=sphere_id, event_id=event_id, pk=pk)
+        integration = self._integrations.get(event_id, pk)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
         with self._transaction.atomic():
             self._integrations.update_questions_snapshot(
                 event_id=event_id, pk=pk, questions_snapshot_json=snapshot
             )
+            # Only overwrite on a successful read: a transient Sheets failure
+            # returns [] and must not wipe the columns the run tab offers.
+            if headers and headers != settings.sheet_headers:
+                settings.sheet_headers = headers
+                self._integrations.update_settings(
+                    event_id=event_id, pk=pk, settings_json=settings.model_dump_json()
+                )
         return questions
+
+    def fetch_headers(self, *, sphere_id: int, event_id: int, pk: int) -> list[str]:
+        integration = self._integrations.get(event_id, pk)
+        if (impl := self._registry.get(integration.implementation)) is None:
+            return []
+        config = impl.config_model.model_validate_json(integration.config_json)
+        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
+        blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        plaintext = self._decryptor.decrypt(blob) if blob else b""
+        return impl.fetch_headers(
+            secret=plaintext, config=config, header_row=settings.header_row
+        )
 
     def refetch_questions(
         self, *, sphere_id: int, event_id: int, pk: int

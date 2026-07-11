@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
-from django.urls import reverse
+from django.urls import resolve, reverse
 from django.utils import timezone
 
 from ludamus.adapters.db.django.models import (
@@ -29,6 +29,7 @@ from ludamus.adapters.web.django.entities import (
     SessionData,
     build_display_field_row,
 )
+from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url
@@ -36,7 +37,6 @@ from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
     PendingSessionDTO,
-    PendingSessionTagDTO,
     PendingSessionTimeSlotDTO,
     SessionDTO,
     SessionFieldValueDTO,
@@ -49,7 +49,6 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
-    TagFactory,
     TimeSlotFactory,
     UserFactory,
 )
@@ -883,12 +882,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs=pending_session.needs,
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[],
             time_slots=[],
             title=pending_session.title,
         )
@@ -928,10 +924,6 @@ class TestEventPageView:
         active_user.save()
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
-        pending_session.needs = "Quiet corner preferred"
-        pending_session.save(update_fields=["needs"])
-        tag = TagFactory()
-        pending_session.tags.add(tag)
         for offset in (0, 2, 4):
             pending_session.time_slots.add(
                 TimeSlotFactory(
@@ -953,12 +945,9 @@ class TestEventPageView:
             contact_email=flexible_session.contact_email,
             creation_time=flexible_session.creation_time,
             description=flexible_session.description,
-            needs=flexible_session.needs,
             participants_limit=flexible_session.participants_limit,
             pk=flexible_session.pk,
             display_name=flexible_session.display_name,
-            requirements=flexible_session.requirements,
-            tags=[],
             time_slots=[],
             title=flexible_session.title,
         )
@@ -966,12 +955,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs="Quiet corner preferred",
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[PendingSessionTagDTO(name=tag.name, pk=tag.pk)],
             time_slots=[
                 PendingSessionTimeSlotDTO.model_validate(ts)
                 for ts in pending_session.time_slots.all()
@@ -1004,14 +990,7 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
-            contains=[
-                "Pending Proposals",
-                tag.name,
-                "Quiet corner preferred",
-                "+1 more",
-                "Flexible",
-                "🧙",
-            ],
+            contains=["Pending Proposals", "+1 more", "Flexible", "🧙"],
         )
 
     def test_ok_superuser_organizer_sees_no_wizard_emoji(
@@ -1030,12 +1009,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs=pending_session.needs,
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[],
             time_slots=[],
             title=pending_session.title,
         )
@@ -1082,12 +1058,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs=pending_session.needs,
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[],
             time_slots=[],
             title=pending_session.title,
         )
@@ -3436,3 +3409,33 @@ class TestEventPageEditAffordance:
         content = response.content.decode()
         assert edit_url not in content
         assert f'data-edit-open="{session.pk}"' not in content
+
+
+class TestPublicEventUrlShape:
+    def test_event_url_has_no_chronology_segment(self, event):
+        url = reverse("web:chronology:event", kwargs={"slug": event.slug})
+
+        assert url == f"/event/{event.slug}/"
+
+    def test_new_event_url_resolves_and_renders(self, client, event):
+        match = resolve(f"/event/{event.slug}/")
+
+        assert match.view_name == "web:chronology:event"
+        assert match.func.view_class is EventPageView
+        assert client.get(f"/event/{event.slug}/").status_code == HTTPStatus.OK
+
+    def test_legacy_chronology_url_redirects_permanently(self, client, event):
+        response = client.get(f"/chronology/event/{event.slug}/")
+
+        assert_response(
+            response, HTTPStatus.MOVED_PERMANENTLY, url=f"/event/{event.slug}/"
+        )
+
+    def test_legacy_chronology_subpath_preserves_query_string(self, client, event):
+        response = client.get(f"/chronology/event/{event.slug}/session/propose/?step=2")
+
+        assert_response(
+            response,
+            HTTPStatus.MOVED_PERMANENTLY,
+            url=f"/event/{event.slug}/session/propose/?step=2",
+        )

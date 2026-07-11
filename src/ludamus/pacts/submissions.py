@@ -13,16 +13,16 @@ from typing import TYPE_CHECKING, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorRepositoryProtocol,
         FieldUsageSummary,
-        HostPersonalDataEntry,
-        HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
+        PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
@@ -170,15 +170,16 @@ class ImportSettings(BaseModel):
     # `unique_key_columns` names the column headers whose values together
     # identify a row across re-fetches; retry uses them to locate the row
     # again even after the operator deletes or rearranges rows in the source.
-    # `email_column` is the 1-indexed sheet column where Google Forms drops
-    # the auto-collected responder email (only present when the form has
-    # email collection on). With it set, the importer synthesizes a question
-    # the recipe can map to session.contact_email.
+    # `sheet_headers` caches the source sheet's header row, refreshed whenever
+    # the questions snapshot is. Both the recipe and `unique_key_columns` are
+    # chosen from it: the form schema alone can't offer the metadata columns
+    # (timestamp, auto-collected email), whose wording follows the form's
+    # locale, so those are mapped like any other column.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
-    email_column: int | None = None
+    sheet_headers: list[str] = []
 
 
 class ImportLogStatus(StrEnum):
@@ -257,7 +258,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     sessions: SessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
-    host_personal_data: HostPersonalDataRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
@@ -342,13 +343,13 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
 
 
-class HostPersonalDataServiceProtocol(Protocol):
+class PersonalDataFieldValueServiceProtocol(Protocol):
     def update_personal_data(
         self,
         *,
         event_id: int,
         facilitator_id: int,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None: ...
     def update_facilitator(
@@ -357,7 +358,7 @@ class HostPersonalDataServiceProtocol(Protocol):
         event_id: int,
         facilitator_id: int,
         accreditation_type: str,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None: ...
     def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]: ...

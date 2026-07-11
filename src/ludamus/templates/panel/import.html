@@ -21,15 +21,6 @@
                     {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
                 </p>
             </div>
-        {% else %}
-            {% if email_column_missing %}
-                <div class="card max-w-4xl border border-warning bg-warning-bg p-4">
-                    <p class="text-sm font-medium text-warning-text">{% translate "Email column not set." %}</p>
-                    <p class="mt-1 text-sm text-foreground-secondary">
-                        {% translate "When the form collects respondent email, set the 1-indexed sheet column number on the Run tab so the importer can map it to the proposal's contact email." %}
-                    </p>
-                </div>
-            {% endif %}
         {% endif %}
         {% if active_integration and summary_rows %}
             <div class="card max-w-4xl overflow-x-auto">
