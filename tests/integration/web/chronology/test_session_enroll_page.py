@@ -772,6 +772,41 @@ class TestSessionEnrollPageView:
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
+    def test_post_shadowbanned_connected_user_skipped_neutrally(
+        self, authenticated_client, agenda_item, connected_user, event
+    ):
+        # The manager is not banned, but the presenter shadowbanned their
+        # connected sub-user; the skip reason must not reveal the ban.
+        banner = UserFactory(username="gm", email="gm@example.com", name="GM")
+        session = agenda_item.session
+        session.presenter = banner
+        session.save()
+        banner.shadowbanned.add(connected_user)
+
+        response = authenticated_client.post(
+            self._get_url(session.pk, session.event.slug),
+            data={f"user_{connected_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{connected_user.name} (not available)"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=connected_user, session=session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
     @staticmethod
     def test_post_time_conflict_skipped(authenticated_client, active_user, event):
         space1 = SpaceFactory(event=event)
