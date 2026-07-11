@@ -18,7 +18,6 @@ from pydantic import BaseModel
 from ludamus.links.google_docs import (
     FORMS_API_URL,
     SHEETS_API_URL,
-    SHEETS_CLEAR_URL,
     SHEETS_META_URL,
     SHEETS_UPDATE_URL,
     SHEETS_VALUES_URL,
@@ -754,9 +753,10 @@ EXPORT_ROWS = [["Creator", "Accreditation type"], ["Alice", "Guest"]]
 
 
 class TestGoogleSheetsWriter:
-    def test_clears_then_writes_the_first_tab(self, google):
-        google.session.get.return_value = _meta_with_title()
-        google.session.post.return_value = _resp(ok=True)
+    def test_writes_the_first_tab_in_a_single_request(self, google):
+        google.session.get.side_effect = _route_get(
+            values=[["x", "y"]] * len(EXPORT_ROWS)
+        )
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
@@ -767,15 +767,10 @@ class TestGoogleSheetsWriter:
             {"type": "service_account"},
             scopes=["https://www.googleapis.com/auth/spreadsheets"],
         )
-        google.session.get.assert_called_once_with(
+        google.session.get.assert_any_call(
             SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
         )
-        google.session.post.assert_called_once_with(
-            SHEETS_CLEAR_URL.format(
-                sheet_id="sheet-1", range="%27Form%20Responses%201%27"
-            ),
-            timeout=30,
-        )
+        google.session.post.assert_not_called()
         google.session.put.assert_called_once_with(
             SHEETS_UPDATE_URL.format(
                 sheet_id="sheet-1", range="%27Form%20Responses%201%27%21A1"
@@ -784,30 +779,57 @@ class TestGoogleSheetsWriter:
             timeout=30,
         )
 
-    def test_quotes_tab_title_that_looks_like_a_cell_reference(self, google):
-        google.session.get.return_value = _meta_with_title("A1")
-        google.session.post.return_value = _resp(ok=True)
+    def test_pads_a_smaller_export_to_overwrite_the_old_extent(self, google):
+        # Previous export: 4 rows x 3 columns. The new 2x2 payload is padded
+        # with "" so the single write also blanks the stale row and column.
+        google.session.get.side_effect = _route_get(values=[["x", "y", "z"]] * 4)
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
             secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
         )
 
-        google.session.post.assert_called_once_with(
-            SHEETS_CLEAR_URL.format(sheet_id="sheet-1", range="%27A1%27"), timeout=30
+        google.session.post.assert_not_called()
+        google.session.put.assert_called_once_with(
+            SHEETS_UPDATE_URL.format(
+                sheet_id="sheet-1", range="%27Form%20Responses%201%27%21A1"
+            ),
+            json={
+                "values": [
+                    ["Creator", "Accreditation type", ""],
+                    ["Alice", "Guest", ""],
+                    ["", "", ""],
+                    ["", "", ""],
+                ]
+            },
+            timeout=30,
+        )
+
+    def test_quotes_tab_title_that_looks_like_a_cell_reference(self, google):
+        google.session.get.side_effect = _route_get(values=[], title="A1")
+        google.session.put.return_value = _resp(ok=True)
+
+        GoogleSheetsWriter().write_rows(
+            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+        )
+
+        google.session.put.assert_called_once_with(
+            SHEETS_UPDATE_URL.format(sheet_id="sheet-1", range="%27A1%27%21A1"),
+            json={"values": EXPORT_ROWS},
+            timeout=30,
         )
 
     def test_quotes_apostrophe_in_tab_title(self, google):
-        google.session.get.return_value = _meta_with_title("It's")
-        google.session.post.return_value = _resp(ok=True)
+        google.session.get.side_effect = _route_get(values=[], title="It's")
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
             secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
         )
 
-        google.session.post.assert_called_once_with(
-            SHEETS_CLEAR_URL.format(sheet_id="sheet-1", range="%27It%27%27s%27"),
+        google.session.put.assert_called_once_with(
+            SHEETS_UPDATE_URL.format(sheet_id="sheet-1", range="%27It%27%27s%27%21A1"),
+            json={"values": EXPORT_ROWS},
             timeout=30,
         )
 
@@ -831,7 +853,7 @@ class TestGoogleSheetsWriter:
                 secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
             )
 
-    def test_metadata_failure_raises_before_clearing(self, google):
+    def test_metadata_failure_raises_before_writing(self, google):
         google.session.get.return_value = _resp(ok=False, status_code=403, text="deny")
 
         with pytest.raises(
@@ -866,14 +888,16 @@ class TestGoogleSheetsWriter:
                 secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
             )
 
-    def test_clear_failure_raises_before_writing(self, google):
-        google.session.get.return_value = _meta_with_title()
-        google.session.post.return_value = _resp(
-            ok=False, status_code=403, text="no edit"
-        )
+    def test_extent_read_failure_raises_before_writing(self, google):
+        def get(url: str, **_kwargs: object) -> MagicMock:
+            if "/values/" in url:
+                return _resp(ok=False, status_code=403, text="deny")
+            return _meta_with_title()
+
+        google.session.get.side_effect = get
 
         with pytest.raises(
-            SheetExportError, match="Spreadsheet clear request failed with 403: no edit"
+            SheetExportError, match="Spreadsheet read request failed with 403: deny"
         ):
             GoogleSheetsWriter().write_rows(
                 secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
@@ -882,8 +906,7 @@ class TestGoogleSheetsWriter:
         google.session.put.assert_not_called()
 
     def test_write_failure_raises(self, google):
-        google.session.get.return_value = _meta_with_title()
-        google.session.post.return_value = _resp(ok=True)
+        google.session.get.side_effect = _route_get(values=[["x"]] * 5)
         google.session.put.return_value = _resp(ok=False, status_code=500, text="boom")
 
         with pytest.raises(
@@ -894,11 +917,11 @@ class TestGoogleSheetsWriter:
             )
 
     def test_request_exception_raises(self, google):
-        google.session.get.return_value = _meta_with_title()
-        google.session.post.side_effect = requests.RequestException("timeout")
+        google.session.get.side_effect = _route_get(values=[])
+        google.session.put.side_effect = requests.RequestException("timeout")
 
         with pytest.raises(
-            SheetExportError, match="Spreadsheet clear request failed: timeout"
+            SheetExportError, match="Spreadsheet write request failed: timeout"
         ):
             GoogleSheetsWriter().write_rows(
                 secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS

@@ -408,6 +408,18 @@ class TestCancel:
         assert result.cancelled is False
         assert not promotion.filled
 
+    def test_cancel_without_name_preserves_display_name(self):
+        repo = FakeRepo(
+            session=_session_ctx(),
+            participation_status=SessionParticipationStatus.CONFIRMED,
+        )
+        users = FakeUsers(_user(name="Ala"))
+        service = _service(repo=repo, users=users)
+
+        service.cancel(_request(), "")
+
+        assert not users.updated
+
     def test_cancel_allowed_when_enrollment_closed(self):
         repo = FakeRepo(
             session=_session_ctx(allows_anonymous_enrollment=False),

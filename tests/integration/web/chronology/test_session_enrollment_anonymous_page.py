@@ -529,6 +529,51 @@ class TestSessionEnrollmentAnonymousPageView:
         assert user.name == name
         assert not SessionParticipation.objects.all().exists()
 
+    def test_post_cancel_without_name_preserves_display_name(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
+        session = agenda_item.session
+        session.min_age = 12
+        session.save()
+        user = anonymous_user_factory(name="johny")
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=user,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = client.post(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={"action": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Successfully cancelled enrollment in session: "
+                        f"{agenda_item.session.title}"
+                    ),
+                )
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
+            ),
+        )
+        user = User.objects.get(id=user.id)
+        assert user.name == "johny"
+        assert not SessionParticipation.objects.all().exists()
+
     def test_post_cancel_waiting_does_not_free_seat(
         self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
     ):
