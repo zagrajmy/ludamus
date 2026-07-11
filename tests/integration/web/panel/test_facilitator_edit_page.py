@@ -8,9 +8,9 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     Facilitator,
-    HostPersonalData,
     PersonalDataField,
     PersonalDataFieldOption,
+    PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
 from tests.integration.utils import assert_response
@@ -256,7 +256,7 @@ class TestFacilitatorEditPageView:
             data={"display_name": "Alice", "personal_vegan": "true"},
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
     def test_post_saves_multiple_personal_data_field(
@@ -279,7 +279,7 @@ class TestFacilitatorEditPageView:
             data={"display_name": "Alice", "personal_languages": ["en", "pl"]},
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == ["en", "pl"]
 
     def test_post_saves_allow_custom_personal_data_field_from_custom_input(
@@ -306,7 +306,7 @@ class TestFacilitatorEditPageView:
             },
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
 
     def test_get_renders_all_personal_field_types(
@@ -366,16 +366,16 @@ class TestFacilitatorEditPageView:
             order=3,
         )
 
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=languages, value=["en"]
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=system, value="dnd"
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=vegan, value=True
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=nickname, value="Bob"
         )
 

@@ -11,9 +11,9 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
     Facilitator,
-    HostPersonalData,
     Notification,
     PersonalDataField,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
     SessionField,
@@ -61,8 +61,6 @@ def _make_session(event, **kwargs):
         "participants_limit": 5,
         "status": "pending",
         "description": "A description",
-        "requirements": "Some requirements",
-        "needs": "Some needs",
         "contact_email": "host@example.com",
         "min_age": 0,
     }
@@ -237,12 +235,6 @@ class TestProposalEditPageView:
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [],
             },
-            not_contains=[
-                'name="requirements"',
-                'name="needs"',
-                "Some requirements",
-                "Some needs",
-            ],
         )
 
     # POST tests
@@ -926,7 +918,7 @@ class TestProposalEditPageView:
             },
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
     def test_post_saves_multiple_facilitator_personal_data(
@@ -962,7 +954,7 @@ class TestProposalEditPageView:
             },
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == ["vegan", "gluten-free"]
 
     def test_post_saves_allow_custom_facilitator_personal_data(
@@ -999,7 +991,7 @@ class TestProposalEditPageView:
             },
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Peanuts"
 
     def test_post_ignores_personal_data_for_facilitator_from_other_event(
@@ -1034,7 +1026,7 @@ class TestProposalEditPageView:
             },
         )
 
-        assert not HostPersonalData.objects.filter(
+        assert not PersonalDataFieldValue.objects.filter(
             facilitator=foreign_facilitator
         ).exists()
 

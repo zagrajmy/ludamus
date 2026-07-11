@@ -126,14 +126,6 @@ msgid "Time slots can't overlap!"
 msgstr "Przedziały czasowe nie mogą się nakładać!"
 
 #: src/ludamus/adapters/db/django/models.py
-msgid "Select from list"
-msgstr "Wybierz z listy"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Type comma-separated"
-msgstr "Wpisz oddzielone przecinkami"
-
-#: src/ludamus/adapters/db/django/models.py
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "None"
@@ -2602,18 +2594,6 @@ msgid "Active"
 msgstr "Aktywne"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-msgid "Requirements"
-msgstr "Wymagania"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Needs"
-msgstr "Potrzeby"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Participants limit"
 msgstr "Limit uczestników"
 
@@ -2984,10 +2964,6 @@ msgstr[3] "%(limit)s miejsc"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "submitted"
 msgstr "zgłoszono"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Special Needs"
-msgstr "Specjalne potrzeby"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal, Never
 from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
-from ludamus.pacts import HostPersonalDataEntry, SessionFieldValueData
+from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,
@@ -252,16 +252,16 @@ def session_field_values(
     ]
 
 
-def host_personal_data_entries(
+def build_personal_data_field_values(
     *,
     field_ids: dict[str, int],
     settings: ImportSettings,
     row: ImportRow,
     facilitator_id: int,
     event_id: int,
-) -> list[HostPersonalDataEntry]:
+) -> list[PersonalDataFieldValueData]:
     return [
-        HostPersonalDataEntry(
+        PersonalDataFieldValueData(
             facilitator_id=facilitator_id,
             event_id=event_id,
             field_id=field_id,

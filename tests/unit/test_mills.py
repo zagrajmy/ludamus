@@ -713,7 +713,7 @@ class TestProposeSessionService:
         result = service.get_saved_personal_data(event_id=1)
 
         assert result == {}
-        mock_uow.host_personal_data.read_for_facilitator_event.assert_not_called()
+        mock_uow.personal_data_field_values.read_for_facilitator_event.assert_not_called()
         mock_uow.facilitators.read_by_user_and_event.assert_not_called()
 
 
@@ -991,7 +991,7 @@ class _ImportServiceMocks:
         return mock
 
     @pytest.fixture
-    def host_personal_data(self):
+    def personal_data_field_values(self):
         return MagicMock()
 
     @pytest.fixture
@@ -1025,7 +1025,7 @@ class _ImportServiceMocks:
         sessions,
         session_fields,
         personal_fields,
-        host_personal_data,
+        personal_data_field_values,
         time_slots,
         tracks,
         categories,
@@ -1036,7 +1036,7 @@ class _ImportServiceMocks:
             sessions,
             session_fields,
             personal_fields,
-            host_personal_data,
+            personal_data_field_values,
             time_slots,
             tracks,
             categories,
@@ -1080,7 +1080,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1112,7 +1111,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1144,7 +1142,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[7],
@@ -1177,7 +1174,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "my-talk",
                 "contact_email": "anna@example.com",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1233,7 +1229,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H30M",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1271,7 +1266,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H45M",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1367,7 +1361,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "other",
                 "duration": "PT30M",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1476,7 +1469,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 8,
                 "slug": "talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -2414,15 +2406,17 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
 
     @pytest.fixture(autouse=True)
     def _layout_defaults(
-        self, sessions, session_fields, personal_fields, host_personal_data
+        self, sessions, session_fields, personal_fields, personal_data_field_values
     ):
         # Sane no-op returns for the reconciliation reads so each test only sets
         # the handful of repo answers that steer the branch under test.
         sessions.read_field_values.return_value = []
         sessions.delete_field_values_for_fields.return_value = 0
         sessions.read_facilitators.return_value = []
-        host_personal_data.list_field_ids_for_facilitator_event.return_value = []
-        host_personal_data.delete_for_facilitator_fields.return_value = 0
+        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = (
+            []
+        )
+        personal_data_field_values.delete_for_facilitator_fields.return_value = 0
         session_fields.delete_orphans_for_event.return_value = 0
         personal_fields.delete_orphans_for_event.return_value = 0
 
@@ -2519,7 +2513,12 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         sessions.set_session_tracks.assert_not_called()
 
     def test_apply_adds_missing_personal_entries_for_a_facilitator(
-        self, service, event_integrations, sessions, host_personal_data, log_entries
+        self,
+        service,
+        event_integrations,
+        sessions,
+        personal_data_field_values,
+        log_entries,
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=ImportSettings(
@@ -2540,7 +2539,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         result = service.apply_field_layout(2, 3)
 
         assert result.personal_entries.added == 1
-        host_personal_data.save.assert_called_once()
+        personal_data_field_values.save.assert_called_once()
 
 
 class TestMappingHelpers:

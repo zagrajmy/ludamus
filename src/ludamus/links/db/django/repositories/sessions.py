@@ -21,7 +21,6 @@ from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
     PendingSessionDTO,
-    PendingSessionTagDTO,
     PendingSessionTimeSlotDTO,
     SessionData,
     SessionDTO,
@@ -58,13 +57,12 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     @staticmethod
     def create(
         session_data: SessionData,
-        tag_ids: Iterable[int],
+        *,
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
-        session.tags.set(tag_ids)
         if time_slot_ids:
             session.time_slots.set(time_slot_ids)
         if facilitator_ids:
@@ -235,7 +233,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             Session.objects.filter(
                 category__event_id=event_id, status=SessionStatus.PENDING
             )
-            .prefetch_related("tags", "time_slots")
+            .prefetch_related("time_slots")
             .order_by("-creation_time")
         )
         return [
@@ -243,12 +241,9 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 contact_email=s.contact_email,
                 creation_time=s.creation_time,
                 description=s.description,
-                needs=s.needs,
                 participants_limit=s.participants_limit,
                 pk=s.pk,
                 display_name=s.display_name,
-                requirements=s.requirements,
-                tags=[PendingSessionTagDTO.model_validate(t) for t in s.tags.all()],
                 time_slots=[
                     PendingSessionTimeSlotDTO.model_validate(ts)
                     for ts in s.time_slots.all()

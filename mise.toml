@@ -320,11 +320,18 @@ run = [{ task = "format" }, { task = "lint" }]
 
 [tasks.devcheck]
 run = [
-    { task = "check" },
-    { task = "test:py", args = ["-xvv"] },
+    { task = "format:black" },
+    { task = "format:djlint" },
+    { task = "format:ruff" },
+    { task = "lint:ruff" },
+    { task = "lint:import-linter" },
+    { task = "lint:vulture" },
+    { task = "lint:djlint" },
+    { task = "lint:mypy" },
+    { task = "lint:pylint", args = ["src"] },
+    { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
     { task = "shitcheck" },
 ]
-
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"

@@ -19,9 +19,9 @@ from django.utils.timezone import get_current_timezone, localtime
 from ludamus.adapters.db.django.models import (
     EventIntegration,
     Facilitator,
-    HostPersonalData,
     ImportLogEntry,
     PersonalDataField,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
     SessionField,
@@ -1710,7 +1710,7 @@ class TestEventImportRunActionView:
         fields = PersonalDataField.objects.filter(event=event, slug="telefon")
         assert fields.count() == 1
         assert fields.get().field_type == "text"
-        assert not HostPersonalData.objects.filter(field=fields.get()).exists()
+        assert not PersonalDataFieldValue.objects.filter(field=fields.get()).exists()
 
     def test_post_writes_personal_field_value_against_row_facilitator(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1750,7 +1750,7 @@ class TestEventImportRunActionView:
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
             )
             authenticated_client.post(_run_url(event, integration))
-            # Re-run: HostPersonalData upserts on (facilitator, event, field) —
+            # Re-run: PersonalDataFieldValue upserts on (facilitator, event, field) —
             # the row's value overwrites rather than duplicating.
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-9999"]]
@@ -1758,7 +1758,7 @@ class TestEventImportRunActionView:
             authenticated_client.post(_run_url(event, integration))
 
         field = PersonalDataField.objects.get(event=event, slug="telefon")
-        rows = list(HostPersonalData.objects.filter(field=field))
+        rows = list(PersonalDataFieldValue.objects.filter(field=field))
         assert len(rows) == 1
         assert rows[0].value == "555-9999"
         assert rows[0].facilitator.display_name == "GM Bob"

@@ -7,8 +7,6 @@ def _session(**overrides):
         "title": "Old title",
         "display_name": "Old host",
         "description": "old desc",
-        "requirements": "",
-        "needs": "",
         "contact_email": "old@example.com",
         "participants_limit": 5,
         "min_age": 0,
