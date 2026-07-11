@@ -13,6 +13,7 @@ from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
     MissingUniqueKeyColumnsError,
     RowSkippedError,
+    build_personal_data_field_values,
     cell,
     chosen_entities,
     dedup_ident,
@@ -20,7 +21,6 @@ from ludamus.mills.submissions.mapping import (
     field_name,
     field_setup,
     generate_unique_slug,
-    host_personal_data_entries,
     resolve_builtins,
     session_field_values,
     slugify,
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 class FieldIdsByHeader:
     # Header->pk maps the provisioning step builds once per import and the
     # per-row create/update steps consume. Two flavours: session fields drive
-    # SessionFieldValue writes; personal fields drive HostPersonalData writes
+    # SessionFieldValue writes; personal fields drive PersonalDataFieldValue writes
     # against the row's facilitator.
     session: dict[str, int]
     personal: dict[str, int]
@@ -186,7 +186,7 @@ class ImportEngine:
         # Match by slug-of-name so re-runs reuse the same field instead of
         # spawning suffixed duplicates. Both session and personal fields keep a
         # header->pk map so per-row value filling can fan out to SessionField
-        # values and HostPersonalData entries respectively.
+        # values and PersonalDataFieldValue entries respectively.
         session_ids: dict[str, int] = {}
         personal_ids: dict[str, int] = {}
         created = 0
@@ -316,7 +316,6 @@ class ImportEngine:
         facilitator_id = self.facilitator_id(event_id, builtins.display_name)
         session_id = self._repos.sessions.create(
             session_data,
-            tag_ids=[],
             time_slot_ids=self.time_slot_ids(
                 event_id=event_id, settings=settings, row=row
             ),
@@ -481,13 +480,13 @@ class ImportEngine:
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
-        # gets stamped onto HostPersonalData (upserted by the repo, so re-runs
+        # gets stamped onto PersonalDataFieldValue (upserted by the repo, so re-runs
         # of the same row overwrite rather than duplicate). Without a
         # facilitator nothing is saved — personal data is per-facilitator,
         # there's no orphan bucket to land it in.
         if facilitator_id is None:
             return
-        entries = host_personal_data_entries(
+        entries = build_personal_data_field_values(
             field_ids=personal_field_ids,
             settings=settings,
             row=row,
@@ -495,7 +494,7 @@ class ImportEngine:
             event_id=event_id,
         )
         if entries:
-            self._repos.host_personal_data.save(entries)
+            self._repos.personal_data_field_values.save(entries)
 
     def time_slot_ids(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow

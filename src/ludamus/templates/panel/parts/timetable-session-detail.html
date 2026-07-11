@@ -39,13 +39,6 @@
     {% if session.description %}
         <div class="text-sm text-foreground-secondary mb-3 line-clamp-4">{{ session.description }}</div>
     {% endif %}
-    <!-- Needs -->
-    {% if session.needs %}
-        <div class="mb-3">
-            <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Needs" %}</div>
-            <div class="text-sm text-foreground-secondary">{{ session.needs }}</div>
-        </div>
-    {% endif %}
     <!-- Current assignment -->
     <div class="mb-3">
         <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Assignment" %}</div>

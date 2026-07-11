@@ -13,16 +13,16 @@ from typing import TYPE_CHECKING, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorRepositoryProtocol,
         FieldUsageSummary,
-        HostPersonalDataEntry,
-        HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
+        PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
@@ -258,7 +258,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     sessions: SessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
-    host_personal_data: HostPersonalDataRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
@@ -343,13 +343,13 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
 
 
-class HostPersonalDataServiceProtocol(Protocol):
+class PersonalDataFieldValueServiceProtocol(Protocol):
     def update_personal_data(
         self,
         *,
         event_id: int,
         facilitator_id: int,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None: ...
     def update_facilitator(
@@ -358,7 +358,7 @@ class HostPersonalDataServiceProtocol(Protocol):
         event_id: int,
         facilitator_id: int,
         accreditation_type: str,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None: ...
     def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]: ...
