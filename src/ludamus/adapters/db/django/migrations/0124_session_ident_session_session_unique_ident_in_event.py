@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0119_event_printables_last_printed_at_and_more")]
+    dependencies = [("db_main", "0123_alter_personaldatafieldvalue_event")]
 
     operations = [
         migrations.AddField(
