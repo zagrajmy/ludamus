@@ -145,15 +145,20 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const DRAG_THRESHOLD_PX = 6;
   let moved = false;
   let startY = 0;
+  // The scrub belongs to the pointer that started it — a second finger
+  // resting elsewhere must not move it, end it, or steal it.
+  let scrubPointerId: number | null = null;
 
   rail.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (dragging) return;
     dragging = true;
     moved = false;
     startY = event.clientY;
+    scrubPointerId = event.pointerId;
   });
   globalThis.addEventListener("pointermove", (event) => {
-    if (!dragging) return;
+    if (!dragging || event.pointerId !== scrubPointerId) return;
     if (!moved && Math.abs(event.clientY - startY) < DRAG_THRESHOLD_PX) return;
     if (!moved) {
       moved = true;
@@ -161,9 +166,10 @@ const initScheduleRail = (rail: HTMLElement): void => {
     }
     scrubTo(event.clientY);
   });
-  const endDrag = (): void => {
-    if (!dragging) return;
+  const endDrag = (event: PointerEvent): void => {
+    if (!dragging || event.pointerId !== scrubPointerId) return;
     dragging = false;
+    scrubPointerId = null;
     rail.classList.remove("is-scrubbing");
     // The synthesized click (when any) fires before this timeout, so a real
     // drag still gets its trailing click swallowed — but a cancelled scrub
