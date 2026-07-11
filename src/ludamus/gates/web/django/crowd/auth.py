@@ -76,9 +76,9 @@ class LoginRequiredPageView(TemplateView):
 class Auth0LoginActionView(View):
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
-        root_domain = request.services.sites.read_site(
+        root_domain = request.services.sites.read(
             request.context.root_sphere_id
-        ).domain
+        ).site.domain
         next_path = request.GET.get("next")
         if next_path and not _is_safe_login_redirect(
             next_path, root_domain, require_https=request.is_secure()
@@ -176,9 +176,9 @@ class Auth0LoginCallbackActionView(RedirectView):
         if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
             return index_url
 
-        root_domain = self.request.services.sites.read_site(
+        root_domain = self.request.services.sites.read(
             self.request.context.root_sphere_id
-        ).domain
+        ).site.domain
         if redirect_to and not _is_safe_login_redirect(
             redirect_to, root_domain, require_https=self.request.is_secure()
         ):
@@ -306,9 +306,9 @@ class Auth0LogoutActionView(RedirectView):
 
         django_logout(self.request)
 
-        last_domain = self.request.services.sites.read_site(
+        last_domain = self.request.services.sites.read(
             self.request.context.current_sphere_id
-        ).domain
+        ).site.domain
         messages.success(self.request, _("You have been successfully logged out."))
 
         return _auth0_logout_url(
@@ -322,9 +322,9 @@ def _auth0_logout_url(
     last_domain: str | None = None,
     redirect_to: str | None = None,
 ) -> str:
-    root_domain = request.services.sites.read_site(
+    root_domain = request.services.sites.read(
         request.context.root_sphere_id
-    ).domain
+    ).site.domain
     last_domain = last_domain or root_domain
     redirect_to = redirect_to or reverse("web:index")
     return f"https://{settings.AUTH0_DOMAIN}/v2/logout?" + urlencode(

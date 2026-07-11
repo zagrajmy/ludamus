@@ -4,7 +4,6 @@ from django.db.models import ProtectedError
 from ludamus.adapters.db.django.models import Announcement, Connection, Sphere
 from ludamus.pacts import (
     NotFoundError,
-    SiteDTO,
     SphereDTO,
     SphereRepositoryProtocol,
     SphereUpdateData,
@@ -56,10 +55,6 @@ class SphereRepository(
             raise NotFoundError from exception
 
         return SphereDTO.model_validate(sphere)
-
-    @staticmethod
-    def read_site(sphere_id: int) -> SiteDTO:
-        return SphereRepository.read(sphere_id).site
 
     @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool:
