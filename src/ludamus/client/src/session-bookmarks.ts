@@ -14,22 +14,14 @@ const BOOKMARKED_COLOR = ["text-coral-600", "dark:text-coral-400"];
 const bookmarkUrl = (template: string, sessionId: string): string =>
   template.replace(/0\/bookmark\/?$/, `${sessionId}/bookmark/`);
 
-// The server's response carries the fresh count; the optimistic pre-response
-// flip (and its revert) has no count yet, so it nudges the displayed number
-// by ±1 until the real one arrives.
-const paint = (button: HTMLElement, bookmarked: boolean, serverCount?: number): void => {
-  const wasBookmarked = button.getAttribute("aria-pressed") === "true";
-  const count = button.querySelector<HTMLElement>(".bookmark-count");
-  if (count) {
-    const next =
-      serverCount ??
-      (wasBookmarked === bookmarked
-        ? undefined
-        : Math.max(0, Number(count.textContent) + (bookmarked ? 1 : -1)));
-    if (next !== undefined) {
-      count.textContent = String(next);
-      count.classList.toggle("hidden", next === 0);
-    }
+// Renders one authoritative state; the caller owns which count to show — the
+// optimistic ±1 guess, the server's fresh total, or the exact pre-flip number
+// on revert.
+const paint = (button: HTMLElement, bookmarked: boolean, count: number): void => {
+  const countEl = button.querySelector<HTMLElement>(".bookmark-count");
+  if (countEl) {
+    countEl.textContent = String(count);
+    countEl.classList.toggle("hidden", count === 0);
   }
   button.setAttribute("aria-pressed", String(bookmarked));
   button.classList.toggle(BOOKMARKED_COLOR[0], bookmarked);
@@ -51,8 +43,9 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   if (!sessionId || !template) return;
 
   const previous = button.getAttribute("aria-pressed") === "true";
+  const previousCount = Number(button.querySelector(".bookmark-count")?.textContent ?? 0);
   inFlight.add(button);
-  paint(button, !previous); // Optimistic flip.
+  paint(button, !previous, previousCount + (previous ? -1 : 1)); // Optimistic flip.
   try {
     const response = await fetch(bookmarkUrl(template, sessionId), {
       headers: { "X-CSRFToken": root.dataset.csrf ?? "" },
@@ -73,7 +66,7 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
     const { bookmarked, count } = data as { bookmarked: boolean; count: number };
     paint(button, bookmarked, count);
   } catch (error) {
-    paint(button, previous); // Revert the optimistic flip.
+    paint(button, previous, previousCount); // Revert the optimistic flip.
     console.error(error);
   } finally {
     inFlight.delete(button);

@@ -7,6 +7,13 @@
 
 import { playSound } from "./sound";
 
+const hourHasVisibleSection = (hour: string): boolean =>
+  [
+    ...document.querySelectorAll<HTMLElement>(
+      `.time-slot-section[data-slot-hour="${CSS.escape(hour)}"]`,
+    ),
+  ].some((section) => section.style.display !== "none");
+
 const initScheduleRail = (rail: HTMLElement): void => {
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
   // both the scroll-spy viewport and programmatic scrolling target it.
@@ -23,33 +30,56 @@ const initScheduleRail = (rail: HTMLElement): void => {
     if (active) active.dataset.active = "";
   };
 
-  // The rail doubles as the phone's scrollbar, so it must never outgrow the
-  // screen: when the schedule spans more hours than the viewport fits, keep
-  // only every 2nd/3rd/… marker per day (day labels and each day's first
-  // hour always stay). Hidden hours keep working for the scroll-spy by
-  // mapping to the nearest visible marker above them.
+  // The rail owns its markers' visibility — nothing else may touch their
+  // display. Two policies compose here: markers whose every section is
+  // filtered out disappear (session-filters.ts announces changes via the
+  // schedule:filtered event), and because the rail doubles as the phone's
+  // scrollbar it must never outgrow the screen, so the remaining markers thin
+  // to every 2nd/3rd/… hour per day until they fit. Hidden hours keep working
+  // for the scroll-spy by mapping to the nearest visible marker above them.
   let visibleLinks = hourLinks;
   const linkByHour = new Map<string, HTMLAnchorElement>();
 
-  const showEveryNth = (step: number): void => {
+  const showEveryNth = (step: number, candidates: ReadonlySet<HTMLElement>): void => {
     let indexInDay = -1;
+    let dayLabel: HTMLElement | null = null;
+    let dayHasHours = false;
+    const closeDay = (): void => {
+      if (dayLabel) dayLabel.style.display = dayHasHours ? "" : "none";
+    };
     for (const child of rail.children) {
       if (!(child instanceof HTMLElement)) continue;
       if (child.classList.contains("schedule-rail-hour")) {
+        if (!candidates.has(child)) {
+          child.style.display = "none";
+          continue;
+        }
         indexInDay += 1;
-        child.style.display = indexInDay % step === 0 ? "" : "none";
+        const shown = indexInDay % step === 0;
+        child.style.display = shown ? "" : "none";
+        if (shown) dayHasHours = true;
       } else {
+        closeDay();
+        dayLabel = child;
+        dayHasHours = false;
         indexInDay = -1;
       }
     }
+    closeDay();
   };
 
   const fitRail = (): void => {
+    const candidates = new Set<HTMLElement>(
+      hourLinks.filter((link) => {
+        const hour = link.dataset.railHour;
+        return hour !== undefined && hourHasVisibleSection(hour);
+      }),
+    );
     let step = 1;
-    showEveryNth(step);
+    showEveryNth(step, candidates);
     while (rail.scrollHeight > rail.clientHeight && step < hourLinks.length) {
       step += 1;
-      showEveryNth(step);
+      showEveryNth(step, candidates);
     }
     const visible = new Set(hourLinks.filter((link) => link.style.display !== "none"));
     visibleLinks = [...visible];
@@ -67,6 +97,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
   };
   fitRail();
   globalThis.addEventListener("resize", fitRail);
+  document.addEventListener("schedule:filtered", fitRail);
 
   const scrollToLink = (link: HTMLAnchorElement): void => {
     const id = link.getAttribute("href")?.slice(1);
@@ -181,20 +212,6 @@ const initScheduleRail = (rail: HTMLElement): void => {
   globalThis.addEventListener("pointerup", endDrag);
   globalThis.addEventListener("pointercancel", endDrag);
 
-  rail.addEventListener(
-    "wheel",
-    (event) => {
-      if (!scrollRoot) return;
-      // The rail is a scrubber, never a scroll container (fitRail keeps it
-      // within the screen), so the wheel always drives the page.
-      event.preventDefault();
-      // Firefox reports line-based deltas for a mouse wheel; scale them to
-      // pixels or each notch would nudge the page by a few pixels only.
-      const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
-      scrollRoot.scrollBy({ top: event.deltaY * scale });
-    },
-    { passive: false },
-  );
   // A real drag still synthesizes a trailing click on the marker under the
   // pointer; swallow that one click so it can't jump away from where the
   // scrub landed.
