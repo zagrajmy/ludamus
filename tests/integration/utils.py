@@ -1,3 +1,4 @@
+import re
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
@@ -86,3 +87,12 @@ def assert_response_404(
         messages=messages,
         **response_fields,
     )
+
+
+def input_tag(content: str, pk: int) -> str:
+    # The single <input> tag for a person's Include checkbox on the enroll
+    # page, so a test can check its checked / disabled attributes without
+    # depending on attribute order.
+    match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
+    assert match, f"no checkbox for user_{pk}"
+    return match.group(0)

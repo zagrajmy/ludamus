@@ -28,6 +28,7 @@ local linters = new Mapping<String, Step> {
       "**/vendor/**",
       "CLAUDE.md",
       ".claude/**",
+      ".agents/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
     )

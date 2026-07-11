@@ -479,10 +479,6 @@ class SessionEditForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 5})
     )
-    requirements = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
-    )
-    needs = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     contact_email = forms.EmailField(required=False)
     participants_limit = forms.IntegerField(required=False, min_value=0)
     min_age = forms.IntegerField(required=False, min_value=0)

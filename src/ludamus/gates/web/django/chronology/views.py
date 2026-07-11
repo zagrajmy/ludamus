@@ -926,8 +926,6 @@ class SessionEditView(LoginRequiredMixin, View):
                 "title": ctx.session.title,
                 "display_name": ctx.session.display_name,
                 "description": ctx.session.description,
-                "requirements": ctx.session.requirements,
-                "needs": ctx.session.needs,
                 "contact_email": ctx.session.contact_email,
                 "participants_limit": ctx.session.participants_limit,
                 "min_age": ctx.session.min_age,

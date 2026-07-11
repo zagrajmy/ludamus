@@ -37,7 +37,6 @@ from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
     PendingSessionDTO,
-    PendingSessionTagDTO,
     PendingSessionTimeSlotDTO,
     SessionDTO,
     SessionFieldValueDTO,
@@ -50,7 +49,6 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
-    TagFactory,
     TimeSlotFactory,
     UserFactory,
 )
@@ -887,12 +885,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs=pending_session.needs,
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[],
             time_slots=[],
             title=pending_session.title,
         )
@@ -932,10 +927,6 @@ class TestEventPageView:
         active_user.save()
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
-        pending_session.needs = "Quiet corner preferred"
-        pending_session.save(update_fields=["needs"])
-        tag = TagFactory()
-        pending_session.tags.add(tag)
         for offset in (0, 2, 4):
             pending_session.time_slots.add(
                 TimeSlotFactory(
@@ -957,12 +948,9 @@ class TestEventPageView:
             contact_email=flexible_session.contact_email,
             creation_time=flexible_session.creation_time,
             description=flexible_session.description,
-            needs=flexible_session.needs,
             participants_limit=flexible_session.participants_limit,
             pk=flexible_session.pk,
             display_name=flexible_session.display_name,
-            requirements=flexible_session.requirements,
-            tags=[],
             time_slots=[],
             title=flexible_session.title,
         )
@@ -970,12 +958,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs="Quiet corner preferred",
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[PendingSessionTagDTO(name=tag.name, pk=tag.pk)],
             time_slots=[
                 PendingSessionTimeSlotDTO.model_validate(ts)
                 for ts in pending_session.time_slots.all()
@@ -1008,14 +993,7 @@ class TestEventPageView:
                 "view": ANY,
             },
             template_name=["chronology/event.html"],
-            contains=[
-                "Pending Proposals",
-                tag.name,
-                "Quiet corner preferred",
-                "+1 more",
-                "Flexible",
-                "🧙",
-            ],
+            contains=["Pending Proposals", "+1 more", "Flexible", "🧙"],
         )
 
     def test_ok_superuser_organizer_sees_no_wizard_emoji(
@@ -1034,12 +1012,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs=pending_session.needs,
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[],
             time_slots=[],
             title=pending_session.title,
         )
@@ -1086,12 +1061,9 @@ class TestEventPageView:
             contact_email=pending_session.contact_email,
             creation_time=pending_session.creation_time,
             description=pending_session.description,
-            needs=pending_session.needs,
             participants_limit=pending_session.participants_limit,
             pk=pending_session.pk,
             display_name=pending_session.display_name,
-            requirements=pending_session.requirements,
-            tags=[],
             time_slots=[],
             title=pending_session.title,
         )

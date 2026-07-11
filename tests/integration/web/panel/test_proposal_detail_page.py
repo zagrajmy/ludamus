@@ -150,54 +150,6 @@ class TestProposalDetailPageView:
             },
         )
 
-    def test_does_not_render_legacy_requirements_needs(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        session = Session.objects.create(
-            event=event,
-            category=category,
-            display_name="Host",
-            title="Session With Legacy Fields",
-            slug="legacy-fields",
-            participants_limit=4,
-            status="pending",
-            requirements="Secret legacy requirements",
-            needs="Secret legacy needs",
-        )
-
-        response = authenticated_client.get(self.get_url(event, session.pk))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/proposal-detail.html",
-            context_data={
-                **_base_context(event),
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
-                "proposal": SessionDTO.model_validate(session),
-                "category_name": "RPG",
-                "proposal_tracks": [],
-                "agenda_item": None,
-                "schedule_logs": [],
-                "field_values": [],
-                "facilitators": [],
-                "presenter": None,
-                "preferred_time_slots": [],
-                "import_log_entry": None,
-                "import_log_integration": None,
-            },
-            not_contains=["Secret legacy requirements", "Secret legacy needs"],
-        )
-
     def test_shows_cover_image(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")

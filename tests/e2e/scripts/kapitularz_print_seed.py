@@ -314,8 +314,6 @@ def _create_sessions(
             display_name=facilitator.display_name,
             contact_email=f"host-{index:03}@example.test",
             description=_description(index, spec.track_slug),
-            requirements="No personal data in this synthetic fixture.",
-            needs="Standard table setup.",
             duration=f"PT{duration_hours}H",
             participants_limit=_participants_limit(spec.track_slug, index),
             min_age=(0, 10, 12, 14, 16)[index % 5],
