@@ -21,17 +21,17 @@ deferred finding later.
 | 004 | Stop logging e-mails in the membership client | P2 | S | — | DONE |
 | 005 | Fix onboarding and refactor-index doc drift | P3 | S | — | DONE |
 | 006 | Embed site in SphereDTO, delete read_with_site | P3 | S | 003 | DONE |
-| 007 | Ship a report-only Content-Security-Policy | P2 | M | — | TODO |
-| 008 | Batch waitlist promotion queries | P2 | M | — | TODO |
-| 009 | Fix prefetch defeated by order_by | P3 | S | — | TODO |
-| 010 | Dependency pin hygiene (dbos, django-vite) | P3 | S | — | TODO |
-| 011 | Cache dependencies in CI | P3 | M | — | TODO |
-| 012 | Parallelize Python tests (pytest-xdist) | P3 | S | — | TODO |
-| 013 | Remove dead OAuth csrf_token state field | P3 | S | — | TODO |
-| 014 | Docs: toolchain glossary, stale README commands | P3 | S | — | TODO |
-| 015 | Migrate current_user() context off di.uow | P3 | S | — | TODO |
-| 016 | Delete read_site and SphereDTO.site_id | P3 | S | 006 | TODO |
-| 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | TODO |
+| 007 | Ship a report-only Content-Security-Policy | P2 | M | — | DONE |
+| 008 | Batch waitlist promotion queries | P2 | M | — | DONE |
+| 009 | Fix prefetch defeated by order_by | P3 | S | — | DONE |
+| 010 | Dependency pin hygiene (dbos, django-vite) | P3 | S | — | DONE |
+| 011 | Cache dependencies in CI | P3 | M | — | DONE |
+| 012 | Parallelize Python tests (pytest-xdist) | P3 | S | — | BLOCKED |
+| 013 | Remove dead OAuth csrf_token state field | P3 | S | — | DONE |
+| 014 | Docs: toolchain glossary, stale README commands | P3 | S | — | DONE |
+| 015 | Migrate current_user() context off di.uow | P3 | S | — | DONE |
+| 016 | Delete read_site and SphereDTO.site_id | P3 | S | 006 | DONE |
+| 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | DONE |
 
 ## Execution log (2026-07-09)
 
@@ -49,6 +49,29 @@ branch the same day. Learnings recorded for the next audit cycle:
   is a natural next slice.
 - Plan 004 learning: `tests/integration/links/test_ticket_api.py`
   stubs with `unittest.mock.patch`, not the `responses` library.
+
+## Execution log (2026-07-11)
+
+Plans 007-017 executed by dispatched subagents in isolated worktrees,
+reviewed, and landed the same day. Outcomes and learnings:
+
+- **012 BLOCKED, not landed**: `pytest -n auto` (4 workers, 4 cores)
+  was ~51% slower than serial (623s vs 413s, identical results).
+  Measured under sibling-suite contention, so pessimistic — retest at
+  the CI runner's core count before ruling parallelization out.
+- **010 landed partially by owner decision**: only the `dbos <3`
+  upper bound (a tightening) shipped. The django-vite `==3.1.0`
+  relaxation was rejected — owner: "we lock for security".
+- **017 suspected bugs** (characterized as-is, candidates for issues):
+  skip notices flash at `messages.SUCCESS` level (a skip rendered as
+  a green toast, `views.py:1507-1528`); with zero `EnrollmentConfig`
+  rows a user cannot cancel an existing enrollment
+  (`views.py:1072-1081`) — enrollees get stuck if an organizer
+  deletes all configs.
+- 017's audit found the enrollment view already 99.25% covered with
+  32/33 behaviors asserted; one neutral-message assertion was added.
+- 011's cache effectiveness is reviewer-verified on the next CI runs
+  (compare wall times); the workflow only landed lint-verified.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line
 reason) | REJECTED (with one-line rationale).
