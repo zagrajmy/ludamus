@@ -2,17 +2,23 @@
 include = ["src/**/*.py", "tests/**/*.py"]
 default = true
 
+[ranges.config]
+include = ["pyproject.toml"]
+
 [ranges.python-src]
 include = ["src/**/*.py"]
+
+[ranges.legacy-code]
+include = ["src/ludamus/adapters/**/*.py", "src/**/legacy.py"]
+
+[ranges.gates]
+include = ["src/ludamus/gates/**/*.py"]
 
 [ranges.python-tests]
 include = ["tests/**/*.py"]
 
 [ranges.python-tests-int]
 include = ["tests/integration/**/*.py"]
-
-[ranges.legacy-code]
-include = ["src/ludamus/adapters/**/*.py", "src/**/legacy.py"]
 
 [ranges.templates]
 include = ["src/**/*.html"]
@@ -134,17 +140,31 @@ label = "module"
 
 [[metrics]]
 name = "type-any"
-type = "regex_count"
+type = "symbol_uses"
 group = "typing"
-pattern = '\bAny\b'
+symbol = 'Any'
 ranges = ["python-src"]
 
 [[metrics]]
 name = "type-object"
+type = "symbol_uses"
+group = "typing"
+symbol = 'object'
+ranges = ["python-src"]
+
+[[metrics]]
+name = "type-cast"
+type = "symbol_uses"
+group = "typing"
+symbol = 'cast'
+ranges = ["python-src"]
+
+[[metrics]]
+name = "mypy-strictness-holes"
 type = "regex_count"
 group = "typing"
-pattern = '\bobject[^a-z\.]'
-ranges = ["python-src"]
+pattern = 'disallow_\w+ = false'
+ranges = ["config"]
 
 # refactoring
 
@@ -152,7 +172,7 @@ ranges = ["python-src"]
 name = "request-di-uow"
 type = "regex_count"
 group = "refactoring"
-pattern = 'request.di.uow'
+pattern = 'request\.di\.uow'
 
 [[metrics]]
 name = "legacy-loc"
@@ -164,7 +184,7 @@ ranges = ["legacy-code"]
 name = "script-tags"
 type = "regex_count"
 group = "refactoring"
-pattern = "<script>"
+pattern = "<script"
 ranges = ["templates"]
 
 [[metrics]]
@@ -173,3 +193,54 @@ type = "regex_count"
 group = "typing"
 pattern = 'def get_context_data\(.*dict\[str, Any\]:'
 ranges = ["python-src"]
+
+[[metrics]]
+name = "adpter-imports-in-gates"
+type = "regex_count"
+group = "refactoring"
+pattern = 'from ludamus\.adapters'
+ranges = ["gates"]
+
+[[metrics]]
+name = "todo-comments"
+type = "regex_count"
+group = "refactoring"
+pattern = '#\s*s(TODO|FIXME|XXX|HACK)'
+ranges = ["python-src", "templates"]
+
+# frontend
+
+[[metrics]]
+name = "inline-styles"
+type = "regex_count"
+group = "frontend"
+pattern = 'style="'
+ranges = ["templates"]
+
+[[metrics]]
+name = "inline-handlers"
+type = "regex_count"
+group = "frontend"
+pattern = '\son(click|change|submit|input|load)='
+ranges = ["templates"]
+
+[[metrics]]
+name = "template-filter-safe"
+type = "regex_count"
+group = "frontend"
+pattern = '\|\s*safe'
+ranges = ["templates"]
+
+[[metrics]]
+name = "untranslated-attrs"
+type = "regex_count"
+group = "frontend"
+pattern = '(placeholder|title|aria-label)="[^"{]{3,}"'
+ranges = ["templates"]
+
+[[metrics]]
+name = "template-hardcoded-text"
+type = "regex_count"
+group = "refactoring"
+pattern = '(placeholder|title|alt|aria-label)="[A-ZŁŚĆŹŻĄĘÓa-złśćźżąęó][^"{%]{4,}"'
+ranges = ["templates"]
