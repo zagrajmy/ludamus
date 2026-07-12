@@ -147,9 +147,9 @@ ranges = ["python-src"]
 
 [[metrics]]
 name = "type-object"
-type = "symbol_uses"
+type = "regex_count"
 group = "typing"
-symbol = 'object'
+pattern = '(?<![\.\w])object\b'
 ranges = ["python-src"]
 
 [[metrics]]
@@ -195,7 +195,7 @@ pattern = 'def get_context_data\(.*dict\[str, Any\]:'
 ranges = ["python-src"]
 
 [[metrics]]
-name = "adpter-imports-in-gates"
+name = "adapter-imports-in-gates"
 type = "regex_count"
 group = "refactoring"
 pattern = 'from ludamus\.adapters'
@@ -205,7 +205,7 @@ ranges = ["gates"]
 name = "todo-comments"
 type = "regex_count"
 group = "refactoring"
-pattern = '#\s*s(TODO|FIXME|XXX|HACK)'
+pattern = '#\s*(TODO|FIXME|XXX|HACK)'
 ranges = ["python-src", "templates"]
 
 # frontend
@@ -228,19 +228,12 @@ ranges = ["templates"]
 name = "template-filter-safe"
 type = "regex_count"
 group = "frontend"
-pattern = '\|\s*safe'
-ranges = ["templates"]
-
-[[metrics]]
-name = "untranslated-attrs"
-type = "regex_count"
-group = "frontend"
-pattern = '(placeholder|title|aria-label)="[^"{]{3,}"'
+pattern = '\|\s*safe\b'
 ranges = ["templates"]
 
 [[metrics]]
 name = "template-hardcoded-text"
 type = "regex_count"
-group = "refactoring"
+group = "frontend"
 pattern = '(placeholder|title|alt|aria-label)="[A-ZŁŚĆŹŻĄĘÓa-złśćźżąęó][^"{%]{4,}"'
 ranges = ["templates"]
