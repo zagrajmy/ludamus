@@ -26,6 +26,27 @@ description — run it rather than trusting a hardcoded list here. Most used:
   *before* building — it routes to the component catalog, reachable-states
   checklist, Polish copy rules, and a verification checklist.
 
+## Debt metrics (tingle)
+
+`tingle.toml` counts things we want to shrink: `noqa`/`type: ignore`/`pylint:`
+comments, ruff & pylint ignore lists, mypy overrides, `Any`/`object`,
+`ANY` in tests, `request.di.uow` uses, legacy LOC, `<script>` in templates.
+
+- `tingle stat` — current values. `tingle stat --diff` — what your branch adds
+  or removes vs `main`. `tingle report --diff` — the exact `file:line`s.
+- `tingle check` (runs in `mise run lint` / `check`) fails when the branch's
+  metrics grow by a net positive. Policy is `sum`: paying debt in one metric
+  offsets taking it on in another, so a red `check` means "you grew debt
+  overall", not "you touched a counter".
+- When it fails, read the added occurrences it prints and remove what you can.
+
+It's a guide, not an oracle. A justified addition is fine — e.g. a
+`# pylint: disable=import-outside-toplevel` for an import that has to live in a
+function body to break a circular dependency. Don't contort the code to keep a
+number flat, and don't game a counter (renaming a symbol, moving code out of a
+range). Do mention in the PR what you added and why. What we don't accept is
+debt added by accident or laziness.
+
 ## Papercuts
 
 Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log

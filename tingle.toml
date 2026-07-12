@@ -1,0 +1,175 @@
+[ranges.python]
+include = ["src/**/*.py", "tests/**/*.py"]
+default = true
+
+[ranges.python-src]
+include = ["src/**/*.py"]
+
+[ranges.python-tests]
+include = ["tests/**/*.py"]
+
+[ranges.python-tests-int]
+include = ["tests/integration/**/*.py"]
+
+[ranges.legacy-code]
+include = ["src/ludamus/adapters/**/*.py", "src/**/legacy.py"]
+
+[ranges.templates]
+include = ["src/**/*.html"]
+
+# A branch may take on debt in one metric if it pays off as much elsewhere.
+[check]
+policy = "sum"
+
+# Formatting
+
+[[metrics]]
+name = "fmt-comment"
+type = "regex_count"
+group = "formatting"
+pattern = '#\s*fmt'
+
+[[metrics]]
+name = "taplo-comment"
+type = "regex_count"
+group = "formatting"
+pattern = '#\s*taplo:'
+
+[[metrics]]
+name = "codespell-comment"
+type = "regex_count"
+group = "formatting"
+pattern = '#\s*codespell:ignore'
+
+[[metrics]]
+name = "noqa-comment"
+type = "regex_count"
+group = "linting"
+pattern = '#\s*noqa:'
+
+[[metrics]]
+name = "ruff-ignores"
+type = "toml_list_length"
+group = "linting"
+key = "tool.ruff.lint.ignore"
+
+
+[[metrics]]
+name = "ruff-per-file-ignores"
+type = "toml_list_length"
+group = "linting"
+key = "tool.ruff.lint.per-file-ignores"
+
+
+[[metrics]]
+name = "pylint-comment"
+type = "regex_count"
+group = "linting"
+pattern = '#\s*pylint:'
+
+[[metrics]]
+name = "pylint-disables"
+type = "ini_list_length"
+group = "linting"
+file = ".pylintrc"
+section = "MESSAGES CONTROL"
+option = "disable"
+
+# testing
+
+[[metrics]]
+name = "pragma-comment"
+type = "regex_count"
+group = "testing"
+pattern = '#\s*pragma'
+ranges = ["python-tests"]
+
+
+[[metrics]]
+name = "mock-ANY"
+type = "regex_count"
+group = "testing"
+pattern = '(?!.*(view|form)).*\bANY\b.*'
+ranges = ["python-tests"]
+
+
+[[metrics]]
+name = "pytest-skip"
+type = "regex_count"
+group = "testing"
+pattern = 'mark\.skip'
+ranges = ["python-tests"]
+
+
+[[metrics]]
+name = "pytest-xfail"
+type = "regex_count"
+group = "testing"
+pattern = 'mark\.xfail'
+ranges = ["python-tests"]
+
+
+[[metrics]]
+name = "wrong-assert"
+type = "regex_count"
+group = "testing"
+pattern = 'assert response\.'
+ranges = ["python-tests-int"]
+
+# typing
+
+[[metrics]]
+name = "type-ignores"
+type = "regex_count"
+group = "typing"
+pattern = '#\s*type:\s*ignore'
+ranges = ["python-src"]
+
+[[metrics]]
+name = "mypy-overrides"
+type = "toml_table_array"
+group = "typing"
+key = "tool.mypy.overrides"
+label = "module"
+
+[[metrics]]
+name = "type-any"
+type = "regex_count"
+group = "typing"
+pattern = '\bAny\b'
+ranges = ["python-src"]
+
+[[metrics]]
+name = "type-object"
+type = "regex_count"
+group = "typing"
+pattern = '\bobject[^a-z\.]'
+ranges = ["python-src"]
+
+# refactoring
+
+[[metrics]]
+name = "request-di-uow"
+type = "regex_count"
+group = "refactoring"
+pattern = 'request.di.uow'
+
+[[metrics]]
+name = "legacy-loc"
+type = "line_count"
+group = "refactoring"
+ranges = ["legacy-code"]
+
+[[metrics]]
+name = "script-tags"
+type = "regex_count"
+group = "refactoring"
+pattern = "<script>"
+ranges = ["templates"]
+
+[[metrics]]
+name = "context-data-not-typed"
+type = "regex_count"
+group = "typing"
+pattern = 'def get_context_data\(.*dict\[str, Any\]:'
+ranges = ["python-src"]
