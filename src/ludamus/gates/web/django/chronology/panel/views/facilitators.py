@@ -25,12 +25,12 @@ from ludamus.gates.web.django.forms import FacilitatorEditForm, FacilitatorForm
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
-    FacilitatorDTO,
     FacilitatorMergeError,
     FacilitatorUpdateData,
     NotFoundError,
     PersonalDataFieldValueData,
 )
+from ludamus.pacts.submissions import FacilitatorListQuery
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -55,70 +55,38 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def _read_field_filters(
-        self, filterable_fields: list[PersonalDataFieldDTO]
-    ) -> dict[int, str | bool]:
-        field_filters: dict[int, str | bool] = {}
-        for field in filterable_fields:
-            if not (raw := self.request.GET.get(f"field_{field.pk}", "").strip()):
-                continue
-            if field.field_type == "checkbox":
-                if raw == "true":
-                    field_filters[field.pk] = True
-            else:
-                field_filters[field.pk] = raw
-        return field_filters
+    def _read_query(self) -> FacilitatorListQuery:
+        accreditation = self.request.GET.get("accreditation", "").strip()
+        return FacilitatorListQuery(
+            search=self.request.GET.get("search", "").strip(),
+            accreditation=(
+                accreditation if accreditation in set(AccreditationType.values) else ""
+            ),
+            flagged=self.request.GET.get("flagged") == "true",
+            sort=self.request.GET.get("sort", "").strip() or "name",
+            raw_field_filters={
+                int(key.removeprefix("field_")): self.request.GET.get(key, "")
+                for key in self.request.GET
+                if key.startswith("field_") and key.removeprefix("field_").isdigit()
+            },
+        )
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        search = self.request.GET.get("search", "").strip() or None
-        accreditation_raw = self.request.GET.get("accreditation", "").strip()
-        accreditation = (
-            accreditation_raw
-            if accreditation_raw in set(AccreditationType.values)
-            else None
+        query = self._read_query()
+        list_context = self.request.services.facilitator_panel.list_context(
+            event_id=current_event.pk, query=query
         )
-        sort = self.request.GET.get("sort", "").strip() or "name"
-        flagged = self.request.GET.get("flagged") == "true"
+        page_obj = Paginator(
+            list_context.facilitators, _FACILITATORS_PAGE_SIZE
+        ).get_page(self.request.GET.get("page"))
 
-        personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
-            current_event.pk
-        )
-        filterable_fields = [
-            f for f in personal_fields if f.field_type in {"select", "checkbox"}
-        ]
-        field_filters = self._read_field_filters(filterable_fields)
-
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk,
-            {
-                "search": search,
-                "accreditation": accreditation,
-                "flagged": flagged or None,
-                "field_filters": field_filters or None,
-                "sort": sort,
-            },
-        )
-        page_obj = Paginator(all_facilitators, _FACILITATORS_PAGE_SIZE).get_page(
-            self.request.GET.get("page")
-        )
-
-        panel_settings = self.request.di.uow.event_panel_settings.read_or_create(
-            current_event.pk
-        )
-        selected_ids = set(panel_settings.displayed_facilitator_field_ids)
-        displayed_fields = sorted(
-            (field for field in personal_fields if field.pk in selected_ids),
-            key=lambda field: (field.order, field.name),
-        )
-        # ponytail: one batched query for every facilitator's chosen-column
-        # values; page-scoped narrowing is a later concern if events grow huge.
-        pdfv_repo = self.request.di.uow.personal_data_field_values
-        raw_values = pdfv_repo.list_values_for_event(
-            current_event.pk, [field.pk for field in displayed_fields]
+        raw_values = self.request.services.facilitator_panel.column_values(
+            facilitator_ids=[f.pk for f in page_obj.object_list],
+            field_ids=[field.pk for field in list_context.displayed_fields],
         )
         column_values = {
             facilitator_pk: {
@@ -130,19 +98,22 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitators"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
-        context["displayed_fields"] = displayed_fields
+        context["displayed_fields"] = list_context.displayed_fields
         context["column_values"] = column_values
-        context["filterable_fields"] = filterable_fields
+        context["filterable_fields"] = list_context.filterable_fields
         context["filter_fields"] = {
-            field.pk: self.request.GET.get(f"field_{field.pk}", "")
-            for field in filterable_fields
+            field.pk: query.raw_field_filters.get(field.pk, "")
+            for field in list_context.filterable_fields
         }
-        context["filter_search"] = search or ""
-        context["filter_accreditation"] = accreditation
-        context["filter_flagged"] = flagged
-        context["filter_sort"] = sort
+        context["filter_search"] = query.search
+        context["filter_accreditation"] = query.accreditation or None
+        context["filter_flagged"] = query.flagged
+        context["filter_sort"] = query.sort
         context["filters_active"] = bool(
-            search or accreditation or flagged or field_filters
+            query.search
+            or query.accreditation
+            or query.flagged
+            or list_context.field_filters
         )
         context["accreditation_types"] = [(t.value, t.label) for t in AccreditationType]
         context["accreditation_labels"] = {t.value: t.label for t in AccreditationType}
@@ -441,7 +412,7 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
     http_method_names = ("post",)
     success_message: str | _StrPromise = ""
 
-    def _apply(self, facilitator: FacilitatorDTO) -> None:
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
         raise NotImplementedError
 
     def post(
@@ -452,14 +423,11 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            facilitator = self.request.di.uow.facilitators.read_by_event_and_slug(
-                current_event.pk, facilitator_slug
-            )
+            self._apply(current_event.pk, facilitator_slug)
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
-        self._apply(facilitator)
         messages.success(self.request, self.success_message)
         return redirect(self._safe_next(slug))
 
@@ -477,8 +445,10 @@ class FacilitatorFlagActionView(_FacilitatorActionView):
 
     success_message = gettext_lazy("Facilitator flagged for deletion.")
 
-    def _apply(self, facilitator: FacilitatorDTO) -> None:
-        self.request.di.uow.facilitators.set_flag(facilitator.pk, flagged=True)
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_flag(
+            event_id=event_id, facilitator_slug=facilitator_slug, flagged=True
+        )
 
 
 class FacilitatorUnflagActionView(_FacilitatorActionView):
@@ -486,8 +456,10 @@ class FacilitatorUnflagActionView(_FacilitatorActionView):
 
     success_message = gettext_lazy("Facilitator unflagged.")
 
-    def _apply(self, facilitator: FacilitatorDTO) -> None:
-        self.request.di.uow.facilitators.set_flag(facilitator.pk, flagged=False)
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_flag(
+            event_id=event_id, facilitator_slug=facilitator_slug, flagged=False
+        )
 
 
 class FacilitatorMarkGuestActionView(_FacilitatorActionView):
@@ -495,13 +467,12 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
 
     success_message = gettext_lazy("Facilitator marked as guest.")
 
-    def _apply(self, facilitator: FacilitatorDTO) -> None:
-        # ponytail: quick accreditation set via repo.update; skips the
-        # FacilitatorChangeLog the full edit form records. Fine for a one-click
-        # tag — use Edit for a logged, full change.
-        self.request.di.uow.facilitators.update(
-            facilitator.pk,
-            FacilitatorUpdateData(accreditation_type=AccreditationType.GUEST.value),
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_accreditation(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            accreditation_type=AccreditationType.GUEST.value,
+            user_id=self.request.context.current_user_id,
         )
 
 
@@ -515,14 +486,12 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        settings = self.request.di.uow.event_panel_settings.read_or_create(
+        columns = self.request.services.facilitator_panel.columns_context(
             current_event.pk
         )
         context["active_nav"] = "facilitators"
-        context["fields"] = self.request.di.uow.personal_data_fields.list_by_event(
-            current_event.pk
-        )
-        context["selected_field_ids"] = settings.displayed_facilitator_field_ids
+        context["fields"] = columns.fields
+        context["selected_field_ids"] = columns.selected_field_ids
         return TemplateResponse(self.request, "panel/facilitator-columns.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -530,19 +499,11 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        valid_pks = {
-            field.pk
-            for field in self.request.di.uow.personal_data_fields.list_by_event(
-                current_event.pk
-            )
-        }
-        selected_ids = [
-            pk
-            for raw in self.request.POST.getlist("fields")
-            if raw.isdigit() and (pk := int(raw)) in valid_pks
-        ]
-        self.request.di.uow.event_panel_settings.update_displayed_facilitator_fields(
-            current_event.pk, selected_ids
+        self.request.services.facilitator_panel.set_columns(
+            event_id=current_event.pk,
+            field_ids=[
+                int(raw) for raw in self.request.POST.getlist("fields") if raw.isdigit()
+            ],
         )
         messages.success(self.request, _("Columns updated."))
         return redirect("panel:facilitators", slug=slug)

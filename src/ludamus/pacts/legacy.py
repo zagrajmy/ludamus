@@ -1320,8 +1320,8 @@ class PersonalDataFieldValueRepositoryProtocol(Protocol):
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
     @staticmethod
-    def list_values_for_event(
-        event_id: int, field_ids: list[int]
+    def list_values_for_facilitators(
+        facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def list_field_ids_for_facilitator_event(
@@ -1504,8 +1504,6 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     def events(self) -> EventRepositoryProtocol: ...
     @property
     def event_settings(self) -> EventSettingsRepositoryProtocol: ...
-    @property
-    def event_panel_settings(self) -> EventPanelSettingsRepositoryProtocol: ...
     @property
     def facilitators(self) -> FacilitatorRepositoryProtocol: ...
     @property

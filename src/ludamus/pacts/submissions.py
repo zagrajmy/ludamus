@@ -15,7 +15,10 @@ from pydantic import BaseModel, ConfigDict, Field
 if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
+        EventPanelSettingsRepositoryProtocol,
         FacilitatorChangeLogDTO,
+        FacilitatorChangeLogRepositoryProtocol,
+        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
         FieldUsageSummary,
@@ -316,6 +319,73 @@ class PersonalDataFieldEditContextDTO:
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
+
+
+@dataclass
+class FacilitatorPanelRepos:
+    """The repos the panel's facilitator list reads and writes through."""
+
+    facilitators: FacilitatorRepositoryProtocol
+    personal_data_fields: PersonalDataFieldRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
+    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
+    panel_settings: EventPanelSettingsRepositoryProtocol
+
+
+@dataclass
+class FacilitatorListQuery:
+    """The list's requested view: filters as the request spelled them.
+
+    `raw_field_filters` is keyed by personal-data field pk with the value
+    untouched from the query string; the service resolves it against the
+    event's own fields.
+    """
+
+    search: str = ""
+    accreditation: str = ""
+    flagged: bool = False
+    sort: str = ""
+    raw_field_filters: dict[int, str] = field(default_factory=dict)
+
+
+@dataclass
+class FacilitatorListContextDTO:
+    """Read aggregate for the panel's facilitator list."""
+
+    facilitators: list[FacilitatorListItemDTO]
+    filterable_fields: list[PersonalDataFieldDTO]
+    field_filters: dict[int, str | bool]
+    displayed_fields: list[PersonalDataFieldDTO]
+
+
+@dataclass
+class FacilitatorColumnsContextDTO:
+    """Read aggregate for the facilitator-columns chooser."""
+
+    fields: list[PersonalDataFieldDTO]
+    selected_field_ids: list[int]
+
+
+class FacilitatorPanelServiceProtocol(Protocol):
+    def list_context(
+        self, *, event_id: int, query: FacilitatorListQuery
+    ) -> FacilitatorListContextDTO: ...
+    def column_values(
+        self, *, facilitator_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
+    def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
+    def set_columns(self, *, event_id: int, field_ids: list[int]) -> None: ...
+    def set_flag(
+        self, *, event_id: int, facilitator_slug: str, flagged: bool
+    ) -> None: ...
+    def set_accreditation(
+        self,
+        *,
+        event_id: int,
+        facilitator_slug: str,
+        accreditation_type: str,
+        user_id: int | None = None,
+    ) -> None: ...
 
 
 class CFPPersonalDataFieldServiceProtocol(Protocol):

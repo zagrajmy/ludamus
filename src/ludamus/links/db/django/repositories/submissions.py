@@ -985,15 +985,15 @@ class PersonalDataFieldValueRepository(PersonalDataFieldValueRepositoryProtocol)
         return {hpd.field.slug: hpd.value for hpd in records}
 
     @staticmethod
-    def list_values_for_event(
-        event_id: int, field_ids: list[int]
+    def list_values_for_facilitators(
+        facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]:
-        # Batch load for the facilitators list: one query for all facilitators'
-        # values across the chosen columns, keyed by facilitator_id.
-        if not field_ids:
+        # Batch load for the facilitators list: one query for the current
+        # page's facilitators across the chosen columns, keyed by facilitator_id.
+        if not facilitator_ids or not field_ids:
             return {}
         records = PersonalDataFieldValue.objects.filter(
-            event_id=event_id, field_id__in=field_ids
+            facilitator_id__in=facilitator_ids, field_id__in=field_ids
         ).select_related("field")
         result: dict[int, dict[str, str | list[str] | bool]] = {}
         for hpd in records:

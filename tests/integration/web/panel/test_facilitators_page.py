@@ -2,6 +2,7 @@
 
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
@@ -9,10 +10,12 @@ from ludamus.adapters.db.django.models import (
     AccreditationType,
     EventPanelSettings,
     Facilitator,
+    FacilitatorChangeLog,
     PersonalDataField,
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -620,6 +623,41 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == AccreditationType.GUEST
 
+    def test_mark_guest_is_logged(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        authenticated_client.post(
+            self._url("panel:facilitator-mark-guest", event, facilitator)
+        )
+
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert log.changes == [
+            {
+                "field": "accreditation_type",
+                "field_id": None,
+                "old": AccreditationType.NONE.value,
+                "new": AccreditationType.GUEST.value,
+            }
+        ]
+
+    def test_mark_guest_of_already_guest_is_not_logged(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(
+            event, accreditation_type=AccreditationType.GUEST
+        )
+
+        authenticated_client.post(
+            self._url("panel:facilitator-mark-guest", event, facilitator)
+        )
+
+        assert not FacilitatorChangeLog.objects.filter(facilitator=facilitator).exists()
+
     def test_flag_preserves_next(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -676,6 +714,45 @@ class TestFacilitatorActions:
             messages=[(messages.ERROR, "Facilitator not found.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
+
+    @pytest.mark.parametrize(
+        ("action", "flagged"),
+        (
+            ("facilitator-flag", False),
+            ("facilitator-unflag", True),
+            ("facilitator-mark-guest", False),
+        ),
+    )
+    def test_action_on_facilitator_of_another_event_is_not_found(
+        self, action, flagged, authenticated_client, active_user, sphere, event
+    ):
+        # Each action starts from the state it would change, so an unchanged
+        # facilitator proves the foreign event was rejected, not that the write
+        # was a no-op.
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        foreign = self._facilitator(
+            other_event,
+            accreditation_type=AccreditationType.STANDARD,
+            flagged_for_deletion=flagged,
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                f"panel:{action}",
+                kwargs={"slug": event.slug, "facilitator_slug": foreign.slug},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        foreign.refresh_from_db()
+        assert foreign.flagged_for_deletion is flagged
+        assert foreign.accreditation_type == AccreditationType.STANDARD
 
 
 class TestFacilitatorColumns:
