@@ -26,6 +26,17 @@ description — run it rather than trusting a hardcoded list here. Most used:
   *before* building — it routes to the component catalog, reachable-states
   checklist, Polish copy rules, and a verification checklist.
 
+## Debt metrics (tingle)
+
+`tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
+legacy LOC, …). `tingle stat --diff` / `tingle report --diff` show what your
+branch adds vs `main`.
+
+`tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
+grow on net — paying debt in one offsets taking it on in another. Read the
+added occurrences it prints and remove what you can. A justified addition is
+fine; say so in the PR. Don't game a counter to keep a number flat.
+
 ## Papercuts
 
 Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
