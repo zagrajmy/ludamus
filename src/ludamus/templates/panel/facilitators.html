@@ -38,78 +38,56 @@
                             <input type="hidden" name="sort" value="{{ filter_sort }}">
                         {% endif %}
                         <div class="w-full sm:w-64 min-w-0">
-                            <label for="filter-search"
-                                   title="{% translate "Search" %}"
-                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                                {% translate "Search" %}
-                            </label>
-                            <input type="text"
-                                   id="filter-search"
-                                   name="search"
-                                   value="{{ filter_search }}"
-                                   placeholder="{% translate "Name, linked user or field values" %}"
-                                   class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
+                            {% translate "Search" as t_search %}
+                            {% include "components/label.html" with for_id="filter-search" text=t_search only %}
+                            {% translate "Name, linked user or field values" as t_search_placeholder %}
+                            {% include "components/text-field.html" with name="search" id="filter-search" value=filter_search placeholder=t_search_placeholder only %}
                         </div>
                         <div class="w-full sm:w-48 min-w-0">
-                            <label for="filter-accreditation"
-                                   title="{% translate "Accreditation" %}"
-                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                                {% translate "Accreditation" %}
-                            </label>
-                            <select id="filter-accreditation"
-                                    name="accreditation"
-                                    class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                            {% translate "Accreditation" as t_accreditation %}
+                            {% include "components/label.html" with for_id="filter-accreditation" text=t_accreditation only %}
+                            {% select id="filter-accreditation" name="accreditation" class="truncate" %}
                                 <option value="">{% translate "All accreditations" %}</option>
                                 {% for value, label in accreditation_types %}
                                     <option value="{{ value }}"
                                             {% if filter_accreditation == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
-                            </select>
+                            {% end_select %}
                         </div>
                         {% for field in filterable_fields %}
-                            <div class="w-full sm:w-48 min-w-0">
-                                <label for="filter-field-{{ field.pk }}"
-                                       title="{{ field.name }}"
-                                       class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                                    {{ field.name }}
-                                </label>
-                                {% if field.field_type == "select" %}
-                                    <select id="filter-field-{{ field.pk }}"
-                                            name="field_{{ field.pk }}"
-                                            class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                                        <option value="">—</option>
-                                        {% for option in field.options %}
-                                            <option value="{{ option.value }}"
-                                                    {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
-                                                {{ option.label }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                {% else %}
-                                    <div class="flex items-center h-9">
-                                        <input type="checkbox"
-                                               id="filter-field-{{ field.pk }}"
-                                               name="field_{{ field.pk }}"
-                                               value="true"
-                                               {% if filter_fields|get_item:field.pk %}checked{% endif %}
-                                               class="filter-input rounded border-border">
+                            {% with pk_str=field.pk|stringformat:"s" %}
+                                {% with field_id="filter-field-"|add:pk_str field_name="field_"|add:pk_str %}
+                                    <div class="w-full sm:w-48 min-w-0">
+                                        {% include "components/label.html" with for_id=field_id text=field.name only %}
+                                        {% if field.field_type == "select" %}
+                                            {% select id=field_id name=field_name class="truncate" %}
+                                                <option value="">—</option>
+                                                {% for option in field.options %}
+                                                    <option value="{{ option.value }}"
+                                                            {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
+                                                        {{ option.label }}
+                                                    </option>
+                                                {% endfor %}
+                                            {% end_select %}
+                                        {% else %}
+                                            <div class="flex items-center h-9">
+                                                {% include "components/checkbox-field.html" with name=field_name id=field_id value="true" checked=filter_fields|get_item:field.pk aria_label=field.name only %}
+                                            </div>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
-                            </div>
+                                {% endwith %}
+                            {% endwith %}
                         {% endfor %}
-                        <div class="flex items-center gap-2 pb-2">
-                            <input type="checkbox"
-                                   id="filter-flagged"
-                                   name="flagged"
-                                   value="true"
-                                   {% if filter_flagged %}checked{% endif %}
-                                   class="filter-input rounded border-border">
-                            <label for="filter-flagged" class="text-sm text-foreground-muted">{% translate "Flagged for deletion only" %}</label>
+                        <div class="flex items-center pb-2">
+                            {% translate "Flagged for deletion only" as t_flagged %}
+                            {% include "components/checkbox-field.html" with name="flagged" id="filter-flagged" value="true" checked=filter_flagged label=t_flagged only %}
                         </div>
-                        <div class="flex items-center">
-                            <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
-                            <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-                               class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
+                        <div class="flex items-center gap-2">
+                            {% translate "Filter" as t_filter %}
+                            {% tessera_button t_filter full_width_mobile=False %}
+                            {% url 'panel:facilitators' slug=current_event.slug as clear_url %}
+                            {% translate "Clear" as t_clear %}
+                            {% tessera_button t_clear href=clear_url variant="secondary" %}
                         </div>
                     </form>
                 </div>
