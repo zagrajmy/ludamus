@@ -4,6 +4,7 @@ include = [
     "docker/mise.toml",
     "tasks.toml",
     ".taplo.toml",
+    "tingle.toml",
 ]
 
 [formatting]
