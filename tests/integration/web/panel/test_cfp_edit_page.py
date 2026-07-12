@@ -6,9 +6,10 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
-    HostPersonalData,
+    Facilitator,
     PersonalDataField,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     ProposalCategory,
     SessionField,
     SessionFieldRequirement,
@@ -2005,8 +2006,14 @@ class TestCFPEditPageView:
             category=category, field=email_field, is_required=True
         )
         host = UserFactory.create()
-        HostPersonalData.objects.create(
-            user=host, event=event, field=email_field, value="host@example.com"
+        facilitator = Facilitator.objects.create(
+            event=event, user=host, display_name=host.name, slug="host"
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator,
+            event=event,
+            field=email_field,
+            value="host@example.com",
         )
         SessionFactory.create(category=category, presenter=host)
 
@@ -2020,8 +2027,11 @@ class TestCFPEditPageView:
         assert not PersonalDataFieldRequirement.objects.filter(
             category=category, field=email_field
         ).exists()
-        assert HostPersonalData.objects.filter(
-            user=host, event=event, field=email_field, value="host@example.com"
+        assert PersonalDataFieldValue.objects.filter(
+            facilitator=facilitator,
+            event=event,
+            field=email_field,
+            value="host@example.com",
         ).exists()
 
     def test_post_adding_field_requirement_does_not_create_data_for_existing_proposals(
@@ -2038,8 +2048,8 @@ class TestCFPEditPageView:
         # Setup: existing proposal without the field requirement
         host = UserFactory.create()
         SessionFactory.create(category=category, presenter=host)
-        assert not HostPersonalData.objects.filter(
-            user=host, event=event, field=email_field
+        assert not PersonalDataFieldValue.objects.filter(
+            event=event, field=email_field
         ).exists()
 
         # Action: add a new field requirement
@@ -2056,8 +2066,8 @@ class TestCFPEditPageView:
         assert PersonalDataFieldRequirement.objects.filter(
             category=category, field=email_field, is_required=True
         ).exists()
-        assert not HostPersonalData.objects.filter(
-            user=host, event=event, field=email_field
+        assert not PersonalDataFieldValue.objects.filter(
+            event=event, field=email_field
         ).exists()
 
     # Time slot requirement tests

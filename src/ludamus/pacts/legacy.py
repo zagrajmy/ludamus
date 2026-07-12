@@ -210,22 +210,13 @@ class SessionDTO(BaseModel):
     duration: str = ""
     min_age: int
     modification_time: datetime
-    needs: str
     participants_limit: int
     pk: int
     presenter_id: int | None
     display_name: str
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
-
-
-class PendingSessionTagDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str
-    pk: int
 
 
 class PendingSessionTimeSlotDTO(BaseModel):
@@ -242,12 +233,9 @@ class PendingSessionDTO(BaseModel):
     contact_email: str
     creation_time: datetime
     description: str
-    needs: str
     participants_limit: int
     pk: int
     display_name: str
-    requirements: str
-    tags: list[PendingSessionTagDTO]
     time_slots: list[PendingSessionTimeSlotDTO]
     title: str
 
@@ -379,12 +367,11 @@ class SessionData(TypedDict, total=False):
     description: str
     duration: str
     event_id: int
+    ident: str
     min_age: int
-    needs: str
     participants_limit: int
     presenter_id: int | None
     display_name: str
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
@@ -398,9 +385,7 @@ class SessionUpdateData(TypedDict, total=False):
     display_name: str
     duration: str
     min_age: int
-    needs: str
     participants_limit: int
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
@@ -439,6 +424,7 @@ class SphereDTO(BaseModel):
     logo_url: str = ""
     name: str
     pk: int
+    site: SiteDTO
     site_id: int
 
     @field_validator("logo", mode="before")
@@ -753,7 +739,7 @@ class SessionFieldValueData(TypedDict):
     value: str | list[str] | bool
 
 
-class HostPersonalDataEntry(TypedDict):
+class PersonalDataFieldValueData(TypedDict):
     facilitator_id: int
     event_id: int
     field_id: int
@@ -844,8 +830,6 @@ class SphereRepositoryProtocol(Protocol):
     @staticmethod
     def read_site(sphere_id: int) -> SiteDTO: ...
     @staticmethod
-    def read_with_site(pk: int) -> tuple[SphereDTO, SiteDTO]: ...
-    @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
@@ -857,7 +841,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def create(
         session_data: SessionData,
-        tag_ids: Iterable[int],
+        *,
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
@@ -886,7 +870,6 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod
@@ -902,7 +885,13 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
-    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
+    def find_id_by_ident(event_id: int, ident: str) -> int | None: ...
+    @staticmethod
+    def find_ids_by_title_and_email(
+        *, event_id: int, title: str, contact_email: str
+    ) -> list[int]: ...
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]
@@ -1323,9 +1312,9 @@ class FacilitatorRepositoryProtocol(Protocol):
     def slug_exists(event_id: int, slug: str) -> bool: ...
 
 
-class HostPersonalDataRepositoryProtocol(Protocol):
+class PersonalDataFieldValueRepositoryProtocol(Protocol):
     @staticmethod
-    def save(entries: list[HostPersonalDataEntry]) -> None: ...
+    def save(entries: list[PersonalDataFieldValueData]) -> None: ...
     @staticmethod
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
@@ -1542,7 +1531,9 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def enrollment_configs(self) -> EnrollmentConfigRepositoryProtocol: ...
     @property
-    def host_personal_data(self) -> HostPersonalDataRepositoryProtocol: ...
+    def personal_data_field_values(
+        self,
+    ) -> PersonalDataFieldValueRepositoryProtocol: ...
     @property
     def schedule_change_logs(self) -> ScheduleChangeLogRepositoryProtocol: ...
 

@@ -647,8 +647,6 @@ def main() -> None:
         title="Pending Neon Proposal",
         slug="pending-neon-proposal",
         description="Proposal review modal content used by e2e tests.",
-        requirements="Bring a charged phone.",
-        needs="Quiet corner preferred.",
         duration="PT1H",
         participants_limit=4,
         min_age=12,

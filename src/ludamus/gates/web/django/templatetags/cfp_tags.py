@@ -65,8 +65,6 @@ def content_field_label(field_key: str) -> str:
         "title": _("Title"),
         "display_name": _("Display name"),
         "description": _("Description"),
-        "requirements": _("Requirements"),
-        "needs": _("Needs"),
         "contact_email": _("Contact email"),
         "participants_limit": _("Participants limit"),
         "min_age": _("Minimum age"),

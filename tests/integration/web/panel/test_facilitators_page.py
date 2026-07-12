@@ -9,8 +9,8 @@ from ludamus.adapters.db.django.models import (
     AccreditationType,
     EventPanelSettings,
     Facilitator,
-    HostPersonalData,
     PersonalDataField,
+    PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
 from tests.integration.utils import PageMatcher, assert_response
@@ -190,7 +190,7 @@ class TestFacilitatorsPageView:
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=alice, event=event, field=field, value="alice@example.com"
         )
         Facilitator.objects.create(
@@ -238,7 +238,7 @@ class TestFacilitatorsPageView:
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=alice, event=event, field=field, value="Reds"
         )
 
@@ -375,7 +375,7 @@ class TestFacilitatorsPageView:
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=field, value="alice@example.com"
         )
         panel_settings = EventPanelSettings.objects.create(event=event)
@@ -417,13 +417,13 @@ class TestFacilitatorsPageView:
         no = Facilitator.objects.create(
             event=event, display_name="No", slug="no", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=yes, event=event, field=checkbox_field, value=True
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=no, event=event, field=checkbox_field, value=False
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=yes, event=event, field=multi_field, value=["Reds", "Blues"]
         )
         panel_settings = EventPanelSettings.objects.create(event=event)
@@ -452,7 +452,7 @@ class TestFacilitatorsPageView:
         vegan = Facilitator.objects.create(
             event=event, display_name="Vegan", slug="vegan-f", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=vegan, event=event, field=field, value=True
         )
         Facilitator.objects.create(
@@ -481,13 +481,13 @@ class TestFacilitatorsPageView:
         reds = Facilitator.objects.create(
             event=event, display_name="Reds member", slug="reds", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=reds, event=event, field=field, value="Reds"
         )
         blues = Facilitator.objects.create(
             event=event, display_name="Blues member", slug="blues", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=blues, event=event, field=field, value="Blues"
         )
 
@@ -515,13 +515,13 @@ class TestFacilitatorsPageView:
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=alice, event=event, field=field, value="zoe@example.com"
         )
         bob = Facilitator.objects.create(
             event=event, display_name="Bob", slug="bob", user=None
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=bob, event=event, field=field, value="anna@example.com"
         )
 

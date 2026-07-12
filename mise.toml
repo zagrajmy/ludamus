@@ -8,13 +8,19 @@ jobs = 8
 [hooks]
 enter = "poetry install"
 
+# Claude Code web's sandbox proxy 403s every GitHub download (api.github.com
+# included), so tools prefer npm/PyPI backends; mise.sandbox.toml substitutes
+# the rest there (activated via MISE_ENV=sandbox — see docs/agents/sandbox.md).
+# The npm_args below re-enable install scripts: both packages need them
+# (@ast-grep/cli postinstall, @endevco/aube preinstall fetch the platform
+# binary).
 [tools]
 python = "3.14"
 node = "v25.6.1"
 "pipx:poetry" = "2.3.2"
-"ast-grep" = "0.42.1"
+"npm:@ast-grep/cli" = { version = "0.42.1", npm_args = "--ignore-scripts=false" }
 markdownlint-cli2 = "0.22.1"
-"github:endevco/aube" = "latest"
+"npm:@endevco/aube" = { version = "latest", npm_args = "--ignore-scripts=false" }
 hk = "1.48.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
@@ -314,11 +320,18 @@ run = [{ task = "format" }, { task = "lint" }]
 
 [tasks.devcheck]
 run = [
-    { task = "check" },
-    { task = "test:py", args = ["-xvv"] },
+    { task = "format:black" },
+    { task = "format:djlint" },
+    { task = "format:ruff" },
+    { task = "lint:ruff" },
+    { task = "lint:import-linter" },
+    { task = "lint:vulture" },
+    { task = "lint:djlint" },
+    { task = "lint:mypy" },
+    { task = "lint:pylint", args = ["src"] },
+    { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
     { task = "shitcheck" },
 ]
-
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
@@ -393,3 +406,32 @@ run = "aubr -C src/ludamus/client lint"
 description = "Run npm in the frontend client directory"
 run = "npm"
 dir = "src/ludamus/client"
+
+[tasks.papercut]
+description = "Append a friction note to PAPERCUTS.md (e.g. mise run papercut -- ran shots, server wasn't up, no clear error)"
+dir = "{{ config_root }}"
+usage = '''
+arg "<note>" var=#true help="One or two sentences: what you were doing -> what got in the way"
+'''
+run = '''
+set -eu
+[ -n "${usage_note:-}" ] || { echo "usage: mise run papercut -- <note>" >&2; exit 2; }
+# usage passes the variadic note as a shell-quoted join, so apostrophes arrive
+# as '\'' sequences — shlex.split undoes that. textwrap keeps markdownlint
+# MD013 (80 columns) happy with the same hanging indent as hand-written
+# entries.
+python - <<'EOF'
+import datetime
+import os
+import shlex
+import textwrap
+
+note = " ".join(shlex.split(os.environ["usage_note"])).strip()
+entry = textwrap.fill(
+    f"- {datetime.date.today():%Y-%m-%d}: {note}", width=80, subsequent_indent="  "
+)
+with open("PAPERCUTS.md", "a", encoding="utf-8") as file:
+    file.write(entry + "\n")
+EOF
+echo "logged to PAPERCUTS.md"
+'''

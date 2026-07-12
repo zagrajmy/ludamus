@@ -21,7 +21,6 @@ from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
     PendingSessionDTO,
-    PendingSessionTagDTO,
     PendingSessionTimeSlotDTO,
     SessionData,
     SessionDTO,
@@ -58,13 +57,12 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
     @staticmethod
     def create(
         session_data: SessionData,
-        tag_ids: Iterable[int],
+        *,
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
-        session.tags.set(tag_ids)
         if time_slot_ids:
             session.time_slots.set(time_slot_ids)
         if facilitator_ids:
@@ -235,7 +233,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             Session.objects.filter(
                 category__event_id=event_id, status=SessionStatus.PENDING
             )
-            .prefetch_related("tags", "time_slots")
+            .prefetch_related("time_slots")
             .order_by("-creation_time")
         )
         return [
@@ -243,12 +241,9 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
                 contact_email=s.contact_email,
                 creation_time=s.creation_time,
                 description=s.description,
-                needs=s.needs,
                 participants_limit=s.participants_limit,
                 pk=s.pk,
                 display_name=s.display_name,
-                requirements=s.requirements,
-                tags=[PendingSessionTagDTO.model_validate(t) for t in s.tags.all()],
                 time_slots=[
                     PendingSessionTimeSlotDTO.model_validate(ts)
                     for ts in s.time_slots.all()
@@ -301,12 +296,26 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return Session.objects.filter(event_id=event_id, slug=slug).exists()
 
     @staticmethod
-    def find_id_by_slug(event_id: int, slug: str) -> int | None:
+    def find_id_by_ident(event_id: int, ident: str) -> int | None:
         return (
-            Session.objects.filter(event_id=event_id, slug=slug)
+            Session.objects.filter(event_id=event_id, ident=ident)
             .values_list("id", flat=True)
             .first()
         )
+
+    @staticmethod
+    def find_ids_by_title_and_email(
+        *, event_id: int, title: str, contact_email: str
+    ) -> list[int]:
+        return list(
+            Session.objects.filter(
+                event_id=event_id, title=title, contact_email=contact_email, ident=""
+            ).values_list("id", flat=True)
+        )
+
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None:
+        Session.objects.filter(id=pk).update(ident=ident)
 
     @staticmethod
     def save_field_values(session_id: int, values: list[SessionFieldValueData]) -> None:

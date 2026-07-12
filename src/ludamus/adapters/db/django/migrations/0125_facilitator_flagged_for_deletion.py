@@ -5,7 +5,9 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0119_event_printables_last_printed_at_and_more")]
+    dependencies = [
+        ("db_main", "0124_session_ident_session_session_unique_ident_in_event")
+    ]
 
     operations = [
         migrations.AddField(

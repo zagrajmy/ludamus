@@ -53,7 +53,7 @@ from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
 from ludamus.mills.submissions.personal_data_fields import (
     CFPPersonalDataFieldService,
-    HostPersonalDataService,
+    PersonalDataFieldValueService,
 )
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
@@ -84,11 +84,11 @@ class Services:
         )
 
     @cached_property
-    def host_personal_data(self) -> HostPersonalDataService:
-        return HostPersonalDataService(
+    def personal_data_field_values(self) -> PersonalDataFieldValueService:
+        return PersonalDataFieldValueService(
             transaction=self._transaction,
             facilitators=self._repos.facilitators,
-            host_personal_data=self._repos.host_personal_data,
+            personal_data_field_values=self._repos.personal_data_field_values,
             personal_data_fields=self._repos.personal_data_fields,
             facilitator_change_logs=self._repos.facilitator_change_logs,
         )
@@ -308,7 +308,7 @@ class Services:
             self._repos.sessions,
             self._repos.session_fields,
             self._repos.personal_data_fields,
-            self._repos.host_personal_data,
+            self._repos.personal_data_field_values,
             self._repos.time_slots,
             self._repos.tracks,
             self._repos.proposal_categories,

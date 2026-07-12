@@ -556,7 +556,7 @@ bounded-context breakdown.
 | Crowd | `User` |
 | Multiverse | `Sphere`, `Connection` |
 | Notice Board | `Encounter`, `EncounterRSVP` |
-| Submissions | `Session`, `ProposalCategory`, `EventProposalSettings`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `HostPersonalData`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement` |
+| Submissions | `Session`, `ProposalCategory`, `EventProposalSettings`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement` |
 | Chronology | `Event`, `EventSettings`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->

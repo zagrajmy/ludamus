@@ -1,0 +1,25 @@
+# Loaded only when MISE_ENV=sandbox — set by .claude/hooks/session-start.sh in
+# Claude Code web sandboxes, where the egress proxy 403s every GitHub download
+# (api.github.com included). Laptops never load this file.
+#
+# [tool_alias] remaps each GitHub-release tool from mise.toml to a reachable
+# registry backend; versions stay pinned in mise.toml alone. python and pipx
+# come from apt instead (the sandbox image preconfigures the deadsnakes PPA);
+# apt pipx serves the pipx: backends.
+
+[settings]
+disable_tools = ["python", "pipx", "github:reteps/dockerfmt"]
+# Mid-bootstrap the aube shim can't resolve yet, so pin mise's npm backend to
+# plain npm instead of letting it auto-detect aube.
+npm.package_manager = "npm"
+
+[tool_alias]
+hk = "cargo:hk"
+shellcheck = "pipx:shellcheck-py"
+actionlint = "go:github.com/rhysd/actionlint/cmd/actionlint"
+hadolint = "pipx:hadolint-py"
+
+# dockerfmt can't be aliased (its mise.toml key is already a full backend
+# spec), so it keeps the one duplicated pin in this file.
+[tools]
+"go:github.com/reteps/dockerfmt" = "v0.5.2"

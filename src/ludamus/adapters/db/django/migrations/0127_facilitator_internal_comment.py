@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0121_eventpanelsettings")]
+    dependencies = [("db_main", "0126_eventpanelsettings")]
 
     operations = [
         migrations.AddField(

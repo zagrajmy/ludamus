@@ -21,9 +21,9 @@ from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.repositories.submissions import (
     EventProposalSettingsRepository,
     FacilitatorRepository,
-    HostPersonalDataRepository,
     ImportLogEntryRepository,
     PersonalDataFieldRepository,
+    PersonalDataFieldValueRepository,
     ProposalCategoryRepository,
     SessionFieldRepository,
 )
@@ -47,9 +47,9 @@ __all__ = [
     "EventRepository",
     "EventSettingsRepository",
     "FacilitatorRepository",
-    "HostPersonalDataRepository",
     "ImportLogEntryRepository",
     "PersonalDataFieldRepository",
+    "PersonalDataFieldValueRepository",
     "ProposalCategoryRepository",
     "SessionFieldRepository",
     "SessionRepository",

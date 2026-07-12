@@ -23,8 +23,6 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     Space,
     Sphere,
-    Tag,
-    TagCategory,
     TimeSlot,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
@@ -146,22 +144,6 @@ class TimeSlotFactory(DjangoModelFactory):
     event = SubFactory(EventFactory)
     start_time = LazyAttribute(lambda o: o.event.start_time)
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
-
-
-class TagCategoryFactory(DjangoModelFactory):
-    class Meta:
-        model = TagCategory
-
-    name = Faker("word")
-    icon = "dice"
-
-
-class TagFactory(DjangoModelFactory):
-    class Meta:
-        model = Tag
-
-    name = Faker("word")
-    category = SubFactory(TagCategoryFactory)
 
 
 class SessionFactory(DjangoModelFactory):

@@ -22,8 +22,8 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
-    HostPersonalDataEntry,
     NotFoundError,
+    PersonalDataFieldValueData,
     SessionContentEditData,
     SessionData,
     SessionFieldValueData,
@@ -312,7 +312,8 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
-            values = self.request.di.uow.host_personal_data.read_for_facilitator_event(
+            personal_data_field_values = self.request.di.uow.personal_data_field_values
+            values = personal_data_field_values.read_for_facilitator_event(
                 facilitator.pk, event_pk
             )
             items = [(field, values.get(field.slug)) for field in fields]
@@ -352,7 +353,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _collect_personal_data(
         self, event_pk: int
-    ) -> dict[int, list[HostPersonalDataEntry]] | None:
+    ) -> dict[int, list[PersonalDataFieldValueData]] | None:
         if self.request.POST.get("personal_data_submitted") != "1":
             return None
         raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
@@ -361,11 +362,11 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
         }
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
-        result: dict[int, list[HostPersonalDataEntry]] = {}
+        result: dict[int, list[PersonalDataFieldValueData]] = {}
         for facilitator_id in submitted_ids & valid_pks:
             prefix = f"facilitator_{facilitator_id}_personal"
             entries = [
-                HostPersonalDataEntry(
+                PersonalDataFieldValueData(
                     facilitator_id=facilitator_id,
                     event_id=event_pk,
                     field_id=field.pk,
@@ -563,7 +564,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         if (personal_data := self._collect_personal_data(current_event.pk)) is not None:
             for facilitator_id, entries in personal_data.items():
-                self.request.services.host_personal_data.update_personal_data(
+                self.request.services.personal_data_field_values.update_personal_data(
                     event_id=current_event.pk,
                     facilitator_id=facilitator_id,
                     entries=entries,
@@ -637,15 +638,12 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 display_name=form.cleaned_data["display_name"],
                 duration=form.cleaned_data.get("duration") or "",
                 min_age=form.cleaned_data.get("min_age") or 0,
-                needs="",  # legacy field — not surfaced in the panel
                 participants_limit=form.cleaned_data.get("participants_limit") or 0,
                 presenter_id=None,
-                requirements="",  # legacy field — not surfaced in the panel
                 slug=session_slug,
                 status=SessionStatus.PENDING,
                 title=title,
             ),
-            tag_ids=[],
             facilitator_ids=facilitator_ids,
         )
         messages.success(self.request, _("Proposal created successfully."))
@@ -824,7 +822,7 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["logs"] = service.list_log(current_event.pk)
         context["field_names"] = service.list_field_names(current_event.pk)
         context["revertible_pks"] = service.revertible_log_pks(current_event.pk)
-        facilitator_service = self.request.services.host_personal_data
+        facilitator_service = self.request.services.personal_data_field_values
         context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
         context["facilitator_field_names"] = facilitator_service.list_field_names(
             current_event.pk

@@ -85,7 +85,7 @@ kanban
     [Split check_proposal_rate_limit into query + command]@{
       assigned: 'GLIMPSE'
     }
-    [Drop HostPersonalData.user FK after 0061 deploys, unify read path]@{
+    [✅ Drop PersonalDataFieldValue.user FK after 0061 deploys, unify read path]@{
       assigned: 'GLIMPSE'
     }
     [Feature flag system]@{ assigned: 'agent-readiness' }

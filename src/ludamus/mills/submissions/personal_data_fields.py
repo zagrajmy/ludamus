@@ -2,7 +2,12 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import FacilitatorUpdateData, FieldUsageSummary, NotFoundError
+from ludamus.pacts import (
+    FacilitatorUpdateData,
+    FieldUsageSummary,
+    NotFoundError,
+    PersonalDataFieldValueRepositoryProtocol,
+)
 from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
@@ -15,12 +20,11 @@ if TYPE_CHECKING:
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
-        HostPersonalDataEntry,
-        HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
+        PersonalDataFieldValueData,
         ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
@@ -125,7 +129,7 @@ def _diff_personal_data(
     *,
     old_by_slug: dict[str, str | list[str] | bool],
     fields_by_id: dict[int, PersonalDataFieldDTO],
-    entries: list[HostPersonalDataEntry],
+    entries: list[PersonalDataFieldValueData],
 ) -> list[ContentFieldChange]:
     changes: list[ContentFieldChange] = []
     for entry in entries:
@@ -142,7 +146,7 @@ def _diff_personal_data(
     return changes
 
 
-class HostPersonalDataService:
+class PersonalDataFieldValueService:
     """Organizer edits of a facilitator's per-event personal-data answers.
 
     The shared write path for the dedicated facilitator-edit page and the
@@ -156,13 +160,13 @@ class HostPersonalDataService:
         *,
         transaction: TransactionProtocol,
         facilitators: FacilitatorRepositoryProtocol,
-        host_personal_data: HostPersonalDataRepositoryProtocol,
+        personal_data_field_values: PersonalDataFieldValueRepositoryProtocol,
         personal_data_fields: PersonalDataFieldRepositoryProtocol,
         facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._facilitators = facilitators
-        self._host_personal_data = host_personal_data
+        self._personal_data_field_values = personal_data_field_values
         self._personal_data_fields = personal_data_fields
         self._facilitator_change_logs = facilitator_change_logs
 
@@ -171,9 +175,9 @@ class HostPersonalDataService:
         *,
         event_id: int,
         facilitator_id: int,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
     ) -> list[ContentFieldChange]:
-        old_by_slug = self._host_personal_data.read_for_facilitator_event(
+        old_by_slug = self._personal_data_field_values.read_for_facilitator_event(
             facilitator_id, event_id
         )
         fields_by_id = {
@@ -205,7 +209,7 @@ class HostPersonalDataService:
         *,
         event_id: int,
         facilitator_id: int,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None:
         with self._transaction.atomic():
@@ -217,7 +221,7 @@ class HostPersonalDataService:
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
             if entries:
-                self._host_personal_data.save(entries)
+                self._personal_data_field_values.save(entries)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,
@@ -239,7 +243,7 @@ class HostPersonalDataService:
         event_id: int,
         facilitator_id: int,
         data: FacilitatorUpdateData,
-        entries: list[HostPersonalDataEntry],
+        entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None:
         # The dedicated facilitator-edit page write path: accreditation +
@@ -264,7 +268,7 @@ class HostPersonalDataService:
                 )
             self._facilitators.update(facilitator_id, data)
             if entries:
-                self._host_personal_data.save(entries)
+                self._personal_data_field_values.save(entries)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,

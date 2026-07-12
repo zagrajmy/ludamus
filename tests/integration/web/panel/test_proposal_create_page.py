@@ -262,6 +262,11 @@ class TestProposalCreatePageView:
                 "category_id": category.pk,
                 "title": "No Facilitator",
                 "display_name": "Test Host",
+                "description": "A great session",
+                "contact_email": "",
+                "participants_limit": "",
+                "min_age": "",
+                "duration": "",
             },
         )
 

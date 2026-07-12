@@ -334,14 +334,6 @@ class Event(models.Model):
     # When on, newly scheduled program items are confirmed immediately;
     # turn off for a draft → confirm workflow on large events.
     auto_confirm_sessions = models.BooleanField(default=True)
-    # Filterable tag categories for session list
-    filterable_tag_categories: models.ManyToManyField[TagCategory, Never] = (
-        models.ManyToManyField(
-            "TagCategory",
-            blank=True,
-            help_text="Tag categories that will appear as filters in the session list",
-        )
-    )
 
     class Meta:
         db_table = "event"
@@ -728,47 +720,6 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class TagCategory(models.Model):
-    class InputType(models.TextChoices):  # pylint: disable=too-many-ancestors
-        SELECT = "select", _("Select from list")
-        TYPE = "type", _("Type comma-separated")
-
-    name = models.CharField(max_length=255)
-    icon = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="Heroicon name (e.g., 'puzzle-piece', 'star', 'heart')",
-    )
-    input_type = models.CharField(
-        max_length=10, choices=InputType.choices, default=InputType.SELECT
-    )
-
-    class Meta:
-        db_table = "tag_category"
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class Tag(models.Model):
-    name = models.CharField(max_length=255)
-    category = models.ForeignKey(
-        TagCategory, on_delete=models.CASCADE, related_name="tags"
-    )
-    confirmed = models.BooleanField(default=False)
-
-    class Meta:
-        db_table = "tag"
-        constraints: ClassVar = [
-            models.UniqueConstraint(
-                fields=["name", "category"], name="unique_tag_name_per_category"
-            )
-        ]
-
-    def __str__(self) -> str:
-        return self.name
-
-
 class AccreditationType(models.TextChoices):
     NONE = "none", _("None")
     STANDARD = "standard", _("Standard")
@@ -870,19 +821,19 @@ class Session(SoftDeleteModel):
     # ID
     title = models.CharField(max_length=255)
     slug = models.SlugField()
+    # Import idempotency key (hash of the source row's unique-key values).
+    # Empty for sessions that weren't imported; never shown to users.
+    ident = models.CharField(max_length=64, default="", blank=True)
     description = models.TextField(default="", blank=True)
     # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
     # purge the stored file during hard garbage-collection of dead sessions.
     cover_image = models.ImageField(upload_to="sessions/", blank=True)
-    requirements = models.TextField(blank=True)
-    needs = models.TextField(default="", blank=True)
     duration = models.CharField(
         max_length=20,
         default="",
         blank=True,
         help_text="ISO 8601 duration, e.g. PT1H30M",
     )
-    tags = models.ManyToManyField(Tag, blank=True)
     # Preferences
     time_slots = models.ManyToManyField(TimeSlot, blank=True)
     # Status
@@ -914,6 +865,11 @@ class Session(SoftDeleteModel):
         constraints = (
             models.UniqueConstraint(
                 fields=["slug", "event"], name="session_unique_slug_in_event"
+            ),
+            models.UniqueConstraint(
+                fields=["event", "ident"],
+                condition=~Q(ident=""),
+                name="session_unique_ident_in_event",
             ),
             models.CheckConstraint(
                 condition=Q(min_age__gte=0, min_age__lte=80),
@@ -1054,7 +1010,6 @@ class ProposalCategory(models.Model):
     start_time = models.DateTimeField(blank=True, null=True)
     end_time = models.DateTimeField(blank=True, null=True)
     # Settings
-    tag_categories = models.ManyToManyField(TagCategory)
     max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
     durations = models.JSONField(
@@ -1269,16 +1224,9 @@ class PersonalDataFieldRequirement(models.Model):
         return f"{self.field.name} ({req}) for {self.category.name}"
 
 
-class HostPersonalData(models.Model):
+class PersonalDataFieldValue(models.Model):
     """Stores personal data values for a host within an event."""
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="personal_data",
-    )
     facilitator = models.ForeignKey(
         Facilitator,
         on_delete=models.CASCADE,
@@ -1287,7 +1235,7 @@ class HostPersonalData(models.Model):
         related_name="personal_data",
     )
     event = models.ForeignKey(
-        Event, on_delete=models.CASCADE, related_name="host_personal_data"
+        Event, on_delete=models.CASCADE, related_name="personal_data_field_values"
     )
     field = models.ForeignKey(
         PersonalDataField, on_delete=models.CASCADE, related_name="values"
@@ -1297,21 +1245,12 @@ class HostPersonalData(models.Model):
     modification_time = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "host_personal_data"
+        db_table = "personal_data_field_value"
         constraints = (
-            models.UniqueConstraint(
-                fields=("user", "event", "field"),
-                name="unique_personal_data_per_user_event_field",
-                condition=Q(user__isnull=False),
-            ),
             models.UniqueConstraint(
                 fields=("facilitator", "event", "field"),
                 name="unique_personal_data_per_facilitator_event_field",
                 condition=Q(facilitator__isnull=False),
-            ),
-            models.CheckConstraint(
-                condition=Q(user__isnull=False) | Q(facilitator__isnull=False),
-                name="personal_data_requires_owner",
             ),
         )
 

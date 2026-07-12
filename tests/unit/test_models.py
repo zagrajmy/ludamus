@@ -17,10 +17,10 @@ from ludamus.adapters.db.django.models import (
     EventProposalSettings,
     EventSettings,
     Facilitator,
-    HostPersonalData,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
     SessionField,
@@ -32,8 +32,6 @@ from ludamus.adapters.db.django.models import (
     Shadowban,
     Space,
     Sphere,
-    Tag,
-    TagCategory,
     TimeSlot,
     TimeSlotRequirement,
     Track,
@@ -186,20 +184,6 @@ class TestTimeSlot:
         )
 
 
-class TestTagCategory:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(TagCategory(name=name)) == name
-
-
-class TestTag:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(Tag(name=name)) == name
-
-
 class TestSession:
     def test_str(self, faker):
         title = faker.word()
@@ -305,12 +289,14 @@ class TestPersonalDataFieldRequirement:
         assert str(requirement) == f"{field_name} (optional) for {category_name}"
 
 
-class TestHostPersonalData:
+class TestPersonalDataFieldValue:
     def test_str(self, faker):
         field_name = faker.word()
         value = faker.sentence()
 
-        data = HostPersonalData(field=PersonalDataField(name=field_name), value=value)
+        data = PersonalDataFieldValue(
+            field=PersonalDataField(name=field_name), value=value
+        )
 
         assert str(data) == f"{field_name}: {value[:50]}"
 
@@ -318,7 +304,9 @@ class TestHostPersonalData:
         field_name = faker.word()
         value = "x" * 100
 
-        data = HostPersonalData(field=PersonalDataField(name=field_name), value=value)
+        data = PersonalDataFieldValue(
+            field=PersonalDataField(name=field_name), value=value
+        )
 
         assert str(data) == f"{field_name}: {'x' * 50}"
 

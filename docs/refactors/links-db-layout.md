@@ -2,7 +2,7 @@
 
 **Status:** 🟡 in progress (repository split done; model relocation pending)
 **Tracked in TODO:** GLIMPSE ("Split … per GLIMPSE layer rules"),
-"Drop HostPersonalData.user FK after 0061 deploys, unify read path"
+"Drop PersonalDataFieldValue.user FK after 0061 deploys, unify read path"
 
 ## Goal
 
