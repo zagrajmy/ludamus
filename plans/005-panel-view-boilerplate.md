@@ -82,7 +82,7 @@ one-place change instead of a 70-place retrofit.
 ## Commands you will need
 
 | Purpose | Command | Expected |
-|---|---|---|
+| --- | --- | --- |
 | Panel view tests | `poetry run pytest tests/integration/web -q -k "panel or cfp or track or venue or time_slot or session_field"` | all pass |
 | Full suite | `mise run test` | all pass |
 | Lint+types+imports | `mise run prcheck` | exit 0 |
@@ -90,12 +90,14 @@ one-place change instead of a 70-place retrofit.
 ## Scope
 
 **In scope**:
+
 - `src/ludamus/gates/web/django/chronology/panel/views/base.py` (add the base class)
 - The GET handlers of page views in
   `src/ludamus/gates/web/django/chronology/panel/views/*.py` — migrate them
   to the base class **incrementally, one file per commit**
 
 **Out of scope**:
+
 - POST/action handlers' business logic (only their shared *prelude* may move)
 - `src/ludamus/gates/web/django/multiverse/panel/views/` — second wave, only
   if the chronology migration lands cleanly and time remains
@@ -207,8 +209,10 @@ modeled on its neighbors, BEFORE migrating that view.
 
 ## Done criteria
 
-- [ ] `EventPanelPageView` exists in `base.py` and at least 5 files' page views use it
-- [ ] `grep -rn "Extract common view boilerplate" src/` matches only in files with views intentionally skipped (list them in the completion report)
+- [ ] `EventPanelPageView` exists in `base.py` and at least 5 files' page views
+  use it
+- [ ] `grep -rn "Extract common view boilerplate" src/` matches only in files
+  with views intentionally skipped (list them in the completion report)
 - [ ] `mise run test` exits 0
 - [ ] `mise run prcheck` exits 0 (including import-linter)
 - [ ] Only in-scope files modified (`git status`)

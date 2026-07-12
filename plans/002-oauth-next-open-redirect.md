@@ -6,7 +6,8 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD -- src/ludamus/adapters/web/django/views.py tests/integration/web/crowd/`
+> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD --
+> src/ludamus/adapters/web/django/views.py tests/integration/web/crowd/`
 > On any in-scope change, compare "Current state" excerpts against live code;
 > mismatch = STOP.
 
@@ -97,7 +98,7 @@ domain **or ends with `"." + root_domain`**, with scheme `http`/`https`.
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
-|---|---|---|
+| --- | --- | --- |
 | All tests | `mise run test` | all pass |
 | Callback tests only | `poetry run pytest tests/integration/web/crowd/test_auth0_login_callback_action.py -x -q` | all pass |
 | Lint+format | `mise run check` | exit 0 |
@@ -106,6 +107,7 @@ domain **or ends with `"." + root_domain`**, with scheme `http`/`https`.
 ## Scope
 
 **In scope**:
+
 - `src/ludamus/adapters/web/django/views.py` — `Auth0LoginActionView` /
   `Auth0LoginCallbackActionView` / `_resolve_oauth_state` only
 - `tests/integration/web/crowd/test_auth0_login_callback_action.py` (extend)
@@ -113,6 +115,7 @@ domain **or ends with `"." + root_domain`**, with scheme `http`/`https`.
   add the login-side cases to the callback test file.
 
 **Out of scope**:
+
 - Storing the CSRF cookie in cache state (separate, low-severity observation).
 - Rate limiting (tracked as issue #304).
 - Session cookie lifetime settings.
@@ -121,7 +124,8 @@ domain **or ends with `"." + root_domain`**, with scheme `http`/`https`.
 ## Git workflow
 
 - Branch: `advisor/002-oauth-next-redirect-validation`
-- Commit style: imperative, matching `git log` (e.g. "Reject off-site next targets in auth0 login flow").
+- Commit style: imperative, matching `git log` (e.g. "Reject off-site next
+  targets in auth0 login flow").
 - Do NOT push or open a PR unless the operator instructed it.
 
 ## Steps
@@ -202,8 +206,10 @@ including 5 new tests.
 
 ## Done criteria
 
-- [ ] `grep -n "url_has_allowed_host_and_scheme" src/ludamus/adapters/web/django/views.py` matches
-- [ ] New tests for external/protocol-relative/relative/subdomain `next` exist and pass
+- [ ] `grep -n "url_has_allowed_host_and_scheme"
+  src/ludamus/adapters/web/django/views.py` matches
+- [ ] New tests for external/protocol-relative/relative/subdomain `next` exist
+  and pass
 - [ ] `mise run test` exits 0; `mise run prcheck` exits 0
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated
@@ -221,6 +227,10 @@ Stop and report back if:
 
 ## Maintenance notes
 
-- Reviewers should scrutinize the subdomain allowlist rule (`endswith("." + root_domain)`) — it intentionally allows *any* subdomain of the root, which matches how spheres work today.
-- If a future deployment serves multiple root domains, `_is_safe_login_redirect` needs the full set.
-- Deferred: stop storing `CSRF_COOKIE` in the cached OAuth state (it isn't needed for the redirect and widens the blast radius of a cache leak).
+- Reviewers should scrutinize the subdomain allowlist rule (`endswith("." +
+  root_domain)`) — it intentionally allows *any* subdomain of the root, which
+  matches how spheres work today.
+- If a future deployment serves multiple root domains, `_is_safe_login_redirect`
+  needs the full set.
+- Deferred: stop storing `CSRF_COOKIE` in the cached OAuth state (it isn't
+  needed for the redirect and widens the blast radius of a cache leak).

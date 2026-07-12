@@ -20,7 +20,7 @@ audit findings are *already fixed* in open PRs; landing them changes the
 baseline for everything else.
 
 | PR | State | Recommendation |
-|----|-------|----------------|
+| --- | --- | --- |
 | **#359** fix(enrollment): lock anonymous enroll/cancel, promote waitlist | draft, APPROVED, codecov patch failing | **Land first.** Fixes three real race conditions the audit independently confirmed (anonymous overbooking via unlocked `is_full`, stuck waitlist after anonymous cancel, 500 on concurrent cancel via `next()` without default at `views.py:1489`). Only coverage gates block it — add the missing patch tests. |
 | **#362** content change audit log | APPROVED, checks green | **Merge.** Unblocks the umbrella's "undo last change" (S) task, which shares the changelog pattern. |
 | **#334** public /print page | APPROVED, only staging-deploy dispatch failed | **Merge** (re-run the dispatch). Closes #332. |
@@ -39,7 +39,7 @@ Ordered by leverage (impact ÷ effort, weighted by confidence). ✅ = full plan
 written in `plans/`.
 
 | # | Finding | Category | Impact | Effort | Risk | Confidence | Evidence |
-|---|---------|----------|--------|--------|------|------------|----------|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 ✅ | **Event page N+1 ×2**: participations loop re-queries per session (`.select_related("user").all()` defeats prefetch), `field_values` never prefetched on `event_sessions` | perf | 2 queries/session on the highest-traffic page; #323 | S | LOW | HIGH | `views.py:1158-1160`, `views.py:1135` vs prefetch at `views.py:812-817` |
 | 2 ✅ | **Open redirect in Auth0 flow**: `next` stored in OAuth state and honored at callback without host validation | security | phishing-grade open redirect on login | S–M | MED | HIGH | `views.py:137-161`, `views.py:228-253` |
 | 3 | **Enrollment races (anonymous + cancel-500)** | bug | overbooking, stuck waitlists | — | — | HIGH | Fixed by open PR #359 — land it (see §1) |
@@ -153,7 +153,7 @@ Detailed in [`plans/006-regression-guardrails.md`](plans/006-regression-guardrai
 unless noted.
 
 | Bug class | Guardrail | Mechanism |
-|---|---|---|
+| --- | --- | --- |
 | N+1 queries (#306, #323) | **Query-auditing test client** | Override the pytest-django `client` fixture with a `Client` subclass that records SQL per request via Django's `execute_wrapper` and fails the test when an identical SELECT repeats >N times. Every existing and future view integration test becomes an N+1 test for free — no new dependency, no per-page opt-in. Escape hatch: `@pytest.mark.allow_duplicate_queries` with a justification comment. Dev-side visibility already exists (django-debug-toolbar); don't add `nplusone` (unmaintained). |
 | N+1 on the one page we fixed | **Scaling test** | Plan 001 adds a query-count-constant-in-session-count test for the event page specifically. |
 | Flaky factories | **ast-grep rule** | `rules/no-faker-slug.yml` banning `Faker("slug")` — the repo already runs ast-grep custom rules in `mise run check`/`prcheck`, so this is one YAML file. |
@@ -175,7 +175,7 @@ feature sequencing.
 **Close or fold — no work needed (6):**
 
 | Issue | Why |
-|---|---|
+| --- | --- |
 | #332 print page | Closed by PR #334 on merge. |
 | #327 waiting-list promotion, #329 remove participant | Both delivered by PR #337 (+#359); verify on merge and close. |
 | #15 error reporting | Duplicate of #305 — close as dup. |
@@ -184,12 +184,18 @@ feature sequencing.
 
 **P0 — broken core flow (1):**
 
-- **#339 sphere managers cannot create events** + **#279 dashboard empty state has no creation path** — same root cause, verified: `grep -rn "EventCreate|event-create|create_event" src/ludamus/gates src/ludamus/adapters/web` → zero hits. There is no event-creation view at all; managers must use Django admin. Fix as one M vertical slice (form + service + panel view + empty-state CTA). This blocks every other panel feature for a new sphere — a manager who can't create an event can't use any of them.
+- **#339 sphere managers cannot create events** + **#279 dashboard empty state
+  has no creation path** — same root cause, verified: `grep -rn
+  "EventCreate|event-create|create_event" src/ludamus/gates
+  src/ludamus/adapters/web` → zero hits. There is no event-creation view at all;
+  managers must use Django admin. Fix as one M vertical slice (form + service +
+  panel view + empty-state CTA). This blocks every other panel feature for a new
+  sphere — a manager who can't create an event can't use any of them.
 
 **P1 — cheap, high leverage, this cycle (7):**
 
 | Issue | Notes |
-|---|---|
+| --- | --- |
 | #323 event-page perf | → plan 001. |
 | #306 N+1 detection | → plan 006 (test-side enforcement; dev-side = existing debug toolbar). |
 | #344 reduce flash messages + #298 logout message | One pass; audit found 130 `messages.*` call sites, so do it as a sweep with a short style rule ("flash only on actions whose result isn't visible on the next page"), not whack-a-mole. #298 is one line inside it. |
@@ -201,7 +207,7 @@ feature sequencing.
 **P2 — scheduled behind foundations (7):**
 
 | Issue | Notes |
-|---|---|
+| --- | --- |
 | #304 rate limiting auth/invitations | M; pairs naturally with plan 002 (same views). |
 | #303 e2e through auth0 simulator | **Cheaper than it looks**: `@simulacrum/auth0-simulator` already runs in dev (`Procfile.dev:3`, `.env.development:18-19`); the e2e harness needs to reuse, not build, it. Re-estimate M (was L). Unblocks honest testing of plan 002's flow. |
 | #331 soft delete sessions | Sequence **before** the umbrella's discount subsystem lands more FKs on hard-cascade models; pairs with the #362 audit-log direction. |
@@ -212,27 +218,42 @@ feature sequencing.
 
 **P3 — epics / parked (deliberately not scheduled):**
 
-#229 conference event layout, #316 semantic search, #10 HTMX migration, #116
+\#229 conference event layout, #316 semantic search, #10 HTMX migration, #116
 "bigger nerds" epic, #23 changelog, #22 venue config, #20 badges, #14 sphere
 creation command, #13 slug workflow, #2 renovate dashboard. Two get notes:
 
-- **#155 venues rework** — parked, but it's the named blocker for `TODO(fancysnake): Fix after merging venues` markers sitting in the event-page hot path (`views.py:1105-1145`). If it stays parked another quarter, those TODOs should be re-resolved against reality instead of waiting.
-- **#17 production security review** — partially discharged by this audit (open redirect found+planned, secrets handling verified clean, nh3 config verified, session policy noted). Update the issue with what's now covered and what remains (headers/CSP audit, infra review).
+- **#155 venues rework** — parked, but it's the named blocker for
+  `TODO(fancysnake): Fix after merging venues` markers sitting in the event-page
+  hot path (`views.py:1105-1145`). If it stays parked another quarter, those
+  TODOs should be re-resolved against reality instead of waiting.
+- **#17 production security review** — partially discharged by this audit (open
+  redirect found+planned, secrets handling verified clean, nh3 config verified,
+  session policy noted). Update the issue with what's now covered and what
+  remains (headers/CSP audit, infra review).
 
 ## 7. Recommended execution order
 
 **Week 0 — PR queue (no new code):** land #359 → rebase+land #337 → merge #362,
-#334 → undraft/merge #234 → decide fate of #248/#261.
+\#334 → undraft/merge #234 → decide fate of #248/#261.
 
 **Then, from `plans/` (details in each file):**
 
-1. [`003-deterministic-factory-slugs`](plans/003-deterministic-factory-slugs.md) — S; stabilizes CI for everything after.
-2. [`001-event-page-n-plus-one`](plans/001-event-page-n-plus-one.md) — S; user-visible (#323).
-3. [`002-oauth-next-open-redirect`](plans/002-oauth-next-open-redirect.md) — S–M; security.
-4. [`004-coverage-mills-blindspot`](plans/004-coverage-mills-blindspot.md) — S investigate; restores trust in the 93% gate.
-5. [`006-regression-guardrails`](plans/006-regression-guardrails.md) — M; locks in 001/003 (query-auditing test client for #306, ast-grep factory rule). Runs after 001+003 by design — before them it only produces noise.
-6. [`005-panel-view-boilerplate`](plans/005-panel-view-boilerplate.md) — M; prerequisite-in-spirit for umbrella panel features and the permissions XL.
-7. **#339/#279 event creation in panel** — P0 issue, M vertical slice; first feature to build ON the plan-005 base class (no written plan yet — ask if wanted).
+1. [`003-deterministic-factory-slugs`](plans/003-deterministic-factory-slugs.md)
+   — S; stabilizes CI for everything after.
+2. [`001-event-page-n-plus-one`](plans/001-event-page-n-plus-one.md) — S;
+   user-visible (#323).
+3. [`002-oauth-next-open-redirect`](plans/002-oauth-next-open-redirect.md) —
+   S–M; security.
+4. [`004-coverage-mills-blindspot`](plans/004-coverage-mills-blindspot.md) — S
+   investigate; restores trust in the 93% gate.
+5. [`006-regression-guardrails`](plans/006-regression-guardrails.md) — M; locks
+   in 001/003 (query-auditing test client for #306, ast-grep factory rule). Runs
+   after 001+003 by design — before them it only produces noise.
+6. [`005-panel-view-boilerplate`](plans/005-panel-view-boilerplate.md) — M;
+   prerequisite-in-spirit for umbrella panel features and the permissions XL.
+7. **#339/#279 event creation in panel** — P0 issue, M vertical slice; first
+   feature to build ON the plan-005 base class (no written plan yet — ask if
+   wanted).
 
 **Standing programs (no single plan):** strangler-fig view migration (finding 7
 — keep the one-file-per-PR cadence from `docs/agents/services-migration.md`,

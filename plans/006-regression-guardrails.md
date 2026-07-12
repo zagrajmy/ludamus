@@ -1,15 +1,17 @@
-# Plan 006: Regression guardrails — N+1 detection in tests (#306) and a factory-slug lint rule
+# Plan 006: Regression guardrails — N+1 detection + factory-slug lint (#306)
 
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command before moving on. On any STOP condition, stop and
 > report. When done, update this plan's row in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD -- tests/integration/conftest.py tests/integration/utils.py rules/ sgconfig.yml`
+> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD --
+> tests/integration/conftest.py tests/integration/utils.py rules/ sgconfig.yml`
 > Mismatch with "Current state" = STOP.
 
 ## Status
 
-- **Priority**: P1 (prevention — locks in plans 001/003 so the bug classes can't return)
+- **Priority**: P1 (prevention — locks in plans 001/003 so the bug classes can't
+  return)
 - **Effort**: M
 - **Risk**: MED (a new blanket assertion can flag many existing tests; the plan
   uses report-then-ratchet to control that)
@@ -17,7 +19,8 @@
   (stable suite before adding a new failure mode)
 - **Category**: tests / dx
 - **Planned at**: commit `337cdde7`, 2026-06-10
-- **Tracking issue**: closes zagrajmy/ludamus#306 ("Detect N+1 queries in dev and tests")
+- **Tracking issue**: closes zagrajmy/ludamus#306 ("Detect N+1 queries in dev
+  and tests")
 
 ## Why this matters
 
@@ -62,7 +65,7 @@ deliverable is report-only warnings + the lint rule — still a win; report it.
 ## Commands you will need
 
 | Purpose | Command | Expected |
-|---|---|---|
+| --- | --- | --- |
 | Integration tests | `poetry run pytest tests/integration -q` | all pass |
 | Full suite | `mise run test` | all pass |
 | ast-grep alone | `mise run ast-grep` | exit 0 |
@@ -71,6 +74,7 @@ deliverable is report-only warnings + the lint rule — still a win; report it.
 ## Scope
 
 **In scope**:
+
 - `tests/integration/conftest.py` (or a new `tests/integration/query_audit.py`
   imported from it) — the auditing client + fixture override
 - `pyproject.toml` `[tool.pytest.ini_options]` — register the new marker
@@ -79,6 +83,7 @@ deliverable is report-only warnings + the lint rule — still a win; report it.
   data justifies them
 
 **Out of scope**:
+
 - Production/dev middleware (debug-toolbar already covers dev; revisit only if
   the maintainer asks)
 - Fixing any N+1 this detector finds beyond annotating it (file findings in
@@ -130,6 +135,7 @@ class QueryAuditClient(Client):
 ```
 
 Notes for the implementer:
+
 - Count only SELECTs: factory setup INSERTs and bulk writes legitimately repeat.
 - Identical SQL text is the dedup key — Django parameterizes queries, so an
   N+1 loop produces byte-identical SQL with different params. No normalization
@@ -145,7 +151,8 @@ def client():
     return QueryAuditClient()
 ```
 
-(Check first how existing tests obtain clients — `grep -rn "def client\|client(" tests/integration/conftest.py` and confirm tests use the standard
+(Check first how existing tests obtain clients — `grep -rn "def client\|client("
+tests/integration/conftest.py` and confirm tests use the standard
 `client` fixture rather than instantiating `Client()` directly; if a
 significant fraction instantiate directly, STOP and report.)
 
@@ -155,11 +162,14 @@ significant fraction instantiate directly, STOP and report.)
 
 Run the suite with warnings visible and collect every report:
 
-```
-poetry run pytest tests/integration -q -W default 2>&1 | grep -A2 "duplicate quer" | sort | uniq -c | sort -rn > /tmp/query-audit.txt
+```bash
+poetry run pytest tests/integration -q -W default 2>&1 \
+  | grep -A2 "duplicate quer" | sort | uniq -c | sort -rn \
+  > /tmp/query-audit.txt
 ```
 
 Triage the offenders:
+
 - **Genuine N+1 in a view** → keep the warning, list the view in the
   completion report as a follow-up finding (do NOT fix here).
 - **Legitimate repeat** (e.g. a permission check that genuinely runs once per
@@ -187,7 +197,7 @@ Change `_report_duplicates` to `raise AssertionError` (or `pytest.fail`) when
 `self.enforce` is true, with a message that names the SQL shape, the count,
 and the escape hatch:
 
-```
+```text
 Duplicate query detected (xN): SELECT ... — likely an N+1.
 Fix the prefetch, or mark the test @pytest.mark.allow_duplicate_queries
 with a comment explaining why the repeat is legitimate.
@@ -207,7 +217,9 @@ a message pointing at the fix pattern:
 id: no-faker-slug
 language: python
 severity: error
-message: Faker("slug") collides on unique columns and causes flaky tests; use Sequence(lambda n: f"<model>-{n}") instead (add Sequence to factory imports).
+message: Faker("slug") collides on unique columns and causes flaky tests; use
+  Sequence(lambda n: f"<model>-{n}") instead (add Sequence to factory
+  imports).
 rule:
   pattern: Faker("slug")
 ```
@@ -231,17 +243,21 @@ code doesn't use factory_boy).
   Step 3's revert-and-fail proof and Step 4's scratch-line proof.
 - Add one direct unit-style test for `QueryAuditClient` in
   `tests/integration/` (e.g. a view known to repeat a SELECT under a marker)
-  ONLY if Step 2 surfaced a stable example; otherwise the revert-proof suffices —
-  don't manufacture a synthetic view for it.
+  ONLY if Step 2 surfaced a stable example; otherwise the revert-proof
+  suffices — don't manufacture a synthetic view for it.
 
 ## Done criteria
 
-- [ ] `client` fixture in `tests/integration/conftest.py` returns the auditing client; enforcement on by default
+- [ ] `client` fixture in `tests/integration/conftest.py` returns the auditing
+  client; enforcement on by default
 - [ ] `allow_duplicate_queries` marker registered in `pyproject.toml` and honored
-- [ ] Reverting plan 001's prefetch locally makes the suite fail with the duplicate-query message (verified once, then restored)
-- [ ] `rules/no-faker-slug.yml` exists; scratch violation is caught by `mise run ast-grep`
+- [ ] Reverting plan 001's prefetch locally makes the suite fail with the
+  duplicate-query message (verified once, then restored)
+- [ ] `rules/no-faker-slug.yml` exists; scratch violation is caught by
+  `mise run ast-grep`
 - [ ] `mise run test` exits 0; `mise run prcheck` exits 0
-- [ ] Completion report lists every view the detector flagged as a real N+1 (these are new findings, not fixed here)
+- [ ] Completion report lists every view the detector flagged as a real N+1
+  (these are new findings, not fixed here)
 - [ ] `plans/README.md` status row updated
 
 ## STOP conditions

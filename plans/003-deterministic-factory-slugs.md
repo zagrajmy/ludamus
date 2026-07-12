@@ -4,7 +4,8 @@
 > verification command before moving on. On any STOP condition, stop and
 > report. When done, update this plan's row in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD -- tests/integration/conftest.py tests/integration/factories.py`
+> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD --
+> tests/integration/conftest.py tests/integration/factories.py`
 > Mismatch with "Current state" = STOP.
 
 ## Status
@@ -61,7 +62,7 @@ default declaration.
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
-|---|---|---|
+| --- | --- | --- |
 | Integration tests | `poetry run pytest tests/integration -q` | all pass |
 | Full suite | `mise run test` | all pass |
 | Lint | `mise run prcheck` | exit 0 |
@@ -69,10 +70,13 @@ default declaration.
 ## Scope
 
 **In scope**:
+
 - `tests/integration/conftest.py` (the eight `slug = Faker("slug")` lines)
-- `tests/integration/factories.py` ONLY if `grep -n 'Faker("slug")'` finds occurrences there too
+- `tests/integration/factories.py` ONLY if `grep -n 'Faker("slug")'` finds
+  occurrences there too
 
 **Out of scope**:
+
 - Other `Faker(...)` fields (`name`, `description`, usernames…) — they don't
   populate unique columns; leave them.
 - e2e fixtures under `tests/e2e/`.
@@ -81,7 +85,8 @@ default declaration.
 ## Git workflow
 
 - Branch: `advisor/003-deterministic-factory-slugs`
-- One commit, message in repo style, e.g. "fix(flaky): deterministic factory slugs via Sequence".
+- One commit, message in repo style, e.g. "fix(flaky): deterministic factory
+  slugs via Sequence".
 - Do NOT push or open a PR unless the operator instructed it.
 
 ## Steps

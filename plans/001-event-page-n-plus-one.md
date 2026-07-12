@@ -6,7 +6,8 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD -- src/ludamus/adapters/web/django/views.py tests/integration/web/chronology/`
+> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD --
+> src/ludamus/adapters/web/django/views.py tests/integration/web/chronology/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -19,7 +20,8 @@
 - **Depends on**: none
 - **Category**: perf
 - **Planned at**: commit `337cdde7`, 2026-06-10
-- **Tracking issue**: closes part of zagrajmy/ludamus#323 ("improve perf for big event pages")
+- **Tracking issue**: closes part of zagrajmy/ludamus#323 ("improve perf for big
+  event pages")
 
 ## Why this matters
 
@@ -85,7 +87,7 @@ noqa/type-ignore comments. View tests live in
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
-|---|---|---|
+| --- | --- | --- |
 | Install | `mise run bootstrap` | exit 0 (idempotent) |
 | All tests | `mise run test` | all pass |
 | One test file | `poetry run pytest tests/integration/web/chronology/test_event_page.py -x -q` | all pass |
@@ -98,10 +100,14 @@ noqa/type-ignore comments. View tests live in
 ## Scope
 
 **In scope** (the only files you should modify):
-- `src/ludamus/adapters/web/django/views.py` (the `EventPageView` queryset and `_get_session_data` loop only)
-- the existing event-page integration test file in `tests/integration/web/chronology/` (add a query-count test)
+
+- `src/ludamus/adapters/web/django/views.py` (the `EventPageView` queryset and
+  `_get_session_data` loop only)
+- the existing event-page integration test file in
+  `tests/integration/web/chronology/` (add a query-count test)
 
 **Out of scope** (do NOT touch, even though they look related):
+
 - The `tags__category` prefetch on line 813 — Tag removal is owned by open PR #234.
 - `Session.effective_participants_limit` / `is_enrollment_available` model
   properties — in-memory config iteration; separate, lower-value optimization.
@@ -113,7 +119,9 @@ noqa/type-ignore comments. View tests live in
 ## Git workflow
 
 - Branch: `advisor/001-event-page-n-plus-one`
-- Commit style: imperative, lowercase-ish, like `git log`: e.g. "Use scrollbar-gutter: stable to reserve scrollbar space". One commit for the fix, one for the test is fine.
+- Commit style: imperative, lowercase-ish, like `git log`: e.g. "Use
+  scrollbar-gutter: stable to reserve scrollbar space". One commit for the fix,
+  one for the test is fine.
 - Do NOT push or open a PR unless the operator instructed it.
 
 ## Steps
@@ -198,8 +206,11 @@ guards the regression), then restore.
 
 ## Done criteria
 
-- [ ] `grep -n 'session_participations.select_related' src/ludamus/adapters/web/django/views.py` inside `_get_session_data` returns no matches
-- [ ] `grep -n '"field_values__field"' src/ludamus/adapters/web/django/views.py` matches inside the `event_sessions` prefetch
+- [ ] `grep -n 'session_participations.select_related'
+  src/ludamus/adapters/web/django/views.py` inside `_get_session_data` returns
+  no matches
+- [ ] `grep -n '"field_values__field"' src/ludamus/adapters/web/django/views.py`
+  matches inside the `event_sessions` prefetch
 - [ ] New query-count test exists and passes; fails when Step 1 is reverted
 - [ ] `mise run test` exits 0
 - [ ] `mise run prcheck` exits 0

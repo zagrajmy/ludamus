@@ -6,7 +6,8 @@
 > diagnosis and proposed fix instead of implementing it. Honor STOP conditions.
 > When done, update this plan's row in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD -- pyproject.toml mise.toml`
+> **Drift check (run first)**: `git diff --stat 337cdde7..HEAD -- pyproject.toml
+> mise.toml`
 > Mismatch with "Current state" = STOP.
 
 ## Status
@@ -72,7 +73,7 @@ stops misleading people and tools.
 ## Commands you will need
 
 | Purpose | Command | Expected |
-|---|---|---|
+| --- | --- | --- |
 | Full test+coverage pipeline | `mise run test` | exit 0 |
 | Fresh terminal report | `poetry run coverage report --include="*/mills/*"` (after a run) | the diagnostic datum |
 | Targeted run | `poetry run pytest tests/unit --cov=ludamus --cov-report=term-missing 2>&1 \| grep mills` | mills lines appear or not |
@@ -80,12 +81,17 @@ stops misleading people and tools.
 ## Scope
 
 **In scope**:
+
 - Reading `mise.toml`, `pyproject.toml`, CI workflow coverage steps
-- Running the test suite locally (read-only side effects: coverage data files, which are already untracked clutter)
-- A config-level fix in `pyproject.toml`/`mise.toml` if the cause is one line (e.g. `core` setting, missing combine, wrong `--cov` target)
-- Adding `coverage.xml` / `.coverage*` to `.gitignore` if they turn out to be untracked clutter that's misleading (only if not already ignored)
+- Running the test suite locally (read-only side effects: coverage data files,
+  which are already untracked clutter)
+- A config-level fix in `pyproject.toml`/`mise.toml` if the cause is one line
+  (e.g. `core` setting, missing combine, wrong `--cov` target)
+- Adding `coverage.xml` / `.coverage*` to `.gitignore` if they turn out to be
+  untracked clutter that's misleading (only if not already ignored)
 
 **Out of scope**:
+
 - Writing new tests for mills (follow-up once measurement is trusted)
 - Changing the 93%/96% thresholds
 - Touching codecov.yml
@@ -110,11 +116,12 @@ CI (`.github/workflows/ci.yml`) uploads to codecov.
 
 Run `mise run test` (or the narrower unit task) and then:
 
-```
+```bash
 poetry run coverage report --include="*/mills/*"
 ```
 
 Two outcomes:
+
 - **Mills covered in a fresh run** → the root `coverage.xml` is a stale/partial
   artifact (likely from the e2e run, which exercises only web layers... though
   mills should still execute — note what you find). Fix = ensure stale
@@ -124,14 +131,18 @@ Two outcomes:
 ### Step 3 (only if missing in fresh runs): Bisect the config
 
 Try in order, re-running the targeted command after each, reverting between tries:
-1. Remove `core = "ctrace"` (fall back to default tracer) — known-newer knob, most suspicious on CPython 3.14.
+
+1. Remove `core = "ctrace"` (fall back to default tracer) — known-newer knob,
+   most suspicious on CPython 3.14.
 2. Remove `plugins = ["django_coverage_plugin"]` temporarily.
-3. Run pytest with explicit `--cov=ludamus.mills` to see whether pytest-cov's source resolution differs from `source = ["src"]`.
+3. Run pytest with explicit `--cov=ludamus.mills` to see whether pytest-cov's
+   source resolution differs from `source = ["src"]`.
 
 Identify the single change that makes mills appear.
 
 **Verify**: `poetry run coverage report --include="*/mills/*"` shows
-`tests/unit/test_mills.py`-driven coverage (mills/legacy.py, mills/chronology.py at >0%).
+`tests/unit/test_mills.py`-driven coverage (mills/legacy.py, mills/chronology.py
+at >0%).
 
 ### Step 4: Fix or report
 
@@ -145,7 +156,8 @@ Identify the single change that makes mills appear.
 ## Done criteria
 
 - [ ] "Findings" section below filled in with: cause, evidence, fix applied or proposed
-- [ ] If fixed: fresh `coverage report --include="*/mills/*"` non-empty AND `mise run test` exits 0
+- [ ] If fixed: fresh `coverage report --include="*/mills/*"` non-empty AND
+  `mise run test` exits 0
 - [ ] `plans/README.md` status row updated
 
 ## STOP conditions
@@ -163,4 +175,4 @@ Identify the single change that makes mills appear.
 
 ## Findings
 
-_(filled by executor)_
+_Filled in by the plan's executor._
