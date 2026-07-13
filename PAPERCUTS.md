@@ -4,6 +4,8 @@ Small friction hit while working — retried tool calls, confusing setup steps,
 flaky commands, stale caches, misleading errors, non-obvious gotchas. One or two
 sentences each: what you were doing → what got in the way.
 
+If you fix a papercut, remove it.
+
 <!-- Append new entries below, newest last. -->
 
 - 2026-07-10: session-start hook's `playwright install --with-deps` fails in
@@ -30,3 +32,11 @@ sentences each: what you were doing → what got in the way.
 - 2026-07-13: dev DB root sphere domain drifted from ROOT_DOMAIN
   (localhost:8000) -> every request 500s with NotFoundError in
   middlewares.py:40; error page gives no hint which domain was looked up
+- 2026-07-13: Ran 'mise run messages' to prune one msgid; makemessages scans
+  worktrees/staging/ too, erroring on duplicate pot definitions and polluting
+  django.po with combined-tree fuzzy entries. Had to stash the regen and hand-
+  edit the .po.
+- 2026-07-13: mise run messages-check false-passed ('Translations fresh') while
+  vc-mtime warned 'failed to read git log output', then a rerun failed on a
+  stale worktrees/issue-329 path in msguniq; third run gave the real result. The
+  mtime cache seems to mask stale extraction.

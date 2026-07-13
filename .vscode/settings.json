@@ -1,13 +1,19 @@
 {
   "[html]": {
-    "editor.formatOnSave": false
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "monosans.djlint"
   },
   "[django-html]": {
     "editor.formatOnSave": false,
+    "editor.defaultFormatter": "monosans.djlint"
   },
   "[htmldjango]": {
-    "editor.formatOnSave": false
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "monosans.djlint"
   },
+  "djlint.profile": "django",
+  "djlint.formatCss": true,
+  "djlint.formatJs": true,
   "files.associations": {
     "**/templates/**/*.html": "django-html"
   },
