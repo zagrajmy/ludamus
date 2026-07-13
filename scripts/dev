@@ -102,8 +102,27 @@ if [ "${VITE_PORT:-}" = "" ]; then
   export VITE_PORT="$(mise x -- python -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); print(s.getsockname()[1]); s.close()")"
 fi
 
+# Migrate only when the migration files changed (or the DB is missing) —
+# a no-op migrate still boots Django (~1.6 s), too slow for every start.
+migrate_if_needed() {
+  local stamp=".local/dev-migrate.stamp"
+  local db_file="${DB_NAME:-ludamus.sqlite3}"
+  local current
+  current="$(find src -path '*/migrations/*.py' -type f -print0 \
+    | LC_ALL=C sort -z | xargs -0 shasum -a 256 | shasum -a 256 | cut -d' ' -f1)"
+  if [ "${USE_POSTGRES:-}" != "true" ] && [ ! -f "$db_file" ]; then
+    : # fresh DB — always migrate
+  elif [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$current" ]; then
+    return 0
+  fi
+  django-admin migrate --noinput
+  mkdir -p .local
+  printf '%s' "$current" > "$stamp"
+}
+migrate_if_needed
+
 if [ "$use_portless" = "1" ]; then
-  PORTLESS=(npx --prefix src/ludamus/client portless)
+  PORTLESS=(aubr portless)
 
   printf '[dev] auth0=%s root=portless\n' "${AUTH0_DOMAIN:-?}" >&2
 
@@ -126,5 +145,4 @@ fi
 
 export PORT="${PORT:-8000}"
 printf '[dev] auth0=%s root=%s\n' "${AUTH0_DOMAIN:-?}" "${ROOT_DOMAIN:-?}" >&2
-django-admin migrate --noinput
 exec honcho start -e /dev/null -f Procfile.dev

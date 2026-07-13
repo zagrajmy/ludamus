@@ -30,9 +30,6 @@ import django
 django.setup()
 from django.conf import settings
 from django.contrib.sites.models import Site
-from django.core.management import call_command
-
-call_command("migrate", interactive=False)
 
 root_domain = os.environ["ROOT_DOMAIN"]
 site_id = settings.SITE_ID
