@@ -1,16 +1,4 @@
 {
-  "[html]": {
-    "editor.formatOnSave": false,
-    "editor.defaultFormatter": "monosans.djlint"
-  },
-  "[django-html]": {
-    "editor.formatOnSave": false,
-    "editor.defaultFormatter": "monosans.djlint"
-  },
-  "[htmldjango]": {
-    "editor.formatOnSave": false,
-    "editor.defaultFormatter": "monosans.djlint"
-  },
   "djlint.profile": "django",
   "djlint.formatCss": true,
   "djlint.formatJs": true,
@@ -31,5 +19,8 @@
   },
   "[typescriptreact]": {
     "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[html][django-html][handlebars][hbs][mustache][jinja][jinja-html][nj][njk][nunjucks][twig]": {
+    "editor.defaultFormatter": "monosans.djlint"
   }
 }
