@@ -72,7 +72,7 @@ class UserFactory(DjangoModelFactory):
         skip_postgeneration_save = True
 
     username = Faker("user_name")
-    email = Faker("email")
+    email = Sequence(lambda n: f"user{n}@example.com")
     name = Faker("name")
     slug = LazyAttribute(lambda o: o.username)
     user_type = "active"  # Use the actual choice value
