@@ -154,9 +154,9 @@ class PartyInviteLinkActionView(LoginRequiredMixin, View):
             leader_pk=request.context.current_user_id, party_pk=pk
         )
         if token is None:
-            messages.error(request, _("Could not create an invite link."))
+            messages.error(request, _("Could not regenerate the invite link."))
         else:
-            messages.success(request, _("Invite link ready."))
+            messages.success(request, _("Invite link regenerated."))
         return redirect("web:crowd:party-detail", pk=pk)
 
 

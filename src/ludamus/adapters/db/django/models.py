@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import sys
 from datetime import UTC, datetime, timedelta
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
@@ -219,9 +220,7 @@ class Party(models.Model):
         User, on_delete=models.CASCADE, related_name="led_parties"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    invite_token = models.CharField(
-        max_length=64, blank=True, default="", db_index=True
-    )
+    invite_token = models.CharField(max_length=64, default=token_urlsafe, db_index=True)
 
     class Meta:
         db_table = "party"

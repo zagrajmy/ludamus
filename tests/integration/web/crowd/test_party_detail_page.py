@@ -58,7 +58,8 @@ class TestPartyDetailPageView:
                         _member_dto(connected_user, party),
                     ],
                     is_default=True,
-                )
+                ),
+                invite_token=party.invite_token,
             ),
             template_name=TEMPLATE,
             contains=[
@@ -165,6 +166,7 @@ class TestPartyDetailSessionHistory:
                     ],
                     is_default=True,
                 ),
+                invite_token=party.invite_token,
                 history=[
                     {
                         "event_name": session.event.name,
@@ -210,7 +212,8 @@ class TestPartyDetailSessionHistory:
                         _member_dto(connected_user, party),
                     ],
                     is_default=True,
-                )
+                ),
+                invite_token=party.invite_token,
             ),
             template_name=TEMPLATE,
             contains="No sessions together yet",
@@ -243,6 +246,7 @@ class TestPartyDetailSessionHistory:
                     ],
                     is_default=True,
                 ),
+                invite_token=party.invite_token,
                 history=[
                     {
                         "event_name": session.event.name,

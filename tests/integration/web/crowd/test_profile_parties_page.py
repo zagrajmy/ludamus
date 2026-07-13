@@ -471,46 +471,39 @@ class TestPartyInviteLinkActionView:
     def _url(self, party):
         return reverse("web:crowd:parties-invite-link", kwargs={"pk": party.pk})
 
-    def test_creates_link(self, authenticated_client, active_user):
-        party = Party.objects.create(leader=active_user, name="Ekipa")
-        PartyMembership.objects.create(party=party, member=active_user)
-
-        response = authenticated_client.post(self._url(party))
-
-        party.refresh_from_db()
-        assert party.invite_token
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_detail_url(party),
-            messages=[(messages.SUCCESS, "Invite link ready.")],
-        )
-
     def test_regenerates_link(self, authenticated_client, active_user):
         party = Party.objects.create(
             leader=active_user, name="Ekipa", invite_token="old-token"
         )
         PartyMembership.objects.create(party=party, member=active_user)
 
-        authenticated_client.post(self._url(party))
+        response = authenticated_client.post(self._url(party))
 
         party.refresh_from_db()
         assert party.invite_token
         assert party.invite_token != "old-token"
-
-    def test_rejects_non_leader(self, authenticated_client):
-        stranger = UserFactory(username="stranger")
-        party = Party.objects.create(leader=stranger, name="Theirs")
-
-        response = authenticated_client.post(self._url(party))
-
-        party.refresh_from_db()
-        assert not party.invite_token
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=_detail_url(party),
-            messages=[(messages.ERROR, "Could not create an invite link.")],
+            messages=[(messages.SUCCESS, "Invite link regenerated.")],
+        )
+
+    def test_rejects_non_leader(self, authenticated_client):
+        stranger = UserFactory(username="stranger")
+        party = Party.objects.create(
+            leader=stranger, name="Theirs", invite_token="theirs"
+        )
+
+        response = authenticated_client.post(self._url(party))
+
+        party.refresh_from_db()
+        assert party.invite_token == "theirs"
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, "Could not regenerate the invite link.")],
         )
 
 
