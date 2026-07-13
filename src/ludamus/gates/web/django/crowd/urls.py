@@ -46,6 +46,16 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="parties-invite",
     ),
     path(
+        "profile/parties/<int:pk>/do/invite-link",
+        views.PartyInviteLinkActionView.as_view(),
+        name="parties-invite-link",
+    ),
+    path(
+        "parties/join/<str:token>/",
+        views.PartyJoinPageView.as_view(),
+        name="parties-join",
+    ),
+    path(
         "profile/parties/<int:pk>/do/consent",
         views.PartyConsentActionView.as_view(),
         name="parties-consent",

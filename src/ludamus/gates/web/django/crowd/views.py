@@ -19,6 +19,7 @@ from ludamus.pacts.party import (
     DeletePartyOutcome,
     InviteOutcome,
     PartyConsentMode,
+    PartyJoinOutcome,
     PartyMembershipStatus,
 )
 
@@ -113,26 +114,87 @@ class PartyInviteActionView(LoginRequiredMixin, View):
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         form = PartyInviteForm(request.POST)
         if not form.is_valid():
-            messages.error(request, _("Enter a valid email address."))
+            messages.error(request, _("Enter an email or Discord username."))
             return redirect("web:crowd:party-detail", pk=pk)
         outcome = request.services.parties.invite(
             leader_pk=request.context.current_user_id,
             party_pk=pk,
-            email=form.cleaned_data["email"],
+            identifier=form.cleaned_data["identifier"],
         )
         if outcome == InviteOutcome.INVITED:
             messages.success(request, _("Invitation sent."))
         elif outcome == InviteOutcome.ALREADY_MEMBER:
             messages.info(request, _("This person is already in the party."))
+        elif outcome == InviteOutcome.AMBIGUOUS_HANDLE:
+            messages.error(
+                request,
+                _(
+                    "More than one account uses that Discord username. "
+                    "Invite them by email instead."
+                ),
+            )
         else:
             messages.error(
                 request,
                 _(
-                    "No account uses this email. Ask them to sign up first, "
-                    "or add them as a companion you enroll yourself."
+                    "No account matches that email or Discord username. Ask them "
+                    "to sign up first, share your invite link, or add them as a "
+                    "companion you enroll yourself."
                 ),
             )
         return redirect("web:crowd:party-detail", pk=pk)
+
+
+class PartyInviteLinkActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        token = request.services.parties.reset_invite_link(
+            leader_pk=request.context.current_user_id, party_pk=pk
+        )
+        if token is None:
+            messages.error(request, _("Could not create an invite link."))
+        else:
+            messages.success(request, _("Invite link ready."))
+        return redirect("web:crowd:party-detail", pk=pk)
+
+
+class PartyJoinPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest, token: str) -> HttpResponse:
+        party = request.services.parties.read_invitable_party(
+            token=token, viewer_pk=request.context.current_user_id
+        )
+        if party is None:
+            messages.error(request, _("This invite link is invalid."))
+            return redirect("web:crowd:profile-parties")
+        if party.already_member:
+            return redirect("web:crowd:party-detail", pk=party.pk)
+        return TemplateResponse(
+            request, "crowd/user/party_join.html", {"party": party, "token": token}
+        )
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, token: str) -> HttpResponse:
+        outcome = request.services.parties.join_via_link(
+            token=token, user_pk=request.context.current_user_id
+        )
+        if outcome == PartyJoinOutcome.INVALID:
+            messages.error(request, _("This invite link is invalid."))
+            return redirect("web:crowd:profile-parties")
+        party = request.services.parties.read_invitable_party(
+            token=token, viewer_pk=request.context.current_user_id
+        )
+        if outcome == PartyJoinOutcome.JOINED:
+            messages.success(request, _("You joined the party."))
+        else:
+            messages.info(request, _("You're already in this party."))
+        if party is not None:
+            return redirect("web:crowd:party-detail", pk=party.pk)
+        return redirect("web:crowd:profile-parties")
 
 
 class PartyInviteAcceptActionView(LoginRequiredMixin, View):

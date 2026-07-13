@@ -27,6 +27,7 @@ from ludamus.pacts.legacy import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.party import (
+    InvitablePartyDTO,
     InvitedUserDTO,
     LedPartyDTO,
     PartiesOverviewDTO,
@@ -34,6 +35,7 @@ from ludamus.pacts.party import (
     PartyDTO,
     PartyEventHistoryDTO,
     PartyInviteDTO,
+    PartyJoinOutcome,
     PartyMemberDTO,
     PartyMembershipStatus,
     PartyRepositoryProtocol,
@@ -162,15 +164,82 @@ class PartyRepository(PartyRepositoryProtocol):
         return LedPartyDTO(name=party.name, leader_name=party.leader.get_full_name())
 
     @staticmethod
-    def find_invitable_user(email: str) -> InvitedUserDTO | None:
-        if not email:
-            return None
-        user = (
-            User.objects.filter(email__iexact=email, user_type=UserType.ACTIVE)
+    def find_invitable_users(identifier: str) -> list[InvitedUserDTO]:
+        identifier = identifier.strip().lstrip("@")
+        if not identifier:
+            return []
+        by_email = (
+            User.objects.filter(email__iexact=identifier, user_type=UserType.ACTIVE)
             .order_by("pk")
             .first()
         )
-        return InvitedUserDTO.model_validate(user) if user is not None else None
+        if by_email is not None:
+            return [InvitedUserDTO.model_validate(by_email)]
+        by_discord = User.objects.filter(
+            discord_username__iexact=identifier, user_type=UserType.ACTIVE
+        ).order_by("pk")
+        return [InvitedUserDTO.model_validate(user) for user in by_discord[:2]]
+
+    @staticmethod
+    def set_invite_token(*, leader_pk: int, party_pk: int, token: str) -> bool:
+        return bool(
+            Party.objects.filter(pk=party_pk, leader_id=leader_pk).update(
+                invite_token=token
+            )
+        )
+
+    @staticmethod
+    def read_invite_token(*, leader_pk: int, party_pk: int) -> str:
+        party = (
+            Party.objects.filter(pk=party_pk, leader_id=leader_pk)
+            .only("invite_token")
+            .first()
+        )
+        return party.invite_token if party is not None else ""
+
+    @staticmethod
+    def read_party_by_invite_token(
+        *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None:
+        if not token:
+            return None
+        party = (
+            Party.objects.filter(invite_token=token).select_related("leader").first()
+        )
+        if party is None:
+            return None
+        return InvitablePartyDTO(
+            pk=party.pk,
+            name=party.name,
+            leader_name=party.leader.get_full_name(),
+            already_member=PartyMembership.objects.filter(
+                party_id=party.pk, member_id=viewer_pk
+            ).exists(),
+        )
+
+    @staticmethod
+    def join_via_token(*, token: str, user_pk: int) -> PartyJoinOutcome:
+        if not token:
+            return PartyJoinOutcome.INVALID
+        party = Party.objects.filter(invite_token=token).first()
+        if party is None:
+            return PartyJoinOutcome.INVALID
+        existing = PartyMembership.objects.filter(
+            party_id=party.pk, member_id=user_pk
+        ).first()
+        if existing is not None:
+            if existing.status == PartyMembershipStatus.INVITED:
+                existing.status = PartyMembershipStatus.ACTIVE
+                existing.save(update_fields=["status"])
+                return PartyJoinOutcome.JOINED
+            return PartyJoinOutcome.ALREADY_MEMBER
+        PartyMembership.objects.create(
+            party_id=party.pk,
+            member_id=user_pk,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+        return PartyJoinOutcome.JOINED
 
     @staticmethod
     def membership_exists(*, party_pk: int, user_pk: int) -> bool:

@@ -212,6 +212,9 @@ class Party(models.Model):
         User, on_delete=models.CASCADE, related_name="led_parties"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    invite_token = models.CharField(
+        max_length=64, blank=True, default="", db_index=True
+    )
 
     class Meta:
         db_table = "party"

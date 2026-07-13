@@ -347,7 +347,7 @@ class TestPartyInviteActionView:
         PartyMembership.objects.create(party=party, member=active_user)
 
         response = authenticated_client.post(
-            self._url(party), data={"email": "frida@example.com"}
+            self._url(party), data={"identifier": "frida@example.com"}
         )
 
         membership = PartyMembership.objects.get(party=party, member=friend)
@@ -368,12 +368,55 @@ class TestPartyInviteActionView:
         PartyMembership.objects.create(party=party, member=active_user)
 
         response = authenticated_client.post(
-            self._url(party), data={"email": "nobody@example.com"}
+            self._url(party), data={"identifier": "nobody@example.com"}
         )
 
         expected = (
-            "No account uses this email. Ask them to sign up first, "
-            "or add them as a companion you enroll yourself."
+            "No account matches that email or Discord username. Ask them "
+            "to sign up first, share your invite link, or add them as a "
+            "companion you enroll yourself."
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, expected)],
+        )
+
+    def test_post_invites_by_discord_username(self, authenticated_client, active_user):
+        friend = UserFactory(
+            username="friend", name="Frida Friend", discord_username="frida#42"
+        )
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(
+            self._url(party), data={"identifier": "frida#42"}
+        )
+
+        membership = PartyMembership.objects.get(party=party, member=friend)
+        assert membership.status == PartyMembershipStatus.INVITED
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "Invitation sent.")],
+        )
+
+    def test_post_ambiguous_discord_username(self, authenticated_client, active_user):
+        UserFactory(username="one", discord_username="dup")
+        UserFactory(username="two", discord_username="dup")
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(
+            self._url(party), data={"identifier": "dup"}
+        )
+
+        assert PartyMembership.objects.filter(party=party).count() == 1
+        expected = (
+            "More than one account uses that Discord username. "
+            "Invite them by email instead."
         )
         assert_response(
             response,
@@ -391,7 +434,7 @@ class TestPartyInviteActionView:
         PartyMembership.objects.create(party=party, member=friend)
 
         response = authenticated_client.post(
-            self._url(party), data={"email": "frida@example.com"}
+            self._url(party), data={"identifier": "frida@example.com"}
         )
 
         assert PartyMembership.objects.filter(party=party, member=friend).count() == 1
@@ -407,19 +450,141 @@ class TestPartyInviteActionView:
         party = Party.objects.create(leader=stranger, name="Theirs")
 
         response = authenticated_client.post(
-            self._url(party), data={"email": "s@example.com"}
+            self._url(party), data={"identifier": "s@example.com"}
         )
 
         assert not PartyMembership.objects.filter(party=party).exists()
         expected = (
-            "No account uses this email. Ask them to sign up first, "
-            "or add them as a companion you enroll yourself."
+            "No account matches that email or Discord username. Ask them "
+            "to sign up first, share your invite link, or add them as a "
+            "companion you enroll yourself."
         )
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=_detail_url(party),
             messages=[(messages.ERROR, expected)],
+        )
+
+
+class TestPartyInviteLinkActionView:
+    def _url(self, party):
+        return reverse("web:crowd:parties-invite-link", kwargs={"pk": party.pk})
+
+    def test_creates_link(self, authenticated_client, active_user):
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(self._url(party))
+
+        party.refresh_from_db()
+        assert party.invite_token
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "Invite link ready.")],
+        )
+
+    def test_regenerates_link(self, authenticated_client, active_user):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", invite_token="old-token"
+        )
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        authenticated_client.post(self._url(party))
+
+        party.refresh_from_db()
+        assert party.invite_token
+        assert party.invite_token != "old-token"
+
+    def test_rejects_non_leader(self, authenticated_client):
+        stranger = UserFactory(username="stranger")
+        party = Party.objects.create(leader=stranger, name="Theirs")
+
+        response = authenticated_client.post(self._url(party))
+
+        party.refresh_from_db()
+        assert not party.invite_token
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, "Could not create an invite link.")],
+        )
+
+
+class TestPartyJoinPageView:
+    def _url(self, token):
+        return reverse("web:crowd:parties-join", kwargs={"token": token})
+
+    def test_get_shows_join_page(self, authenticated_client):
+        leader = UserFactory(username="leader", name="Lena Leader")
+        party = Party.objects.create(
+            leader=leader, name="Ekipa", invite_token="tok-123"
+        )
+        PartyMembership.objects.create(party=party, member=leader)
+
+        response = authenticated_client.get(self._url("tok-123"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="crowd/user/party_join.html",
+            contains=["Ekipa", "Join party"],
+        )
+
+    def test_get_invalid_token(self, authenticated_client):
+        response = authenticated_client.get(self._url("nope"))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:crowd:profile-parties"),
+            messages=[(messages.ERROR, "This invite link is invalid.")],
+        )
+
+    def test_get_already_member_redirects(self, authenticated_client, active_user):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", invite_token="tok-9"
+        )
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.get(self._url("tok-9"))
+
+        assert_response(response, HTTPStatus.FOUND, url=_detail_url(party))
+
+    def test_post_joins(self, authenticated_client, active_user):
+        leader = UserFactory(username="leader", name="Lena Leader")
+        party = Party.objects.create(
+            leader=leader, name="Ekipa", invite_token="join-me"
+        )
+        PartyMembership.objects.create(party=party, member=leader)
+
+        response = authenticated_client.post(self._url("join-me"))
+
+        membership = PartyMembership.objects.get(party=party, member=active_user)
+        assert membership.status == PartyMembershipStatus.ACTIVE
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "You joined the party.")],
+        )
+
+    def test_post_already_member(self, authenticated_client, active_user):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", invite_token="mine"
+        )
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(self._url("mine"))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.INFO, "You're already in this party.")],
         )
 
 

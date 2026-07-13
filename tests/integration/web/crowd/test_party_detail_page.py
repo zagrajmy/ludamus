@@ -29,6 +29,7 @@ def _context(party_dto, **overrides):
         "party": party_dto,
         "rename_form": ANY if party_dto.is_leader else None,
         "invite_form": ANY if party_dto.is_leader else None,
+        "invite_token": ANY if party_dto.is_leader else "",
         "history": [],
         "profile_active_tab": "parties",
     }

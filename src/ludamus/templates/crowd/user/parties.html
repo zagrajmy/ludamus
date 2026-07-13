@@ -176,9 +176,9 @@
                             <h3 id="invite-modal-{{ entry.party.pk }}-title"
                                 class="font-semibold text-foreground">{% translate "Invite a member" %}</h3>
                             <label class="mt-4 block">
-                                <span class="block text-sm font-medium text-foreground mb-1.5">{% translate "Email" %}</span>
-                                {% include "components/text-field.html" with name="email" input_type="email" required=True only %}
-                                <span class="block text-xs text-foreground-muted mt-1.5">{% translate "The invited person needs a Ludamus account with this email." %}</span>
+                                <span class="block text-sm font-medium text-foreground mb-1.5">{% translate "Email or Discord username" %}</span>
+                                {% include "components/text-field.html" with name="identifier" required=True only %}
+                                <span class="block text-xs text-foreground-muted mt-1.5">{% translate "Their account email, or the Discord username they signed up with." %}</span>
                             </label>
                         </div>
                         <div class="flex justify-end gap-2 border-t border-border px-6 py-3">

@@ -68,9 +68,11 @@ class FakeParties:
         self.calls.append(("read_led_party", leader_pk, party_pk))
         return self.lead
 
-    def find_invitable_user(self, email):
-        self.calls.append(("find_invitable_user", email))
-        return self.user
+    def find_invitable_users(self, identifier):
+        self.calls.append(("find_invitable_users", identifier))
+        if self.user is None:
+            return []
+        return self.user if isinstance(self.user, list) else [self.user]
 
     def membership_exists(self, *, party_pk, user_pk):
         self.calls.append(("membership_exists", party_pk, user_pk))
@@ -147,7 +149,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, email="f@e.com"
+            leader_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.INVITED
@@ -166,7 +168,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, email="f@e.com"
+            leader_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
@@ -177,9 +179,25 @@ class TestInvite:
             lead=LedPartyDTO(name="Ekipa", leader_name="Lena"), user=None
         )
 
-        outcome = _service(parties).invite(leader_pk=1, party_pk=2, email="x@e.com")
+        outcome = _service(parties).invite(
+            leader_pk=1, party_pk=2, identifier="x@e.com"
+        )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
+        assert ("create_invited_membership", 2, FRIEND_PK) not in parties.calls
+
+    def test_ambiguous_handle(self):
+        parties = FakeParties(
+            lead=LedPartyDTO(name="Ekipa", leader_name="Lena"),
+            user=[
+                InvitedUserDTO(pk=FRIEND_PK, email="f@e.com"),
+                InvitedUserDTO(pk=FRIEND_PK + 1, email="g@e.com"),
+            ],
+        )
+
+        outcome = _service(parties).invite(leader_pk=1, party_pk=2, identifier="ziggy")
+
+        assert outcome == InviteOutcome.AMBIGUOUS_HANDLE
         assert ("create_invited_membership", 2, FRIEND_PK) not in parties.calls
 
     def test_already_member(self):
@@ -191,7 +209,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, email="f@e.com"
+            leader_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.ALREADY_MEMBER

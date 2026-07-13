@@ -42,7 +42,10 @@ class PartyNameForm(forms.Form):
 
 
 class PartyInviteForm(forms.Form):
-    email = forms.EmailField(
-        label=_("Email"),
-        help_text=_("The invited person needs a Ludamus account with this email."),
+    identifier = forms.CharField(
+        label=_("Email or Discord username"),
+        help_text=_(
+            "Their account email, or the Discord username they signed up with. "
+            "They need a Ludamus account."
+        ),
     )

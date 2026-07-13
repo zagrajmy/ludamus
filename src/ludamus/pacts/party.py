@@ -125,6 +125,13 @@ class InviteOutcome(StrEnum):
     INVITED = "invited"
     NO_SUCH_USER = "no_such_user"
     ALREADY_MEMBER = "already_member"
+    AMBIGUOUS_HANDLE = "ambiguous_handle"
+
+
+class PartyJoinOutcome(StrEnum):
+    JOINED = "joined"
+    ALREADY_MEMBER = "already_member"
+    INVALID = "invalid"
 
 
 class DeletePartyOutcome(StrEnum):
@@ -164,6 +171,13 @@ class InvitedUserDTO(BaseModel):
 
     pk: int
     email: str
+
+
+class InvitablePartyDTO(BaseModel):
+    pk: int
+    name: str
+    leader_name: str
+    already_member: bool
 
 
 class LedPartyDTO(BaseModel):
@@ -213,7 +227,17 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def read_led_party(*, leader_pk: int, party_pk: int) -> LedPartyDTO | None: ...
     @staticmethod
-    def find_invitable_user(email: str) -> InvitedUserDTO | None: ...
+    def find_invitable_users(identifier: str) -> list[InvitedUserDTO]: ...
+    @staticmethod
+    def set_invite_token(*, leader_pk: int, party_pk: int, token: str) -> bool: ...
+    @staticmethod
+    def read_invite_token(*, leader_pk: int, party_pk: int) -> str: ...
+    @staticmethod
+    def read_party_by_invite_token(
+        *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None: ...
+    @staticmethod
+    def join_via_token(*, token: str, user_pk: int) -> PartyJoinOutcome: ...
     @staticmethod
     def membership_exists(*, party_pk: int, user_pk: int) -> bool: ...
     @staticmethod
@@ -252,7 +276,15 @@ class PartyServiceProtocol(Protocol):
     def create(self, *, leader_pk: int, name: str) -> int: ...
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool: ...
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome: ...
-    def invite(self, *, leader_pk: int, party_pk: int, email: str) -> InviteOutcome: ...
+    def invite(
+        self, *, leader_pk: int, party_pk: int, identifier: str
+    ) -> InviteOutcome: ...
+    def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None: ...
+    def read_invite_token(self, *, leader_pk: int, party_pk: int) -> str: ...
+    def read_invitable_party(
+        self, *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None: ...
+    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinOutcome: ...
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool: ...
     def decline_invite(self, *, user_pk: int, membership_pk: int) -> bool: ...
     def remove_member(

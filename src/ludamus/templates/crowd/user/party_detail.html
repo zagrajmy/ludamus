@@ -191,20 +191,71 @@
         <dialog id="party-invite-modal"
                 class="modal w-[calc(100%-2rem)] max-w-md p-0"
                 aria-labelledby="party-invite-modal-title">
-            <form action="{% url 'web:crowd:parties-invite' pk=party.pk %}"
-                  method="post">
-                {% csrf_token %}
-                <div class="px-6 pt-5 pb-4">
-                    <h3 id="party-invite-modal-title" class="font-semibold text-foreground">{% translate "Invite a member" %}</h3>
-                    <div class="mt-4">{% tessera_form invite_form %}</div>
+            <div class="px-6 pt-5 pb-4">
+                <h3 id="party-invite-modal-title" class="font-semibold text-foreground">{% translate "Invite a member" %}</h3>
+                <form action="{% url 'web:crowd:parties-invite' pk=party.pk %}"
+                      method="post"
+                      class="mt-4">
+                    {% csrf_token %}
+                    {% tessera_form invite_form %}
+                    <div class="mt-3 flex justify-end">
+                        <button type="submit" class="btn btn-primary">{% translate "Send invite" %}</button>
+                    </div>
+                </form>
+                <div class="my-5 flex items-center gap-3 text-xs text-foreground-muted">
+                    <span class="h-px flex-1 bg-border"></span>
+                    {% translate "or share a link" %}
+                    <span class="h-px flex-1 bg-border"></span>
                 </div>
-                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
-                    <button type="button"
-                            class="btn btn-secondary"
-                            data-modal-close="party-invite-modal">{% translate "Cancel" %}</button>
-                    <button type="submit" class="btn btn-primary">{% translate "Send invite" %}</button>
-                </div>
-            </form>
+                {% if invite_token %}
+                    {% url 'web:crowd:parties-join' token=invite_token as join_path %}
+                    <div class="flex items-center gap-2">
+                        <input type="text"
+                               readonly
+                               value="{{ request.scheme }}://{{ request.get_host }}{{ join_path }}"
+                               onfocus="this.select()"
+                               class="w-full min-w-0 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-foreground-muted">
+                        <button type="button"
+                                class="icon-btn relative shrink-0"
+                                data-copy="{{ join_path }}"
+                                data-copy-origin
+                                data-copied-label="{% translate "Copied!" %}"
+                                title="{% translate "Copy invite link" %}">
+                            {% icon "clipboard-document" class="w-4 h-4" %}
+                            <span class="sr-only">{% translate "Copy invite link" %}</span>
+                            {% tessera_copy_popover %}
+                        </button>
+                    </div>
+                    <p class="mt-2 text-xs text-foreground-muted">
+                        {% translate "Anyone signed in who opens this link joins the party." %}
+                    </p>
+                    <form action="{% url 'web:crowd:parties-invite-link' pk=party.pk %}"
+                          method="post"
+                          class="mt-2"
+                          data-confirm="{% translate "Make a new link? The current one stops working." %}"
+                          data-confirm-action="{% translate "Regenerate link" %}">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="text-xs font-medium text-foreground-muted hover:text-foreground-secondary hover:underline">
+                            {% translate "Regenerate link" %}
+                        </button>
+                    </form>
+                {% else %}
+                    <form action="{% url 'web:crowd:parties-invite-link' pk=party.pk %}"
+                          method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary w-full">
+                            {% icon "link" class="w-4 h-4" %}
+                            {% translate "Create an invite link" %}
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            <div class="flex justify-end border-t border-border px-6 py-3">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-modal-close="party-invite-modal">{% translate "Close" %}</button>
+            </div>
         </dialog>
     {% endif %}
     {# Shared session history #}

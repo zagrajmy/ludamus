@@ -8,6 +8,7 @@ around them.
 
 from __future__ import annotations
 
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.party import (
@@ -18,12 +19,14 @@ from ludamus.pacts.party import (
     EnrollmentPartyMemberDTO,
     InviteOutcome,
     PartyInviteNotification,
+    PartyJoinOutcome,
     PartyServiceProtocol,
     SelectedEnrollmentPartyDTO,
 )
 
 if TYPE_CHECKING:
     from ludamus.pacts.party import (
+        InvitablePartyDTO,
         PartiesOverviewDTO,
         PartyConsentMode,
         PartyDTO,
@@ -75,13 +78,19 @@ class PartyService(PartyServiceProtocol):
                 return DeletePartyOutcome.NOT_FOUND
             return DeletePartyOutcome.DELETED
 
-    def invite(self, *, leader_pk: int, party_pk: int, email: str) -> InviteOutcome:
+    def invite(
+        self, *, leader_pk: int, party_pk: int, identifier: str
+    ) -> InviteOutcome:
         with self._transaction.atomic():
             lead = self._parties.read_led_party(leader_pk=leader_pk, party_pk=party_pk)
             if lead is None:
                 return InviteOutcome.NO_SUCH_USER
-            if (user := self._parties.find_invitable_user(email)) is None:
+            matches = self._parties.find_invitable_users(identifier)
+            if not matches:
                 return InviteOutcome.NO_SUCH_USER
+            if len(matches) > 1:
+                return InviteOutcome.AMBIGUOUS_HANDLE
+            user = matches[0]
             if self._parties.membership_exists(party_pk=party_pk, user_pk=user.pk):
                 return InviteOutcome.ALREADY_MEMBER
             self._parties.create_invited_membership(party_pk=party_pk, user_pk=user.pk)
@@ -94,6 +103,29 @@ class PartyService(PartyServiceProtocol):
                 )
             )
             return InviteOutcome.INVITED
+
+    def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None:
+        with self._transaction.atomic():
+            token = token_urlsafe(32)
+            if not self._parties.set_invite_token(
+                leader_pk=leader_pk, party_pk=party_pk, token=token
+            ):
+                return None
+            return token
+
+    def read_invite_token(self, *, leader_pk: int, party_pk: int) -> str:
+        return self._parties.read_invite_token(leader_pk=leader_pk, party_pk=party_pk)
+
+    def read_invitable_party(
+        self, *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None:
+        return self._parties.read_party_by_invite_token(
+            token=token, viewer_pk=viewer_pk
+        )
+
+    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinOutcome:
+        with self._transaction.atomic():
+            return self._parties.join_via_token(token=token, user_pk=user_pk)
 
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool:
         with self._transaction.atomic():

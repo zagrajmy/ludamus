@@ -124,6 +124,11 @@ def build_party_detail_context(
             if party.is_leader
             else None
         ),
+        "invite_token": (
+            request.services.parties.read_invite_token(leader_pk=viewer_pk, party_pk=pk)
+            if party.is_leader
+            else ""
+        ),
         "history": history,
         "profile_active_tab": "parties",
     }
