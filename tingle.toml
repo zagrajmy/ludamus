@@ -95,7 +95,7 @@ ranges = ["python-tests"]
 name = "mock-ANY"
 type = "regex_count"
 group = "testing"
-pattern = '^(?!.*(view|form|import)).*\bANY\b'
+pattern = '^(?!.*(?:\b|_)(view|form|import)\b).*\bANY\b'
 flags = ["MULTILINE"]
 ranges = ["python-tests"]
 
