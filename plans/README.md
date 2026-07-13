@@ -26,7 +26,7 @@ deferred finding later.
 | 009 | Fix prefetch defeated by order_by | P3 | S | — | DONE |
 | 010 | Dependency pin hygiene (dbos, django-vite) | P3 | S | — | DONE |
 | 011 | Cache dependencies in CI | P3 | M | — | DONE |
-| 012 | Parallelize Python tests (pytest-xdist) | P3 | S | — | BLOCKED |
+| 012 | Parallelize Python tests (pytest-xdist) | P3 | S | — | REJECTED |
 | 013 | Remove dead OAuth csrf_token state field | P3 | S | — | DONE |
 | 014 | Docs: toolchain glossary, stale README commands | P3 | S | — | DONE |
 | 015 | Migrate current_user() context off di.uow | P3 | S | — | DONE |
@@ -42,12 +42,10 @@ branch the same day. Learnings recorded for the next audit cycle:
 
 - The plans originally cited `mise run prcheck` as the CI-style gate —
   that task does not exist; `mise run check` is the real one. The
-  plan files were corrected. New docs-drift finding for a future pass:
-  `README.md:33` still advertises the nonexistent `mise prcheck`.
-- Follow-up surfaced by plan 003: `current_user()` in
-  `gates/web/django/context_processors.py` still uses
-  `request.di.uow.active_users`; migrating it to `request.services`
-  is a natural next slice.
+  plan files were corrected. The `README.md:33` drift this surfaced
+  was fixed by plan 014.
+- Follow-up surfaced by plan 003: `current_user()` still used
+  `request.di.uow.active_users` — done by plan 015.
 - Plan 004 learning: `tests/integration/links/test_ticket_api.py`
   stubs with `unittest.mock.patch`, not the `responses` library.
 
@@ -72,6 +70,37 @@ reviewed, and landed the same day. Outcomes and learnings:
   32/33 behaviors asserted; one neutral-message assertion was added.
 - 011's cache effectiveness is reviewer-verified on the next CI runs
   (compare wall times); the workflow only landed lint-verified.
+
+## Reconcile log (2026-07-13, main at `960b788`)
+
+All DONE rows re-verified against merged main by spot-checking each
+plan's machine-checkable done criteria (greps + file presence): all
+hold. The `site_id: int` hits remaining in `pacts/legacy.py` are
+`RequestContext` fields, not the retired `SphereDTO` field.
+
+- **012 BLOCKED -> REJECTED**: the 4-core sandbox measurement (51%
+  slower) was contention-confounded, but GitHub `ubuntu-latest`
+  runners are also 4-core and the serial suite (~7 min) is not the CI
+  critical path (the e2e run in the same job dominates). Resurrect
+  only if the suite outgrows the e2e wall time or runners gain cores.
+
+Live deferred items carried forward:
+
+- `docs/refactors/glimpse-strangler.md` "Next step" still lists
+  already-migrated anonymous views
+  (`SessionEnrollmentAnonymousPageView` etc. now live in
+  `gates/.../chronology/anonymous.py`) — S docs fix.
+- `conflicted_user_ids` (`adapters/db/django/models.py`) deserves a
+  one-line comment that its result is a superset-safe set only ever
+  probed for input users (delta-review follow-up on #572).
+- `tingle.toml` `mock-ANY` regex counts the sanctioned view/form ANY
+  uses when the match starts mid-line, and `type-object` matches the
+  CSP directive string `"object-src"` — two false-positive patterns
+  worth tightening in the ratchet config.
+- CSP enforcement path: the report-only policy carries
+  `'unsafe-inline'`/`'unsafe-eval'`; tightening (nonces, dropping
+  `hx-on:` attributes) then flipping to `SECURE_CSP` is the
+  follow-up, ideally after report-only data from production.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line
 reason) | REJECTED (with one-line rationale).
