@@ -2,6 +2,7 @@ import { bind, play, setEnabled as setEngineEnabled, type SoundName, sounds } fr
 
 const STORAGE_KEY = "sound.enabled";
 const TAP_SELECTOR = 'a[href], button, [role="button"], summary';
+/** Element plays own cue — no generic press on top. */
 const OWN_SOUND_SELECTOR =
   "[data-sound-play], [data-sound-toggle], [data-cuelume-hover]," +
   " [data-cuelume-press], [data-cuelume-release], [data-cuelume-toggle]";
@@ -31,6 +32,7 @@ const setEnabled = (on: boolean): void => {
   applyPreference();
 };
 
+/** Audition cue, ignore pref. Design-page chips. */
 const preview = (name: SoundName): void => {
   setEngineEnabled(true);
   play(name);
@@ -66,6 +68,7 @@ const init = (): void => {
     true,
   );
 
+  /** Pref flips before cue: switch-on clicks, switch-off silent. */
   document.addEventListener("change", ({ target }) => {
     if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") return;
     if (target.matches("[data-sound-toggle]")) setEnabled(target.checked);
