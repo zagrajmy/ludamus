@@ -1159,13 +1159,7 @@ class TestEventPageView:
         )
 
     def test_ok_participations(
-        self,
-        authenticated_client,
-        event,
-        active_user,
-        session,
-        connected_user,
-        agenda_item,
+        self, authenticated_client, event, active_user, session, companion, agenda_item
     ):
         part1 = SessionParticipation.objects.create(
             session=session,
@@ -1173,9 +1167,7 @@ class TestEventPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         part2 = SessionParticipation.objects.create(
-            session=session,
-            user=connected_user,
-            status=SessionParticipationStatus.WAITING,
+            session=session, user=companion, status=SessionParticipationStatus.WAITING
         )
         active_user.is_staff = True
         active_user.is_superuser = True
@@ -1259,7 +1251,7 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
-        assert "Connected Users" not in response.content.decode()
+        assert "Companions" not in response.content.decode()
 
     def test_ok_session_with_linked_proposal(
         self, active_user, agenda_item, client, event, session

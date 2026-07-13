@@ -39,7 +39,7 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
-MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+MAX_COMPANIONS = 6  # Maximum number of companions per manager
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -127,7 +127,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=_("Use Gravatar instead of provider avatar"),
     )
     # Single-use handle that lets the intended person sign in and take over a
-    # managed (connected) row as their own account. Mirrors the waitlist-offer
+    # managed companion row as their own account. Mirrors the waitlist-offer
     # claim_token pattern. Empty for active accounts.
     claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
     manager = models.ForeignKey(
@@ -220,7 +220,9 @@ class Party(models.Model):
         User, on_delete=models.CASCADE, related_name="led_parties"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    invite_token = models.CharField(max_length=64, default=token_urlsafe, db_index=True)
+    invite_token = models.CharField(
+        max_length=64, default=token_urlsafe, db_index=True, unique=True
+    )
 
     class Meta:
         db_table = "party"
@@ -521,7 +523,7 @@ class UserEnrollmentConfig(models.Model):
     )
     allowed_slots = models.PositiveIntegerField(
         help_text=(
-            "Maximum number of users (including connected users) that can "
+            "Maximum number of users (including companions) that can "
             "be enrolled by this account"
         )
     )
@@ -554,7 +556,7 @@ class DomainEnrollmentConfig(models.Model):
     )
     allowed_slots_per_user = models.PositiveIntegerField(
         help_text=(
-            "Default number of users (including connected users) that can be enrolled "
+            "Default number of users (including companions) that can be enrolled "
             "by accounts from this domain"
         )
     )

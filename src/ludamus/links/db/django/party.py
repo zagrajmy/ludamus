@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Q
+from django.db.models import Count, Q
 
 from ludamus.adapters.db.django.models import (
     Party,
@@ -19,7 +19,7 @@ from ludamus.adapters.db.django.models import (
 )
 from ludamus.links.db.django.companions import active_companions
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     LocationData,
@@ -165,8 +165,7 @@ class PartyRepository(PartyRepositoryProtocol):
 
     @staticmethod
     def find_invitable_users(identifier: str) -> list[InvitedUserDTO]:
-        identifier = identifier.strip().lstrip("@")
-        if not identifier:
+        if not (identifier := identifier.strip().lstrip("@")):
             return []
         by_email = (
             User.objects.filter(email__iexact=identifier, user_type=UserType.ACTIVE)
@@ -221,8 +220,7 @@ class PartyRepository(PartyRepositoryProtocol):
     def join_via_token(*, token: str, user_pk: int) -> PartyJoinOutcome:
         if not token:
             return PartyJoinOutcome.INVALID
-        party = Party.objects.filter(invite_token=token).first()
-        if party is None:
+        if (party := Party.objects.filter(invite_token=token).first()) is None:
             return PartyJoinOutcome.INVALID
         existing = PartyMembership.objects.filter(
             party_id=party.pk, member_id=user_pk
@@ -284,7 +282,7 @@ class PartyRepository(PartyRepositoryProtocol):
         *, leader_pk: int, party_pk: int, membership_pk: int
     ) -> PartyMembershipStatus | None:
         # Companions are excluded: their identity row lives and dies with the
-        # sponsorship, and the connected-user delete action owns that flow.
+        # sponsorship, and the companion delete action owns that flow.
         membership = (
             PartyMembership.objects.filter(
                 pk=membership_pk, party_id=party_pk, party__leader_id=leader_pk
@@ -301,19 +299,27 @@ class PartyRepository(PartyRepositoryProtocol):
 
     @staticmethod
     def led_party_companions(
-        *, leader_pk: int, party_pk: int
-    ) -> list[ConnectedUserDTO]:
-        party = (
-            Party.objects.filter(pk=party_pk, leader_id=leader_pk)
-            .select_related("leader")
-            .first()
-        )
-        if party is None:
-            return []
-        return [
-            ConnectedUserDTO.model_validate(companion)
-            for companion in active_companions(party.leader.slug).order_by("pk")
-        ]
+        *, leader_pk: int, party_pk: int | None
+    ) -> list[CompanionDTO]:
+        if party_pk is None:
+            leader = User.objects.filter(
+                pk=leader_pk, user_type=UserType.ACTIVE
+            ).first()
+            if leader is None:
+                return []
+            companions = active_companions(leader.slug).order_by("pk")
+        else:
+            party = (
+                Party.objects.filter(pk=party_pk, leader_id=leader_pk)
+                .select_related("leader")
+                .first()
+            )
+            if party is None:
+                return []
+            companions = User.objects.filter(
+                user_type=UserType.CONNECTED, party_memberships__party_id=party_pk
+            ).order_by("pk")
+        return [CompanionDTO.model_validate(companion) for companion in companions]
 
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool:
@@ -367,8 +373,27 @@ class PartyRepository(PartyRepositoryProtocol):
         )
         sessions = (
             Session.objects.filter(pk__in=session_ids, agenda_item__isnull=False)
+            .annotate(
+                enrolled_count_cached=Count(
+                    "session_participations",
+                    filter=Q(
+                        session_participations__status__in=(
+                            SessionParticipationStatus.CONFIRMED,
+                            SessionParticipationStatus.OFFERED,
+                        )
+                    ),
+                ),
+                waiting_count_cached=Count(
+                    "session_participations",
+                    filter=Q(
+                        session_participations__status=SessionParticipationStatus.WAITING
+                    ),
+                ),
+            )
             .select_related("event", "presenter", "agenda_item__space__parent")
-            .prefetch_related("session_participations__user")
+            .prefetch_related(
+                "event__enrollment_configs", "session_participations__user"
+            )
             .order_by("agenda_item__start_time")
         )
         groups: dict[int, PartyEventHistoryDTO] = {}
@@ -408,8 +433,7 @@ class PartyRepository(PartyRepositoryProtocol):
                     for sp in session.session_participations.all()
                 ),
             )
-            group = groups.get(session.event_id)
-            if group is None:
+            if (group := groups.get(session.event_id)) is None:
                 groups[session.event_id] = PartyEventHistoryDTO(
                     event_pk=session.event_id,
                     event_name=session.event.name,

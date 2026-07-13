@@ -42,8 +42,8 @@ def _simulacra_participations(count: int) -> list[ParticipationInfo]:
 def fake_full_session(session: Session) -> None:
     if session.participants_limit == 0:
         session.participants_limit = _SIMULACRA_FILL
-    session.enrolled_count_cached = session.effective_participants_limit
-    session.waiting_count_cached = 0
+    session.__dict__["enrolled_count_cached"] = session.effective_participants_limit
+    session.__dict__["waiting_count_cached"] = 0
 
 
 def fake_full_card(session_data: SessionData) -> SessionData:

@@ -2,7 +2,7 @@
 
 Party CRUD and membership invites. Django-free; receives the repo protocol,
 notifier, and a transaction. Companions (login-less members) keep their own
-lifecycle in the connected-user views; this service owns the party shell
+lifecycle in the companion views; this service owns the party shell
 around them.
 """
 
@@ -86,8 +86,7 @@ class PartyService(PartyServiceProtocol):
             lead = self._parties.read_led_party(leader_pk=leader_pk, party_pk=party_pk)
             if lead is None:
                 return InviteOutcome.NO_SUCH_USER
-            matches = self._parties.find_invitable_users(identifier)
-            if not matches:
+            if not (matches := self._parties.find_invitable_users(identifier)):
                 return InviteOutcome.NO_SUCH_USER
             if len(matches) > 1:
                 return InviteOutcome.AMBIGUOUS_HANDLE
@@ -118,7 +117,7 @@ class PartyService(PartyServiceProtocol):
             matches = [
                 companion
                 for companion in self._parties.led_party_companions(
-                    leader_pk=leader_pk, party_pk=party_pk
+                    leader_pk=leader_pk, party_pk=None
                 )
                 if companion.name.casefold() == name
             ]

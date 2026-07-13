@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS
+from ludamus.adapters.db.django.models import MAX_COMPANIONS
 from ludamus.adapters.web.django.entities import ParticipationInfo, SessionData
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.crowd.forms import (
-    ConnectedUserForm,
+    CompanionForm,
     PartyCompanionForm,
     PartyInviteForm,
     PartyNameForm,
@@ -36,7 +36,7 @@ def build_parties_context(
     create_form: forms.Form | None = None,
     edit_slug: str | None = None,
     edit_form: forms.Form | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     overview = request.services.parties.overview(request.context.current_user_id)
     parties = []
     for party in overview.parties:
@@ -61,7 +61,7 @@ def build_parties_context(
         form = (
             edit_form
             if editing
-            else ConnectedUserForm(
+            else CompanionForm(
                 initial=companion.model_dump(),
                 auto_id=companion_edit_auto_id(companion.slug),
             )
@@ -72,10 +72,10 @@ def build_parties_context(
         "invites": overview.invites,
         "companions": companions,
         "companions_count": len(companions),
-        "max_connected_users": MAX_CONNECTED_USERS,
-        "can_add_companion": len(companions) < MAX_CONNECTED_USERS,
+        "max_companions": MAX_COMPANIONS,
+        "can_add_companion": len(companions) < MAX_COMPANIONS,
         "create_companion_form": (
-            create_form or ConnectedUserForm(auto_id=COMPANION_CREATE_AUTO_ID)
+            create_form or CompanionForm(auto_id=COMPANION_CREATE_AUTO_ID)
         ),
         "party_form": PartyNameForm(auto_id="party_%s"),
         "profile_active_tab": "parties",
@@ -84,11 +84,10 @@ def build_parties_context(
 
 def build_party_detail_context(
     request: AuthenticatedRootRequest, *, pk: int
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     viewer_pk = request.context.current_user_id
     overview = request.services.parties.overview(viewer_pk)
-    party = next((p for p in overview.parties if p.pk == pk), None)
-    if party is None:
+    if (party := next((p for p in overview.parties if p.pk == pk), None)) is None:
         return None
     banned_by = request.services.shadowban.banning_owner_ids(viewer_pk)
     history = []

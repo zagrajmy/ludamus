@@ -49,8 +49,7 @@ class PartyDetailPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def get(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        context = build_party_detail_context(request, pk=pk)
-        if context is None:
+        if (context := build_party_detail_context(request, pk=pk)) is None:
             raise Http404
         return TemplateResponse(request, "crowd/user/party_detail.html", context)
 

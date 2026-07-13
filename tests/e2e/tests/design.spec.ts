@@ -19,11 +19,11 @@ test.describe("Design system page", () => {
   test("lets people exercise toast stacking and dismissal", async ({ page }) => {
     await page.goto("/design/");
 
-    const playground = page.locator("[data-flash-demo]");
+    const playground = page.getByRole("group", { name: "Toast playground" });
     await playground.getByRole("button", { name: "Show success" }).click();
     await playground.getByRole("button", { name: "Show sticky error" }).click();
 
-    const toasts = page.locator(".flash-region [data-flash]");
+    const toasts = page.getByRole("region", { name: "Notifications" }).locator("[data-flash]");
     await expect(toasts).toHaveCount(2);
     await expect(toasts.first()).toHaveAttribute("data-flash-mounted", "true");
     await expect

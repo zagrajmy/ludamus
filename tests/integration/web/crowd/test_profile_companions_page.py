@@ -5,20 +5,20 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
-    MAX_CONNECTED_USERS,
+    MAX_COMPANIONS,
     Party,
     PartyMembership,
     User,
 )
-from ludamus.pacts.crowd import ConnectedUserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserType
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 PARTIES_URL = reverse("web:crowd:profile-parties")
 
 
-class TestProfileConnectedUsersPageView:
-    URL = reverse("web:crowd:profile-connected-users")
+class TestProfileCompanionsPageView:
+    URL = reverse("web:crowd:profile-companions")
 
     def test_get_redirects_to_parties(self, authenticated_client):
         response = authenticated_client.get(self.URL)
@@ -32,7 +32,7 @@ class TestProfileConnectedUsersPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Connected user added successfully!")],
+            messages=[(messages.SUCCESS, "Companion added successfully!")],
             url=PARTIES_URL,
         )
         user = User.objects.get(name=data["name"])
@@ -54,7 +54,7 @@ class TestProfileConnectedUsersPageView:
                 "invites": [],
                 "companions": [],
                 "companions_count": 0,
-                "max_connected_users": MAX_CONNECTED_USERS,
+                "max_companions": MAX_COMPANIONS,
                 "can_add_companion": True,
                 "create_companion_form": ANY,
                 "party_form": ANY,
@@ -63,7 +63,7 @@ class TestProfileConnectedUsersPageView:
             template_name=["crowd/user/parties.html"],
         )
 
-    def test_post_error_max_connected_users_exceeded(
+    def test_post_error_max_companions_exceeded(
         self, authenticated_client, active_user, faker
     ):
         companions = [
@@ -74,7 +74,7 @@ class TestProfileConnectedUsersPageView:
                 user_type=UserType.CONNECTED,
                 manager=active_user,
             )
-            for i in range(MAX_CONNECTED_USERS)
+            for i in range(MAX_COMPANIONS)
         ]
 
         data = {"name": faker.name(), "user_type": UserType.CONNECTED}
@@ -86,7 +86,7 @@ class TestProfileConnectedUsersPageView:
             messages=[
                 (
                     messages.ERROR,
-                    f"You can only have up to {MAX_CONNECTED_USERS} connected users.",
+                    f"You can only have up to {MAX_COMPANIONS} companions.",
                 ),
                 (messages.WARNING, "Please correct the errors below."),
             ],
@@ -97,14 +97,14 @@ class TestProfileConnectedUsersPageView:
                 "invites": [],
                 "companions": [
                     {
-                        "companion": ConnectedUserDTO.model_validate(user),
+                        "companion": CompanionDTO.model_validate(user),
                         "form": ANY,
                         "editing": False,
                     }
                     for user in companions
                 ],
-                "companions_count": MAX_CONNECTED_USERS,
-                "max_connected_users": MAX_CONNECTED_USERS,
+                "companions_count": MAX_COMPANIONS,
+                "max_companions": MAX_COMPANIONS,
                 "can_add_companion": False,
                 "create_companion_form": ANY,
                 "party_form": ANY,
@@ -112,8 +112,8 @@ class TestProfileConnectedUsersPageView:
             },
             template_name=["crowd/user/parties.html"],
         )
-        connected_count = User.objects.filter(user_type=UserType.CONNECTED).count()
-        assert connected_count == MAX_CONNECTED_USERS
+        companion_count = User.objects.filter(user_type=UserType.CONNECTED).count()
+        assert companion_count == MAX_COMPANIONS
 
     def test_companion_does_not_join_the_leaders_existing_default_party(
         self, authenticated_client, active_user, faker
@@ -127,7 +127,7 @@ class TestProfileConnectedUsersPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Connected user added successfully!")],
+            messages=[(messages.SUCCESS, "Companion added successfully!")],
             url=PARTIES_URL,
         )
         user = User.objects.get(name=data["name"])

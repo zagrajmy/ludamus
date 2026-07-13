@@ -422,6 +422,9 @@ const setupFallbackLinkHandlers = (): void => {
   }
 };
 
-if (!navigation) setupFallbackLinkHandlers();
+// The Navigation API is not consistently dispatched for ordinary anchor
+// clicks in Chromium/WebKit. Keep the direct handler as the reliable path;
+// it still delegates to the same modal/view-transition implementation.
+setupFallbackLinkHandlers();
 
 export { closeModal, openModal };

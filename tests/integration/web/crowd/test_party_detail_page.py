@@ -40,10 +40,10 @@ def _context(party_dto, **overrides):
 
 class TestPartyDetailPageView:
     def test_get_led_party_shows_members_and_forms(
-        self, authenticated_client, active_user, connected_user
+        self, authenticated_client, active_user, companion
     ):
         party = sponsor_user(leader=active_user, member=active_user)
-        sponsor_user(leader=active_user, member=connected_user)
+        sponsor_user(leader=active_user, member=companion)
 
         response = authenticated_client.get(_url(party))
 
@@ -54,20 +54,13 @@ class TestPartyDetailPageView:
                 _party_dto(
                     party,
                     active_user,
-                    [
-                        _member_dto(active_user, party),
-                        _member_dto(connected_user, party),
-                    ],
+                    [_member_dto(active_user, party), _member_dto(companion, party)],
                     is_default=True,
                 ),
                 invite_token=party.invite_token,
             ),
             template_name=TEMPLATE,
-            contains=[
-                connected_user.get_full_name(),
-                "Invite a member",
-                "Delete party",
-            ],
+            contains=[companion.get_full_name(), "Invite a member", "Delete party"],
         )
 
     def test_get_membership_shows_leave_and_consent(
@@ -144,15 +137,16 @@ class TestPartyDetailSessionHistory:
             )
 
     def test_history_groups_party_sessions_by_event(
-        self, authenticated_client, active_user, connected_user, session, agenda_item
+        self, authenticated_client, active_user, companion, session, agenda_item
     ):
         party = sponsor_user(leader=active_user, member=active_user)
-        sponsor_user(leader=active_user, member=connected_user)
+        sponsor_user(leader=active_user, member=companion)
         session.title = "Wspólna Wyprawa"
         session.save()
-        self._enroll_party(party, session, active_user, connected_user)
+        self._enroll_party(party, session, active_user, companion)
 
         response = authenticated_client.get(_url(party))
+        history = response.context["history"]
 
         assert_response(
             response,
@@ -161,10 +155,7 @@ class TestPartyDetailSessionHistory:
                 _party_dto(
                     party,
                     active_user,
-                    [
-                        _member_dto(active_user, party),
-                        _member_dto(connected_user, party),
-                    ],
+                    [_member_dto(active_user, party), _member_dto(companion, party)],
                     is_default=True,
                 ),
                 invite_token=party.invite_token,
@@ -172,7 +163,7 @@ class TestPartyDetailSessionHistory:
                     {
                         "event_name": session.event.name,
                         "event_slug": session.event.slug,
-                        "cards": ANY,
+                        "cards": history[0]["cards"],
                     }
                 ],
             ),
@@ -187,11 +178,11 @@ class TestPartyDetailSessionHistory:
         assert not card.pretend_full
 
     def test_history_skips_solo_enrollments(
-        self, authenticated_client, active_user, connected_user, session, agenda_item
+        self, authenticated_client, active_user, companion, session, agenda_item
     ):
         _ = agenda_item
         party = sponsor_user(leader=active_user, member=active_user)
-        sponsor_user(leader=active_user, member=connected_user)
+        sponsor_user(leader=active_user, member=companion)
         SessionParticipation.objects.create(
             session=session,
             user=active_user,
@@ -208,10 +199,7 @@ class TestPartyDetailSessionHistory:
                 _party_dto(
                     party,
                     active_user,
-                    [
-                        _member_dto(active_user, party),
-                        _member_dto(connected_user, party),
-                    ],
+                    [_member_dto(active_user, party), _member_dto(companion, party)],
                     is_default=True,
                 ),
                 invite_token=party.invite_token,
@@ -221,18 +209,19 @@ class TestPartyDetailSessionHistory:
         )
 
     def test_history_card_is_pretend_full_when_presenter_shadowbanned_viewer(
-        self, authenticated_client, active_user, connected_user, session, agenda_item
+        self, authenticated_client, active_user, companion, session, agenda_item
     ):
         _ = agenda_item
         party = sponsor_user(leader=active_user, member=active_user)
-        sponsor_user(leader=active_user, member=connected_user)
-        self._enroll_party(party, session, active_user, connected_user)
+        sponsor_user(leader=active_user, member=companion)
+        self._enroll_party(party, session, active_user, companion)
         banner = UserFactory(username="gm", name="GM", email="gm@example.com")
         session.presenter = banner
         session.save()
         banner.shadowbanned.add(active_user)
 
         response = authenticated_client.get(_url(party))
+        history = response.context["history"]
 
         assert_response(
             response,
@@ -241,10 +230,7 @@ class TestPartyDetailSessionHistory:
                 _party_dto(
                     party,
                     active_user,
-                    [
-                        _member_dto(active_user, party),
-                        _member_dto(connected_user, party),
-                    ],
+                    [_member_dto(active_user, party), _member_dto(companion, party)],
                     is_default=True,
                 ),
                 invite_token=party.invite_token,
@@ -252,7 +238,7 @@ class TestPartyDetailSessionHistory:
                     {
                         "event_name": session.event.name,
                         "event_slug": session.event.slug,
-                        "cards": ANY,
+                        "cards": history[0]["cards"],
                     }
                 ],
             ),

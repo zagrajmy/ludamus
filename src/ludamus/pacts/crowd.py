@@ -1,7 +1,7 @@
 """Crowd subdomain contracts.
 
 User identity (DTOs, data, repository protocols) and account lifecycle.
-First lifecycle feature: claiming a managed (connected) profile — turning a
+First lifecycle feature: claiming a managed companion profile — turning a
 login-less companion row into the intended person's own self-login account,
 on the same row, so enrollment history is preserved.
 """
@@ -39,9 +39,9 @@ class UserDTO(BaseModel):
     username: str
 
 
-class ConnectedUserDTO(UserDTO):
+class CompanionDTO(UserDTO):
     # The claim token is a bearer credential for taking over the profile, so
-    # it lives only on the manager-facing connected-user read model — never on
+    # it lives only on the manager-facing companion read model — never on
     # the app-wide UserDTO.
     claim_token: str = ""
 
@@ -72,13 +72,13 @@ class UserRepositoryProtocol(Protocol):
     def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
 
 
-class ConnectedUserRepositoryProtocol(Protocol):
+class CompanionRepositoryProtocol(Protocol):
     @staticmethod
     def create(manager_slug: str, user_data: UserData) -> None: ...
     @staticmethod
-    def read_all(manager_slug: str) -> list[ConnectedUserDTO]: ...
+    def read_all(manager_slug: str) -> list[CompanionDTO]: ...
     @staticmethod
-    def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO: ...
+    def read(manager_slug: str, user_slug: str) -> CompanionDTO: ...
     @staticmethod
     def delete(manager_slug: str, user_slug: str) -> None: ...
     @staticmethod
@@ -164,8 +164,8 @@ class ProfileServiceProtocol(Protocol):
 
 
 class CompanionsServiceProtocol(Protocol):
-    def list_companions(self, manager_slug: str) -> list[ConnectedUserDTO]: ...
-    def read(self, *, manager_slug: str, user_slug: str) -> ConnectedUserDTO: ...
+    def list_companions(self, manager_slug: str) -> list[CompanionDTO]: ...
+    def read(self, *, manager_slug: str, user_slug: str) -> CompanionDTO: ...
     def create(self, *, manager_slug: str, user_data: UserData) -> None: ...
     def update(
         self, *, manager_slug: str, user_slug: str, user_data: UserData

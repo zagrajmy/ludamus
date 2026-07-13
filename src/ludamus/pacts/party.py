@@ -10,7 +10,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO
+from ludamus.pacts.crowd import CompanionDTO, UserDTO
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData, SessionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
@@ -115,7 +115,7 @@ class EnrollmentPartiesDTO(BaseModel):
     selected: SelectedEnrollmentPartyDTO | None = None
     # The viewer's login-less companions in the selected party; only their own
     # led party can seat companions, so this is empty otherwise.
-    companions: list[ConnectedUserDTO] = []
+    companions: list[CompanionDTO] = []
     # The requested party is not one of the viewer's — the caller must surface
     # an error instead of silently substituting a default.
     requested_invalid: bool = False
@@ -267,8 +267,8 @@ class PartyRepositoryProtocol(Protocol):
     def leave(*, user_pk: int, party_pk: int) -> bool: ...
     @staticmethod
     def led_party_companions(
-        *, leader_pk: int, party_pk: int
-    ) -> list[ConnectedUserDTO]: ...
+        *, leader_pk: int, party_pk: int | None
+    ) -> list[CompanionDTO]: ...
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
     @staticmethod

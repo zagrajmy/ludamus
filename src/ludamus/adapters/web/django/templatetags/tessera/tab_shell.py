@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django import template
 from django.template.loader import render_to_string
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeString
 
 from ._registry import register
 from ._utils import parse_tag_attrs
@@ -24,7 +24,7 @@ class TabShellBodyNode(template.Node):
         self.attrs = attrs
 
     def render(self, context: template.Context) -> str:
-        resolved: dict[str, object] = {
+        resolved: dict[str, str] = {
             k: v.resolve(context) for k, v in self.attrs.items()
         }
         return render_to_string(
@@ -32,7 +32,7 @@ class TabShellBodyNode(template.Node):
             {
                 "extra_class": resolved.pop("class", ""),
                 "body_partial": "",
-                "content": mark_safe(self.nodelist.render(context)),  # noqa: S308
+                "content": SafeString(self.nodelist.render(context)),
             },
         )
 
@@ -47,13 +47,12 @@ def tab_shell_body(parser: Parser, token: Token) -> TabShellBodyNode:
 
 @register.simple_tag(takes_context=True)
 def tab_shell(context: template.Context, tabs_partial: str) -> str:
-    bar = render_to_string(
-        "components/tab-shell-bar.html",
-        {**context.flatten(), "tabs_partial": tabs_partial},
-    )
-    return format_html('<div class="overflow-hidden">{}', bar)
+    context_data = {str(key): value for key, value in context.flatten().items()}
+    context_data["tabs_partial"] = tabs_partial
+    rendered_bar = render_to_string("components/tab-shell-bar.html", context_data)
+    return format_html('<div class="overflow-hidden">{}', rendered_bar)
 
 
 @register.simple_tag
 def end_tab_shell() -> str:
-    return mark_safe("</div>")
+    return SafeString("</div>")

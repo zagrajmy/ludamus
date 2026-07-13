@@ -105,23 +105,43 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="profile-safety",
     ),
     path(
+        "profile/companions/",
+        profile.ProfileCompanionsPageView.as_view(),
+        name="profile-companions",
+    ),
+    path(
+        "profile/companions/<str:slug>/do/update",
+        profile.ProfileCompanionUpdateActionView.as_view(),
+        name="profile-companions-update",
+    ),
+    path(
+        "profile/companions/<str:slug>/do/delete",
+        profile.ProfileCompanionDeleteActionView.as_view(),
+        name="profile-companions-delete",
+    ),
+    path(
+        "profile/companions/<str:slug>/do/claim-link",
+        profile.ProfileCompanionClaimLinkActionView.as_view(),
+        name="profile-companions-claim-link",
+    ),
+    path(
         "profile/connected-users/",
-        profile.ProfileConnectedUsersPageView.as_view(),
+        profile.ProfileCompanionsPageView.as_view(),
         name="profile-connected-users",
     ),
     path(
         "profile/connected-users/<str:slug>/do/update",
-        profile.ProfileConnectedUserUpdateActionView.as_view(),
+        profile.ProfileCompanionUpdateActionView.as_view(),
         name="profile-connected-users-update",
     ),
     path(
         "profile/connected-users/<str:slug>/do/delete",
-        profile.ProfileConnectedUserDeleteActionView.as_view(),
+        profile.ProfileCompanionDeleteActionView.as_view(),
         name="profile-connected-users-delete",
     ),
     path(
         "profile/connected-users/<str:slug>/do/claim-link",
-        profile.ProfileConnectedUserClaimLinkActionView.as_view(),
+        profile.ProfileCompanionClaimLinkActionView.as_view(),
         name="profile-connected-users-claim-link",
     ),
     path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),

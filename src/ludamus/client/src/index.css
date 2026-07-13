@@ -458,7 +458,6 @@ button:active {
     padding: 1rem;
     border-width: 1px;
     border-style: solid;
-    @apply backdrop-blur-lg;
   }
 
   .alert-success {
@@ -531,6 +530,11 @@ button:active {
 
     &:focus {
       outline: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
     }
   }
 

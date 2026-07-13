@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from ludamus.mills.party import PartyService
-from ludamus.pacts.crowd import ConnectedUserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.party import (
     CompanionAddOutcome,
     DeletePartyOutcome,
@@ -45,7 +45,7 @@ class FakeParties:
         self.calls.append(("overview", viewer_pk))
         return PartiesOverviewDTO(parties=self.parties, invites=[])
 
-    def led_party_companions(self, *, leader_pk, party_pk):
+    def led_party_companions(self, *, leader_pk, party_pk=None):
         self.calls.append(("led_party_companions", leader_pk, party_pk))
         return self.companion_dtos
 
@@ -314,7 +314,7 @@ def _party(pk, *, name="", is_leader=False, leader_name="Lena Leader", members=(
 
 
 def _companion_dto():
-    return ConnectedUserDTO(
+    return CompanionDTO(
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",

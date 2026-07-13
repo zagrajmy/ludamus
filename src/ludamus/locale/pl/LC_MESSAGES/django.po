@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 23:56+0200\n"
+"POT-Creation-Date: 2026-07-14 01:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1886,6 +1886,16 @@ msgstr ""
 "Adres email ich konta lub nazwa użytkownika Discord, z którą się "
 "zarejestrowali. Muszą mieć konto Zagrajmy."
 
+#: src/ludamus/gates/web/django/crowd/forms.py
+#, fuzzy
+#| msgid "Display name"
+msgid "Companion display name"
+msgstr "Nazwa wyświetlana"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+msgid "Enter one of your companions exactly as they are named."
+msgstr ""
+
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid ""
 "This email address is already in use. Please use a different email address."
@@ -1900,21 +1910,28 @@ msgid "Please correct the errors below."
 msgstr "Proszę poprawić błędy poniżej."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-#, python-format
-msgid "You can only have up to %(max)s connected users."
+#, fuzzy, python-format
+#| msgid "You can only have up to %(max)s connected users."
+msgid "You can only have up to %(max)s companions."
 msgstr "Możesz mieć maksymalnie %(max)s powiązanych użytkowników."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-msgid "Connected user added successfully!"
+#, fuzzy
+#| msgid "Connected user added successfully!"
+msgid "Companion added successfully!"
 msgstr "Powiązana osoba została dodana!"
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-msgid "Connected user updated successfully!"
-msgstr "Powiązana osoba została zaktualizowana!"
+#, fuzzy
+#| msgid "Connection updated successfully."
+msgid "Companion updated successfully!"
+msgstr "Połączenie zostało zaktualizowane."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-msgid "Connected user deleted successfully."
-msgstr "Powiązana osoba została usunięta."
+#, fuzzy
+#| msgid "Connection deleted successfully."
+msgid "Companion deleted successfully."
+msgstr "Połączenie zostało usunięte."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid "Could not create a claim link for this person."
@@ -2016,6 +2033,36 @@ msgstr "Nie udało się wygenerować nowego linku zaproszenia."
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Invite link regenerated."
 msgstr "Wygenerowano nowy link zaproszenia."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+#, fuzzy
+#| msgid "Enter an email or Discord username."
+msgid "Enter a companion display name."
+msgstr "Podaj adres email lub nazwę użytkownika Discord."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+#, fuzzy
+#| msgid "You joined the party."
+msgid "Companion added to the party."
+msgstr "Dołączasz do drużyny."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+#, fuzzy
+#| msgid "This person is already in the party."
+msgid "This companion is already in the party."
+msgstr "Ta osoba jest już w drużynie."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+#, fuzzy
+#| msgid "A connection with this display name already exists."
+msgid "More than one companion has that display name. Rename one first."
+msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+#, fuzzy
+#| msgid "A connection with this display name already exists."
+msgid "No companion matches that display name."
+msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "This invite link is invalid."
@@ -2799,6 +2846,12 @@ msgstr "Przejdź do strony głównej"
 #: src/ludamus/templates/500_dynamic.html
 msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
+
+#: src/ludamus/templates/base.html
+#: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/panel/base.html
+msgid "Notifications"
+msgstr "Powiadomienia"
 
 #: src/ludamus/templates/base.html
 msgid "Contact"
@@ -4171,10 +4224,6 @@ msgid "Encounters"
 msgstr "Spotkania"
 
 #: src/ludamus/templates/components/notifications.html
-msgid "Notifications"
-msgstr "Powiadomienia"
-
-#: src/ludamus/templates/components/notifications.html
 msgid "unread"
 msgstr "nieprzeczytane"
 
@@ -4540,12 +4589,14 @@ msgstr ""
 "samodzielnie, a później mogą przejąć swój profil."
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Add companion"
 msgstr "Dodaj towarzysza"
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, python-format
-msgid "You can have at most %(max_connected_users)s companions."
+#, fuzzy, python-format
+#| msgid "You can have at most %(max_connected_users)s companions."
+msgid "You can have at most %(max_companions)s companions."
 msgstr "Możesz mieć najwyżej %(max_connected_users)s towarzyszy."
 
 #: src/ludamus/templates/crowd/user/parties.html
@@ -4578,6 +4629,18 @@ msgid "Copy claim link"
 msgstr "Skopiuj link przejęcia"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#, fuzzy
+#| msgid "Generate a new claim link. The old one stops working."
+msgid "Generate a new claim link? The old one stops working."
+msgstr "Wygeneruj nowy link przejęcia. Poprzedni przestanie działać."
+
+#: src/ludamus/templates/crowd/user/parties.html
+#, fuzzy
+#| msgid "Generate a new claim link"
+msgid "Generate new link"
+msgstr "Wygeneruj nowy link przejęcia"
+
+#: src/ludamus/templates/crowd/user/parties.html
 msgid "Generate a new claim link. The old one stops working."
 msgstr "Wygeneruj nowy link przejęcia. Poprzedni przestanie działać."
 
@@ -4595,8 +4658,18 @@ msgstr "Utwórz link przejęcia"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Remove companion"
-msgstr "Usuń towarzysza"
+#, python-format
+msgid ""
+"Delete companion %(name)s? This also removes their party memberships and "
+"enrollments."
+msgstr ""
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+#, fuzzy
+#| msgid "Delete connection"
+msgid "Delete companion"
+msgstr "Usuń połączenie"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "No companions yet."
@@ -4643,11 +4716,6 @@ msgid "Enrolls you directly"
 msgstr "Zapisuje Cię bez pytania"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
-#, python-format
-msgid "Remove %(name)s from your party?"
-msgstr "Usunąć %(name)s z Twojej drużyny?"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Allow direct enrollment"
 msgstr "Pozwól na bezpośrednie zapisy"
 
@@ -4672,6 +4740,10 @@ msgstr "Usunąć %(name)s z tej drużyny?"
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Remove member"
 msgstr "Usuń z drużyny"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Add one of your companions to this party by their display name."
+msgstr ""
 
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "or share a link"
@@ -4714,8 +4786,12 @@ msgid "Not now"
 msgstr "Nie teraz"
 
 #: src/ludamus/templates/crowd/user/party_join.html
+#, fuzzy
+#| msgid ""
+#| "A party enrolls for sessions together and moves up a waiting list "
+#| "together. You can leave anytime."
 msgid ""
-"A party enrolls for sessions together and moves up a waiting list together. "
+"A party enrolls in sessions together and moves up the waiting list together. "
 "You can leave anytime."
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
@@ -4784,6 +4860,40 @@ msgstr ""
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#: src/ludamus/templates/design.html
+#, fuzzy
+#| msgid "Space created successfully."
+msgid "Saved successfully."
+msgstr "Przestrzeń została utworzona."
+
+#: src/ludamus/templates/design.html
+msgid "Something went wrong."
+msgstr ""
+
+#: src/ludamus/templates/design.html
+msgid "Toast playground"
+msgstr ""
+
+#: src/ludamus/templates/design.html
+msgid "Trigger fixed alerts here to test stacking, entry, and dismissal."
+msgstr ""
+
+#: src/ludamus/templates/design.html
+#, fuzzy
+#| msgid "Show session"
+msgid "Show success"
+msgstr "Pokaż punkt programu"
+
+#: src/ludamus/templates/design.html
+msgid "Show sticky error"
+msgstr ""
+
+#: src/ludamus/templates/design.html
+#, fuzzy
+#| msgid "Dismiss"
+msgid "Dismiss all"
+msgstr "Zamknij"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
@@ -7612,6 +7722,19 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Connected user updated successfully!"
+#~ msgstr "Powiązana osoba została zaktualizowana!"
+
+#~ msgid "Connected user deleted successfully."
+#~ msgstr "Powiązana osoba została usunięta."
+
+#~ msgid "Remove companion"
+#~ msgstr "Usuń towarzysza"
+
+#, python-format
+#~ msgid "Remove %(name)s from your party?"
+#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
 
 #~ msgid "Email"
 #~ msgstr "Email"

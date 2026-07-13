@@ -113,7 +113,9 @@ migrate_if_needed() {
   if [ "${USE_POSTGRES:-}" != "true" ] && [ ! -f "$db_file" ]; then
     : # fresh DB — always migrate
   elif [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$current" ]; then
-    return 0
+    if [ "${USE_POSTGRES:-}" != "true" ] || django-admin migrate --check >/dev/null 2>&1; then
+      return 0
+    fi
   fi
   django-admin migrate --noinput
   mkdir -p .local

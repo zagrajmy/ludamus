@@ -18,8 +18,8 @@ from django.views.generic.base import ContextMixin, View
 from django.views.generic.detail import SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
 
-from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS
-from ludamus.gates.web.django.crowd.forms import ConnectedUserForm, UserForm
+from ludamus.adapters.db.django.models import MAX_COMPANIONS
+from ludamus.gates.web.django.crowd.forms import CompanionForm, UserForm
 from ludamus.gates.web.django.crowd.helpers import (
     COMPANION_CREATE_AUTO_ID,
     build_parties_context,
@@ -91,14 +91,14 @@ class ProfilePageView(
         ).model_dump()
 
 
-class ProfileConnectedUsersPageView(
+class ProfileCompanionsPageView(
     LoginRequiredMixin,
     SingleObjectTemplateResponseMixin,
     FormMixin,  # type: ignore [type-arg]
     ContextMixin,
     ProcessFormView,
 ):
-    form_class = ConnectedUserForm
+    form_class = CompanionForm
     object: UserDTO
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-parties")
@@ -117,18 +117,18 @@ class ProfileConnectedUsersPageView(
         context.update(kwargs)
         return super().get_context_data(**context)
 
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_valid(self, form: CompanionForm) -> HttpResponse:
 
-        connected_count = len(
+        companion_count = len(
             self.request.services.companions.list_companions(
                 self.request.context.current_user_slug
             )
         )
-        if connected_count >= MAX_CONNECTED_USERS:
+        if companion_count >= MAX_COMPANIONS:
             messages.error(
                 self.request,
-                _("You can only have up to %(max)s connected users.")
-                % {"max": MAX_CONNECTED_USERS},
+                _("You can only have up to %(max)s companions.")
+                % {"max": MAX_COMPANIONS},
             )
             return self.form_invalid(form)
 
@@ -139,22 +139,22 @@ class ProfileConnectedUsersPageView(
         self.request.services.companions.create(
             manager_slug=self.request.context.current_user_slug, user_data=user_data
         )
-        messages.success(self.request, _("Connected user added successfully!"))
+        messages.success(self.request, _("Companion added successfully!"))
         return result
 
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_invalid(self, form: CompanionForm) -> HttpResponse:
         messages.warning(self.request, _("Please correct the errors below."))
         return super().form_invalid(form)
 
 
-class ProfileConnectedUserUpdateActionView(
+class ProfileCompanionUpdateActionView(
     LoginRequiredMixin,
     SingleObjectTemplateResponseMixin,
     FormMixin,  # type: ignore [type-arg]
     ContextMixin,
     ProcessFormView,
 ):
-    form_class = ConnectedUserForm
+    form_class = CompanionForm
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-parties")
     template_name = "crowd/user/parties.html"
@@ -178,21 +178,21 @@ class ProfileConnectedUserUpdateActionView(
         context.update(kwargs)
         return super().get_context_data(**context)
 
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_valid(self, form: CompanionForm) -> HttpResponse:
         self.request.services.companions.update(
             manager_slug=self.request.context.current_user_slug,
             user_slug=self.kwargs["slug"],
             user_data=form.user_data,
         )
-        messages.success(self.request, _("Connected user updated successfully!"))
+        messages.success(self.request, _("Companion updated successfully!"))
         return super().form_valid(form)
 
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_invalid(self, form: CompanionForm) -> HttpResponse:
         messages.warning(self.request, _("Please correct the errors below."))
         return super().form_invalid(form)
 
 
-class ProfileConnectedUserDeleteActionView(
+class ProfileCompanionDeleteActionView(
     LoginRequiredMixin,
     SingleObjectTemplateResponseMixin,
     FormMixin,  # type: ignore [type-arg]
@@ -217,11 +217,11 @@ class ProfileConnectedUserDeleteActionView(
             manager_slug=self.request.context.current_user_slug,
             user_slug=self.kwargs["slug"],
         )
-        messages.success(self.request, _("Connected user deleted successfully."))
+        messages.success(self.request, _("Companion deleted successfully."))
         return HttpResponseRedirect(success_url)
 
 
-class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
+class ProfileCompanionClaimLinkActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     @staticmethod

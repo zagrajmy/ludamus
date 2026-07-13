@@ -6,7 +6,7 @@ from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.crowd import (
     ClaimRepository,
-    ConnectedUserRepository,
+    CompanionRepository,
     ProfileStatsRepository,
     UserRepository,
 )
@@ -108,8 +108,8 @@ class Repositories:
         return UserRepository(user_type=UserType.ANONYMOUS)
 
     @cached_property
-    def connected_users(self) -> ConnectedUserRepository:
-        return ConnectedUserRepository()
+    def companions(self) -> CompanionRepository:
+        return CompanionRepository()
 
     @cached_property
     def profile_stats(self) -> ProfileStatsRepository:

@@ -5,14 +5,14 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
-    MAX_CONNECTED_USERS,
+    MAX_COMPANIONS,
     Notification,
     Party,
     PartyMembership,
     User,
 )
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts.crowd import ConnectedUserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import (
     InvitablePartyDTO,
@@ -83,7 +83,7 @@ def _detail_url(party):
 
 def _companion_row(user):
     return {
-        "companion": ConnectedUserDTO.model_validate(user),
+        "companion": CompanionDTO.model_validate(user),
         "form": ANY,
         "editing": False,
     }
@@ -95,7 +95,7 @@ def _base_context(**overrides):
         "invites": [],
         "companions": [],
         "companions_count": 0,
-        "max_connected_users": MAX_CONNECTED_USERS,
+        "max_companions": MAX_COMPANIONS,
         "can_add_companion": True,
         "create_companion_form": ANY,
         "party_form": ANY,
@@ -118,7 +118,7 @@ class TestPartiesPageView:
         )
 
     def test_get_party_and_companion_are_separate(
-        self, authenticated_client, active_user, connected_user
+        self, authenticated_client, active_user, companion
     ):
         party = sponsor_user(leader=active_user, member=active_user)
 
@@ -136,7 +136,7 @@ class TestPartiesPageView:
                         is_default=True,
                     )
                 ],
-                companions=[_companion_row(connected_user)],
+                companions=[_companion_row(companion)],
                 companions_count=1,
             ),
             template_name="crowd/user/parties.html",
@@ -292,17 +292,17 @@ class TestPartyDeleteActionView:
         )
 
     def test_post_refuses_party_with_companions(
-        self, authenticated_client, active_user, connected_user
+        self, authenticated_client, active_user, companion
     ):
         party = sponsor_user(leader=active_user, member=active_user)
-        sponsor_user(leader=active_user, member=connected_user)
+        sponsor_user(leader=active_user, member=companion)
 
         response = authenticated_client.post(
             reverse("web:crowd:parties-delete", kwargs={"pk": party.pk})
         )
 
         assert Party.objects.filter(pk=party.pk).exists()
-        assert User.objects.filter(pk=connected_user.pk).exists()
+        assert User.objects.filter(pk=companion.pk).exists()
         expected = (
             "This party still has companions. Remove them first — "
             "their profiles would be left without a caretaker."
@@ -472,10 +472,10 @@ class TestPartyCompanionAddActionView:
         return reverse("web:crowd:parties-add-companion", kwargs={"pk": party.pk})
 
     def test_post_adds_owned_companion_by_display_name(
-        self, authenticated_client, active_user, connected_user
+        self, authenticated_client, active_user, companion
     ):
-        connected_user.name = "Kiddo"
-        connected_user.save(update_fields=["name"])
+        companion.name = "Kiddo"
+        companion.save(update_fields=["name"])
         party = Party.objects.create(leader=active_user, name="Ekipa")
         PartyMembership.objects.create(party=party, member=active_user)
 
@@ -483,7 +483,7 @@ class TestPartyCompanionAddActionView:
             self._url(party), data={"display_name": " kiddo "}
         )
 
-        membership = PartyMembership.objects.get(party=party, member=connected_user)
+        membership = PartyMembership.objects.get(party=party, member=companion)
         assert membership.status == PartyMembershipStatus.ACTIVE
         assert membership.consent_mode == PartyConsentMode.ACCEPT_BY_DEFAULT
         assert_response(
@@ -509,22 +509,19 @@ class TestPartyCompanionAddActionView:
             messages=[(messages.ERROR, "No companion matches that display name.")],
         )
 
-    def test_post_already_member(
-        self, authenticated_client, active_user, connected_user
-    ):
-        connected_user.name = "Kiddo"
-        connected_user.save(update_fields=["name"])
+    def test_post_already_member(self, authenticated_client, active_user, companion):
+        companion.name = "Kiddo"
+        companion.save(update_fields=["name"])
         party = Party.objects.create(leader=active_user, name="Ekipa")
         PartyMembership.objects.create(party=party, member=active_user)
-        PartyMembership.objects.create(party=party, member=connected_user)
+        PartyMembership.objects.create(party=party, member=companion)
 
         response = authenticated_client.post(
             self._url(party), data={"display_name": "Kiddo"}
         )
 
         assert (
-            PartyMembership.objects.filter(party=party, member=connected_user).count()
-            == 1
+            PartyMembership.objects.filter(party=party, member=companion).count() == 1
         )
         assert_response(
             response,
@@ -533,10 +530,10 @@ class TestPartyCompanionAddActionView:
             messages=[(messages.INFO, "This companion is already in the party.")],
         )
 
-    def test_post_rejects_foreign_party(self, authenticated_client, connected_user):
-        connected_user.name = "Kiddo"
-        connected_user.manager = UserFactory(username="stranger")
-        connected_user.save(update_fields=["name", "manager"])
+    def test_post_rejects_foreign_party(self, authenticated_client, companion):
+        companion.name = "Kiddo"
+        companion.manager = UserFactory(username="stranger")
+        companion.save(update_fields=["name", "manager"])
         party = Party.objects.create(
             leader=UserFactory(username="leader"), name="Theirs"
         )
@@ -788,11 +785,11 @@ class TestPartyMemberRemoveActionView:
         )
 
     def test_post_rejects_companion_membership(
-        self, authenticated_client, active_user, connected_user
+        self, authenticated_client, active_user, companion
     ):
         party = sponsor_user(leader=active_user, member=active_user)
-        sponsor_user(leader=active_user, member=connected_user)
-        membership = PartyMembership.objects.get(party=party, member=connected_user)
+        sponsor_user(leader=active_user, member=companion)
+        membership = PartyMembership.objects.get(party=party, member=companion)
 
         response = authenticated_client.post(
             reverse(
@@ -802,7 +799,7 @@ class TestPartyMemberRemoveActionView:
         )
 
         assert PartyMembership.objects.filter(pk=membership.pk).exists()
-        assert User.objects.filter(pk=connected_user.pk).exists()
+        assert User.objects.filter(pk=companion.pk).exists()
         assert_response(
             response,
             HTTPStatus.FOUND,
@@ -877,7 +874,7 @@ class TestCompanionMembershipWriteThrough:
         sponsor_user(leader=active_user, member=active_user)
 
         response = authenticated_client.post(
-            reverse("web:crowd:profile-connected-users"),
+            reverse("web:crowd:profile-companions"),
             data={"name": "Kiddo", "user_type": UserType.CONNECTED},
         )
 
@@ -885,7 +882,7 @@ class TestCompanionMembershipWriteThrough:
             response,
             HTTPStatus.FOUND,
             url=URL,
-            messages=[(messages.SUCCESS, "Connected user added successfully!")],
+            messages=[(messages.SUCCESS, "Companion added successfully!")],
         )
         companion = User.objects.get(name="Kiddo")
         assert companion.manager_id == active_user.pk
@@ -977,11 +974,15 @@ class TestPartyConsentActionView:
 
     def test_page_renders_toggle_on_own_row(self, authenticated_client, active_user):
         party, _ = self._party_with_me_as_member(active_user)
-
         response = authenticated_client.get(_detail_url(party))
 
-        assert response.status_code == HTTPStatus.OK
-        assert "Allow direct enrollment" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name="crowd/user/party_detail.html",
+            contains="Allow direct enrollment",
+        )
 
     def test_own_row_shows_current_consent_state(
         self, authenticated_client, active_user

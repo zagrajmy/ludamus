@@ -225,7 +225,7 @@
             <div>
                 <h5 class="font-semibold">
                     {% translate "Your companions" %}
-                    <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_connected_users }})</span>
+                    <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_companions }})</span>
                 </h5>
                 <p class="text-sm text-foreground-muted text-balance">
                     {% translate "Kids, partners, guests: anyone without their own account. You sign them up yourself. They can claim their profile later." %}
@@ -242,7 +242,7 @@
         </div>
         {% if not can_add_companion %}
             <p class="text-xs text-foreground-muted mb-4">
-                {% blocktranslate %}You can have at most {{ max_connected_users }} companions.{% endblocktranslate %}
+                {% blocktranslate %}You can have at most {{ max_companions }} companions.{% endblocktranslate %}
             </p>
         {% endif %}
         {% if can_add_companion %}
@@ -250,7 +250,7 @@
                     class="modal w-[calc(100%-2rem)] max-w-md p-0"
                     aria-labelledby="add-companion-modal-title"
                     {% if create_companion_form.is_bound %}data-open-on-load{% endif %}>
-                <form action="{% url 'web:crowd:profile-connected-users' %}" method="post">
+                <form action="{% url 'web:crowd:profile-companions' %}" method="post">
                     {% csrf_token %}
                     <div class="px-6 pt-5 pb-4">
                         <h3 id="add-companion-modal-title" class="font-semibold text-foreground">{% translate "Add companion" %}</h3>
@@ -303,7 +303,8 @@
                                     </button>
                                 {% endif %}
                                 <form method="post"
-                                      action="{% url 'web:crowd:profile-connected-users-claim-link' slug=row.companion.slug %}">
+                                      action="{% url 'web:crowd:profile-companions-claim-link' slug=row.companion.slug %}"
+                                      {% if row.companion.claim_token %} data-confirm="{% translate "Generate a new claim link? The old one stops working." %}" data-confirm-action="{% translate "Generate new link" %}" {% endif %}>
                                     {% csrf_token %}
                                     {% if row.companion.claim_token %}
                                         <button type="submit"
@@ -322,13 +323,13 @@
                                     {% endif %}
                                 </form>
                                 <form method="post"
-                                      action="{% url 'web:crowd:profile-connected-users-delete' slug=row.companion.slug %}"
-                                      data-confirm="{% translate "Remove companion" %}"
-                                      data-confirm-action="{% translate "Remove companion" %}">
+                                      action="{% url 'web:crowd:profile-companions-delete' slug=row.companion.slug %}"
+                                      data-confirm="{% blocktranslate with name=row.companion.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
+                                      data-confirm-action="{% translate "Delete companion" %}">
                                     {% csrf_token %}
                                     <button type="submit" class="icon-btn">
                                         {% icon "trash" class="w-3.5 h-3.5" %}
-                                        <span class="sr-only">{% translate "Remove companion" %}</span>
+                                        <span class="sr-only">{% translate "Delete companion" %}</span>
                                     </button>
                                 </form>
                             </div>
@@ -337,7 +338,7 @@
                     <div class="item-edit"
                          id="companion-edit-{{ row.companion.slug }}"
                          {% if not row.editing %}style="display:none"{% endif %}>
-                        <form action="{% url 'web:crowd:profile-connected-users-update' slug=row.companion.slug %}"
+                        <form action="{% url 'web:crowd:profile-companions-update' slug=row.companion.slug %}"
                               method="post">
                             {% csrf_token %}
                             {% tessera_form row.form %}

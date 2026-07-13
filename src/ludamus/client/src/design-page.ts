@@ -6,6 +6,8 @@ const getRegion = (): HTMLElement => {
 
   const created = document.createElement("div");
   created.className = "flash-region";
+  created.setAttribute("role", "region");
+  created.setAttribute("aria-label", "Notifications");
   document.body.append(created);
   return created;
 };

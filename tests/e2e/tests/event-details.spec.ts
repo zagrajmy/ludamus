@@ -69,14 +69,15 @@ test.describe("Event detail page", () => {
   });
 
   test("session card shows a slot while its modal is open", async ({ page }) => {
-    const card = page.locator('.session[data-session-id="2"]');
+    const card = page.getByRole("article").filter({ hasText: "Mega Strategy Lab" });
+    const sessionSurface = card.locator(":scope > div").first();
     const title = card.getByRole("heading", { name: "Mega Strategy Lab" });
 
     await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
 
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
     await settleViewTransitions(page);
-    await expect(card).toHaveClass(/session-suppressed/);
+    await expect(sessionSurface).toHaveClass(/session-suppressed/);
     await expect(card).toBeVisible();
     await expect(title).toBeHidden();
 
@@ -350,12 +351,16 @@ test.describe("Anonymous code modal", () => {
       .locator("main")
       .evaluate((main) => main.getBoundingClientRect().top);
     expect(
-      await page.locator(".flash-region").evaluate((region) => getComputedStyle(region).position),
+      await page
+        .getByRole("region", { name: "Notifications" })
+        .evaluate((region) => getComputedStyle(region).position),
     ).toBe("fixed");
-    const flashRegionCenter = await page.locator(".flash-region").evaluate((region) => {
-      const { left, width } = region.getBoundingClientRect();
-      return { center: left + width / 2, viewportCenter: window.innerWidth / 2 };
-    });
+    const flashRegionCenter = await page
+      .getByRole("region", { name: "Notifications" })
+      .evaluate((region) => {
+        const { left, width } = region.getBoundingClientRect();
+        return { center: left + width / 2, viewportCenter: window.innerWidth / 2 };
+      });
     expect(flashRegionCenter.center).toBeCloseTo(flashRegionCenter.viewportCenter, 0);
     await page.waitForTimeout(300);
     const finalMainTop = await page

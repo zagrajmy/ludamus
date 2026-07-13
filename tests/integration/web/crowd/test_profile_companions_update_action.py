@@ -8,30 +8,28 @@ from ludamus.pacts.crowd import UserType
 from tests.integration.utils import assert_response
 
 
-class TestProfileConnectedUserUpdateActionView:
-    URL_NAME = "web:crowd:profile-connected-users-update"
+class TestProfileCompanionUpdateActionView:
+    URL_NAME = "web:crowd:profile-companions-update"
 
     def _get_url(self, slug: str) -> str:
         return reverse(self.URL_NAME, kwargs={"slug": slug})
 
-    def test_post_ok(self, authenticated_client, connected_user, faker):
+    def test_post_ok(self, authenticated_client, companion, faker):
         data = {"name": faker.name(), "user_type": UserType.CONNECTED}
-        response = authenticated_client.post(
-            self._get_url(connected_user.slug), data=data
-        )
+        response = authenticated_client.post(self._get_url(companion.slug), data=data)
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Connected user updated successfully!")],
+            messages=[(messages.SUCCESS, "Companion updated successfully!")],
             url=reverse("web:crowd:profile-parties"),
         )
-        user = User.objects.get(pk=connected_user.pk)
+        user = User.objects.get(pk=companion.pk)
         assert user.name == data["name"]
         assert user.user_type == data["user_type"]
 
-    def test_post_error_form_invalid(self, authenticated_client, connected_user):
-        response = authenticated_client.post(self._get_url(connected_user.slug))
+    def test_post_error_form_invalid(self, authenticated_client, companion):
+        response = authenticated_client.post(self._get_url(companion.slug))
 
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == ["crowd/user/parties.html"]
@@ -39,11 +37,11 @@ class TestProfileConnectedUserUpdateActionView:
         row_by_slug = {
             row["companion"].slug: row for row in response.context_data["companions"]
         }
-        bound_form = row_by_slug[connected_user.slug]["form"]
+        bound_form = row_by_slug[companion.slug]["form"]
         assert bound_form is not None
         assert bound_form.errors
         # The row renders in edit mode so the validation errors are visible.
-        assert row_by_slug[connected_user.slug]["editing"] is True
+        assert row_by_slug[companion.slug]["editing"] is True
         response_messages = [
             (message.level, message.message)
             for message in list(response.context["messages"])

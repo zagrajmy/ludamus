@@ -126,13 +126,13 @@
                                 </button>
                             {% endif %}
                             <form method="post"
-                                  action="{% url 'web:crowd:profile-connected-users-delete' slug=member.slug %}"
-                                  data-confirm="{% blocktranslate with name=member.full_name %}Remove {{ name }} from your party?{% endblocktranslate %}"
-                                  data-confirm-action="{% translate "Remove companion" %}">
+                                  action="{% url 'web:crowd:profile-companions-delete' slug=member.slug %}"
+                                  data-confirm="{% blocktranslate with name=member.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
+                                  data-confirm-action="{% translate "Delete companion" %}">
                                 {% csrf_token %}
                                 <button type="submit" class="icon-btn">
                                     {% icon "trash" class="w-3.5 h-3.5" %}
-                                    <span class="sr-only">{% translate "Remove companion" %}</span>
+                                    <span class="sr-only">{% translate "Delete companion" %}</span>
                                 </button>
                             </form>
                         {% elif not party.is_leader and member.user_pk == request.user.pk %}

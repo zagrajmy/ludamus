@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.urls import reverse
 
@@ -70,7 +69,12 @@ class TestProfileAvatarPageView:
             response,
             HTTPStatus.OK,
             not_contains='src="None"',
-            context_data=ANY,
+            context_data={
+                "user": UserDTO.model_validate(active_user),
+                "gravatar_url": gravatar_url(""),
+                "has_auth0_avatar": False,
+                "profile_active_tab": "avatar",
+            },
             template_name="crowd/user/avatar.html",
         )
 
@@ -88,7 +92,12 @@ class TestProfileAvatarPageView:
             HTTPStatus.OK,
             contains="disabled",
             not_contains="Based on your email address.",
-            context_data=ANY,
+            context_data={
+                "user": UserDTO.model_validate(active_user),
+                "gravatar_url": gravatar_url(""),
+                "has_auth0_avatar": True,
+                "profile_active_tab": "avatar",
+            },
             template_name="crowd/user/avatar.html",
         )
 

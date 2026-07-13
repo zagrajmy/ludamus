@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import SessionParticipation
 from tests.integration.conftest import UserFactory
+from tests.integration.utils import assert_response
 
 
 def _event_url(slug: str) -> str:
@@ -43,10 +44,13 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_event_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert "Deniable Game" in content
-        assert "Session full" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name=["chronology/event.html"],
+            contains=["Deniable Game", "Session full"],
+        )
         (card,) = response.context["sessions"]
         assert card.pretend_full
         assert card.is_full
@@ -62,8 +66,13 @@ class TestShadowbanPretendFull:
 
         response = client.get(_event_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert "Visible Game" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name=["chronology/event.html"],
+            contains="Visible Game",
+        )
         (card,) = response.context["sessions"]
         assert not card.is_full
 
@@ -75,7 +84,12 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name="chronology/enroll_select.html",
+        )
         page_session = response.context["session"]
         assert page_session.is_full
         assert page_session.enrolled_count == page_session.effective_participants_limit
@@ -92,25 +106,25 @@ class TestShadowbanPretendFull:
             data={f"user_{active_user.id}": "enroll"},
         )
 
-        assert response.status_code in {HTTPStatus.OK, HTTPStatus.FOUND}
+        assert response.status_code == HTTPStatus.FOUND
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_shadowbanned_connected_user_not_seated(
-        self, authenticated_client, agenda_item, connected_user
+    def test_shadowbanned_companion_not_seated(
+        self, authenticated_client, agenda_item, companion
     ):
-        # The manager is not banned (so the guard passes), but their connected
-        # sub-user is — and must not get a seat in the banner's session.
-        session = _ban_viewer(agenda_item, connected_user, username="gm4")
+        # The manager is not banned (so the guard passes), but their companion
+        # is — and must not get a seat in the banner's session.
+        session = _ban_viewer(agenda_item, companion, username="gm4")
 
         response = authenticated_client.post(
             _enroll_url(session.pk, session.event.slug),
-            data={f"user_{connected_user.id}": "enroll"},
+            data={f"user_{companion.id}": "enroll"},
         )
 
         assert response.status_code == HTTPStatus.FOUND
         assert not SessionParticipation.objects.filter(
-            user=connected_user, session=session
+            user=companion, session=session
         ).exists()

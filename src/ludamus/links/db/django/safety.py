@@ -249,7 +249,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             for recipient_id, _email, banned_user_id in player_rows
         }
         hits: dict[tuple[int, int], ShadowbanHitDTO] = {}
-        for recipient_id, email, banned_user_id in [*presenter_rows, *player_rows]:
+        for recipient_id, email, banned_user_id in (*presenter_rows, *player_rows):
             hits[recipient_id, banned_user_id] = ShadowbanHitDTO(
                 recipient_id=recipient_id,
                 recipient_email=email,

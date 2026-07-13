@@ -12,8 +12,8 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
-    ConnectedUserDTO,
-    ConnectedUserRepositoryProtocol,
+    CompanionDTO,
+    CompanionRepositoryProtocol,
     ProfileParticipationRepositoryProtocol,
     UserData,
     UserDTO,
@@ -85,17 +85,17 @@ class UserRepository(UserRepositoryProtocol):
         return query.exists()
 
 
-class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
+class CompanionRepository(CompanionRepositoryProtocol):
     @staticmethod
-    def read_all(manager_slug: str) -> list[ConnectedUserDTO]:
+    def read_all(manager_slug: str) -> list[CompanionDTO]:
         if not User.objects.filter(
             user_type=UserType.ACTIVE, slug=manager_slug
         ).exists():
             raise NotFoundError
 
         return [
-            ConnectedUserDTO.model_validate(connected_user)
-            for connected_user in active_companions(manager_slug).order_by("pk")
+            CompanionDTO.model_validate(companion)
+            for companion in active_companions(manager_slug).order_by("pk")
         ]
 
     @staticmethod
@@ -104,11 +104,11 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
         User.objects.create(**user_data, manager=manager)
 
     @staticmethod
-    def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO:
-        connected_user = active_companions(manager_slug).filter(slug=user_slug).first()
-        if connected_user is None:
+    def read(manager_slug: str, user_slug: str) -> CompanionDTO:
+        companion = active_companions(manager_slug).filter(slug=user_slug).first()
+        if companion is None:
             raise NotFoundError
-        return ConnectedUserDTO.model_validate(connected_user)
+        return CompanionDTO.model_validate(companion)
 
     @staticmethod
     def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:

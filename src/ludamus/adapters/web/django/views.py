@@ -76,7 +76,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
 from ludamus.pacts.party import (
     PartyConsentMode,
@@ -545,12 +545,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         anonymous_service = self.request.services.anonymous_enrollment
         # Handle authenticated users
         if self.request.context.current_user_slug:
-            # Get all connected users in a single query
+            # Get all companions in a single query
             all_users = [
                 self.request.di.uow.active_users.read(
                     self.request.context.current_user_slug
                 ),
-                *self.request.di.uow.connected_users.read_all(
+                *self.request.di.uow.companions.read_all(
                     self.request.context.current_user_slug
                 ),
             ]
@@ -1009,7 +1009,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "event": session.event,
             "party_choices": selection.choices,
             "selected_party": selection.selected,
-            "connected_users": selection.companions,
+            "companions": selection.companions,
             "user_data": self._get_user_participation_data(
                 session, selection.companions, members
             ),
@@ -1101,7 +1101,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _get_user_participation_data(
         self,
         session: Session,
-        companions: list[ConnectedUserDTO],
+        companions: list[CompanionDTO],
         members: list[RosterMember],
     ) -> list[SessionUserParticipationData]:
         user_data: list[SessionUserParticipationData] = []
@@ -1135,7 +1135,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             user_id = participation.user_id
             participations_by_user[user_id].append(participation)
 
-        # Add enrollment status and time conflict info for each connected user
+        # Add enrollment status and time conflict info for each companion
         for user in all_users:
             user_parts = participations_by_user.get(user.pk, [])
             membership = flags_by_pk.get(user.pk, PartyMemberFlags())
@@ -1515,7 +1515,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         # Players the presenter shadowbanned must not be seated — even when an
-        # unbanned manager tries to enroll a banned connected sub-user.
+        # unbanned manager tries to enroll a banned companion.
         shadowbanned_ids = (
             self.request.services.shadowban.banned_user_ids(session.presenter_id)
             if session.presenter_id
@@ -1523,7 +1523,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         # Cancellations first: a seat freed in this batch must be available to a
-        # connected user enrolling in the same submit (e.g. swapping a seat on a
+        # companion enrolling in the same submit (e.g. swapping a seat on a
         # full session).
         ordered_requests = sorted(
             enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1

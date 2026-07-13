@@ -31,8 +31,8 @@ class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
         return crowd.UserRepository(user_type=UserType.ANONYMOUS)
 
     @cached_property
-    def connected_users(self) -> crowd.ConnectedUserRepository:
-        return crowd.ConnectedUserRepository()
+    def companions(self) -> crowd.CompanionRepository:
+        return crowd.CompanionRepository()
 
     @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:

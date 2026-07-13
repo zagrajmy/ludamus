@@ -115,7 +115,7 @@ class Services:
 
     @cached_property
     def companions(self) -> CompanionsService:
-        return CompanionsService(self._transaction, self._repos.connected_users)
+        return CompanionsService(self._transaction, self._repos.companions)
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:

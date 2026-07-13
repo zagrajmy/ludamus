@@ -31,7 +31,7 @@ class UserForm(BaseUserForm):
     )
 
 
-class ConnectedUserForm(BaseUserForm):
+class CompanionForm(BaseUserForm):
     user_type = forms.CharField(
         initial=UserType.CONNECTED.value, widget=forms.HiddenInput()
     )

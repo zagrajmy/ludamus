@@ -16,7 +16,7 @@
     <div class="max-w-5xl mx-auto w-full">
         {# Shadowban warning: players the viewer shadowbanned are already here. #}
         {% if shadowban_warnings %}
-            <div class="alert alert-warning flex flex-col gap-3 mb-6">
+            <div class="alert backdrop-blur-lg alert-warning flex flex-col gap-3 mb-6">
                 <div class="flex items-center gap-2 font-semibold">
                     {% icon "shield-exclamation" class="w-5 h-5 shrink-0" %}
                     {% translate "Players you shadowbanned are already signed up here" %}

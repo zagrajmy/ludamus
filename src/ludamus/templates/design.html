@@ -97,9 +97,11 @@
         {% translate "Saved successfully." as design_flash_success %}
         {% translate "Something went wrong." as design_flash_error %}
         <div data-flash-demo
+             role="group"
+             aria-labelledby="toast-playground-title"
              class="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4">
             <div>
-                <h3 class="font-semibold text-foreground">{% translate "Toast playground" %}</h3>
+                <h3 id="toast-playground-title" class="font-semibold text-foreground">{% translate "Toast playground" %}</h3>
                 <p class="mt-1 text-sm text-foreground-muted">{% translate "Trigger fixed alerts here to test stacking, entry, and dismissal." %}</p>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -114,23 +116,28 @@
                 <button type="button" class="btn btn-secondary text-sm" data-flash-demo-clear>{% translate "Dismiss all" %}</button>
             </div>
         </div>
-        <div class="alert alert-success flex items-center" role="alert">
+        <div class="alert backdrop-blur-lg alert-success flex items-center"
+             role="alert">
             {% icon "check-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Saved successfully.</span>
         </div>
-        <div class="alert alert-warning flex items-center" role="status">
+        <div class="alert backdrop-blur-lg alert-warning flex items-center"
+             role="status">
             {% icon "exclamation-triangle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Heads up — this action is permanent.</span>
         </div>
-        <div class="alert alert-error flex items-center" role="alert">
+        <div class="alert backdrop-blur-lg alert-error flex items-center"
+             role="alert">
             {% icon "x-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Something went wrong.</span>
         </div>
-        <div class="alert alert-info flex items-center" role="status">
+        <div class="alert backdrop-blur-lg alert-info flex items-center"
+             role="status">
             {% icon "information-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>For your information.</span>
         </div>
-        <div class="alert alert-default flex items-center" role="status">
+        <div class="alert backdrop-blur-lg alert-default flex items-center"
+             role="status">
             {% icon "minus-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Neutral notice.</span>
         </div>
