@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 19:22+0200\n"
+"POT-Creation-Date: 2026-07-13 20:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1869,14 +1869,17 @@ msgstr ""
 "być Twoim prawdziwym imieniem."
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/templates/crowd/user/parties.html
 msgid "Party name"
 msgstr "Nazwa drużyny"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/templates/crowd/user/parties.html
 msgid "Email"
 msgstr "Email"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/templates/crowd/user/parties.html
 msgid "The invited person needs a Ludamus account with this email."
 msgstr "Zapraszana osoba musi mieć konto Ludamus z tym adresem email."
 
@@ -2823,21 +2826,6 @@ msgid "Not Yet Available"
 msgstr "Jeszcze Niedostępne"
 
 #: src/ludamus/templates/chronology/_compact_schedule.html
-msgid "Schedule view"
-msgstr "Widok harmonogramu"
-
-#: src/ludamus/templates/chronology/_compact_schedule.html
-msgid "List"
-msgstr "Lista"
-
-#: src/ludamus/templates/chronology/_compact_schedule.html
-#: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Rooms"
-msgstr "Sale"
-
-#: src/ludamus/templates/chronology/_compact_schedule.html
 msgid "Jump to time"
 msgstr "Przejdź do godziny"
 
@@ -2909,9 +2897,20 @@ msgstr[3] "+%(counter)s więcej"
 msgid "Flexible"
 msgstr "Elastyczny"
 
-#: src/ludamus/templates/chronology/_room_lanes.html
-msgid "Start time"
-msgstr "Czas rozpoczęcia"
+#: src/ludamus/templates/chronology/_schedule_view_tabs.html
+msgid "Schedule view"
+msgstr "Widok harmonogramu"
+
+#: src/ludamus/templates/chronology/_schedule_view_tabs.html
+msgid "List"
+msgstr "Lista"
+
+#: src/ludamus/templates/chronology/_schedule_view_tabs.html
+#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Rooms"
+msgstr "Sale"
 
 #: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
@@ -3874,10 +3873,6 @@ msgid "capacity"
 msgstr "pojemność"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Nothing scheduled in this time range."
-msgstr "Nic nie zaplanowano w tym przedziale czasowym."
-
-#: src/ludamus/templates/chronology/print.html
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
 
@@ -4311,12 +4306,12 @@ msgid "Based on your email address."
 msgstr "Na podstawie Twojego adresu email."
 
 #: src/ludamus/templates/crowd/user/avatar.html
-msgid "Add an email address to your profile to use Gravatar."
-msgstr "Dodaj adres e-mail do swojego profilu, aby korzystać z Gravatara."
-
-#: src/ludamus/templates/crowd/user/avatar.html
 msgid "Change it on gravatar.com"
 msgstr "Zmień go na gravatar.com"
+
+#: src/ludamus/templates/crowd/user/avatar.html
+msgid "Add an email address to your profile to use Gravatar."
+msgstr "Dodaj adres e-mail do swojego profilu, aby korzystać z Gravatara."
 
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Your avatar is provided by Gravatar, based on your email address."
@@ -4379,6 +4374,10 @@ msgid "Create party"
 msgstr "Utwórz drużynę"
 
 #: src/ludamus/templates/crowd/user/parties.html
+msgid "Name your party — invite friends once it exists."
+msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
+
+#: src/ludamus/templates/crowd/user/parties.html
 msgid "Invitations"
 msgstr "Zaproszenia"
 
@@ -4427,8 +4426,62 @@ msgid "created %(created)s"
 msgstr "utworzona %(created)s"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Manage party"
-msgstr "Zarządzaj drużyną"
+#, fuzzy
+#| msgid "invited"
+msgid "Invite"
+msgstr "zaproszono"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#, fuzzy
+#| msgid "More options"
+msgid "More actions"
+msgstr "Więcej opcji"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#, fuzzy
+#| msgid "username"
+msgid "Rename"
+msgstr "Nazwa użytkownika"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "History"
+msgstr ""
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Delete this party? Members keep their own accounts."
+msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Delete party"
+msgstr "Usuń drużynę"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/panel/bans.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Remove"
+msgstr "Usuń"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Invite a member"
+msgstr "Zaproś osobę"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Send invite"
+msgstr "Wyślij zaproszenie"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Rename party"
+msgstr "Zmień nazwę drużyny"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Save name"
+msgstr "Zapisz nazwę"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "No party yet"
@@ -4462,6 +4515,14 @@ msgstr "Dodaj towarzysza"
 #, python-format
 msgid "You can have at most %(max_connected_users)s companions."
 msgstr "Możesz mieć najwyżej %(max_connected_users)s towarzyszy."
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid ""
+"Someone without their own account. You sign them up; they can claim their "
+"profile later."
+msgstr ""
+"Osoba bez własnego konta. Zapisujesz ją samodzielnie, a później może przejąć "
+"swój profil."
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -4520,28 +4581,12 @@ msgid "All parties"
 msgstr "Wszystkie drużyny"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Rename party"
-msgstr "Zmień nazwę drużyny"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Delete this party? Members keep their own accounts."
-msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
-
-#: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Delete party"
-msgstr "Usuń drużynę"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Leave this party?"
 msgstr "Opuścić tę drużynę?"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Leave party"
 msgstr "Opuść drużynę"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Save name"
-msgstr "Zapisz nazwę"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "leader"
@@ -4596,14 +4641,6 @@ msgstr "Usunąć %(name)s z tej drużyny?"
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Remove member"
 msgstr "Usuń z drużyny"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Invite a member"
-msgstr "Zaproś osobę"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Send invite"
-msgstr "Wyślij zaproszenie"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Sessions together"
@@ -4673,8 +4710,8 @@ msgid ""
 "People you have participated in a session with will appear here, together "
 "with anyone you shadowban by username or email."
 msgstr ""
-"Osoby, z którymi uczestniczysz w punktach programu, pojawią się tutaj, a "
-"także każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
+"Tutaj pojawią się osoby, z którymi bierzesz udział w punktach programu, oraz "
+"każdy, kogo cicho zbanujesz po nazwie użytkownika lub adresie e-mail."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowban by username or email"
@@ -5299,11 +5336,6 @@ msgstr "Zbanowano"
 #: src/ludamus/templates/panel/bans.html
 msgid "Remove this ban?"
 msgstr "Usunąć ten ban?"
-
-#: src/ludamus/templates/panel/bans.html
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "Remove"
-msgstr "Usuń"
 
 #: src/ludamus/templates/panel/bans.html
 msgid "Nobody is banned from this event"
@@ -7513,6 +7545,15 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Nothing scheduled in this time range."
+#~ msgstr "Nic nie zaplanowano w tym przedziale czasowym."
+
+#~ msgid "Manage party"
+#~ msgstr "Zarządzaj drużyną"
+
+#~ msgid "Start time"
+#~ msgstr "Czas rozpoczęcia"
+
 #~ msgid "You must gather your party before venturing forth."
 #~ msgstr "Przed wyruszeniem w drogę należy zebrać drużynę."
 
@@ -7789,9 +7830,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "enrolled"
 #~ msgstr "zapisanych"
-
-#~ msgid "More options"
-#~ msgstr "Więcej opcji"
 
 #~ msgid "Select enrollment options for each user"
 #~ msgstr "Wybierz opcje zapisu dla każdego użytkownika"
