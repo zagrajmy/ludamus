@@ -55,7 +55,7 @@
                     <form action="{% url 'web:crowd:profile-shadowbans' %}"
                           method="post"
                           class="shrink-0"
-                          data-confirm="{% blocktranslate with name=candidate.name %}Shadowban {{ name }}? They will not see your sessions, and they are never told.{% endblocktranslate %}"
+                          data-confirm="{% blocktranslate with name=candidate.name %}Shadowban {{ name }}? They will not see or join sessions you run, and we never tell them.{% endblocktranslate %}"
                           data-confirm-action="{{ t_shadowban }}">
                         {% csrf_token %}
                         <input type="hidden" name="slug" value="{{ candidate.slug }}">
@@ -79,24 +79,22 @@
     </div>
     {# Ban someone who is not on the list #}
     <div class="border-t border-border mt-6 pt-4">
-        <details>
-            <summary class="flex items-center gap-1.5 font-semibold text-sm cursor-pointer">
-                {% icon "user-minus" class="w-4 h-4" %}
-                {% translate "Shadowban by username or email" %}
-            </summary>
-            <div class="mt-3">
-                <form action="{% url 'web:crowd:profile-shadowbans' %}" method="post">
-                    {% csrf_token %}
-                    <div class="flex flex-col sm:flex-row sm:items-start gap-2">
-                        <div class="grow w-full">
-                            <label for="identifier" class="sr-only">{{ identifier_label }}</label>
-                            {% include "components/text-field.html" with name="identifier" id="identifier" placeholder=identifier_label required=True only %}
-                        </div>
-                        {% tessera_button t_shadowban %}
+        <h6 class="flex items-center gap-1.5 font-semibold text-sm">
+            {% icon "user-minus" class="w-4 h-4" %}
+            {% translate "Shadowban by username or email" %}
+        </h6>
+        <div class="mt-3">
+            <form action="{% url 'web:crowd:profile-shadowbans' %}" method="post">
+                {% csrf_token %}
+                <div class="flex flex-col sm:flex-row sm:items-start gap-2">
+                    <div class="grow w-full">
+                        <label for="identifier" class="sr-only">{{ identifier_label }}</label>
+                        {% include "components/text-field.html" with name="identifier" id="identifier" placeholder=identifier_label required=True only %}
                     </div>
-                </form>
-            </div>
-        </details>
+                    {% tessera_button t_shadowban %}
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 </div>
