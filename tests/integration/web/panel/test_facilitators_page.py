@@ -14,7 +14,7 @@ from ludamus.adapters.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
@@ -26,7 +26,7 @@ _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
 _TOTAL_PAGES = 2
 
 
-def _base_context(event):
+def _event_context(event):
     return {
         "current_event": EventDTO.model_validate(event),
         "events": [EventDTO.model_validate(event)],
@@ -40,6 +40,25 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "facilitators",
+    }
+
+
+def _field_dto(field):
+    return PersonalDataFieldDTO(
+        field_type=field.field_type,
+        is_multiple=field.is_multiple,
+        name=field.name,
+        options=[],
+        order=field.order,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
+
+
+def _base_context(event):
+    return {
+        **_event_context(event),
         "filter_search": "",
         "filter_accreditation": None,
         "filter_flagged": False,
@@ -247,8 +266,20 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"search": "Reds"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["facilitators"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_search": "Reds",
+                "filters_active": True,
+                "filterable_fields": [_field_dto(field)],
+                "filter_fields": {field.pk: ""},
+            },
+        )
 
     def test_accreditation_filter(
         self, authenticated_client, active_user, sphere, event
@@ -386,11 +417,26 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.name for f in response.context["displayed_fields"]] == ["Email"]
-        assert (
-            response.context["column_values"][facilitator.pk]["email"]
-            == "alice@example.com"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        slug="alice",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "displayed_fields": [_field_dto(field)],
+                "column_values": {facilitator.pk: {"email": "alice@example.com"}},
+            },
         )
 
     def test_displayed_columns_format_bool_and_list(
@@ -434,11 +480,46 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        column_values = response.context["column_values"]
-        assert column_values[yes.pk]["vegan"] == "Yes"
-        assert column_values[no.pk]["vegan"] == "No"
-        assert column_values[yes.pk]["teams"] == "Reds, Blues"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="No",
+                        pk=no.pk,
+                        slug="no",
+                        user_id=None,
+                        session_count=0,
+                    ),
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Yes",
+                        pk=yes.pk,
+                        slug="yes",
+                        user_id=None,
+                        session_count=0,
+                    ),
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "displayed_fields": [
+                    _field_dto(checkbox_field),
+                    _field_dto(multi_field),
+                ],
+                "column_values": {
+                    yes.pk: {"vegan": "Yes", "teams": "Reds, Blues"},
+                    no.pk: {"vegan": "No"},
+                },
+                "filterable_fields": [
+                    _field_dto(checkbox_field),
+                    _field_dto(multi_field),
+                ],
+                "filter_fields": {checkbox_field.pk: "", multi_field.pk: ""},
+            },
+        )
 
     def test_checkbox_field_filter(
         self, authenticated_client, active_user, sphere, event
@@ -466,8 +547,28 @@ class TestFacilitatorsPageView:
             self.get_url(event), {f"field_{field.pk}": "true"}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == ["Vegan"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Vegan",
+                        pk=vegan.pk,
+                        slug="vegan-f",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filters_active": True,
+                "filterable_fields": [_field_dto(field)],
+                "filter_fields": {field.pk: "true"},
+            },
+        )
 
     def test_select_field_filter(
         self, authenticated_client, active_user, sphere, event
@@ -498,10 +599,28 @@ class TestFacilitatorsPageView:
             self.get_url(event), {f"field_{field.pk}": "Reds"}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.display_name for f in response.context["facilitators"]] == [
-            "Reds member"
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Reds member",
+                        pk=reds.pk,
+                        slug="reds",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filters_active": True,
+                "filterable_fields": [_field_dto(field)],
+                "filter_fields": {field.pk: "Reds"},
+            },
+        )
 
     def test_sort_by_personal_field(
         self, authenticated_client, active_user, sphere, event
@@ -532,12 +651,35 @@ class TestFacilitatorsPageView:
             self.get_url(event), {"sort": f"field_{field.pk}"}
         )
 
-        assert response.status_code == HTTPStatus.OK
         # Ascending by email value: anna (Bob) before zoe (Alice).
-        assert [f.display_name for f in response.context["facilitators"]] == [
-            "Bob",
-            "Alice",
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Bob",
+                        pk=bob.pk,
+                        slug="bob",
+                        user_id=None,
+                        session_count=0,
+                    ),
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=alice.pk,
+                        slug="alice",
+                        user_id=None,
+                        session_count=0,
+                    ),
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_sort": f"field_{field.pk}",
+            },
+        )
 
     def test_paginates_facilitators(
         self, authenticated_client, active_user, sphere, event
@@ -779,9 +921,16 @@ class TestFacilitatorColumns:
 
         response = authenticated_client.get(self._url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.pk for f in response.context["fields"]] == [field.pk]
-        assert response.context["selected_field_ids"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-columns.html",
+            context_data={
+                **_event_context(event),
+                "fields": [_field_dto(field)],
+                "selected_field_ids": [],
+            },
+        )
 
     def test_get_renders_empty_state_without_fields(
         self, authenticated_client, active_user, sphere, event
@@ -790,11 +939,16 @@ class TestFacilitatorColumns:
 
         response = authenticated_client.get(self._url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["fields"] == []
-        assert (
-            "No personal-data fields defined for this event yet."
-            in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-columns.html",
+            context_data={
+                **_event_context(event),
+                "fields": [],
+                "selected_field_ids": [],
+            },
+            contains="No personal-data fields defined for this event yet.",
         )
 
     def test_get_redirects_when_event_not_found(

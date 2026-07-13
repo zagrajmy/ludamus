@@ -13,7 +13,7 @@ from ludamus.adapters.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
-from tests.integration.utils import assert_response
+from tests.integration.utils import FormErrorsMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -172,12 +172,18 @@ class TestFacilitatorEditPageView:
             template_name="panel/facilitator-edit.html",
             context_data={
                 **_base_context(event),
-                "form": ANY,
+                "form": FormErrorsMatcher(
+                    accreditation_type=[
+                        (
+                            "Select a valid choice. bogus is not one of the"
+                            " available choices."
+                        )
+                    ]
+                ),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "personal_fields": [],
             },
         )
-        assert response.context["form"].errors["accreditation_type"]
 
     def test_post_redirects_and_keeps_cached_display_name(
         self, authenticated_client, active_user, sphere, event
