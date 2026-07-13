@@ -8,18 +8,15 @@
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div>
             <h5 class="font-semibold">{% translate "Your parties" %}</h5>
-            <p class="text-sm text-foreground-muted italic">
-                {% translate "You must gather your party before venturing forth." %}
-            </p>
             <p class="text-sm text-foreground-muted">
-                {% translate "A party signs up for sessions together and moves up waiting lists together." %}
+                {% translate "A party signs up for sessions together and moves up a waiting list together." %}
             </p>
         </div>
         <button type="button"
-                class="btn btn-secondary btn-sm shrink-0"
+                class="btn btn-primary shrink-0"
                 onclick="document.getElementById('new-party-form').style.display='block'; this.style.display='none'">
             {% icon "plus-circle" class="w-4 h-4" %}
-            {% translate "New party" %}
+            {% translate "Create a party" %}
         </button>
     </div>
     <div id="new-party-form"
@@ -52,12 +49,12 @@
                             <form method="post"
                                   action="{% url 'web:crowd:party-invites-accept' pk=invite.membership_pk %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-primary btn-sm">{% translate "Join party" %}</button>
+                                <button type="submit" class="btn btn-primary ">{% translate "Join party" %}</button>
                             </form>
                             <form method="post"
                                   action="{% url 'web:crowd:party-invites-decline' pk=invite.membership_pk %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-secondary btn-sm">{% translate "Decline" %}</button>
+                                <button type="submit" class="btn btn-secondary ">{% translate "Decline" %}</button>
                             </form>
                         </div>
                     </div>
@@ -104,7 +101,7 @@
                         </p>
                     </div>
                     <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
-                       class="btn btn-secondary btn-sm shrink-0">{% translate "Manage party" %}</a>
+                       class="btn btn-secondary  shrink-0">{% translate "Manage party" %}</a>
                 </div>
             </div>
         {% empty %}
@@ -112,7 +109,7 @@
                 {% icon "users" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
                 <h5 class="text-foreground-muted font-medium">{% translate "No party yet" %}</h5>
                 <p class="text-sm text-foreground-muted max-w-sm mx-auto">
-                    {% translate "Add a companion you enroll yourself, or create a party and invite friends — you sign up for sessions together." %}
+                    {% translate "Create a party and invite friends, or add a companion and sign them up yourself." %}
                 </p>
             </div>
         {% endfor %}
@@ -125,13 +122,13 @@
                     {% translate "Your companions" %}
                     <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_connected_users }})</span>
                 </h5>
-                <p class="text-sm text-foreground-muted">
-                    {% translate "People without their own account — kids, partners, guests. You sign them up yourself; they can claim their profile later." %}
+                <p class="text-sm text-foreground-muted text-balance">
+                    {% translate "Kids, partners, guests: anyone without their own account. You sign them up yourself. They can claim their profile later." %}
                 </p>
             </div>
             {% if can_add_companion %}
                 <button type="button"
-                        class="btn btn-secondary btn-sm shrink-0"
+                        class="btn btn-secondary  shrink-0"
                         onclick="document.getElementById('add-companion-form').style.display='block'; this.style.display='none'">
                     {% icon "plus-circle" class="w-4 h-4" %}
                     {% translate "Add companion" %}
@@ -140,7 +137,7 @@
         </div>
         {% if not can_add_companion %}
             <p class="text-xs text-foreground-muted mb-4">
-                {% blocktranslate %}You have reached the maximum of {{ max_connected_users }} companions.{% endblocktranslate %}
+                {% blocktranslate %}You can have at most {{ max_connected_users }} companions.{% endblocktranslate %}
             </p>
         {% endif %}
         {% if can_add_companion %}
@@ -191,14 +188,14 @@
                                     {% if row.companion.claim_token %}
                                         <button type="submit"
                                                 class="icon-btn"
-                                                title="{% translate "Generate a new claim link — the previous one stops working" %}">
+                                                title="{% translate "Generate a new claim link. The old one stops working." %}">
                                             {% icon "arrow-path" class="w-3.5 h-3.5" %}
                                             <span class="sr-only">{% translate "Generate a new claim link" %}</span>
                                         </button>
                                     {% else %}
                                         <button type="submit"
                                                 class="icon-btn"
-                                                title="{% translate "Create a link to let this person take over their profile" %}">
+                                                title="{% translate "Create a link so they can claim their profile" %}">
                                             {% icon "link" class="w-3.5 h-3.5" %}
                                             <span class="sr-only">{% translate "Create claim link" %}</span>
                                         </button>

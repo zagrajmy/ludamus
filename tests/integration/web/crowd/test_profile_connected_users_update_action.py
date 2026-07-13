@@ -36,8 +36,9 @@ class TestProfileConnectedUserUpdateActionView:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == ["crowd/user/parties.html"]
         # The bound (invalid) form is re-rendered inline on the companion's row.
-        [entry] = response.context_data["parties"]
-        row_by_slug = {row["member"].slug: row for row in entry["members"]}
+        row_by_slug = {
+            row["companion"].slug: row for row in response.context_data["companions"]
+        }
         bound_form = row_by_slug[connected_user.slug]["form"]
         assert bound_form is not None
         assert bound_form.errors

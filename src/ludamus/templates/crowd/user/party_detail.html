@@ -52,7 +52,7 @@
                       data-confirm="{% translate "Leave this party?" %}"
                       data-confirm-action="{% translate "Leave party" %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-secondary btn-sm">{% translate "Leave party" %}</button>
+                    <button type="submit" class="btn btn-secondary ">{% translate "Leave party" %}</button>
                 </form>
             {% endif %}
         </div>
@@ -138,10 +138,10 @@
                             {% csrf_token %}
                             {% if member.consent_mode == "accept_invites" %}
                                 <input type="hidden" name="mode" value="accept_by_default">
-                                <button type="submit" class="btn btn-secondary btn-sm">{% translate "Allow direct enrollment" %}</button>
+                                <button type="submit" class="btn btn-secondary ">{% translate "Allow direct enrollment" %}</button>
                             {% else %}
                                 <input type="hidden" name="mode" value="accept_invites">
-                                <button type="submit" class="btn btn-secondary btn-sm">{% translate "Require my approval" %}</button>
+                                <button type="submit" class="btn btn-secondary ">{% translate "Require my approval" %}</button>
                             {% endif %}
                         </form>
                     {% elif party.is_leader and not member.is_leader %}

@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.urls import reverse
 
@@ -10,10 +11,29 @@ from ludamus.adapters.db.django.models import (
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import UserFactory
+from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.web.crowd.test_profile_parties_page import (
+    _member_dto,
+    _party_dto,
+)
+
+TEMPLATE = "crowd/user/party_detail.html"
 
 
 def _url(party):
     return reverse("web:crowd:party-detail", kwargs={"pk": party.pk})
+
+
+def _context(party_dto, **overrides):
+    context = {
+        "party": party_dto,
+        "rename_form": ANY if party_dto.is_leader else None,
+        "invite_form": ANY if party_dto.is_leader else None,
+        "history": [],
+        "profile_active_tab": "parties",
+    }
+    context.update(overrides)
+    return context
 
 
 class TestPartyDetailPageView:
@@ -24,16 +44,27 @@ class TestPartyDetailPageView:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["party"].pk == party.pk
-        assert response.context["party"].is_leader
-        assert response.context["rename_form"] is not None
-        assert response.context["invite_form"] is not None
-        assert response.context["history"] == []
-        content = response.content.decode()
-        assert connected_user.get_full_name() in content
-        assert "Invite a member" in content
-        assert "Delete party" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [
+                        _member_dto(active_user, party),
+                        _member_dto(connected_user, party),
+                    ],
+                    is_default=True,
+                )
+            ),
+            template_name=TEMPLATE,
+            contains=[
+                connected_user.get_full_name(),
+                "Invite a member",
+                "Delete party",
+            ],
+        )
 
     def test_get_membership_shows_leave_and_consent(
         self, authenticated_client, active_user
@@ -50,13 +81,20 @@ class TestPartyDetailPageView:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.OK
-        assert not response.context["party"].is_leader
-        assert response.context["rename_form"] is None
-        assert response.context["invite_form"] is None
-        content = response.content.decode()
-        assert "Leave party" in content
-        assert "Allow direct enrollment" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(friend, party), _member_dto(active_user, party)],
+                    is_default=False,
+                )
+            ),
+            template_name=TEMPLATE,
+            contains=["Leave party", "Allow direct enrollment"],
+        )
 
     def test_get_foreign_party_is_not_found(self, authenticated_client):
         stranger = UserFactory(username="stranger")
@@ -64,7 +102,7 @@ class TestPartyDetailPageView:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert_response_404(response)
 
     def test_get_pending_invite_is_not_found(self, authenticated_client, active_user):
         friend = UserFactory(username="friend")
@@ -79,14 +117,16 @@ class TestPartyDetailPageView:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert_response_404(response)
 
     def test_get_requires_login(self, client, active_user):
         party = Party.objects.create(leader=active_user, name="Ekipa")
 
         response = client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={_url(party)}"
+        )
 
 
 class TestPartyDetailSessionHistory:
@@ -109,22 +149,41 @@ class TestPartyDetailSessionHistory:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.OK
-        (group,) = response.context["history"]
-        assert group["event_name"] == session.event.name
-        assert group["event_slug"] == session.event.slug
-        (card,) = group["cards"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [
+                        _member_dto(active_user, party),
+                        _member_dto(connected_user, party),
+                    ],
+                    is_default=True,
+                ),
+                history=[
+                    {
+                        "event_name": session.event.name,
+                        "event_slug": session.event.slug,
+                        "cards": ANY,
+                    }
+                ],
+            ),
+            template_name=TEMPLATE,
+            contains=["Wspólna Wyprawa", session.event.name],
+        )
+        [group] = response.context["history"]
+        [card] = group["cards"]
         assert card.session.pk == session.pk
         assert card.user_enrolled
         assert card.agenda_item.start_time == agenda_item.start_time
-        content = response.content.decode()
-        assert "Wspólna Wyprawa" in content
-        assert session.event.name in content
+        assert not card.pretend_full
 
     def test_history_skips_solo_enrollments(
         self, authenticated_client, active_user, connected_user, session, agenda_item
     ):
-        _ = connected_user, agenda_item
+        _ = agenda_item
         party = Party.objects.get(leader=active_user)
         SessionParticipation.objects.create(
             session=session,
@@ -135,9 +194,23 @@ class TestPartyDetailSessionHistory:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["history"] == []
-        assert "No sessions together yet" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [
+                        _member_dto(active_user, party),
+                        _member_dto(connected_user, party),
+                    ],
+                    is_default=True,
+                )
+            ),
+            template_name=TEMPLATE,
+            contains="No sessions together yet",
+        )
 
     def test_history_card_is_pretend_full_when_presenter_shadowbanned_viewer(
         self, authenticated_client, active_user, connected_user, session, agenda_item
@@ -152,9 +225,31 @@ class TestPartyDetailSessionHistory:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.status_code == HTTPStatus.OK
-        (group,) = response.context["history"]
-        (card,) = group["cards"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [
+                        _member_dto(active_user, party),
+                        _member_dto(connected_user, party),
+                    ],
+                    is_default=True,
+                ),
+                history=[
+                    {
+                        "event_name": session.event.name,
+                        "event_slug": session.event.slug,
+                        "cards": ANY,
+                    }
+                ],
+            ),
+            template_name=TEMPLATE,
+        )
+        [group] = response.context["history"]
+        [card] = group["cards"]
         assert card.pretend_full
         assert card.is_full
         assert all(p.user.pk < 0 for p in card.session_participations)

@@ -68,10 +68,10 @@
             </div>
         {% empty %}
             <div class="text-center py-8">
-                {% icon "shield-exclamation" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
-                <p class="font-medium text-foreground-muted">{% translate "No players yet" %}</p>
-                <p class="text-sm text-foreground-muted">
-                    {% translate "Players you have run sessions for or played alongside will appear here, and anyone you shadowban by username or email." %}
+                {% icon "shield-exclamation" class="w-10 h-10 mx-auto text-foreground-muted" %}
+                <p class="font-medium text-foreground-muted my-2">{% translate "No people yet" %}</p>
+                <p class="text-sm text-foreground-muted max-w-100 mx-auto">
+                    {% translate "People you have participated in a session with will appear here, together with anyone you shadowban by username or email." %}
                 </p>
             </div>
         {% endfor %}
