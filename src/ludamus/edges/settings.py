@@ -306,12 +306,15 @@ INTERNAL_IPS = [
 
 # Content-Security-Policy, report-only for now. 'unsafe-inline' in
 # script-src/style-src covers the inline theme-init/panel scripts and
-# inline style attributes; 'unsafe-eval' covers htmx hx-on:
-# attributes; img-src is broad because avatars come from arbitrary
-# Auth0/gravatar HTTPS hosts and media from GCS.
+# inline style attributes; img-src is broad because avatars come from
+# arbitrary Auth0/gravatar HTTPS hosts and media from GCS. htmx's
+# hx-on: attributes (which needed 'unsafe-eval') were replaced by
+# delegated data-action listeners in panel-chrome.ts, and the
+# htmx-config allowEval:false meta tag in base.html disables htmx's
+# Function-based eval entirely, so 'unsafe-eval' is no longer needed.
 CSP_REPORT_ONLY_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
-    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, CSP.UNSAFE_EVAL],
+    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:", "https:"],
     "font-src": [CSP.SELF],

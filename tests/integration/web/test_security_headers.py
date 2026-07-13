@@ -23,7 +23,7 @@ class TestCSPReportOnlyHeader:
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
         header = response.headers[REPORT_ONLY_HEADER]
         assert "default-src 'self'" in header
-        assert "script-src 'self' 'unsafe-inline' 'unsafe-eval'" in header
+        assert "script-src 'self' 'unsafe-inline'" in header
         assert "img-src 'self' data: https:" in header
         assert "frame-ancestors 'none'" in header
         assert ENFORCE_HEADER not in response.headers
