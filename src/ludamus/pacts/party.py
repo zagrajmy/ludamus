@@ -128,6 +128,13 @@ class InviteOutcome(StrEnum):
     AMBIGUOUS_HANDLE = "ambiguous_handle"
 
 
+class CompanionAddOutcome(StrEnum):
+    ADDED = "added"
+    NO_SUCH_COMPANION = "no_such_companion"
+    ALREADY_MEMBER = "already_member"
+    AMBIGUOUS_NAME = "ambiguous_name"
+
+
 class PartyJoinOutcome(StrEnum):
     JOINED = "joined"
     ALREADY_MEMBER = "already_member"
@@ -241,7 +248,13 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def membership_exists(*, party_pk: int, user_pk: int) -> bool: ...
     @staticmethod
-    def create_invited_membership(*, party_pk: int, user_pk: int) -> None: ...
+    def create_invited_membership(
+        *,
+        party_pk: int,
+        user_pk: int,
+        consent_mode: PartyConsentMode = PartyConsentMode.ACCEPT_INVITES,
+        status: PartyMembershipStatus = PartyMembershipStatus.INVITED,
+    ) -> None: ...
     @staticmethod
     def accept_invite(*, membership_pk: int, user_pk: int) -> bool: ...
     @staticmethod
@@ -279,6 +292,9 @@ class PartyServiceProtocol(Protocol):
     def invite(
         self, *, leader_pk: int, party_pk: int, identifier: str
     ) -> InviteOutcome: ...
+    def add_companion(
+        self, *, leader_pk: int, party_pk: int, display_name: str
+    ) -> CompanionAddOutcome: ...
     def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None: ...
     def read_invite_token(self, *, leader_pk: int, party_pk: int) -> str: ...
     def read_invitable_party(

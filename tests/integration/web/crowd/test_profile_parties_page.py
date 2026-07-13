@@ -467,6 +467,93 @@ class TestPartyInviteActionView:
         )
 
 
+class TestPartyCompanionAddActionView:
+    def _url(self, party):
+        return reverse("web:crowd:parties-add-companion", kwargs={"pk": party.pk})
+
+    def test_post_adds_owned_companion_by_display_name(
+        self, authenticated_client, active_user, connected_user
+    ):
+        connected_user.name = "Kiddo"
+        connected_user.save(update_fields=["name"])
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": " kiddo "}
+        )
+
+        membership = PartyMembership.objects.get(party=party, member=connected_user)
+        assert membership.status == PartyMembershipStatus.ACTIVE
+        assert membership.consent_mode == PartyConsentMode.ACCEPT_BY_DEFAULT
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "Companion added to the party.")],
+        )
+
+    def test_post_unknown_name(self, authenticated_client, active_user):
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Nobody"}
+        )
+
+        assert PartyMembership.objects.filter(party=party).count() == 1
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, "No companion matches that display name.")],
+        )
+
+    def test_post_already_member(
+        self, authenticated_client, active_user, connected_user
+    ):
+        connected_user.name = "Kiddo"
+        connected_user.save(update_fields=["name"])
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+        PartyMembership.objects.create(party=party, member=connected_user)
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Kiddo"}
+        )
+
+        assert (
+            PartyMembership.objects.filter(party=party, member=connected_user).count()
+            == 1
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.INFO, "This companion is already in the party.")],
+        )
+
+    def test_post_rejects_foreign_party(self, authenticated_client, connected_user):
+        connected_user.name = "Kiddo"
+        connected_user.manager = UserFactory(username="stranger")
+        connected_user.save(update_fields=["name", "manager"])
+        party = Party.objects.create(
+            leader=UserFactory(username="leader"), name="Theirs"
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Kiddo"}
+        )
+
+        assert not PartyMembership.objects.filter(party=party).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, "No companion matches that display name.")],
+        )
+
+
 class TestPartyInviteLinkActionView:
     def _url(self, party):
         return reverse("web:crowd:parties-invite-link", kwargs={"pk": party.pk})

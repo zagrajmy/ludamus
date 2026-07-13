@@ -4715,7 +4715,7 @@ msgstr "Nie teraz"
 
 #: src/ludamus/templates/crowd/user/party_join.html
 msgid ""
-"A party enrols for sessions together and moves up a waiting list together. "
+"A party enrolls for sessions together and moves up a waiting list together. "
 "You can leave anytime."
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "

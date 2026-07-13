@@ -248,12 +248,18 @@ class PartyRepository(PartyRepositoryProtocol):
         ).exists()
 
     @staticmethod
-    def create_invited_membership(*, party_pk: int, user_pk: int) -> None:
+    def create_invited_membership(
+        *,
+        party_pk: int,
+        user_pk: int,
+        consent_mode: PartyConsentMode = PartyConsentMode.ACCEPT_INVITES,
+        status: PartyMembershipStatus = PartyMembershipStatus.INVITED,
+    ) -> None:
         PartyMembership.objects.create(
             party_id=party_pk,
             member_id=user_pk,
-            consent_mode=PartyConsentMode.ACCEPT_INVITES,
-            status=PartyMembershipStatus.INVITED,
+            consent_mode=consent_mode,
+            status=status,
         )
 
     @staticmethod

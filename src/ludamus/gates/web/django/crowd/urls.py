@@ -51,6 +51,11 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="parties-invite-link",
     ),
     path(
+        "profile/parties/<int:pk>/do/add-companion",
+        views.PartyCompanionAddActionView.as_view(),
+        name="parties-add-companion",
+    ),
+    path(
         "parties/join/<str:token>/",
         views.PartyJoinPageView.as_view(),
         name="parties-join",

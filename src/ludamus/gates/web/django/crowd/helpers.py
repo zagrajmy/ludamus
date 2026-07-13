@@ -8,6 +8,7 @@ from ludamus.adapters.web.django.entities import ParticipationInfo, SessionData
 from ludamus.adapters.web.django.safety_presentation import fake_full_card
 from ludamus.gates.web.django.crowd.forms import (
     ConnectedUserForm,
+    PartyCompanionForm,
     PartyInviteForm,
     PartyNameForm,
 )
@@ -121,6 +122,11 @@ def build_party_detail_context(
         ),
         "invite_form": (
             PartyInviteForm(auto_id=f"invite_{party.pk}_%s")
+            if party.is_leader
+            else None
+        ),
+        "companion_form": (
+            PartyCompanionForm(auto_id=f"companion_{party.pk}_%s")
             if party.is_leader
             else None
         ),

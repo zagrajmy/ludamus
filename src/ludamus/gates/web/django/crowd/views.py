@@ -10,12 +10,17 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.crowd.forms import PartyInviteForm, PartyNameForm
+from ludamus.gates.web.django.crowd.forms import (
+    PartyCompanionForm,
+    PartyInviteForm,
+    PartyNameForm,
+)
 from ludamus.gates.web.django.crowd.helpers import (
     build_parties_context,
     build_party_detail_context,
 )
 from ludamus.pacts.party import (
+    CompanionAddOutcome,
     DeletePartyOutcome,
     InviteOutcome,
     PartyConsentMode,
@@ -157,6 +162,34 @@ class PartyInviteLinkActionView(LoginRequiredMixin, View):
             messages.error(request, _("Could not regenerate the invite link."))
         else:
             messages.success(request, _("Invite link regenerated."))
+        return redirect("web:crowd:party-detail", pk=pk)
+
+
+class PartyCompanionAddActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        form = PartyCompanionForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, _("Enter a companion display name."))
+            return redirect("web:crowd:party-detail", pk=pk)
+        outcome = request.services.parties.add_companion(
+            leader_pk=request.context.current_user_id,
+            party_pk=pk,
+            display_name=form.cleaned_data["display_name"],
+        )
+        if outcome == CompanionAddOutcome.ADDED:
+            messages.success(request, _("Companion added to the party."))
+        elif outcome == CompanionAddOutcome.ALREADY_MEMBER:
+            messages.info(request, _("This companion is already in the party."))
+        elif outcome == CompanionAddOutcome.AMBIGUOUS_NAME:
+            messages.error(
+                request,
+                _("More than one companion has that display name. Rename one first."),
+            )
+        else:
+            messages.error(request, _("No companion matches that display name."))
         return redirect("web:crowd:party-detail", pk=pk)
 
 

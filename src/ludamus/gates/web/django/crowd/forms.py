@@ -49,3 +49,11 @@ class PartyInviteForm(forms.Form):
             "They need a Zagrajmy account."
         ),
     )
+
+
+class PartyCompanionForm(forms.Form):
+    display_name = forms.CharField(
+        label=_("Companion display name"),
+        help_text=_("Enter one of your companions exactly as they are named."),
+        max_length=255,
+    )

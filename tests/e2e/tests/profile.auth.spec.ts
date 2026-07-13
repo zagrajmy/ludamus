@@ -65,6 +65,30 @@ test.describe("Profile — Parties (parties.html)", () => {
       "true",
     );
   });
+
+  test("adds a companion to a party by display name", async ({ page }) => {
+    const companionName = `E2E Companion ${Date.now()}`;
+    await page.goto("/crowd/profile/parties/");
+
+    await page.getByRole("button", { name: "Add companion", exact: true }).first().click();
+    const companionDialog = page.locator("#add-companion-modal");
+    await companionDialog.getByLabel("Display name").fill(companionName);
+    await companionDialog.getByRole("button", { name: "Add companion", exact: true }).click();
+
+    await page.getByRole("button", { name: "Create party", exact: true }).first().click();
+    const partyDialog = page.locator("#new-party-modal");
+    const partyName = `E2E Party ${Date.now()}`;
+    await partyDialog.getByLabel("Party name").fill(partyName);
+    await partyDialog.getByRole("button", { name: "Create party", exact: true }).click();
+    await expect(page).toHaveURL(/\/crowd\/profile\/parties\/\d+\//);
+
+    await page.getByRole("button", { name: "Add companion", exact: true }).click();
+    const addDialog = page.locator("#party-companion-modal");
+    await addDialog.getByLabel("Companion display name").fill(companionName);
+    await addDialog.getByRole("button", { name: "Add companion", exact: true }).click();
+
+    await expect(page.getByText(companionName, { exact: true })).toBeVisible();
+  });
 });
 
 test.describe("Profile — Avatar (avatar.html)", () => {

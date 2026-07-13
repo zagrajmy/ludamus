@@ -13,13 +13,16 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.party import (
     ENROLL_WITHOUT_PARTY,
+    CompanionAddOutcome,
     DeletePartyOutcome,
     EnrollmentPartiesDTO,
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
     InviteOutcome,
+    PartyConsentMode,
     PartyInviteNotification,
     PartyJoinOutcome,
+    PartyMembershipStatus,
     PartyServiceProtocol,
     SelectedEnrollmentPartyDTO,
 )
@@ -28,11 +31,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.party import (
         InvitablePartyDTO,
         PartiesOverviewDTO,
-        PartyConsentMode,
         PartyDTO,
         PartyEnrolledNotification,
         PartyEventHistoryDTO,
-        PartyMembershipStatus,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
     )
@@ -103,6 +104,38 @@ class PartyService(PartyServiceProtocol):
                 )
             )
             return InviteOutcome.INVITED
+
+    def add_companion(
+        self, *, leader_pk: int, party_pk: int, display_name: str
+    ) -> CompanionAddOutcome:
+        with self._transaction.atomic():
+            if (
+                self._parties.read_led_party(leader_pk=leader_pk, party_pk=party_pk)
+                is None
+            ):
+                return CompanionAddOutcome.NO_SUCH_COMPANION
+            name = display_name.strip().casefold()
+            matches = [
+                companion
+                for companion in self._parties.led_party_companions(
+                    leader_pk=leader_pk, party_pk=party_pk
+                )
+                if companion.name.casefold() == name
+            ]
+            if not matches:
+                return CompanionAddOutcome.NO_SUCH_COMPANION
+            if len(matches) > 1:
+                return CompanionAddOutcome.AMBIGUOUS_NAME
+            companion = matches[0]
+            if self._parties.membership_exists(party_pk=party_pk, user_pk=companion.pk):
+                return CompanionAddOutcome.ALREADY_MEMBER
+            self._parties.create_invited_membership(
+                party_pk=party_pk,
+                user_pk=companion.pk,
+                consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+                status=PartyMembershipStatus.ACTIVE,
+            )
+            return CompanionAddOutcome.ADDED
 
     def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None:
         with self._transaction.atomic():
