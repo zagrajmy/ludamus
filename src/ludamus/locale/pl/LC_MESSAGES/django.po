@@ -4375,10 +4375,6 @@ msgstr ""
 "oczekujących."
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Create a party"
-msgstr "Utwórz drużynę"
-
-#: src/ludamus/templates/crowd/user/parties.html
 msgid "Create party"
 msgstr "Utwórz drużynę"
 
