@@ -265,7 +265,7 @@ def _field_value_dtos_from_models(
 # event page switches to the compact schedule (a dense chronological list with
 # an hour scrubber). Tunable; not a business invariant, so it lives here rather
 # than in specs.
-COMPACT_SCHEDULE_MIN_SESSIONS = 60
+COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
 class EventPageView(DetailView):  # type: ignore [type-arg]
@@ -354,10 +354,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 sid: fake_full_card(data) for sid, data in sessions_data.items()
             }
 
-        compact_schedule = len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS
-
-        if compact_schedule and current_user_id:
-            self._set_user_bookmarks(sessions_data, current_user_id)
+        if compact_schedule := len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS:
+            self._set_bookmark_counts(sessions_data)
+            if current_user_id:
+                self._set_user_bookmarks(sessions_data, current_user_id)
 
         # The ended/current/future grouping only feeds the card-grid layout;
         # the compact schedule renders from schedule_days instead, so skip the
@@ -618,6 +618,13 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                         sessions[session.id].user_waiting = (
                             SessionParticipationStatus.WAITING in statuses
                         )
+
+    def _set_bookmark_counts(self, sessions_data: dict[int, SessionData]) -> None:
+        counts = self.request.services.bookmarks.bookmark_counts(
+            event_id=self.object.pk
+        )
+        for sid, data in sessions_data.items():
+            data.bookmark_count = counts.get(sid, 0)
 
     def _set_user_bookmarks(
         self, sessions_data: dict[int, SessionData], current_user_id: int

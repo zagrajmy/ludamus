@@ -6,28 +6,24 @@
 {# duration · age · availability, and the bookmark. Carries the same data-* #}
 {# contract as _session_card.html so session-filters and the detail modal #}
 {# work unchanged. #}
-<article class="session-card-wrapper min-w-0">
-    <div class="session-card group/row relative flex items-baseline gap-2 rounded-lg px-2 py-2 sm:gap-3 transition-colors hover:bg-bg-tertiary {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
+<article class="session-wrapper min-w-0">
+    <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary [text-box:trim-start_cap_alphabetic] max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 has-[a:hover]:opacity-100{% endif %}"
+         data-no-morph
          {% include "chronology/_session_data_attrs.html" %}>
         <a href="?session={{ data.session.pk }}"
-           class="session-card-link absolute inset-0 z-10 rounded-lg"
+           class="session-link absolute inset-0 z-10 rounded-lg"
            aria-haspopup="dialog"
            aria-controls="session-{{ data.session.pk }}">
             <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
         </a>
-        <span class="w-24 shrink-0 whitespace-nowrap text-sm tabular-nums text-foreground-secondary sm:w-28"
-              data-morph="time">{{ data.agenda_item.start_time|time:"H:i" }} – {{ data.agenda_item.end_time|time:"H:i" }}</span>
+        {# Absolute on mobile so the stacked time centers against the whole #}
+        {# two-line row instead of only the title line it shares a flex line with. #}
+        <span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] pt-1.5 tabular-nums text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:w-28">{{ data.agenda_item.start_time|time:"H:i" }}<span class="hidden sm:inline">–</span><span class="block sm:inline">{{ data.agenda_item.end_time|time:"H:i" }}</span></span>
         <span class="min-w-0 flex-1 truncate">
-            <span class="text-sm font-semibold text-foreground" data-morph="title">{{ data.session.title }}</span>
-            <span class="ml-1.5 text-xs text-foreground-muted" data-morph="host">{{ data.session.display_name }}</span>
+            <span class="text-sm font-semibold text-foreground [text-box:trim-start_cap_alphabetic]">{{ data.session.title }}</span>
+            <span class="ml-1.5 text-xs text-foreground-muted [text-box:trim-start_cap_alphabetic]">{{ data.session.display_name }}</span>
         </span>
-        {% if data.enrolled_count > 0 %}
-            <span class="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-foreground-muted"
-                  title="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}">
-                {% icon "users" class="size-3.5 opacity-80" variant="mini" %}{{ data.enrolled_count }}
-            </span>
-        {% endif %}
-        <span class="shrink-0 whitespace-nowrap text-right text-xs text-foreground-muted"
+        <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
               title="{{ data.location_label }}">
             {{ data.loc.space_name }}
             {% if data.session.duration %}
@@ -41,9 +37,10 @@
                 {% include "chronology/_session_availability.html" %}
             {% endif %}
         </span>
-        {% if current_user %}
-            {% include "chronology/_bookmark_toggle.html" %}
-        {% endif %}
+        {# On mobile the toggle leaves the flex flow and pins to the row's #}
+        {# right edge (the row is `relative`) instead of wrapping to a #}
+        {# third line after the basis-full meta span. #}
+        {% include "chronology/_bookmark_toggle.html" with wrapper_class="z-20 shrink-0 self-center pointer-events-auto max-sm:absolute max-sm:right-1 max-sm:top-1/2 max-sm:-translate-y-1/2" %}
         <span class="sr-only" data-session-description>{{ data.session.description }}</span>
     </div>
 </article>

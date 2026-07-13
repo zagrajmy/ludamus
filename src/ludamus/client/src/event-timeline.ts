@@ -5,45 +5,111 @@
 // session-filters.ts / the Django template already render, so this module owns
 // no server coupling.
 
-const ACTIVE_CLASSES = ["text-foreground", "font-bold", "bg-bg-tertiary"];
+import { playSound } from "./sound";
+
+const hourHasVisibleSection = (hour: string): boolean =>
+  [
+    ...document.querySelectorAll<HTMLElement>(
+      `.time-slot-section[data-slot-hour="${CSS.escape(hour)}"]`,
+    ),
+  ].some((section) => section.style.display !== "none");
 
 const initScheduleRail = (rail: HTMLElement): void => {
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
   // both the scroll-spy viewport and programmatic scrolling target it.
   const scrollRoot = document.getElementById("app-scroll");
 
-  // Snap the content to whole hours so a tap or drag on the rail lands on a
-  // section rather than mid-row (see .schedule-snap in index.css). Added here,
-  // not in base.html, so only the compact schedule opts the shared scroller in.
-  scrollRoot?.classList.add("schedule-snap");
   const hourLinks = [...rail.querySelectorAll<HTMLAnchorElement>(".schedule-rail-hour")];
   if (hourLinks.length === 0) return;
-
-  const linkByHour = new Map<string, HTMLAnchorElement>();
-  for (const link of hourLinks) {
-    const hour = link.dataset.railHour;
-    if (hour && !linkByHour.has(hour)) linkByHour.set(hour, link);
-  }
 
   let active: HTMLAnchorElement | null = null;
   const setActive = (link: HTMLAnchorElement | null): void => {
     if (link === active) return;
-    active?.classList.remove(...ACTIVE_CLASSES);
+    if (active) delete active.dataset.active;
     active = link;
-    active?.classList.add(...ACTIVE_CLASSES);
+    if (active) active.dataset.active = "";
   };
 
-  const scrollToLink = (link: HTMLAnchorElement, behavior: ScrollBehavior): void => {
+  // The rail owns its markers' visibility — nothing else may touch their
+  // display. Two policies compose here: markers whose every section is
+  // filtered out disappear (session-filters.ts announces changes via the
+  // schedule:filtered event), and because the rail doubles as the phone's
+  // scrollbar it must never outgrow the screen, so the remaining markers thin
+  // to every 2nd/3rd/… hour per day until they fit. Hidden hours keep working
+  // for the scroll-spy by mapping to the nearest visible marker above them.
+  let visibleLinks = hourLinks;
+  const linkByHour = new Map<string, HTMLAnchorElement>();
+
+  const showEveryNth = (step: number, candidates: ReadonlySet<HTMLElement>): void => {
+    let indexInDay = -1;
+    let dayLabel: HTMLElement | null = null;
+    let dayHasHours = false;
+    const closeDay = (): void => {
+      if (dayLabel) dayLabel.style.display = dayHasHours ? "" : "none";
+    };
+    for (const child of rail.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (child.classList.contains("schedule-rail-hour")) {
+        if (!candidates.has(child)) {
+          child.style.display = "none";
+          continue;
+        }
+        indexInDay += 1;
+        const shown = indexInDay % step === 0;
+        child.style.display = shown ? "" : "none";
+        if (shown) dayHasHours = true;
+      } else {
+        closeDay();
+        dayLabel = child;
+        dayHasHours = false;
+        indexInDay = -1;
+      }
+    }
+    closeDay();
+  };
+
+  const fitRail = (): void => {
+    const candidates = new Set<HTMLElement>(
+      hourLinks.filter((link) => {
+        const hour = link.dataset.railHour;
+        return hour !== undefined && hourHasVisibleSection(hour);
+      }),
+    );
+    let step = 1;
+    showEveryNth(step, candidates);
+    while (rail.scrollHeight > rail.clientHeight && step < hourLinks.length) {
+      step += 1;
+      showEveryNth(step, candidates);
+    }
+    const visible = new Set(hourLinks.filter((link) => link.style.display !== "none"));
+    visibleLinks = [...visible];
+    linkByHour.clear();
+    let nearest: HTMLAnchorElement | undefined = visibleLinks[0];
+    for (const link of hourLinks) {
+      if (visible.has(link)) nearest = link;
+      const hour = link.dataset.railHour;
+      if (hour && nearest) linkByHour.set(hour, nearest);
+    }
+    if (active && !visible.has(active)) {
+      const hour = active.dataset.railHour;
+      setActive((hour ? linkByHour.get(hour) : undefined) ?? null);
+    }
+  };
+  fitRail();
+  globalThis.addEventListener("resize", fitRail);
+  document.addEventListener("schedule:filtered", fitRail);
+
+  const scrollToLink = (link: HTMLAnchorElement): void => {
     const id = link.getAttribute("href")?.slice(1);
     const target = id ? document.getElementById(id) : null;
-    target?.scrollIntoView({ behavior, block: "start" });
+    target?.scrollIntoView({ behavior: "auto", block: "start" });
     setActive(link);
   };
 
   for (const link of hourLinks) {
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      scrollToLink(link, "smooth");
+      scrollToLink(link);
     });
   }
 
@@ -77,14 +143,15 @@ const initScheduleRail = (rail: HTMLElement): void => {
   );
   for (const section of sections) observer.observe(section);
 
-  // Drag-to-scrub: treat the rail like a slider. Pointer capture keeps events
-  // flowing to the rail even when the finger strays off it, and we resolve the
-  // marker by vertical position so dragging glides smoothly between hours.
+  // Drag-to-scrub: treat the rail like a slider. Move/end listeners live on the
+  // window so the scrub keeps tracking when the pointer strays off the narrow
+  // rail, and the marker resolves by vertical position so dragging glides
+  // smoothly between hours.
   let dragging = false;
   const linkAtY = (clientY: number): HTMLAnchorElement | null => {
     let nearest: HTMLAnchorElement | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const link of hourLinks) {
+    for (const link of visibleLinks) {
       const rect = link.getBoundingClientRect();
       const center = rect.top + rect.height / 2;
       const distance = Math.abs(center - clientY);
@@ -98,34 +165,43 @@ const initScheduleRail = (rail: HTMLElement): void => {
 
   const scrubTo = (clientY: number): void => {
     const link = linkAtY(clientY);
-    if (link && link !== active) scrollToLink(link, "auto");
+    if (link && link !== active) {
+      playSound("ui.progress");
+      scrollToLink(link);
+    }
   };
 
   // A press only becomes a scrub after real movement; below the threshold the
-  // gesture stays a tap and falls through to the marker's click handler
-  // (smooth jump). Without it, sub-pixel jitter on a tap fired an instant
-  // "auto" scrub that raced the click's "smooth" scroll.
+  // press stays an ordinary tap and the marker's click handler does the jump.
   const DRAG_THRESHOLD_PX = 6;
   let moved = false;
   let startY = 0;
+  // The scrub belongs to the pointer that started it — a second finger
+  // resting elsewhere must not move it, end it, or steal it.
+  let scrubPointerId: number | null = null;
 
   rail.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (dragging) return;
     dragging = true;
     moved = false;
     startY = event.clientY;
-    rail.setPointerCapture(event.pointerId);
+    scrubPointerId = event.pointerId;
   });
-  rail.addEventListener("pointermove", (event) => {
-    if (!dragging) return;
+  globalThis.addEventListener("pointermove", (event) => {
+    if (!dragging || event.pointerId !== scrubPointerId) return;
     if (!moved && Math.abs(event.clientY - startY) < DRAG_THRESHOLD_PX) return;
-    moved = true;
-    event.preventDefault();
+    if (!moved) {
+      moved = true;
+      rail.classList.add("is-scrubbing");
+    }
     scrubTo(event.clientY);
   });
   const endDrag = (event: PointerEvent): void => {
+    if (!dragging || event.pointerId !== scrubPointerId) return;
     dragging = false;
-    if (rail.hasPointerCapture(event.pointerId)) rail.releasePointerCapture(event.pointerId);
+    scrubPointerId = null;
+    rail.classList.remove("is-scrubbing");
     // The synthesized click (when any) fires before this timeout, so a real
     // drag still gets its trailing click swallowed — but a cancelled scrub
     // can't leave the flag hot and eat the next genuine tap.
@@ -133,8 +209,9 @@ const initScheduleRail = (rail: HTMLElement): void => {
       moved = false;
     }, 0);
   };
-  rail.addEventListener("pointerup", endDrag);
-  rail.addEventListener("pointercancel", endDrag);
+  globalThis.addEventListener("pointerup", endDrag);
+  globalThis.addEventListener("pointercancel", endDrag);
+
   // A real drag still synthesizes a trailing click on the marker under the
   // pointer; swallow that one click so it can't jump away from where the
   // scrub landed.
