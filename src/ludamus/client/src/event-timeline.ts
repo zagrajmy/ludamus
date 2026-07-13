@@ -171,11 +171,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
     }
   };
 
-  // A press only becomes a scrub after real movement; below the threshold the
-  // press stays an ordinary tap and the marker's click handler does the jump.
-  const DRAG_THRESHOLD_PX = 6;
-  let moved = false;
-  let startY = 0;
+  let swallowClick = false;
   // The scrub belongs to the pointer that started it — a second finger
   // resting elsewhere must not move it, end it, or steal it.
   let scrubPointerId: number | null = null;
@@ -184,17 +180,13 @@ const initScheduleRail = (rail: HTMLElement): void => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (dragging) return;
     dragging = true;
-    moved = false;
-    startY = event.clientY;
+    swallowClick = true;
     scrubPointerId = event.pointerId;
+    scrubTo(event.clientY);
   });
   globalThis.addEventListener("pointermove", (event) => {
     if (!dragging || event.pointerId !== scrubPointerId) return;
-    if (!moved && Math.abs(event.clientY - startY) < DRAG_THRESHOLD_PX) return;
-    if (!moved) {
-      moved = true;
-      rail.classList.add("is-scrubbing");
-    }
+    rail.classList.add("is-scrubbing");
     scrubTo(event.clientY);
   });
   const endDrag = (event: PointerEvent): void => {
@@ -206,7 +198,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
     // drag still gets its trailing click swallowed — but a cancelled scrub
     // can't leave the flag hot and eat the next genuine tap.
     setTimeout(() => {
-      moved = false;
+      swallowClick = false;
     }, 0);
   };
   globalThis.addEventListener("pointerup", endDrag);
@@ -218,13 +210,28 @@ const initScheduleRail = (rail: HTMLElement): void => {
   rail.addEventListener(
     "click",
     (event) => {
-      if (!moved) return;
-      moved = false;
+      if (!swallowClick) return;
+      swallowClick = false;
       event.preventDefault();
       event.stopPropagation();
     },
     { capture: true },
   );
+
+  const scrollKey = `schedule-scroll:${location.pathname}`;
+  const savedScroll = sessionStorage.getItem(scrollKey);
+  if (savedScroll !== null && scrollRoot) {
+    sessionStorage.removeItem(scrollKey);
+    scrollRoot.scrollTop = Number(savedScroll);
+  }
+  const viewTabs = document.querySelectorAll<HTMLAnchorElement>(
+    'a[data-tab="list"], a[data-tab="rooms"]',
+  );
+  for (const tab of viewTabs) {
+    tab.addEventListener("click", () => {
+      if (scrollRoot) sessionStorage.setItem(scrollKey, String(scrollRoot.scrollTop));
+    });
+  }
 };
 
 const rail = document.querySelector<HTMLElement>(".schedule-rail");
