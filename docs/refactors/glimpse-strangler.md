@@ -24,10 +24,7 @@ views. What remains in `adapters/`:
 
 - **`adapters/web/django/views.py`** still hosts:
   - Public Event Pages — `EventPageView`, `EventsPageView`, `IndexRedirectView`
-  - Enrollment — `SessionEnrollPageView`,
-    `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
-    `EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
-    `AnonymousResetActionView`
+  - Enrollment — `SessionEnrollPageView`, `ProposalAcceptPageView`
   - `DesignPageView`, error views
 - **`adapters/db/django/models.py`** is still the real ORM module;
   `links/db/django/repositories/` imports from it
@@ -41,8 +38,9 @@ views. What remains in `adapters/`:
   and `adapters.db.django.apps.DBMainConfig`.
 
 Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
-**Notice Board / Encounters**, the **CFP** wizard, and **Crowd** (both
-**Auth** and **Profile**).
+**Notice Board / Encounters**, the **CFP** wizard, **Crowd** (both **Auth**
+and **Profile**), and anonymous enrollment
+(`gates/web/django/chronology/anonymous.py`).
 
 ## Done so far
 
@@ -87,11 +85,13 @@ Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
 
 Migrate the remaining **Public Event Pages** and **Enrollment** views
 (`EventPageView`, `EventsPageView`, `IndexRedirectView`,
-`SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
-`EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
-`AnonymousResetActionView`) out of `adapters/web/django/views.py` into their
-`gates/web/django/chronology/` homes, lifting the remaining `request.di.uow`
-access onto `request.services`. Then relocate the ORM models
+`SessionEnrollPageView`, `ProposalAcceptPageView`) out of
+`adapters/web/django/views.py` into their `gates/web/django/chronology/`
+homes, lifting the remaining `request.di.uow` access onto
+`request.services`. Anonymous enrollment already moved —
+`SessionEnrollmentAnonymousPageView`, `EventAnonymousActivateActionView`,
+`AnonymousLoadActionView` and `AnonymousResetActionView` all live in
+`gates/web/django/chronology/anonymous.py`. Then relocate the ORM models
 (`adapters/db/django/models.py` → `links/db/django/`) so `adapters/` can be
 emptied and locked down with an importlinter contract.
 
