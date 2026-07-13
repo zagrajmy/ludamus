@@ -28,6 +28,7 @@ if TYPE_CHECKING:
         PartyConsentMode,
         PartyDTO,
         PartyEnrolledNotification,
+        PartyEventHistoryDTO,
         PartyMembershipStatus,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
@@ -48,6 +49,11 @@ class PartyService(PartyServiceProtocol):
 
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO:
         return self._parties.overview(viewer_pk)
+
+    def session_history(
+        self, *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO] | None:
+        return self._parties.session_history(party_pk=party_pk, viewer_pk=viewer_pk)
 
     def create(self, *, leader_pk: int, name: str) -> int:
         with self._transaction.atomic():

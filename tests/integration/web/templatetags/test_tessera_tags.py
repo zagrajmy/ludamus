@@ -389,34 +389,41 @@ class TestIconToggle:
         )
         return tpl.render(Context())
 
-    def test_renders_toggle_button(self) -> None:
+    def test_renders_hidden_checkbox_in_label(self) -> None:
         html = self._render()
-        assert 'type="button"' in html
+        assert html.startswith("<label")
+        assert 'type="checkbox"' in html
+        assert 'class="peer sr-only"' in html
         assert "rounded-full" in html
 
-    def test_defaults_to_unpressed(self) -> None:
-        assert 'aria-pressed="false"' in self._render()
+    def test_defaults_to_unchecked(self) -> None:
+        assert " checked" not in self._render()
 
-    def test_pressed_sets_aria_pressed(self) -> None:
-        assert 'aria-pressed="true"' in self._render("pressed=True")
+    def test_checked_sets_checked_attr(self) -> None:
+        assert " checked" in self._render("checked=True")
 
     def test_renders_accessible_label(self) -> None:
         html = self._render()
         assert '<span class="sr-only">Toggle sound</span>' in html
 
-    def test_swaps_icons_by_aria_pressed(self) -> None:
+    def test_swaps_icons_by_checked_state(self) -> None:
         html = self._render()
-        assert "group-aria-pressed:block" in html
-        assert "group-aria-pressed:hidden" in html
+        assert "peer-checked:block" in html
+        assert "peer-checked:hidden" in html
         assert html.count("<svg") == ICON_TOGGLE_ICONS
 
+    def test_checked_state_is_not_primary(self) -> None:
+        assert "primary" not in self._render("checked=True").replace(
+            "outline-primary", ""
+        )
+
     def test_renders_title(self) -> None:
-        assert 'title="Sound (Velvet)"' in self._render('title="Sound (Velvet)"')
+        assert 'title="Interface sound"' in self._render('title="Interface sound"')
 
     def test_boolean_data_attr_is_bare(self) -> None:
-        html = self._render("data_velvet_toggle=True")
-        assert "data-velvet-toggle" in html
-        assert 'data-velvet-toggle="' not in html
+        html = self._render("data_sound_toggle=True")
+        assert "data-sound-toggle" in html
+        assert 'data-sound-toggle="' not in html
 
     def test_valued_data_attr(self) -> None:
         assert 'data-role="switch"' in self._render('data_role="switch"')

@@ -88,81 +88,68 @@ def _signup(*hits):
 
 
 def test_list_candidates_passes_through():
-    # Arrange
     candidate = ShadowbanCandidateDTO(
-        pk=1, name="Bob", slug="bob", is_shadowbanned=True
+        pk=1,
+        full_name="Bob",
+        username="bob",
+        slug="bob",
+        avatar_url="",
+        is_shadowbanned=True,
     )
     service = _service(FakeRepo(candidates=[candidate]))
 
-    # Act
     result = service.list_candidates(_PRESENTER_ID)
 
-    # Assert
     assert result == [candidate]
 
 
 def test_list_session_warnings_passes_through():
-    # Arrange
     warning = SessionShadowbanWarningDTO.model_construct(
         user=None, shadowbanned_at=None
     )
     service = _service(FakeRepo(warnings=[warning]))
 
-    # Act
     result = service.list_session_warnings(viewer_id=_PRESENTER_ID, session_id=1)
 
-    # Assert
     assert result == [warning]
 
 
 def test_set_shadowban_delegates_to_repo():
-    # Arrange
     repo = FakeRepo()
     service = _service(repo)
 
-    # Act
     service.set_shadowban(owner_id=_PRESENTER_ID, target_slug="bob", banned=True)
 
-    # Assert
     assert repo.set_calls == [(_PRESENTER_ID, "bob", True)]
 
 
 def test_add_by_identifier_trims_and_returns_found():
-    # Arrange
     repo = FakeRepo()
     service = _service(repo)
 
-    # Act
     found = service.add_by_identifier(owner_id=_PRESENTER_ID, identifier="  bob  ")
 
-    # Assert
     assert found is True
     assert repo.identifier_calls == [(_PRESENTER_ID, "bob")]
 
 
 def test_add_by_identifier_rejects_blank():
-    # Arrange
     repo = FakeRepo()
     service = _service(repo)
 
-    # Act
     found = service.add_by_identifier(owner_id=_PRESENTER_ID, identifier="   ")
 
-    # Assert
     assert found is False
     assert not repo.identifier_calls
 
 
 def test_notify_signups_emails_presenter_about_banned_players():
-    # Arrange
     repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
-    # Act
     service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")])
 
-    # Assert
     assert len(notifier.signups) == 1
     notification = notifier.signups[0]
     assert notification.recipient_user_id == _PRESENTER_ID
@@ -192,7 +179,6 @@ def test_notify_signups_discerns_signup_into_recipients_session():
 
 
 def test_notify_signups_notifies_every_banner_in_the_event():
-    # Arrange: two presenters in the event each shadowbanned a different player.
     repo = FakeRepo(
         signup=_signup(
             _hit(_PRESENTER_ID, "gm@example.com", 2),
@@ -202,10 +188,8 @@ def test_notify_signups_notifies_every_banner_in_the_event():
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
-    # Act
     service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")])
 
-    # Assert
     recipients = {
         (n.recipient_user_id, tuple(n.player_names)) for n in notifier.signups
     }
@@ -213,7 +197,6 @@ def test_notify_signups_notifies_every_banner_in_the_event():
 
 
 def test_notify_signups_dedupes_repeated_user_id():
-    # Same banned user id appearing twice for one presenter -> listed once.
     repo = FakeRepo(
         signup=_signup(
             _hit(_PRESENTER_ID, "gm@example.com", 2),
@@ -230,7 +213,6 @@ def test_notify_signups_dedupes_repeated_user_id():
 
 
 def test_notify_signups_reports_distinct_users_sharing_a_name():
-    # Two different banned users with the same display name must both appear.
     repo = FakeRepo(
         signup=_signup(
             _hit(_PRESENTER_ID, "gm@example.com", 2),
@@ -246,8 +228,6 @@ def test_notify_signups_reports_distinct_users_sharing_a_name():
 
 
 def test_notify_signups_skips_presenter_with_no_resolvable_names():
-    # A hit whose player resolves to an empty name yields nothing to report,
-    # so that presenter is not notified with an empty list.
     repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -258,39 +238,30 @@ def test_notify_signups_skips_presenter_with_no_resolvable_names():
 
 
 def test_notify_signups_silent_when_no_banned_players():
-    # Arrange
     repo = FakeRepo(signup=_signup())
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
-    # Act
     service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob")])
 
-    # Assert
     assert not notifier.signups
 
 
 def test_notify_signups_silent_when_no_signups():
-    # Arrange
     repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
-    # Act
     service.notify_signups(session_id=_SESSION_ID, signed_up=[])
 
-    # Assert
     assert not notifier.signups
 
 
 def test_notify_signups_silent_when_session_has_no_event():
-    # Arrange
     repo = FakeRepo(signup=None)
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
-    # Act
     service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob")])
 
-    # Assert
     assert not notifier.signups

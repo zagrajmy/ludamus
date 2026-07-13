@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-10 23:49+0200\n"
+"POT-Creation-Date: 2026-07-13 15:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -585,10 +585,6 @@ msgstr "Bez zmian (konflikt czasowy)"
 msgid "Join waiting list"
 msgstr "Dołącz do listy oczekujących"
 
-#: src/ludamus/templates/chronology/event.html
-msgid "Session full"
-msgstr "Brak miejsc"
-
 #: src/ludamus/adapters/web/django/forms.py
 msgid "Time conflict detected"
 msgstr "Konflikt czasowy"
@@ -771,6 +767,7 @@ msgstr "Zapisy niedostępne"
 
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Copied!"
 msgstr "Skopiowano!"
 
@@ -2733,13 +2730,13 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
-msgid "A shadowbanned player joined %(event)s"
-msgstr "Cicho zbanowany gracz dołączył do %(event)s"
+msgid "A shadowbanned player joined %(session)s with you"
+msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
-msgid "A shadowbanned player joined %(session)s with you"
-msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
+msgid "A shadowbanned player joined %(event)s"
+msgstr "Cicho zbanowany gracz dołączył do %(event)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -3366,6 +3363,7 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 #: src/ludamus/templates/components/confirm-dialog.html
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 #: src/ludamus/templates/multiverse/panel/announcements/create.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
@@ -3588,6 +3586,10 @@ msgstr "Brak zapisanych uczestników."
 #: src/ludamus/templates/chronology/event.html
 msgid "Edit session"
 msgstr "Edytuj punkt programu"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Session full"
+msgstr "Brak miejsc"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Enroll Anonymously"
@@ -4164,8 +4166,12 @@ msgid "Toggle interface sound"
 msgstr "Przełącz dźwięki interfejsu"
 
 #: src/ludamus/templates/components/sound_switcher.html
-msgid "Interface sound (Velvet)"
-msgstr "Dźwięki interfejsu (Velvet)"
+msgid "Mute interface sounds"
+msgstr "Wycisz dźwięki interfejsu"
+
+#: src/ludamus/templates/components/sound_switcher.html
+msgid "Enable interface sounds"
+msgstr "Włącz dźwięki interfejsu"
 
 #: src/ludamus/templates/components/stepper-field.html
 msgid "Decrease"
@@ -4268,33 +4274,23 @@ msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
 msgid "Back to Home"
 msgstr "Powrót do strony głównej"
 
-#: src/ludamus/templates/crowd/user/avatar.html
-#: src/ludamus/templates/crowd/user/edit.html
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/crowd/user/shadowbans.html
-msgid "Avatar"
-msgstr "Awatar"
-
-#: src/ludamus/templates/crowd/user/avatar.html
-#: src/ludamus/templates/crowd/user/edit.html
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Personal Information"
 msgstr "Dane osobiste"
 
-#: src/ludamus/templates/crowd/user/avatar.html
-#: src/ludamus/templates/crowd/user/edit.html
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "Parties"
 msgstr "Drużyny"
 
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/crowd/user/avatar.html
-#: src/ludamus/templates/crowd/user/edit.html
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/crowd/user/shadowbans.html
+msgid "Avatar"
+msgstr "Awatar"
+
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
 msgid "Safety"
 msgstr "Bezpieczeństwo"
 
@@ -4364,12 +4360,27 @@ msgstr[3] ""
 "                            "
 
 #: src/ludamus/templates/crowd/user/parties.html
+msgid "Your parties"
+msgstr "Twoje drużyny"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "You must gather your party before venturing forth."
+msgstr "Przed wyruszeniem w drogę należy zebrać drużynę."
+
+#: src/ludamus/templates/crowd/user/parties.html
 msgid ""
-"Assemble the people you enroll with — a party moves up waiting lists "
-"together."
+"A party signs up for sessions together and moves up waiting lists together."
 msgstr ""
-"Zbierz osoby, z którymi się zapisujesz — drużyna awansuje na listach "
-"oczekujących razem."
+"Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
+"oczekujących."
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "New party"
+msgstr "Nowa drużyna"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Create party"
+msgstr "Utwórz drużynę"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Invitations"
@@ -4394,53 +4405,67 @@ msgid "Decline"
 msgstr "Odrzuć"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#, python-format
+msgid "%(counter)s member"
+msgid_plural "%(counter)s members"
+msgstr[0] "%(counter)s osoba"
+msgstr[1] "%(counter)s osoby"
+msgstr[2] "%(counter)s osób"
+msgstr[3] "%(counter)s osoby"
+
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Your party"
 msgstr "Twoja drużyna"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 #, python-format
 msgid "led by %(leader)s"
 msgstr "lider: %(leader)s"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Rename party"
-msgstr "Zmień nazwę drużyny"
+#: src/ludamus/templates/crowd/user/party_detail.html
+#, python-format
+msgid "created %(created)s"
+msgstr "utworzona %(created)s"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Delete this party? Members keep their own accounts."
-msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
+msgid "Manage party"
+msgstr "Zarządzaj drużyną"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Delete party"
-msgstr "Usuń drużynę"
+msgid "No party yet"
+msgstr "Nie masz jeszcze drużyny"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Leave this party?"
-msgstr "Opuścić tę drużynę?"
+msgid ""
+"Add a companion you enroll yourself, or create a party and invite friends — "
+"you sign up for sessions together."
+msgstr ""
+"Dodaj towarzysza, którego zapisujesz samodzielnie, albo utwórz drużynę i "
+"zaproś znajomych — na punkty programu zapisujecie się razem."
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Leave party"
-msgstr "Opuść drużynę"
+msgid "Your companions"
+msgstr "Twoi towarzysze"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Save name"
-msgstr "Zapisz nazwę"
+msgid ""
+"People without their own account — kids, partners, guests. You sign them up "
+"yourself; they can claim their profile later."
+msgstr ""
+"Osoby bez własnego konta — dzieci, partnerzy, goście. Zapisujesz ich "
+"samodzielnie, a później mogą przejąć swój profil."
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "leader"
-msgstr "lider"
+msgid "Add companion"
+msgstr "Dodaj towarzysza"
 
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "invited"
-msgstr "zaproszono"
-
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "direct enrollment allowed"
-msgstr "możesz zapisywać bez pytania"
-
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "asks for approval before enrolling"
-msgstr "wymaga zgody przed zapisem"
+#, python-format
+msgid "You have reached the maximum of %(max_connected_users)s companions."
+msgstr "Masz już maksymalną liczbę towarzyszy (%(max_connected_users)s)."
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -4459,6 +4484,7 @@ msgid "Edit"
 msgstr "Edycja"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Copy claim link"
 msgstr "Skopiuj link przejęcia"
 
@@ -4479,148 +4505,174 @@ msgid "Create claim link"
 msgstr "Utwórz link przejęcia"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 #, python-format
 msgid "Remove %(name)s from your party?"
 msgstr "Usunąć %(name)s z Twojej drużyny?"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Remove companion"
 msgstr "Usuń towarzysza"
 
 #: src/ludamus/templates/crowd/user/parties.html
+msgid "No companions yet."
+msgstr "Nie masz jeszcze towarzyszy."
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "All parties"
+msgstr "Wszystkie drużyny"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Rename party"
+msgstr "Zmień nazwę drużyny"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Delete this party? Members keep their own accounts."
+msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Delete party"
+msgstr "Usuń drużynę"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Leave this party?"
+msgstr "Opuścić tę drużynę?"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Leave party"
+msgstr "Opuść drużynę"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Save name"
+msgstr "Zapisz nazwę"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "leader"
+msgstr "lider"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "invited"
+msgstr "zaproszono"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "companion"
+msgstr "towarzysz"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "direct enrollment allowed"
+msgstr "możesz zapisywać bez pytania"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "asks for approval before enrolling"
+msgstr "wymaga zgody przed zapisem"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Asks before enrolling you"
 msgstr "Pyta przed zapisaniem Cię"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Enrolls you directly"
 msgstr "Zapisuje Cię bez pytania"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Allow direct enrollment"
 msgstr "Pozwól na bezpośrednie zapisy"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Require my approval"
 msgstr "Wymagaj mojej zgody"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 #, python-format
 msgid "Withdraw the invitation for %(name)s?"
 msgstr "Wycofać zaproszenie dla %(name)s?"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Withdraw invitation"
 msgstr "Wycofaj zaproszenie"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 #, python-format
 msgid "Remove %(name)s from this party?"
 msgstr "Usunąć %(name)s z tej drużyny?"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Remove member"
 msgstr "Usuń z drużyny"
 
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "Add companion"
-msgstr "Dodaj towarzysza"
-
-#: src/ludamus/templates/crowd/user/parties.html
-msgid ""
-"A companion has no account of their own — you enroll them yourself. They can "
-"take the profile over later with a claim link."
-msgstr ""
-"Towarzysz nie ma własnego konta — zapisujesz go samodzielnie. Później może "
-"przejąć profil dzięki linkowi przejęcia."
-
-#: src/ludamus/templates/crowd/user/parties.html
-#, python-format
-msgid "You have reached the maximum of %(max_connected_users)s companions."
-msgstr "Masz już maksymalną liczbę towarzyszy (%(max_connected_users)s)."
-
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Invite a member"
 msgstr "Zaproś osobę"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Send invite"
 msgstr "Wyślij zaproszenie"
 
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "No party yet"
-msgstr "Nie masz jeszcze drużyny"
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Sessions together"
+msgstr "Wspólne punkty programu"
 
-#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid ""
-"Add a companion you enroll yourself, or create a party and invite friends — "
-"you sign up for sessions together."
+"No sessions together yet — pick a session at an event and enroll as a party."
 msgstr ""
-"Dodaj towarzysza, którego zapisujesz samodzielnie, albo utwórz drużynę i "
-"zaproś znajomych — na punkty programu zapisujecie się razem."
+"Nie macie jeszcze wspólnych punktów programu — wybierz punkt programu na "
+"wydarzeniu i zapisz się jako drużyna."
 
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "New party"
-msgstr "Nowa drużyna"
-
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "Create party"
-msgstr "Utwórz drużynę"
-
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"
 msgstr "Cicho zbanowani gracze"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 #: src/ludamus/templates/panel/bans.html
 msgid "Username or email"
 msgstr "Nazwa użytkownika lub e-mail"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowban"
 msgstr "Cichy ban"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid ""
-"Shadowbanned players will not see your sessions, and they are never told "
-"they are banned. You get an email whenever one of them signs up to any "
-"session at an event where you run a session."
+"Sessions you run always look full to shadowbanned players, so they can never "
+"join, and we never tell them. You get an email when one of them signs up at "
+"an event where you run a session, or into a session you play in."
 msgstr ""
-"Cicho zbanowani gracze nie zobaczą twoich punktów programu i nigdy nie "
-"dowiadują się, że są zbanowani. Otrzymujesz e-mail za każdym razem, gdy "
-"któryś z nich zapisze się na dowolny punkt programu na wydarzeniu, na którym "
-"prowadzisz punkt programu."
+"Punkty programu, które prowadzisz, zawsze wyglądają dla cicho zbanowanych "
+"graczy na pełne, więc nigdy nie mogą dołączyć — i nigdy im o tym nie mówimy. "
+"Dostaniesz e-mail, gdy któryś z nich zapisze się na wydarzeniu, na którym "
+"coś prowadzisz, albo na punkt programu, w którym grasz."
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Players you have met"
 msgstr "Gracze, których spotkałeś"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned"
 msgstr "Cicho zbanowany"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Remove shadowban"
 msgstr "Usuń cichy ban"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 #, python-format
 msgid ""
-"Shadowban %(name)s? Sessions you run disappear from their program, so they "
-"cannot sign up for them. You get an email when they sign up for anything at "
-"an event where you run a session, and a warning before you join a session "
-"they are in. They are never told."
+"Shadowban %(name)s? Sessions you run always look full to them, so they can "
+"never join. You get an email when they sign up at an event where you run a "
+"session, or into a session you play in. We never tell them."
 msgstr ""
-"Cicho zbanować %(name)s? Punkty programu, które prowadzisz, znikną z "
-"programu tej osoby, więc nie będzie mogła się na nie zapisać. Dostaniesz "
-"e-mail, gdy zapisze się na cokolwiek na wydarzeniu, na którym coś "
-"prowadzisz, oraz ostrzeżenie, zanim dołączysz do punktu programu, w którym "
-"bierze udział. Nigdy jej o tym nie powiemy."
+"Cicho zbanować %(name)s? Punkty programu, które prowadzisz, zawsze wyglądają "
+"dla tej osoby na pełne, więc nigdy nie może dołączyć. Dostaniesz e-mail, gdy "
+"zapisze się na wydarzeniu, na którym coś prowadzisz, albo na punkt programu, "
+"w którym grasz. Nigdy jej o tym nie powiemy."
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "No players yet"
 msgstr "Brak graczy"
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid ""
 "Players you have run sessions for or played alongside will appear here, and "
 "anyone you shadowban by username or email."
@@ -4629,7 +4681,7 @@ msgstr ""
 "pojawią się tutaj, a także każdy, kogo cicho zbanujesz po nazwie użytkownika "
 "lub adresie e-mail."
 
-#: src/ludamus/templates/crowd/user/shadowbans.html
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
@@ -7495,14 +7547,25 @@ msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
 #~ msgid ""
+#~ "Assemble the people you enroll with — a party moves up waiting lists "
+#~ "together."
+#~ msgstr ""
+#~ "Zbierz osoby, z którymi się zapisujesz — drużyna awansuje na listach "
+#~ "oczekujących razem."
+
+#~ msgid ""
+#~ "A companion has no account of their own — you enroll them yourself. They "
+#~ "can take the profile over later with a claim link."
+#~ msgstr ""
+#~ "Towarzysz nie ma własnego konta — zapisujesz go samodzielnie. Później "
+#~ "może przejąć profil dzięki linkowi przejęcia."
+
+#~ msgid ""
 #~ "One-off company — they need no accounts, and their seats come from this "
 #~ "session's pool."
 #~ msgstr ""
 #~ "Jednorazowe towarzystwo — nie potrzebują kont, a ich miejsca pochodzą z "
 #~ "puli tego punktu programu."
-
-#~ msgid "The party moves up the waiting list together."
-#~ msgstr "Drużyna awansuje na liście oczekujących razem."
 
 #~ msgid ""
 #~ "No companions available. You can add companions to your party in your"

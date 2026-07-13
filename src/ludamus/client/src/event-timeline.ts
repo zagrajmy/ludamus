@@ -5,7 +5,7 @@
 // session-filters.ts / the Django template already render, so this module owns
 // no server coupling.
 
-import { playSound } from "./sound";
+import { play } from "cuelume";
 
 const hourHasVisibleSection = (hour: string): boolean =>
   [
@@ -166,7 +166,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const scrubTo = (clientY: number): void => {
     const link = linkAtY(clientY);
     if (link && link !== active) {
-      playSound("ui.progress");
+      play("tick");
       scrollToLink(link);
     }
   };

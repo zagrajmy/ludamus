@@ -51,10 +51,10 @@ class ProfilePageView(
         kwargs["confirmed_participations_count"] = (
             profile.confirmed_participations_count(self.request.context.current_user_id)
         )
+        kwargs["profile_active_tab"] = "profile"
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form: UserForm) -> HttpResponse:
-        # Check if email is being changed and if it already exists
         email = form.user_data.get("email", "").strip()
         if email and self.request.services.profile.email_in_use(
             email, exclude_slug=self.request.context.current_user_slug
@@ -99,9 +99,7 @@ class ProfileConnectedUsersPageView(
     template_name_suffix = "_form"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        # The page moved to the parties tab; this endpoint keeps handling the
-        # add-companion POST.
-        _ = (request, args, kwargs)  # Django View dispatch
+        _ = (request, args, kwargs)
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self) -> dict[str, Any]:
@@ -113,7 +111,6 @@ class ProfileConnectedUsersPageView(
         return super().get_context_data(**context)
 
     def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
-        # Check if user has reached the maximum number of connected users
 
         connected_count = len(
             self.request.services.companions.list_companions(
@@ -218,8 +215,6 @@ class ProfileConnectedUserDeleteActionView(
 
 
 class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
-    # POST: mint a share link that lets a connected person take over their
-    # profile as their own self-login account.
     request: AuthenticatedRootRequest
 
     @staticmethod
@@ -235,8 +230,6 @@ class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
 
 
 class ClaimPageView(View):
-    # Landing page for a claim link. The recipient signs in via Auth0 and the
-    # managed row becomes their own account.
     @staticmethod
     def _reject_invalid_link(request: RootRequest) -> HttpResponse:
         messages.error(
@@ -286,6 +279,7 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
                 "user": avatar.user,
                 "gravatar_url": avatar.gravatar_url,
                 "has_auth0_avatar": avatar.has_auth0_avatar,
+                "profile_active_tab": "avatar",
             },
         )
 
@@ -308,21 +302,21 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
             request.context.current_user_id
         )
         return TemplateResponse(
-            request, "crowd/user/shadowbans.html", {"candidates": candidates}
+            request,
+            "crowd/user/safety.html",
+            {"candidates": candidates, "profile_active_tab": "safety"},
         )
 
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
         if identifier := request.POST.get("identifier", "").strip():
-            # Neutral message either way: never confirm whether an account with
-            # this username/email exists (no enumeration of the user base).
             request.services.shadowban.add_by_identifier(
                 owner_id=request.context.current_user_id, identifier=identifier
             )
             messages.success(
                 request, _("If a matching player exists, they have been shadowbanned.")
             )
-            return redirect("web:crowd:profile-shadowbans")
+            return redirect("web:crowd:profile-safety")
 
         if slug := request.POST.get("slug", ""):
             banned = request.POST.get("banned") == "true"
@@ -335,4 +329,4 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
                 request,
                 _("Player shadowbanned.") if banned else _("Shadowban removed."),
             )
-        return redirect("web:crowd:profile-shadowbans")
+        return redirect("web:crowd:profile-safety")

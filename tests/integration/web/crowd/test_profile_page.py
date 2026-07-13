@@ -24,6 +24,7 @@ class TestProfilePageView:
                 "form": ANY,
                 "view": ANY,
                 "confirmed_participations_count": 0,
+                "profile_active_tab": "profile",
             },
             template_name=["crowd/user/edit.html"],
         )
@@ -79,6 +80,7 @@ class TestProfilePageView:
                 "form": ANY,
                 "view": ANY,
                 "confirmed_participations_count": 0,
+                "profile_active_tab": "profile",
             },
             template_name=["crowd/user/edit.html"],
         )
@@ -103,11 +105,11 @@ class TestProfilePageView:
                 "form": ANY,
                 "view": ANY,
                 "confirmed_participations_count": 0,
+                "profile_active_tab": "profile",
             },
             template_name=["crowd/user/edit.html"],
         )
 
-        # Verify the form has the email error
         assert "email" in response.context["form"].errors
         assert (
             "This email address is already in use"
@@ -115,14 +117,13 @@ class TestProfilePageView:
         )
 
     def test_post_ok_same_email(self, authenticated_client, active_user, faker):
-        # User should be able to keep their own email
         existing_email = faker.email()
         active_user.email = existing_email
         active_user.save()
 
         data = {
             "name": faker.name(),
-            "email": existing_email,  # Same email as user already has
+            "email": existing_email,
             "user_type": UserType.ACTIVE,
         }
         response = authenticated_client.post(self.URL, data=data)

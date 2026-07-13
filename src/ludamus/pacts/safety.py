@@ -1,18 +1,33 @@
 from datetime import datetime
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ludamus.pacts.crowd import UserDTO
+
+
+class ShadowbanMeetSessionDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: int
+    title: str
+    event_slug: str
 
 
 class ShadowbanCandidateDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     pk: int
-    name: str
+    full_name: str
+    username: str
     slug: str
+    avatar_url: str
     is_shadowbanned: bool
+    met_sessions: list[ShadowbanMeetSessionDTO] = Field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        return self.full_name
 
 
 class SessionShadowbanWarningDTO(BaseModel):

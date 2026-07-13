@@ -4,13 +4,17 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import Http404
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.crowd.forms import PartyInviteForm, PartyNameForm
-from ludamus.gates.web.django.crowd.helpers import build_parties_context
+from ludamus.gates.web.django.crowd.helpers import (
+    build_parties_context,
+    build_party_detail_context,
+)
 from ludamus.pacts.party import (
     DeletePartyOutcome,
     InviteOutcome,
@@ -34,6 +38,17 @@ class PartiesPageView(LoginRequiredMixin, View):
         )
 
 
+class PartyDetailPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        context = build_party_detail_context(request, pk=pk)
+        if context is None:
+            raise Http404
+        return TemplateResponse(request, "crowd/user/party_detail.html", context)
+
+
 class PartyCreateActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
@@ -41,13 +56,13 @@ class PartyCreateActionView(LoginRequiredMixin, View):
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
         form = PartyNameForm(request.POST)
         if form.is_valid():
-            request.services.parties.create(
+            party_pk = request.services.parties.create(
                 leader_pk=request.context.current_user_id,
                 name=form.cleaned_data["name"],
             )
             messages.success(request, _("Party created."))
-        else:
-            messages.error(request, _("Give the party a name."))
+            return redirect("web:crowd:party-detail", pk=party_pk)
+        messages.error(request, _("Give the party a name."))
         return redirect("web:crowd:profile-parties")
 
 
@@ -65,7 +80,7 @@ class PartyRenameActionView(LoginRequiredMixin, View):
             messages.success(request, _("Party renamed."))
         else:
             messages.error(request, _("Could not rename this party."))
-        return redirect("web:crowd:profile-parties")
+        return redirect("web:crowd:party-detail", pk=pk)
 
 
 class PartyDeleteActionView(LoginRequiredMixin, View):
@@ -99,7 +114,7 @@ class PartyInviteActionView(LoginRequiredMixin, View):
         form = PartyInviteForm(request.POST)
         if not form.is_valid():
             messages.error(request, _("Enter a valid email address."))
-            return redirect("web:crowd:profile-parties")
+            return redirect("web:crowd:party-detail", pk=pk)
         outcome = request.services.parties.invite(
             leader_pk=request.context.current_user_id,
             party_pk=pk,
@@ -117,7 +132,7 @@ class PartyInviteActionView(LoginRequiredMixin, View):
                     "or add them as a companion you enroll yourself."
                 ),
             )
-        return redirect("web:crowd:profile-parties")
+        return redirect("web:crowd:party-detail", pk=pk)
 
 
 class PartyInviteAcceptActionView(LoginRequiredMixin, View):
@@ -166,7 +181,7 @@ class PartyMemberRemoveActionView(LoginRequiredMixin, View):
             messages.success(request, _("Member removed."))
         else:
             messages.error(request, _("Could not remove this member."))
-        return redirect("web:crowd:profile-parties")
+        return redirect("web:crowd:party-detail", pk=pk)
 
 
 class PartyConsentActionView(LoginRequiredMixin, View):
@@ -180,7 +195,7 @@ class PartyConsentActionView(LoginRequiredMixin, View):
             mode = PartyConsentMode(request.POST.get("mode", ""))
         except ValueError:
             messages.error(request, _("Could not change this setting."))
-            return redirect("web:crowd:profile-parties")
+            return redirect("web:crowd:party-detail", pk=pk)
         if request.services.parties.set_my_consent(
             user_pk=request.context.current_user_id, party_pk=pk, mode=mode
         ):
@@ -190,7 +205,7 @@ class PartyConsentActionView(LoginRequiredMixin, View):
                 messages.success(request, _("Enrollments now wait for your approval."))
         else:
             messages.error(request, _("Could not change this setting."))
-        return redirect("web:crowd:profile-parties")
+        return redirect("web:crowd:party-detail", pk=pk)
 
 
 class PartyLeaveActionView(LoginRequiredMixin, View):

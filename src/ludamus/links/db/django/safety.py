@@ -8,8 +8,10 @@ from ludamus.adapters.db.django.models import (
     REASON_MAX_LENGTH,
     AgendaItem,
     EventBan,
+    SessionParticipation,
     Shadowban,
 )
+from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import NotFoundError, SessionParticipationStatus
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.safety import (
@@ -19,6 +21,7 @@ from ludamus.pacts.safety import (
     ShadowbanCandidateDTO,
     ShadowbanEventSignupDTO,
     ShadowbanHitDTO,
+    ShadowbanMeetSessionDTO,
     ShadowbanRepositoryProtocol,
 )
 
@@ -31,8 +34,6 @@ else:
 
 
 def _resolve_user(identifier: str) -> User | None:
-    # Account resolution by either handle; shared so the "no enumeration"
-    # contract has a single home.
     return (
         User.objects.filter(
             Q(username__iexact=identifier) | Q(email__iexact=identifier)
@@ -40,6 +41,64 @@ def _resolve_user(identifier: str) -> User | None:
         .order_by("pk")
         .first()
     )
+
+
+def _candidate_avatar_url(player: User) -> str:
+    if player.use_gravatar:
+        return gravatar_url(player.email) or ""
+    return player.avatar_url or gravatar_url(player.email) or ""
+
+
+def _met_sessions_by_player(
+    owner_id: int, player_ids: list[int]
+) -> dict[int, list[ShadowbanMeetSessionDTO]]:
+    if not player_ids:
+        return {}
+
+    confirmed = SessionParticipationStatus.CONFIRMED
+    rows: dict[tuple[int, int], ShadowbanMeetSessionDTO] = {}
+
+    def add_row(user_id: int, session_id: int, title: str, event_slug: str) -> None:
+        rows.setdefault(
+            (user_id, session_id),
+            ShadowbanMeetSessionDTO(
+                session_id=session_id, title=title, event_slug=event_slug
+            ),
+        )
+
+    presented_rows = (
+        SessionParticipation.objects.filter(
+            user_id__in=player_ids, session__presenter_id=owner_id
+        )
+        .values_list("user_id", "session_id", "session__title", "session__event__slug")
+        .distinct()
+    )
+    for user_id, session_id, title, event_slug in presented_rows:
+        add_row(user_id, session_id, title, event_slug)
+
+    alongside_rows = (
+        SessionParticipation.objects.filter(
+            user_id__in=player_ids,
+            status=confirmed,
+            session__session_participations__user_id=owner_id,
+            session__session_participations__status=confirmed,
+        )
+        .values_list("user_id", "session_id", "session__title", "session__event__slug")
+        .distinct()
+    )
+    for user_id, session_id, title, event_slug in alongside_rows:
+        add_row(user_id, session_id, title, event_slug)
+
+    by_player: dict[int, list[ShadowbanMeetSessionDTO]] = {
+        player_id: [] for player_id in player_ids
+    }
+    for (user_id, _session_id), dto in rows.items():
+        by_player[user_id].append(dto)
+
+    for sessions in by_player.values():
+        sessions.sort(key=lambda session: session.title.casefold())
+
+    return by_player
 
 
 class ShadowbanRepository(ShadowbanRepositoryProtocol):
@@ -50,11 +109,6 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 "target_id", flat=True
             )
         )
-        # Players the owner has met: anyone who played a session the owner ran
-        # (a participant of their presented session) OR whom the owner played
-        # alongside, plus anyone already shadowbanned so a ban can always be
-        # lifted. "Played alongside" means both seats were CONFIRMED — being
-        # waitlisted next to someone is not meeting them.
         confirmed = SessionParticipationStatus.CONFIRMED
         played_alongside = Q(
             session_participations__status=confirmed,
@@ -71,17 +125,21 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .distinct()
             .order_by("name")
         )
+        met_by_player = _met_sessions_by_player(
+            owner_id, [player.pk for player in players]
+        )
         candidates = [
             ShadowbanCandidateDTO(
                 pk=player.pk,
-                name=player.full_name,
+                full_name=player.full_name,
+                username=player.username,
                 slug=player.slug,
+                avatar_url=_candidate_avatar_url(player),
                 is_shadowbanned=player.pk in banned_ids,
+                met_sessions=met_by_player[player.pk],
             )
             for player in players
         ]
-        # Shadowbanned players first so the active bans are reviewable at a
-        # glance; the sort is stable, so names stay ordered within each group.
         candidates.sort(key=lambda candidate: not candidate.is_shadowbanned)
         return candidates
 
@@ -233,8 +291,6 @@ class EventBanRepository(EventBanRepositoryProtocol):
     def ban(*, event_id: int, identifier: str, reason: str) -> bool:
         if (user := _resolve_user(identifier)) is None:
             return False
-        # Bound to the column width so a long note can't crash the write on
-        # backends that enforce max_length (e.g. Postgres).
         EventBan.objects.update_or_create(
             event_id=event_id,
             user=user,

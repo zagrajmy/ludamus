@@ -1,0 +1,219 @@
+{% extends "crowd/user/profile_base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% if party.name %}
+        {{ party.name }}
+    {% else %}
+        {% translate "Your party" %}
+    {% endif %}
+{% endblock title %}
+{% block profile_content %}
+    <a href="{% url 'web:crowd:profile-parties' %}"
+       class="inline-flex items-center gap-1 text-sm text-foreground-muted hover:text-foreground-secondary mb-4">
+        {% icon "arrow-left" class="w-3.5 h-3.5" %}
+        {% translate "All parties" %}
+    </a>
+    <div class="party-name-display flex items-center justify-between gap-2 mb-1"
+         id="party-display-{{ party.pk }}">
+        <h5 class="font-semibold flex items-center gap-2">
+            {% if party.name %}
+                {{ party.name }}
+            {% else %}
+                {% translate "Your party" %}
+            {% endif %}
+            {% if not party.is_leader %}
+                <span class="text-xs font-normal text-foreground-muted">
+                    {% blocktranslate with leader=party.leader_name %}led by {{ leader }}{% endblocktranslate %}
+                </span>
+            {% endif %}
+        </h5>
+        <div class="flex gap-1 shrink-0">
+            {% if party.is_leader %}
+                <button type="button"
+                        class="icon-btn"
+                        title="{% translate "Rename party" %}"
+                        onclick="document.getElementById('party-display-{{ party.pk }}').style.display='none'; document.getElementById('party-edit-{{ party.pk }}').style.display='block'">
+                    {% icon "pencil" class="w-3.5 h-3.5" %}
+                    <span class="sr-only">{% translate "Rename party" %}</span>
+                </button>
+                <form method="post"
+                      action="{% url 'web:crowd:parties-delete' pk=party.pk %}"
+                      data-confirm="{% translate "Delete this party? Members keep their own accounts." %}"
+                      data-confirm-action="{% translate "Delete party" %}">
+                    {% csrf_token %}
+                    <button type="submit" class="icon-btn">
+                        {% icon "trash" class="w-3.5 h-3.5" %}
+                        <span class="sr-only">{% translate "Delete party" %}</span>
+                    </button>
+                </form>
+            {% else %}
+                <form method="post"
+                      action="{% url 'web:crowd:parties-leave' pk=party.pk %}"
+                      data-confirm="{% translate "Leave this party?" %}"
+                      data-confirm-action="{% translate "Leave party" %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-sm">{% translate "Leave party" %}</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    <p class="text-xs text-foreground-muted mb-4">
+        {% blocktranslate with created=party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}
+    </p>
+    {% if party.is_leader %}
+        <div class="party-name-edit mb-4"
+             id="party-edit-{{ party.pk }}"
+             style="display:none">
+            <form method="post"
+                  action="{% url 'web:crowd:parties-rename' pk=party.pk %}">
+                {% csrf_token %}
+                {% tessera_field rename_form.name %}
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">{% translate "Save name" %}</button>
+                    <button type="button"
+                            class="btn btn-secondary"
+                            onclick="document.getElementById('party-edit-{{ party.pk }}').style.display='none'; document.getElementById('party-display-{{ party.pk }}').style.display='flex'">
+                        {% translate "Cancel" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+    <div class="flex flex-col gap-3">
+        {% for member in party.members %}
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <p class="text-sm font-medium flex items-center gap-2.5 min-w-0">
+                    {% include "components/avatar.html" with user=member size="size-8" %}
+                    <span class="truncate">{{ member.full_name }}</span>
+                    {% if member.is_leader %}
+                        <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "leader" %}</span>
+                    {% endif %}
+                    {% if member.status == "invited" %}
+                        <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "invited" %}</span>
+                    {% elif party.is_leader and member.is_login_less %}
+                        <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "companion" %}</span>
+                    {% elif party.is_leader and not member.is_leader %}
+                        {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
+                        {% if member.consent_mode == "accept_by_default" %}
+                            <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "direct enrollment allowed" %}</span>
+                        {% else %}
+                            <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "asks for approval before enrolling" %}</span>
+                        {% endif %}
+                    {% endif %}
+                </p>
+                <div class="flex gap-1 shrink-0">
+                    {% if party.is_leader and member.is_login_less %}
+                        {% if member.claim_token %}
+                            {% url 'web:crowd:claim' token=member.claim_token as claim_path %}
+                            <button type="button"
+                                    class="icon-btn relative"
+                                    data-copy="{{ claim_path }}"
+                                    data-copy-origin
+                                    data-copied-label="{% translate "Copied!" %}"
+                                    title="{% translate "Copy claim link" %}">
+                                {% icon "clipboard-document" class="w-3.5 h-3.5" %}
+                                <span class="sr-only">{% translate "Copy claim link" %}</span>
+                                {% tessera_copy_popover %}
+                            </button>
+                        {% endif %}
+                        <form method="post"
+                              action="{% url 'web:crowd:profile-connected-users-delete' slug=member.slug %}"
+                              data-confirm="{% blocktranslate with name=member.full_name %}Remove {{ name }} from your party?{% endblocktranslate %}"
+                              data-confirm-action="{% translate "Remove companion" %}">
+                            {% csrf_token %}
+                            <button type="submit" class="icon-btn">
+                                {% icon "trash" class="w-3.5 h-3.5" %}
+                                <span class="sr-only">{% translate "Remove companion" %}</span>
+                            </button>
+                        </form>
+                    {% elif not party.is_leader and member.user_pk == request.user.pk %}
+                        {# Current state first, then the action that flips it. #}
+                        {% if member.consent_mode == "accept_invites" %}
+                            <span class="text-xs text-foreground-muted self-center">{% translate "Asks before enrolling you" %}</span>
+                        {% else %}
+                            <span class="text-xs text-foreground-muted self-center">{% translate "Enrolls you directly" %}</span>
+                        {% endif %}
+                        <form method="post"
+                              action="{% url 'web:crowd:parties-consent' pk=party.pk %}">
+                            {% csrf_token %}
+                            {% if member.consent_mode == "accept_invites" %}
+                                <input type="hidden" name="mode" value="accept_by_default">
+                                <button type="submit" class="btn btn-secondary btn-sm">{% translate "Allow direct enrollment" %}</button>
+                            {% else %}
+                                <input type="hidden" name="mode" value="accept_invites">
+                                <button type="submit" class="btn btn-secondary btn-sm">{% translate "Require my approval" %}</button>
+                            {% endif %}
+                        </form>
+                    {% elif party.is_leader and not member.is_leader %}
+                        {% if member.status == "invited" %}
+                            <form method="post"
+                                  action="{% url 'web:crowd:parties-member-remove' pk=party.pk membership_pk=member.membership_pk %}"
+                                  data-confirm="{% blocktranslate with name=member.full_name %}Withdraw the invitation for {{ name }}?{% endblocktranslate %}"
+                                  data-confirm-action="{% translate "Withdraw invitation" %}">
+                                {% csrf_token %}
+                                <button type="submit" class="icon-btn">
+                                    {% icon "user-minus" class="w-3.5 h-3.5" %}
+                                    <span class="sr-only">{% translate "Withdraw invitation" %}</span>
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post"
+                                  action="{% url 'web:crowd:parties-member-remove' pk=party.pk membership_pk=member.membership_pk %}"
+                                  data-confirm="{% blocktranslate with name=member.full_name %}Remove {{ name }} from this party?{% endblocktranslate %}"
+                                  data-confirm-action="{% translate "Remove member" %}">
+                                {% csrf_token %}
+                                <button type="submit" class="icon-btn">
+                                    {% icon "user-minus" class="w-3.5 h-3.5" %}
+                                    <span class="sr-only">{% translate "Remove member" %}</span>
+                                </button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% if party.is_leader %}
+        <div class="border-t border-border mt-4 pt-4">
+            <details>
+                <summary class="flex items-center gap-1.5 font-semibold text-sm cursor-pointer">
+                    {% icon "user-plus" class="w-4 h-4" %}
+                    {% translate "Invite a member" %}
+                </summary>
+                <div class="mt-3">
+                    <form action="{% url 'web:crowd:parties-invite' pk=party.pk %}"
+                          method="post">
+                        {% csrf_token %}
+                        {% tessera_form invite_form %}
+                        <button type="submit" class="btn btn-secondary">{% translate "Send invite" %}</button>
+                    </form>
+                </div>
+            </details>
+        </div>
+    {% endif %}
+    {# Shared session history #}
+    <div class="border-t border-border mt-6 pt-4">
+        <h5 class="font-semibold mb-1">{% translate "Sessions together" %}</h5>
+        {% if history %}
+            <div class="flex flex-col gap-5 mt-3">
+                {% for group in history %}
+                    <div>
+                        {% url 'web:chronology:event' slug=group.event_slug as event_url %}
+                        <h6 class="font-semibold text-sm mb-2">
+                            <a href="{{ event_url }}" class="hover:underline">{{ group.event_name }}</a>
+                        </h6>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {% for data in group.cards %}
+                                {% include "chronology/_session_card.html" with data=data session_link_base=event_url %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-sm text-foreground-muted">
+                {% translate "No sessions together yet — pick a session at an event and enroll as a party." %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock profile_content %}

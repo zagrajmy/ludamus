@@ -11,19 +11,34 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q
 
-from ludamus.adapters.db.django.models import Party, PartyMembership
+from ludamus.adapters.db.django.models import (
+    Party,
+    PartyMembership,
+    Session,
+    SessionParticipation,
+)
 from ludamus.links.db.django.companions import active_companions
-from ludamus.pacts.crowd import ConnectedUserDTO, UserType
+from ludamus.links.gravatar import gravatar_url
+from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
+from ludamus.pacts.legacy import (
+    AgendaItemDTO,
+    LocationData,
+    SessionDTO,
+    SessionParticipationStatus,
+)
 from ludamus.pacts.party import (
     InvitedUserDTO,
     LedPartyDTO,
     PartiesOverviewDTO,
     PartyConsentMode,
     PartyDTO,
+    PartyEventHistoryDTO,
     PartyInviteDTO,
     PartyMemberDTO,
     PartyMembershipStatus,
     PartyRepositoryProtocol,
+    PartySessionHistoryDTO,
+    PartySessionSeatDTO,
 )
 
 if TYPE_CHECKING:
@@ -61,13 +76,16 @@ class PartyRepository(PartyRepositoryProtocol):
                 PartyMemberDTO(
                     membership_pk=membership.pk,
                     user_pk=membership.member_id,
-                    name=membership.member.get_full_name(),
+                    name=membership.member.name,
+                    full_name=membership.member.get_full_name(),
+                    username=membership.member.username,
                     slug=membership.member.slug,
                     is_login_less=membership.member.user_type == UserType.CONNECTED,
                     is_leader=membership.member_id == party.leader_id,
                     consent_mode=PartyConsentMode(membership.consent_mode),
                     status=PartyMembershipStatus(membership.status),
                     claim_token=membership.member.claim_token,
+                    avatar_url=_display_avatar_url(membership.member),
                 )
                 for membership in memberships
             ]
@@ -81,6 +99,7 @@ class PartyRepository(PartyRepositoryProtocol):
                     leader_name=party.leader.get_full_name(),
                     is_leader=party.leader_id == viewer_pk,
                     is_default=party.pk == default_party_pk,
+                    created_at=party.created_at,
                     members=members,
                 )
             )
@@ -253,3 +272,89 @@ class PartyRepository(PartyRepositoryProtocol):
             .delete()
         )
         return bool(deleted)
+
+    @staticmethod
+    def session_history(
+        *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO] | None:
+        is_member = Party.objects.filter(
+            Q(leader_id=viewer_pk)
+            | Q(
+                memberships__member_id=viewer_pk,
+                memberships__status=PartyMembershipStatus.ACTIVE,
+            ),
+            pk=party_pk,
+        ).exists()
+        if not is_member:
+            return None
+        session_ids = (
+            SessionParticipation.objects.filter(
+                party_id=party_pk, status=SessionParticipationStatus.CONFIRMED
+            )
+            .values_list("session_id", flat=True)
+            .distinct()
+        )
+        sessions = (
+            Session.objects.filter(pk__in=session_ids, agenda_item__isnull=False)
+            .select_related("event", "presenter", "agenda_item__space__parent")
+            .prefetch_related("session_participations__user")
+            .order_by("agenda_item__start_time")
+        )
+        groups: dict[int, PartyEventHistoryDTO] = {}
+        for session in sessions:
+            space = session.agenda_item.space
+            item = PartySessionHistoryDTO(
+                session=SessionDTO.model_validate(session),
+                agenda_item=AgendaItemDTO.model_validate(session.agenda_item),
+                presenter=(
+                    UserDTO.model_validate(session.presenter)
+                    if session.presenter_id
+                    else None
+                ),
+                participations=[
+                    PartySessionSeatDTO(
+                        user=UserDTO.model_validate(sp.user),
+                        status=sp.status,
+                        creation_time=sp.creation_time,
+                    )
+                    for sp in session.session_participations.all()
+                ],
+                location=LocationData(
+                    space_name=space.name,
+                    parent_slug=space.parent.slug if space.parent else "",
+                    parent_name=space.parent.name if space.parent else "",
+                    path=str(space),
+                ),
+                enrolled_count=session.enrolled_count,
+                waiting_count=session.waiting_count,
+                is_full=session.is_full,
+                is_enrollment_available=session.is_enrollment_available,
+                effective_participants_limit=session.effective_participants_limit,
+                full_participant_info=session.full_participant_info,
+                viewer_enrolled=any(
+                    sp.user_id == viewer_pk
+                    and sp.status == SessionParticipationStatus.CONFIRMED
+                    for sp in session.session_participations.all()
+                ),
+            )
+            group = groups.get(session.event_id)
+            if group is None:
+                groups[session.event_id] = PartyEventHistoryDTO(
+                    event_pk=session.event_id,
+                    event_name=session.event.name,
+                    event_slug=session.event.slug,
+                    sessions=[item],
+                )
+            else:
+                group.sessions.append(item)
+        return sorted(
+            groups.values(),
+            key=lambda g: g.sessions[-1].agenda_item.start_time,
+            reverse=True,
+        )
+
+
+def _display_avatar_url(user: User) -> str:
+    if user.use_gravatar:
+        return gravatar_url(user.email) or ""
+    return user.avatar_url or gravatar_url(user.email) or ""

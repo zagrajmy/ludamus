@@ -22,6 +22,7 @@ class TestProfileAvatarPageView:
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(active_user.email),
                 "has_auth0_avatar": False,
+                "profile_active_tab": "avatar",
             },
             template_name="crowd/user/avatar.html",
         )
@@ -41,6 +42,7 @@ class TestProfileAvatarPageView:
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(active_user.email),
                 "has_auth0_avatar": True,
+                "profile_active_tab": "avatar",
             },
             template_name="crowd/user/avatar.html",
         )

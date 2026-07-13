@@ -1,27 +1,36 @@
-{% extends "base.html" %}
+{% extends "crowd/user/profile_base.html" %}
 {% load i18n tessera %}
 {% block title %}
     {% translate "Parties" %}
 {% endblock title %}
-{% block body %}
-    <div class="max-w-3xl mx-auto w-full min-w-0">
-        <div class="card">
-            {% url 'web:crowd:profile' as profile_url %}
-            {% url 'web:crowd:profile-parties' as parties_url %}
-            {% url 'web:crowd:profile-avatar' as avatar_url %}
-            {% url 'web:crowd:profile-shadowbans' as shadowbans_url %}
-            <div class="bg-warm-200 rounded-t-2xl px-6 pt-4 border-b dark:bg-bg-tertiary border-border [&>nav>[aria-selected=true]]:border-border [&>nav>[aria-selected=true]]:border-b-0 [&>nav>[aria-selected=true]]:border">
-                {% tabs %}
-                {% tab "profile" icon="user" href=profile_url %}{% translate "Personal Information" %}{% end_tab %}
-            {% tab "parties" icon="users" href=parties_url active=True %}{% translate "Parties" %}{% end_tab %}
-        {% tab "avatar" icon="photo" href=avatar_url %}{% translate "Avatar" %}{% end_tab %}
-    {% tab "shadowbans" icon="shield-exclamation" href=shadowbans_url %}{% translate "Safety" %}{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="card-body">
-    <p class="text-sm text-foreground-muted mb-4">
-        {% translate "Assemble the people you enroll with — a party moves up waiting lists together." %}
-    </p>
+{% block profile_content %}
+    {# Section: parties #}
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div>
+            <h5 class="font-semibold">{% translate "Your parties" %}</h5>
+            <p class="text-sm text-foreground-muted italic">
+                {% translate "You must gather your party before venturing forth." %}
+            </p>
+            <p class="text-sm text-foreground-muted">
+                {% translate "A party signs up for sessions together and moves up waiting lists together." %}
+            </p>
+        </div>
+        <button type="button"
+                class="btn btn-secondary btn-sm shrink-0"
+                onclick="document.getElementById('new-party-form').style.display='block'; this.style.display='none'">
+            {% icon "plus-circle" class="w-4 h-4" %}
+            {% translate "New party" %}
+        </button>
+    </div>
+    <div id="new-party-form"
+         class="rounded-lg bg-bg-secondary p-4 mb-6"
+         style="display:none">
+        <form action="{% url 'web:crowd:parties-create' %}" method="post">
+            {% csrf_token %}
+            {% tessera_form party_form %}
+            <button type="submit" class="btn btn-primary">{% translate "Create party" %}</button>
+        </form>
+    </div>
     {# Pending invitations #}
     {% if invites %}
         <div class="rounded-lg bg-bg-secondary p-4 mb-6">
@@ -56,257 +65,46 @@
             </div>
         </div>
     {% endif %}
-    {# Parties #}
-    <div class="flex flex-col gap-4">
+    {# Party rows #}
+    <div class="flex flex-col gap-3">
         {% for entry in parties %}
             <div class="card item-card">
-                <div class="card-body">
-                    <div class="party-name-display flex items-center justify-between gap-2 mb-3"
-                         id="party-display-{{ entry.party.pk }}">
-                        <h6 class="font-semibold flex items-center gap-2">
-                            {% if entry.party.name %}
-                                {{ entry.party.name }}
-                            {% else %}
-                                {% translate "Your party" %}
-                            {% endif %}
+                <div class="card-body flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span class="flex -space-x-2 shrink-0"
+                          role="img"
+                          aria-label="{% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}">
+                        {% for member in entry.stack %}
+                            {% include "components/avatar.html" with user=member size="size-8" %}
+                        {% endfor %}
+                        {% if entry.stack_overflow %}
+                            <span class="size-8 rounded-full border border-white/80 dark:border-neutral-900 bg-bg-tertiary flex items-center justify-center text-xs font-semibold text-foreground-muted shrink-0">
+                                +{{ entry.stack_overflow }}
+                            </span>
+                        {% endif %}
+                    </span>
+                    <div class="min-w-0 grow">
+                        <h6 class="font-semibold truncate">
+                            <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
+                               class="hover:underline">
+                                {% if entry.party.name %}
+                                    {{ entry.party.name }}
+                                {% else %}
+                                    {% translate "Your party" %}
+                                {% endif %}
+                            </a>
                             {% if not entry.party.is_leader %}
                                 <span class="text-xs font-normal text-foreground-muted">
                                     {% blocktranslate with leader=entry.party.leader_name %}led by {{ leader }}{% endblocktranslate %}
                                 </span>
                             {% endif %}
                         </h6>
-                        <div class="flex gap-1 shrink-0">
-                            {% if entry.party.is_leader %}
-                                <button type="button"
-                                        class="icon-btn"
-                                        title="{% translate "Rename party" %}"
-                                        onclick="document.getElementById('party-display-{{ entry.party.pk }}').style.display='none'; document.getElementById('party-edit-{{ entry.party.pk }}').style.display='block'">
-                                    {% icon "pencil" class="w-3.5 h-3.5" %}
-                                    <span class="sr-only">{% translate "Rename party" %}</span>
-                                </button>
-                                <form method="post"
-                                      action="{% url 'web:crowd:parties-delete' pk=entry.party.pk %}"
-                                      data-confirm="{% translate "Delete this party? Members keep their own accounts." %}"
-                                      data-confirm-action="{% translate "Delete party" %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="icon-btn">
-                                        {% icon "trash" class="w-3.5 h-3.5" %}
-                                        <span class="sr-only">{% translate "Delete party" %}</span>
-                                    </button>
-                                </form>
-                            {% else %}
-                                <form method="post"
-                                      action="{% url 'web:crowd:parties-leave' pk=entry.party.pk %}"
-                                      data-confirm="{% translate "Leave this party?" %}"
-                                      data-confirm-action="{% translate "Leave party" %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-secondary btn-sm">{% translate "Leave party" %}</button>
-                                </form>
-                            {% endif %}
-                        </div>
+                        <p class="text-xs text-foreground-muted">
+                            {% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}
+                            · {% blocktranslate with created=entry.party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}
+                        </p>
                     </div>
-                    {% if entry.party.is_leader %}
-                        <div class="party-name-edit mb-3"
-                             id="party-edit-{{ entry.party.pk }}"
-                             style="display:none">
-                            <form method="post"
-                                  action="{% url 'web:crowd:parties-rename' pk=entry.party.pk %}">
-                                {% csrf_token %}
-                                {% tessera_field entry.rename_form.name %}
-                                <div class="flex gap-2">
-                                    <button type="submit" class="btn btn-primary">{% translate "Save name" %}</button>
-                                    <button type="button"
-                                            class="btn btn-secondary"
-                                            onclick="document.getElementById('party-edit-{{ entry.party.pk }}').style.display='none'; document.getElementById('party-display-{{ entry.party.pk }}').style.display='flex'">
-                                        {% translate "Cancel" %}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    {% endif %}
-                    <div class="flex flex-col gap-3">
-                        {% for row in entry.members %}
-                            <div class="item-display"
-                                 id="member-display-{{ row.member.membership_pk }}"
-                                 {% if row.editing %}style="display:none"{% endif %}>
-                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                    <p class="text-sm font-medium flex items-center gap-2">
-                                        {{ row.member.name }}
-                                        {% if row.member.is_leader %}
-                                            <span class="text-xs font-normal text-foreground-muted">{% translate "leader" %}</span>
-                                        {% endif %}
-                                        {% if row.member.status == "invited" %}
-                                            <span class="text-xs font-normal text-foreground-muted">{% translate "invited" %}</span>
-                                        {% elif entry.party.is_leader and not row.member.is_leader and not row.member.is_login_less %}
-                                            {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
-                                            {% if row.member.consent_mode == "accept_by_default" %}
-                                                <span class="text-xs font-normal text-foreground-muted">{% translate "direct enrollment allowed" %}</span>
-                                            {% else %}
-                                                <span class="text-xs font-normal text-foreground-muted">{% translate "asks for approval before enrolling" %}</span>
-                                            {% endif %}
-                                        {% endif %}
-                                    </p>
-                                    <div class="flex gap-1 shrink-0">
-                                        {% if row.form %}
-                                            <button type="button"
-                                                    class="icon-btn"
-                                                    onclick="document.getElementById('member-display-{{ row.member.membership_pk }}').style.display='none'; document.getElementById('member-edit-{{ row.member.membership_pk }}').style.display='block'">
-                                                {% icon "pencil" class="w-3.5 h-3.5" %}
-                                                <span class="sr-only">{% translate "Edit" %}</span>
-                                            </button>
-                                            {% if row.member.claim_token %}
-                                                {% url 'web:crowd:claim' token=row.member.claim_token as claim_path %}
-                                                <button type="button"
-                                                        class="icon-btn relative"
-                                                        data-copy="{{ claim_path }}"
-                                                        data-copy-origin
-                                                        data-copied-label="{% translate "Copied!" %}"
-                                                        title="{% translate "Copy claim link" %}">
-                                                    {% icon "clipboard-document" class="w-3.5 h-3.5" %}
-                                                    <span class="sr-only">{% translate "Copy claim link" %}</span>
-                                                    {% tessera_copy_popover %}
-                                                </button>
-                                            {% endif %}
-                                            <form method="post"
-                                                  action="{% url 'web:crowd:profile-connected-users-claim-link' slug=row.member.slug %}">
-                                                {% csrf_token %}
-                                                {% if row.member.claim_token %}
-                                                    <button type="submit"
-                                                            class="icon-btn"
-                                                            title="{% translate "Generate a new claim link — the previous one stops working" %}">
-                                                        {% icon "arrow-path" class="w-3.5 h-3.5" %}
-                                                        <span class="sr-only">{% translate "Generate a new claim link" %}</span>
-                                                    </button>
-                                                {% else %}
-                                                    <button type="submit"
-                                                            class="icon-btn"
-                                                            title="{% translate "Create a link to let this person take over their profile" %}">
-                                                        {% icon "link" class="w-3.5 h-3.5" %}
-                                                        <span class="sr-only">{% translate "Create claim link" %}</span>
-                                                    </button>
-                                                {% endif %}
-                                            </form>
-                                            <form method="post"
-                                                  action="{% url 'web:crowd:profile-connected-users-delete' slug=row.member.slug %}"
-                                                  data-confirm="{% blocktranslate with name=row.member.name %}Remove {{ name }} from your party?{% endblocktranslate %}"
-                                                  data-confirm-action="{% translate "Remove companion" %}">
-                                                {% csrf_token %}
-                                                <button type="submit" class="icon-btn">
-                                                    {% icon "trash" class="w-3.5 h-3.5" %}
-                                                    <span class="sr-only">{% translate "Remove companion" %}</span>
-                                                </button>
-                                            </form>
-                                        {% elif not entry.party.is_leader and row.member.user_pk == request.user.pk %}
-                                            {# Current state first, then the action that flips it. #}
-                                            {% if row.member.consent_mode == "accept_invites" %}
-                                                <span class="text-xs text-foreground-muted self-center">{% translate "Asks before enrolling you" %}</span>
-                                            {% else %}
-                                                <span class="text-xs text-foreground-muted self-center">{% translate "Enrolls you directly" %}</span>
-                                            {% endif %}
-                                            <form method="post"
-                                                  action="{% url 'web:crowd:parties-consent' pk=entry.party.pk %}">
-                                                {% csrf_token %}
-                                                {% if row.member.consent_mode == "accept_invites" %}
-                                                    <input type="hidden" name="mode" value="accept_by_default">
-                                                    <button type="submit" class="btn btn-secondary btn-sm">{% translate "Allow direct enrollment" %}</button>
-                                                {% else %}
-                                                    <input type="hidden" name="mode" value="accept_invites">
-                                                    <button type="submit" class="btn btn-secondary btn-sm">{% translate "Require my approval" %}</button>
-                                                {% endif %}
-                                            </form>
-                                        {% elif entry.party.is_leader and not row.member.is_leader and not row.member.is_login_less %}
-                                            {% if row.member.status == "invited" %}
-                                                <form method="post"
-                                                      action="{% url 'web:crowd:parties-member-remove' pk=entry.party.pk membership_pk=row.member.membership_pk %}"
-                                                      data-confirm="{% blocktranslate with name=row.member.name %}Withdraw the invitation for {{ name }}?{% endblocktranslate %}"
-                                                      data-confirm-action="{% translate "Withdraw invitation" %}">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="icon-btn">
-                                                        {% icon "user-minus" class="w-3.5 h-3.5" %}
-                                                        <span class="sr-only">{% translate "Withdraw invitation" %}</span>
-                                                    </button>
-                                                </form>
-                                            {% else %}
-                                                <form method="post"
-                                                      action="{% url 'web:crowd:parties-member-remove' pk=entry.party.pk membership_pk=row.member.membership_pk %}"
-                                                      data-confirm="{% blocktranslate with name=row.member.name %}Remove {{ name }} from this party?{% endblocktranslate %}"
-                                                      data-confirm-action="{% translate "Remove member" %}">
-                                                    {% csrf_token %}
-                                                    <button type="submit" class="icon-btn">
-                                                        {% icon "user-minus" class="w-3.5 h-3.5" %}
-                                                        <span class="sr-only">{% translate "Remove member" %}</span>
-                                                    </button>
-                                                </form>
-                                            {% endif %}
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% if row.form %}
-                                <div class="item-edit"
-                                     id="member-edit-{{ row.member.membership_pk }}"
-                                     {% if not row.editing %}style="display:none"{% endif %}>
-                                    <form action="{% url 'web:crowd:profile-connected-users-update' slug=row.member.slug %}"
-                                          method="post">
-                                        {% csrf_token %}
-                                        {% tessera_form row.form %}
-                                        <div class="flex gap-2">
-                                            <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
-                                            <button type="button"
-                                                    class="btn btn-secondary"
-                                                    onclick="document.getElementById('member-edit-{{ row.member.membership_pk }}').style.display='none'; document.getElementById('member-display-{{ row.member.membership_pk }}').style.display='block'">
-                                                {% icon "x-mark" class="w-4 h-4" %}
-                                                {% translate "Cancel" %}
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% if entry.party.is_leader %}
-                        <div class="border-t border-border mt-4 pt-4 flex flex-col gap-4">
-                            {% if entry.party.is_default %}
-                                {% if can_add_companion %}
-                                    <details {% if create_companion_form.is_bound %}open{% endif %}>
-                                        <summary class="flex items-center gap-1.5 font-semibold text-sm cursor-pointer">
-                                            {% icon "plus-circle" class="w-4 h-4" %}
-                                            {% translate "Add companion" %}
-                                            <span class="font-normal text-foreground-muted">({{ companions_count }}/{{ max_connected_users }})</span>
-                                        </summary>
-                                        <div class="mt-3">
-                                            <p class="text-xs text-foreground-muted mb-2">
-                                                {% translate "A companion has no account of their own — you enroll them yourself. They can take the profile over later with a claim link." %}
-                                            </p>
-                                            <form action="{% url 'web:crowd:profile-connected-users' %}" method="post">
-                                                {% csrf_token %}
-                                                {% tessera_form create_companion_form %}
-                                                <button type="submit" class="btn btn-primary">{% translate "Add companion" %}</button>
-                                            </form>
-                                        </div>
-                                    </details>
-                                {% else %}
-                                    <p class="text-xs text-foreground-muted">
-                                        {% blocktranslate %}You have reached the maximum of {{ max_connected_users }} companions.{% endblocktranslate %}
-                                    </p>
-                                {% endif %}
-                            {% endif %}
-                            <details>
-                                <summary class="flex items-center gap-1.5 font-semibold text-sm cursor-pointer">
-                                    {% icon "user-plus" class="w-4 h-4" %}
-                                    {% translate "Invite a member" %}
-                                </summary>
-                                <div class="mt-3">
-                                    <form action="{% url 'web:crowd:parties-invite' pk=entry.party.pk %}"
-                                          method="post">
-                                        {% csrf_token %}
-                                        {% tessera_form entry.invite_form %}
-                                        <button type="submit" class="btn btn-secondary">{% translate "Send invite" %}</button>
-                                    </form>
-                                </div>
-                            </details>
-                        </div>
-                    {% endif %}
+                    <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
+                       class="btn btn-secondary btn-sm shrink-0">{% translate "Manage party" %}</a>
                 </div>
             </div>
         {% empty %}
@@ -317,38 +115,130 @@
                     {% translate "Add a companion you enroll yourself, or create a party and invite friends — you sign up for sessions together." %}
                 </p>
             </div>
-            {% if can_add_companion %}
-                <div class="rounded-lg bg-bg-secondary p-4">
-                    <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
-                        {% icon "plus-circle" class="w-4 h-4" %}
-                        {% translate "Add companion" %}
-                    </h6>
-                    <form action="{% url 'web:crowd:profile-connected-users' %}" method="post">
-                        {% csrf_token %}
-                        {% tessera_form create_companion_form %}
-                        <button type="submit" class="btn btn-primary">{% translate "Add companion" %}</button>
-                    </form>
-                </div>
-            {% endif %}
         {% endfor %}
     </div>
-    {# Create a new party #}
+    {# Section: companions #}
     <div class="border-t border-border mt-6 pt-4">
-        <details>
-            <summary class="flex items-center gap-1.5 font-semibold text-sm cursor-pointer">
-                {% icon "plus-circle" class="w-4 h-4" %}
-                {% translate "New party" %}
-            </summary>
-            <div class="mt-3">
-                <form action="{% url 'web:crowd:parties-create' %}" method="post">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div>
+                <h5 class="font-semibold">
+                    {% translate "Your companions" %}
+                    <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_connected_users }})</span>
+                </h5>
+                <p class="text-sm text-foreground-muted">
+                    {% translate "People without their own account — kids, partners, guests. You sign them up yourself; they can claim their profile later." %}
+                </p>
+            </div>
+            {% if can_add_companion %}
+                <button type="button"
+                        class="btn btn-secondary btn-sm shrink-0"
+                        onclick="document.getElementById('add-companion-form').style.display='block'; this.style.display='none'">
+                    {% icon "plus-circle" class="w-4 h-4" %}
+                    {% translate "Add companion" %}
+                </button>
+            {% endif %}
+        </div>
+        {% if not can_add_companion %}
+            <p class="text-xs text-foreground-muted mb-4">
+                {% blocktranslate %}You have reached the maximum of {{ max_connected_users }} companions.{% endblocktranslate %}
+            </p>
+        {% endif %}
+        {% if can_add_companion %}
+            <div id="add-companion-form"
+                 class="rounded-lg bg-bg-secondary p-4 mb-4"
+                 {% if not create_companion_form.is_bound %}style="display:none"{% endif %}>
+                <form action="{% url 'web:crowd:profile-connected-users' %}" method="post">
                     {% csrf_token %}
-                    {% tessera_form party_form %}
-                    <button type="submit" class="btn btn-secondary">{% translate "Create party" %}</button>
+                    {% tessera_form create_companion_form %}
+                    <button type="submit" class="btn btn-primary">{% translate "Add companion" %}</button>
                 </form>
             </div>
-        </details>
+        {% endif %}
+        <div class="flex flex-col">
+            {% for row in companions %}
+                <div class="py-2.5 {% if not forloop.last %}border-b border-border{% endif %}">
+                    <div class="item-display"
+                         id="companion-display-{{ row.companion.slug }}"
+                         {% if row.editing %}style="display:none"{% endif %}>
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-sm font-medium flex items-center gap-2.5 min-w-0">
+                                {% include "components/avatar.html" with user=row.companion size="size-8" %}
+                                <span class="truncate">{{ row.companion.name }}</span>
+                            </p>
+                            <div class="flex gap-1 shrink-0">
+                                <button type="button"
+                                        class="icon-btn"
+                                        onclick="document.getElementById('companion-display-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='block'">
+                                    {% icon "pencil" class="w-3.5 h-3.5" %}
+                                    <span class="sr-only">{% translate "Edit" %}</span>
+                                </button>
+                                {% if row.companion.claim_token %}
+                                    {% url 'web:crowd:claim' token=row.companion.claim_token as claim_path %}
+                                    <button type="button"
+                                            class="icon-btn relative"
+                                            data-copy="{{ claim_path }}"
+                                            data-copy-origin
+                                            data-copied-label="{% translate "Copied!" %}"
+                                            title="{% translate "Copy claim link" %}">
+                                        {% icon "clipboard-document" class="w-3.5 h-3.5" %}
+                                        <span class="sr-only">{% translate "Copy claim link" %}</span>
+                                        {% tessera_copy_popover %}
+                                    </button>
+                                {% endif %}
+                                <form method="post"
+                                      action="{% url 'web:crowd:profile-connected-users-claim-link' slug=row.companion.slug %}">
+                                    {% csrf_token %}
+                                    {% if row.companion.claim_token %}
+                                        <button type="submit"
+                                                class="icon-btn"
+                                                title="{% translate "Generate a new claim link — the previous one stops working" %}">
+                                            {% icon "arrow-path" class="w-3.5 h-3.5" %}
+                                            <span class="sr-only">{% translate "Generate a new claim link" %}</span>
+                                        </button>
+                                    {% else %}
+                                        <button type="submit"
+                                                class="icon-btn"
+                                                title="{% translate "Create a link to let this person take over their profile" %}">
+                                            {% icon "link" class="w-3.5 h-3.5" %}
+                                            <span class="sr-only">{% translate "Create claim link" %}</span>
+                                        </button>
+                                    {% endif %}
+                                </form>
+                                <form method="post"
+                                      action="{% url 'web:crowd:profile-connected-users-delete' slug=row.companion.slug %}"
+                                      data-confirm="{% blocktranslate with name=row.companion.name %}Remove {{ name }} from your party?{% endblocktranslate %}"
+                                      data-confirm-action="{% translate "Remove companion" %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="icon-btn">
+                                        {% icon "trash" class="w-3.5 h-3.5" %}
+                                        <span class="sr-only">{% translate "Remove companion" %}</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="item-edit"
+                         id="companion-edit-{{ row.companion.slug }}"
+                         {% if not row.editing %}style="display:none"{% endif %}>
+                        <form action="{% url 'web:crowd:profile-connected-users-update' slug=row.companion.slug %}"
+                              method="post">
+                            {% csrf_token %}
+                            {% tessera_form row.form %}
+                            <div class="flex gap-2">
+                                <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
+                                <button type="button"
+                                        class="btn btn-secondary"
+                                        onclick="document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-display-{{ row.companion.slug }}').style.display='block'">
+                                    {% icon "x-mark" class="w-4 h-4" %}
+                                    {% translate "Cancel" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-sm text-foreground-muted">{% translate "No companions yet." %}</p>
+            {% endfor %}
+        </div>
     </div>
-</div>
-</div>
-</div>
-{% endblock body %}
+{% endblock profile_content %}

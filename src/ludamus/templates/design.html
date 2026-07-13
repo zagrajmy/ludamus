@@ -198,44 +198,69 @@
     </div>
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">
-    <code class="absolute top-3 left-3 text-xs text-foreground-muted">velvet-sound.ts</code>
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">sound.ts</code>
     <p class="max-w-prose text-center text-sm text-foreground-muted">
-        Procedural interface sounds (Velvet voice), synthesised live with the
-        Web Audio API — no audio files. Press a chip to audition; ambient
-        playback across the app is opt-in via the
+        Interaction sounds (Cuelume), synthesised live with the Web Audio API
+        — no audio files. Press a chip to audition; ambient playback across
+        the app is on by default and can be switched off via the
         {% icon "speaker-wave" class="inline w-4 h-4 align-text-bottom" %}
         toggle in the footer.
     </p>
     <div class="flex flex-wrap items-center justify-center gap-2">
         <button type="button"
-                data-velvet-play="toggle.on"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle on</button>
+                data-sound-play="chime"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Chime</button>
         <button type="button"
-                data-velvet-play="toggle.off"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle off</button>
+                data-sound-play="sparkle"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Sparkle</button>
         <button type="button"
-                data-velvet-play="action.send"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Action / send</button>
+                data-sound-play="droplet"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Droplet</button>
         <button type="button"
-                data-velvet-play="ui.confirm"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Confirm</button>
+                data-sound-play="bloom"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Bloom</button>
         <button type="button"
-                data-velvet-play="toast.in"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Toast in</button>
+                data-sound-play="whisper"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Whisper</button>
         <button type="button"
-                data-velvet-play="ui.progress"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Progress</button>
+                data-sound-play="tick"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Tick</button>
         <button type="button"
-                data-velvet-play="state.error"
-                data-no-sound
-                class="btn btn-danger px-3 py-1.5 text-xs">Error</button>
+                data-sound-play="press"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Press</button>
+        <button type="button"
+                data-sound-play="release"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Release</button>
+        <button type="button"
+                data-sound-play="toggle"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle</button>
+        <button type="button"
+                data-sound-play="success"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Success</button>
     </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">tab-shell.html</code>
+        <code class="text-xs text-foreground-muted">tab-shell-bar.html</code>
+        <code class="text-xs text-foreground-muted">tab-shell-body.html</code>
+    </div>
+    {% include "components/design/tab-shell.html" %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">card-tab-shell.html</code>
+        <code class="text-xs text-foreground-muted">card-tab-bar.html</code>
+    </div>
+    {% include "components/design/card-tab-shell.html" %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">panel-tab-shell.html</code>
+        <code class="text-xs text-foreground-muted">panel-tab-bar.html</code>
+        <code class="text-xs text-foreground-muted">panel-tab-body.html</code>
+    </div>
+    {% include "components/design/panel-tab-shell.html" %}
 </div>
 </div>
 {% endblock body %}

@@ -1,4 +1,5 @@
 from django.urls import URLPattern, URLResolver, include, path
+from django.views.generic import RedirectView
 
 from ludamus.gates.web.django.crowd import auth, profile, views
 
@@ -19,6 +20,11 @@ auth0_urlpatterns = [
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("profile/parties/", views.PartiesPageView.as_view(), name="profile-parties"),
+    path(
+        "profile/parties/<int:pk>/",
+        views.PartyDetailPageView.as_view(),
+        name="party-detail",
+    ),
     path(
         "profile/parties/do/create",
         views.PartyCreateActionView.as_view(),
@@ -76,8 +82,12 @@ urlpatterns: list[URLPattern | URLResolver] = [
     ),
     path(
         "profile/shadowbans/",
+        RedirectView.as_view(pattern_name="web:crowd:profile-safety", permanent=True),
+    ),
+    path(
+        "profile/safety/",
         profile.ProfileShadowbanPageView.as_view(),
-        name="profile-shadowbans",
+        name="profile-safety",
     ),
     path(
         "profile/connected-users/",

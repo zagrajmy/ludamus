@@ -10,7 +10,8 @@ from ludamus.adapters.db.django.models import (
     PartyMembership,
     User,
 )
-from ludamus.pacts.crowd import UserType
+from ludamus.links.gravatar import gravatar_url
+from ludamus.pacts.crowd import ConnectedUserDTO, UserType
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyDTO,
@@ -23,21 +24,22 @@ from tests.integration.utils import assert_response
 PARTIES_URL = reverse("web:crowd:profile-parties")
 
 
-def _member_row(user, party):
+def _member_dto(user, party):
     membership = PartyMembership.objects.get(party=party, member=user)
-    is_companion = user.user_type == UserType.CONNECTED
-    member = PartyMemberDTO(
+    return PartyMemberDTO(
         membership_pk=membership.pk,
         user_pk=user.pk,
-        name=user.get_full_name(),
+        name=user.name,
+        full_name=user.get_full_name(),
+        username=user.username,
         slug=user.slug,
-        is_login_less=is_companion,
+        is_login_less=user.user_type == UserType.CONNECTED,
         is_leader=party.leader_id == user.pk,
         consent_mode=PartyConsentMode(membership.consent_mode),
         status=PartyMembershipStatus(membership.status),
         claim_token=user.claim_token,
+        avatar_url=user.avatar_url or gravatar_url(user.email) or "",
     )
-    return {"member": member, "form": ANY if is_companion else None, "editing": False}
 
 
 class TestProfileConnectedUsersPageView:
@@ -75,11 +77,13 @@ class TestProfileConnectedUsersPageView:
                 "view": ANY,
                 "parties": [],
                 "invites": [],
+                "companions": [],
                 "companions_count": 0,
                 "max_connected_users": MAX_CONNECTED_USERS,
                 "can_add_companion": True,
                 "create_companion_form": ANY,
                 "party_form": ANY,
+                "profile_active_tab": "parties",
             },
             template_name=["crowd/user/parties.html"],
         )
@@ -102,7 +106,7 @@ class TestProfileConnectedUsersPageView:
         response = authenticated_client.post(self.URL, data=data)
 
         party = Party.objects.get(leader=active_user)
-        member_rows = [_member_row(user, party) for user in (active_user, *companions)]
+        members = [_member_dto(user, party) for user in (active_user, *companions)]
         assert_response(
             response,
             HTTPStatus.OK,
@@ -125,19 +129,29 @@ class TestProfileConnectedUsersPageView:
                             leader_name=active_user.get_full_name(),
                             is_leader=True,
                             is_default=True,
-                            members=[row["member"] for row in member_rows],
+                            created_at=party.created_at,
+                            members=members,
                         ),
-                        "members": member_rows,
-                        "rename_form": ANY,
-                        "invite_form": ANY,
+                        "stack": members[:5],
+                        "stack_overflow": len(members) - 5,
+                        "active_count": len(members),
                     }
                 ],
                 "invites": [],
+                "companions": [
+                    {
+                        "companion": ConnectedUserDTO.model_validate(user),
+                        "form": ANY,
+                        "editing": False,
+                    }
+                    for user in companions
+                ],
                 "companions_count": MAX_CONNECTED_USERS,
                 "max_connected_users": MAX_CONNECTED_USERS,
                 "can_add_companion": False,
                 "create_companion_form": ANY,
                 "party_form": ANY,
+                "profile_active_tab": "parties",
             },
             template_name=["crowd/user/parties.html"],
         )

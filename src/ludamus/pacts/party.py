@@ -10,7 +10,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.crowd import ConnectedUserDTO
+from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO
+from ludamus.pacts.legacy import AgendaItemDTO, LocationData, SessionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
@@ -35,6 +36,8 @@ class PartyMemberDTO(BaseModel):
     membership_pk: int
     user_pk: int
     name: str
+    full_name: str
+    username: str
     slug: str
     is_login_less: bool
     is_leader: bool
@@ -42,6 +45,7 @@ class PartyMemberDTO(BaseModel):
     status: PartyMembershipStatus
     # Companions only: pending claim-link token, "" when none was issued.
     claim_token: str = ""
+    avatar_url: str = ""
 
 
 class PartyDTO(BaseModel):
@@ -56,6 +60,7 @@ class PartyDTO(BaseModel):
     # Viewer-relative: the viewer's first led party — the one that sponsors
     # their companions.
     is_default: bool
+    created_at: datetime
     members: list[PartyMemberDTO]
 
 
@@ -166,6 +171,34 @@ class LedPartyDTO(BaseModel):
     leader_name: str
 
 
+class PartySessionSeatDTO(BaseModel):
+    user: UserDTO
+    status: str
+    creation_time: datetime
+
+
+class PartySessionHistoryDTO(BaseModel):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[PartySessionSeatDTO]
+    location: LocationData
+    enrolled_count: int
+    waiting_count: int
+    is_full: bool
+    is_enrollment_available: bool
+    effective_participants_limit: int
+    full_participant_info: str
+    viewer_enrolled: bool
+
+
+class PartyEventHistoryDTO(BaseModel):
+    event_pk: int
+    event_name: str
+    event_slug: str
+    sessions: list[PartySessionHistoryDTO]
+
+
 class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def overview(viewer_pk: int) -> PartiesOverviewDTO: ...
@@ -201,6 +234,10 @@ class PartyRepositoryProtocol(Protocol):
     ) -> list[ConnectedUserDTO]: ...
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
+    @staticmethod
+    def session_history(
+        *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO] | None: ...
 
 
 class PartyNotifierProtocol(Protocol):
@@ -231,3 +268,6 @@ class PartyServiceProtocol(Protocol):
     def announce_member_enrolled(
         self, notification: PartyEnrolledNotification
     ) -> None: ...
+    def session_history(
+        self, *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO] | None: ...
