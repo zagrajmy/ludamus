@@ -337,9 +337,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 self.request.services.shadowban.banned_user_ids(current_user_id)
             )
 
-        hour_data = dict(self._get_hour_data(event_sessions, shadowbanned_ids))
-        # Get session data objects that include enrollment status
+        # Get session data objects that include enrollment status; the
+        # hour grouping reuses them instead of rebuilding every DTO.
         sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
+        hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
@@ -637,15 +638,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         for sid, data in sessions_data.items():
             data.user_bookmarked = sid in bookmarked_ids
 
+    @staticmethod
     def _get_hour_data(
-        self,
-        event_sessions: QuerySet[Session],
-        shadowbanned_ids: frozenset[int] = frozenset(),
+        event_sessions: QuerySet[Session], sessions_data: dict[int, SessionData]
     ) -> dict[datetime, list[SessionData]]:
         # Expects a scheduled-only queryset (agenda_item__isnull=False): the
         # grouping below dereferences each session's agenda item.
-        sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
-
         sessions_by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
         for session in event_sessions:
             sessions_by_hour[session.agenda_item.start_time].append(
