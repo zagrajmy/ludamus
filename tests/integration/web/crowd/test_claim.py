@@ -240,7 +240,7 @@ class TestClaimRedemptionOnLogin:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 

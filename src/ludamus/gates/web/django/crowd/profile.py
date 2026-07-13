@@ -11,6 +11,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, View
@@ -41,7 +42,7 @@ class ProfilePageView(
 ):
     form_class = UserForm
     request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:index")
+    success_url = reverse_lazy("web:crowd:profile")
     template_name = "crowd/user/edit.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -77,6 +78,12 @@ class ProfilePageView(
     def form_invalid(self, form: forms.Form) -> HttpResponse:
         messages.warning(self.request, _("Please correct the errors below."))
         return super().form_invalid(form)
+
+    def get_success_url(self) -> str:
+        next_url = self.request.GET.get("next")
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts=None):
+            return next_url
+        return str(self.success_url)
 
     def get_initial(self) -> dict[str, Any]:
         return self.request.services.profile.read(

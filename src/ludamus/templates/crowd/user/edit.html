@@ -16,7 +16,8 @@
             </span>
         </div>
     {% endif %}
-    <form action="{% url 'web:crowd:profile' %}" method="post">
+    <form action="{% url 'web:crowd:profile' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+          method="post">
         {% csrf_token %}
         {% tessera_form form %}
         {% translate "Save" as t_save %}

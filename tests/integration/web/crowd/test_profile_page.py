@@ -41,11 +41,43 @@ class TestProfilePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/",
+            url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.name == data["name"]
         assert user.email == data["email"]
+
+    def test_post_honors_safe_next(self, authenticated_client, faker):
+        data = {
+            "name": faker.name(),
+            "email": faker.email(),
+            "user_type": UserType.ACTIVE,
+        }
+        response = authenticated_client.post(f"{self.URL}?next=/events/", data=data)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Profile updated successfully!")],
+            url="/events/",
+        )
+
+    def test_post_ignores_external_next(self, authenticated_client, faker):
+        data = {
+            "name": faker.name(),
+            "email": faker.email(),
+            "user_type": UserType.ACTIVE,
+        }
+        response = authenticated_client.post(
+            f"{self.URL}?next=https://evil.example.com/", data=data
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Profile updated successfully!")],
+            url=self.URL,
+        )
 
     def test_post_updates_discord_username(
         self, authenticated_client, active_user, faker
@@ -62,7 +94,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/",
+            url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.discord_username == "testuser#1234"
@@ -132,7 +164,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/",
+            url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.email == existing_email
