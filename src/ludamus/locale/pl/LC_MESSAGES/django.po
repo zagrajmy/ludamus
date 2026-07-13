@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 20:58+0200\n"
+"POT-Creation-Date: 2026-07-13 23:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1875,13 +1875,16 @@ msgstr "Nazwa drużyny"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/templates/crowd/user/parties.html
-msgid "Email"
-msgstr "Email"
+msgid "Email or Discord username"
+msgstr "Adres email lub nazwa użytkownika Discord"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/templates/crowd/user/parties.html
-msgid "The invited person needs a Ludamus account with this email."
-msgstr "Zapraszana osoba musi mieć konto Ludamus z tym adresem email."
+msgid ""
+"Their account email, or the Discord username they signed up with. They need "
+"a Zagrajmy account."
+msgstr ""
+"Adres email ich konta lub nazwa użytkownika Discord, z którą się "
+"zarejestrowali. Muszą mieć konto Zagrajmy."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid ""
@@ -1977,8 +1980,8 @@ msgid "Could not delete this party."
 msgstr "Nie udało się usunąć tej drużyny."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-msgid "Enter a valid email address."
-msgstr "Podaj prawidłowy adres email."
+msgid "Enter an email or Discord username."
+msgstr "Podaj adres email lub nazwę użytkownika Discord."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Invitation sent."
@@ -1990,15 +1993,41 @@ msgstr "Ta osoba jest już w drużynie."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid ""
-"No account uses this email. Ask them to sign up first, or add them as a "
-"companion you enroll yourself."
+"More than one account uses that Discord username. Invite them by email "
+"instead."
 msgstr ""
-"Żadne konto nie używa tego adresu email. Poproś tę osobę o rejestrację albo "
+"Więcej niż jedno konto używa tej nazwy użytkownika Discord. Zaproś tę osobę "
+"przez adres email."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid ""
+"No account matches that email or Discord username. Ask them to sign up "
+"first, share your invite link, or add them as a companion you enroll "
+"yourself."
+msgstr ""
+"Żadne konto nie pasuje do tego adresu email ani nazwy użytkownika Discord. "
+"Poproś tę osobę o rejestrację, udostępnij jej swój link zaproszenia albo "
 "dodaj ją jako towarzysza, którego zapisujesz samodzielnie."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "Could not regenerate the invite link."
+msgstr "Nie udało się wygenerować nowego linku zaproszenia."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "Invite link regenerated."
+msgstr "Wygenerowano nowy link zaproszenia."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "This invite link is invalid."
+msgstr "Ten link zaproszenia jest nieprawidłowy."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "You joined the party."
 msgstr "Dołączasz do drużyny."
+
+#: src/ludamus/gates/web/django/crowd/views.py
+msgid "You're already in this party."
+msgstr "Jesteś już w tej drużynie."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "This invitation is no longer valid."
@@ -3339,6 +3368,7 @@ msgid "Finish"
 msgstr "Zakończ"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Close"
 msgstr "Zamknij"
 
@@ -4387,11 +4417,13 @@ msgid "%(leader)s invited you to their party %(party)s"
 msgstr "%(leader)s zaprasza Cię do swojej drużyny %(party)s"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_join.html
 #, python-format
 msgid "%(leader)s invited you to their party"
 msgstr "%(leader)s zaprasza Cię do swojej drużyny"
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/crowd/user/party_join.html
 msgid "Join party"
 msgstr "Dołącz do drużyny"
 
@@ -4461,6 +4493,12 @@ msgstr "Usuń"
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Invite a member"
 msgstr "Zaproś osobę"
+
+#: src/ludamus/templates/crowd/user/parties.html
+msgid "Their account email, or the Discord username they signed up with."
+msgstr ""
+"Adres email ich konta lub nazwa użytkownika Discord, z którą się "
+"zarejestrowali."
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
@@ -4557,12 +4595,6 @@ msgstr "Utwórz link przejęcia"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
-#, python-format
-msgid "Remove %(name)s from your party?"
-msgstr "Usunąć %(name)s z Twojej drużyny?"
-
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Remove companion"
 msgstr "Usuń towarzysza"
 
@@ -4611,6 +4643,11 @@ msgid "Enrolls you directly"
 msgstr "Zapisuje Cię bez pytania"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
+#, python-format
+msgid "Remove %(name)s from your party?"
+msgstr "Usunąć %(name)s z Twojej drużyny?"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Allow direct enrollment"
 msgstr "Pozwól na bezpośrednie zapisy"
 
@@ -4637,6 +4674,26 @@ msgid "Remove member"
 msgstr "Usuń z drużyny"
 
 #: src/ludamus/templates/crowd/user/party_detail.html
+msgid "or share a link"
+msgstr "albo udostępnij link"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Copy invite link"
+msgstr "Kopiuj link zaproszenia"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Anyone signed in who opens this link joins the party."
+msgstr "Każda zalogowana osoba, która otworzy ten link, dołączy do drużyny."
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Make a new link? The current one stops working."
+msgstr "Utworzyć nowy link? Obecny przestanie działać."
+
+#: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Regenerate link"
+msgstr "Wygeneruj nowy link"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Sessions together"
 msgstr "Wspólne punkty programu"
 
@@ -4646,6 +4703,23 @@ msgid ""
 msgstr ""
 "Nie macie jeszcze wspólnych punktów programu — wybierz punkt programu na "
 "wydarzeniu i zapisz się jako drużyna."
+
+#: src/ludamus/templates/crowd/user/party_join.html
+#, python-format
+msgid "%(leader)s's party"
+msgstr "Drużyna użytkownika %(leader)s"
+
+#: src/ludamus/templates/crowd/user/party_join.html
+msgid "Not now"
+msgstr "Nie teraz"
+
+#: src/ludamus/templates/crowd/user/party_join.html
+msgid ""
+"A party enrols for sessions together and moves up a waiting list together. "
+"You can leave anytime."
+msgstr ""
+"Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
+"oczekujących. Możecie wyjść w dowolnym momencie."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"
@@ -7538,6 +7612,15 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Email"
+#~ msgstr "Email"
+
+#~ msgid "The invited person needs a Ludamus account with this email."
+#~ msgstr "Zapraszana osoba musi mieć konto Ludamus z tym adresem email."
+
+#~ msgid "Enter a valid email address."
+#~ msgstr "Podaj prawidłowy adres email."
 
 #~ msgid "Nothing scheduled in this time range."
 #~ msgstr "Nic nie zaplanowano w tym przedziale czasowym."

@@ -46,6 +46,6 @@ class PartyInviteForm(forms.Form):
         label=_("Email or Discord username"),
         help_text=_(
             "Their account email, or the Discord username they signed up with. "
-            "They need a Ludamus account."
+            "They need a Zagrajmy account."
         ),
     )
