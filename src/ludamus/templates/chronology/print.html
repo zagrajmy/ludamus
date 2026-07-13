@@ -127,8 +127,10 @@
                                 {% endfor %}
                             {% elif area_schedule %}
                                 {% for space in area_schedule.spaces %}
-                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
-                                       href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
+                                    {% if space.sessions %}
+                                        <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                           href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
+                                    {% endif %}
                                 {% endfor %}
                             {% elif session_list %}
                                 <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
@@ -203,33 +205,33 @@
                             {% endfor %}
                         {% elif area_schedule %}
                             {% for space in area_schedule.spaces %}
-                                <section class="{{ sheet_class }}" id="area-space-{{ forloop.counter }}">
-                                    {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
-                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
-                                    <p class="mb-[4mm] text-[9pt] text-neutral-500">
-                                        {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
-                                    </p>
-                                    <div>
-                                        <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
-                                            {{ space.space_name }}
-                                            {% if space.capacity %}
-                                                <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
-                                            {% endif %}
-                                        </h3>
-                                        {% for session in space.sessions %}
-                                            <div class="mb-[4mm] break-inside-avoid">
-                                                <div class="text-[9pt] tabular-nums text-neutral-500">
-                                                    {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                {% if space.sessions %}
+                                    <section class="{{ sheet_class }}" id="area-space-{{ forloop.counter }}">
+                                        {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
+                                        <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
+                                        <p class="mb-[4mm] text-[9pt] text-neutral-500">
+                                            {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                        </p>
+                                        <div>
+                                            <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
+                                                {{ space.space_name }}
+                                                {% if space.capacity %}
+                                                    <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
+                                                {% endif %}
+                                            </h3>
+                                            {% for session in space.sessions %}
+                                                <div class="mb-[4mm] break-inside-avoid">
+                                                    <div class="text-[9pt] tabular-nums text-neutral-500">
+                                                        {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                                    </div>
+                                                    <div class="text-[11pt] font-bold">{{ session.title }}</div>
+                                                    {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                                    {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
                                                 </div>
-                                                <div class="text-[11pt] font-bold">{{ session.title }}</div>
-                                                {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
-                                                {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
-                                            </div>
-                                        {% empty %}
-                                            <p class="italic text-neutral-500">{% translate "Nothing scheduled in this time range." %}</p>
-                                        {% endfor %}
-                                    </div>
-                                </section>
+                                            {% endfor %}
+                                        </div>
+                                    </section>
+                                {% endif %}
                             {% endfor %}
                         {% elif session_list %}
                             <section class="{{ sheet_class }}" id="session-list">
