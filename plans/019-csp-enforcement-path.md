@@ -25,6 +25,7 @@
 >   src/ludamus/templates/panel/cfp-edit.html \
 >   src/ludamus/templates/components/checkbox-field.html \
 >   src/ludamus/templates/panel/parts/timetable-session-detail.html \
+>   src/ludamus/templates/multiverse/panel/connections/edit.html \
 >   tests/integration/web/test_security_headers.py
 > ```
 >
@@ -84,7 +85,7 @@ from doing the risky flip early.
   ```
 
   Only `SECURE_CSP_REPORT_ONLY = CSP_REPORT_ONLY_POLICY` is set inside
-  `if IS_PRODUCTION:` (`settings.py:325-326`); `SECURE_CSP` is never
+  `if IS_PRODUCTION:` (`settings.py:364`); `SECURE_CSP` is never
   assigned anywhere (`grep -c "SECURE_CSP =" src/ludamus/edges/settings.py`
   → 0).
 - `src/ludamus/edges/settings.py:123-125` — `MIDDLEWARE` already has
@@ -203,10 +204,12 @@ from doing the risky flip early.
     — `hx-on::after-request="if(event.detail.successful){htmx.ajax(...)}"`,
     re-fetching a pane after a successful htmx request.
   - `src/ludamus/templates/panel/base.html:134,150,164,195,241,280,307,333`
-    — 8 occurrences: sidebar toggle, sidebar-fold persistence,
-    event-switcher navigation, and category-collapse toggles (the
-    same toggle body repeated for several categories), all inline
-    JS in `hx-on:click="..."` / `hx-on:change="..."`.
+    — 8 occurrences, all inline JS in `hx-on:click="..."` /
+    `hx-on:change="..."`. Four are byte-identical category-collapse
+    toggles (`:195,241,280,307`); the other four are distinct:
+    sidebar toggle (`:134`), sidebar-fold persistence (`:150`),
+    event-switcher navigation (`:164`), and a second sidebar-toggle
+    variant that also toggles the overlay (`:333`).
 
   htmx evaluates `hx-on:*` attribute bodies via the `Function`
   constructor at runtime — this is why `script-src` currently carries
@@ -422,11 +425,14 @@ inline JS with an equivalent same-origin mechanism that needs no
   `panel/base.html` already loads page-level Vite assets — check
   `{% vite_asset %}` calls near the top of that file before adding a
   new one).
-- For the 8 repeated category-collapse toggles in `panel/base.html`
-  (`hx-on:click="var c=this.closest('[data-cat]')...`), the bodies are
-  byte-identical — converting these is a good candidate for **one**
-  shared `addEventListener` on a common ancestor (event delegation)
-  rather than 8 separate listeners; use your judgment but keep the
+- Of the 8 `panel/base.html` sites, exactly 4 are byte-identical
+  category-collapse toggles (`:195,241,280,307`, all
+  `hx-on:click="var c=this.closest('[data-cat]')..."`) — those 4 are
+  a good candidate for **one** shared `addEventListener` on a common
+  ancestor (event delegation) rather than 4 separate listeners. The
+  other 4 (`:134,150,164,333`) have distinct bodies and each needs
+  its own conversion — do not skip them because of the delegation
+  shortcut; all 8 must be eliminated. Use your judgment but keep the
   observable behavior (same classes toggled, same localStorage keys)
   identical.
 - `components/checkbox-field.html:20`'s `hx_on_change` parameter is
