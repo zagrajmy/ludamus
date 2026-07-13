@@ -19,7 +19,12 @@ from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import OfferDTO, OfferRecipientDTO
 from ludamus.pacts.legacy import NotificationKind, PromotionMode
-from tests.integration.conftest import ProposalCategoryFactory, UserFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    UserFactory,
+)
 from tests.integration.utils import assert_response
 
 
@@ -469,3 +474,99 @@ class TestPromotionRepositoryUnscheduledSession:
         assert offer is not None
         assert offer.event_slug == session.event.slug
         assert offer.participant_ids == [offered.pk]
+
+
+# lock+select session, most-liberal config, waiting list, sponsors, batched
+# conflicts, active configs, user-config __in, domain-config __in, companions +
+# used slots (one config-holding owner), available-seats count.
+STATE_QUERIES = 11
+BASE_WAITERS = 3
+GROWN_WAITERS = 5
+
+
+@pytest.mark.usefixtures("enrollment_config", "agenda_item")
+class TestPromotionStateQueryCount:
+    @staticmethod
+    def _wait(session, user):
+        return SessionParticipation.objects.create(
+            session=session, user=user, status=SessionParticipationStatus.WAITING
+        )
+
+    def _add_waiters(self, *, session, enrollment_config, companions_a):
+        # Owner A (holds a user config) waits themselves plus `companions_a`
+        # sponsored companions; owner B (no config) waits too. Growing
+        # `companions_a` adds waiters without adding slot owners.
+        owner_a = UserFactory(username="qc-owner-a", email="qc-owner-a@example.com")
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=owner_a.email,
+            allowed_slots=5,
+        )
+        owner_b = UserFactory(username="qc-owner-b", email="qc-owner-b@example.com")
+        self._wait(session, owner_a)
+        for index in range(companions_a):
+            companion = UserFactory(
+                username=f"qc-companion-{index}",
+                email=f"qc-companion-{index}@example.com",
+                user_type=UserType.CONNECTED,
+                manager=owner_a,
+            )
+            self._wait(session, companion)
+        self._wait(session, owner_b)
+
+    def test_pinned_query_count(
+        self, session, enrollment_config, django_assert_num_queries
+    ):
+        self._add_waiters(
+            session=session, enrollment_config=enrollment_config, companions_a=1
+        )
+        repo = ParticipationPromotionRepository()
+
+        with DjangoTransaction().atomic(), django_assert_num_queries(STATE_QUERIES):
+            state = repo.lock_and_read_state(session.pk)
+
+        assert state is not None
+        assert len(state.waiting) == BASE_WAITERS
+
+    def test_count_constant_as_waiters_grow(
+        self, session, enrollment_config, django_assert_num_queries
+    ):
+        self._add_waiters(
+            session=session, enrollment_config=enrollment_config, companions_a=3
+        )
+        repo = ParticipationPromotionRepository()
+
+        with DjangoTransaction().atomic(), django_assert_num_queries(STATE_QUERIES):
+            state = repo.lock_and_read_state(session.pk)
+
+        assert state is not None
+        assert len(state.waiting) == GROWN_WAITERS
+
+    def test_conflict_flags_follow_confirmed_overlap(self, session, agenda_item):
+        clashing = UserFactory(username="qc-clash", email="qc-clash@example.com")
+        clear = UserFactory(username="qc-clear", email="qc-clear@example.com")
+        self._wait(session, clashing)
+        self._wait(session, clear)
+        other_session = SessionFactory(
+            event=session.event, category=None, participants_limit=10
+        )
+        AgendaItemFactory(
+            session=other_session,
+            space=agenda_item.space,
+            start_time=agenda_item.start_time,
+            end_time=agenda_item.end_time,
+        )
+        SessionParticipation.objects.create(
+            session=other_session,
+            user=clashing,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        with DjangoTransaction().atomic():
+            state = ParticipationPromotionRepository().lock_and_read_state(session.pk)
+
+        assert state is not None
+        assert {w.user_id: w.has_conflict for w in state.waiting} == {
+            clashing.pk: True,
+            clear.pk: False,
+        }
