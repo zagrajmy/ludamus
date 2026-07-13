@@ -1,6 +1,6 @@
 import pytest
 
-from ludamus.adapters.db.django.models import Session
+from ludamus.links.db.django.models import Session
 from ludamus.links.db.django.repositories import SessionRepository
 from ludamus.pacts import NotFoundError
 from tests.integration.conftest import ProposalCategoryFactory, SessionFactory

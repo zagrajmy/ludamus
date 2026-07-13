@@ -4,12 +4,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
-    MAX_COMPANIONS,
-    Party,
-    PartyMembership,
-    User,
-)
+from ludamus.links.db.django.models import MAX_COMPANIONS, Party, PartyMembership, User
 from ludamus.pacts.crowd import CompanionDTO, UserType
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response

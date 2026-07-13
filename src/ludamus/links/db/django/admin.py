@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from django import forms
 from django.contrib import admin
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     DomainEnrollmentConfig,
     Encounter,

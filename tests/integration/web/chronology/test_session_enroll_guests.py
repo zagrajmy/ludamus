@@ -6,17 +6,17 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    SessionUserParticipationData,
+)
+from ludamus.inits.services import Services
+from ludamus.links.db.django.models import (
     Party,
     SessionParticipation,
     SessionParticipationStatus,
     User,
     UserEnrollmentConfig,
 )
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    SessionUserParticipationData,
-)
-from ludamus.inits.services import Services
 from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response

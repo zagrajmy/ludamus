@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Facilitator,
     PersonalDataField,
     ProposalCategory,

@@ -8,7 +8,7 @@
 
 Two related moves inside the persistence adapter:
 
-1. **Relocate ORM models** from `adapters/db/django/models.py` into
+1. **Relocate ORM models** from `links.db/django/models.py` into
    `links/db/django/models.py`, so models live in `links` (their GLIMPSE home)
    and are internal to the package — consumed only through repositories.
 2. **Split the fat repository module** once it crosses the 1000-line trigger,
@@ -24,7 +24,7 @@ kind crosses ~1000 lines. The repositories are split; the models are still in
 
 ## Current state
 
-- `adapters/db/django/models.py` — still the real ORM module (not yet in
+- `links.db/django/models.py` — still the real ORM module (not yet in
   `links`).
 - `links/db/django/repositories/` — package split by aggregate group
   (`multiverse`, `chronology`, `venues`, `sessions`, `submissions`,
@@ -39,7 +39,7 @@ kind crosses ~1000 lines. The repositories are split; the models are still in
   [services-di.md](services-di.md)).
 
 `repositories/` imports models cross-package:
-`from ludamus.adapters.db.django.models import (...)`. That import is the seam
+`from ludamus.links.db.django.models import (...)`. That import is the seam
 the relocation has to cut.
 
 ## Done so far
@@ -59,7 +59,7 @@ the relocation has to cut.
 
 Relocate the **models** — but only after the `adapters/` views are gone
 ([glimpse-strangler.md](glimpse-strangler.md)): moving models touches
-migrations history and `INSTALLED_APPS`, so it is the last `adapters/db` move,
+migrations history and `INSTALLED_APPS`, so it is the last `links.db` move,
 not the first. When it happens, do it as its own PR: relocate models, flip
 `repositories/*` imports to `ludamus.links.db.django.models`, update the
 `DBMainConfig` app path.
@@ -69,5 +69,5 @@ not the first. When it happens, do it as its own PR: relocate models, flip
 - `links/db/django/repositories/` split by aggregate, each part under the
   1000-line trigger, public surface unchanged.
 - Models live in `links/db/django/models.py` (or `models/` package); nothing
-  imports `ludamus.adapters.db.django.models`.
-- `adapters/db/` is empty enough to delete with the rest of `adapters/`.
+  imports `ludamus.links.db.django.models`.
+- `links.db/` is empty enough to delete with the rest of `adapters/`.

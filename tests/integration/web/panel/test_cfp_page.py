@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.adapters.db.django.models import ProposalCategory, Session
+from ludamus.links.db.django.models import ProposalCategory, Session
 from ludamus.pacts import EventDTO, ProposalCategoryDTO
 from tests.integration.utils import assert_response
 

@@ -16,7 +16,11 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.adapters.db.django.models import (
+from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
+from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
+    SESSION_COLUMNS,
+)
+from ludamus.links.db.django.models import (
     EventIntegration,
     Facilitator,
     ImportLogEntry,
@@ -29,10 +33,6 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     TimeSlot,
     Track,
-)
-from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
-from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
-    SESSION_COLUMNS,
 )
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (

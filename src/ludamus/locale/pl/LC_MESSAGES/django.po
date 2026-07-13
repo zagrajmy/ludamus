@@ -19,20 +19,20 @@ msgstr ""
 "(n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && "
 "n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "email address"
 msgstr "adres email"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "active"
 msgstr "aktywny"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid ""
 "Designates whether this user should be treated as active. Unselect this "
 "instead of deleting accounts."
@@ -40,114 +40,114 @@ msgstr ""
 "Określa czy użytkownika należy uważać za aktywnego. Odznacz zamiast usuwać "
 "konto."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "staff status"
 msgstr "w zespole"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Designates whether the user can log into this admin site."
 msgstr "Określa czy użytkownik może zalogować się do panelu administracyjnego."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "User name"
 msgstr "Nazwa użytkownika"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "username"
 msgstr "Nazwa użytkownika"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
 msgstr "Wymagana. 150 lub mniej znaków. Jedynie litery, cyfry i @/./+/-/_."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "A user with that username already exists."
 msgstr "Użytkownik o tej nazwie już istnieje."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Discord username"
 msgstr "Nazwa użytkownika Discord"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Your Discord username for session coordination"
 msgstr "Twoja nazwa użytkownika Discord do koordynacji sesji"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Avatar URL"
 msgstr "URL awatara"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Profile avatar URL (e.g. from Auth0)"
 msgstr "URL awatara profilu (np. z Auth0)"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Use Gravatar"
 msgstr "Użyj Gravatara"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Use Gravatar instead of provider avatar"
 msgstr "Użyj Gravatara zamiast awatara z konta"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "user"
 msgstr "użytkownik"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "users"
 msgstr "użytkownicy"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "A space must belong to its parent's event."
 msgstr "Przestrzeń musi należeć do wydarzenia swojego rodzica."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "A space cannot be its own ancestor."
 msgstr "Przestrzeń nie może być swoim własnym przodkiem."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 #, python-format
 msgid "Spaces can be nested at most %(max)d levels deep."
 msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "A space holding a scheduled session cannot contain other spaces."
 msgstr ""
 "Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
 "przestrzeni."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "A root space with this slug already exists."
 msgstr "Przestrzeń główna o tym slugu już istnieje."
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Time slots can't overlap!"
 msgstr "Przedziały czasowe nie mogą się nakładać!"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "None"
 msgstr "Brak"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Standard"
 msgstr "Standardowa"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Guest"
 msgstr "Gość"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Honorary"
 msgstr "Honorowa"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Twórca programu"
 msgstr "Twórca programu"
 
-#: src/ludamus/adapters/db/django/models.py
+#: src/ludamus/links.db/django/models.py
 msgid "Twórcy programu"
 msgstr "Twórcy programu"
 

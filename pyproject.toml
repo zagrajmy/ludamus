@@ -103,7 +103,7 @@ branch = true
 source = ["src"]
 omit = [
     "src/ludamus/edges/*",
-    "src/ludamus/adapters/db/django/migrations/*",
+    "src/ludamus/links.db/django/migrations/*",
     "src/ludamus/client/*",
     "tests/template_checks.py",
 ]
@@ -193,7 +193,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "ludamus.adapters.db.django.*",
+    "ludamus.links.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
     "ludamus.gates.cli.django.management.commands.expire_offers",

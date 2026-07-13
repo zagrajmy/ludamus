@@ -5,8 +5,8 @@ from unittest.mock import ANY
 from django.urls import reverse
 from django.utils import timezone
 
-from ludamus.adapters.db.django.models import Space, Track
 from ludamus.adapters.web.django.print_views import MATERIAL_SPECS
+from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.printing import (
     PrintOptionDTO,

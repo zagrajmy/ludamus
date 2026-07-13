@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from ludamus.adapters.db.django.models import TimeSlot
+from ludamus.links.db.django.models import TimeSlot
 from ludamus.links.db.django.repositories import TimeSlotRepository
 from tests.integration.conftest import EventFactory
 

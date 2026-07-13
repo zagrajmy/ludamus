@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Exists, OuterRef, Q
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
     Session,

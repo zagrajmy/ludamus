@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 from django.core.exceptions import ValidationError
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
     Connection,

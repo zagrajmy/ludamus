@@ -9,7 +9,6 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.generic.base import View
 
-from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
@@ -20,6 +19,7 @@ from ludamus.gates.web.django.forms import (
     DiscountExportForm,
     DiscountForm,
 )
+from ludamus.links.db.django.models import AccreditationType
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,

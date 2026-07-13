@@ -1,7 +1,7 @@
 import pytest
 from django.db import IntegrityError
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
     Shadowban,

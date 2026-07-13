@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.adapters.db.django.models import AccreditationType
+from ludamus.links.db.django.models import AccreditationType
 from ludamus.pacts.discounts import DiscountKind
 
 if TYPE_CHECKING:

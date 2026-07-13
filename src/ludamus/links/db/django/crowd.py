@@ -2,12 +2,12 @@ from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.companions import active_companions, sponsor_of
+from ludamus.links.db.django.models import (
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ClaimableProfileDTO,
@@ -24,7 +24,7 @@ from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
 
-    from ludamus.adapters.db.django.models import User
+    from ludamus.links.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
 

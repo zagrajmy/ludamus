@@ -544,7 +544,7 @@ accounts.
 
 ## Subdomain → Models
 
-ORM models — currently in `adapters/db/django/models.py`,
+ORM models — currently in `links.db/django/models.py`,
 relocating to `links/db/django/` per refactor 4 — mapped
 to the subdomain that owns them. Subdomain-level only, no
 bounded-context breakdown.

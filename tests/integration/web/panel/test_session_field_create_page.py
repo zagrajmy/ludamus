@@ -4,7 +4,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import SessionField, SessionFieldRequirement
+from ludamus.links.db.django.models import SessionField, SessionFieldRequirement
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import ProposalCategoryFactory
 from tests.integration.utils import assert_response

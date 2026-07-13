@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.adapters.db.django.models import User
+from ludamus.links.db.django.models import User
 from ludamus.pacts.crowd import UserType
 
 if TYPE_CHECKING:
