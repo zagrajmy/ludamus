@@ -35,9 +35,10 @@ class EventBanDTO(BaseModel):
 class ShadowbanHitDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    presenter_id: int
-    presenter_email: str
+    recipient_id: int
+    recipient_email: str
     banned_user_id: int
+    in_session: bool
 
 
 class ShadowbanEventSignupDTO(BaseModel):
@@ -45,6 +46,7 @@ class ShadowbanEventSignupDTO(BaseModel):
 
     event_slug: str
     event_name: str
+    session_title: str
     hits: list[ShadowbanHitDTO]
 
 
@@ -53,7 +55,9 @@ class ShadowbanSignupNotification(BaseModel):
     recipient_email: str
     event_slug: str
     event_name: str
+    session_title: str
     player_names: list[str]
+    session_player_names: list[str]
 
 
 class ShadowbanRepositoryProtocol(Protocol):

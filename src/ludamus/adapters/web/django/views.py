@@ -324,15 +324,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             .order_by("agenda_item__start_time")
         )
 
-        # Shadowban: hide a presenter's sessions from players they shadowbanned,
-        # and collect the viewer's shadowbans to red-ring their avatars (the
-        # ring is carried per-participation on the DTO, not via template logic).
         shadowbanned_ids: frozenset[int] = frozenset()
+        banned_by: set[int] = set()
         if current_user_id := self.request.context.current_user_id:
-            if hidden := self.request.services.shadowban.banning_owner_ids(
+            banned_by = self.request.services.shadowban.banning_owner_ids(
                 current_user_id
-            ):
-                event_sessions = event_sessions.exclude(presenter_id__in=hidden)
+            )
             shadowbanned_ids = frozenset(
                 self.request.services.shadowban.banned_user_ids(current_user_id)
             )
@@ -340,6 +337,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         hour_data = dict(self._get_hour_data(event_sessions, shadowbanned_ids))
         # Get session data objects that include enrollment status
         sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
+
+        if banned_by:
+            sessions_data = {
+                sid: fake_full_card(data) if data.presenter.pk in banned_by else data
+                for sid, data in sessions_data.items()
+            }
 
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
@@ -857,10 +860,9 @@ def _get_session_or_redirect(
             reverse("web:index"), error=_("Session not found.")
         ) from None
     viewer_id = request.context.current_user_id
-    # Shadowban: a player the presenter shadowbanned cannot reach the session.
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         raise RedirectError(
-            reverse("web:index"), error=_("Session not found.")
+            reverse("web:chronology:event", kwargs={"slug": session.event.slug})
         ) from None
     if not AgendaItem.objects.filter(session_id=session.pk).exists():
         raise RedirectError(

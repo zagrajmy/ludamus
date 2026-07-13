@@ -163,9 +163,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         if agenda_item is None:
             return None
         event = agenda_item.session.event
-        # Presenters with a scheduled session in this event who shadowbanned any
-        # of the players that just signed up.
-        rows = (
+        presenter_rows = (
             User.objects.filter(
                 presented_sessions__event_id=event.pk,
                 presented_sessions__agenda_item__isnull=False,
@@ -174,17 +172,37 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .values_list("pk", "email", "shadowbanned__id")
             .distinct()
         )
+        occupying = (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.WAITING,
+            SessionParticipationStatus.OFFERED,
+        )
+        player_rows = (
+            User.objects.filter(
+                session_participations__session_id=session_id,
+                session_participations__status__in=occupying,
+                shadowbanned__id__in=signed_up_ids,
+            )
+            .values_list("pk", "email", "shadowbanned__id")
+            .distinct()
+        )
+        in_session_pairs = {
+            (recipient_id, banned_user_id)
+            for recipient_id, _email, banned_user_id in player_rows
+        }
+        hits: dict[tuple[int, int], ShadowbanHitDTO] = {}
+        for recipient_id, email, banned_user_id in [*presenter_rows, *player_rows]:
+            hits[recipient_id, banned_user_id] = ShadowbanHitDTO(
+                recipient_id=recipient_id,
+                recipient_email=email,
+                banned_user_id=banned_user_id,
+                in_session=(recipient_id, banned_user_id) in in_session_pairs,
+            )
         return ShadowbanEventSignupDTO(
             event_slug=event.slug,
             event_name=event.name,
-            hits=[
-                ShadowbanHitDTO(
-                    presenter_id=presenter_id,
-                    presenter_email=email,
-                    banned_user_id=banned_user_id,
-                )
-                for presenter_id, email, banned_user_id in rows
-            ],
+            session_title=agenda_item.session.title,
+            hits=list(hits.values()),
         )
 
 

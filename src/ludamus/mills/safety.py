@@ -36,7 +36,6 @@ class ShadowbanService:
         return self._repo.banned_user_ids(owner_id)
 
     def banning_owner_ids(self, target_id: int) -> set[int]:
-        # Users who shadowbanned this target — the view hides their sessions.
         return self._repo.banning_owner_ids(target_id)
 
     def set_shadowban(self, *, owner_id: int, target_slug: str, banned: bool) -> None:
@@ -72,31 +71,37 @@ class ShadowbanService:
             return
 
         name_by_id = dict(signed_up)
-        names_by_presenter: dict[int, tuple[str, list[str]]] = {}
-        seen_by_presenter: dict[int, set[int]] = {}
+        names_by_recipient: dict[int, tuple[str, list[str], list[str]]] = {}
+        seen_by_recipient: dict[int, set[int]] = {}
         for hit in data.hits:
-            _email, names = names_by_presenter.setdefault(
-                hit.presenter_id, (hit.presenter_email, [])
+            _email, event_names, session_names = names_by_recipient.setdefault(
+                hit.recipient_id, (hit.recipient_email, [], [])
             )
-            seen = seen_by_presenter.setdefault(hit.presenter_id, set())
+            seen = seen_by_recipient.setdefault(hit.recipient_id, set())
             # Dedupe by banned user id, not name: two distinct players sharing
             # a display name must both be reported.
             if hit.banned_user_id in seen:
                 continue
             seen.add(hit.banned_user_id)
             if name := name_by_id.get(hit.banned_user_id):
-                names.append(name)
+                (session_names if hit.in_session else event_names).append(name)
 
-        for presenter_id, (email, names) in names_by_presenter.items():
-            if not names:
+        for recipient_id, (
+            email,
+            event_names,
+            session_names,
+        ) in names_by_recipient.items():
+            if not event_names and not session_names:
                 continue
             self._notifier.notify_shadowbanned_signup(
                 ShadowbanSignupNotification(
-                    recipient_user_id=presenter_id,
+                    recipient_user_id=recipient_id,
                     recipient_email=email,
                     event_slug=data.event_slug,
                     event_name=data.event_name,
-                    player_names=names,
+                    session_title=data.session_title,
+                    player_names=event_names,
+                    session_player_names=session_names,
                 )
             )
 

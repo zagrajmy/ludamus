@@ -2735,11 +2735,20 @@ msgstr "Cicho zbanowany gracz dołączył do %(event)s"
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid ""
-"Someone you shadowbanned signed up to %(event)s: %(players)s. They have not "
-"been notified. Review the event if you need to."
+"Someone you shadowbanned signed up to %(session)s, where you are playing: "
+"%(players)s."
 msgstr ""
-"Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s. Nie "
-"został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
+"Ktoś, kogo cicho zbanowałeś, zapisał się na %(session)s, gdzie grasz: "
+"%(players)s."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Someone you shadowbanned signed up to %(event)s: %(players)s."
+msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s."
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "They have not been notified. Review the event if you need to."
+msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"

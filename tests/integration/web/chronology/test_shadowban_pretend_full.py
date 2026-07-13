@@ -1,7 +1,6 @@
 from http import HTTPStatus
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import SessionParticipation
@@ -20,27 +19,40 @@ def _enroll_url(session_id: int, event_slug: str) -> str:
     )
 
 
-class TestShadowbanHidesSessions:
-    def test_event_page_hides_banner_sessions_from_shadowbanned_player(
+def _ban_viewer(agenda_item, viewer, *, username: str):
+    banner = UserFactory(username=username, email=f"{username}@example.com", name="GM")
+    session = agenda_item.session
+    session.presenter = banner
+    session.save()
+    banner.shadowbanned.add(viewer)
+    return session
+
+
+class TestShadowbanPretendFull:
+    # Intended behaviour: the banner's sessions render pretend-full, never
+    # hidden — a hidden session would reveal the ban (compare the program
+    # with a friend's view), a full one is deniable.
+    # See docs/features/crowd/profile/shadowban.md.
+
+    def test_event_page_shows_banner_session_as_full(
         self, authenticated_client, agenda_item, active_user, event
     ):
-        banner = UserFactory(username="gm", email="gm@example.com", name="GM")
-        session = agenda_item.session
-        session.presenter = banner
-        session.title = "Hidden Game"
-        session.display_name = "Hidden Game"
+        session = _ban_viewer(agenda_item, active_user, username="gm")
+        session.title = "Deniable Game"
+        session.display_name = "Deniable Game"
         session.save()
-        banner.shadowbanned.add(active_user)
 
         response = authenticated_client.get(_event_url(event.slug))
 
         assert response.status_code == HTTPStatus.OK
-        assert response.context["sessions"] == []
-        assert "Hidden Game" not in response.content.decode()
+        assert "Deniable Game" in response.content.decode()
+        (card,) = response.context["sessions"]
+        assert card.is_full
+        assert card.spots_left == 0
+        assert card.enrolled_count == card.effective_participants_limit
+        assert all(p.user.pk < 0 for p in card.session_participations)
 
-    def test_event_page_shows_banner_sessions_to_other_users(
-        self, agenda_item, event, client
-    ):
+    def test_event_page_untouched_for_other_users(self, agenda_item, event, client):
         session = agenda_item.session
         session.title = "Visible Game"
         session.display_name = "Visible Game"
@@ -50,34 +62,28 @@ class TestShadowbanHidesSessions:
 
         assert response.status_code == HTTPStatus.OK
         assert "Visible Game" in response.content.decode()
+        (card,) = response.context["sessions"]
+        assert not card.is_full
 
-    def test_enroll_page_redirects_shadowbanned_player(
+    def test_enroll_page_bounces_to_event_without_error(
         self, authenticated_client, agenda_item, active_user
     ):
-        banner = UserFactory(username="gm2", email="gm2@example.com", name="GM")
-        session = agenda_item.session
-        session.presenter = banner
-        session.save()
-        banner.shadowbanned.add(active_user)
+        session = _ban_viewer(agenda_item, active_user, username="gm2")
 
         response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Session not found.")],
-            url="/",
+            messages=[],
+            url=_event_url(session.event.slug),
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_enroll_post_blocked_for_shadowbanned_player(
+    def test_enroll_post_blocked_and_bounced(
         self, authenticated_client, agenda_item, active_user
     ):
-        banner = UserFactory(username="gm3", email="gm3@example.com", name="GM")
-        session = agenda_item.session
-        session.presenter = banner
-        session.save()
-        banner.shadowbanned.add(active_user)
+        session = _ban_viewer(agenda_item, active_user, username="gm3")
 
         response = authenticated_client.post(
             _enroll_url(session.pk, session.event.slug),
@@ -87,8 +93,8 @@ class TestShadowbanHidesSessions:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Session not found.")],
-            url="/",
+            messages=[],
+            url=_event_url(session.event.slug),
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session
@@ -100,11 +106,7 @@ class TestShadowbanHidesSessions:
     ):
         # The manager is not banned (so the guard passes), but their connected
         # sub-user is — and must not get a seat in the banner's session.
-        banner = UserFactory(username="gm4", email="gm4@example.com", name="GM")
-        session = agenda_item.session
-        session.presenter = banner
-        session.save()
-        banner.shadowbanned.add(connected_user)
+        session = _ban_viewer(agenda_item, connected_user, username="gm4")
 
         response = authenticated_client.post(
             _enroll_url(session.pk, session.event.slug),

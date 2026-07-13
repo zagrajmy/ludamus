@@ -49,6 +49,7 @@ class FakeRepo:
         return ShadowbanEventSignupDTO(
             event_slug=self._signup.event_slug,
             event_name=self._signup.event_name,
+            session_title=self._signup.session_title,
             hits=[h for h in self._signup.hits if h.banned_user_id in signed_up_ids],
         )
 
@@ -68,15 +69,21 @@ def _service(repo, notifier=None):
     return ShadowbanService(FakeTransaction(), repo, notifier or FakeNotifier())
 
 
-def _hit(presenter_id, email, banned_user_id):
+def _hit(recipient_id, email, banned_user_id, *, in_session=False):
     return ShadowbanHitDTO(
-        presenter_id=presenter_id, presenter_email=email, banned_user_id=banned_user_id
+        recipient_id=recipient_id,
+        recipient_email=email,
+        banned_user_id=banned_user_id,
+        in_session=in_session,
     )
 
 
 def _signup(*hits):
     return ShadowbanEventSignupDTO(
-        event_slug="con-2026", event_name="Con 2026", hits=list(hits)
+        event_slug="con-2026",
+        event_name="Con 2026",
+        session_title="Deniable Game",
+        hits=list(hits),
     )
 
 
@@ -162,6 +169,26 @@ def test_notify_signups_emails_presenter_about_banned_players():
     assert notification.recipient_email == "gm@example.com"
     assert notification.event_slug == "con-2026"
     assert notification.player_names == ["Bob"]
+    assert notification.session_player_names == []
+
+
+def test_notify_signups_discerns_signup_into_recipients_session():
+    repo = FakeRepo(
+        signup=_signup(
+            _hit(_PRESENTER_ID, "gm@example.com", 2, in_session=True),
+            _hit(_PRESENTER_ID, "gm@example.com", 3),
+        )
+    )
+    notifier = FakeNotifier()
+    service = _service(repo, notifier)
+
+    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")])
+
+    assert len(notifier.signups) == 1
+    notification = notifier.signups[0]
+    assert notification.session_player_names == ["Bob"]
+    assert notification.player_names == ["Alice"]
+    assert notification.session_title == "Deniable Game"
 
 
 def test_notify_signups_notifies_every_banner_in_the_event():

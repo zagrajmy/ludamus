@@ -228,14 +228,31 @@ class DjangoUserNotifier:
     def notify_shadowbanned_signup(
         self, notification: ShadowbanSignupNotification
     ) -> None:
-        players = ", ".join(notification.player_names)
         title = _("A shadowbanned player joined %(event)s") % {
             "event": notification.event_name
         }
-        body = _(
-            "Someone you shadowbanned signed up to %(event)s: %(players)s. "
-            "They have not been notified. Review the event if you need to."
-        ) % {"event": notification.event_name, "players": players}
+        parts = []
+        if notification.session_player_names:
+            parts.append(
+                _(
+                    "Someone you shadowbanned signed up to %(session)s, "
+                    "where you are playing: %(players)s."
+                )
+                % {
+                    "session": notification.session_title,
+                    "players": ", ".join(notification.session_player_names),
+                }
+            )
+        if notification.player_names:
+            parts.append(
+                _("Someone you shadowbanned signed up to %(event)s: %(players)s.")
+                % {
+                    "event": notification.event_name,
+                    "players": ", ".join(notification.player_names),
+                }
+            )
+        parts.append(_("They have not been notified. Review the event if you need to."))
+        body = " ".join(parts)
         self._deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
