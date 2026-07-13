@@ -10,7 +10,7 @@
 {% for day in room_lane_days %}
     <section data-schedule-day class="mb-8 last:mb-0">
         {% include "chronology/_schedule_day_header.html" %}
-        <div class="overflow-x-auto overscroll-x-contain">
+        <div class="scrollview-fade scrollview-fade-x-8 overflow-x-auto overscroll-x-contain">
             <table class="room-lanes-table w-full table-fixed border-separate border-spacing-1"
                    style="--room-count: {{ day.rooms|length }}">
                 <thead>

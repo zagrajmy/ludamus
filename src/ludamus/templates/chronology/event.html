@@ -311,6 +311,8 @@
                             <span id="active-filter-count"
                                   class="filter-badge hidden min-w-5 h-5 px-1.5 rounded-full text-[0.6875rem] font-bold leading-5 text-center bg-primary text-white"></span>
                         </button>
+                        {# The panel div stays the last child of the wrapper; the popover #}
+                        {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
                                 <div class="flex flex-col gap-1.5">
@@ -395,6 +397,11 @@
                             </div>
                         </div>
                     </div>
+                    {% if compact_schedule %}
+                        {# Below lg the view tabs render above the schedule instead #}
+                        {# (_compact_schedule.html). #}
+                        <div class="hidden self-center lg:block">{% include "chronology/_schedule_view_tabs.html" %}</div>
+                    {% endif %}
                 </div>
                 <div id="active-filter-chips"
                      class="filter-chips-bar"

@@ -1,0 +1,11 @@
+{% load i18n %}
+{% load tessera %}
+{% translate "Schedule view" as t_schedule_view %}
+{% tabs variant="segment" aria_label=t_schedule_view %}
+{% tab "list" icon="list-bullet" href=schedule_list_url active=schedule_view_is_list %}
+{% translate "List" %}
+{% end_tab %}
+{% tab "rooms" icon="table-cells" href=schedule_rooms_url active=schedule_view_is_rooms %}
+{% translate "Rooms" %}
+{% end_tab %}
+{% end_tabs %}
