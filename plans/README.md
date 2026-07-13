@@ -32,6 +32,7 @@ deferred finding later.
 | 015 | Migrate current_user() context off di.uow | P3 | S | — | DONE |
 | 016 | Delete read_site and SphereDTO.site_id | P3 | S | 006 | DONE |
 | 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | DONE |
+| 018 | Skip notices warn; cancel works with no config | P2 | S | 017 | DONE |
 
 ## Execution log (2026-07-09)
 
@@ -62,12 +63,11 @@ reviewed, and landed the same day. Outcomes and learnings:
 - **010 landed partially by owner decision**: only the `dbos <3`
   upper bound (a tightening) shipped. The django-vite `==3.1.0`
   relaxation was rejected — owner: "we lock for security".
-- **017 suspected bugs** (characterized as-is, candidates for issues):
-  skip notices flash at `messages.SUCCESS` level (a skip rendered as
-  a green toast, `views.py:1507-1528`); with zero `EnrollmentConfig`
-  rows a user cannot cancel an existing enrollment
-  (`views.py:1072-1081`) — enrollees get stuck if an organizer
-  deletes all configs.
+- **017 suspected bugs** — both FIXED by plan 018 (2026-07-13): skip
+  notices now flash at `messages.WARNING`, and cancel works with zero
+  `EnrollmentConfig` rows (guest increases riding along with cancels
+  are rejected as over capacity). Plan 018's executor also audited
+  the anonymous flow: it carries neither bug.
 - 017's audit found the enrollment view already 99.25% covered with
   32/33 behaviors asserted; one neutral-message assertion was added.
 - 011's cache effectiveness is reviewer-verified on the next CI runs
