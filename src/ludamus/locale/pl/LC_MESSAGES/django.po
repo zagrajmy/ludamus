@@ -585,6 +585,10 @@ msgstr "Bez zmian (konflikt czasowy)"
 msgid "Join waiting list"
 msgstr "Dołącz do listy oczekujących"
 
+#: src/ludamus/templates/chronology/event.html
+msgid "Session full"
+msgstr "Brak miejsc"
+
 #: src/ludamus/adapters/web/django/forms.py
 msgid "Time conflict detected"
 msgstr "Konflikt czasowy"
@@ -2731,6 +2735,11 @@ msgstr ""
 #, python-format
 msgid "A shadowbanned player joined %(event)s"
 msgstr "Cicho zbanowany gracz dołączył do %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "A shadowbanned player joined %(session)s with you"
+msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format

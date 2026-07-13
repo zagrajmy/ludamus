@@ -86,6 +86,10 @@ class TestShadowbanSignupNotification:
 
         assert response.status_code == HTTPStatus.FOUND
         assert len(mailoutbox) == 1
+        assert (
+            mailoutbox[0].subject
+            == "A shadowbanned player joined Shared Table with you"
+        )
         assert "Shared Table" in mailoutbox[0].body
         assert "where you are playing" in mailoutbox[0].body
 

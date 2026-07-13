@@ -45,8 +45,11 @@ class TestShadowbanPretendFull:
         response = authenticated_client.get(_event_url(event.slug))
 
         assert response.status_code == HTTPStatus.OK
-        assert "Deniable Game" in response.content.decode()
+        content = response.content.decode()
+        assert "Deniable Game" in content
+        assert "Session full" in content
         (card,) = response.context["sessions"]
+        assert card.pretend_full
         assert card.is_full
         assert card.spots_left == 0
         assert card.enrolled_count == card.effective_participants_limit
@@ -73,10 +76,7 @@ class TestShadowbanPretendFull:
         response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[],
-            url=_event_url(session.event.slug),
+            response, HTTPStatus.FOUND, messages=[], url=_event_url(session.event.slug)
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -91,10 +91,7 @@ class TestShadowbanPretendFull:
         )
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[],
-            url=_event_url(session.event.slug),
+            response, HTTPStatus.FOUND, messages=[], url=_event_url(session.event.slug)
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session

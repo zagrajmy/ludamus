@@ -87,6 +87,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     should_show_as_inactive: bool = (
         False  # True if should be displayed as inactive due to limit_to_end_time
     )
+    pretend_full: bool = False
 
     @property
     def is_pending_proposal(self) -> bool:

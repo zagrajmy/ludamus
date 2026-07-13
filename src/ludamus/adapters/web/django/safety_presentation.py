@@ -49,4 +49,5 @@ def fake_full_card(session_data: SessionData) -> SessionData:
         user_enrolled=False,
         user_waiting=False,
         session_participations=_simulacra_participations(min(3, fill)),
+        pretend_full=True,
     )
