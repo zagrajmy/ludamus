@@ -4426,26 +4426,20 @@ msgid "created %(created)s"
 msgstr "utworzona %(created)s"
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, fuzzy
-#| msgid "invited"
 msgid "Invite"
-msgstr "zaproszono"
+msgstr "Zaproś"
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, fuzzy
-#| msgid "More options"
 msgid "More actions"
 msgstr "Więcej opcji"
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, fuzzy
-#| msgid "username"
 msgid "Rename"
-msgstr "Nazwa użytkownika"
+msgstr "Zmień nazwę"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "History"
-msgstr ""
+msgstr "Historia"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
