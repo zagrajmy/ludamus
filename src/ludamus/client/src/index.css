@@ -183,13 +183,18 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Snap the app scroller to whole hours on the compact event schedule so a tap
-   or drag on the hour rail lands on a section rather than mid-row. Proximity
-   (not mandatory) keeps the header and filter bar freely scrollable. Added by
-   event-timeline.ts only when a compact schedule is on the page, so other
-   pages never opt the shared scroller into snapping. */
-.app-scroll.schedule-snap {
-  scroll-snap-type: y proximity;
+.schedule-rail.is-scrubbing,
+.schedule-rail.is-scrubbing * {
+  cursor: grabbing;
+}
+
+/* Give every room lane a usable minimum width; the table then overflows into
+   its scroll container instead of crushing columns. --room-count is always set
+   inline by _room_lanes.html (no fallback on purpose — a missing value should
+   fail visibly, not silently clamp to a guess). 3.5rem covers the w-12 sticky
+   time column plus the border-spacing around it. */
+.room-lanes-table {
+  min-width: calc(3.5rem + var(--room-count) * 10rem);
 }
 
 /* Lock the page scroll while any modal is open. Freezing the container keeps its

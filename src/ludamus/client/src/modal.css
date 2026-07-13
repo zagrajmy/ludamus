@@ -75,12 +75,12 @@
   }
 }
 
-.session-card.session-card-suppressed {
+.session.session-suppressed {
   @apply pointer-events-none border-dashed bg-neutral-100 dark:bg-neutral-800/60;
   border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
 }
 
-.session-card.session-card-suppressed > * {
+.session.session-suppressed > * {
   visibility: hidden;
 }
 
