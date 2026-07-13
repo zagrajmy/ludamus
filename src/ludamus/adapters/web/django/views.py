@@ -1080,8 +1080,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         if enrollment_requests and all(
             req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
         ):
-            # Cancellations only release seats, so they must work even after
-            # the organizer deleted every enrollment config for the event.
+            # Cancels release seats and must work with all configs deleted.
             return event.enrollment_configs.order_by("pk").first()
 
         if not (enrollment_config := event.get_most_liberal_config(session)):
@@ -1744,9 +1743,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        # No config rows (cancel-only carve-out) means the config contributes
-        # zero slots; a guest increase riding along with the cancels stays
-        # bounded by the seats those cancels free in this same batch.
+        # Zero config rows (cancel-only carve-out) contribute no slots; guest
+        # increases stay bounded by seats freed by the same batch's cancels.
         config_slots = (
             enrollment_config.get_available_slots(session) if enrollment_config else 0
         )

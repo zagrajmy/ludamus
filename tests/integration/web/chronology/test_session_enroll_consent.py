@@ -549,7 +549,14 @@ class TestMemberAllowanceOnRestrictedEvent:
             _url(agenda_item), data={f"user_{member.pk}": "enroll"}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[(messages.SUCCESS, f"Enrolled: {member.name}")],
+        )
         participation = SessionParticipation.objects.get(user=member)
         assert participation.status == SessionParticipationStatus.CONFIRMED
 
@@ -580,9 +587,17 @@ class TestWayOutOfHeldSeat:
             )
         )
 
-        assert response.status_code == HTTPStatus.FOUND
-        texts = [str(m) for m in get_messages(response.wsgi_request)]
-        assert "Offer declined — the seat was released." in texts
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (messages.SUCCESS, "Seat held (awaiting their approval): Mira Member"),
+                (messages.SUCCESS, "Offer declined — the seat was released."),
+            ],
+        )
         assert not SessionParticipation.objects.filter(user=member).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -624,9 +639,22 @@ class TestWayOutOfHeldSeat:
             _url(agenda_item), data={f"user_{member.pk}": "cancel"}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
-        texts = [str(m) for m in get_messages(response.wsgi_request)]
-        assert f"Cancelled: {member.name}" in texts
+        # The client is shared with the setup POST, so its "Seat held"
+        # flash is still queued ahead of the cancellation confirmation.
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                ),
+                (messages.SUCCESS, f"Cancelled: {member.name}"),
+            ],
+        )
         assert not SessionParticipation.objects.filter(user=member).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
