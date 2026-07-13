@@ -39,7 +39,6 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
-MAX_COMPANIONS = 6  # Maximum number of companions per manager
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)

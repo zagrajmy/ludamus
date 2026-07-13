@@ -9,8 +9,7 @@ from ludamus.gates.web.django.crowd.forms import (
     PartyInviteForm,
     PartyNameForm,
 )
-from ludamus.links.db.django.models import MAX_COMPANIONS
-from ludamus.pacts.party import PartyMembershipStatus
+from ludamus.pacts.party import MAX_COMPANIONS, PartyMembershipStatus
 
 if TYPE_CHECKING:
     from django import forms

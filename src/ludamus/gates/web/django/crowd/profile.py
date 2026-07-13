@@ -24,8 +24,8 @@ from ludamus.gates.web.django.crowd.helpers import (
     build_parties_context,
     companion_edit_auto_id,
 )
-from ludamus.links.db.django.models import MAX_COMPANIONS
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.party import MAX_COMPANIONS
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse

@@ -6,15 +6,11 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from ludamus.links.db.django.models import (
-    MAX_COMPANIONS,
-    Party,
-    PartyMembership,
-    User,
-)
+from ludamus.links.db.django.models import Party, PartyMembership, User
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.party import (
+    MAX_COMPANIONS,
     PartyConsentMode,
     PartyDTO,
     PartyInviteDTO,
