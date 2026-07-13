@@ -45,9 +45,8 @@ _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
 
 
 class AliveManager(models.Manager[_SoftDeleteT]):
-    # The default `objects` manager hides soft-deleted rows so every existing
-    # read (including reverse relations like `category.sessions`) excludes them
-    # automatically. Reach soft-deleted rows through `all_objects`.
+    # Default `objects` hides soft-deleted rows from every read, including reverse
+    # relations like `category.sessions`; use `all_objects` to reach them.
     def get_queryset(self) -> models.QuerySet[_SoftDeleteT]:
         return super().get_queryset().filter(deleted_at__isnull=True)
 
@@ -125,9 +124,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
-    # Single-use handle that lets the intended person sign in and take over a
-    # managed (connected) row as their own account. Mirrors the waitlist-offer
-    # claim_token pattern. Empty for active accounts.
+    # Single-use handle for the intended person to claim a managed (connected) row.
+    # Mirrors the waitlist-offer claim_token pattern; empty for active accounts.
     claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
     shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
         "self",
@@ -768,6 +766,8 @@ class SessionManager(AliveManager["Session"]):
             return set()
         start = session.agenda_item.start_time
         end = session.agenda_item.end_time
+        # Superset-safe: never misses a genuine conflict; extra ids the join might
+        # return are harmless since callers only probe membership of their own user_ids.
         return set(
             self.get_queryset()
             .filter(
