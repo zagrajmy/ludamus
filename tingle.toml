@@ -95,7 +95,8 @@ ranges = ["python-tests"]
 name = "mock-ANY"
 type = "regex_count"
 group = "testing"
-pattern = '(?!.*(view|form)).*\bANY\b.*'
+pattern = '^(?!.*(view|form|import)).*\bANY\b'
+flags = ["MULTILINE"]
 ranges = ["python-tests"]
 
 
@@ -149,7 +150,7 @@ ranges = ["python-src"]
 name = "type-object"
 type = "regex_count"
 group = "typing"
-pattern = '(?<![\.\w])object\b'
+pattern = '(?<![\.\w])object\b(?!-)'
 ranges = ["python-src"]
 
 [[metrics]]
