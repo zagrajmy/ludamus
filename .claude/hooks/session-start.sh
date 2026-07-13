@@ -53,17 +53,22 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi
 
+export DEBIAN_FRONTEND=noninteractive
+
+# Unconditional and before any other apt consumer: image PPAs occasionally
+# change their metadata (e.g. ondrej/php renamed its Label), which fails every
+# apt-get update until the change is accepted once with
+# --allow-releaseinfo-change — including the one `playwright install
+# --with-deps` runs internally.
+apt-get update -q --allow-releaseinfo-change > /dev/null \
+  || echo "WARN: apt-get update failed"
+
 # python3.14 and pipx come from apt: mise.sandbox.toml disables the (blocked)
 # mise-managed python, the sandbox image preconfigures the deadsnakes PPA, and
 # `_.python.venv` then creates .venv from this interpreter. pipx serves the
 # pipx: backends (poetry, shellcheck, hadolint).
 if ! command -v python3.14 > /dev/null 2>&1 \
   || ! command -v pipx > /dev/null 2>&1; then
-  export DEBIAN_FRONTEND=noninteractive
-  # --allow-releaseinfo-change: image PPAs occasionally change their metadata
-  # (e.g. ondrej/php renamed its Label), which otherwise fails the update.
-  apt-get update -q --allow-releaseinfo-change > /dev/null \
-    || echo "WARN: apt-get update failed"
   apt-get install -y -q python3.14 python3.14-venv pipx > /dev/null \
     || echo "WARN: apt-get install python3.14/pipx failed; Python tooling may be unavailable"
 fi

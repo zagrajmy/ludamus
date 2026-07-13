@@ -23,3 +23,9 @@ sentences each: what you were doing → what got in the way. See CLAUDE.md.
   match @playwright/test 1.58.2 (needs 1208), so e2e cannot launch a browser
   and the preinstalled-browsers fallback is not real. Plain
   `playwright install` without `--with-deps` works through the proxy.
+- 2026-07-13: 5 of 143 e2e tests fail in the remote sandbox but pass in CI
+  (cover-images upload, panel-crud facilitator, panel settings rename, firefox
+  proposal-delete-restore, firefox velvet-sound reload hang). Clean DB and
+  --workers=1 do not help; form POSTs exceed the 10s expect timeout and firefox
+  never fires load on /design/ reload. Environment-specific, predates the
+  sandbox-parity PRs.
