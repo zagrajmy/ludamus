@@ -71,7 +71,7 @@ const init = (): void => {
   /** Update the pref first so turning sound on is audible and turning it off isn't. */
   document.addEventListener("change", ({ target }) => {
     if (!(target instanceof HTMLInputElement)) return;
-    if (target.type === "radio") play("press");
+    if (target.type === "radio") play("toggle");
     if (target.type !== "checkbox") return;
     if (target.matches("[data-sound-toggle]")) setEnabled(target.checked);
     play("toggle");
