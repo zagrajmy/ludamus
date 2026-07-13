@@ -13,7 +13,7 @@ from ludamus.adapters.db.django.models import User, UserType
 from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.pacts.crowd import ClaimableProfileDTO
 from ludamus.pacts.party import PartyConsentMode
-from tests.integration.conftest import UserFactory
+from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
 
 
@@ -201,6 +201,7 @@ class TestClaimRedemptionOnLogin:
     def test_converts_managed_row_into_account(self, token_mock, client, faker):
         manager = _active(username="mgr", slug="mgr")
         kid = _connected(manager=manager, token="claimtok", username="connected|kid")
+        sponsor_user(leader=manager, member=kid)
         sub = faker.uuid4()
         token_mock.return_value = {"userinfo": {"sub": sub}}
         self._arm_claim(client, "claimtok")
@@ -296,9 +297,8 @@ class TestClaimRepository:
         assert ClaimRepository.convert(token="", username="auth0|sneak") is None
         kid.refresh_from_db()
         assert kid.user_type == UserType.CONNECTED
-        membership = kid.party_memberships.get()
-        assert membership.party.leader_id == manager.pk
-        assert membership.consent_mode == PartyConsentMode.ACCEPT_BY_DEFAULT
+        assert kid.manager_id == manager.pk
+        assert not kid.party_memberships.exists()
 
     def test_convert_is_single_use(self):
         manager = _active(username="mgr", slug="mgr")
@@ -309,10 +309,8 @@ class TestClaimRepository:
         assert slug == kid.slug
         kid.refresh_from_db()
         assert kid.user_type == UserType.ACTIVE
+        assert kid.manager_id is None
         assert not kid.claim_token
-        assert kid.party_memberships.get().consent_mode == (
-            PartyConsentMode.ACCEPT_INVITES
-        )
         # The token is spent: a second redemption finds nothing.
         assert ClaimRepository.convert(token="tok", username="auth0|other") is None
         assert ClaimRepository.read_claimable("tok") is None

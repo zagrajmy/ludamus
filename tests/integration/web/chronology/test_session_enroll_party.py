@@ -16,7 +16,7 @@ from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from tests.integration.conftest import UserFactory
+from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
 
 
@@ -51,7 +51,7 @@ class TestEnrollRecordsParty:
     def test_post_records_default_party_on_all_seats(
         self, authenticated_client, active_user, connected_user, agenda_item
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
         _reassign_presenter(agenda_item)
 
         response = authenticated_client.post(
@@ -99,7 +99,7 @@ class TestEnrollRecordsParty:
         # No explicit party parameter defaults to the viewer's own led party,
         # so the group promotes together — visible and escapable via the
         # always-shown selector.
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
         _reassign_presenter(agenda_item)
 
         response = authenticated_client.post(
@@ -154,8 +154,10 @@ class TestPartySelector:
     # first party) is applied automatically, and the checkboxes alone decide
     # who enrolls. The ?party= URL contract stays for the server.
     def test_default_party_applies_without_selector(
-        self, authenticated_client, connected_user, agenda_item
+        self, authenticated_client, active_user, connected_user, agenda_item
     ):
+        sponsor_user(leader=active_user, member=active_user)
+
         response = authenticated_client.get(_url(agenda_item))
 
         assert response.status_code == HTTPStatus.OK
@@ -170,8 +172,9 @@ class TestPartySelector:
         assert "Enrolling as" not in response.content.decode()
 
     def test_just_myself_hides_companions_and_hint(
-        self, authenticated_client, connected_user, agenda_item
+        self, authenticated_client, active_user, connected_user, agenda_item
     ):
+        sponsor_user(leader=active_user, member=active_user)
         # Companions enroll through the party; enrolling as just myself shows
         # only the viewer's own row, without the add-companions hint or the
         # party grouping hint.
@@ -206,6 +209,7 @@ class TestPartySelector:
     def test_own_led_party_wins_the_default_with_multiple_parties(
         self, authenticated_client, active_user, connected_user, agenda_item
     ):
+        sponsor_user(leader=active_user, member=active_user)
         friend = UserFactory(username="friend", name="Frida Friend")
         crew = Party.objects.create(leader=friend, name="Ekipa")
         _join(crew, friend)

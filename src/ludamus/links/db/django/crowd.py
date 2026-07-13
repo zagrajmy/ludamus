@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.hashers import make_password
 
 from ludamus.adapters.db.django.models import (
-    Party,
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
@@ -21,7 +20,7 @@ from ludamus.pacts.crowd import (
     UserRepositoryProtocol,
     UserType,
 )
-from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
 
@@ -86,18 +85,6 @@ class UserRepository(UserRepositoryProtocol):
         return query.exists()
 
 
-def _default_led_party(leader: User) -> Party:
-    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
-        party = Party.objects.create(leader=leader, name="")
-        PartyMembership.objects.create(
-            party=party,
-            member=leader,
-            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
-            status=PartyMembershipStatus.ACTIVE,
-        )
-    return party
-
-
 class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
     @staticmethod
     def read_all(manager_slug: str) -> list[ConnectedUserDTO]:
@@ -114,13 +101,7 @@ class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
     @staticmethod
     def create(manager_slug: str, user_data: UserData) -> None:
         manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
-        user = User.objects.create(**user_data)
-        PartyMembership.objects.create(
-            party=_default_led_party(manager),
-            member=user,
-            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
-            status=PartyMembershipStatus.ACTIVE,
-        )
+        User.objects.create(**user_data, manager=manager)
 
     @staticmethod
     def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO:
@@ -193,6 +174,7 @@ class ClaimRepository(ClaimRepositoryProtocol):
         ).update(
             username=username,
             user_type=UserType.ACTIVE,
+            manager=None,
             password=make_password(None),
             claim_token="",
         )

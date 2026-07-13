@@ -129,6 +129,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     # managed (connected) row as their own account. Mirrors the waitlist-offer
     # claim_token pattern. Empty for active accounts.
     claim_token = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    manager = models.ForeignKey(
+        "self",
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name="connected",
+    )
     shadowbanned: models.ManyToManyField[User, Shadowban] = models.ManyToManyField(
         "self",
         symmetrical=False,

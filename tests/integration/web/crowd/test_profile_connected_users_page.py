@@ -10,36 +10,11 @@ from ludamus.adapters.db.django.models import (
     PartyMembership,
     User,
 )
-from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import ConnectedUserDTO, UserType
-from ludamus.pacts.party import (
-    PartyConsentMode,
-    PartyDTO,
-    PartyMemberDTO,
-    PartyMembershipStatus,
-)
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 PARTIES_URL = reverse("web:crowd:profile-parties")
-
-
-def _member_dto(user, party):
-    membership = PartyMembership.objects.get(party=party, member=user)
-    return PartyMemberDTO(
-        membership_pk=membership.pk,
-        user_pk=user.pk,
-        name=user.name,
-        full_name=user.get_full_name(),
-        username=user.username,
-        slug=user.slug,
-        is_login_less=user.user_type == UserType.CONNECTED,
-        is_leader=party.leader_id == user.pk,
-        consent_mode=PartyConsentMode(membership.consent_mode),
-        status=PartyMembershipStatus(membership.status),
-        claim_token=user.claim_token,
-        avatar_url=user.avatar_url or gravatar_url(user.email) or "",
-    )
 
 
 class TestProfileConnectedUsersPageView:
@@ -62,8 +37,8 @@ class TestProfileConnectedUsersPageView:
         )
         user = User.objects.get(name=data["name"])
         assert user.user_type == UserType.CONNECTED
-        membership = PartyMembership.objects.get(member=user)
-        assert membership.party.leader_id == active_user.pk
+        assert user.manager_id == active_user.pk
+        assert not PartyMembership.objects.filter(member=user).exists()
 
     def test_post_error_form_invalid(self, authenticated_client):
         response = authenticated_client.post(self.URL)
@@ -105,8 +80,6 @@ class TestProfileConnectedUsersPageView:
         data = {"name": faker.name(), "user_type": UserType.CONNECTED}
         response = authenticated_client.post(self.URL, data=data)
 
-        party = Party.objects.get(leader=active_user)
-        members = [_member_dto(user, party) for user in (active_user, *companions)]
         assert_response(
             response,
             HTTPStatus.OK,
@@ -120,23 +93,7 @@ class TestProfileConnectedUsersPageView:
             context_data={
                 "form": ANY,
                 "view": ANY,
-                "parties": [
-                    {
-                        "party": PartyDTO(
-                            pk=party.pk,
-                            name=party.name,
-                            leader_pk=active_user.pk,
-                            leader_name=active_user.get_full_name(),
-                            is_leader=True,
-                            is_default=True,
-                            created_at=party.created_at,
-                            members=members,
-                        ),
-                        "stack": members[:5],
-                        "stack_overflow": len(members) - 5,
-                        "active_count": len(members),
-                    }
-                ],
+                "parties": [],
                 "invites": [],
                 "companions": [
                     {
@@ -158,12 +115,11 @@ class TestProfileConnectedUsersPageView:
         connected_count = User.objects.filter(user_type=UserType.CONNECTED).count()
         assert connected_count == MAX_CONNECTED_USERS
 
-    def test_companion_join_the_leaders_existing_default_party(
-        self, authenticated_client, active_user, connected_user, faker
+    def test_companion_does_not_join_the_leaders_existing_default_party(
+        self, authenticated_client, active_user, faker
     ):
-        default_party = Party.objects.get(
-            leader=active_user, memberships__member=connected_user
-        )
+        default_party = Party.objects.create(leader=active_user, name="")
+        PartyMembership.objects.create(party=default_party, member=active_user)
         data = {"name": faker.name(), "user_type": UserType.CONNECTED}
 
         response = authenticated_client.post(self.URL, data=data)
@@ -175,4 +131,5 @@ class TestProfileConnectedUsersPageView:
             url=PARTIES_URL,
         )
         user = User.objects.get(name=data["name"])
-        assert PartyMembership.objects.get(member=user).party_id == default_party.pk
+        assert user.manager_id == active_user.pk
+        assert not PartyMembership.objects.filter(member=user).exists()

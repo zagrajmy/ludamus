@@ -306,11 +306,7 @@ class PartyRepository(PartyRepositoryProtocol):
             return []
         return [
             ConnectedUserDTO.model_validate(companion)
-            for companion in (
-                active_companions(party.leader.slug)
-                .filter(party_memberships__party_id=party_pk)
-                .order_by("pk")
-            )
+            for companion in active_companions(party.leader.slug).order_by("pk")
         ]
 
     @staticmethod

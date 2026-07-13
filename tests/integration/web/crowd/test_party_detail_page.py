@@ -10,7 +10,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from tests.integration.conftest import UserFactory
+from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.crowd.test_profile_parties_page import (
     _member_dto,
@@ -41,7 +41,8 @@ class TestPartyDetailPageView:
     def test_get_led_party_shows_members_and_forms(
         self, authenticated_client, active_user, connected_user
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
+        sponsor_user(leader=active_user, member=connected_user)
 
         response = authenticated_client.get(_url(party))
 
@@ -143,7 +144,8 @@ class TestPartyDetailSessionHistory:
     def test_history_groups_party_sessions_by_event(
         self, authenticated_client, active_user, connected_user, session, agenda_item
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
+        sponsor_user(leader=active_user, member=connected_user)
         session.title = "Wspólna Wyprawa"
         session.save()
         self._enroll_party(party, session, active_user, connected_user)
@@ -185,7 +187,8 @@ class TestPartyDetailSessionHistory:
         self, authenticated_client, active_user, connected_user, session, agenda_item
     ):
         _ = agenda_item
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
+        sponsor_user(leader=active_user, member=connected_user)
         SessionParticipation.objects.create(
             session=session,
             user=active_user,
@@ -217,7 +220,8 @@ class TestPartyDetailSessionHistory:
         self, authenticated_client, active_user, connected_user, session, agenda_item
     ):
         _ = agenda_item
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
+        sponsor_user(leader=active_user, member=connected_user)
         self._enroll_party(party, session, active_user, connected_user)
         banner = UserFactory(username="gm", name="GM", email="gm@example.com")
         session.presenter = banner

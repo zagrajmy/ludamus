@@ -117,10 +117,10 @@ class TestPartiesPageView:
             contains="No party yet",
         )
 
-    def test_get_default_party_with_companion(
+    def test_get_party_and_companion_are_separate(
         self, authenticated_client, active_user, connected_user
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
 
         response = authenticated_client.get(URL)
 
@@ -132,10 +132,7 @@ class TestPartiesPageView:
                     _entry(
                         party,
                         active_user,
-                        [
-                            _member_dto(active_user, party),
-                            _member_dto(connected_user, party),
-                        ],
+                        [_member_dto(active_user, party)],
                         is_default=True,
                     )
                 ],
@@ -297,7 +294,8 @@ class TestPartyDeleteActionView:
     def test_post_refuses_party_with_companions(
         self, authenticated_client, active_user, connected_user
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
+        sponsor_user(leader=active_user, member=connected_user)
 
         response = authenticated_client.post(
             reverse("web:crowd:parties-delete", kwargs={"pk": party.pk})
@@ -320,7 +318,8 @@ class TestPartyDeleteActionView:
         companion = UserFactory(
             username="their-kid", user_type=UserType.CONNECTED, manager=stranger
         )
-        party = Party.objects.get(leader=stranger)
+        party = sponsor_user(leader=stranger, member=stranger)
+        sponsor_user(leader=stranger, member=companion)
 
         response = authenticated_client.post(
             reverse("web:crowd:parties-delete", kwargs={"pk": party.pk})
@@ -711,7 +710,8 @@ class TestPartyMemberRemoveActionView:
     def test_post_rejects_companion_membership(
         self, authenticated_client, active_user, connected_user
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
+        sponsor_user(leader=active_user, member=connected_user)
         membership = PartyMembership.objects.get(party=party, member=connected_user)
 
         response = authenticated_client.post(
@@ -791,7 +791,9 @@ class TestPartyLeaveActionView:
 
 
 class TestCompanionMembershipWriteThrough:
-    def test_companion_lands_in_default_party(self, authenticated_client, active_user):
+    def test_companion_does_not_land_in_default_party(
+        self, authenticated_client, active_user
+    ):
         sponsor_user(leader=active_user, member=active_user)
 
         response = authenticated_client.post(
@@ -806,9 +808,8 @@ class TestCompanionMembershipWriteThrough:
             messages=[(messages.SUCCESS, "Connected user added successfully!")],
         )
         companion = User.objects.get(name="Kiddo")
-        membership = PartyMembership.objects.get(member=companion)
-        assert membership.party.leader_id == active_user.pk
-        assert membership.consent_mode == PartyConsentMode.ACCEPT_BY_DEFAULT
+        assert companion.manager_id == active_user.pk
+        assert not PartyMembership.objects.filter(member=companion).exists()
 
 
 class TestPartyConsentActionView:

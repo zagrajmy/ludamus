@@ -68,7 +68,6 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
         django_get_or_create = ("username",)
-        # The manager hook only creates rows; the user needs no second save.
         skip_postgeneration_save = True
 
     username = Faker("user_name")
@@ -83,7 +82,8 @@ class UserFactory(DjangoModelFactory):
     @post_generation
     def manager(self, create, extracted):
         if create and extracted is not None:
-            sponsor_user(leader=extracted, member=self)
+            self.manager = extracted
+            self.save(update_fields=["manager"])
 
 
 class SiteFactory(DjangoModelFactory):
