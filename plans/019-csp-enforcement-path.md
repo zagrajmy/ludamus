@@ -26,6 +26,7 @@
 >   src/ludamus/templates/components/checkbox-field.html \
 >   src/ludamus/templates/panel/parts/timetable-session-detail.html \
 >   src/ludamus/templates/multiverse/panel/connections/edit.html \
+>   src/ludamus/client/vite.config.ts \
 >   tests/integration/web/test_security_headers.py
 > ```
 >
@@ -158,7 +159,7 @@ from doing the risky flip early.
   - `src/ludamus/templates/500_dynamic.html:12-21` — a duplicate of
     the theme FOUC script for the custom 500 page. This page is
     rendered by Django's error-handling path; confirm at
-    execution time (Step 5's verify) that `request._csp_nonce` is
+    execution time (Step 6's verify) that `request._csp_nonce` is
     still populated for 500 responses — if the CSP middleware does
     not run on this path, note it as a residual `'unsafe-inline'`
     exception in this one file rather than guessing.
@@ -217,10 +218,58 @@ from doing the risky flip early.
   `src/ludamus/edges/settings.py:307-311`). This plan's premise that
   the grep "might come back empty" does **not** hold: `hx-on:` is real
   and load-bearing in this codebase. `'unsafe-eval'` cannot be dropped
-  without first converting all 11 sites to real event listeners
-  (typically via a small same-origin `<script nonce>` or a Vite
-  module that does `element.addEventListener(...)`), which is Step
-  Group B below.
+  without first converting all 11 sites to delegated `data-action`
+  handlers in a Vite TS module — the concrete design in Step 4. NOT
+  inline `<script>` tags and NOT `onclick=`-style attributes: both
+  are tingle-penalized (see next bullet).
+- **Frontend constraints and wiring facts** (all verified):
+  - `tingle.toml:184-188` defines the `script-tags` metric (counts
+    `<script` in templates) and `tingle.toml:221-225` defines
+    `inline-handlers` (counts the regex
+    `\son(click|change|submit|input|load)=` in templates).
+    `tingle check` runs inside `mise run check` and fails when a
+    branch grows these on net — so the `hx-on:`
+    replacement must be a TS module with delegated listeners, not new
+    inline `<script>` blocks or `onclick=` attributes.
+  - Client TS modules live in `src/ludamus/client/src/`. Each module
+    is (a) registered as a rollup input in
+    `src/ludamus/client/vite.config.ts` under
+    `build.rollupOptions.input` (e.g.
+    `"tab-scroll": resolve(rootDir, "src/tab-scroll.ts")`) and
+    (b) loaded by a template via django-vite, e.g. `base.html:56-61`:
+
+    ```django
+    {% vite_asset 'src/menu.ts' %}
+    {% vite_asset 'src/tab-scroll.ts' %}
+    ```
+
+    `panel/base.html:382` already loads
+    `{% vite_asset 'src/info-popover.ts' %}` — the new module is
+    added next to it.
+  - Delegated-listener exemplar: `src/ludamus/client/src/copy.ts` —
+    one document-level click listener resolves
+    `(e.target as Element | null)?.closest<HTMLElement>("[data-copy]")`
+    and keeps every copy button declarative markup. Model the new
+    module on it.
+  - htmx access from TS: `src/ludamus/client/src/timetable.ts:21`
+    declares `declare const htmx: { ajax(...): void; ... }` and at
+    `:242` calls
+    `htmx.ajax("GET", placement.backUrl, { swap: "outerHTML",
+    target: "#left-pane" })` — the exact call shape Step 4 needs.
+    Reuse that declaration pattern.
+  - The vendored htmx is 2.0.8
+    (`src/ludamus/static/vendor/htmx.min.js`, `version:"2.0.8"` in
+    the bundle) and supports both the `allowEval` config flag and
+    the `htmx-config` meta tag (both strings verified present in
+    the bundle). htmx is loaded at `base.html:135` via
+    `<script src="{% static 'vendor/htmx.min.js' %}"></script>`.
+  - e2e coverage gap: `tests/e2e/tests/panel.spec.ts:106`
+    ("opens panel dashboard with sidebar and stats") asserts the
+    sidebar and `#eventSelector` are **visible** but no e2e test
+    clicks the sidebar toggle, fold button, or category-collapse
+    buttons — the panel-chrome behaviors converted in Step 4 have
+    no automated behavioral coverage. See Step 4's Verify and the
+    STOP conditions for the manual-QA requirement.
 - `tests/integration/web/test_security_headers.py` — the existing
   header tests (`TestCSPReportOnlyHeader`), model for the new
   assertions:
@@ -265,6 +314,7 @@ from doing the risky flip early.
 | All Py tests | `mise run test:py` | all pass |
 | CI-style checks | `mise run check` | exit 0 |
 | One test file | `.venv/bin/pytest tests/integration/web/test_security_headers.py` | all pass |
+| Client TS lint | `mise run lint-client` | exit 0 |
 | Markdown lint | `mise exec -- markdownlint-cli2 "plans/*.md"` | 0 errors |
 
 ## Suggested executor toolkit
@@ -273,7 +323,8 @@ from doing the risky flip early.
   UI change, only attribute plumbing); do not invoke it for this plan.
 - `docs/agents/architecture.md` — background on the GLIMPSE layers if
   any step turns up an unexpected import-linter violation (unlikely;
-  this plan only touches `edges/settings.py`, templates, and tests).
+  this plan only touches `edges/settings.py`, templates, client TS,
+  and tests).
 
 ## Scope
 
@@ -294,8 +345,9 @@ from doing the risky flip early.
 - `src/ludamus/templates/components/checkbox-field.html`
 - `src/ludamus/templates/panel/parts/timetable-session-detail.html`
 - `src/ludamus/templates/multiverse/panel/connections/edit.html`
-- New same-origin JS module(s) under `src/` (Vite source), created
-  only as needed by Step Group B (see Step 4)
+- `src/ludamus/client/src/panel-chrome.ts` (create — see Step 4)
+- `src/ludamus/client/vite.config.ts` (register the new module as a
+  rollup input)
 - `tests/integration/web/test_security_headers.py`
 
 **Out of scope** (do NOT touch, even though they look related):
@@ -310,8 +362,8 @@ from doing the risky flip early.
   reviewing production report-only data too; out of scope here.
 - Any behavior change to the scripts themselves beyond adding a
   `nonce` attribute (Group A) or converting `hx-on:` bodies into
-  `addEventListener` calls with identical logic (Group B). No
-  refactors, no new features.
+  delegated `data-action` handlers with identical logic (Group B).
+  No refactors, no new features.
 - `markdown_tags.py`, `mills/legacy.py`, the tessera templatetags,
   the nh3 sanitizer — untouched, as in plan 007.
 
@@ -404,64 +456,292 @@ state.
 
 **Verify**: `mise run test:py` will now fail the existing assertion
 `"script-src 'self' 'unsafe-inline' 'unsafe-eval'" in header` in
-`test_security_headers.py` — that is expected; fix it in Step 5, not
+`test_security_headers.py` — that is expected; fix it in Step 6, not
 here. Confirm the failure is exactly that one assertion (`.venv/bin/pytest
 tests/integration/web/test_security_headers.py -x` → 1 failure, the
 `script-src` line) before continuing.
 
-### Step 4: Eliminate `hx-on:` and drop `'unsafe-eval'`
+### Step 4: Create `panel-chrome.ts`, convert all 11 `hx-on:` sites
 
-For each of the 11 `hx-on:` sites (`components/checkbox-field.html:20`,
-`panel/parts/timetable-session-detail.html:63,73`,
-`panel/base.html:134,150,164,195,241,280,307,333`), replace the
-inline JS with an equivalent same-origin mechanism that needs no
-`'unsafe-eval'`:
+Create `src/ludamus/client/src/panel-chrome.ts`. It installs
+**delegated document-level listeners keyed on `data-action`
+attributes** — NOT inline `<script>` tags and NOT `onclick=`-style
+attributes (the tingle ratchet penalizes both: `script-tags` and
+`inline-handlers` metrics; see "Current state"). Model the delegation
+on `src/ludamus/client/src/copy.ts`.
 
-- Prefer a small nonce-carrying `<script nonce="{{ csp_nonce }}">`
-  block placed right after the element, using
-  `document.currentScript.previousElementSibling.addEventListener(...)`,
-  OR give the element a stable `id`/data attribute and attach the
-  listener from a Vite module already loaded on that page (e.g.
-  `panel/base.html` already loads page-level Vite assets — check
-  `{% vite_asset %}` calls near the top of that file before adding a
-  new one).
-- Of the 8 `panel/base.html` sites, exactly 4 are byte-identical
-  category-collapse toggles (`:195,241,280,307`, all
-  `hx-on:click="var c=this.closest('[data-cat]')..."`) — those 4 are
-  a good candidate for **one** shared `addEventListener` on a common
-  ancestor (event delegation) rather than 4 separate listeners. The
-  other 4 (`:134,150,164,333`) have distinct bodies and each needs
-  its own conversion — do not skip them because of the delegation
-  shortcut; all 8 must be eliminated. Use your judgment but keep the
-  observable behavior (same classes toggled, same localStorage keys)
-  identical.
-- `components/checkbox-field.html:20`'s `hx_on_change` parameter is
-  used by exactly one caller
-  (`multiverse/panel/connections/edit.html:31`); after conversion,
-  remove the `hx_on_change` parameter from the component and its one
-  call site (grep `hx_on_change` to confirm no other caller exists
-  before deleting).
-- `panel/parts/timetable-session-detail.html:63,73`'s
-  `hx-on::after-request` needs the htmx `htmx:afterRequest` event —
-  attach via `addEventListener('htmx:afterRequest', ...)` on the
-  element instead, checking `event.detail.successful` the same way.
+Wire it up (both parts required):
 
-Once all 11 sites are converted, remove `CSP.UNSAFE_EVAL` from
-`script-src` in `CSP_REPORT_ONLY_POLICY`
-(`src/ludamus/edges/settings.py`), leaving:
+1. Register the rollup input in `src/ludamus/client/vite.config.ts`,
+   alphabetically inside `build.rollupOptions.input`:
+
+   ```ts
+   "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
+   ```
+
+2. Load it in `src/ludamus/templates/panel/base.html` next to the
+   existing `{% vite_asset 'src/info-popover.ts' %}` (line 382):
+
+   ```django
+   {% vite_asset 'src/panel-chrome.ts' %}
+   ```
+
+   `multiverse/panel/connections/edit.html` extends
+   `panel/base.html`, so it is covered;
+   `panel/parts/timetable-session-detail.html` is an htmx partial
+   swapped into panel pages, so document-level delegation needs no
+   re-initialization after swaps.
+
+Module shape (delegated dispatch; keep lines within the client's
+lint rules — `mise run lint-client` gates it):
+
+```ts
+declare const htmx: {
+  ajax(
+    verb: string,
+    url: string,
+    options: { swap: string; target: string },
+  ): void;
+};
+
+document.addEventListener("click", (e) => {
+  const el = (e.target as Element | null)?.closest<HTMLElement>(
+    "[data-action]",
+  );
+  // dispatch on el?.dataset.action: toggle-sidebar, toggle-fold,
+  // toggle-category
+});
+
+document.addEventListener("change", (e) => {
+  // dispatch on data-action: switch-event, sync-expanded-required
+});
+
+document.body.addEventListener("htmx:afterRequest", (e) => {
+  // shared refresh-after-request handler, see conversion (e)
+});
+```
+
+Per-site conversions (all bodies below quoted from the live
+templates — re-verify each before editing):
+
+- **(a) Sidebar toggles — `panel/base.html:134` and `:333` →
+  `data-action="toggle-sidebar"` on both, ONE handler, no variant
+  attribute.** The two bodies look different but are equivalent:
+
+  ```text
+  :134  document.getElementById('sidebar').classList
+          .toggle('-translate-x-full'); this.classList
+          .toggle('hidden')
+  :333  document.getElementById('sidebar').classList
+          .toggle('-translate-x-full'); document
+          .getElementById('sidebarOverlay').classList
+          .toggle('hidden')
+  ```
+
+  At `:134` the element carrying the handler IS `#sidebarOverlay`
+  (the overlay button, id at `panel/base.html:132`), so
+  `this.classList.toggle('hidden')` toggles the overlay — the same
+  operation `:333` spells out by id. One handler covers both:
+
+  ```ts
+  const toggleSidebar = (): void => {
+    document
+      .getElementById("sidebar")
+      ?.classList.toggle("-translate-x-full");
+    document
+      .getElementById("sidebarOverlay")
+      ?.classList.toggle("hidden");
+  };
+  ```
+
+- **(b) Fold toggle — `panel/base.html:150` →
+  `data-action="toggle-fold"`.** Current body:
+
+  ```text
+  var h=document.documentElement;
+  var f=h.toggleAttribute('data-folded');
+  try{localStorage.setItem('panel-sidebar-folded',f?'1':'0');}
+  catch(e){}
+  ```
+
+  Handler: `toggleAttribute("data-folded")` on `documentElement`,
+  persist under the exact key `panel-sidebar-folded` (`"1"`/`"0"`),
+  keep the try/catch (storage may be unavailable).
+
+- **(c) Event switcher — `panel/base.html:164` →
+  `data-action="switch-event"`, handled on `change`.** Current body:
+  `window.location.href = '/panel/event/' + this.value + '/'`.
+  Keep the URL construction server-side: each `<option>` (the
+  `{% for event in events %}` loop right below `:164`) gains
+
+  ```django
+  data-url="{% url 'panel:event-index' slug=event.slug %}"
+  ```
+
+  (`panel:event-index` is the named route for `/panel/event/<slug>/`
+  — `src/ludamus/gates/web/django/chronology/panel/urls.py:104`; the
+  same name is already used at `panel/base.html:185`.) The handler
+  reads the selected option's URL, never concatenates paths:
+
+  ```ts
+  const switchEvent = (select: HTMLSelectElement): void => {
+    const url = select.selectedOptions[0]?.dataset.url;
+    if (url) window.location.assign(url);
+  };
+  ```
+
+- **(d) Category toggles — `panel/base.html:195,241,280,307`
+  (byte-identical) → `data-action="toggle-category"` on each
+  button.** Current body (x4):
+
+  ```text
+  var c=this.closest('[data-cat]').dataset.cat;
+  var v=document.documentElement.classList.toggle('catc-'+c);
+  try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}
+  ```
+
+  One handler reads `el.closest("[data-cat]")?.dataset.cat`,
+  toggles the `catc-${cat}` class on `documentElement`, persists
+  under the exact key `panel-cat-${cat}` (`"1"`/`"0"`), try/catch
+  kept.
+
+- **(e) Timetable refresh-after-request —
+  `panel/parts/timetable-session-detail.html:63` and `:73`.**
+  Current attributes (quoted):
+
+  ```text
+  :63  hx-on::after-request="if(event.detail.successful){
+         htmx.ajax('GET','{{ back_url }}',
+         {target:'#left-pane',swap:'outerHTML'})}"
+  :73  hx-on::after-request="if(event.detail.successful){
+         htmx.ajax('GET','{{ detail_url }}',
+         {target:'#left-pane',swap:'outerHTML'})}"
+  ```
+
+  Replace each `hx-on::after-request="..."` with two data
+  attributes on the same `<form>`:
+
+  ```django
+  data-refresh-url="{{ back_url }}"
+  data-refresh-target="#left-pane"
+  ```
+
+  (`{{ detail_url }}` at `:73`.) ONE shared listener in
+  `panel-chrome.ts` replaces both:
+
+  ```ts
+  document.body.addEventListener("htmx:afterRequest", (e) => {
+    const evt = e as CustomEvent<{ successful?: boolean }>;
+    const el = (e.target as Element | null)?.closest<HTMLElement>(
+      "[data-refresh-url]",
+    );
+    if (!el || !evt.detail.successful) return;
+    const url = el.dataset.refreshUrl;
+    const target = el.dataset.refreshTarget;
+    if (!url || !target) return;
+    htmx.ajax("GET", url, { swap: "outerHTML", target });
+  });
+  ```
+
+  Same verb, URL, target, and swap as today; fires only on
+  `event.detail.successful`, exactly like the current bodies.
+
+- **(f) Checkbox component — `components/checkbox-field.html:20` +
+  sole caller `multiverse/panel/connections/edit.html:31`.** Remove
+  the `hx_on_change` string parameter from the component API
+  entirely (the attribute at `:20` AND its mention in the docs
+  comment at `:3`); grep `hx_on_change` first to confirm
+  `connections/edit.html:31` is still the only caller. The caller
+  currently passes this JS string (quoted):
+
+  ```text
+  this.setAttribute('aria-expanded',
+    this.checked ? 'true' : 'false');
+  var s=document.getElementById('id_secret');
+  if (s) { if (this.checked) {
+    s.setAttribute('aria-required', 'true');
+  } else { s.removeAttribute('aria-required'); } }
+  ```
+
+  Replace with two declarative component parameters rendering data
+  attributes on the `<input>`:
+
+  ```django
+  {% if data_action|default:"" %}
+    data-action="{{ data_action }}"
+  {% endif %}
+  {% if data_required_target|default:"" %}
+    data-required-target="{{ data_required_target }}"
+  {% endif %}
+  ```
+
+  (Single-line `{% if %}...{% endif %}` per attribute is the
+  component's existing style — collapse each to one line in the
+  template; they are shown wrapped here only for line length.)
+
+  The caller passes `data_action="sync-expanded-required"
+  data_required_target="id_secret"` instead of the JS string. The
+  delegated `change` handler:
+
+  ```ts
+  const syncExpandedRequired = (box: HTMLInputElement): void => {
+    box.setAttribute("aria-expanded", box.checked ? "true" : "false");
+    const id = box.dataset.requiredTarget;
+    const field = id ? document.getElementById(id) : null;
+    if (!field) return;
+    if (box.checked) field.setAttribute("aria-required", "true");
+    else field.removeAttribute("aria-required");
+  };
+  ```
+
+**Verify**:
+`grep -rn "hx-on" src/ludamus/templates/` → no matches;
+`grep -rn "hx_on_change" src/ludamus/templates/` → no matches;
+`mise run lint-client` → exit 0;
+`mise run test:py` → all pass.
+Behavioral check: the converted behaviors (sidebar toggle, fold,
+category collapse, event switcher, timetable refresh, secret
+checkbox) have NO automated coverage (`tests/e2e/tests/panel.spec.ts`
+only asserts visibility). With a server running, drive the panel with
+`mise run shots` (wraps `aubx agent-browser`) — click each converted
+control and screenshot before/after to confirm identical behavior. If
+you cannot run a browser in your environment, you MUST say so in your
+report and flag the six behaviors for maintainer QA — do not silently
+skip this (see STOP conditions).
+
+### Step 5: Disable htmx eval (capstone), then drop `'unsafe-eval'`
+
+Only after Step 4's verify passes. Add the htmx config meta tag to
+`src/ludamus/templates/base.html`'s `<head>`, next to the viewport
+meta (line 10):
+
+```django
+<meta name="htmx-config" content='{"allowEval":false}'>
+```
+
+Mechanism decision — the meta tag, not a TS assignment, because: it
+is declarative and read by htmx at init regardless of module load
+order; it keeps working even if a Vite module fails to load; it adds
+no `<script>` tag (tingle `script-tags` metric unchanged); and the
+vendored htmx 2.0.8 supports it (verified in the bundle, see
+"Current state"). With `allowEval` off, any leftover or future
+`hx-on:` attribute (or other eval-dependent htmx feature) triggers
+`htmx:evalDisallowedError` at use time — regressions fail fast in
+development, BEFORE the CSP enforcement flip can break production.
+
+Then remove `CSP.UNSAFE_EVAL` from `script-src` in
+`CSP_REPORT_ONLY_POLICY` (`src/ludamus/edges/settings.py`), leaving:
 
 ```python
 "script-src": [CSP.SELF, CSP.NONCE],
 ```
 
-**Verify**: `grep -rn "hx-on" src/ludamus/templates/` → no matches.
-`mise run test:py` → all pass (any behavior test covering sidebar
-toggle / category collapse / connection-edit checkbox / timetable
-pane refresh must still pass unmodified — if none exist, that is a
-pre-existing gap; do not add new tests for it in this plan unless a
-step you touched previously had covering tests that now fail).
+**Verify**:
+`grep -n 'htmx-config' src/ludamus/templates/base.html` → 1 match;
+`grep -c "UNSAFE_EVAL" src/ludamus/edges/settings.py` → 0;
+`mise run test:py` → all pass.
 
-### Step 5: Update and extend `test_security_headers.py`
+### Step 6: Update and extend `test_security_headers.py`
 
 In `tests/integration/web/test_security_headers.py`:
 
@@ -486,26 +766,28 @@ In `tests/integration/web/test_security_headers.py`:
 tests/integration/web/test_security_headers.py` → all pass, including
 the new nonce-match test.
 
-### Step 6: Full gate for Step Groups A and B
+### Step 7: Full gate for Step Groups A and B
 
 **Verify**: `mise run check` → exit 0 (black, djlint, ruff, mypy
-strict, import-linter, vulture, pylint, tingle). `mise run test:py` →
-all pass. `grep -rn "hx-on" src/ludamus/templates/` → no matches.
+strict, import-linter, vulture, pylint, tingle — tingle's
+`script-tags` and `inline-handlers` metrics must not have grown).
+`mise run lint-client` → exit 0. `mise run test:py` → all pass.
+`grep -rn "hx-on" src/ludamus/templates/` → no matches.
 `grep -n "UNSAFE_EVAL\|UNSAFE_INLINE" src/ludamus/edges/settings.py`
 → no matches in `CSP_REPORT_ONLY_POLICY`'s `script-src` line (style-src
 keeps `CSP.UNSAFE_INLINE` — inline `style="..."` attributes are
 explicitly out of scope for this plan; narrowing them is a separate,
 larger effort not covered here).
 
-### Step 7 (GATED — do not run without maintainer sign-off): report
+### Step 8 (GATED — do not run without maintainer sign-off): report
 
 destination decision note and enforcement flip
 
 **STOP: do not perform this step unless the maintainer has reviewed
 production report-only violation data and explicitly told you to
 proceed.** See STOP conditions below. If you reach this point in a
-normal execution pass with no such sign-off, stop after Step 6, report
-that Steps 1-6 are done, and leave this step and its Done-criteria
+normal execution pass with no such sign-off, stop after Step 7, report
+that Steps 1-7 are done, and leave this step and its Done-criteria
 items unchecked.
 
 If and only if authorized, this step has two parts:
@@ -543,12 +825,17 @@ If and only if authorized, this step has two parts:
   `grep -rl "sidebar\|panel-cat-\|connections/edit\|timetable-session-detail"
   tests/integration/web/` before starting Step 4, so you know what to
   re-run).
+- The six converted panel-chrome behaviors have no automated
+  behavioral coverage (planning-time finding — `panel.spec.ts` only
+  asserts visibility): the manual browser check in Step 4's Verify is
+  the behavioral test for this plan; its outcome (done, or flagged
+  for maintainer QA) must appear in the executor's report.
 - Verification: `mise run test:py` → all pass, including the updated
   and new cases in `test_security_headers.py`.
 
 ## Done criteria
 
-Machine-checkable. ALL must hold for Step Groups A and B (Steps 1-6):
+Machine-checkable. ALL must hold for Step Groups A and B (Steps 1-7):
 
 - [ ] `grep -n "django.template.context_processors.csp"
   src/ludamus/edges/settings.py` returns exactly one match
@@ -558,18 +845,26 @@ Machine-checkable. ALL must hold for Step Groups A and B (Steps 1-6):
   Step 2's Verify (accounting for the `500_dynamic.html` exception if
   applicable)
 - [ ] `grep -rn "hx-on" src/ludamus/templates/` returns no matches
+- [ ] `grep -rn "hx_on_change" src/ludamus/templates/` returns no
+  matches
+- [ ] `grep -n 'htmx-config' src/ludamus/templates/base.html` returns
+  exactly one match (the `allowEval:false` meta tag)
 - [ ] `grep -n "CSP.UNSAFE_EVAL\|CSP.UNSAFE_INLINE"
   src/ludamus/edges/settings.py` shows `CSP.UNSAFE_INLINE` only on the
   `style-src` line, and no `CSP.UNSAFE_EVAL` anywhere
 - [ ] `grep -cn "SECURE_CSP =" src/ludamus/edges/settings.py` returns
-  0 (still no enforcing policy — Step 7 is gated)
+  0 (still no enforcing policy — Step 8 is gated)
 - [ ] `mise run test:py` exits 0
 - [ ] `mise run check` exits 0
+- [ ] `mise run lint-client` exits 0
 - [ ] No `noqa` / `type: ignore` added anywhere (`git diff` review)
 - [ ] No files outside the in-scope list are modified (`git status`)
+- [ ] The executor's report states the manual browser check's outcome
+  (verified, or flagged for maintainer QA) for the six converted
+  panel-chrome behaviors
 - [ ] `plans/README.md` status row updated
 
-Additional criteria for Step 7, ONLY if explicitly authorized and
+Additional criteria for Step 8, ONLY if explicitly authorized and
 executed:
 
 - [ ] `grep -n "SECURE_CSP =" src/ludamus/edges/settings.py` returns
@@ -585,9 +880,9 @@ Stop and report back (do not improvise) if:
   `hx-on:` sites changed).
 - **No production report-only violation data has been reviewed by the
   maintainer.** This is the default state as of this plan's writing.
-  Step 7 (the `report-uri`/`report-to` decision and the `SECURE_CSP`
-  enforcement flip) must NOT run under this condition — do Steps 1-6
-  only, then stop and report Steps 1-6 complete. Do not infer
+  Step 8 (the `report-uri`/`report-to` decision and the `SECURE_CSP`
+  enforcement flip) must NOT run under this condition — do Steps 1-7
+  only, then stop and report Steps 1-7 complete. Do not infer
   authorization from anything in this plan file itself; it must come
   from the maintainer directly in your task instructions for this run.
 - Removing `'unsafe-inline'` from `script-src` in Step 3 and running
@@ -599,9 +894,17 @@ Stop and report back (do not improvise) if:
 - Converting an `hx-on:` site in Step 4 changes observable behavior in
   any existing test (a fix that would require touching a file outside
   the in-scope list).
-- `mise run check` failures (mypy, vulture, pylint, tingle) that you
-  cannot resolve within the in-scope files without adding a
-  suppression directive.
+- A converted `hx-on:` site's live body differs from the quoted body
+  in Step 4 (drift) — re-derive the handler from the live body only
+  if the difference is trivial (whitespace); otherwise stop.
+- You finished Step 4 without being able to run the manual browser
+  check AND without flagging the six panel-chrome behaviors for
+  maintainer QA in your report — that combination is not allowed;
+  never report Step 4 done while both are missing.
+- `mise run check` failures (mypy, vulture, pylint, tingle —
+  including growth in `script-tags` / `inline-handlers`) or
+  `mise run lint-client` failures that you cannot resolve within the
+  in-scope files without adding a suppression directive.
 - `500_dynamic.html`'s nonce turns out unavailable (error-handling
   path bypasses the CSP middleware) — leave that one file's script on
   a documented `'unsafe-inline'` carve-out (see Maintenance notes) and
@@ -613,7 +916,7 @@ Stop and report back (do not improvise) if:
 - This plan deliberately stops short of enforcement. The order after
   this lands: (1) wire a report destination if the maintainer wants
   one, (2) let report-only data accumulate against the now-nonce-only
-  `script-src`, (3) review it, (4) execute Step 7.
+  `script-src`, (3) review it, (4) execute Step 8.
 - If `500_dynamic.html` ends up with a residual `'unsafe-inline'`
   carve-out (see STOP conditions), that is a narrower, documented
   exception, not a reason to keep `'unsafe-inline'` policy-wide —
@@ -627,13 +930,16 @@ Stop and report back (do not improvise) if:
   deliberately not scoped here.
 - `img-src https:` stays broad — narrowing it to the concrete
   gravatar/Auth0/GCS hosts needs the same production-data review
-  gating Step 7; consider bundling that into whatever change performs
-  Step 7.
-- If a new inline `<script>` or `hx-on:` attribute is added to a
-  template after this lands, it must carry `nonce="{{ csp_nonce }}"`
-  (script) or be converted to a real listener (hx-on) in the same PR
-  — otherwise it silently relies on the report-only leniency and will
-  break the moment Step 7 flips to enforcement.
+  gating Step 8; consider bundling that into whatever change performs
+  Step 8.
+- If a new inline `<script>` is added to a template after this lands,
+  it must carry `nonce="{{ csp_nonce }}"` in the same PR. A new
+  `hx-on:` attribute will throw `htmx:evalDisallowedError` at use
+  time (the `allowEval:false` meta from Step 5) — convert it to a
+  `data-action` handler in `panel-chrome.ts` (or a page-appropriate
+  module) instead. Otherwise the change silently relies on the
+  report-only leniency and will break the moment Step 8 flips to
+  enforcement.
 - Reviewers should scrutinize: every nonce'd `<script>` tag actually
   renders inside a context that has the `csp` context processor
   (i.e., not a template rendered outside the normal Django template
