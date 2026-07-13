@@ -1075,19 +1075,14 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     @staticmethod
     def _validate_request(
         session: Session, enrollment_requests: list[EnrollmentRequest] | None = None
-    ) -> EnrollmentConfig:
+    ) -> EnrollmentConfig | None:
         event = session.event
         if enrollment_requests and all(
             req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
         ):
-            if not (config := event.enrollment_configs.order_by("pk").first()):
-                raise RedirectError(
-                    reverse("web:chronology:event", kwargs={"slug": event.slug}),
-                    error=_(
-                        "No enrollment configuration is available for this session."
-                    ),
-                )
-            return config
+            # Cancellations only release seats, so they must work even after
+            # the organizer deleted every enrollment config for the event.
+            return event.enrollment_configs.order_by("pk").first()
 
         if not (enrollment_config := event.get_most_liberal_config(session)):
             raise RedirectError(
@@ -1479,7 +1474,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         *,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
-        enrollment_config: EnrollmentConfig,
+        enrollment_config: EnrollmentConfig | None,
         party_pk: int | None,
         guests_target: int | None = None,
     ) -> Enrollments:
@@ -1689,27 +1684,33 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
 
     def _send_message(self, enrollments: Enrollments) -> None:
-        for users, message in (
+        for users, message, level in (
             (
                 enrollments.users_by_status[SessionParticipationStatus.CONFIRMED],
                 _("Enrolled: {}"),
+                messages.SUCCESS,
             ),
             (
                 enrollments.users_by_status[SessionParticipationStatus.WAITING],
                 _("Added to waiting list: {}"),
+                messages.SUCCESS,
             ),
             (
                 [held.full_name for held in enrollments.party_notices.held_seats],
                 _("Seat held (awaiting their approval): {}"),
+                messages.SUCCESS,
             ),
-            (enrollments.cancelled_users, _("Cancelled: {}")),
+            (enrollments.cancelled_users, _("Cancelled: {}"), messages.SUCCESS),
             (
                 enrollments.skipped_users,
                 _("Skipped (already enrolled or conflicts): {}"),
+                messages.WARNING,
             ),
         ):
             if users:
-                messages.success(self.request, message.format(", ".join(users)))
+                messages.add_message(
+                    self.request, level, message.format(", ".join(users))
+                )
         if enrollments.guest_total is not None:
             messages.success(
                 self.request, _("Guests you bring: {}").format(enrollments.guest_total)
@@ -1719,7 +1720,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
-        enrollment_config: EnrollmentConfig,
+        enrollment_config: EnrollmentConfig | None,
         *,
         guest_seats_needed: int = 0,
         guest_seats_freed: int = 0,
@@ -1743,7 +1744,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        available_spots = enrollment_config.get_available_slots(session) + freed_spots
+        # No config rows (cancel-only carve-out) means no enrollable slots, so
+        # any guest increase riding along with the cancels is over capacity.
+        config_slots = (
+            enrollment_config.get_available_slots(session) if enrollment_config else 0
+        )
+        available_spots = config_slots + freed_spots
 
         if enroll_count > available_spots:
             # Guests cannot wait on the list, so the generic "use the waiting
@@ -1772,7 +1778,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         *,
         form: forms.Form,
         session: Session,
-        enrollment_config: EnrollmentConfig,
+        enrollment_config: EnrollmentConfig | None,
         roster: EnrollmentRoster,
         party_pk: int | None,
     ) -> None:

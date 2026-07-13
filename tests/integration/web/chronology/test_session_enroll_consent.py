@@ -374,7 +374,7 @@ class TestHeldSeatUnavailable:
             url=f"/event/{agenda_item.session.event.slug}/",
             messages=[
                 (
-                    messages.SUCCESS,
+                    messages.WARNING,
                     (
                         "Skipped (already enrolled or conflicts): "
                         "Mira Member (manages their own enrollment)"
