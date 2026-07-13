@@ -307,13 +307,13 @@ class PartyRepository(PartyRepositoryProtocol):
                 session=SessionDTO.model_validate(session),
                 agenda_item=AgendaItemDTO.model_validate(session.agenda_item),
                 presenter=(
-                    UserDTO.model_validate(session.presenter)
-                    if session.presenter_id
+                    _user_dto_with_display_avatar(session.presenter)
+                    if session.presenter is not None
                     else None
                 ),
                 participations=[
                     PartySessionSeatDTO(
-                        user=UserDTO.model_validate(sp.user),
+                        user=_user_dto_with_display_avatar(sp.user),
                         status=sp.status,
                         creation_time=sp.creation_time,
                     )
@@ -358,3 +358,9 @@ def _display_avatar_url(user: User) -> str:
     if user.use_gravatar:
         return gravatar_url(user.email) or ""
     return user.avatar_url or gravatar_url(user.email) or ""
+
+
+def _user_dto_with_display_avatar(user: User) -> UserDTO:
+    return UserDTO.model_validate(user).model_copy(
+        update={"avatar_url": _display_avatar_url(user)}
+    )

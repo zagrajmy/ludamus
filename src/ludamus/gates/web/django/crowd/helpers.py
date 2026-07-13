@@ -12,13 +12,13 @@ from ludamus.gates.web.django.crowd.forms import (
     PartyNameForm,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.party import PartyMembershipStatus
 
 if TYPE_CHECKING:
     from django import forms
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.party import PartySessionHistoryDTO
 
 COMPANION_CREATE_AUTO_ID = "companion_%s"
@@ -129,10 +129,22 @@ def build_party_detail_context(
     }
 
 
+def _user_info(user: UserDTO) -> UserInfo:
+    return UserInfo(
+        avatar_url=user.avatar_url or None,
+        discord_username=user.discord_username,
+        full_name=user.full_name,
+        name=user.name,
+        pk=user.pk,
+        slug=user.slug,
+        username=user.username,
+    )
+
+
 def _history_card(item: PartySessionHistoryDTO) -> SessionData:
     now = datetime.now(tz=UTC)
     if item.presenter is not None:
-        presenter = UserInfo.from_user_dto(item.presenter, gravatar_url=gravatar_url)
+        presenter = _user_info(item.presenter)
     else:
         name = item.session.display_name
         presenter = UserInfo(
@@ -155,7 +167,7 @@ def _history_card(item: PartySessionHistoryDTO) -> SessionData:
         enrolled_count=item.enrolled_count,
         session_participations=[
             ParticipationInfo(
-                user=UserInfo.from_user_dto(seat.user, gravatar_url=gravatar_url),
+                user=_user_info(seat.user),
                 status=seat.status,
                 creation_time=seat.creation_time,
             )

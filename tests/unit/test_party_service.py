@@ -204,6 +204,8 @@ def _member(user_pk, *, is_leader=False):
         membership_pk=user_pk * 10,
         user_pk=user_pk,
         name=f"user-{user_pk}",
+        full_name=f"user-{user_pk}",
+        username=f"user-{user_pk}",
         slug=f"user-{user_pk}",
         is_login_less=False,
         is_leader=is_leader,
@@ -221,6 +223,7 @@ def _party(pk, *, name="", is_leader=False, leader_name="Lena Leader", members=(
         leader_name=leader_name,
         is_leader=is_leader,
         is_default=is_leader,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=list(members),
     )
 
