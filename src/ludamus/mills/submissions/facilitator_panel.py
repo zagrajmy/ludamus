@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.submissions import (
     FacilitatorColumnsContextDTO,
     FacilitatorListContextDTO,
+    FacilitatorPanelServiceProtocol,
 )
 
 if TYPE_CHECKING:
@@ -43,7 +44,7 @@ def _column_order(field: PersonalDataFieldDTO) -> tuple[int, str]:
     return (field.order, field.name)
 
 
-class FacilitatorPanelService:
+class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     """Read and write path for the panel's facilitator list.
 
     Every method takes the panel's event and scopes to it: a facilitator slug
