@@ -11,62 +11,54 @@
 <div class="compact-schedule -mx-4 sm:mx-0"
      data-csrf="{{ csrf_token }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
-    <div class="mb-3 flex justify-end">
-        {% tabs %}
-        {% tab "list" icon="list-bullet" href=schedule_list_url active=schedule_view_is_list %}
-        {% translate "List" %}
-    {% end_tab %}
-    {% tab "rooms" icon="table-cells" href=schedule_rooms_url active=schedule_view_is_rooms %}
-    {% translate "Rooms" %}
-{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="flex items-start sm:gap-1">
-    <div class="min-w-0 flex-1">
-        {% if schedule_view_is_rooms %}
-            {% include "chronology/_room_lanes.html" %}
-        {% else %}
-            {% for day in schedule_days %}
-                {# Each day is a sheet: the ledger rows sit on a raised card, not #}
-                {# directly on the page background. #}
-                <section data-schedule-day
-                         class="mb-6 border-y border-border bg-bg-secondary px-2 pt-3 pb-2 last:mb-0 sm:rounded-2xl sm:border sm:px-3">
-                    {% include "chronology/_schedule_day_header.html" %}
-                    {% for hour in day.hours %}
-                        <div class="time-slot-section scroll-mt-24"
-                             id="slot-{{ hour.start|date:'Ymd-H' }}"
-                             data-slot-hour="{{ hour.start|date:'Ymd-H' }}">
-                            <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">{{ hour.start|time:"H:i" }}</div>
-                            <div class="session-grid divide-y divide-border/60">
-                                {% for data in hour.sessions %}
-                                    {% include "chronology/_compact_session_row.html" %}
-                                {% endfor %}
+    {# On lg+ the tabs sit in the sticky search/filter toolbar (event.html). #}
+    <div class="mb-3 flex justify-end lg:hidden">{% include "chronology/_schedule_view_tabs.html" %}</div>
+    <div class="flex items-start sm:gap-1">
+        <div class="min-w-0 flex-1">
+            {% if schedule_view_is_rooms %}
+                {% include "chronology/_room_lanes.html" %}
+            {% else %}
+                {% for day in schedule_days %}
+                    {# Each day is a sheet: the ledger rows sit on a raised card, not #}
+                    {# directly on the page background. #}
+                    <section data-schedule-day
+                             class="mb-6 border-y border-border bg-bg-secondary px-2 pt-3 pb-2 last:mb-0 sm:rounded-2xl sm:border sm:px-3">
+                        {% include "chronology/_schedule_day_header.html" %}
+                        {% for hour in day.hours %}
+                            <div class="time-slot-section scroll-mt-24"
+                                 id="slot-{{ hour.start|date:'Ymd-H' }}"
+                                 data-slot-hour="{{ hour.start|date:'Ymd-H' }}">
+                                <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">{{ hour.start|time:"H:i" }}</div>
+                                <div class="session-grid divide-y divide-border/60">
+                                    {% for data in hour.sessions %}
+                                        {% include "chronology/_compact_session_row.html" %}
+                                    {% endfor %}
+                                </div>
                             </div>
-                        </div>
-                    {% endfor %}
-                </section>
+                        {% endfor %}
+                    </section>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {# Hour scrubber: tap or drag to jump through the schedule by the hour. #}
+        {# top-20 (not top-4) so the rail clears the sticky search+filter bar that #}
+        {# sits at the top of the compact layout. #}
+        {# overflow-hidden, not -auto: the rail is a scrubber, never a scroll #}
+        {# container — fitRail (event-timeline.ts) thins the markers until they #}
+        {# fit the screen, and a non-scrollable rail chains wheel input to the #}
+        {# page natively. #}
+        <nav class="schedule-rail sticky top-20 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
+             aria-label="{% translate "Jump to time" %}">
+            {% for day in schedule_days %}
+                <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.first_start|date:"D" }}</span>
+                {% for hour in day.hours %}
+                    <a class="schedule-rail-hour block rounded px-1.5 py-px text-center text-xs tabular-nums leading-snug hover:text-foreground data-active:bg-white data-active:font-bold data-active:text-coral-600 data-active:ring-1 data-active:ring-inset data-active:ring-coral-300/60 dark:data-active:bg-black dark:data-active:text-coral-400 dark:data-active:ring-coral-700/60"
+                       href="#slot-{{ hour.start|date:'Ymd-H' }}"
+                       draggable="false"
+                       data-rail-hour="{{ hour.start|date:'Ymd-H' }}"
+                       aria-label="{% blocktranslate with time=hour.start|time:'H:i' day=day.first_start|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}">{{ hour.start|time:"H" }}</a>
+                {% endfor %}
             {% endfor %}
-        {% endif %}
+        </nav>
     </div>
-    {# Hour scrubber: tap or drag to jump through the schedule by the hour. #}
-    {# top-20 (not top-4) so the rail clears the sticky search+filter bar that #}
-    {# sits at the top of the compact layout. #}
-    {# overflow-hidden, not -auto: the rail is a scrubber, never a scroll #}
-    {# container — fitRail (event-timeline.ts) thins the markers until they #}
-    {# fit the screen, and a non-scrollable rail chains wheel input to the #}
-    {# page natively. #}
-    <nav class="schedule-rail sticky top-20 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
-         aria-label="{% translate "Jump to time" %}">
-        {% for day in schedule_days %}
-            <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.first_start|date:"D" }}</span>
-            {% for hour in day.hours %}
-                <a class="schedule-rail-hour block rounded px-1.5 py-px text-center text-xs tabular-nums leading-snug hover:text-foreground data-active:bg-white data-active:font-bold data-active:text-coral-600 data-active:ring-1 data-active:ring-inset data-active:ring-coral-300/60 dark:data-active:bg-black dark:data-active:text-coral-400 dark:data-active:ring-coral-700/60"
-                   href="#slot-{{ hour.start|date:'Ymd-H' }}"
-                   draggable="false"
-                   data-rail-hour="{{ hour.start|date:'Ymd-H' }}"
-                   aria-label="{% blocktranslate with time=hour.start|time:'H:i' day=day.first_start|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}">{{ hour.start|time:"H" }}</a>
-            {% endfor %}
-        {% endfor %}
-    </nav>
-</div>
 </div>

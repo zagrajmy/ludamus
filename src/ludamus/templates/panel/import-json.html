@@ -23,34 +23,34 @@
 {% block content %}
     {% if active_integration %}
         {% include "panel/parts/import-tabs.html" %}
-        <div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6">
-            <form id="import-json-form"
-                  method="post"
-                  action="{% url 'panel:import-json' slug=current_event.slug pk=active_integration.pk %}"
-                  class="max-w-3xl">
-                {% csrf_token %}
-                <div class="card space-y-3 p-4 sm:p-5">
-                    <label for="settings_json" class="block text-sm font-medium text-foreground">
-                        {% translate "Import settings (JSON)" %}
-                    </label>
-                    <textarea id="settings_json"
-                              name="settings_json"
-                              rows="24"
-                              spellcheck="false"
-                              class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 font-mono text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ settings_json }}</textarea>
-                    <p class="text-xs text-foreground-muted">
-                        {% translate "Edit the raw mapping the Proposal tab produces. Invalid JSON is rejected." %}
-                    </p>
-                </div>
-            </form>
-        </div>
-    {% else %}
-        <div class="px-3 sm:px-4 lg:px-8 py-6">
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted">
-                    {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
+        {% tab_shell_body %}
+        <form id="import-json-form"
+              method="post"
+              action="{% url 'panel:import-json' slug=current_event.slug pk=active_integration.pk %}"
+              class="max-w-3xl">
+            {% csrf_token %}
+            <div class="card space-y-3 p-4 sm:p-5">
+                <label for="settings_json" class="block text-sm font-medium text-foreground">
+                    {% translate "Import settings (JSON)" %}
+                </label>
+                <textarea id="settings_json"
+                          name="settings_json"
+                          rows="24"
+                          spellcheck="false"
+                          class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 font-mono text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ settings_json }}</textarea>
+                <p class="text-xs text-foreground-muted">
+                    {% translate "Edit the raw mapping the Proposal tab produces. Invalid JSON is rejected." %}
                 </p>
             </div>
-        </div>
-    {% endif %}
+        </form>
+    {% end_tab_shell_body %}
+{% else %}
+    {% tab_shell_body %}
+    <div class="card p-8 text-center">
+        <p class="text-foreground-muted">
+            {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
+        </p>
+    </div>
+{% end_tab_shell_body %}
+{% endif %}
 {% endblock content %}

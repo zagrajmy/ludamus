@@ -160,6 +160,13 @@
 {% end_tabs %}
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tabs variant="segment" {% templatetag closeblock %}</code>
+    {% tabs variant="segment" %}
+    {% tab "a" icon="list-bullet" href="#" active=True %}List{% end_tab %}
+{% tab "b" icon="table-cells" href="#" %}Rooms{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
     <code class="absolute top-3 left-3 text-xs text-foreground-muted">visibility-*</code>
     <div class="w-full flex flex-col gap-3 text-sm">
         <div class="flex items-center gap-2">
@@ -246,21 +253,6 @@
         <code class="text-xs text-foreground-muted">tab-shell-body.html</code>
     </div>
     {% include "components/design/tab-shell.html" %}
-</div>
-<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
-    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
-        <code class="text-xs text-foreground-muted">card-tab-shell.html</code>
-        <code class="text-xs text-foreground-muted">card-tab-bar.html</code>
-    </div>
-    {% include "components/design/card-tab-shell.html" %}
-</div>
-<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
-    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
-        <code class="text-xs text-foreground-muted">panel-tab-shell.html</code>
-        <code class="text-xs text-foreground-muted">panel-tab-bar.html</code>
-        <code class="text-xs text-foreground-muted">panel-tab-body.html</code>
-    </div>
-    {% include "components/design/panel-tab-shell.html" %}
 </div>
 </div>
 {% endblock body %}

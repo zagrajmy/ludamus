@@ -24,135 +24,129 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-            {% tabs %}
-            {% tab "general" active=True href=tab_urls.general %}{% translate "General" %}{% end_tab %}
-        {% tab "proposals" href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
-    {% tab "display" href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
-{% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-    <form id="settings-form"
-          method="post"
-          enctype="multipart/form-data"
-          action="{% url 'panel:event-settings' slug=current_event.slug %}"
-          class="max-w-2xl">
-        {% csrf_token %}
-        <div class="space-y-6">
-            <!-- Basic Info -->
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Basic Information" %}</h3>
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_name">{% translate "Event Name" %}</label>
-                            <input type="text"
-                                   name="name"
-                                   id="id_name"
-                                   value="{{ form.name.value|default:'' }}"
-                                   class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                   required>
-                        </div>
-                        {% tessera_field form.cover_image %}
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_slug">{% translate "URL Slug" %}</label>
-                            <input type="text"
-                                   name="slug"
-                                   id="id_slug"
-                                   value="{{ form.slug.value|default:'' }}"
-                                   class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                   required>
-                            <p class="mt-1 text-sm text-foreground-muted">{% translate "URL identifier for this event. Must be unique." %}</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_description">{% translate "Description" %}</label>
-                            <textarea name="description"
-                                      id="id_description"
-                                      rows="3"
-                                      class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
-                        </div>
-                        {% tessera_field form.logo %}
-                    </div>
-                </div>
-            </div>
-            <!-- Event Dates -->
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Event Dates" %}</h3>
-                    <div class="space-y-6">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {% tab_shell "panel/_event_settings_tabs.html" %}
+        {% tab_shell_body %}
+        <form id="settings-form"
+              method="post"
+              enctype="multipart/form-data"
+              action="{% url 'panel:event-settings' slug=current_event.slug %}"
+              class="max-w-2xl">
+            {% csrf_token %}
+            <div class="space-y-6">
+                <!-- Basic Info -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Basic Information" %}</h3>
+                        <div class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_start_time">{% translate "Start Time" %}</label>
-                                {{ form.start_time }}
+                                       for="id_name">{% translate "Event Name" %}</label>
+                                <input type="text"
+                                       name="name"
+                                       id="id_name"
+                                       value="{{ form.name.value|default:'' }}"
+                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                       required>
+                            </div>
+                            {% tessera_field form.cover_image %}
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_slug">{% translate "URL Slug" %}</label>
+                                <input type="text"
+                                       name="slug"
+                                       id="id_slug"
+                                       value="{{ form.slug.value|default:'' }}"
+                                       class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                       required>
+                                <p class="mt-1 text-sm text-foreground-muted">{% translate "URL identifier for this event. Must be unique." %}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                       for="id_end_time">{% translate "End Time" %}</label>
-                                {{ form.end_time }}
+                                       for="id_description">{% translate "Description" %}</label>
+                                <textarea name="description"
+                                          id="id_description"
+                                          rows="3"
+                                          class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">{{ form.description.value|default:'' }}</textarea>
+                            </div>
+                            {% tessera_field form.logo %}
+                        </div>
+                    </div>
+                </div>
+                <!-- Event Dates -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Event Dates" %}</h3>
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_start_time">{% translate "Start Time" %}</label>
+                                    {{ form.start_time }}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="id_end_time">{% translate "End Time" %}</label>
+                                    {{ form.end_time }}
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_publication_time">{% translate "Publication Time" %}</label>
+                                {{ form.publication_time }}
+                                <p class="mt-1 text-sm text-foreground-muted">
+                                    {% translate "When the event becomes publicly visible. Leave empty for immediate visibility." %}
+                                </p>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <!-- Facilitator self-edit -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator permissions" %}</h3>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_publication_time">{% translate "Publication Time" %}</label>
-                            {{ form.publication_time }}
-                            <p class="mt-1 text-sm text-foreground-muted">
-                                {% translate "When the event becomes publicly visible. Leave empty for immediate visibility." %}
-                            </p>
+                                   for="id_allow_facilitator_session_edit">
+                                {{ form.allow_facilitator_session_edit.label }}
+                            </label>
+                            <select name="allow_facilitator_session_edit"
+                                    id="id_allow_facilitator_session_edit"
+                                    class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% for value, label in form.allow_facilitator_session_edit.field.choices %}
+                                    <option value="{{ value }}"
+                                            {% if form.allow_facilitator_session_edit.value == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
                 </div>
-            </div>
-            <!-- Facilitator self-edit -->
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator permissions" %}</h3>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                               for="id_allow_facilitator_session_edit">
-                            {{ form.allow_facilitator_session_edit.label }}
-                        </label>
-                        <select name="allow_facilitator_session_edit"
-                                id="id_allow_facilitator_session_edit"
-                                class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% for value, label in form.allow_facilitator_session_edit.field.choices %}
-                                <option value="{{ value }}"
-                                        {% if form.allow_facilitator_session_edit.value == value %}selected{% endif %}>
-                                    {{ label }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                <!-- Schedule confirmation -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Schedule confirmation" %}</h3>
+                        {% tessera_field form.auto_confirm_sessions %}
+                    </div>
+                </div>
+                <!-- Session cards -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session cards" %}</h3>
+                        {% tessera_field form.use_session_cover_placeholders %}
+                    </div>
+                </div>
+                <!-- Attendee label -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Attendee label" %}</h3>
+                        {% tessera_field form.use_participants_label %}
                     </div>
                 </div>
             </div>
-            <!-- Schedule confirmation -->
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Schedule confirmation" %}</h3>
-                    {% tessera_field form.auto_confirm_sessions %}
-                </div>
-            </div>
-            <!-- Session cards -->
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session cards" %}</h3>
-                    {% tessera_field form.use_session_cover_placeholders %}
-                </div>
-            </div>
-            <!-- Attendee label -->
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Attendee label" %}</h3>
-                    {% tessera_field form.use_participants_label %}
-                </div>
-            </div>
-        </div>
-    </form>
-</div>
+        </form>
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
 {% else %}
 <div class="card p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

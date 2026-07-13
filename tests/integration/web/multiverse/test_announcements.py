@@ -21,10 +21,7 @@ ANNOUNCEMENTS_PANEL_CONTEXT = {
     "current_event": None,
     "is_proposal_active": False,
     "active_nav": "sphere-settings",
-    "is_general_tab": False,
-    "is_connections_tab": False,
-    "is_announcements_tab": True,
-    "is_mcp_tab": False,
+    "active_tab": "announcements",
     "tab_urls": TAB_URLS,
 }
 

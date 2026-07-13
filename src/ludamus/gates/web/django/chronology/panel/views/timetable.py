@@ -127,6 +127,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["selected_date"] = grid.selected_date
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "timetable"
         context["print_scopes"] = self.get_print_scopes(current_event.pk)
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
@@ -341,12 +342,8 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
         except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
-        # T3: the new placement can clear time conflicts for waiters — promote
-        # against the session's current time.
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
-        # Conflicts are advisory: detection excludes the session itself, so it
-        # runs after assignment with the same result and only on valid input.
         conflicts = ConflictDetectionService(uow).detect_for_assignment(
             session_pk=session_pk, placement=placement
         )
@@ -486,6 +483,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "overview"
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)
 
 
@@ -515,6 +513,7 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         context["slot_violations"] = slot_violations
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "problems"
         return TemplateResponse(self.request, "panel/timetable-problems.html", context)
 
 
@@ -548,6 +547,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["space_pk"] = space_pk
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "log"
         return TemplateResponse(self.request, "panel/timetable-log.html", context)
 
 

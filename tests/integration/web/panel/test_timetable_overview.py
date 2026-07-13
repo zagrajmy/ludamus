@@ -109,6 +109,7 @@ class TestTimetableOverviewPageView:
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
                 },
+                "active_tab": "overview",
             },
         )
 
@@ -183,7 +184,6 @@ class TestTimetableOverviewPageView:
         response = authenticated_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
-        # 1 room * 2h slot = 2h capacity; 1h scheduled => 1h left, 50% filled.
         assert response.context["capacity_hours"] == CapacityHoursDTO(
             room_count=1,
             slot_hours=2.0,
@@ -219,7 +219,6 @@ class TestTimetableOverviewPageView:
 
         assert response.status_code == HTTPStatus.OK
         heatmap = response.context["heatmap"]
-        # First row's cell for our space should be 'scheduled'
         first_row = heatmap.rows[0]
         statuses = {cell.status for cell in first_row.cells}
         assert "scheduled" in statuses

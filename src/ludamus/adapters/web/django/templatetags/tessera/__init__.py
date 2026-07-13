@@ -27,25 +27,16 @@ from .icon import icon
 from .icon_toggle import tessera_icon_toggle
 from .select import SelectNode, do_select
 from .switcher import SegmentNode, SwitcherNode, tessera_segment, tessera_switcher
+from .tab_shell import TabShellBodyNode, end_tab_shell, tab_shell, tab_shell_body
 from .table import TableNode, do_tessera_table
-from .tabs import (
-    TAB_ACTIVE_CLASS,
-    TAB_INACTIVE_CLASS,
-    TAB_NAV_CLASS,
-    TabNode,
-    TabsNode,
-    do_tab,
-    do_tabs,
-)
+from .tabs import TabNode, TabsNode, do_tab, do_tabs
 
 __all__ = [
-    "TAB_ACTIVE_CLASS",
-    "TAB_INACTIVE_CLASS",
-    "TAB_NAV_CLASS",
     "SegmentNode",
     "SelectNode",
     "SwitcherNode",
     "TabNode",
+    "TabShellBodyNode",
     "TableNode",
     "TabsNode",
     "copy_lines",
@@ -53,8 +44,11 @@ __all__ = [
     "do_tab",
     "do_tabs",
     "do_tessera_table",
+    "end_tab_shell",
     "icon",
     "register",
+    "tab_shell",
+    "tab_shell_body",
     "tessera_button",
     "tessera_copy",
     "tessera_copy_chip",

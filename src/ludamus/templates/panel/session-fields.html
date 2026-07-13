@@ -21,118 +21,112 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-            {% tabs %}
-            {% tab "types" href=tab_urls.types %}{% translate "Categories" %}{% end_tab %}
-        {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
-    {% tab "session" active=True href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
-{% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-    <div class="alert alert-info mb-6">
-        <div class="flex items-start gap-3">
-            <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
-            <div>
-                <p class="text-sm font-medium">{% translate "What are Session Fields?" %}</p>
-                <p class="text-sm mt-1">
-                    {% translate "Session fields collect information about each session proposal. Examples: game system, genre, difficulty level, language. Unlike host data, session fields are filled separately for each proposal." %}
-                </p>
-                <p class="text-sm mt-2">
-                    {% translate "After creating fields here, configure which ones are required or optional in each category's settings." %}
-                </p>
+        {% tab_shell "panel/_cfp_tabs.html" %}
+        {% tab_shell_body %}
+        <div class="alert alert-info mb-6">
+            <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
+                <div>
+                    <p class="text-sm font-medium">{% translate "What are Session Fields?" %}</p>
+                    <p class="text-sm mt-1">
+                        {% translate "Session fields collect information about each session proposal. Examples: game system, genre, difficulty level, language. Unlike host data, session fields are filled separately for each proposal." %}
+                    </p>
+                    <p class="text-sm mt-2">
+                        {% translate "After creating fields here, configure which ones are required or optional in each category's settings." %}
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
-    {% if fields %}
-        {% tessera_table %}
-        <thead class="bg-bg-tertiary">
-            <tr>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Name" context "place" %}
-                </th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Type" %}
-                </th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Usage" %}
-                </th>
-                <th scope="col"
-                    class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Actions" %}
-                </th>
-            </tr>
-        </thead>
-        <tbody class="bg-bg-secondary divide-y divide-border">
-            {% for entry in fields %}
+        {% if fields %}
+            {% tessera_table %}
+            <thead class="bg-bg-tertiary">
                 <tr>
-                    <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                        {% if entry.field.icon %}
-                            {% icon entry.field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
-                        {% endif %}
-                        {{ entry.field.name }}
-                        {% include "components/visibility-badge.html" with is_public=entry.field.is_public %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                        {% if entry.field.field_type == "select" %}
-                            {% translate "Select" %}
-                            <span class="text-foreground-muted">({{ entry.field.options|length }})</span>
-                            {% if entry.field.is_multiple %}
-                                <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-bg text-info-text">
-                                    {% translate "Multiple" %}
-                                </span>
-                            {% endif %}
-                            {% if entry.field.allow_custom %}
-                                <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success-text">
-                                    {% translate "Custom" %}
-                                </span>
-                            {% endif %}
-                        {% elif entry.field.field_type == "checkbox" %}
-                            {% translate "Checkbox" %}
-                        {% else %}
-                            {% translate "Text" %}
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                        {% if entry.required_count or entry.optional_count %}
-                            {% if entry.required_count %}
-                                {{ entry.required_count }} {% translate "required" %}
-                            {% endif %}
-                            {% if entry.required_count and entry.optional_count %}·{% endif %}
-                            {% if entry.optional_count %}
-                                {{ entry.optional_count }} {% translate "optional" %}
-                            {% endif %}
-                        {% else %}
-                            <span class="text-foreground-muted italic">{% translate "Not used" %}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{% url 'panel:session-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
-                           class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
-                        <form method="post"
-                              action="{% url 'panel:session-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"
-                              class="inline"
-                              data-confirm="{% translate "Are you sure you want to delete this field?" %}">
-                            {% csrf_token %}
-                            <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
-                        </form>
-                    </td>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Name" context "place" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Type" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Usage" %}
+                    </th>
+                    <th scope="col"
+                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                        {% translate "Actions" %}
+                    </th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    {% end_tessera_table %}
-{% else %}
-    <div class="card p-8 text-center">
-        <p class="text-foreground-muted mb-4">{% translate "No session fields defined. Add fields to classify sessions." %}</p>
-        {% url 'panel:session-field-create' slug=current_event.slug as create_url %}
-        {% translate "New Field" as t_create %}
-        {% tessera_button t_create href=create_url icon="plus" %}
-    </div>
-{% endif %}
-</div>
+            </thead>
+            <tbody class="bg-bg-secondary divide-y divide-border">
+                {% for entry in fields %}
+                    <tr>
+                        <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
+                            {% if entry.field.icon %}
+                                {% icon entry.field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+                            {% endif %}
+                            {{ entry.field.name }}
+                            {% include "components/visibility-badge.html" with is_public=entry.field.is_public %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                            {% if entry.field.field_type == "select" %}
+                                {% translate "Select" %}
+                                <span class="text-foreground-muted">({{ entry.field.options|length }})</span>
+                                {% if entry.field.is_multiple %}
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-bg text-info-text">
+                                        {% translate "Multiple" %}
+                                    </span>
+                                {% endif %}
+                                {% if entry.field.allow_custom %}
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success-text">
+                                        {% translate "Custom" %}
+                                    </span>
+                                {% endif %}
+                            {% elif entry.field.field_type == "checkbox" %}
+                                {% translate "Checkbox" %}
+                            {% else %}
+                                {% translate "Text" %}
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                            {% if entry.required_count or entry.optional_count %}
+                                {% if entry.required_count %}
+                                    {{ entry.required_count }} {% translate "required" %}
+                                {% endif %}
+                                {% if entry.required_count and entry.optional_count %}·{% endif %}
+                                {% if entry.optional_count %}
+                                    {{ entry.optional_count }} {% translate "optional" %}
+                                {% endif %}
+                            {% else %}
+                                <span class="text-foreground-muted italic">{% translate "Not used" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'panel:session-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
+                               class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                            <form method="post"
+                                  action="{% url 'panel:session-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"
+                                  class="inline"
+                                  data-confirm="{% translate "Are you sure you want to delete this field?" %}">
+                                {% csrf_token %}
+                                <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% end_tessera_table %}
+    {% else %}
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted mb-4">{% translate "No session fields defined. Add fields to classify sessions." %}</p>
+            {% url 'panel:session-field-create' slug=current_event.slug as create_url %}
+            {% translate "New Field" as t_create %}
+            {% tessera_button t_create href=create_url icon="plus" %}
+        </div>
+    {% endif %}
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% else %}
 <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
