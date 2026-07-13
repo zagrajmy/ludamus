@@ -219,11 +219,6 @@ const initScheduleRail = (rail: HTMLElement): void => {
   );
 
   const scrollKey = `schedule-scroll:${location.pathname}`;
-  const savedScroll = sessionStorage.getItem(scrollKey);
-  if (savedScroll !== null && scrollRoot) {
-    sessionStorage.removeItem(scrollKey);
-    scrollRoot.scrollTop = Number(savedScroll);
-  }
   const viewTabs = document.querySelectorAll<HTMLAnchorElement>(
     'a[data-tab="list"], a[data-tab="rooms"]',
   );

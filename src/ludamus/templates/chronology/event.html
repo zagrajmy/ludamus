@@ -284,9 +284,7 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            {# On the compact layout the toolbar sticks to the top of #app-scroll #}
-            {# so search/filter stay reachable from deep in a long schedule. #}
-            <div class="mb-6{% if compact_schedule %} sticky top-0 z-30 rounded-b-xl bg-background/95 py-2 backdrop-blur{% endif %}">
+            <div class="mb-6">
                 <div class="flex gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
@@ -398,9 +396,7 @@
                         </div>
                     </div>
                     {% if compact_schedule %}
-                        {# Below lg the view tabs render above the schedule instead #}
-                        {# (_compact_schedule.html). #}
-                        <div class="hidden self-center lg:block">{% include "chronology/_schedule_view_tabs.html" %}</div>
+                        <div class="self-center">{% include "chronology/_schedule_view_tabs.html" %}</div>
                     {% endif %}
                 </div>
                 <div id="active-filter-chips"

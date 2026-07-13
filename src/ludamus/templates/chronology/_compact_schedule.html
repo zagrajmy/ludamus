@@ -5,14 +5,11 @@
 {# .time-slot-section / .session-grid contract so session-filters.ts and the #}
 {# detail modals apply. Sections are whole local-clock hours, so the rail #}
 {# markers, section ids, and hour headings are always one-to-one. #}
-{# The tabs sit above the content+rail flex row so the sticky hour rail's #}
-{# top aligns with the first day card, not with this header row. #}
+{# The view tabs live in the search/filter toolbar row (event.html). #}
 {# ludamus-disable:no-negative-margin -- counters main's px-4 so the schedule spans the full phone width and the hour rail sits at the screen edge #}
 <div class="compact-schedule -mx-4 sm:mx-0"
      data-csrf="{{ csrf_token }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
-    {# On lg+ the tabs sit in the sticky search/filter toolbar (event.html). #}
-    <div class="mb-3 flex justify-end lg:hidden">{% include "chronology/_schedule_view_tabs.html" %}</div>
     <div class="flex items-start sm:gap-1">
         <div class="min-w-0 flex-1">
             {% if schedule_view_is_rooms %}
@@ -41,8 +38,7 @@
             {% endif %}
         </div>
         {# Hour scrubber: tap or drag to jump through the schedule by the hour. #}
-        {# top-20 (not top-4) so the rail clears the sticky search+filter bar that #}
-        {# sits at the top of the compact layout. #}
+        {# top-20 (not top-4) clears the sticky navbar with room to breathe. #}
         {# overflow-hidden, not -auto: the rail is a scrubber, never a scroll #}
         {# container — fitRail (event-timeline.ts) thins the markers until they #}
         {# fit the screen, and a non-scrollable rail chains wheel input to the #}
@@ -62,3 +58,16 @@
         </nav>
     </div>
 </div>
+{# Parser-blocking on purpose: restoring #app-scroll here, with the schedule #}
+{# already parsed, lands before first paint — the deferred module in #}
+{# event-timeline.ts (which saves this key on view-tab clicks) would flash a #}
+{# frame at scrollTop 0 first. #}
+<script>
+    (() => {
+        const saved = sessionStorage.getItem(`schedule-scroll:${location.pathname}`);
+        if (saved === null) return;
+        sessionStorage.removeItem(`schedule-scroll:${location.pathname}`);
+        const scrollRoot = document.getElementById("app-scroll");
+        if (scrollRoot) scrollRoot.scrollTop = Number(saved);
+    })();
+</script>
