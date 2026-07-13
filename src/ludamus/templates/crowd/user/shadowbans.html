@@ -55,7 +55,7 @@
                     <form action="{% url 'web:crowd:profile-shadowbans' %}"
                           method="post"
                           class="shrink-0"
-                          data-confirm="{% blocktranslate with name=candidate.name %}Shadowban {{ name }}? They will not see or join sessions you run, and we never tell them.{% endblocktranslate %}"
+                          data-confirm="{% blocktranslate with name=candidate.name %}Shadowban {{ name }}? Sessions you run disappear from their program, so they cannot sign up for them. You get an email when they sign up for anything at an event where you run a session, and a warning before you join a session they are in. They are never told.{% endblocktranslate %}"
                           data-confirm-action="{{ t_shadowban }}">
                         {% csrf_token %}
                         <input type="hidden" name="slug" value="{{ candidate.slug }}">

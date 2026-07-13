@@ -4587,11 +4587,16 @@ msgstr "Usuń cichy ban"
 #: src/ludamus/templates/crowd/user/shadowbans.html
 #, python-format
 msgid ""
-"Shadowban %(name)s? They will not see or join sessions you run, and we "
-"never tell them."
+"Shadowban %(name)s? Sessions you run disappear from their program, so they "
+"cannot sign up for them. You get an email when they sign up for anything at "
+"an event where you run a session, and a warning before you join a session "
+"they are in. They are never told."
 msgstr ""
-"Cicho zbanować %(name)s? Ta osoba nie zobaczy prowadzonych przez ciebie "
-"punktów programu ani się na nie nie zapisze. Nigdy jej o tym nie powiemy."
+"Cicho zbanować %(name)s? Punkty programu, które prowadzisz, znikną z "
+"programu tej osoby, więc nie będzie mogła się na nie zapisać. Dostaniesz "
+"e-mail, gdy zapisze się na cokolwiek na wydarzeniu, na którym coś "
+"prowadzisz, oraz ostrzeżenie, zanim dołączysz do punktu programu, w którym "
+"bierze udział. Nigdy jej o tym nie powiemy."
 
 #: src/ludamus/templates/crowd/user/shadowbans.html
 msgid "No players yet"
