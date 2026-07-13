@@ -15,6 +15,7 @@ from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import ConnectedUserDTO, UserType
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import (
+    InvitablePartyDTO,
     PartyConsentMode,
     PartyDTO,
     PartyInviteDTO,
@@ -530,6 +531,15 @@ class TestPartyJoinPageView:
         assert_response(
             response,
             HTTPStatus.OK,
+            context_data={
+                "party": InvitablePartyDTO(
+                    pk=party.pk,
+                    name="Ekipa",
+                    leader_name="Lena Leader",
+                    already_member=False,
+                ),
+                "token": "tok-123",
+            },
             template_name="crowd/user/party_join.html",
             contains=["Ekipa", "Join party"],
         )

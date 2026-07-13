@@ -75,21 +75,21 @@
     <div class="flex flex-col gap-3">
         {% for entry in parties %}
             <div class="card item-card">
-                <div class="card-body flex flex-col sm:flex-row sm:items-center gap-3">
-                    <span class="flex -space-x-2 shrink-0"
+                <div class="card-body grid grid-cols-[minmax(0,1fr)_auto] gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                    <span class="order-3 col-span-2 flex -space-x-3 shrink-0 sm:order-1 sm:col-span-1"
                           role="img"
                           aria-label="{% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}">
                         {% for member in entry.stack %}
-                            {% include "components/avatar.html" with user=member size="size-8" %}
+                            {% include "components/avatar.html" with user=member size="size-10" %}
                         {% endfor %}
                         {% if entry.stack_overflow %}
-                            <span class="size-8 rounded-full border border-white/80 dark:border-neutral-900 bg-bg-tertiary flex items-center justify-center text-xs font-semibold text-foreground-muted shrink-0">
+                            <span class="size-10 rounded-full border border-white/80 dark:border-neutral-900 bg-bg-tertiary flex items-center justify-center text-xs font-semibold text-foreground-muted shrink-0 tabular-nums">
                                 +{{ entry.stack_overflow }}
                             </span>
                         {% endif %}
                     </span>
-                    <div class="min-w-0 grow">
-                        <h6 class="font-semibold truncate">
+                    <div class="order-1 min-w-0 sm:order-2">
+                        <h6 class="text-lg font-semibold leading-tight truncate">
                             <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
                                class="hover:underline">
                                 {% if entry.party.name %}
@@ -98,21 +98,19 @@
                                     {% translate "Your party" %}
                                 {% endif %}
                             </a>
-                            {% if not entry.party.is_leader %}
-                                <span class="text-xs font-normal text-foreground-muted">
-                                    {% blocktranslate with leader=entry.party.leader_name %}led by {{ leader }}{% endblocktranslate %}
-                                </span>
-                            {% endif %}
                         </h6>
-                        <p class="text-xs text-foreground-muted">
-                            {% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}
-                            · {% blocktranslate with created=entry.party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}
+                        <p class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
+                            <span class="tabular-nums">
+                                {% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}
+                            </span>
+                            <span>{% blocktranslate with leader=entry.party.leader_name %}led by {{ leader }}{% endblocktranslate %}</span>
+                            <span>{% blocktranslate with created=entry.party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}</span>
                         </p>
                     </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="order-2 flex items-start gap-1.5 justify-end sm:order-3 sm:items-center">
                         {% if entry.party.is_leader %}
                             <button type="button"
-                                    class="btn btn-secondary"
+                                    class="btn btn-secondary px-3 py-2 text-sm rounded-xl"
                                     data-modal-open="invite-modal-{{ entry.party.pk }}">
                                 {% icon "user-plus" class="w-4 h-4" %}
                                 {% translate "Invite" %}
@@ -129,8 +127,7 @@
                                 <div id="party-menu-{{ entry.party.pk }}"
                                      data-menu-panel
                                      hidden
-                                     class="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border border-border bg-bg-secondary overflow-hidden"
-                                     style="box-shadow: var(--shadow-elevated)">
+                                     class="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border border-border bg-bg-secondary overflow-hidden shadow-(--shadow-elevated)">
                                     <button type="button"
                                             class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left text-foreground-secondary hover:bg-bg-tertiary"
                                             data-modal-open="rename-modal-{{ entry.party.pk }}">
@@ -157,7 +154,7 @@
                             </div>
                         {% else %}
                             <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
-                               class="btn btn-secondary">
+                               class="btn btn-secondary px-3 py-2 text-sm rounded-xl">
                                 {% icon "clock" class="w-4 h-4" %}
                                 {% translate "History" %}
                             </a>

@@ -188,6 +188,7 @@ body {
 .room-lanes-grid {
   display: grid;
   grid-template-columns: var(--axis-w) repeat(var(--rooms), minmax(var(--col-min), 1fr));
+  width: max(100%, calc(var(--axis-w) + var(--rooms) * var(--col-min)));
 }
 
 .room-lanes-body {
@@ -198,8 +199,7 @@ body {
   border-top: 0;
 }
 
-.room-lanes-head,
-.room-lanes-scroll {
+.room-lanes-head {
   mask-image: linear-gradient(
     90deg,
     black 0,
@@ -218,6 +218,45 @@ body {
     black calc(100% - var(--fade-size-end, 0px)),
     hsl(0 0% 0% / var(--fade-end-opacity))
   );
+}
+
+.room-lanes-scroll {
+  mask-image:
+    linear-gradient(
+      90deg,
+      black 0,
+      black var(--axis-w),
+      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+      black calc(100% - var(--fade-size-end, 0px)),
+      hsl(0 0% 0% / var(--fade-end-opacity))
+    ),
+    linear-gradient(black, black);
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      black 0,
+      black var(--axis-w),
+      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+      black calc(100% - var(--fade-size-end, 0px)),
+      hsl(0 0% 0% / var(--fade-end-opacity))
+    ),
+    linear-gradient(black, black);
+  mask-size:
+    100% calc(100% - var(--room-lanes-sb, 0px)),
+    100% var(--room-lanes-sb, 0px);
+  -webkit-mask-size:
+    100% calc(100% - var(--room-lanes-sb, 0px)),
+    100% var(--room-lanes-sb, 0px);
+  mask-position:
+    top left,
+    bottom left;
+  -webkit-mask-position:
+    top left,
+    bottom left;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
 }
 
 .room-lanes-rule {

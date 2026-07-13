@@ -250,3 +250,23 @@ class TestDesignPageView:
             },
             template_name=["design.html"],
         )
+
+
+class TestMockupsPageView:
+    URL = reverse("web:mockups")
+
+    def test_ok(self, client):
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"view": ANY},
+            template_name=["mockups.html"],
+            contains=[
+                "Roster Ledger",
+                "Crest Strip",
+                "Command Rail",
+                "Split Dashboard",
+            ],
+        )

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load avatar_tags i18n tessera %}
+{% load i18n tessera %}
 {% block title %}
     {% translate "Join party" %}
 {% endblock title %}
@@ -7,8 +7,8 @@
     <div class="max-w-md mx-auto">
         <div class="card">
             <div class="card-body px-6 py-8 sm:px-8 text-center">
-                <div class="size-16 rounded-full mx-auto flex items-center justify-center {{ party.name|avatar_bg_class }}"
-                     aria-hidden="true">{% icon "users" class="w-7 h-7 {{ party.name|avatar_text_class }}" %}</div>
+                <div class="size-16 rounded-full mx-auto flex items-center justify-center bg-bg-tertiary text-foreground-secondary"
+                     aria-hidden="true">{% icon "users" class="w-7 h-7" %}</div>
                 <h1 class="text-2xl font-bold text-foreground mt-4">
                     {% if party.name %}
                         {{ party.name }}
