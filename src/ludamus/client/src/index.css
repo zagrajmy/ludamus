@@ -198,6 +198,28 @@ body {
   border-top: 0;
 }
 
+.room-lanes-head,
+.room-lanes-scroll {
+  mask-image: linear-gradient(
+    90deg,
+    black 0,
+    black var(--axis-w),
+    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+    black calc(100% - var(--fade-size-end, 0px)),
+    hsl(0 0% 0% / var(--fade-end-opacity))
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    black 0,
+    black var(--axis-w),
+    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+    black calc(100% - var(--fade-size-end, 0px)),
+    hsl(0 0% 0% / var(--fade-end-opacity))
+  );
+}
+
 .room-lanes-rule {
   justify-self: start;
   width: 1px;

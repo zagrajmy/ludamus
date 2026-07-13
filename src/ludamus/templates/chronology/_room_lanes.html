@@ -14,7 +14,7 @@
         <div class="room-lanes"
              style="--rooms: {{ day.rooms|length }};
                     --rows: {{ day.hour_marks|length }}">
-            <div class="room-lanes-head sticky top-14 z-30 overflow-hidden border-b border-border/60 bg-background scrollview-fade scrollview-fade-right-16 scrollview-fade-left-32"
+            <div class="room-lanes-head sticky top-14 z-30 overflow-hidden border-b border-border/60 bg-background backdrop-blur-lg scrollview-fade scrollview-fade-x-8"
                  data-room-lanes-head>
                 <div class="room-lanes-grid">
                     <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
@@ -30,7 +30,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <div class="room-lanes-scroll scrollview-fade scrollview-fade-right-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
+            <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
                  data-room-lanes-scroll>
                 <div class="room-lanes-grid room-lanes-body">
                     {% for mark in day.hour_marks %}
