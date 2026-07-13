@@ -126,4 +126,5 @@ fi
 
 export PORT="${PORT:-8000}"
 printf '[dev] auth0=%s root=%s\n' "${AUTH0_DOMAIN:-?}" "${ROOT_DOMAIN:-?}" >&2
+django-admin migrate --noinput
 exec honcho start -e /dev/null -f Procfile.dev
