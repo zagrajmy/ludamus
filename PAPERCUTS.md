@@ -23,3 +23,9 @@ sentences each: what you were doing → what got in the way. See CLAUDE.md.
   match @playwright/test 1.58.2 (needs 1208), so e2e cannot launch a browser
   and the preinstalled-browsers fallback is not real. Plain
   `playwright install` without `--with-deps` works through the proxy.
+- 2026-07-13: aube install via mise fails for ~7 days after a release: ~/.npmrc
+  min-release-age=7 blocks the darwin-arm64 platform package; one-shot fix
+  npm_config_min_release_age=0 mise install npm:@endevco/aube
+- 2026-07-13: dev DB root sphere domain drifted from ROOT_DOMAIN
+  (localhost:8000) -> every request 500s with NotFoundError in
+  middlewares.py:40; error page gives no hint which domain was looked up
