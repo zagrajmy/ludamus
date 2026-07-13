@@ -289,7 +289,6 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         request.services.profile.set_avatar_preference(
             request.context.current_user_slug, use_gravatar=use_gravatar
         )
-        messages.success(request, _("Avatar preference updated successfully!"))
         return redirect("web:crowd:profile-avatar")
 
 

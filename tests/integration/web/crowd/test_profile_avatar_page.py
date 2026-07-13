@@ -1,6 +1,6 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import User
@@ -58,15 +58,44 @@ class TestProfileAvatarPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["has_auth0_avatar"] is False
 
-    def test_post_select_gravatar(self, authenticated_client, active_user):
-        response = authenticated_client.post(self.URL, data={"use_gravatar": "true"})
+    def test_get_renders_empty_circle_without_email(
+        self, authenticated_client, active_user
+    ):
+        active_user.email = ""
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Avatar preference updated successfully!")],
-            url=self.URL,
+            HTTPStatus.OK,
+            not_contains='src="None"',
+            context_data=ANY,
+            template_name="crowd/user/avatar.html",
         )
+
+    def test_get_disables_gravatar_option_without_email(
+        self, authenticated_client, active_user
+    ):
+        active_user.email = ""
+        active_user.avatar_url = "https://example.com/auth0-avatar.png"
+        active_user.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            contains="disabled",
+            not_contains="Based on your email address.",
+            context_data=ANY,
+            template_name="crowd/user/avatar.html",
+        )
+
+    def test_post_select_gravatar(self, authenticated_client, active_user):
+        response = authenticated_client.post(self.URL, data={"use_gravatar": "true"})
+
+        assert_response(response, HTTPStatus.FOUND, url=self.URL)
         user = User.objects.get(id=active_user.id)
         assert user.use_gravatar is True
 
@@ -76,12 +105,7 @@ class TestProfileAvatarPageView:
 
         response = authenticated_client.post(self.URL, data={"use_gravatar": "false"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Avatar preference updated successfully!")],
-            url=self.URL,
-        )
+        assert_response(response, HTTPStatus.FOUND, url=self.URL)
         user = User.objects.get(id=active_user.id)
         assert user.use_gravatar is False
 

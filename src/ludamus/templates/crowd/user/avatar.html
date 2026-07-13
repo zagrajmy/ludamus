@@ -30,21 +30,31 @@
                         </div>
                     </div>
                 </label>
-                <label for="avatar-gravatar" class="cursor-pointer">
+                <label for="avatar-gravatar"
+                       class="{% if gravatar_url %}cursor-pointer{% else %}cursor-not-allowed opacity-60{% endif %}">
                     <div class="card h-full {% if user.use_gravatar %}ring-1 ring-primary{% endif %}">
                         <div class="card-body text-center flex flex-col items-center gap-3">
-                            <img src="{{ gravatar_url }}"
-                                 alt="Gravatar"
-                                 class="rounded-full"
-                                 width="96"
-                                 height="96">
+                            {# ponytail: d=blank gravatars load as a transparent PNG, so the border is what draws the circle #}
+                            <div class="size-24 rounded-full border border-border overflow-hidden">
+                                {% if gravatar_url %}
+                                    <img src="{{ gravatar_url }}"
+                                         alt="Gravatar"
+                                         class="h-full w-full object-cover"
+                                         width="96"
+                                         height="96">
+                                {% endif %}
+                            </div>
                             <h6 class="font-semibold text-sm">Gravatar</h6>
                             <p class="text-foreground-muted text-xs">
-                                {% translate "Based on your email address." %}
-                                <a href="https://gravatar.com"
-                                   target="_blank"
-                                   rel="noopener"
-                                   class="text-primary hover:underline">{% translate "Change it on gravatar.com" %}</a>
+                                {% if gravatar_url %}
+                                    {% translate "Based on your email address." %}
+                                    <a href="https://gravatar.com"
+                                       target="_blank"
+                                       rel="noopener"
+                                       class="text-primary hover:underline">{% translate "Change it on gravatar.com" %}</a>
+                                {% else %}
+                                    {% translate "Add an email address to your profile to use Gravatar." %}
+                                {% endif %}
                             </p>
                             <div class="flex items-center gap-2">
                                 <input type="radio"
@@ -52,6 +62,7 @@
                                        id="avatar-gravatar"
                                        value="true"
                                        onchange="this.form.submit()"
+                                       {% if not gravatar_url %}disabled{% endif %}
                                        {% if user.use_gravatar %}checked{% endif %}>
                                 <span class="text-sm">{% translate "Use this avatar" %}</span>
                             </div>
@@ -67,11 +78,15 @@
         </form>
     {% else %}
         <div class="text-center py-6 flex flex-col items-center gap-3">
-            <img src="{{ gravatar_url }}"
-                 alt="Gravatar"
-                 class="rounded-full"
-                 width="96"
-                 height="96">
+            <div class="size-24 rounded-full border border-border overflow-hidden">
+                {% if gravatar_url %}
+                    <img src="{{ gravatar_url }}"
+                         alt="Gravatar"
+                         class="h-full w-full object-cover"
+                         width="96"
+                         height="96">
+                {% endif %}
+            </div>
             <h6 class="font-semibold">Gravatar</h6>
             <p class="text-foreground-secondary text-sm">
                 {% translate "Your avatar is provided by Gravatar, based on your email address." %}
