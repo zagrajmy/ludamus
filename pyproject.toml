@@ -103,7 +103,7 @@ branch = true
 source = ["src"]
 omit = [
     "src/ludamus/edges/*",
-    "src/ludamus/links.db/django/migrations/*",
+    "src/ludamus/links/db/django/migrations/*",
     "src/ludamus/client/*",
     "tests/template_checks.py",
 ]

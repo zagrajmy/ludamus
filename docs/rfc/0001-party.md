@@ -47,7 +47,7 @@ same design, still in flight.
 
 ## Why now — what's subpar about "Connected users"
 
-The current model (`links.db/django/models.py:94`):
+The current model (`links/db/django/models.py`, `User.manager`):
 
 ```python
 manager = models.ForeignKey(

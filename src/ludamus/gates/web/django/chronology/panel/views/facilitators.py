@@ -17,8 +17,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import FacilitatorEditForm, FacilitatorForm
-from ludamus.links.db.django.models import AccreditationType
+from ludamus.gates.web.django.forms import (
+    ACCREDITATION_TYPE_LABELS,
+    FacilitatorEditForm,
+    FacilitatorForm,
+)
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
@@ -26,6 +29,7 @@ from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
 )
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -106,9 +110,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["linked_user"] = linked_user
-        context["accreditation_type_display"] = AccreditationType(
-            facilitator.accreditation_type
-        ).label
+        context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
+            AccreditationType(facilitator.accreditation_type)
+        ]
         context["personal_data_items"] = personal_data_items
         context["has_personal_data"] = has_personal_data
         context["sessions"] = self.request.di.uow.sessions.list_by_facilitator(

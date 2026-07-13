@@ -27,7 +27,7 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from ludamus.pacts.submissions import ImportLogStatus
+from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
@@ -730,13 +730,6 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class AccreditationType(models.TextChoices):
-    NONE = "none", _("None")
-    STANDARD = "standard", _("Standard")
-    GUEST = "guest", _("Guest")
-    HONORARY = "honorary", _("Honorary")
-
-
 class Facilitator(models.Model):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -753,7 +746,9 @@ class Facilitator(models.Model):
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
     accreditation_type = models.CharField(
-        max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
+        max_length=20,
+        choices=[(t.value, t.name.title()) for t in AccreditationType],
+        default=AccreditationType.NONE,
     )
 
     class Meta:

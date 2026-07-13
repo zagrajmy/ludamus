@@ -15,11 +15,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.gates.web.django.forms import (
+    ACCREDITATION_TYPE_LABELS,
     DISCOUNT_KIND_LABELS,
     DiscountExportForm,
     DiscountForm,
 )
-from ludamus.links.db.django.models import AccreditationType
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,
@@ -27,6 +27,7 @@ from ludamus.pacts.discounts import (
     DiscountKind,
     SheetExportError,
 )
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -82,9 +83,9 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
         rows = [
             {
                 "facilitator": facilitator,
-                "accreditation_type_display": (
-                    AccreditationType(facilitator.accreditation_type).label
-                ),
+                "accreditation_type_display": ACCREDITATION_TYPE_LABELS[
+                    AccreditationType(facilitator.accreditation_type)
+                ],
                 "discount": discounts_by_facilitator.get(facilitator.pk),
             }
             for facilitator in facilitators
@@ -233,7 +234,7 @@ def _export_labels() -> DiscountExportLabels:
             _("Note"),
         ],
         accreditation_types={
-            choice.value: str(choice.label) for choice in AccreditationType
+            t.value: str(label) for t, label in ACCREDITATION_TYPE_LABELS.items()
         },
         kinds={kind.value: str(label) for kind, label in DISCOUNT_KIND_LABELS.items()},
     )
