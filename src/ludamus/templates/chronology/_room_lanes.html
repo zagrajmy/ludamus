@@ -1,46 +1,61 @@
 {% load i18n %}
-{# Rooms view: hours down, rooms across — the same room always lives in the #}
-{# same column. Each <tr> keeps the .time-slot-section contract so the hour #}
-{# scrubber and the filter section-hiding logic work unchanged. Under #}
-{# table-fixed, columns without an explicit width share the remaining space #}
-{# equally — no per-column width needed (a Tailwind class built from a #}
-{# template variable would never reach the compiled CSS anyway). The inline #}
-{# min-width guarantees every room column at least ~10rem, so a convention #}
-{# with 20+ rooms scrolls horizontally instead of crushing the columns. #}
+{# Rooms view: a CSS grid — rooms across, whole clock hours down. A session #}
+{# sits in its start-hour row and spans the hours it covers, so longer #}
+{# sessions render taller; rows are auto-height, so a tile is never clipped. #}
+{# The room-name header is pulled out of the horizontal scroller and sticks #}
+{# to the page (room-lanes.ts syncs its horizontal offset) — native vertical #}
+{# stickiness, no scroll-driven jitter. The time axis is the grid's first #}
+{# column, sticky-left; only the right edge fades, so the axis never dims. #}
+{# Hour gridlines with sessions carry the .time-slot-section / #slot-<hour> #}
+{# contract so the hour scrubber and filters keep working. #}
 {% for day in room_lane_days %}
     <section data-schedule-day class="mb-8 last:mb-0">
         {% include "chronology/_schedule_day_header.html" %}
-        <div class="scrollview-fade scrollview-fade-x-8 overflow-x-auto overscroll-x-contain">
-            <table class="room-lanes-table w-full table-fixed border-separate border-spacing-1"
-                   style="--room-count: {{ day.rooms|length }}">
-                <thead>
-                    <tr>
-                        <th class="sticky left-0 z-30 w-12 bg-background"
-                            aria-label="{% translate "Start time" %}"></th>
-                        {% for room in day.rooms %}
-                            <th class="px-2 pb-1 text-left text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in day.rows %}
-                        <tr class="time-slot-section scroll-mt-24"
-                            id="slot-{{ row.start|date:'Ymd-H' }}"
-                            data-slot-hour="{{ row.start|date:'Ymd-H' }}">
-                            {# Sticky + z-30 keeps the hour label readable while the room #}
-                            {# columns scroll under it (tile links/bookmarks sit at z-10/z-20). #}
-                            <td class="sticky left-0 z-30 bg-background pr-1 align-top text-sm font-bold tabular-nums text-foreground-secondary">{{ row.start|time:"H:i" }}</td>
-                            {% for cell in row.cells %}
-                                <td class="space-y-1 align-top">
-                                    {% for data in cell %}
-                                        {% include "chronology/_room_lane_tile.html" %}
-                                    {% endfor %}
-                                </td>
-                            {% endfor %}
-                        </tr>
+        <div class="room-lanes"
+             style="--rooms: {{ day.rooms|length }};
+                    --rows: {{ day.hour_marks|length }}">
+            <div class="room-lanes-head sticky top-14 z-30 overflow-hidden border-b border-border/60 bg-background scrollview-fade scrollview-fade-right-16 scrollview-fade-left-32"
+                 data-room-lanes-head>
+                <div class="room-lanes-grid">
+                    <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
+                    {% for room in day.rooms %}
+                        <div class="truncate px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</div>
                     {% endfor %}
-                </tbody>
-            </table>
+                    {# Column dividers hang from the header cells and continue down #}
+                    {# through the body (matching .room-lanes-rule below), so the #}
+                    {# lines stay continuous where cells span rows or are absent. #}
+                    {% for room in day.rooms %}
+                        <div class="room-lanes-rule"
+                             style="grid-column: {{ forloop.counter|add:1 }}"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="room-lanes-scroll scrollview-fade scrollview-fade-right-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
+                 data-room-lanes-scroll>
+                <div class="room-lanes-grid room-lanes-body">
+                    {% for mark in day.hour_marks %}
+                        <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
+                             style="grid-row: {{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
+                        <div class="room-lanes-line border-t border-border/60{% if mark.has_sessions %} time-slot-section scroll-mt-24{% endif %}"
+                             style="grid-row: {{ mark.row }};
+                                    grid-column: 2 / -1"
+                             {% if mark.has_sessions %}id="slot-{{ mark.start|date:'Ymd-H' }}" data-slot-hour="{{ mark.start|date:'Ymd-H' }}"{% endif %}>
+                        </div>
+                    {% endfor %}
+                    {% for room in day.rooms %}
+                        <div class="room-lanes-rule"
+                             style="grid-column: {{ forloop.counter|add:1 }};
+                                    grid-row: 1 / -1"></div>
+                    {% endfor %}
+                    {% for tile in day.tiles %}
+                        <div class="room-lanes-cell p-0.5"
+                             style="grid-column: {{ tile.col|add:1 }};
+                                    grid-row: {{ tile.row_start }} / span {{ tile.row_span }}">
+                            {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </section>
 {% endfor %}

@@ -175,51 +175,38 @@ body {
 }
 
 .room-lanes {
-  --minute-px: 1px;
-  --lanes-head: 2rem;
+  --axis-w: 3.25rem;
+  --col-min: 10rem;
 }
 
-.room-lanes-mark {
-  top: calc(var(--offset) * var(--minute-px) + var(--lanes-head));
-  translate: 0 -50%;
+@media (min-width: 1024px) {
+  .room-lanes {
+    --col-min: 11.25rem;
+  }
+}
+
+.room-lanes-grid {
+  display: grid;
+  grid-template-columns: var(--axis-w) repeat(var(--rooms), minmax(var(--col-min), 1fr));
 }
 
 .room-lanes-body {
-  height: calc(var(--lanes-extent) * var(--minute-px));
+  grid-template-rows: repeat(var(--rows), minmax(3.5rem, auto));
 }
 
-.room-lanes-line {
-  top: calc(var(--offset) * var(--minute-px));
+.room-lanes-line:first-of-type {
+  border-top: 0;
 }
 
-.room-lanes-tile {
-  top: calc(var(--offset) * var(--minute-px));
-  height: max(1.5rem, calc(var(--duration) * var(--minute-px)));
-  left: calc(var(--lane-start) + 2px);
-  width: calc(var(--lane-width) - 4px);
+.room-lanes-rule {
+  justify-self: start;
+  width: 1px;
+  background: color-mix(in oklch, var(--color-border) 60%, transparent);
+  pointer-events: none;
 }
 
-.room-lanes-tile .session-wrapper,
-.room-lanes-tile .session {
-  height: 100%;
-}
-
-.room-lanes-tile .session {
-  overflow: hidden;
-}
-
-.room-lanes-tile:hover,
-.room-lanes-tile:focus-within {
-  z-index: 30;
-  height: auto;
-  min-height: max(1.5rem, calc(var(--duration) * var(--minute-px)));
-}
-
-.room-lanes-tile:hover .session,
-.room-lanes-tile:focus-within .session {
-  height: auto;
-  min-height: 100%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+.dark .room-lanes-rule {
+  background: color-mix(in oklch, var(--color-border) 35%, transparent);
 }
 
 body:has(dialog.modal[open]) .app-scroll {

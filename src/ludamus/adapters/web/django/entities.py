@@ -3,7 +3,8 @@ from __future__ import annotations
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from math import ceil
 from typing import TYPE_CHECKING, Self
 
 from django.utils import timezone
@@ -170,20 +171,33 @@ class ScheduleDay:
 
 
 @dataclass
-class RoomLaneRow:
-    """One hour row of the rooms view: a cell of sessions per room."""
+class RoomLaneTile:
+    """A session placed on the rooms CSS grid (1-based grid line indices)."""
+
+    data: SessionData
+    slot_hour: datetime
+    col: int
+    row_start: int
+    row_span: int
+
+
+@dataclass
+class RoomLaneHourMark:
+    """An hour gridline; marks with sessions double as rail slot sections."""
 
     start: datetime
-    cells: list[list[SessionData]]
+    row: int
+    has_sessions: bool
 
 
 @dataclass
 class RoomLaneDay:
-    """A day of the rooms view: room columns and per-hour rows."""
+    """A day of the rooms view: room columns, hour rows, and placed tiles."""
 
     first_start: datetime
     rooms: list[str]
-    rows: list[RoomLaneRow]
+    hour_marks: list[RoomLaneHourMark]
+    tiles: list[RoomLaneTile]
 
 
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
@@ -240,10 +254,6 @@ def group_sessions_by_state(
 
 
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
-    # Pivot each day's hours into a rooms grid: one column per scheduled leaf
-    # space, one row per hour. Rooms are keyed by (name, parent slug) — leaf
-    # names repeat across venues — and the label carries the parent name only
-    # when the bare name would be ambiguous.
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
         keys = sorted(
@@ -262,21 +272,56 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
             f"{name} ({parent})" if name_counts[name] > 1 and parent else name
             for name, _, parent in keys
         ]
-        column = {key: index for index, key in enumerate(keys)}
-        rows = []
+        col_index = {key: i + 1 for i, key in enumerate(keys)}
+
+        day_start = day.hours[0].start
+        day_end = max(
+            data.agenda_item.end_time
+            for hour in day.hours
+            for data in hour.sessions
+            if data.agenda_item is not None
+        )
+        hour_count = ceil((day_end - day_start).total_seconds() / 3600)
+        session_hours = {hour.start for hour in day.hours}
+        hour_marks = [
+            RoomLaneHourMark(
+                start=(mark := day_start + timedelta(hours=offset)),
+                row=offset + 1,
+                has_sessions=mark in session_hours,
+            )
+            for offset in range(hour_count)
+        ]
+
+        tiles = []
         for hour in day.hours:
-            cells: list[list[SessionData]] = [[] for _ in keys]
             for data in hour.sessions:
-                cells[
-                    column[
-                        data.loc["space_name"],
-                        data.loc["parent_slug"],
-                        data.loc["parent_name"],
-                    ]
-                ].append(data)
-            rows.append(RoomLaneRow(start=hour.start, cells=cells))
+                if data.agenda_item is None:
+                    continue
+                item = data.agenda_item
+                key = (
+                    data.loc["space_name"],
+                    data.loc["parent_slug"],
+                    data.loc["parent_name"],
+                )
+                start_hour = int((item.start_time - day_start).total_seconds() // 3600)
+                end_offset = (item.end_time - day_start).total_seconds() / 3600
+                span = max(1, ceil(end_offset) - start_hour)
+                tiles.append(
+                    RoomLaneTile(
+                        data=data,
+                        slot_hour=hour.start,
+                        col=col_index[key],
+                        row_start=start_hour + 1,
+                        row_span=span,
+                    )
+                )
         lane_days.append(
-            RoomLaneDay(first_start=day.first_start, rooms=rooms, rows=rows)
+            RoomLaneDay(
+                first_start=day.first_start,
+                rooms=rooms,
+                hour_marks=hour_marks,
+                tiles=tiles,
+            )
         )
     return lane_days
 

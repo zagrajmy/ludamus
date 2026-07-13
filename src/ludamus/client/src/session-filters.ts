@@ -239,13 +239,16 @@ const initSessionFilters = (): void => {
     }
 
     // Hide empty time slot sections. The card and ledger layouts nest their
-    // wrappers in a .session-grid; the rooms-view rows hold wrappers directly,
-    // so fall back to the section itself there.
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid") ?? section;
-      const visibleCards = cardGrid.querySelectorAll(
+      let visibleCards = cardGrid.querySelectorAll(
         '.session-wrapper:not([style*="display: none"])',
       );
+      if (visibleCards.length === 0 && section.dataset.slotHour) {
+        visibleCards = document.querySelectorAll(
+          `.session-wrapper[data-slot-hour="${CSS.escape(section.dataset.slotHour)}"]:not([style*="display: none"])`,
+        );
+      }
       section.style.display = visibleCards.length > 0 ? "" : "none";
     }
 

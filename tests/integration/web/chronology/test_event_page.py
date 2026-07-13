@@ -384,7 +384,7 @@ class TestEventPageView:
             session=later_in_arena,
             space=arena,
             start_time=start + timedelta(hours=2),
-            end_time=start + timedelta(hours=3),
+            end_time=start + timedelta(hours=4),
         )
 
         SessionBookmark.objects.create(user=active_user, session=in_arena)
@@ -396,24 +396,27 @@ class TestEventPageView:
         assert response.context_data["schedule_view_is_list"] is False
         [day] = response.context_data["room_lane_days"]
         assert day.rooms == ["Arena", "Stage"]
-        [first_row, second_row] = day.rows
-        assert [[s.session.pk for s in cell] for cell in first_row.cells] == [
-            [in_arena.pk],
-            [on_stage.pk],
+        assert [(m.row, m.has_sessions) for m in day.hour_marks] == [
+            (1, True),
+            (2, False),
+            (3, True),
+            (4, False),
         ]
-        assert [[s.session.pk for s in cell] for cell in second_row.cells] == [
-            [later_in_arena.pk],
-            [],
+        assert [
+            (t.data.session.pk, t.col, t.row_start, t.row_span) for t in day.tiles
+        ] == [
+            (in_arena.pk, 1, 1, 1),
+            (on_stage.pk, 2, 1, 1),
+            (later_in_arena.pk, 1, 3, 2),
         ]
         content = response.content.decode()
-        assert re.search(r">\s*Arena\s*</th>", content)
-        assert re.search(r">\s*Stage\s*</th>", content)
+        assert re.search(r">\s*Arena\s*</div>", content)
+        assert re.search(r">\s*Stage\s*</div>", content)
         assert "schedule-rail" in content
         assert f"?session={in_arena.pk}" in content
         # Both bookmark-toggle tile states render for the authenticated viewer.
         assert 'aria-pressed="false"' in content
         assert 'aria-pressed="true"' in content
-        assert "1h" in content
         assert re.search(r">\s*16\+\s*<", content)
 
     @pytest.mark.usefixtures("agenda_item")

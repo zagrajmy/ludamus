@@ -784,6 +784,9 @@
     {% vite_asset 'src/session-filters.ts' %}
     {% vite_asset 'src/session-bookmarks.ts' %}
     {% vite_asset 'src/event-timeline.ts' %}
+    {% if schedule_view_is_rooms %}
+        {% vite_asset 'src/room-lanes.ts' %}
+    {% endif %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}
