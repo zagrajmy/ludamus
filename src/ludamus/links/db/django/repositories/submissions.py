@@ -1,6 +1,6 @@
 from typing import Literal, cast  # pylint: disable=unused-import
 
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
@@ -443,7 +443,12 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
         requirements = (
             PersonalDataFieldRequirement.objects.filter(category_id=category_id)
             .select_related("field")
-            .prefetch_related("field__options")
+            .prefetch_related(
+                Prefetch(
+                    "field__options",
+                    queryset=PersonalDataFieldOption.objects.order_by("order", "label"),
+                )
+            )
             .order_by("order", "field__name")
         )
         result = []
@@ -451,7 +456,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             field = req.field
             options = [
                 PersonalDataFieldOptionDTO.model_validate(o)
-                for o in field.options.all().order_by("order", "label")
+                for o in field.options.all()
             ]
             field_dto = PersonalDataFieldDTO(
                 allow_custom=field.allow_custom,
@@ -482,15 +487,19 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
         requirements = (
             SessionFieldRequirement.objects.filter(category_id=category_id)
             .select_related("field")
-            .prefetch_related("field__options")
+            .prefetch_related(
+                Prefetch(
+                    "field__options",
+                    queryset=SessionFieldOption.objects.order_by("order", "label"),
+                )
+            )
             .order_by("order", "field__name")
         )
         result = []
         for req in requirements:
             field = req.field
             options = [
-                SessionFieldOptionDTO.model_validate(o)
-                for o in field.options.all().order_by("order", "label")
+                SessionFieldOptionDTO.model_validate(o) for o in field.options.all()
             ]
             field_dto = SessionFieldDTO(
                 allow_custom=field.allow_custom,

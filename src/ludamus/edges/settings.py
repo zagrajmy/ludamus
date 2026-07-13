@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import environ
+from django.utils.csp import CSP
 from google.oauth2 import service_account
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -121,6 +122,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -302,6 +304,24 @@ INTERNAL_IPS = [
     # ...
 ]
 
+# Content-Security-Policy, report-only for now. 'unsafe-inline' in
+# script-src/style-src covers the inline theme-init/panel scripts and
+# inline style attributes; 'unsafe-eval' covers htmx hx-on:
+# attributes; img-src is broad because avatars come from arbitrary
+# Auth0/gravatar HTTPS hosts and media from GCS.
+CSP_REPORT_ONLY_POLICY: dict[str, list[str]] = {
+    "default-src": [CSP.SELF],
+    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, CSP.UNSAFE_EVAL],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "img-src": [CSP.SELF, "data:", "https:"],
+    "font-src": [CSP.SELF],
+    "connect-src": [CSP.SELF],
+    "object-src": [CSP.NONE],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+}
+
 # Security Settings for Production
 if IS_PRODUCTION:
     # HTTPS/SSL Settings
@@ -340,6 +360,8 @@ if IS_PRODUCTION:
 
     # Additional Security Settings
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+    SECURE_CSP_REPORT_ONLY = CSP_REPORT_ONLY_POLICY
 
     SECURE_REDIRECT_EXEMPT = [r"^healthz/"]
 

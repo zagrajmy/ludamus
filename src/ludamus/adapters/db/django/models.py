@@ -763,27 +763,28 @@ class Facilitator(models.Model):
 class SessionManager(AliveManager["Session"]):
     # Inherits the alive-only `get_queryset` from AliveManager so conflict
     # checks (and the default `objects` accessor) skip soft-deleted sessions.
-    def has_conflicts(self, session: Session, user: UserDTO) -> bool:
-        return (
+    def conflicted_user_ids(self, session: Session, user_ids: list[int]) -> set[int]:
+        if not user_ids:
+            return set()
+        start = session.agenda_item.start_time
+        end = session.agenda_item.end_time
+        return set(
             self.get_queryset()
             .filter(
                 event_id=session.event_id,
-                session_participations__user_id=user.pk,
+                session_participations__user_id__in=user_ids,
                 session_participations__status=SessionParticipationStatus.CONFIRMED,
             )
             .filter(
-                Q(
-                    agenda_item__start_time__gte=session.agenda_item.start_time,
-                    agenda_item__start_time__lt=session.agenda_item.end_time,
-                )
-                | Q(
-                    agenda_item__end_time__gt=session.agenda_item.start_time,
-                    agenda_item__end_time__lte=session.agenda_item.end_time,
-                )
+                Q(agenda_item__start_time__gte=start, agenda_item__start_time__lt=end)
+                | Q(agenda_item__end_time__gt=start, agenda_item__end_time__lte=end)
             )
             .exclude(id=session.id)
-            .exists()
+            .values_list("session_participations__user_id", flat=True)
         )
+
+    def has_conflicts(self, session: Session, user: UserDTO) -> bool:
+        return user.pk in self.conflicted_user_ids(session, [user.pk])
 
 
 class Session(SoftDeleteModel):

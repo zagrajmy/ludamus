@@ -186,11 +186,7 @@ class TestClaimRedemptionOnLogin:
         cache.set(
             f"oauth_state:{state_token}",
             json.dumps(
-                {
-                    "redirect_to": None,
-                    "created_at": datetime.now(UTC).isoformat(),
-                    "csrf_token": "test_csrf_token",
-                }
+                {"redirect_to": None, "created_at": datetime.now(UTC).isoformat()}
             ),
             timeout=600,
         )

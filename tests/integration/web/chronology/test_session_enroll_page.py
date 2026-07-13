@@ -309,6 +309,8 @@ class TestSessionEnrollPageView:
     def test_post_cancel_when_no_enrollment_config(
         self, agenda_item, authenticated_client, event, active_user
     ):
+        # Organizer deleted every config row; enrollees must still be able to
+        # release their seats.
         SessionParticipation.objects.create(
             user=active_user,
             session=agenda_item.session,
@@ -323,6 +325,37 @@ class TestSessionEnrollPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    def test_post_enroll_when_no_enrollment_config(
+        self, agenda_item, authenticated_client, event, active_user
+    ):
+        # The form already disables "enroll" with zero configs, so force the
+        # cleaned data through (as the race tests do) to pin the view-level
+        # rejection: unlike cancels, enrolls still require a config.
+        with patch(
+            "ludamus.adapters.web.django.views.create_enrollment_form"
+        ) as mock_form_factory:
+            mock_form_class = Mock()
+            mock_form_instance = Mock()
+            mock_form_instance.is_valid.return_value = True
+            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "enroll"}
+            mock_form_class.return_value = mock_form_instance
+            mock_form_factory.return_value = mock_form_class
+
+            response = authenticated_client.post(
+                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
             messages=[
                 (
                     messages.ERROR,
@@ -331,6 +364,51 @@ class TestSessionEnrollPageView:
             ],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
+
+    def test_post_cancel_with_guest_increase_when_no_enrollment_config(
+        self, agenda_item, authenticated_client, active_user
+    ):
+        # With zero config rows the config contributes no slots, so a guest
+        # increase beyond the seats freed by the same batch's cancels is
+        # rejected as over capacity (here: 2 guests against 1 freed seat).
+        # The stepper never renders without an active config, so force it the
+        # way the race tests force stale cleaned data.
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        with patch(
+            "ludamus.adapters.web.django.views.SessionEnrollPageView._guest_count",
+            return_value=0,
+        ):
+            response = authenticated_client.post(
+                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+                data={f"user_{active_user.id}": "cancel", "guests": "2"},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Not enough spots available. 2 spots requested, 1 available. "
+                        "Bring fewer guests or use the waiting list for account "
+                        "holders."
+                    ),
+                )
+            ],
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+        )
+        assert SessionParticipation.objects.filter(
+            user=active_user, session=agenda_item.session
+        ).exists()
 
     def test_post_invalid_form(self, active_user, agenda_item, authenticated_client):
         response = authenticated_client.post(
@@ -498,7 +576,7 @@ class TestSessionEnrollPageView:
             HTTPStatus.FOUND,
             messages=[
                 (
-                    messages.SUCCESS,
+                    messages.WARNING,
                     (
                         "Skipped (already enrolled or conflicts): "
                         f"{active_user.name} (no enrollment to cancel)"
@@ -761,7 +839,7 @@ class TestSessionEnrollPageView:
             HTTPStatus.FOUND,
             messages=[
                 (
-                    messages.SUCCESS,
+                    messages.WARNING,
                     "Skipped (already enrolled or conflicts): Test User (session host)",
                 )
             ],
@@ -769,6 +847,41 @@ class TestSessionEnrollPageView:
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_shadowbanned_connected_user_skipped_neutrally(
+        self, authenticated_client, agenda_item, connected_user, event
+    ):
+        # The manager is not banned, but the presenter shadowbanned their
+        # connected sub-user; the skip reason must not reveal the ban.
+        banner = UserFactory(username="gm", email="gm@example.com", name="GM")
+        session = agenda_item.session
+        session.presenter = banner
+        session.save()
+        banner.shadowbanned.add(connected_user)
+
+        response = authenticated_client.post(
+            self._get_url(session.pk, session.event.slug),
+            data={f"user_{connected_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.WARNING,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{connected_user.name} (not available)"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=connected_user, session=session
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -825,7 +938,7 @@ class TestSessionEnrollPageView:
             HTTPStatus.FOUND,
             messages=[
                 (
-                    messages.SUCCESS,
+                    messages.WARNING,
                     (
                         "Skipped (already enrolled or conflicts): Test User "
                         "(time conflict)"
