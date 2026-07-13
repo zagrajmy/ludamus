@@ -38,6 +38,7 @@ export default defineConfig({
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
+        "design-page": resolve(rootDir, "src/design-page.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),

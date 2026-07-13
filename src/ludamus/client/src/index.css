@@ -318,18 +318,18 @@ button {
   --color-secondary-light: #134e45;
   --color-success: #4ade80;
   --color-success-light: #14532d;
-  --color-success-bg: #052e16;
+  --color-success-bg: #052e16a2;
   --color-success-text: #86efac;
   --color-warning: #fbbf24;
   --color-warning-light: #44380f;
-  --color-warning-bg: #292211;
+  --color-warning-bg: #292211ad;
   --color-warning-text: #fbbf24;
   --color-danger-light: #450a0a;
-  --color-danger-bg: #2d0808;
+  --color-danger-bg: #3c0d0de1;
   --color-danger-text: #fca5a5;
   --color-info: #60a5fa;
   --color-info-light: #1e3a5f;
-  --color-info-bg: #0c1e36;
+  --color-info-bg: #0c1e36ad;
   --color-info-text: #93c5fd;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -382,11 +382,83 @@ button:active {
 }
 
 @layer components {
+  .flash-region {
+    position: fixed;
+    top: max(1rem, env(safe-area-inset-top));
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    z-index: 60;
+    height: 0;
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    pointer-events: auto;
+    overflow: visible;
+    transform: translateX(-50%);
+  }
+
+  .flash-region .alert {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    pointer-events: auto;
+    overflow-wrap: anywhere;
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-100%) scale(0.98);
+    transform-origin: top center;
+    transition:
+      transform 0.26s var(--ease-out),
+      opacity 0.26s var(--ease-out),
+      height 0.26s var(--ease-out),
+      box-shadow 0.2s var(--ease-out);
+    will-change: transform, opacity;
+  }
+
+  .flash-region .alert[data-flash-mounted="false"] {
+    opacity: 0;
+  }
+
+  .flash-region .alert[data-flash-mounted="true"] {
+    opacity: 1;
+  }
+
+  .flash-region .alert[data-flash-visible="false"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .flash-region[data-flash-expanded="false"] .alert[data-flash-front="false"] > * {
+    opacity: 0;
+    transition: opacity 0.26s var(--ease-out);
+  }
+
+  .flash-region .alert[data-flash-closing="true"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (min-width: 640px) {
+    .flash-region {
+      top: max(1.5rem, env(safe-area-inset-top));
+      max-height: calc(100dvh - 3rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flash-region .alert,
+    .flash-region .alert[data-flash-mounted="false"] {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
   .alert {
     border-radius: 0.5rem;
     padding: 1rem;
     border-width: 1px;
     border-style: solid;
+    @apply backdrop-blur-lg;
   }
 
   .alert-success {

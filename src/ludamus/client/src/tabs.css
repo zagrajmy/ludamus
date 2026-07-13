@@ -45,7 +45,7 @@
     position: relative;
     z-index: 10;
     background-color: var(--color-bg-secondary);
-    color: var(--color-primary);
+    color: var(--color-foreground);
     box-shadow: 0 -1px 3px 0 rgba(0, 0, 0, 0.06);
   }
 

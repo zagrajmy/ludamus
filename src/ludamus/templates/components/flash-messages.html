@@ -1,7 +1,7 @@
 {% load i18n tessera %}
 {% comment %}
 Flash (Django `messages`) list. Single source for both base.html and
-panel/base.html — each supplies its own positioning wrapper. Behavior
+panel/base.html — each supplies the shared fixed toaster wrapper. Behavior
 (transient auto-dismiss, dismiss button) is wired by src/flash.ts.
 {% endcomment %}
 {% for message in messages %}

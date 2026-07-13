@@ -343,6 +343,39 @@ test.describe("Anonymous code modal", () => {
     await dialog.getByRole("button", { name: "Switch to This Code" }).click();
 
     await expect(page).toHaveURL(/\/event\/autumn-open/);
-    await expect(page.getByText(/Invalid code/i)).toBeVisible();
+    const flash = page.getByRole("alert").filter({ hasText: /Invalid code/i });
+    await expect(flash).toBeVisible();
+
+    const initialMainTop = await page
+      .locator("main")
+      .evaluate((main) => main.getBoundingClientRect().top);
+    expect(
+      await page.locator(".flash-region").evaluate((region) => getComputedStyle(region).position),
+    ).toBe("fixed");
+    const flashRegionCenter = await page.locator(".flash-region").evaluate((region) => {
+      const { left, width } = region.getBoundingClientRect();
+      return { center: left + width / 2, viewportCenter: window.innerWidth / 2 };
+    });
+    expect(flashRegionCenter.center).toBeCloseTo(flashRegionCenter.viewportCenter, 0);
+    await page.waitForTimeout(300);
+    const finalMainTop = await page
+      .locator("main")
+      .evaluate((main) => main.getBoundingClientRect().top);
+    expect(finalMainTop).toBe(initialMainTop);
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await flash.getByRole("button", { name: "Dismiss" }).click();
+    await expect(flash).toHaveAttribute("data-flash-closing", "true");
+    await expect
+      .poll(
+        () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
+        {
+          timeout: 200,
+          intervals: [50],
+        },
+      )
+      .toBeLessThan(1);
+    await expect(flash).toHaveCount(0);
   });
 });
