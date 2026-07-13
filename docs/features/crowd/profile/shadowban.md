@@ -18,8 +18,14 @@ that they cannot join and cannot tell they were banned.
 - Sessions run by the banner render to the banned viewer as full, with
   simulacra participants and no way to enroll — exactly like the event-ban
   fake-full card.
-- Direct enrollment links bounce back to the event page with no error
-  message; the session simply looks full there.
+- The card shows a disabled "Session full" button instead of the
+  enroll/waitlist actions, so the UI never links to the enrollment page.
+- The enrollment page itself (hand-typed URL) renders the standard
+  full-session state — same capacity pill, same form — indistinguishable
+  from a genuinely full session. Enroll attempts are skipped with the
+  neutral "(not available)" reason.
+- Email and in-app notification titles name the session when the banned
+  player joined one the banner plays in.
 - **Hiding the sessions instead is wrong and must not come back.** A hidden
   session is observable: the banned player can compare the program with a
   friend's view (or a logged-out tab) and infer who banned them, which is

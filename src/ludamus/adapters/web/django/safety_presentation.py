@@ -5,10 +5,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from ludamus.adapters.web.django.entities import ParticipationInfo, SessionData
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts.legacy import SessionParticipationStatus
+
+if TYPE_CHECKING:
+    from ludamus.adapters.db.django.models import Session
 
 _SIMULACRA_FILL = 8
 _SIMULACRA_NAMES = ("Aleksandra Nowak", "Piotr Kowalski", "Maria Wiśniewska")
@@ -33,6 +37,13 @@ def _simulacra_participations(count: int) -> list[ParticipationInfo]:
         )
         for index, name in enumerate(_SIMULACRA_NAMES[:count])
     ]
+
+
+def fake_full_session(session: Session) -> None:
+    if session.participants_limit == 0:
+        session.participants_limit = _SIMULACRA_FILL
+    session.enrolled_count_cached = session.effective_participants_limit
+    session.waiting_count_cached = 0
 
 
 def fake_full_card(session_data: SessionData) -> SessionData:

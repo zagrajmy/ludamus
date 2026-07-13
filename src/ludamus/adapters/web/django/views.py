@@ -50,7 +50,10 @@ from ludamus.adapters.web.django.forms import (
     EnrollmentRoster,
     RosterMember,
 )
-from ludamus.adapters.web.django.safety_presentation import fake_full_card
+from ludamus.adapters.web.django.safety_presentation import (
+    fake_full_card,
+    fake_full_session,
+)
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -861,9 +864,7 @@ def _get_session_or_redirect(
         ) from None
     viewer_id = request.context.current_user_id
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
-        raise RedirectError(
-            reverse("web:chronology:event", kwargs={"slug": session.event.slug})
-        ) from None
+        fake_full_session(session)
     if not AgendaItem.objects.filter(session_id=session.pk).exists():
         raise RedirectError(
             reverse("web:index"),

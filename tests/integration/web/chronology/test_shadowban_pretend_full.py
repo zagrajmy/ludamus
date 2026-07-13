@@ -5,7 +5,6 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import SessionParticipation
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_response
 
 
 def _event_url(slug: str) -> str:
@@ -68,19 +67,22 @@ class TestShadowbanPretendFull:
         (card,) = response.context["sessions"]
         assert not card.is_full
 
-    def test_enroll_page_bounces_to_event_without_error(
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_enroll_page_renders_standard_full_state(
         self, authenticated_client, agenda_item, active_user
     ):
         session = _ban_viewer(agenda_item, active_user, username="gm2")
 
         response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
-        assert_response(
-            response, HTTPStatus.FOUND, messages=[], url=_event_url(session.event.slug)
-        )
+        assert response.status_code == HTTPStatus.OK
+        page_session = response.context["session"]
+        assert page_session.is_full
+        assert page_session.enrolled_count == page_session.effective_participants_limit
+        assert page_session.waiting_count == 0
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_enroll_post_blocked_and_bounced(
+    def test_enroll_post_never_seats_the_shadowbanned(
         self, authenticated_client, agenda_item, active_user
     ):
         session = _ban_viewer(agenda_item, active_user, username="gm3")
@@ -90,9 +92,7 @@ class TestShadowbanPretendFull:
             data={f"user_{active_user.id}": "enroll"},
         )
 
-        assert_response(
-            response, HTTPStatus.FOUND, messages=[], url=_event_url(session.event.slug)
-        )
+        assert response.status_code in {HTTPStatus.OK, HTTPStatus.FOUND}
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session
         ).exists()
