@@ -65,8 +65,8 @@ reviewed, and landed the same day. Outcomes and learnings:
   relaxation was rejected — owner: "we lock for security".
 - **017 suspected bugs** — both FIXED by plan 018 (2026-07-13): skip
   notices now flash at `messages.WARNING`, and cancel works with zero
-  `EnrollmentConfig` rows (guest increases riding along with cancels
-  are rejected as over capacity). Plan 018's executor also audited
+  `EnrollmentConfig` rows (guest increases riding along stay bounded
+  by the seats those cancels free). Plan 018's executor also audited
   the anonymous flow: it carries neither bug.
 - 017's audit found the enrollment view already 99.25% covered with
   32/33 behaviors asserted; one neutral-message assertion was added.

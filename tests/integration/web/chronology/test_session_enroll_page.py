@@ -371,8 +371,9 @@ class TestSessionEnrollPageView:
     def test_post_cancel_with_guest_increase_when_no_enrollment_config(
         self, agenda_item, authenticated_client, active_user
     ):
-        # With zero config rows there are no enrollable slots, so a guest
-        # increase riding along with a cancel is rejected as over capacity.
+        # With zero config rows the config contributes no slots, so a guest
+        # increase beyond the seats freed by the same batch's cancels is
+        # rejected as over capacity (here: 2 guests against 1 freed seat).
         # The stepper never renders without an active config, so force it the
         # way the race tests force stale cleaned data.
         SessionParticipation.objects.create(

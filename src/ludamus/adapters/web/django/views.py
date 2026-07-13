@@ -1744,8 +1744,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        # No config rows (cancel-only carve-out) means no enrollable slots, so
-        # any guest increase riding along with the cancels is over capacity.
+        # No config rows (cancel-only carve-out) means the config contributes
+        # zero slots; a guest increase riding along with the cancels stays
+        # bounded by the seats those cancels free in this same batch.
         config_slots = (
             enrollment_config.get_available_slots(session) if enrollment_config else 0
         )
