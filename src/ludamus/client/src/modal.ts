@@ -366,6 +366,23 @@ const setupModalCloseTriggers = (): void => {
   }
 };
 
+const setupModalOpenTriggers = (): void => {
+  for (const trigger of document.querySelectorAll<HTMLElement>("[data-modal-open]")) {
+    trigger.addEventListener("click", (event) => {
+      const id = trigger.dataset.modalOpen;
+      if (!id) return;
+      event.preventDefault();
+      void openModal(id);
+    });
+  }
+};
+
+const openModalsMarkedForLoad = (): void => {
+  for (const dialog of document.querySelectorAll<HTMLElement>("dialog.modal[data-open-on-load]")) {
+    void openModal(dialog.id, { updateUrl: false });
+  }
+};
+
 document.addEventListener("click", (event) => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
@@ -387,6 +404,8 @@ globalThis.addEventListener("popstate", syncModalsFromUrl);
 
 syncModalsFromUrl();
 setupModalCloseTriggers();
+setupModalOpenTriggers();
+openModalsMarkedForLoad();
 
 const setupFallbackLinkHandlers = (): void => {
   for (const link of document.querySelectorAll("a[href][aria-controls]")) {

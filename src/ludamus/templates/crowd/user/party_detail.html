@@ -13,8 +13,7 @@
         {% icon "arrow-left" class="w-3.5 h-3.5" %}
         {% translate "All parties" %}
     </a>
-    <div class="party-name-display flex items-center justify-between gap-2 mb-1"
-         id="party-display-{{ party.pk }}">
+    <div class="flex items-center justify-between gap-2 mb-1">
         <h5 class="font-semibold flex items-center gap-2">
             {% if party.name %}
                 {{ party.name }}
@@ -32,7 +31,7 @@
                 <button type="button"
                         class="icon-btn"
                         title="{% translate "Rename party" %}"
-                        onclick="document.getElementById('party-display-{{ party.pk }}').style.display='none'; document.getElementById('party-edit-{{ party.pk }}').style.display='block'">
+                        data-modal-open="party-rename-modal">
                     {% icon "pencil" class="w-3.5 h-3.5" %}
                     <span class="sr-only">{% translate "Rename party" %}</span>
                 </button>
@@ -61,47 +60,60 @@
         {% blocktranslate with created=party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}
     </p>
     {% if party.is_leader %}
-        <div class="party-name-edit mb-4"
-             id="party-edit-{{ party.pk }}"
-             style="display:none">
+        <dialog id="party-rename-modal"
+                class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                aria-labelledby="party-rename-modal-title">
             <form method="post"
                   action="{% url 'web:crowd:parties-rename' pk=party.pk %}">
                 {% csrf_token %}
-                {% tessera_field rename_form.name %}
-                <div class="flex gap-2">
-                    <button type="submit" class="btn btn-primary">{% translate "Save name" %}</button>
+                <div class="px-6 pt-5 pb-4">
+                    <h3 id="party-rename-modal-title" class="font-semibold text-foreground">{% translate "Rename party" %}</h3>
+                    <div class="mt-4">{% tessera_field rename_form.name %}</div>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
                     <button type="button"
                             class="btn btn-secondary"
-                            onclick="document.getElementById('party-edit-{{ party.pk }}').style.display='none'; document.getElementById('party-display-{{ party.pk }}').style.display='flex'">
-                        {% translate "Cancel" %}
-                    </button>
+                            data-modal-close="party-rename-modal">{% translate "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% translate "Save name" %}</button>
                 </div>
             </form>
-        </div>
+        </dialog>
     {% endif %}
-    <div class="flex flex-col gap-3">
+    <h6 class="text-sm font-semibold text-foreground-secondary mt-2 mb-1">
+        {% blocktranslate count counter=party.members|length %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}
+    </h6>
+    <ul class="flex flex-col">
         {% for member in party.members %}
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <p class="text-sm font-medium flex items-center gap-2.5 min-w-0">
-                    {% include "components/avatar.html" with user=member size="size-8" %}
-                    <span class="truncate">{{ member.full_name }}</span>
+            <li class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-border{% endif %}">
+                {% include "components/avatar.html" with user=member size="size-9" %}
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-foreground truncate">{{ member.full_name }}</p>
                     {% if member.is_leader %}
-                        <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "leader" %}</span>
-                    {% endif %}
-                    {% if member.status == "invited" %}
-                        <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "invited" %}</span>
+                        <p class="text-xs text-foreground-muted">{% translate "leader" %}</p>
+                    {% elif member.status == "invited" %}
+                        <p class="text-xs text-foreground-muted">{% translate "invited" %}</p>
                     {% elif party.is_leader and member.is_login_less %}
-                        <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "companion" %}</span>
-                    {% elif party.is_leader and not member.is_leader %}
+                        <p class="text-xs text-foreground-muted">{% translate "companion" %}</p>
+                    {% elif party.is_leader %}
                         {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
-                        {% if member.consent_mode == "accept_by_default" %}
-                            <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "direct enrollment allowed" %}</span>
-                        {% else %}
-                            <span class="text-xs font-normal text-foreground-muted shrink-0">{% translate "asks for approval before enrolling" %}</span>
-                        {% endif %}
+                        <p class="text-xs text-foreground-muted">
+                            {% if member.consent_mode == "accept_by_default" %}
+                                {% translate "direct enrollment allowed" %}
+                            {% else %}
+                                {% translate "asks for approval before enrolling" %}
+                            {% endif %}
+                        </p>
+                    {% elif member.user_pk == request.user.pk %}
+                        <p class="text-xs text-foreground-muted">
+                            {% if member.consent_mode == "accept_invites" %}
+                                {% translate "Asks before enrolling you" %}
+                            {% else %}
+                                {% translate "Enrolls you directly" %}
+                            {% endif %}
+                        </p>
                     {% endif %}
-                </p>
-                <div class="flex gap-1 shrink-0">
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
                     {% if party.is_leader and member.is_login_less %}
                         {% if member.claim_token %}
                             {% url 'web:crowd:claim' token=member.claim_token as claim_path %}
@@ -127,21 +139,15 @@
                             </button>
                         </form>
                     {% elif not party.is_leader and member.user_pk == request.user.pk %}
-                        {# Current state first, then the action that flips it. #}
-                        {% if member.consent_mode == "accept_invites" %}
-                            <span class="text-xs text-foreground-muted self-center">{% translate "Asks before enrolling you" %}</span>
-                        {% else %}
-                            <span class="text-xs text-foreground-muted self-center">{% translate "Enrolls you directly" %}</span>
-                        {% endif %}
                         <form method="post"
                               action="{% url 'web:crowd:parties-consent' pk=party.pk %}">
                             {% csrf_token %}
                             {% if member.consent_mode == "accept_invites" %}
                                 <input type="hidden" name="mode" value="accept_by_default">
-                                <button type="submit" class="btn btn-secondary ">{% translate "Allow direct enrollment" %}</button>
+                                <button type="submit" class="btn btn-secondary">{% translate "Allow direct enrollment" %}</button>
                             {% else %}
                                 <input type="hidden" name="mode" value="accept_invites">
-                                <button type="submit" class="btn btn-secondary ">{% translate "Require my approval" %}</button>
+                                <button type="submit" class="btn btn-secondary">{% translate "Require my approval" %}</button>
                             {% endif %}
                         </form>
                     {% elif party.is_leader and not member.is_leader %}
@@ -170,26 +176,36 @@
                         {% endif %}
                     {% endif %}
                 </div>
-            </div>
+            </li>
         {% endfor %}
-    </div>
+    </ul>
     {% if party.is_leader %}
         <div class="border-t border-border mt-4 pt-4">
-            <details>
-                <summary class="flex items-center gap-1.5 font-semibold text-sm cursor-pointer">
-                    {% icon "user-plus" class="w-4 h-4" %}
-                    {% translate "Invite a member" %}
-                </summary>
-                <div class="mt-3">
-                    <form action="{% url 'web:crowd:parties-invite' pk=party.pk %}"
-                          method="post">
-                        {% csrf_token %}
-                        {% tessera_form invite_form %}
-                        <button type="submit" class="btn btn-secondary">{% translate "Send invite" %}</button>
-                    </form>
-                </div>
-            </details>
+            <button type="button"
+                    class="btn btn-secondary"
+                    data-modal-open="party-invite-modal">
+                {% icon "user-plus" class="w-4 h-4" %}
+                {% translate "Invite a member" %}
+            </button>
         </div>
+        <dialog id="party-invite-modal"
+                class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                aria-labelledby="party-invite-modal-title">
+            <form action="{% url 'web:crowd:parties-invite' pk=party.pk %}"
+                  method="post">
+                {% csrf_token %}
+                <div class="px-6 pt-5 pb-4">
+                    <h3 id="party-invite-modal-title" class="font-semibold text-foreground">{% translate "Invite a member" %}</h3>
+                    <div class="mt-4">{% tessera_form invite_form %}</div>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-modal-close="party-invite-modal">{% translate "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% translate "Send invite" %}</button>
+                </div>
+            </form>
+        </dialog>
     {% endif %}
     {# Shared session history #}
     <div class="border-t border-border mt-6 pt-4">

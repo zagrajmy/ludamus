@@ -173,7 +173,7 @@ class TestPartiesPageView:
                 ]
             ),
             template_name="crowd/user/parties.html",
-            contains=["Ekipa", "Manage party"],
+            contains=["Ekipa", "History"],
         )
 
     def test_get_lists_pending_invites(self, authenticated_client, active_user):
