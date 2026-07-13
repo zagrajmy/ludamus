@@ -112,6 +112,9 @@ exist, so enrollees are stuck holding seats they want to release.
 
 - `src/ludamus/adapters/web/django/views.py`
 - `tests/integration/web/chronology/test_session_enroll_page.py`
+- `tests/integration/web/chronology/test_session_enroll_consent.py`
+  (revision 1: `test_race_on_a_member_who_enrolled_themselves_skips`
+  pins the same SUCCESS-level skip message — update it to WARNING)
 
 **Out of scope** (do NOT touch, even though they look related):
 
@@ -179,6 +182,16 @@ replace the raise with a pass-through:
   a cancel-only request can reach; guard any config attribute access
   that a cancel-only pass could hit. mypy strict will enumerate the
   exact spots — fix each by guarding, not by asserting.
+- Revision 1, confirmed edge case: a batch that is cancel-only by
+  `_validate_request`'s definition can still carry a positive
+  `guest_seats_needed`, which reaches
+  `enrollment_config.get_available_slots(...)` in
+  `_is_capacity_invalid`. Add an explicit behavior guard there: when
+  `enrollment_config is None`, treat available slots as 0 (any guest
+  increase is rejected as over capacity) — a real branch, not a
+  checker-appeasing assert. Add a test: zero configs + a POST that
+  cancels while raising the guest count → guests rejected per the
+  existing over-capacity semantics.
 
 Rewrite `test_post_cancel_when_no_enrollment_config` to pin the FIXED
 behavior: arrange an existing CONFIRMED participation, delete all
