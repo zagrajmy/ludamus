@@ -245,8 +245,7 @@ def companion_fixture(active_user):
 
 
 @pytest.fixture
-def party_companion(active_user, request):
-    companion = request.getfixturevalue("companion")
+def party_companion(active_user, companion):
     sponsor_user(leader=active_user, member=companion)
     return companion
 
