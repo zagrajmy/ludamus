@@ -111,8 +111,8 @@ class PartyService(PartyServiceProtocol):
             name = display_name.strip().casefold()
             matches = [
                 companion
-                for companion in self._parties.led_party_companions(
-                    leader_pk=member_pk, party_pk=None
+                for companion in self._parties.lock_owned_companions(
+                    manager_pk=member_pk
                 )
                 if companion.name.casefold() == name
             ]

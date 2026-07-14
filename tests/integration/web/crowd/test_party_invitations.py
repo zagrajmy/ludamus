@@ -10,6 +10,7 @@ from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Notification, Party, PartyMembership
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import (
     InvitablePartyDTO,
@@ -363,6 +364,31 @@ class TestPartyCompanionAddActionView:
         PartyMembership.objects.create(
             party=party, member=active_user, status=PartyMembershipStatus.ACTIVE
         )
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Kiddo"}
+        )
+
+        assert not PartyMembership.objects.filter(
+            party=party, member=companion
+        ).exists()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            messages=[(messages.ERROR, "No companion matches that display name.")],
+            context_data=response.context_data,
+            template_name="crowd/user/party_detail.html",
+        )
+
+    def test_member_cannot_add_claimed_companion(
+        self, authenticated_client, active_user, companion
+    ):
+        companion.name = "Kiddo"
+        companion.user_type = UserType.ACTIVE
+        companion.manager = None
+        companion.save(update_fields=["name", "user_type", "manager"])
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
 
         response = authenticated_client.post(
             self._url(party), data={"display_name": "Kiddo"}

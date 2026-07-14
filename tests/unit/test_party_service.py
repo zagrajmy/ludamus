@@ -48,6 +48,10 @@ class FakeParties:
         self.calls.append(("led_party_companions", leader_pk, party_pk))
         return self.companion_dtos
 
+    def lock_owned_companions(self, *, manager_pk):
+        self.calls.append(("lock_owned_companions", manager_pk))
+        return self.companion_dtos
+
     def create(self, *, leader_pk, name):
         self.calls.append(("create", leader_pk, name))
         return 7
@@ -234,6 +238,7 @@ class TestAddCompanion:
         )
 
         assert outcome == CompanionAddOutcome.ADDED
+        assert ("lock_owned_companions", VIEWER_PK) in parties.calls
         assert (
             "get_or_create_membership",
             OWN_PARTY_PK,

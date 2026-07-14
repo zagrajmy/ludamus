@@ -172,7 +172,8 @@ class PartyRepository(PartyRepositoryProtocol):
         *, member_pk: int, party_pk: int
     ) -> PartyActionContextDTO | None:
         membership = (
-            PartyMembership.objects.filter(
+            PartyMembership.objects.select_for_update()
+            .filter(
                 party_id=party_pk,
                 member_id=member_pk,
                 status=PartyMembershipStatus.ACTIVE,
@@ -185,6 +186,13 @@ class PartyRepository(PartyRepositoryProtocol):
         return PartyActionContextDTO(
             name=membership.party.name, actor_name=membership.member.get_full_name()
         )
+
+    @staticmethod
+    def lock_owned_companions(*, manager_pk: int) -> list[CompanionDTO]:
+        companions = User.objects.select_for_update().filter(
+            manager_id=manager_pk, user_type=UserType.CONNECTED
+        )
+        return [CompanionDTO.model_validate(companion) for companion in companions]
 
     @staticmethod
     def find_invitable_users(identifier: str) -> list[InvitedUserDTO]:
@@ -245,7 +253,11 @@ class PartyRepository(PartyRepositoryProtocol):
     def join_via_token(*, token: str, user_pk: int) -> PartyJoinResult | None:
         if not token:
             return None
-        if (party := Party.objects.filter(invite_token=token).first()) is None:
+        if (
+            party := Party.objects.select_for_update()
+            .filter(invite_token=token)
+            .first()
+        ) is None:
             return None
         membership, created = PartyMembership.objects.select_for_update().get_or_create(
             party_id=party.pk,
