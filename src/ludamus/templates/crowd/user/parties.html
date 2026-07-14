@@ -254,7 +254,8 @@
                     class="modal w-[calc(100%-2rem)] max-w-md p-0"
                     aria-labelledby="add-companion-modal-title">
                 {# action carries ?add-companion=1 so a failed submit reopens the modal via syncModalsFromUrl #}
-                <form action="{% url 'web:crowd:profile-companions' %}?add-companion=1" method="post">
+                <form action="{% url 'web:crowd:profile-companions' %}?add-companion=1"
+                      method="post">
                     {% csrf_token %}
                     <div class="px-6 pt-5 pb-4">
                         <h3 id="add-companion-modal-title" class="font-semibold text-foreground">{% translate "Add companion" %}</h3>

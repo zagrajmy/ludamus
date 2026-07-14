@@ -359,7 +359,10 @@ test.describe("Anonymous code modal", () => {
       .getByRole("region", { name: "Notifications" })
       .evaluate((region) => {
         const { left, width } = region.getBoundingClientRect();
-        return { center: left + width / 2, viewportCenter: window.innerWidth / 2 };
+        return {
+          center: left + width / 2,
+          viewportCenter: document.documentElement.clientWidth / 2,
+        };
       });
     expect(flashRegionCenter.center).toBeCloseTo(flashRegionCenter.viewportCenter, 0);
     await page.waitForTimeout(300);

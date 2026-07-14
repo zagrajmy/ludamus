@@ -164,15 +164,24 @@ class PartyInviteLinkActionView(LoginRequiredMixin, View):
         return redirect("web:crowd:party-detail", pk=pk)
 
 
+def _reopen_companion_modal(
+    request: AuthenticatedRootRequest, *, pk: int, companion_form: PartyCompanionForm
+) -> HttpResponse:
+    context = build_party_detail_context(request, pk=pk, companion_form=companion_form)
+    if context is None:
+        raise Http404
+    return TemplateResponse(request, "crowd/user/party_detail.html", context)
+
+
 class PartyCompanionAddActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     @staticmethod
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        form = PartyCompanionForm(request.POST)
+        form = PartyCompanionForm(request.POST, auto_id=f"companion_{pk}_%s")
         if not form.is_valid():
             messages.error(request, _("Enter a companion display name."))
-            return redirect("web:crowd:party-detail", pk=pk)
+            return _reopen_companion_modal(request, pk=pk, companion_form=form)
         outcome = request.services.parties.add_companion(
             leader_pk=request.context.current_user_id,
             party_pk=pk,
@@ -187,8 +196,10 @@ class PartyCompanionAddActionView(LoginRequiredMixin, View):
                 request,
                 _("More than one companion has that display name. Rename one first."),
             )
+            return _reopen_companion_modal(request, pk=pk, companion_form=form)
         else:
             messages.error(request, _("No companion matches that display name."))
+            return _reopen_companion_modal(request, pk=pk, companion_form=form)
         return redirect("web:crowd:party-detail", pk=pk)
 
 

@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -11,8 +12,13 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
 )
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_response
-from tests.integration.web.crowd.test_profile_parties_page import URL, _detail_url
+from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.web.crowd.test_profile_parties_page import (
+    URL,
+    _detail_url,
+    _member_dto,
+    _party_dto,
+)
 
 
 class TestPartyInviteActionView:
@@ -182,11 +188,27 @@ class TestPartyCompanionAddActionView:
         )
 
         assert PartyMembership.objects.filter(party=party).count() == 1
+        party.refresh_from_db()
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            url=_detail_url(party) + "?add-companion=1",
+            HTTPStatus.OK,
             messages=[(messages.ERROR, "No companion matches that display name.")],
+            context_data={
+                "party": _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(active_user, party)],
+                    is_default=True,
+                ),
+                "rename_form": ANY,
+                "invite_form": ANY,
+                "companion_form": ANY,
+                "invite_token": party.invite_token,
+                "history": [],
+                "profile_active_tab": "parties",
+            },
+            template_name="crowd/user/party_detail.html",
+            contains=["Nobody"],
         )
 
     def test_post_already_member(self, authenticated_client, active_user, companion):
@@ -223,10 +245,8 @@ class TestPartyCompanionAddActionView:
         )
 
         assert not PartyMembership.objects.filter(party=party).exists()
-        assert_response(
+        assert_response_404(
             response,
-            HTTPStatus.FOUND,
-            url=_detail_url(party) + "?add-companion=1",
             messages=[(messages.ERROR, "No companion matches that display name.")],
         )
 
