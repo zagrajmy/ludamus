@@ -3,11 +3,7 @@
 // (htmx evaluates `hx-on:*` bodies via `Function`, which needs it). One
 // document-level listener per event type resolves `[data-action]` on the
 // clicked/changed element, so every control stays declarative markup.
-// Model: src/copy.ts.
-
-declare const htmx: {
-  ajax: (method: string, url: string, opts: { swap: string; target: string }) => void;
-};
+// Model: src/copy.ts. htmx's ambient type lives in htmx.d.ts.
 
 const toggleSidebar = (): void => {
   document.getElementById("sidebar")?.classList.toggle("-translate-x-full");
