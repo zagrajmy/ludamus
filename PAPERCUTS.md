@@ -95,3 +95,9 @@ If you fix a papercut, remove it.
   include caller must pass the optional base explicitly.
 - 2026-07-14: Ran lint:impeccable during validation → its detector produced no
   output for over three minutes and required interruption.
+- 2026-07-14: Ran targeted pytest through mise exec to avoid the broad test
+  task; it skipped varlock and failed because ENV was unset. Test tasks should
+  support targeted paths without always prepending the whole suite.
+- 2026-07-14: Ran test:postgres for the new party-invite concurrency check; the
+  task assumes PostgreSQL is already running and all six marked tests failed at
+  setup with connection refused.

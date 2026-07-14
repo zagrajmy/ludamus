@@ -138,7 +138,6 @@ class CompanionAddOutcome(StrEnum):
 
 class DeletePartyOutcome(StrEnum):
     DELETED = "deleted"
-    HAS_COMPANIONS = "has_companions"
     NOT_FOUND = "not_found"
 
 
@@ -146,7 +145,7 @@ class PartyInviteNotification(BaseModel):
     recipient_user_id: int
     recipient_email: str
     party_name: str
-    leader_name: str
+    actor_name: str
 
 
 class PartyEnrolledNotification(BaseModel):
@@ -187,9 +186,9 @@ class PartyJoinResult(BaseModel):
     joined: bool
 
 
-class LedPartyDTO(BaseModel):
+class PartyActionContextDTO(BaseModel):
     name: str
-    leader_name: str
+    actor_name: str
 
 
 class PartyRepositoryProtocol(Protocol):
@@ -202,13 +201,11 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def rename(*, leader_pk: int, party_pk: int, name: str) -> bool: ...
     @staticmethod
-    def has_companions(*, leader_pk: int, party_pk: int) -> bool: ...
-    @staticmethod
     def delete(*, leader_pk: int, party_pk: int) -> bool: ...
     @staticmethod
     def read_active_member_party(
         *, member_pk: int, party_pk: int
-    ) -> LedPartyDTO | None: ...
+    ) -> PartyActionContextDTO | None: ...
     @staticmethod
     def find_invitable_users(identifier: str) -> list[InvitedUserDTO]: ...
     @staticmethod
@@ -222,15 +219,13 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def join_via_token(*, token: str, user_pk: int) -> PartyJoinResult | None: ...
     @staticmethod
-    def membership_exists(*, party_pk: int, user_pk: int) -> bool: ...
-    @staticmethod
-    def create_invited_membership(
+    def get_or_create_membership(
         *,
         party_pk: int,
         user_pk: int,
         consent_mode: PartyConsentMode = PartyConsentMode.ACCEPT_INVITES,
         status: PartyMembershipStatus = PartyMembershipStatus.INVITED,
-    ) -> None: ...
+    ) -> bool: ...
     @staticmethod
     def accept_invite(*, membership_pk: int, user_pk: int) -> bool: ...
     @staticmethod

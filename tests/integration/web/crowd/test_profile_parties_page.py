@@ -327,7 +327,7 @@ class TestPartyDeleteActionView:
             messages=[(messages.SUCCESS, "Party deleted.")],
         )
 
-    def test_post_refuses_party_with_companions(
+    def test_post_deletes_party_with_companions_but_preserves_identity(
         self, authenticated_client, active_user, companion
     ):
         party = sponsor_user(leader=active_user, member=active_user)
@@ -337,14 +337,14 @@ class TestPartyDeleteActionView:
             reverse("web:crowd:parties-delete", kwargs={"pk": party.pk})
         )
 
-        assert Party.objects.filter(pk=party.pk).exists()
-        assert User.objects.filter(pk=companion.pk).exists()
-        expected = (
-            "This party still has companions. Remove them first — "
-            "their profiles would be left without a caretaker."
-        )
+        assert not Party.objects.filter(pk=party.pk).exists()
+        companion.refresh_from_db()
+        assert companion.manager_id == active_user.pk
         assert_response(
-            response, HTTPStatus.FOUND, url=URL, messages=[(messages.ERROR, expected)]
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.SUCCESS, "Party deleted.")],
         )
 
     def test_post_foreign_party_with_companions_reads_as_not_found(

@@ -118,8 +118,8 @@ class DjangoUserNotifier:
 
     def notify_party_invited(self, notification: PartyInviteNotification) -> None:
         party = notification.party_name or _("their party")
-        title = _("%(leader)s invited you to %(party)s") % {
-            "leader": notification.leader_name,
+        title = _("%(member)s invited you to %(party)s") % {
+            "member": notification.actor_name,
             "party": party,
         }
         body = _(

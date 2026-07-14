@@ -60,7 +60,7 @@ class TestPartyMemberRemoveActionView:
             messages=[(messages.SUCCESS, "Invitation withdrawn.")],
         )
 
-    def test_post_rejects_companion_membership(
+    def test_post_removes_companion_membership_but_preserves_identity(
         self, authenticated_client, active_user, companion
     ):
         party = sponsor_user(leader=active_user, member=active_user)
@@ -74,13 +74,14 @@ class TestPartyMemberRemoveActionView:
             )
         )
 
-        assert PartyMembership.objects.filter(pk=membership.pk).exists()
-        assert User.objects.filter(pk=companion.pk).exists()
+        assert not PartyMembership.objects.filter(pk=membership.pk).exists()
+        companion.refresh_from_db()
+        assert companion.manager_id == active_user.pk
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=_detail_url(party),
-            messages=[(messages.ERROR, "Could not remove this member.")],
+            messages=[(messages.SUCCESS, "Member removed.")],
         )
 
     def test_post_cannot_remove_leader(self, authenticated_client, active_user):

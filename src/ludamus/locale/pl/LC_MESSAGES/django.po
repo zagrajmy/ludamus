@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-14 11:02+0200\n"
+"POT-Creation-Date: 2026-07-14 14:22+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1976,14 +1976,6 @@ msgid "Party deleted."
 msgstr "Drużyna została usunięta."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-msgid ""
-"This party still has companions. Remove them first — their profiles would be "
-"left without a caretaker."
-msgstr ""
-"W tej drużynie wciąż są towarzysze. Najpierw ich usuń — ich profile "
-"zostałyby bez opiekuna."
-
-#: src/ludamus/gates/web/django/crowd/views.py
 msgid "Could not delete this party."
 msgstr "Nie udało się usunąć tej drużyny."
 
@@ -2733,8 +2725,8 @@ msgstr "swojej drużyny"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
-msgid "%(leader)s invited you to %(party)s"
-msgstr "%(leader)s zaprasza Cię do %(party)s"
+msgid "%(member)s invited you to %(party)s"
+msgstr "%(member)s zaprasza Cię do %(party)s"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid ""
@@ -7694,6 +7686,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "This party still has companions. Remove them first — their profiles would "
+#~ "be left without a caretaker."
+#~ msgstr ""
+#~ "W tej drużynie wciąż są towarzysze. Najpierw ich usuń — ich profile "
+#~ "zostałyby bez opiekuna."
 
 #~ msgid "Connected user updated successfully!"
 #~ msgstr "Powiązana osoba została zaktualizowana!"

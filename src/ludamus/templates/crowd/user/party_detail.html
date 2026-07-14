@@ -114,7 +114,7 @@
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        {% if member.is_managed_by_viewer %}
+                        {% if member.is_managed_by_viewer and not party.is_leader %}
                             {% if member.claim_token %}
                                 {% url 'web:crowd:claim' token=member.claim_token as claim_path %}
                                 <button type="button"

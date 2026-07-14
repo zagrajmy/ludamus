@@ -186,6 +186,32 @@ class TestPartyDetailPageView:
             not in content
         )
 
+    def test_leader_removes_companion_membership_instead_of_identity(
+        self, authenticated_client, active_user
+    ):
+        companion = UserFactory(
+            username="companion", manager=active_user, user_type=UserType.CONNECTED
+        )
+        party = sponsor_user(leader=active_user, member=active_user)
+        membership = PartyMembership.objects.create(party=party, member=companion)
+
+        response = authenticated_client.get(_url(party))
+
+        content = response.content.decode()
+        assert (
+            reverse(
+                "web:crowd:parties-member-remove",
+                kwargs={"pk": party.pk, "membership_pk": membership.pk},
+            )
+            in content
+        )
+        assert (
+            reverse(
+                "web:crowd:profile-companions-delete", kwargs={"slug": companion.slug}
+            )
+            not in content
+        )
+
     def test_get_requires_login(self, client, active_user):
         party = Party.objects.create(leader=active_user, name="Ekipa")
 

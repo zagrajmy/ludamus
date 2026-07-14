@@ -64,11 +64,7 @@ class PartyService(PartyServiceProtocol):
             )
 
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome:
-        # A companion's identity row would be orphaned with its party, so a
-        # party with companions refuses deletion instead of cascading them away.
         with self._transaction.atomic():
-            if self._parties.has_companions(leader_pk=leader_pk, party_pk=party_pk):
-                return DeletePartyOutcome.HAS_COMPANIONS
             if not self._parties.delete(leader_pk=leader_pk, party_pk=party_pk):
                 return DeletePartyOutcome.NOT_FOUND
             return DeletePartyOutcome.DELETED
@@ -87,15 +83,16 @@ class PartyService(PartyServiceProtocol):
             if len(matches) > 1:
                 return InviteOutcome.AMBIGUOUS_HANDLE
             user = matches[0]
-            if self._parties.membership_exists(party_pk=party_pk, user_pk=user.pk):
+            if not self._parties.get_or_create_membership(
+                party_pk=party_pk, user_pk=user.pk
+            ):
                 return InviteOutcome.ALREADY_MEMBER
-            self._parties.create_invited_membership(party_pk=party_pk, user_pk=user.pk)
             self._notifier.notify_party_invited(
                 PartyInviteNotification(
                     recipient_user_id=user.pk,
                     recipient_email=user.email,
                     party_name=lead.name,
-                    leader_name=lead.leader_name,
+                    actor_name=lead.actor_name,
                 )
             )
             return InviteOutcome.INVITED
@@ -124,14 +121,13 @@ class PartyService(PartyServiceProtocol):
             if len(matches) > 1:
                 return CompanionAddOutcome.AMBIGUOUS_NAME
             companion = matches[0]
-            if self._parties.membership_exists(party_pk=party_pk, user_pk=companion.pk):
-                return CompanionAddOutcome.ALREADY_MEMBER
-            self._parties.create_invited_membership(
+            if not self._parties.get_or_create_membership(
                 party_pk=party_pk,
                 user_pk=companion.pk,
                 consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
                 status=PartyMembershipStatus.ACTIVE,
-            )
+            ):
+                return CompanionAddOutcome.ALREADY_MEMBER
             return CompanionAddOutcome.ADDED
 
     def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None:

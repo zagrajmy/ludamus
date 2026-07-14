@@ -18,8 +18,8 @@ from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.party import (
     InvitablePartyDTO,
     InvitedUserDTO,
-    LedPartyDTO,
     PartiesOverviewDTO,
+    PartyActionContextDTO,
     PartyConsentMode,
     PartyDTO,
     PartyInviteDTO,
@@ -182,14 +182,6 @@ class PartyRepository(PartyRepositoryProtocol):
         )
 
     @staticmethod
-    def has_companions(*, leader_pk: int, party_pk: int) -> bool:
-        return PartyMembership.objects.filter(
-            party_id=party_pk,
-            party__leader_id=leader_pk,
-            member__user_type=UserType.CONNECTED,
-        ).exists()
-
-    @staticmethod
     def delete(*, leader_pk: int, party_pk: int) -> bool:
         deleted, __ = Party.objects.filter(pk=party_pk, leader_id=leader_pk).delete()
         return bool(deleted)
@@ -197,19 +189,21 @@ class PartyRepository(PartyRepositoryProtocol):
     @staticmethod
     def read_active_member_party(
         *, member_pk: int, party_pk: int
-    ) -> LedPartyDTO | None:
-        party = (
-            Party.objects.filter(
-                pk=party_pk,
-                memberships__member_id=member_pk,
-                memberships__status=PartyMembershipStatus.ACTIVE,
+    ) -> PartyActionContextDTO | None:
+        membership = (
+            PartyMembership.objects.filter(
+                party_id=party_pk,
+                member_id=member_pk,
+                status=PartyMembershipStatus.ACTIVE,
             )
-            .select_related("leader")
+            .select_related("party", "member")
             .first()
         )
-        if party is None:
+        if membership is None:
             return None
-        return LedPartyDTO(name=party.name, leader_name=party.leader.get_full_name())
+        return PartyActionContextDTO(
+            name=membership.party.name, actor_name=membership.member.get_full_name()
+        )
 
     @staticmethod
     def find_invitable_users(identifier: str) -> list[InvitedUserDTO]:
@@ -285,25 +279,19 @@ class PartyRepository(PartyRepositoryProtocol):
         return PartyJoinResult(party_pk=party.pk, joined=joined)
 
     @staticmethod
-    def membership_exists(*, party_pk: int, user_pk: int) -> bool:
-        return PartyMembership.objects.filter(
-            party_id=party_pk, member_id=user_pk
-        ).exists()
-
-    @staticmethod
-    def create_invited_membership(
+    def get_or_create_membership(
         *,
         party_pk: int,
         user_pk: int,
         consent_mode: PartyConsentMode = PartyConsentMode.ACCEPT_INVITES,
         status: PartyMembershipStatus = PartyMembershipStatus.INVITED,
-    ) -> None:
-        PartyMembership.objects.create(
+    ) -> bool:
+        __, created = PartyMembership.objects.get_or_create(
             party_id=party_pk,
             member_id=user_pk,
-            consent_mode=consent_mode,
-            status=status,
+            defaults={"consent_mode": consent_mode, "status": status},
         )
+        return created
 
     @staticmethod
     def accept_invite(*, membership_pk: int, user_pk: int) -> bool:
@@ -326,14 +314,11 @@ class PartyRepository(PartyRepositoryProtocol):
     def remove_member(
         *, leader_pk: int, party_pk: int, membership_pk: int
     ) -> PartyMembershipStatus | None:
-        # Companions are excluded: their identity row lives and dies with the
-        # sponsorship, and the companion delete action owns that flow.
         membership = (
             PartyMembership.objects.filter(
                 pk=membership_pk, party_id=party_pk, party__leader_id=leader_pk
             )
             .exclude(member_id=leader_pk)
-            .exclude(member__user_type=UserType.CONNECTED)
             .first()
         )
         if membership is None:

@@ -97,14 +97,6 @@ class PartyDeleteActionView(LoginRequiredMixin, View):
         )
         if outcome == DeletePartyOutcome.DELETED:
             messages.success(request, _("Party deleted."))
-        elif outcome == DeletePartyOutcome.HAS_COMPANIONS:
-            messages.error(
-                request,
-                _(
-                    "This party still has companions. Remove them first — "
-                    "their profiles would be left without a caretaker."
-                ),
-            )
         else:
             messages.error(request, _("Could not delete this party."))
         return redirect("web:crowd:profile-parties")

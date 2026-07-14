@@ -1,7 +1,12 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
+from django.db import connection
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Notification, Party, PartyMembership
@@ -70,6 +75,8 @@ class TestPartyInviteActionView:
         )
 
     def test_active_member_can_invite(self, authenticated_client, active_user):
+        active_user.name = "Marta Member"
+        active_user.save(update_fields=["name"])
         leader = UserFactory(username="leader")
         friend = UserFactory(username="friend", email="friend@example.com")
         party = Party.objects.create(leader=leader, name="Ekipa")
@@ -85,6 +92,9 @@ class TestPartyInviteActionView:
         assert PartyMembership.objects.filter(
             party=party, member=friend, status=PartyMembershipStatus.INVITED
         ).exists()
+        assert Notification.objects.get(recipient=friend).title == (
+            "Marta Member invited you to Ekipa"
+        )
         assert_response(
             response,
             HTTPStatus.FOUND,
@@ -173,12 +183,70 @@ class TestPartyInviteActionView:
         )
 
         assert PartyMembership.objects.filter(party=party, member=friend).count() == 1
+        assert not Notification.objects.filter(recipient=friend).exists()
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=_detail_url(party),
             messages=[(messages.INFO, "This person is already in the party.")],
         )
+
+    def test_post_preserves_existing_invitation_without_notifying_again(
+        self, authenticated_client, active_user
+    ):
+        friend = UserFactory(
+            username="friend", name="Frida Friend", email="frida@example.com"
+        )
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+        membership = PartyMembership.objects.create(
+            party=party, member=friend, status=PartyMembershipStatus.INVITED
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"identifier": "frida@example.com"}
+        )
+
+        membership.refresh_from_db()
+        assert membership.status == PartyMembershipStatus.INVITED
+        assert not Notification.objects.filter(recipient=friend).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.INFO, "This person is already in the party.")],
+        )
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_concurrent_invites_create_one_membership_and_notification(
+        self, active_user
+    ):
+        friend = UserFactory(username="friend", email="friend@example.com")
+        party = Party.objects.create(leader=active_user, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=active_user)
+        url = self._url(party)
+        clients = [Client(), Client()]
+        for client in clients:
+            client.force_login(active_user)
+        barrier = threading.Barrier(len(clients))
+
+        def invite(client):
+            barrier.wait()
+            try:
+                return client.post(url, data={"identifier": friend.email})
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=len(clients)) as pool:
+            responses = [
+                future.result()
+                for future in [pool.submit(invite, client) for client in clients]
+            ]
+
+        assert all(response.status_code == HTTPStatus.FOUND for response in responses)
+        assert PartyMembership.objects.filter(party=party, member=friend).count() == 1
+        assert Notification.objects.filter(recipient=friend).count() == 1
 
     def test_post_rejects_foreign_party(self, authenticated_client):
         stranger = UserFactory(username="stranger", email="s@example.com")
