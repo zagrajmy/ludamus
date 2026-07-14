@@ -60,7 +60,7 @@
     </section>
 {% endblock body %}
 {% block extra_scripts %}
-    <script>
+    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         (function() {
             if (localStorage.getItem('encounters_info_dismissed')) {
                 var banner = document.getElementById('encounters-info-banner');

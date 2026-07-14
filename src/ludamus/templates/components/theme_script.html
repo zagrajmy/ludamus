@@ -1,4 +1,4 @@
-<script>
+<script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
     var MEDIA = '(prefers-color-scheme: dark)';
 
     function disableTransitions() {

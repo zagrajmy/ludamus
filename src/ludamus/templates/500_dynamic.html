@@ -9,7 +9,16 @@
         <meta name="description"
               content="Server error - Something went wrong on our server">
         <title>Server Error - 500</title>
-        <script>
+        <!-- This page does not extend base.html (it must stay self-contained
+             so it renders even if something upstream is broken), so it is
+             its own root and this is the first inline script Django
+             renders for it: the "is not None" guard forces the CSP nonce
+             to generate here on a real request (see base.html's FOUC
+             script for why "is not None", not a truthy check), while
+             staying safely absent when csp_nonce isn't in context at all
+             (e.g. the error path is exercised outside the CSP middleware
+             in tests, per TestCustom500). -->
+        <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
             (function() {
                 var theme = localStorage.getItem('theme');
                 if (theme === 'light') {

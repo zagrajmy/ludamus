@@ -305,7 +305,7 @@
             {% endif %}
         </form>
         {% vite_asset 'src/encounter-form.ts' %}
-        <script>
+        <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
             (function() {
                 const search = document.getElementById('facilitator-search');
                 if (!search) return;

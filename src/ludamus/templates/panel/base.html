@@ -12,7 +12,7 @@
     {{ current_sphere.name }} backoffice panel for event management
 {% endblock meta_description %}
 {% block extra_head %}
-    <script>
+    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         (function() {
             try {
                 if (localStorage.getItem("panel-sidebar-folded") === "1") {
@@ -381,7 +381,7 @@
     </div>
     {% vite_asset 'src/info-popover.ts' %}
     {% vite_asset 'src/panel-chrome.ts' %}
-    <script type="module">
+    <script type="module"{% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
             const overlay = document.getElementById('sidebarOverlay');
