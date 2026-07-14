@@ -1,6 +1,8 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -10,7 +12,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from tests.integration.conftest import UserFactory, sponsor_user
+from tests.integration.conftest import SpaceFactory, UserFactory, sponsor_user
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.crowd.test_profile_parties_page import (
     _member_dto,
@@ -176,6 +178,41 @@ class TestPartyDetailSessionHistory:
         assert card.user_enrolled
         assert card.agenda_item.start_time == agenda_item.start_time
         assert not card.pretend_full
+
+    def test_history_query_count_is_constant_across_space_depth(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        self._enroll_party(party, session, active_user)
+        root = SpaceFactory(event=session.event, name="Root")
+        branch = SpaceFactory(event=session.event, name="Branch", parent=root)
+        leaf = SpaceFactory(event=session.event, name="Leaf", parent=branch)
+        authenticated_client.get(_url(party))
+
+        with CaptureQueriesContext(connection) as shallow_queries:
+            shallow_response = authenticated_client.get(_url(party))
+
+        agenda_item.space = leaf
+        agenda_item.save(update_fields=["space"])
+        with CaptureQueriesContext(connection) as deep_queries:
+            deep_response = authenticated_client.get(_url(party))
+
+        assert_response(
+            shallow_response,
+            HTTPStatus.OK,
+            context_data=shallow_response.context_data,
+            template_name=TEMPLATE,
+        )
+        assert_response(
+            deep_response,
+            HTTPStatus.OK,
+            context_data=deep_response.context_data,
+            template_name=TEMPLATE,
+        )
+        assert len(deep_queries) == len(shallow_queries)
+        assert deep_response.context["history"][0]["cards"][0].loc["path"] == (
+            "Root > Branch > Leaf"
+        )
 
     def test_history_skips_solo_enrollments(
         self, authenticated_client, active_user, companion, session, agenda_item

@@ -550,7 +550,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 self.request.di.uow.active_users.read(
                     self.request.context.current_user_slug
                 ),
-                *self.request.di.uow.companions.read_all(
+                *self.request.services.companions.list_companions(
                     self.request.context.current_user_slug
                 ),
             ]

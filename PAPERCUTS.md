@@ -40,3 +40,8 @@ If you fix a papercut, remove it.
   vc-mtime warned 'failed to read git log output', then a rerun failed on a
   stale worktrees/issue-329 path in msguniq; third run gave the real result. The
   mtime cache seems to mask stale extraction.
+- 2026-07-14: Tried to inspect gettext entries with polib, but the project
+  environment does not install it; used the available gettext CLI instead.
+- 2026-07-14: Passed focused pytest paths to mise run test:py, but the task
+  appends them after its fixed integration/unit roots and runs the full suite;
+  use -k for focused selection.

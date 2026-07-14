@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Count, Q
 
 from ludamus.adapters.db.django.models import (
+    SPACE_MAX_DEPTH,
     Party,
     PartyMembership,
     Session,
@@ -390,7 +391,11 @@ class PartyRepository(PartyRepositoryProtocol):
                     ),
                 ),
             )
-            .select_related("event", "presenter", "agenda_item__space__parent")
+            .select_related(
+                "event",
+                "presenter",
+                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+            )
             .prefetch_related(
                 "event__enrollment_configs", "session_participations__user"
             )

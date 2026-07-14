@@ -1887,14 +1887,12 @@ msgstr ""
 "zarejestrowali. Muszą mieć konto Zagrajmy."
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#, fuzzy
-#| msgid "Display name"
 msgid "Companion display name"
-msgstr "Nazwa wyświetlana"
+msgstr "Nazwa wyświetlana towarzysza"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Enter one of your companions exactly as they are named."
-msgstr ""
+msgstr "Podaj nazwę jednego ze swoich towarzyszy dokładnie tak, jak została zapisana."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid ""
@@ -1910,28 +1908,21 @@ msgid "Please correct the errors below."
 msgstr "Proszę poprawić błędy poniżej."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-#, fuzzy, python-format
-#| msgid "You can only have up to %(max)s connected users."
+#, python-format
 msgid "You can only have up to %(max)s companions."
-msgstr "Możesz mieć maksymalnie %(max)s powiązanych użytkowników."
+msgstr "Możesz mieć maksymalnie %(max)s towarzyszy."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-#, fuzzy
-#| msgid "Connected user added successfully!"
 msgid "Companion added successfully!"
-msgstr "Powiązana osoba została dodana!"
+msgstr "Towarzysz został dodany!"
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-#, fuzzy
-#| msgid "Connection updated successfully."
 msgid "Companion updated successfully!"
-msgstr "Połączenie zostało zaktualizowane."
+msgstr "Zaktualizowano dane towarzysza!"
 
 #: src/ludamus/gates/web/django/crowd/profile.py
-#, fuzzy
-#| msgid "Connection deleted successfully."
 msgid "Companion deleted successfully."
-msgstr "Połączenie zostało usunięte."
+msgstr "Towarzysz został usunięty."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid "Could not create a claim link for this person."
@@ -2035,34 +2026,26 @@ msgid "Invite link regenerated."
 msgstr "Wygenerowano nowy link zaproszenia."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-#, fuzzy
-#| msgid "Enter an email or Discord username."
 msgid "Enter a companion display name."
-msgstr "Podaj adres email lub nazwę użytkownika Discord."
+msgstr "Podaj nazwę wyświetlaną towarzysza."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-#, fuzzy
-#| msgid "You joined the party."
 msgid "Companion added to the party."
-msgstr "Dołączasz do drużyny."
+msgstr "Towarzysz został dodany do drużyny."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-#, fuzzy
-#| msgid "This person is already in the party."
 msgid "This companion is already in the party."
-msgstr "Ta osoba jest już w drużynie."
+msgstr "Ten towarzysz jest już w drużynie."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-#, fuzzy
-#| msgid "A connection with this display name already exists."
 msgid "More than one companion has that display name. Rename one first."
-msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
+msgstr ""
+"Więcej niż jeden towarzysz ma tę nazwę wyświetlaną. Najpierw zmień nazwę "
+"jednego z nich."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-#, fuzzy
-#| msgid "A connection with this display name already exists."
 msgid "No companion matches that display name."
-msgstr "Połączenie o tej nazwie wyświetlanej już istnieje."
+msgstr "Żaden towarzysz nie ma takiej nazwy wyświetlanej."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "This invite link is invalid."
@@ -4594,10 +4577,9 @@ msgid "Add companion"
 msgstr "Dodaj towarzysza"
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, fuzzy, python-format
-#| msgid "You can have at most %(max_connected_users)s companions."
+#, python-format
 msgid "You can have at most %(max_companions)s companions."
-msgstr "Możesz mieć najwyżej %(max_connected_users)s towarzyszy."
+msgstr "Możesz mieć najwyżej %(max_companions)s towarzyszy."
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid ""
@@ -4663,13 +4645,13 @@ msgid ""
 "Delete companion %(name)s? This also removes their party memberships and "
 "enrollments."
 msgstr ""
+"Usunąć towarzysza %(name)s? Spowoduje to również usunięcie jego członkostw w "
+"drużynach i zapisów."
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
-#, fuzzy
-#| msgid "Delete connection"
 msgid "Delete companion"
-msgstr "Usuń połączenie"
+msgstr "Usuń towarzysza"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "No companions yet."
@@ -4744,6 +4726,8 @@ msgstr "Usuń z drużyny"
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Add one of your companions to this party by their display name."
 msgstr ""
+"Dodaj jednego ze swoich towarzyszy do tej drużyny, podając jego nazwę "
+"wyświetlaną."
 
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "or share a link"
