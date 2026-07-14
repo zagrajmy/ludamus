@@ -22,6 +22,16 @@ loadEnv(path.join(repoRoot, ".env.e2e"));
 
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 
+// Sandboxed dev/CI containers that mandate an egress proxy (see
+// docs/agents/sandbox.md) export HTTPS_PROXY for regular processes like curl
+// or node's fetch, but Playwright-launched browsers don't pick that up on
+// their own — an external request (e.g. index.css's Google Fonts @import,
+// now allowed by the enforcing CSP's style-src/font-src) just hangs instead
+// of failing fast, which can even block Firefox's domcontentloaded. Passing
+// it through here is a no-op wherever the proxy isn't set, e.g. real CI with
+// normal outbound internet access.
+const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy;
+
 const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
@@ -59,6 +69,16 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: isCI ? "retain-on-failure" : "on-first-retry",
+    ...(proxyServer
+      ? {
+          proxy: {
+            server: proxyServer,
+            // The proxy only fronts external egress; localhost (the app
+            // under test) and 127.0.0.1 must bypass it.
+            bypass: "localhost,127.0.0.1",
+          },
+        }
+      : {}),
   },
   /* Configure projects for major browsers */
   projects: [
@@ -79,6 +99,17 @@ export default defineConfig({
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
+        // csp-violations.spec.ts's panel test hangs Playwright's Firefox
+        // specifically in sandboxed dev containers: index.css @imports the
+        // Outfit font from fonts.googleapis.com (now allowed by the
+        // enforcing CSP's style-src/font-src — see settings.CSP_POLICY),
+        // and Firefox's request context doesn't reliably use the `use.proxy`
+        // config the sandbox's egress proxy requires (Chromium does, and
+        // passes cleanly with zero CSP violations — this isn't a CSP or
+        // product bug, verified with page-level request tracing). Real
+        // Firefox users have normal internet access; only this proxied
+        // sandbox is affected.
+        /csp-violations\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },
     },
