@@ -9,7 +9,7 @@
     </nav>
 {% else %}
     <div class="tab-nav-scroll">
-        <nav class="tab-nav{% if extra_class %} {{ extra_class }}{% endif %}"
+        <nav class="tab-nav flex items-end gap-1{% if extra_class %} {{ extra_class }}{% endif %}"
              role="tablist"
              {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}>
             {{ tabs }}

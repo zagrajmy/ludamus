@@ -2200,7 +2200,17 @@ class TestDesiredStateRouting:
             data={"enroll_mode": "desired", f"user_{companion.id}": "include"},
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, f"Enrolled: {companion.name}"),
+                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+        )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=session
         ).exists()

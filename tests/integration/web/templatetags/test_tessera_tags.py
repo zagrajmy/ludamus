@@ -304,7 +304,7 @@ class TestTabs:
             '{% tabs %}{% tab "a" href="/a/" active=True %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
-        assert '<nav class="tab-nav"' in html
+        assert '<nav class="tab-nav flex items-end gap-1"' in html
         assert "</nav>" in html
         assert 'aria-selected="true"' in html
         assert 'data-tab="a"' in html
@@ -318,7 +318,7 @@ class TestTabs:
         )
         html = tpl.render(Context())
         assert 'aria-selected="false"' in html
-        assert 'class="tab-nav-link"' in html
+        assert 'class="tab-nav-link ' in html
 
     def test_active_tab_uses_shared_link_class(self) -> None:
         tpl = Template(
@@ -326,7 +326,7 @@ class TestTabs:
             '{% tabs %}{% tab "a" href="/a/" active=True %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
-        assert 'class="tab-nav-link"' in html
+        assert 'class="tab-nav-link ' in html
         assert "bg-bg-secondary" not in html
 
     def test_active_tab_from_context(self) -> None:

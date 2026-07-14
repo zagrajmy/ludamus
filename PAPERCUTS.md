@@ -60,3 +60,13 @@ If you fix a papercut, remove it.
 - 2026-07-14: Built a screenshot asset commit, then zsh parsed
   `$asset_commit:refs/...` as a variable modifier and corrupted the push
   refspec; brace variables immediately before colons in zsh.
+- 2026-07-14: Assumed fetched PR review-thread comments were objects with a body
+  field; this repository helper returned a different shape and made the jq audit
+  fail. Document the helper output schema or ship a ready unresolved-thread
+  query.
+- 2026-07-14: Used `mise exec -- pytest` to avoid the test:py task appending
+  fixed roots, but it omitted required Varlock environment variables and failed
+  before collection. Document a supported focused-Python-test command.
+- 2026-07-14: Guessed the focused test belonged to TestSessionEnrollPage from
+  its filename; pytest collected zero because the actual class is
+  TestDesiredStateRouting. Locate node IDs before invoking focused tests.

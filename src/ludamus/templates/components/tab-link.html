@@ -1,5 +1,5 @@
 {% load tessera %}
-<a class="{% if variant == 'segment' %}flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:py-2 text-sm font-semibold whitespace-nowrap text-foreground-muted transition-colors hover:text-foreground aria-selected:bg-bg-secondary aria-selected:text-foreground aria-selected:shadow-sm{% else %}tab-nav-link{% endif %}"
+<a class="{% if variant == 'segment' %}flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:py-2 text-sm font-semibold whitespace-nowrap text-foreground-muted transition-colors hover:text-foreground aria-selected:bg-bg-secondary aria-selected:text-foreground aria-selected:shadow-sm{% else %}tab-nav-link inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-4 py-2 text-sm font-medium text-foreground-muted transition-colors{% endif %}"
    role="tab"
    href="{{ href }}"
    aria-selected="{% if active %}true{% else %}false{% endif %}"
