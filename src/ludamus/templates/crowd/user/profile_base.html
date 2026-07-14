@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block body %}
+    <div class="max-w-3xl mx-auto w-full min-w-0">
+        <div class="overflow-hidden rounded-2xl border border-border">
+            {% include "components/tab-shell-bar.html" with tabs_partial="crowd/user/_profile_tabs.html" active_tab=profile_active_tab %}
+            {% tab_shell_body %}
+            {% block profile_content %}
+            {% endblock profile_content %}
+        {% end_tab_shell_body %}
+    </div>
+</div>
+{% endblock body %}

@@ -8,7 +8,7 @@
             <span class="text-xs text-foreground-muted">{% translate "Timezone:" %} {% get_current_timezone as tz %}{{ tz }}</span>
         </div>
         {% if form.non_field_errors %}
-            <div class="alert alert-error mb-6">
+            <div class="alert backdrop-blur-lg alert-error mb-6">
                 {% for error in form.non_field_errors %}<p class="text-sm">{{ error }}</p>{% endfor %}
             </div>
         {% endif %}

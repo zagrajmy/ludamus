@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.hashers import make_password
 
 from ludamus.adapters.db.django.models import (
-    Party,
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
@@ -13,15 +12,15 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
-    ConnectedUserDTO,
-    ConnectedUserRepositoryProtocol,
+    CompanionDTO,
+    CompanionRepositoryProtocol,
     ProfileParticipationRepositoryProtocol,
     UserData,
     UserDTO,
     UserRepositoryProtocol,
     UserType,
 )
-from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
 
@@ -86,48 +85,30 @@ class UserRepository(UserRepositoryProtocol):
         return query.exists()
 
 
-def _default_led_party(leader: User) -> Party:
-    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
-        party = Party.objects.create(leader=leader, name="")
-        PartyMembership.objects.create(
-            party=party,
-            member=leader,
-            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
-            status=PartyMembershipStatus.ACTIVE,
-        )
-    return party
-
-
-class ConnectedUserRepository(ConnectedUserRepositoryProtocol):
+class CompanionRepository(CompanionRepositoryProtocol):
     @staticmethod
-    def read_all(manager_slug: str) -> list[ConnectedUserDTO]:
+    def read_all(manager_slug: str) -> list[CompanionDTO]:
         if not User.objects.filter(
             user_type=UserType.ACTIVE, slug=manager_slug
         ).exists():
             raise NotFoundError
 
         return [
-            ConnectedUserDTO.model_validate(connected_user)
-            for connected_user in active_companions(manager_slug).order_by("pk")
+            CompanionDTO.model_validate(companion)
+            for companion in active_companions(manager_slug).order_by("pk")
         ]
 
     @staticmethod
     def create(manager_slug: str, user_data: UserData) -> None:
         manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
-        user = User.objects.create(**user_data)
-        PartyMembership.objects.create(
-            party=_default_led_party(manager),
-            member=user,
-            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
-            status=PartyMembershipStatus.ACTIVE,
-        )
+        User.objects.create(**user_data, manager=manager)
 
     @staticmethod
-    def read(manager_slug: str, user_slug: str) -> ConnectedUserDTO:
-        connected_user = active_companions(manager_slug).filter(slug=user_slug).first()
-        if connected_user is None:
+    def read(manager_slug: str, user_slug: str) -> CompanionDTO:
+        companion = active_companions(manager_slug).filter(slug=user_slug).first()
+        if companion is None:
             raise NotFoundError
-        return ConnectedUserDTO.model_validate(connected_user)
+        return CompanionDTO.model_validate(companion)
 
     @staticmethod
     def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:
@@ -193,6 +174,7 @@ class ClaimRepository(ClaimRepositoryProtocol):
         ).update(
             username=username,
             user_type=UserType.ACTIVE,
+            manager=None,
             password=make_password(None),
             claim_token="",
         )

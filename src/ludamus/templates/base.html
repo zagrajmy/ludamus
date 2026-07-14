@@ -80,7 +80,11 @@
                 {% block main_region %}
                     <!-- Flash Messages -->
                     {% if messages %}
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">{% include "components/flash-messages.html" %}</div>
+                        <div class="flash-region"
+                             role="region"
+                             aria-label="{% translate "Notifications" %}">
+                            {% include "components/flash-messages.html" %}
+                        </div>
                     {% endif %}
                     <!-- Main Content -->
                     <main class="grow flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full mb-8">
@@ -136,7 +140,7 @@
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
-        {% vite_asset 'src/velvet-sound.ts' %}
+        {% vite_asset 'src/sound.ts' %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>

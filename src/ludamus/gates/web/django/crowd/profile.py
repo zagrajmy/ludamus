@@ -11,14 +11,15 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import ContextMixin, View
 from django.views.generic.detail import SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
 
-from ludamus.adapters.db.django.models import MAX_CONNECTED_USERS
-from ludamus.gates.web.django.crowd.forms import ConnectedUserForm, UserForm
+from ludamus.adapters.db.django.models import MAX_COMPANIONS
+from ludamus.gates.web.django.crowd.forms import CompanionForm, UserForm
 from ludamus.gates.web.django.crowd.helpers import (
     COMPANION_CREATE_AUTO_ID,
     build_parties_context,
@@ -41,7 +42,7 @@ class ProfilePageView(
 ):
     form_class = UserForm
     request: AuthenticatedRootRequest
-    success_url = reverse_lazy("web:index")
+    success_url = reverse_lazy("web:crowd:profile")
     template_name = "crowd/user/edit.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -51,10 +52,10 @@ class ProfilePageView(
         kwargs["confirmed_participations_count"] = (
             profile.confirmed_participations_count(self.request.context.current_user_id)
         )
+        kwargs["profile_active_tab"] = "profile"
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form: UserForm) -> HttpResponse:
-        # Check if email is being changed and if it already exists
         email = form.user_data.get("email", "").strip()
         if email and self.request.services.profile.email_in_use(
             email, exclude_slug=self.request.context.current_user_slug
@@ -78,20 +79,26 @@ class ProfilePageView(
         messages.warning(self.request, _("Please correct the errors below."))
         return super().form_invalid(form)
 
+    def get_success_url(self) -> str:
+        next_url = self.request.GET.get("next")
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts=None):
+            return next_url
+        return str(self.success_url)
+
     def get_initial(self) -> dict[str, Any]:
         return self.request.services.profile.read(
             self.request.context.current_user_slug
         ).model_dump()
 
 
-class ProfileConnectedUsersPageView(
+class ProfileCompanionsPageView(
     LoginRequiredMixin,
     SingleObjectTemplateResponseMixin,
     FormMixin,  # type: ignore [type-arg]
     ContextMixin,
     ProcessFormView,
 ):
-    form_class = ConnectedUserForm
+    form_class = CompanionForm
     object: UserDTO
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-parties")
@@ -99,9 +106,7 @@ class ProfileConnectedUsersPageView(
     template_name_suffix = "_form"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        # The page moved to the parties tab; this endpoint keeps handling the
-        # add-companion POST.
-        _ = (request, args, kwargs)  # Django View dispatch
+        _ = (request, args, kwargs)
         return redirect(self.get_success_url())
 
     def get_form_kwargs(self) -> dict[str, Any]:
@@ -112,19 +117,18 @@ class ProfileConnectedUsersPageView(
         context.update(kwargs)
         return super().get_context_data(**context)
 
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
-        # Check if user has reached the maximum number of connected users
+    def form_valid(self, form: CompanionForm) -> HttpResponse:
 
-        connected_count = len(
+        companion_count = len(
             self.request.services.companions.list_companions(
                 self.request.context.current_user_slug
             )
         )
-        if connected_count >= MAX_CONNECTED_USERS:
+        if companion_count >= MAX_COMPANIONS:
             messages.error(
                 self.request,
-                _("You can only have up to %(max)s connected users.")
-                % {"max": MAX_CONNECTED_USERS},
+                _("You can only have up to %(max)s companions.")
+                % {"max": MAX_COMPANIONS},
             )
             return self.form_invalid(form)
 
@@ -135,22 +139,22 @@ class ProfileConnectedUsersPageView(
         self.request.services.companions.create(
             manager_slug=self.request.context.current_user_slug, user_data=user_data
         )
-        messages.success(self.request, _("Connected user added successfully!"))
+        messages.success(self.request, _("Companion added successfully!"))
         return result
 
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_invalid(self, form: CompanionForm) -> HttpResponse:
         messages.warning(self.request, _("Please correct the errors below."))
         return super().form_invalid(form)
 
 
-class ProfileConnectedUserUpdateActionView(
+class ProfileCompanionUpdateActionView(
     LoginRequiredMixin,
     SingleObjectTemplateResponseMixin,
     FormMixin,  # type: ignore [type-arg]
     ContextMixin,
     ProcessFormView,
 ):
-    form_class = ConnectedUserForm
+    form_class = CompanionForm
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-parties")
     template_name = "crowd/user/parties.html"
@@ -174,21 +178,21 @@ class ProfileConnectedUserUpdateActionView(
         context.update(kwargs)
         return super().get_context_data(**context)
 
-    def form_valid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_valid(self, form: CompanionForm) -> HttpResponse:
         self.request.services.companions.update(
             manager_slug=self.request.context.current_user_slug,
             user_slug=self.kwargs["slug"],
             user_data=form.user_data,
         )
-        messages.success(self.request, _("Connected user updated successfully!"))
+        messages.success(self.request, _("Companion updated successfully!"))
         return super().form_valid(form)
 
-    def form_invalid(self, form: ConnectedUserForm) -> HttpResponse:
+    def form_invalid(self, form: CompanionForm) -> HttpResponse:
         messages.warning(self.request, _("Please correct the errors below."))
         return super().form_invalid(form)
 
 
-class ProfileConnectedUserDeleteActionView(
+class ProfileCompanionDeleteActionView(
     LoginRequiredMixin,
     SingleObjectTemplateResponseMixin,
     FormMixin,  # type: ignore [type-arg]
@@ -213,13 +217,11 @@ class ProfileConnectedUserDeleteActionView(
             manager_slug=self.request.context.current_user_slug,
             user_slug=self.kwargs["slug"],
         )
-        messages.success(self.request, _("Connected user deleted successfully."))
+        messages.success(self.request, _("Companion deleted successfully."))
         return HttpResponseRedirect(success_url)
 
 
-class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
-    # POST: mint a share link that lets a connected person take over their
-    # profile as their own self-login account.
+class ProfileCompanionClaimLinkActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     @staticmethod
@@ -235,8 +237,6 @@ class ProfileConnectedUserClaimLinkActionView(LoginRequiredMixin, View):
 
 
 class ClaimPageView(View):
-    # Landing page for a claim link. The recipient signs in via Auth0 and the
-    # managed row becomes their own account.
     @staticmethod
     def _reject_invalid_link(request: RootRequest) -> HttpResponse:
         messages.error(
@@ -286,6 +286,7 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
                 "user": avatar.user,
                 "gravatar_url": avatar.gravatar_url,
                 "has_auth0_avatar": avatar.has_auth0_avatar,
+                "profile_active_tab": "avatar",
             },
         )
 
@@ -295,7 +296,6 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         request.services.profile.set_avatar_preference(
             request.context.current_user_slug, use_gravatar=use_gravatar
         )
-        messages.success(request, _("Avatar preference updated successfully!"))
         return redirect("web:crowd:profile-avatar")
 
 
@@ -308,21 +308,21 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
             request.context.current_user_id
         )
         return TemplateResponse(
-            request, "crowd/user/shadowbans.html", {"candidates": candidates}
+            request,
+            "crowd/user/safety.html",
+            {"candidates": candidates, "profile_active_tab": "safety"},
         )
 
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
         if identifier := request.POST.get("identifier", "").strip():
-            # Neutral message either way: never confirm whether an account with
-            # this username/email exists (no enumeration of the user base).
             request.services.shadowban.add_by_identifier(
                 owner_id=request.context.current_user_id, identifier=identifier
             )
             messages.success(
                 request, _("If a matching player exists, they have been shadowbanned.")
             )
-            return redirect("web:crowd:profile-shadowbans")
+            return redirect("web:crowd:profile-safety")
 
         if slug := request.POST.get("slug", ""):
             banned = request.POST.get("banned") == "true"
@@ -335,4 +335,4 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
                 request,
                 _("Player shadowbanned.") if banned else _("Shadowban removed."),
             )
-        return redirect("web:crowd:profile-shadowbans")
+        return redirect("web:crowd:profile-safety")

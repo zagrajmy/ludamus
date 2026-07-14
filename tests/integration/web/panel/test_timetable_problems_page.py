@@ -96,6 +96,7 @@ class TestTimetableProblemsPageView:
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
                 },
+                "active_tab": "problems",
             },
         )
 
@@ -131,8 +132,6 @@ class TestTimetableProblemsPageView:
         grouped = response.context["conflicts_grouped"]
         assert "space_overlap" in grouped
         overlaps = grouped["space_overlap"]
-        # Dedup keeps a single row for the A/B clash; it must name the subject
-        # session AND the distinct occupier, never the same session twice.
         assert len(overlaps) == 1
         conflict = overlaps[0]
         assert conflict.subject_session_pk != conflict.session_pk

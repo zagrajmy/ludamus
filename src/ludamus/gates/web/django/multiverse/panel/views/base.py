@@ -24,8 +24,7 @@ def sphere_panel_context(
 
     Returns:
         Context dict with sidebar (`events`, `current_event`,
-        `is_proposal_active`, `active_nav`) and tabs (`is_general_tab`,
-        `is_connections_tab`, `tab_urls`) keys.
+        `is_proposal_active`, `active_nav`) and tabs (`active_tab`, `tab_urls`) keys.
     """
     sphere_id = request.context.current_sphere_id
     events = request.services.sphere_panel.list_events(sphere_id)
@@ -38,10 +37,7 @@ def sphere_panel_context(
             is_proposal_active(current_event) if current_event else False
         ),
         "active_nav": "sphere-settings",
-        "is_general_tab": active_tab == "general",
-        "is_connections_tab": active_tab == "connections",
-        "is_announcements_tab": active_tab == "announcements",
-        "is_mcp_tab": active_tab == "mcp",
+        "active_tab": active_tab,
         "tab_urls": {
             "general": reverse("multiverse:panel:sphere-settings"),
             "connections": reverse("multiverse:panel:connections"),

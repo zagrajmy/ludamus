@@ -1,0 +1,18 @@
+{# variant="segment": a segmented control for free-floating view switchers #}
+{# (matches the tessera_switcher look); default: raised card tabs that #}
+{# attach to a panel edge below (e.g. tab-shell). #}
+{% if variant == 'segment' %}
+    <nav class="inline-flex items-stretch gap-0.5 rounded-2xl border border-border bg-bg-tertiary p-1{% if extra_class %} {{ extra_class }}{% endif %}"
+         role="tablist"
+         {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}>
+        {{ tabs }}
+    </nav>
+{% else %}
+    <div class="tab-nav-scroll">
+        <nav class="tab-nav flex items-end gap-1{% if extra_class %} {{ extra_class }}{% endif %}"
+             role="tablist"
+             {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}>
+            {{ tabs }}
+        </nav>
+    </div>
+{% endif %}

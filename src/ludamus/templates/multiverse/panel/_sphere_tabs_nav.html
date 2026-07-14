@@ -1,0 +1,8 @@
+{% load i18n tessera %}
+{% translate "Sphere settings sections" as t_tablist_label %}
+{% tabs aria_label=t_tablist_label %}
+{% tab "general" href=tab_urls.general %}{% translate "General" %}{% end_tab %}
+{% tab "announcements" href=tab_urls.announcements %}{% translate "Organization announcements" %}{% end_tab %}
+{% tab "connections" href=tab_urls.connections %}{% translate "Import connections" %}{% end_tab %}
+{% tab "mcp" href=tab_urls.mcp %}{% translate "MCP access" %}{% end_tab %}
+{% end_tabs %}

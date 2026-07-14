@@ -5,7 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
-from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
+from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
@@ -68,8 +68,6 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
         django_get_or_create = ("username",)
-        # The manager hook only creates rows; the user needs no second save.
-        skip_postgeneration_save = True
 
     username = Faker("user_name")
     email = Sequence(lambda n: f"user{n}@example.com")
@@ -79,11 +77,6 @@ class UserFactory(DjangoModelFactory):
     is_active = True
     is_staff = False
     is_superuser = False
-
-    @post_generation
-    def manager(self, create, extracted):
-        if create and extracted is not None:
-            sponsor_user(leader=extracted, member=self)
 
 
 class SiteFactory(DjangoModelFactory):
@@ -240,15 +233,21 @@ def active_user_fixture():
     )
 
 
-@pytest.fixture
-def connected_user(active_user):
+@pytest.fixture(name="companion")
+def companion_fixture(active_user):
     return UserFactory(
-        username="connecteduser",
-        email="connected@example.com",
+        username="companionuser",
+        email="companion@example.com",
         user_type="connected",
         manager=active_user,
         password=make_password(None),
     )
+
+
+@pytest.fixture
+def party_companion(active_user, companion):
+    sponsor_user(leader=active_user, member=companion)
+    return companion
 
 
 @pytest.fixture(name="staff_user")

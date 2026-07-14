@@ -12,7 +12,7 @@ from ludamus.adapters.db.django.models import (
     Session,
     SessionField,
 )
-from ludamus.links.db.django.crowd import ConnectedUserRepository
+from ludamus.links.db.django.crowd import CompanionRepository
 from ludamus.links.db.django.repositories import (
     EventRepository,
     ProposalCategoryRepository,
@@ -85,18 +85,18 @@ class TestSessionRepositoryNotFound:
             SessionRepository.set_facilitators(MISSING_ID, [])
 
 
-class TestConnectedUserRepositoryNotFound:
+class TestCompanionRepositoryNotFound:
     def test_read_all_raises_when_manager_missing(self):
         with pytest.raises(NotFoundError):
-            ConnectedUserRepository.read_all("does-not-exist")
+            CompanionRepository.read_all("does-not-exist")
 
     def test_read_raises_when_user_missing(self):
         with pytest.raises(NotFoundError):
-            ConnectedUserRepository.read("missing-mgr", "missing-user")
+            CompanionRepository.read("missing-mgr", "missing-user")
 
     def test_delete_raises_when_user_missing(self):
         with pytest.raises(NotFoundError):
-            ConnectedUserRepository.delete("missing-mgr", "missing-user")
+            CompanionRepository.delete("missing-mgr", "missing-user")
 
 
 class TestEventRepositoryNotFound:

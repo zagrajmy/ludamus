@@ -7,7 +7,7 @@
 {# contract as _session_card.html so session-filters and the detail modal #}
 {# work unchanged. #}
 <article class="session-wrapper min-w-0">
-    <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary [text-box:trim-start_cap_alphabetic] max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 has-[a:hover]:opacity-100{% endif %}"
+    <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary dark:has-[a:hover]:bg-bg-tertiary/50 [text-box:trim-start_cap_alphabetic] max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 has-[a:hover]:opacity-100{% endif %}"
          data-no-morph
          {% include "chronology/_session_data_attrs.html" %}>
         <a href="?session={{ data.session.pk }}"
