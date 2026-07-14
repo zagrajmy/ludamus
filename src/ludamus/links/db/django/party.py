@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 
 from ludamus.adapters.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.companions import active_companions
@@ -49,6 +49,14 @@ class PartyRepository(PartyRepositoryProtocol):
                 )
             )
             .select_related("leader")
+            .prefetch_related(
+                Prefetch(
+                    "memberships",
+                    queryset=PartyMembership.objects.select_related("member").order_by(
+                        "pk"
+                    ),
+                )
+            )
             .distinct()
             .order_by("pk")
         )
@@ -59,7 +67,6 @@ class PartyRepository(PartyRepositoryProtocol):
         )
         party_dtos = []
         for party in parties:
-            memberships = party.memberships.select_related("member").order_by("pk")
             members = [
                 PartyMemberDTO(
                     membership_pk=membership.pk,
@@ -75,7 +82,7 @@ class PartyRepository(PartyRepositoryProtocol):
                     claim_token=membership.member.claim_token,
                     avatar_url=display_avatar_url(membership.member),
                 )
-                for membership in memberships
+                for membership in party.memberships.all()
             ]
             # Leader first, then the rest in creation order.
             members.sort(key=lambda m: (not m.is_leader,))

@@ -109,15 +109,21 @@ const remove = (flash: HTMLElement): void => {
     return;
   }
 
+  let finished = false;
+  const finish = (): void => {
+    if (finished) return;
+    finished = true;
+    finishRemoval(flash);
+  };
   const onTransitionEnd = (event: TransitionEvent): void => {
     if (event.target !== flash || event.propertyName !== "transform") return;
     flash.removeEventListener("transitionend", onTransitionEnd);
-    finishRemoval(flash);
+    finish();
   };
   flash.addEventListener("transitionend", onTransitionEnd);
   globalThis.setTimeout(() => {
     flash.removeEventListener("transitionend", onTransitionEnd);
-    finishRemoval(flash);
+    finish();
   }, EXIT_FALLBACK_MS);
 };
 

@@ -2,6 +2,8 @@ from http import HTTPStatus
 from unittest.mock import ANY
 
 from django.contrib import messages
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
@@ -200,6 +202,35 @@ class TestPartiesPageView:
             template_name="crowd/user/parties.html",
             contains=["Join party", "Decline"],
         )
+
+    def test_membership_query_count_is_constant_across_parties(
+        self, authenticated_client, active_user
+    ):
+        first = Party.objects.create(leader=active_user, name="First")
+        PartyMembership.objects.create(party=first, member=active_user)
+        authenticated_client.get(URL)
+
+        with CaptureQueriesContext(connection) as one_party_queries:
+            one_party_response = authenticated_client.get(URL)
+
+        second = Party.objects.create(leader=active_user, name="Second")
+        PartyMembership.objects.create(party=second, member=active_user)
+        with CaptureQueriesContext(connection) as two_party_queries:
+            two_party_response = authenticated_client.get(URL)
+
+        assert_response(
+            one_party_response,
+            HTTPStatus.OK,
+            context_data=one_party_response.context_data,
+            template_name="crowd/user/parties.html",
+        )
+        assert_response(
+            two_party_response,
+            HTTPStatus.OK,
+            context_data=two_party_response.context_data,
+            template_name="crowd/user/parties.html",
+        )
+        assert len(two_party_queries) == len(one_party_queries)
 
 
 class TestPartyCreateActionView:
