@@ -124,10 +124,5 @@ urlpatterns: list[URLPattern | URLResolver] = [
         profile.ProfileCompanionClaimLinkActionView.as_view(),
         name="profile-companions-claim-link",
     ),
-    path(
-        "profile/connected-users/",
-        profile.ProfileCompanionsPageView.as_view(),
-        name="profile-connected-users",
-    ),
     path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),
 ]

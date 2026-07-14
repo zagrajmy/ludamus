@@ -56,8 +56,8 @@ test.describe("Profile — Parties (parties.html)", () => {
     });
   });
 
-  test("old connected-users URL redirects to parties", async ({ page }) => {
-    await page.goto("/crowd/profile/connected-users/");
+  test("companions URL redirects to parties", async ({ page }) => {
+    await page.goto("/crowd/profile/companions/");
 
     await expect(page).toHaveURL(/profile\/parties/);
     await expect(page.getByRole("tab", { name: /Parties/ })).toHaveAttribute(
