@@ -342,7 +342,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Get session data objects that include enrollment status; the
         # hour grouping reuses them instead of rebuilding every DTO.
         sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
-        hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
         if banned_by:
             sessions_data = {
@@ -362,6 +361,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             sessions_data = {
                 sid: fake_full_card(data) for sid, data in sessions_data.items()
             }
+
+        hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
         if compact_schedule := len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS:
             self._set_bookmark_counts(sessions_data)
@@ -387,7 +388,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         context.update(
             {
-                "hour_data": hour_data,  # Keep original for backward compatibility
+                "hour_data": hour_data,
                 "sessions": list(sessions_data.values()),
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
@@ -1135,7 +1136,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             user_id = participation.user_id
             participations_by_user[user_id].append(participation)
 
-        # Add enrollment status and time conflict info for each companion
+        # Add enrollment status and time conflict info for each user
         for user in all_users:
             user_parts = participations_by_user.get(user.pk, [])
             membership = flags_by_pk.get(user.pk, PartyMemberFlags())

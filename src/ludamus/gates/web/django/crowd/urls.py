@@ -129,20 +129,5 @@ urlpatterns: list[URLPattern | URLResolver] = [
         profile.ProfileCompanionsPageView.as_view(),
         name="profile-connected-users",
     ),
-    path(
-        "profile/connected-users/<str:slug>/do/update",
-        profile.ProfileCompanionUpdateActionView.as_view(),
-        name="profile-connected-users-update",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/delete",
-        profile.ProfileCompanionDeleteActionView.as_view(),
-        name="profile-connected-users-delete",
-    ),
-    path(
-        "profile/connected-users/<str:slug>/do/claim-link",
-        profile.ProfileCompanionClaimLinkActionView.as_view(),
-        name="profile-connected-users-claim-link",
-    ),
     path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),
 ]

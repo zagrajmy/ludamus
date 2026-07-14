@@ -57,14 +57,21 @@ class TestShadowbanPretendFull:
         assert card.spots_left == 0
         assert card.enrolled_count == card.effective_participants_limit
         assert all(p.user.pk < 0 for p in card.session_participations)
+        (hour_card,) = response.context["hour_data"][agenda_item.start_time]
+        assert hour_card.pretend_full
 
-    def test_event_page_untouched_for_other_users(self, agenda_item, event, client):
-        session = agenda_item.session
+    def test_event_page_untouched_for_other_users(
+        self, authenticated_client, agenda_item, event
+    ):
+        banned_viewer = UserFactory(
+            username="banned-viewer", email="banned-viewer@example.com"
+        )
+        session = _ban_viewer(agenda_item, banned_viewer, username="other-gm")
         session.title = "Visible Game"
         session.display_name = "Visible Game"
         session.save()
 
-        response = client.get(_event_url(event.slug))
+        response = authenticated_client.get(_event_url(event.slug))
 
         assert_response(
             response,

@@ -45,3 +45,12 @@ If you fix a papercut, remove it.
 - 2026-07-14: Passed focused pytest paths to mise run test:py, but the task
   appends them after its fixed integration/unit roots and runs the full suite;
   use -k for focused selection.
+- 2026-07-14: Used a test_*party* zsh glob while locating party history tests;
+  no match caused zsh to abort before rg. Use rg paths without shell globs.
+- 2026-07-14: Passed a Playwright filename through mise run test:e2e; the task
+  ignored it for Playwright, ran all 152 cases, then passed it to coverage
+  report as Python source and failed after 148 passes/4 skips. The task should
+  route test arguments only to Playwright.
+- 2026-07-14: Tried `mise run pytest` for a focused test after `mise tasks`
+  guidance; no such task exists, so focused pytest invocation still requires
+  discovering another command.

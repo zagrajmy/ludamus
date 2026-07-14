@@ -53,9 +53,6 @@ urlpatterns = [
         name="notifications-mark-read",
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
-    path(
-        "mockups/", TemplateView.as_view(template_name="mockups.html"), name="mockups"
-    ),
     path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
     path(
         "design/tailwind/",

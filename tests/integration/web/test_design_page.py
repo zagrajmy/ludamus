@@ -251,23 +251,3 @@ class TestDesignPageView:
             template_name=["design.html"],
             contains=["py-1.5", "py-2", "py-3", "text-xs", "text-sm", "text-base"],
         )
-
-
-class TestMockupsPageView:
-    URL = reverse("web:mockups")
-
-    def test_ok(self, client):
-        response = client.get(self.URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"view": ANY},
-            template_name=["mockups.html"],
-            contains=[
-                "Roster Ledger",
-                "Crest Strip",
-                "Command Rail",
-                "Split Dashboard",
-            ],
-        )

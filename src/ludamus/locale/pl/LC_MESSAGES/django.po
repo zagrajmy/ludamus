@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-14 01:14+0200\n"
+"POT-Creation-Date: 2026-07-14 11:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1888,11 +1888,11 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Companion display name"
-msgstr "Nazwa towarzysza"
+msgstr "Nazwa wyświetlana towarzysza"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-msgid "Enter one of your companions names."
-msgstr "Podaj nazwę jednego ze swoich towarzyszy."
+msgid "Enter one of your companions exactly as they are named."
+msgstr "Wpisz dokładną nazwę jednego ze swoich towarzyszy."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid ""
@@ -4611,16 +4611,12 @@ msgid "Copy claim link"
 msgstr "Skopiuj link przejęcia"
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, fuzzy
-#| msgid "Generate a new claim link. The old one stops working."
 msgid "Generate a new claim link? The old one stops working."
-msgstr "Wygeneruj nowy link przejęcia. Poprzedni przestanie działać."
+msgstr "Wygenerować nowy link przejęcia? Poprzedni przestanie działać."
 
 #: src/ludamus/templates/crowd/user/parties.html
-#, fuzzy
-#| msgid "Generate a new claim link"
 msgid "Generate new link"
-msgstr "Wygeneruj nowy link przejęcia"
+msgstr "Wygeneruj nowy link"
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Generate a new claim link. The old one stops working."
@@ -4770,16 +4766,12 @@ msgid "Not now"
 msgstr "Nie teraz"
 
 #: src/ludamus/templates/crowd/user/party_join.html
-#, fuzzy
-#| msgid ""
-#| "A party enrolls for sessions together and moves up a waiting list "
-#| "together. You can leave anytime."
 msgid ""
 "A party enrolls in sessions together and moves up the waiting list together. "
 "You can leave anytime."
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
-"oczekujących. Możecie wyjść w dowolnym momencie."
+"oczekujących. Możesz ją opuścić w dowolnym momencie."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"
@@ -4846,38 +4838,34 @@ msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #: src/ludamus/templates/design.html
-#, fuzzy
-#| msgid "Space created successfully."
 msgid "Saved successfully."
-msgstr "Przestrzeń została utworzona."
+msgstr "Zapisano pomyślnie."
 
 #: src/ludamus/templates/design.html
 msgid "Something went wrong."
-msgstr ""
+msgstr "Coś poszło nie tak."
 
 #: src/ludamus/templates/design.html
 msgid "Toast playground"
-msgstr ""
+msgstr "Testowanie powiadomień"
 
 #: src/ludamus/templates/design.html
 msgid "Trigger fixed alerts here to test stacking, entry, and dismissal."
 msgstr ""
+"Wywołuj tutaj alerty o stałym położeniu, aby przetestować ich układanie, "
+"pojawianie się i zamykanie."
 
 #: src/ludamus/templates/design.html
-#, fuzzy
-#| msgid "Show session"
 msgid "Show success"
-msgstr "Pokaż punkt programu"
+msgstr "Pokaż komunikat powodzenia"
 
 #: src/ludamus/templates/design.html
 msgid "Show sticky error"
-msgstr ""
+msgstr "Pokaż trwały komunikat błędu"
 
 #: src/ludamus/templates/design.html
-#, fuzzy
-#| msgid "Dismiss"
 msgid "Dismiss all"
-msgstr "Zamknij"
+msgstr "Zamknij wszystkie"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
