@@ -45,6 +45,7 @@ class PartyMemberDTO(BaseModel):
     # Companions only: pending claim-link token, "" when none was issued.
     claim_token: str = ""
     avatar_url: str = ""
+    is_managed_by_viewer: bool = False
 
 
 class PartyDTO(BaseModel):
@@ -59,6 +60,7 @@ class PartyDTO(BaseModel):
     # Viewer-relative: the viewer's first led party — the one that sponsors
     # their companions.
     is_default: bool
+    is_active_member: bool
     created_at: datetime
     members: list[PartyMemberDTO]
 
@@ -204,7 +206,9 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def delete(*, leader_pk: int, party_pk: int) -> bool: ...
     @staticmethod
-    def read_led_party(*, leader_pk: int, party_pk: int) -> LedPartyDTO | None: ...
+    def read_active_member_party(
+        *, member_pk: int, party_pk: int
+    ) -> LedPartyDTO | None: ...
     @staticmethod
     def find_invitable_users(identifier: str) -> list[InvitedUserDTO]: ...
     @staticmethod
@@ -258,10 +262,10 @@ class PartyServiceProtocol(Protocol):
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool: ...
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome: ...
     def invite(
-        self, *, leader_pk: int, party_pk: int, identifier: str
+        self, *, member_pk: int, party_pk: int, identifier: str
     ) -> InviteOutcome: ...
     def add_companion(
-        self, *, leader_pk: int, party_pk: int, display_name: str
+        self, *, member_pk: int, party_pk: int, display_name: str
     ) -> CompanionAddOutcome: ...
     def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None: ...
     def read_invite_token(self, *, leader_pk: int, party_pk: int) -> str: ...

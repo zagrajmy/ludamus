@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from django import template
 from django.template.loader import render_to_string
-from django.utils.safestring import SafeString
 
 from ._registry import register
 from ._utils import parse_tag_attrs
@@ -33,7 +32,7 @@ class TabShellBodyNode(template.Node):
             {
                 "extra_class": resolved.pop("class", ""),
                 "body_partial": "",
-                "content": SafeString(self.nodelist.render(context)),
+                "content": self.nodelist.render(context),
             },
         )
 
@@ -58,7 +57,7 @@ class TabShellNode(template.Node):
         context_data.update(
             {
                 "tabs_partial": self.tabs_partial.resolve(context),
-                "content": SafeString(self.nodelist.render(context)),
+                "content": self.nodelist.render(context),
             }
         )
         return render_to_string("components/tab-shell.html", context_data)

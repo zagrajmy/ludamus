@@ -120,7 +120,7 @@ class PartyInviteActionView(LoginRequiredMixin, View):
             messages.error(request, _("Enter an email or Discord username."))
             return redirect("web:crowd:party-detail", pk=pk)
         outcome = request.services.parties.invite(
-            leader_pk=request.context.current_user_id,
+            member_pk=request.context.current_user_id,
             party_pk=pk,
             identifier=form.cleaned_data["identifier"],
         )
@@ -182,7 +182,7 @@ class PartyCompanionAddActionView(LoginRequiredMixin, View):
             messages.error(request, _("Enter a companion display name."))
             return _reopen_companion_modal(request, pk=pk, companion_form=form)
         outcome = request.services.parties.add_companion(
-            leader_pk=request.context.current_user_id,
+            member_pk=request.context.current_user_id,
             party_pk=pk,
             display_name=form.cleaned_data["display_name"],
         )

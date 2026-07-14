@@ -33,8 +33,10 @@ def _avatar_url(user):
     return user.avatar_url or gravatar_url(user.email) or ""
 
 
-def _member_dto(user, party, **overrides):
+def _member_dto(user, party, *, viewer=None, **overrides):
     membership = PartyMembership.objects.get(party=party, member=user)
+    viewer_pk = viewer.pk if viewer is not None else party.leader_id
+    is_managed_by_viewer = user.manager_id == viewer_pk
     values = {
         "membership_pk": membership.pk,
         "user_pk": user.pk,
@@ -46,8 +48,9 @@ def _member_dto(user, party, **overrides):
         "is_leader": party.leader_id == user.pk,
         "consent_mode": PartyConsentMode(membership.consent_mode),
         "status": PartyMembershipStatus(membership.status),
-        "claim_token": user.claim_token,
+        "claim_token": user.claim_token if is_managed_by_viewer else "",
         "avatar_url": _avatar_url(user),
+        "is_managed_by_viewer": is_managed_by_viewer,
     }
     values.update(overrides)
     return PartyMemberDTO(**values)
@@ -61,6 +64,11 @@ def _party_dto(party, viewer, members, *, is_default):
         leader_name=party.leader.get_full_name(),
         is_leader=party.leader_id == viewer.pk,
         is_default=is_default,
+        is_active_member=any(
+            member.user_pk == viewer.pk
+            and member.status == PartyMembershipStatus.ACTIVE
+            for member in members
+        ),
         created_at=party.created_at,
         members=members,
     )

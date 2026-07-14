@@ -50,8 +50,13 @@ def _party_dto(party: Party, *, viewer_pk: int, is_default: bool) -> PartyDTO:
             is_leader=membership.member_id == party.leader_id,
             consent_mode=PartyConsentMode(membership.consent_mode),
             status=PartyMembershipStatus(membership.status),
-            claim_token=membership.member.claim_token,
+            claim_token=(
+                membership.member.claim_token
+                if membership.member.manager_id == viewer_pk
+                else ""
+            ),
             avatar_url=display_avatar_url(membership.member),
+            is_managed_by_viewer=membership.member.manager_id == viewer_pk,
         )
         for membership in party.memberships.all()
     ]
@@ -63,6 +68,11 @@ def _party_dto(party: Party, *, viewer_pk: int, is_default: bool) -> PartyDTO:
         leader_name=party.leader.get_full_name(),
         is_leader=party.leader_id == viewer_pk,
         is_default=is_default,
+        is_active_member=any(
+            member.user_pk == viewer_pk
+            and member.status == PartyMembershipStatus.ACTIVE
+            for member in members
+        ),
         created_at=party.created_at,
         members=members,
     )
@@ -185,9 +195,15 @@ class PartyRepository(PartyRepositoryProtocol):
         return bool(deleted)
 
     @staticmethod
-    def read_led_party(*, leader_pk: int, party_pk: int) -> LedPartyDTO | None:
+    def read_active_member_party(
+        *, member_pk: int, party_pk: int
+    ) -> LedPartyDTO | None:
         party = (
-            Party.objects.filter(pk=party_pk, leader_id=leader_pk)
+            Party.objects.filter(
+                pk=party_pk,
+                memberships__member_id=member_pk,
+                memberships__status=PartyMembershipStatus.ACTIVE,
+            )
             .select_related("leader")
             .first()
         )

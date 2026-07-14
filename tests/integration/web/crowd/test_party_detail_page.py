@@ -13,6 +13,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.gravatar import gravatar_url
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -39,8 +40,8 @@ def _context(party_dto, **overrides):
     context = {
         "party": party_dto,
         "rename_form": ANY if party_dto.is_leader else None,
-        "invite_form": ANY if party_dto.is_leader else None,
-        "companion_form": ANY if party_dto.is_leader else None,
+        "invite_form": ANY if party_dto.is_active_member else None,
+        "companion_form": ANY if party_dto.is_active_member else None,
         "invite_token": "",
         "history": [],
         "profile_active_tab": "parties",
@@ -101,7 +102,13 @@ class TestPartyDetailPageView:
                 )
             ),
             template_name=TEMPLATE,
-            contains=["Leave party", "Allow direct enrollment"],
+            contains=[
+                "Leave party",
+                "Allow direct enrollment",
+                "Add companion",
+                "Invite a member",
+            ],
+            not_contains=["Rename party", "Delete party", "Regenerate link"],
         )
 
     def test_get_foreign_party_is_not_found(self, authenticated_client):
@@ -126,6 +133,58 @@ class TestPartyDetailPageView:
         response = authenticated_client.get(_url(party))
 
         assert_response_404(response)
+
+    def test_member_only_receives_managed_companion_credentials(
+        self, authenticated_client, active_user
+    ):
+        leader = UserFactory(username="leader")
+        party = sponsor_user(leader=leader, member=leader)
+        PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.ACTIVE
+        )
+        own_companion = UserFactory(
+            username="own-companion",
+            name="Mine",
+            manager=active_user,
+            user_type=UserType.CONNECTED,
+            claim_token="own-secret",
+        )
+        other_companion = UserFactory(
+            username="other-companion",
+            name="Theirs",
+            manager=leader,
+            user_type=UserType.CONNECTED,
+            claim_token="other-secret",
+        )
+        PartyMembership.objects.create(party=party, member=own_companion)
+        PartyMembership.objects.create(party=party, member=other_companion)
+
+        response = authenticated_client.get(_url(party))
+
+        members = {
+            member.user_pk: member for member in response.context["party"].members
+        }
+        assert members[own_companion.pk].is_managed_by_viewer
+        assert members[own_companion.pk].claim_token == "own-secret"
+        assert not members[other_companion.pk].is_managed_by_viewer
+        assert not members[other_companion.pk].claim_token
+        content = response.content.decode()
+        assert "own-secret" in content
+        assert "other-secret" not in content
+        assert (
+            reverse(
+                "web:crowd:profile-companions-delete",
+                kwargs={"slug": own_companion.slug},
+            )
+            in content
+        )
+        assert (
+            reverse(
+                "web:crowd:profile-companions-delete",
+                kwargs={"slug": other_companion.slug},
+            )
+            not in content
+        )
 
     def test_get_requires_login(self, client, active_user):
         party = Party.objects.create(leader=active_user, name="Ekipa")

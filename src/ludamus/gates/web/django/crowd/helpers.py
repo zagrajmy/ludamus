@@ -108,12 +108,12 @@ def build_party_detail_context(
         ),
         "invite_form": (
             PartyInviteForm(auto_id=f"invite_{party.pk}_%s")
-            if party.is_leader
+            if party.is_active_member
             else None
         ),
         "companion_form": (
             (companion_form or PartyCompanionForm(auto_id=f"companion_{party.pk}_%s"))
-            if party.is_leader
+            if party.is_active_member
             else None
         ),
         "invite_token": (

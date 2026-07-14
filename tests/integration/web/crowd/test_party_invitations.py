@@ -69,6 +69,55 @@ class TestPartyInviteActionView:
             messages=[(messages.ERROR, expected)],
         )
 
+    def test_active_member_can_invite(self, authenticated_client, active_user):
+        leader = UserFactory(username="leader")
+        friend = UserFactory(username="friend", email="friend@example.com")
+        party = Party.objects.create(leader=leader, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=leader)
+        PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.ACTIVE
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"identifier": "friend@example.com"}
+        )
+
+        assert PartyMembership.objects.filter(
+            party=party, member=friend, status=PartyMembershipStatus.INVITED
+        ).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "Invitation sent.")],
+        )
+
+    def test_pending_member_cannot_invite(self, authenticated_client, active_user):
+        leader = UserFactory(username="leader")
+        friend = UserFactory(username="friend", email="friend@example.com")
+        party = Party.objects.create(leader=leader, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=leader)
+        PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.INVITED
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"identifier": "friend@example.com"}
+        )
+
+        assert not PartyMembership.objects.filter(party=party, member=friend).exists()
+        expected = (
+            "No account matches that email or Discord username. Ask them "
+            "to sign up first, share your invite link, or add them as a "
+            "companion you enroll yourself."
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, expected)],
+        )
+
     def test_post_invites_by_discord_username(self, authenticated_client, active_user):
         friend = UserFactory(
             username="friend", name="Frida Friend", discord_username="frida#42"
@@ -209,6 +258,84 @@ class TestPartyCompanionAddActionView:
             },
             template_name="crowd/user/party_detail.html",
             contains=["Nobody"],
+        )
+
+    def test_active_member_adds_own_companion(
+        self, authenticated_client, active_user, companion
+    ):
+        companion.name = "Kiddo"
+        companion.save(update_fields=["name"])
+        leader = UserFactory(username="leader")
+        party = Party.objects.create(leader=leader, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=leader)
+        PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.ACTIVE
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Kiddo"}
+        )
+
+        assert PartyMembership.objects.filter(
+            party=party, member=companion, status=PartyMembershipStatus.ACTIVE
+        ).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "Companion added to the party.")],
+        )
+
+    def test_member_cannot_add_another_managers_companion(
+        self, authenticated_client, active_user, companion
+    ):
+        leader = UserFactory(username="leader")
+        companion.name = "Kiddo"
+        companion.manager = leader
+        companion.save(update_fields=["name", "manager"])
+        party = Party.objects.create(leader=leader, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=leader)
+        PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.ACTIVE
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Kiddo"}
+        )
+
+        assert not PartyMembership.objects.filter(
+            party=party, member=companion
+        ).exists()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            messages=[(messages.ERROR, "No companion matches that display name.")],
+            context_data=response.context_data,
+            template_name="crowd/user/party_detail.html",
+        )
+
+    def test_pending_member_cannot_add_companion(
+        self, authenticated_client, active_user, companion
+    ):
+        companion.name = "Kiddo"
+        companion.save(update_fields=["name"])
+        leader = UserFactory(username="leader")
+        party = Party.objects.create(leader=leader, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=leader)
+        PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.INVITED
+        )
+
+        response = authenticated_client.post(
+            self._url(party), data={"display_name": "Kiddo"}
+        )
+
+        assert not PartyMembership.objects.filter(
+            party=party, member=companion
+        ).exists()
+        assert_response_404(
+            response,
+            messages=[(messages.ERROR, "No companion matches that display name.")],
         )
 
     def test_post_already_member(self, authenticated_client, active_user, companion):

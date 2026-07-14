@@ -124,7 +124,7 @@ class TestEventPageView:
             response,
             HTTPStatus.OK,
             context_data=response.context_data,
-            template_name="chronology/event.html",
+            template_name=["chronology/event.html"],
             contains=f'href="?session={agenda_item.session.pk}"',
             not_contains="Missing variable session_link_base",
         )

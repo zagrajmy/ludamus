@@ -74,10 +74,12 @@ class PartyService(PartyServiceProtocol):
             return DeletePartyOutcome.DELETED
 
     def invite(
-        self, *, leader_pk: int, party_pk: int, identifier: str
+        self, *, member_pk: int, party_pk: int, identifier: str
     ) -> InviteOutcome:
         with self._transaction.atomic():
-            lead = self._parties.read_led_party(leader_pk=leader_pk, party_pk=party_pk)
+            lead = self._parties.read_active_member_party(
+                member_pk=member_pk, party_pk=party_pk
+            )
             if lead is None:
                 return InviteOutcome.NO_SUCH_USER
             if not (matches := self._parties.find_invitable_users(identifier)):
@@ -99,11 +101,13 @@ class PartyService(PartyServiceProtocol):
             return InviteOutcome.INVITED
 
     def add_companion(
-        self, *, leader_pk: int, party_pk: int, display_name: str
+        self, *, member_pk: int, party_pk: int, display_name: str
     ) -> CompanionAddOutcome:
         with self._transaction.atomic():
             if (
-                self._parties.read_led_party(leader_pk=leader_pk, party_pk=party_pk)
+                self._parties.read_active_member_party(
+                    member_pk=member_pk, party_pk=party_pk
+                )
                 is None
             ):
                 return CompanionAddOutcome.NO_SUCH_COMPANION
@@ -111,7 +115,7 @@ class PartyService(PartyServiceProtocol):
             matches = [
                 companion
                 for companion in self._parties.led_party_companions(
-                    leader_pk=leader_pk, party_pk=None
+                    leader_pk=member_pk, party_pk=None
                 )
                 if companion.name.casefold() == name
             ]

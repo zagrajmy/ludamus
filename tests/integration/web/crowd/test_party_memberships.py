@@ -102,6 +102,31 @@ class TestPartyMemberRemoveActionView:
             messages=[(messages.ERROR, "Could not remove this member.")],
         )
 
+    def test_non_leader_cannot_remove_another_member(
+        self, authenticated_client, active_user
+    ):
+        leader = UserFactory(username="leader")
+        other = UserFactory(username="other")
+        party = Party.objects.create(leader=leader, name="Ekipa")
+        PartyMembership.objects.create(party=party, member=leader)
+        PartyMembership.objects.create(party=party, member=active_user)
+        membership = PartyMembership.objects.create(party=party, member=other)
+
+        response = authenticated_client.post(
+            reverse(
+                "web:crowd:parties-member-remove",
+                kwargs={"pk": party.pk, "membership_pk": membership.pk},
+            )
+        )
+
+        assert PartyMembership.objects.filter(pk=membership.pk).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.ERROR, "Could not remove this member.")],
+        )
+
 
 class TestPartyLeaveActionView:
     def test_post_leaves_party(self, authenticated_client, active_user):

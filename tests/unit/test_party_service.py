@@ -65,8 +65,8 @@ class FakeParties:
         self.calls.append(("delete", leader_pk, party_pk))
         return True
 
-    def read_led_party(self, *, leader_pk, party_pk):
-        self.calls.append(("read_led_party", leader_pk, party_pk))
+    def read_active_member_party(self, *, member_pk, party_pk):
+        self.calls.append(("read_active_member_party", member_pk, party_pk))
         return self.lead
 
     def find_invitable_users(self, identifier):
@@ -165,7 +165,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, identifier="f@e.com"
+            member_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.INVITED
@@ -184,7 +184,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, identifier="f@e.com"
+            member_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
@@ -196,7 +196,7 @@ class TestInvite:
         )
 
         outcome = _service(parties).invite(
-            leader_pk=1, party_pk=2, identifier="x@e.com"
+            member_pk=1, party_pk=2, identifier="x@e.com"
         )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
@@ -211,7 +211,7 @@ class TestInvite:
             ],
         )
 
-        outcome = _service(parties).invite(leader_pk=1, party_pk=2, identifier="ziggy")
+        outcome = _service(parties).invite(member_pk=1, party_pk=2, identifier="ziggy")
 
         assert outcome == InviteOutcome.AMBIGUOUS_HANDLE
         assert ("create_invited_membership", 2, FRIEND_PK) not in parties.calls
@@ -225,7 +225,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, identifier="f@e.com"
+            member_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.ALREADY_MEMBER
@@ -239,7 +239,7 @@ class TestAddCompanion:
         parties.companion_dtos = [_companion_dto()]
 
         outcome = _service(parties).add_companion(
-            leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name=" Kid "
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name=" Kid "
         )
 
         assert outcome == CompanionAddOutcome.ADDED
@@ -255,7 +255,7 @@ class TestAddCompanion:
         parties = FakeParties(lead=LedPartyDTO(name="Ekipa", leader_name="Lena"))
 
         outcome = _service(parties).add_companion(
-            leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Nobody"
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Nobody"
         )
 
         assert outcome == CompanionAddOutcome.NO_SUCH_COMPANION
@@ -265,7 +265,7 @@ class TestAddCompanion:
         parties.companion_dtos = [_companion_dto(), _companion_dto()]
 
         outcome = _service(parties).add_companion(
-            leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Kid"
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Kid"
         )
 
         assert outcome == CompanionAddOutcome.AMBIGUOUS_NAME
@@ -278,7 +278,7 @@ class TestAddCompanion:
         parties.companion_dtos = [_companion_dto()]
 
         outcome = _service(parties).add_companion(
-            leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Kid"
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Kid"
         )
 
         assert outcome == CompanionAddOutcome.ALREADY_MEMBER
@@ -308,6 +308,7 @@ def _party(pk, *, name="", is_leader=False, leader_name="Lena Leader", members=(
         leader_name=leader_name,
         is_leader=is_leader,
         is_default=is_leader,
+        is_active_member=True,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=list(members),
     )
