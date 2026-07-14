@@ -73,3 +73,6 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran a standalone Django metadata check after sourcing .env.test;
   DJANGO_SETTINGS_MODULE was still unset, so setup failed before printing the
   table name.
+- 2026-07-14: Updating the PR body with gh pr edit failed on the deprecated
+  Projects Classic GraphQL field; gh api with a PTY stdin payload also produced
+  HTTP 400. A direct REST PATCH with a form field worked.
