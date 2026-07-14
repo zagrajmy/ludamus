@@ -136,6 +136,40 @@ class TestPartyDetailPageView:
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={_url(party)}"
         )
 
+    def test_get_scopes_detail_query_to_requested_party(
+        self, authenticated_client, active_user
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        authenticated_client.get(_url(party))
+
+        with CaptureQueriesContext(connection) as baseline_queries:
+            authenticated_client.get(_url(party))
+
+        for index in range(8):
+            unrelated = Party.objects.create(
+                leader=active_user, name=f"Unrelated {index}"
+            )
+            PartyMembership.objects.create(
+                party=unrelated, member=active_user, status=PartyMembershipStatus.ACTIVE
+            )
+        with CaptureQueriesContext(connection) as expanded_queries:
+            response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name=TEMPLATE,
+        )
+        assert len(expanded_queries) == len(baseline_queries)
+        [detail_query] = [
+            query["sql"]
+            for query in expanded_queries
+            if 'FROM "party"' in query["sql"]
+            and 'JOIN "party_membership"' in query["sql"]
+        ]
+        assert f'"party"."id" = {party.pk}' in detail_query
+
 
 class TestPartyDetailSessionHistory:
     def _enroll_party(self, party, session, *users):

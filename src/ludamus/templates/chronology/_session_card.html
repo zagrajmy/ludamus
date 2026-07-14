@@ -5,7 +5,7 @@
     <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
         {% if not data.is_pending_proposal %}
-            <a href="{{ session_link_base|default:'' }}?session={{ data.session.pk }}"
+            <a href="{{ session_link_base }}?session={{ data.session.pk }}"
                class="session-link absolute inset-0 z-10 rounded-2xl"
                aria-haspopup="dialog"
                aria-controls="session-{{ data.session.pk }}"

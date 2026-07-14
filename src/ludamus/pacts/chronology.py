@@ -23,6 +23,7 @@ from ludamus.pacts.legacy import (
     SessionSelfEditContext,
     SpaceDTO,
 )
+from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.submissions import ImportRow
@@ -270,6 +271,11 @@ class PartyEventHistoryDTO(BaseModel):
     sessions: list[PartySessionHistoryDTO]
 
 
+class PartyDetailDTO(BaseModel):
+    party: PartyDTO
+    history: list[PartyEventHistoryDTO]
+
+
 class PartySessionHistoryRepositoryProtocol(Protocol):
     @staticmethod
     def list_for_party(
@@ -278,9 +284,9 @@ class PartySessionHistoryRepositoryProtocol(Protocol):
 
 
 class PartySessionHistoryServiceProtocol(Protocol):
-    def list_for_party(
+    def read_detail(
         self, *, party_pk: int, viewer_pk: int
-    ) -> list[PartyEventHistoryDTO] | None: ...
+    ) -> PartyDetailDTO | None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

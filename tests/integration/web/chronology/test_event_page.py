@@ -117,6 +117,18 @@ class TestEventPageView:
             not_contains="Enrollment Open",
         )
 
+    def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name="chronology/event.html",
+            contains=f'href="?session={agenda_item.session.pk}"',
+            not_contains="Missing variable session_link_base",
+        )
+
     @pytest.mark.usefixtures("agenda_item")
     def test_ok_participants_label_toggle(self, client, event):
         response_default = client.get(self._get_url(event.slug))

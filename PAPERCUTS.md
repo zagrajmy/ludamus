@@ -81,3 +81,17 @@ If you fix a papercut, remove it.
 - 2026-07-14: Running pytest directly to isolate coverage skipped mise test
   environment loading and failed because ENV was unset; source .env.test or
   provide a targeted mise task.
+- 2026-07-14: Ran mise run check → taplo crashed in system-configuration
+  dynamic_store before checks; check currently depends on a formatter that can
+  fail from host configuration.
+- 2026-07-14: Ran one targeted Playwright test; test:e2e always runs aube
+  install, which retried registry requests despite existing node_modules and
+  delayed local reproduction.
+- 2026-07-14: Targeted Chromium could not launch after an accidentally
+  unfiltered mise task spawned five browsers; stale Playwright Chromium
+  processes hit macOS MachPortRendezvous bootstrap conflicts.
+- 2026-07-14: A targeted event-card integration test exposed that Django strict
+  missing-variable checks reject even an `{% if optional_var %}` guard; every
+  include caller must pass the optional base explicitly.
+- 2026-07-14: Ran lint:impeccable during validation → its detector produced no
+  output for over three minutes and required interruption.

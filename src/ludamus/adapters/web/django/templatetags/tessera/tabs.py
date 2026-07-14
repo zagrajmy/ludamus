@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from django import template
 from django.template.loader import render_to_string
-from django.utils.safestring import mark_safe
 
 from ._registry import register
 from ._utils import parse_tag_attrs
@@ -37,7 +36,7 @@ class TabsNode(template.Node):
                 "extra_class": resolved.pop("class", ""),
                 "aria_label": resolved.pop("aria_label", None),
                 "variant": variant,
-                "tabs": mark_safe(tabs),  # noqa: S308
+                "tabs": tabs,
             },
         )
 
@@ -87,7 +86,7 @@ class TabNode(template.Node):
                 "icon": resolved.pop("icon", None),
                 "href": resolved.pop("href", "#"),
                 "variant": context.get("_tabs_variant", ""),
-                "label": mark_safe(self.nodelist.render(context)),  # noqa: S308
+                "label": self.nodelist.render(context),
             },
         )
 

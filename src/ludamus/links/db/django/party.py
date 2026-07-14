@@ -37,6 +37,37 @@ else:
     User = get_user_model()
 
 
+def _party_dto(party: Party, *, viewer_pk: int, is_default: bool) -> PartyDTO:
+    members = [
+        PartyMemberDTO(
+            membership_pk=membership.pk,
+            user_pk=membership.member_id,
+            name=membership.member.name,
+            full_name=membership.member.get_full_name(),
+            username=membership.member.username,
+            slug=membership.member.slug,
+            is_login_less=membership.member.user_type == UserType.CONNECTED,
+            is_leader=membership.member_id == party.leader_id,
+            consent_mode=PartyConsentMode(membership.consent_mode),
+            status=PartyMembershipStatus(membership.status),
+            claim_token=membership.member.claim_token,
+            avatar_url=display_avatar_url(membership.member),
+        )
+        for membership in party.memberships.all()
+    ]
+    members.sort(key=lambda member: not member.is_leader)
+    return PartyDTO(
+        pk=party.pk,
+        name=party.name,
+        leader_pk=party.leader_id,
+        leader_name=party.leader.get_full_name(),
+        is_leader=party.leader_id == viewer_pk,
+        is_default=is_default,
+        created_at=party.created_at,
+        members=members,
+    )
+
+
 class PartyRepository(PartyRepositoryProtocol):
     @staticmethod
     def overview(viewer_pk: int) -> PartiesOverviewDTO:
@@ -65,39 +96,12 @@ class PartyRepository(PartyRepositoryProtocol):
         default_party_pk = next(
             (party.pk for party in parties if party.leader_id == viewer_pk), None
         )
-        party_dtos = []
-        for party in parties:
-            members = [
-                PartyMemberDTO(
-                    membership_pk=membership.pk,
-                    user_pk=membership.member_id,
-                    name=membership.member.name,
-                    full_name=membership.member.get_full_name(),
-                    username=membership.member.username,
-                    slug=membership.member.slug,
-                    is_login_less=membership.member.user_type == UserType.CONNECTED,
-                    is_leader=membership.member_id == party.leader_id,
-                    consent_mode=PartyConsentMode(membership.consent_mode),
-                    status=PartyMembershipStatus(membership.status),
-                    claim_token=membership.member.claim_token,
-                    avatar_url=display_avatar_url(membership.member),
-                )
-                for membership in party.memberships.all()
-            ]
-            # Leader first, then the rest in creation order.
-            members.sort(key=lambda m: (not m.is_leader,))
-            party_dtos.append(
-                PartyDTO(
-                    pk=party.pk,
-                    name=party.name,
-                    leader_pk=party.leader_id,
-                    leader_name=party.leader.get_full_name(),
-                    is_leader=party.leader_id == viewer_pk,
-                    is_default=party.pk == default_party_pk,
-                    created_at=party.created_at,
-                    members=members,
-                )
+        party_dtos = [
+            _party_dto(
+                party, viewer_pk=viewer_pk, is_default=party.pk == default_party_pk
             )
+            for party in parties
+        ]
         invites = [
             PartyInviteDTO(
                 membership_pk=membership.pk,
@@ -114,6 +118,41 @@ class PartyRepository(PartyRepositoryProtocol):
             )
         ]
         return PartiesOverviewDTO(parties=party_dtos, invites=invites)
+
+    @staticmethod
+    def read_for_viewer(*, party_pk: int, viewer_pk: int) -> PartyDTO | None:
+        party = (
+            Party.objects.filter(
+                Q(leader_id=viewer_pk)
+                | Q(
+                    memberships__member_id=viewer_pk,
+                    memberships__status=PartyMembershipStatus.ACTIVE,
+                ),
+                pk=party_pk,
+            )
+            .select_related("leader")
+            .prefetch_related(
+                Prefetch(
+                    "memberships",
+                    queryset=PartyMembership.objects.select_related("member").order_by(
+                        "pk"
+                    ),
+                )
+            )
+            .distinct()
+            .first()
+        )
+        if party is None:
+            return None
+        default_party_pk = (
+            Party.objects.filter(leader_id=viewer_pk)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+            .first()
+        )
+        return _party_dto(
+            party, viewer_pk=viewer_pk, is_default=party.pk == default_party_pk
+        )
 
     @staticmethod
     def create(*, leader_pk: int, name: str) -> int:
@@ -228,17 +267,6 @@ class PartyRepository(PartyRepositoryProtocol):
             membership.status = PartyMembershipStatus.ACTIVE
             membership.save(update_fields=["status"])
         return PartyJoinResult(party_pk=party.pk, joined=joined)
-
-    @staticmethod
-    def can_view(*, party_pk: int, viewer_pk: int) -> bool:
-        return Party.objects.filter(
-            Q(leader_id=viewer_pk)
-            | Q(
-                memberships__member_id=viewer_pk,
-                memberships__status=PartyMembershipStatus.ACTIVE,
-            ),
-            pk=party_pk,
-        ).exists()
 
     @staticmethod
     def membership_exists(*, party_pk: int, user_pk: int) -> bool:

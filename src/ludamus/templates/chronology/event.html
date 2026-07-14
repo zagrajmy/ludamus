@@ -422,7 +422,7 @@
             {% if compact_schedule %}
                 {% include "chronology/_compact_schedule.html" %}
             {% else %}
-                {% include "chronology/_card_schedule.html" %}
+                {% include "chronology/_card_schedule.html" with session_link_base="" %}
             {% endif %}
         {% endif %}
     </div>
@@ -441,7 +441,7 @@
             </div>
             <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {% for data in own_pending_proposals %}
-                    {% include "chronology/_session_card.html" %}
+                    {% include "chronology/_session_card.html" with session_link_base="" %}
                 {% endfor %}
             </div>
         </div>

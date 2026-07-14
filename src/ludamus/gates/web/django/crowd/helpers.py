@@ -84,15 +84,13 @@ def build_party_detail_context(
     companion_form: PartyCompanionForm | None = None,
 ) -> dict[str, object] | None:
     viewer_pk = request.context.current_user_id
-    overview = request.services.parties.overview(viewer_pk)
-    if (party := next((p for p in overview.parties if p.pk == pk), None)) is None:
-        return None
-    history_groups = (
-        request.services.party_session_history.list_for_party(
-            party_pk=pk, viewer_pk=viewer_pk
-        )
-        or []
+    detail = request.services.party_session_history.read_detail(
+        party_pk=pk, viewer_pk=viewer_pk
     )
+    if detail is None:
+        return None
+    party = detail.party
+    history_groups = detail.history
     banned_event_ids = request.services.event_bans.banned_event_ids(
         event_ids={group.event_pk for group in history_groups}, user_id=viewer_pk
     )
